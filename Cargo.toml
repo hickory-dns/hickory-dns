@@ -1,0 +1,6 @@
+[package]
+name = "trust-dns"
+version = "0.1.0"
+authors = ["Benjamin Fry <benjaminfry@mac.com>"]
+
+[dependencies]
