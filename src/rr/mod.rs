@@ -1,1 +1,1 @@
-mod record_types;
+pub mod type;

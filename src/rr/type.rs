@@ -1,6 +1,7 @@
-use core::convert::{From, Into}
+use std::convert::From;
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq, PartialOrd)]
+#[allow(dead_code)]
 pub enum RecordType {
     A,          //	1	RFC 1035[1]	IPv4 Address record
     AAAA,       //	28	RFC 3596[2]	IPv6 address record
@@ -49,57 +50,106 @@ pub enum RecordType {
 // TODO make these a macro...
 
 
-/// Convert from RecordType to String
+/// Convert from RecordType to &str
 ///
 /// ```
-/// assert_eq!("A", A.into());
+/// use std::convert::From;
+/// use trust_dns::rr::type::RecordType;
+///
+/// let var: &'static str = From::from(RecordType::A);
+/// assert_eq!("A", var);
+///
+/// let var: &'static str = RecordType::A.into();
+/// assert_eq!("A", var);
 /// ```
-pub impl From<RecordType> for String {
-  fn from(self) -> Self {
-    match self {
-      A => "A",
-      AAAA => "AAAA",
-      CNAME => "CNAME",
-      NS => "NS",
-      SOA => "SOA",
+impl From<RecordType> for &'static str {
+  fn from(rt: RecordType) -> &'static str {
+    match rt {
+      RecordType::A => "A",
+      RecordType::AAAA => "AAAA",
+      RecordType::CNAME => "CNAME",
+      RecordType::NS => "NS",
+      RecordType::SOA => "SOA",
+      RecordType::ANY => "ANY",
       _ => unimplemented!(),
     }
   }
 }
 
-pub impl From<String> for RecordType {
-  fn from(self) -> Self {
-    match self.as_slice() {
-      "A" => A,
-      "AAAA" => AAAA,
-      "CNAME" => CNAME,
-      "NS" => NS,
-      "SOA" => SOA,
+/// Convert from RecordType to &str
+///
+/// ```
+/// use std::convert::From;
+/// use trust_dns::rr::type::RecordType;
+///
+/// let var: RecordType = From::from("A");
+/// assert_eq!(RecordType::A, var);
+///
+/// let var: RecordType = "A".into();
+/// assert_eq!(RecordType::A, var);
+/// ```
+impl<'a> From<&'a str> for RecordType {
+  fn from(str: &'a str) -> Self {
+    match str {
+      "A" => RecordType::A,
+      "AAAA" => RecordType::AAAA,
+      "CNAME" => RecordType::CNAME,
+      "NS" => RecordType::NS,
+      "SOA" => RecordType::SOA,
+      "ANY" => RecordType::ANY,
       _ => unimplemented!(),
     }
   }
 }
 
-pub impl From<RecordType> for i32 {
-  fn from(self) -> Self {
-    match self {
-      A => 1,
-      AAAA => 28,
-      CNAME => 5,
-      NS => 2,
-      SOA => 6,
+/// Convert from RecordType to &str
+///
+/// ```
+/// use std::convert::From;
+/// use trust_dns::rr::type::RecordType;
+///
+/// let var: RecordType = From::from(1);
+/// assert_eq!(RecordType::A, var);
+///
+/// let var: RecordType = 1.into();
+/// assert_eq!(RecordType::A, var);
+/// ```
+impl From<RecordType> for u16 {
+  fn from(rt: RecordType) -> Self {
+    match rt {
+      RecordType::A => 1,
+      RecordType::AAAA => 28,
+      RecordType::CNAME => 5,
+      RecordType::NS => 2,
+      RecordType::SOA => 6,
+      RecordType::ANY => 255,
       _ => unimplemented!(),
     }
   }
 }
 
-pub impl From<i32> for RecordType {
-  fn from(self) -> Self {
-    1 => A,
-    28 => AAAA,
-    5 => CNAME,
-    2 => NS,
-    6 => SOA,
-    _ => unimplemented!(),
+/// Convert from RecordType to &str
+///
+/// ```
+/// use std::convert::From;
+/// use trust_dns::rr::type::RecordType;
+///
+/// let var: u16 = From::from(RecordType::A);
+/// assert_eq!(1, var);
+///
+/// let var: u16 = RecordType::A.into();
+/// assert_eq!(1, var);
+/// ```
+impl From<u16> for RecordType {
+  fn from(value: u16) -> Self {
+    match value {
+      1 => RecordType::A,
+      28 => RecordType::AAAA,
+      5 => RecordType::CNAME,
+      2 => RecordType::NS,
+      6 => RecordType::SOA,
+      255 => RecordType::ANY,
+      _ => unimplemented!(),
+    }
   }
 }
