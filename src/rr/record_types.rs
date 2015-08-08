@@ -1,8 +1,5 @@
 use core::convert::{From, Into}
 
-/**
-
- */
 #[derive(Debug)]
 pub enum RecordType {
     A,          //	1	RFC 1035[1]	IPv4 Address record
@@ -50,28 +47,59 @@ pub enum RecordType {
 
 
 // TODO make these a macro...
-pub impl Into<String> for RecordType {
-  fn into(self) -> String {
+
+
+/// Convert from RecordType to String
+///
+/// ```
+/// assert_eq!("A", A.into());
+/// ```
+pub impl From<RecordType> for String {
+  fn from(self) -> Self {
     match self {
       A => "A",
       AAAA => "AAAA",
       CNAME => "CNAME",
       NS => "NS",
       SOA => "SOA",
-      _ => unimplemented!,
+      _ => unimplemented!(),
     }
   }
 }
 
-pub impl Into<i32> for RecordType {
-  fn into(self) -> String {
+pub impl From<String> for RecordType {
+  fn from(self) -> Self {
+    match self.as_slice() {
+      "A" => A,
+      "AAAA" => AAAA,
+      "CNAME" => CNAME,
+      "NS" => NS,
+      "SOA" => SOA,
+      _ => unimplemented!(),
+    }
+  }
+}
+
+pub impl From<RecordType> for i32 {
+  fn from(self) -> Self {
     match self {
       A => 1,
       AAAA => 28,
       CNAME => 5,
       NS => 2,
       SOA => 6,
-      _ => unimplemented!,
+      _ => unimplemented!(),
     }
+  }
+}
+
+pub impl From<i32> for RecordType {
+  fn from(self) -> Self {
+    1 => A,
+    28 => AAAA,
+    5 => CNAME,
+    2 => NS,
+    6 => SOA,
+    _ => unimplemented!(),
   }
 }
