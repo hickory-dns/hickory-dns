@@ -54,7 +54,7 @@ pub enum RecordType {
 ///
 /// ```
 /// use std::convert::From;
-/// use trust_dns::rr::type::RecordType;
+/// use trust_dns::rr::record_type::RecordType;
 ///
 /// let var: &'static str = From::from(RecordType::A);
 /// assert_eq!("A", var);
@@ -80,7 +80,7 @@ impl From<RecordType> for &'static str {
 ///
 /// ```
 /// use std::convert::From;
-/// use trust_dns::rr::type::RecordType;
+/// use trust_dns::rr::record_type::RecordType;
 ///
 /// let var: RecordType = From::from("A");
 /// assert_eq!(RecordType::A, var);
@@ -106,7 +106,7 @@ impl<'a> From<&'a str> for RecordType {
 ///
 /// ```
 /// use std::convert::From;
-/// use trust_dns::rr::type::RecordType;
+/// use trust_dns::rr::record_type::RecordType;
 ///
 /// let var: RecordType = From::from(1);
 /// assert_eq!(RecordType::A, var);
@@ -132,7 +132,7 @@ impl From<RecordType> for u16 {
 ///
 /// ```
 /// use std::convert::From;
-/// use trust_dns::rr::type::RecordType;
+/// use trust_dns::rr::record_type::RecordType;
 ///
 /// let var: u16 = From::from(RecordType::A);
 /// assert_eq!(1, var);
