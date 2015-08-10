@@ -1,7 +1,5 @@
-use std::collections::{VecDeque,HashMap};
-use std::iter::Take;
-use std::slice::Iter;
-use std::error::Error;
+//use std::collections::HashMap;
+//use std::error::Error;
 use std::string::FromUtf8Error;
 
 use super::record_type::RecordType;
@@ -14,7 +12,7 @@ use super::dns_class::DNSClass;
 pub struct Record {
   rr_type: RecordType,
   dns_class: DNSClass,
-  name_labels: VecDeque<String>,
+  name_labels: Vec<String>,
 }
 
 impl Record {
@@ -32,10 +30,9 @@ impl Record {
   /// parses the chain of labels
   ///  this has a max of 255 octets, with each label being less than 63.
   ///  all names will be stored lowercase internally.
-  fn parse_labels(slice: &[u8]) -> Result<VecDeque<String>, FromUtf8Error> {
+  fn parse_labels(slice: &[u8]) -> Result<Vec<String>, FromUtf8Error> {
     let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
-    let mut labels: VecDeque<String> = VecDeque::with_capacity(3); // most labels will be around three, e.g. www.example.com
-//    let mut label_map: HashMap<u8, usize>;  // temporary map for pointers, offset in slice, start location in labels
+    let mut labels: Vec<String> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
 
     let mut cur_slice = slice;
 
@@ -48,7 +45,8 @@ impl Record {
       state = match state {
         LabelParseState::LabelLengthOrPointer => {
           //let byte: u8 = *iter.take(1).next().unwrap(); // could default to zero, but it's an error if this doesn't exist, perhaps try! instead
-          let (first, cur_slice) = cur_slice.split_at(1);
+          let (first, tmp_slice) = cur_slice.split_at(1);
+          cur_slice = tmp_slice;
 
           match first.first() {
             Some(&0) | None => LabelParseState::Root,
@@ -61,13 +59,13 @@ impl Record {
           //let label_iter: Take<Iter<u8>> = iter.take(count as usize);
           //let arr: Vec<&u8> = label_iter.collect();
           //let arr2: Vec<u8> = arr.to_vec();
-          let (label_slice, cur_slice) = cur_slice.split_at(count as usize);
-
+          let (label_slice, tmp_slice) = cur_slice.split_at(count as usize);
+          cur_slice = tmp_slice;
 
           // using lossy, this is safe, but can end up with junk in the name...
           // TODO other option
           let label = try!(String::from_utf8(label_slice.into()));
-          labels.push_back(label);
+          labels.push(label);
 
           // reset to collect more data
           LabelParseState::LabelLengthOrPointer
@@ -93,4 +91,20 @@ enum LabelParseState {
   Label(u8),   // storing length of the label, must be < 63
   Pointer(u8), // location of pointer in slice,
   Root,        // root is the end of the labels list, aka null
+}
+
+#[cfg(test)]
+mod tests {
+  use super::*;
+
+  #[test]
+  fn parse_labels() {
+    let data: Vec<(Vec<u8>, Vec<String>)> = vec![
+      (vec![0 as u8], vec![String::new()]), // base case, only the root
+    ];
+
+    for (binary, result) in data {
+      assert_eq!(Record::parse_labels(binary.as_slice()).ok().unwrap(), result);
+    }
+  }
 }
