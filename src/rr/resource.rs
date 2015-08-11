@@ -62,9 +62,8 @@ impl Record {
           let (label_slice, tmp_slice) = cur_slice.split_at(count as usize);
           cur_slice = tmp_slice;
 
-          // using lossy, this is safe, but can end up with junk in the name...
-          // TODO other option
-          let label = try!(String::from_utf8(label_slice.into()));
+          // translate bytes to string, then lowercase...
+          let label = try!(String::from_utf8(label_slice.into())).to_lowercase();
           labels.push(label);
 
           // reset to collect more data
@@ -100,11 +99,15 @@ mod tests {
   #[test]
   fn parse_labels() {
     let data: Vec<(Vec<u8>, Vec<String>)> = vec![
-      (vec![0 as u8], vec![String::new()]), // base case, only the root
+      (vec![0], vec![]), // base case, only the root
+      (vec![1,b'a',0], vec!["a".to_string()]), // a single 'a' label
+      (vec![1,b'a',2,b'b',b'c',0], vec!["a".to_string(), "bc".to_string()]), // two labels, 'a.bc'
+      (vec![1,b'a',3,0xE2,0x99,0xA5,0], vec!["a".to_string(), "♥".to_string()]), // two labels utf8, 'a.♥'
+      (vec![1,b'A',0], vec!["a".to_string()]), // a single 'a' label, lowercased
     ];
 
     for (binary, result) in data {
-      assert_eq!(Record::parse_labels(binary.as_slice()).ok().unwrap(), result);
+      assert_eq!(Record::parse_labels(&binary[..]).ok().unwrap(), result);
     }
   }
 }
