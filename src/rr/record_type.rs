@@ -97,6 +97,7 @@ impl<'a> From<&'a str> for RecordType {
       "NS" => RecordType::NS,
       "SOA" => RecordType::SOA,
       "ANY" => RecordType::ANY,
+      "*" => RecordType::ANY,
       _ => unimplemented!(),
     }
   }
