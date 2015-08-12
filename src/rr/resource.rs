@@ -22,9 +22,11 @@ pub struct Record {
 impl Record {
 
   /// parse a resource record line example:
+  ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
   pub fn parse(record_bytes: Vec<u8>) -> Result<Record, FromUtf8Error> {
     // TODO: it would be better to pass iter to all of these methods, but String::from_utf8 makes that complicated
     let mut data: Vec<u8> = record_bytes;
+    data.reverse();
 
     // NAME            an owner name, i.e., the name of the node to which this
     //                 resource record pertains.

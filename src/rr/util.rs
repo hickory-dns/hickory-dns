@@ -4,21 +4,26 @@ use std::string::FromUtf8Error;
 /// length octet followed by that number of characters.  <character-string>
 /// is treated as binary information, and can be up to 256 characters in
 /// length (including the length octet).
+///
+/// the vector should be reversed before calling.
 pub fn parse_character_data(data: &mut Vec<u8>) -> Result<String, FromUtf8Error> {
-  let length: u8 = data.remove(0);
+  let length: u8 = data.pop().unwrap_or(0);
   parse_label(data, length)
 }
 
 /// parse a label of a particular length (it's a portion of the vector)
+/// the vector should be reversed before calling.
 ///```
-/// assert_eq(parse_lable(b"aaabbb", 6).ok().unwrap(), "aaabbb".to_string());
+/// assert_eq(parse_lable(b"bbbaaa", 6).ok().unwrap(), "aaabbb".to_string());
 ///```
 pub fn parse_label(data: &mut Vec<u8>, length: u8) -> Result<String, FromUtf8Error> {
   // TODO once Drain stabalizes on Vec, this should be replaced...
   let mut label_vec: Vec<u8> = Vec::with_capacity(length as usize);
   for i in 0..length as usize {
-    // TODO reverse the data at the top level so that we can use pop() for more performance
-    label_vec.push(data.remove(i-i)); // get rid of the unused i warning...
+    match data.pop() {
+      Some(n) => label_vec.push(n),
+      None => break,
+    }
   }
 
   // translate bytes to string, then lowercase...
@@ -28,10 +33,12 @@ pub fn parse_label(data: &mut Vec<u8>, length: u8) -> Result<String, FromUtf8Err
 
 /// parses the next 2 bytes into u16. This performs a byte-by-byte manipulation, there
 ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
+///
+/// the vector should be reversed before calling.
 pub fn parse_u16(data: &mut Vec<u8>) -> u16 {
-  // TODO use Drain once it stabalizes...
-  let b1: u8 = data.remove(0);
-  let b2: u8 = data.remove(0);
+  // TODO should this use a default rather than the panic! that will happen in the None case?
+  let b1: u8 = data.pop().unwrap();
+  let b2: u8 = data.pop().unwrap();
 
   // translate from network byte order, i.e. big endian
   ((b1 as u16) << 8) + (b2 as u16)
@@ -39,12 +46,14 @@ pub fn parse_u16(data: &mut Vec<u8>) -> u16 {
 
 /// parses the next four bytes into i32. This performs a byte-by-byte manipulation, there
 ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
+///
+/// the vector should be reversed before calling.
 pub fn parse_i32(data: &mut Vec<u8>) -> i32 {
-  // TODO use Drain once it stabalizes...
-  let b1: u8 = data.remove(0);
-  let b2: u8 = data.remove(0);
-  let b3: u8 = data.remove(0);
-  let b4: u8 = data.remove(0);
+  // TODO should this use a default rather than the panic! that will happen in the None case?
+  let b1: u8 = data.pop().unwrap();
+  let b2: u8 = data.pop().unwrap();
+  let b3: u8 = data.pop().unwrap();
+  let b4: u8 = data.pop().unwrap();
 
   // translate from network byte order, i.e. big endian
   ((b1 as i32) << 24) + ((b2 as i32) << 16) + ((b3 as i32) << 8) + (b4 as i32)
@@ -66,6 +75,7 @@ mod tests {
     for (mut binary, expect) in data {
       test_num += 1;
       println!("test: {}", test_num);
+      binary.reverse();
       assert_eq!(super::parse_character_data(&mut binary).ok().unwrap(), expect);
     }
   }
@@ -83,6 +93,7 @@ mod tests {
     for (mut binary, expect) in data {
       test_num += 1;
       println!("test: {}", test_num);
+      binary.reverse();
       assert_eq!(super::parse_u16(&mut binary), expect);
     }
   }
@@ -104,6 +115,7 @@ mod tests {
     for (mut binary, expect) in data {
       test_num += 1;
       println!("test: {}", test_num);
+      binary.reverse();
       assert_eq!(super::parse_i32(&mut binary), expect);
     }
   }

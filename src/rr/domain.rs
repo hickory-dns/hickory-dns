@@ -24,10 +24,10 @@ impl Name {
       state = match state {
         LabelParseState::LabelLengthOrPointer => {
           // determine what the next label is
-          match slice.remove(0) {
-            0 => LabelParseState::Root,
-            byte if byte & 0xC0 == 0xC0 => LabelParseState::Pointer(byte & 0x3F),
-            byte if byte <= 0x3F        => LabelParseState::Label(byte),
+          match slice.pop() {
+            Some(0) | None => LabelParseState::Root,
+            Some(byte) if byte & 0xC0 == 0xC0 => LabelParseState::Pointer(byte & 0x3F),
+            Some(byte) if byte <= 0x3F        => LabelParseState::Label(byte),
             _ => unimplemented!(),
           }
         },
@@ -78,6 +78,7 @@ mod tests {
     for (mut binary, expect) in data {
       test_num += 1;
       println!("test: {}", test_num);
+      binary.reverse();
       assert_eq!(Name::parse(&mut binary).ok().unwrap().labels, expect);
     }
   }
