@@ -1,3 +1,5 @@
+use std::net::{Ipv4Addr, Ipv6Addr};
+
 use super::domain::Name;
 use super::record_type::RecordType;
 
@@ -250,7 +252,7 @@ pub enum RData {
   // an A line in a master file is an Internet address expressed as four
   // decimal numbers separated by dots without any imbedded spaces (e.g.,
   // "10.2.0.52" or "192.0.5.6").
-  A { address: u32 },
+  A { address: Ipv4Addr },
 
   // 3.4.2. WKS RDATA format
   //
@@ -294,7 +296,7 @@ pub enum RData {
   //
   // In master files, both ports and protocols are expressed using mnemonics
   // or decimal numbers.
-  WKS { address: u32, protocol: u8, bitmap: Vec<u8> },
+  WKS { address: Ipv4Addr, protocol: u8, bitmap: Vec<u8> },
 
   //-- RFC 1886 -- IPv6 DNS Extensions              December 1995
 
@@ -302,8 +304,7 @@ pub enum RData {
   //
   //    A 128 bit IPv6 address is encoded in the data portion of an AAAA
   //    resource record in network byte order (high-order byte first).
-  AAAA { high: u64, low: u64 }
-
+  AAAA { address: Ipv6Addr },
 }
 
 impl RData {

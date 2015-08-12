@@ -1,5 +1,7 @@
 use std::string::FromUtf8Error;
 
+use super::util;
+
 pub struct Name {
   labels: Vec<String>
 }
@@ -30,27 +32,7 @@ impl Name {
           }
         },
         LabelParseState::Label(count) => {
-          //let label_slice: &mut [u8] = &mut Vec::with_capacity(count as usize)[..];
-          //let mut label_slice = Vec::with_capacity(count as usize);
-          //let mut label_vec: Vec<u8> = iter::FromIterator::from_iter(iter::repeat(0).take(count as usize));
-          //let mut label_slice: &mut [u8] = &mut label_vec[..];
-
-          // TODO once Drain stabalizes on Vec, this should be replaced...
-          let mut label_slice: Vec<u8> = Vec::with_capacity(count as usize);
-          for i in 0..count as usize {
-            label_slice.push(slice.remove(i-i)); // get rid of the unused i warning...
-          }
-
-          //println!("count: {} slice: {} label_slice: {}", count, slice.len(), label_slice.len());
-          //let label_slice: Vec<u8> = iter::FromIterator::from_iter(iter.take(count as usize).map(|&i| i).collect::<Vec<u8>>());
-          //assert_eq!((&*slice).read(label_slice).ok().unwrap(), count as usize);
-          println!("count: {} slice: {} label_slice: {}", count, slice.len(), label_slice.len());
-
-          // translate bytes to string, then lowercase...
-          //let label_slice = &*label_slice;
-          //let label = try!(String::from_utf8(label_slice.into())).to_lowercase();
-          let label = try!(String::from_utf8(label_slice)).to_lowercase();
-          labels.push(label);
+          labels.push(try!(util::parse_label(slice, count)));
 
           // reset to collect more data
           LabelParseState::LabelLengthOrPointer
