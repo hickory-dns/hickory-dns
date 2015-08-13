@@ -36,6 +36,6 @@ fn test_parse() {
     assert_eq!(cpu, "x86_64".to_string());
     assert_eq!(os, "linux".to_string());
   } else {
-    assert!(false);
+    panic!();
   }
 }

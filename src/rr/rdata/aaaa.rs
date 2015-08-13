@@ -50,7 +50,7 @@ fn test_parse() {
     if let RData::AAAA{address} = parse(&mut binary) {
       assert_eq!(address, expect);
     } else {
-      assert!(false);
+      panic!();
     }
   }
 }

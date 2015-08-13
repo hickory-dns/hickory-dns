@@ -38,6 +38,6 @@ fn test_parse() {
     assert_eq!(preference, 256);
     assert_eq!(exchange[0], "n".to_string());
   } else {
-    assert!(false);
+    panic!();
   }
 }

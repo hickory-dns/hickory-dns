@@ -32,7 +32,7 @@ fn test_parse() {
     assert_eq!(cname[1], expect[1]);
     assert_eq!(cname[2], expect[2]);
   } else {
-    assert!(false);
+    panic!();
   }
 
 }

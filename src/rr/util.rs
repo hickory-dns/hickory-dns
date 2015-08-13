@@ -144,16 +144,16 @@ mod tests {
       (vec![0x00,0x01,0x00,0x00], 256*256),
       (vec![0x01,0x00,0x00,0x00], 256*256*256),
       (vec![0xFF,0xFF,0xFF,0xFF], u32::max_value()),
-      (vec![0x80,0x00,0x00,0x00], u32::min_value()),
-      (vec![0x7F,0xFF,0xFF,0xFF], u32::max_value()),
+      (vec![0x80,0x00,0x00,0x00], 2147483648),
+      (vec![0x7F,0xFF,0xFF,0xFF], i32::max_value() as u32),
     ];
 
     let mut test_num = 0;
     for (mut binary, expect) in data {
       test_num += 1;
-      println!("test: {}", test_num);
+      println!("test: {} binary: {:?} expect: {:?}", test_num, binary, expect);
       binary.reverse();
-      assert_eq!(super::parse_i32(&mut binary), expect);
+      assert_eq!(super::parse_u32(&mut binary), expect);
     }
   }
 }

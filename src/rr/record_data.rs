@@ -318,7 +318,7 @@ impl RData {
       &RecordType::NS => rdata::ns::parse(data),
       &RecordType::PTR => rdata::ptr::parse(data),
       &RecordType::SOA => rdata::soa::parse(data),
-      &RecordType::TXT => rdata::txt::parse(data),
+      &RecordType::TXT => rdata::txt::parse(data, rd_length),
       _ => unimplemented!()
     }
   }

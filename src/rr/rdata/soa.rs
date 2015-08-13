@@ -94,14 +94,14 @@ fn test_parse() {
     let expect1 = vec!["www","example","com"];
     let expect2 = vec!["xxx","example","com"];
 
-    assert_eq!(mname.labels, expect1);
-    assert_eq!(rname.labels, expect2);
+    assert_eq!(mname[0], expect1[0]);
+    assert_eq!(rname[0], expect2[0]);
     assert_eq!(serial,  u32::max_value());
     assert_eq!(refresh, -1 as i32);
     assert_eq!(retry,   -1 as i32);
     assert_eq!(expire,  -1 as i32);
     assert_eq!(minimum, u32::max_value());
   } else {
-    assert!(false);
+    panic!();
   }
 }
