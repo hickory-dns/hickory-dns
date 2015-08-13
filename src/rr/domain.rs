@@ -89,9 +89,10 @@ mod tests {
       test_num += 1;
       println!("test: {}", test_num);
       binary.reverse();
-      assert_eq!(Name::parse(&mut binary).ok().unwrap().labels, expect);
-      if (expect.len() > 0) {
-        assert_eq!(Name::parse(&mut binary).ok().unwrap()[0], expect[0]);
+      let name = Name::parse(&mut binary).ok().unwrap();
+      assert_eq!(name.labels, expect);
+      if expect.len() > 0 {
+        assert_eq!(name[0], expect[0]);
       }
     }
   }

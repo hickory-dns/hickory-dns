@@ -151,7 +151,7 @@ pub enum RData {
   // These records are simple data, and don't imply any special processing
   // similar to that performed by CNAME, which identifies aliases.  See the
   // description of the IN-ADDR.ARPA domain for an example.
-  PTR { ptrdnam: Name },
+  PTR { ptrdname: Name },
 
   // 3.3.13. SOA RDATA format
   //

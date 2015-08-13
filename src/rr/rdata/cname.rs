@@ -24,7 +24,7 @@ pub fn parse(data: &mut Vec<u8>) -> RData {
 
 #[test]
 fn test_parse() {
-  let mut data: Vec<u8> = vec![3,b'w',b'w',b'w',8,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0];
+  let mut data: Vec<u8> = vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0];
   data.reverse();
   if let RData::CNAME { cname } = parse(&mut data) {
     let expect = vec!["www","example","com"];

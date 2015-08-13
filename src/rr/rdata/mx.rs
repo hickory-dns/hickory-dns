@@ -1,4 +1,6 @@
 use super::super::record_data::RData;
+use super::super::util;
+use super::super::domain::Name;
 
 // 3.3.9. MX RDATA format
 //
@@ -24,5 +26,18 @@ use super::super::record_data::RData;
 //
 // MX { preference: u16, exchange: Name },
 pub fn parse(data: &mut Vec<u8>) -> RData {
-  unimplemented!()
+  RData::MX { preference: util::parse_u16(data), exchange: Name::parse(data).unwrap() }
+}
+
+#[test]
+fn test_parse() {
+  let mut data: Vec<u8> = vec![1,0,1,b'n',0];
+  data.reverse();
+
+  if let RData::MX{ preference, exchange } = parse(&mut data) {
+    assert_eq!(preference, 256);
+    assert_eq!(exchange[0], "n".to_string());
+  } else {
+    assert!(false);
+  }
 }

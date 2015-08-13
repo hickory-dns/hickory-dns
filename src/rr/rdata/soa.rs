@@ -1,4 +1,6 @@
 use super::super::record_data::RData;
+use super::super::util;
+use super::super::domain::Name;
 
 // 3.3.13. SOA RDATA format
 //
@@ -67,5 +69,39 @@ use super::super::record_data::RData;
 //
 // SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
 pub fn parse(data: &mut Vec<u8>) -> RData {
-  unimplemented!()
+  RData::SOA{
+    mname:   Name::parse(data).unwrap(),
+    rname:   Name::parse(data).unwrap(),
+    serial:  util::parse_u32(data),
+    refresh: util::parse_i32(data),
+    retry:   util::parse_i32(data),
+    expire:  util::parse_i32(data),
+    minimum: util::parse_u32(data),
+  }
+}
+
+#[test]
+fn test_parse() {
+  let mut data: Vec<u8> = vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0,
+                               3,b'x',b'x',b'x',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0,
+                               0xFF,0xFF,0xFF,0xFF,
+                               0xFF,0xFF,0xFF,0xFF,
+                               0xFF,0xFF,0xFF,0xFF,
+                               0xFF,0xFF,0xFF,0xFF,
+                               0xFF,0xFF,0xFF,0xFF];
+  data.reverse();
+  if let RData::SOA { mname, rname, serial, refresh, retry, expire, minimum } = parse(&mut data) {
+    let expect1 = vec!["www","example","com"];
+    let expect2 = vec!["xxx","example","com"];
+
+    assert_eq!(mname.labels, expect1);
+    assert_eq!(rname.labels, expect2);
+    assert_eq!(serial,  u32::max_value());
+    assert_eq!(refresh, -1 as i32);
+    assert_eq!(retry,   -1 as i32);
+    assert_eq!(expire,  -1 as i32);
+    assert_eq!(minimum, u32::max_value());
+  } else {
+    assert!(false);
+  }
 }
