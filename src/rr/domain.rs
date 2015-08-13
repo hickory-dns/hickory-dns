@@ -1,4 +1,5 @@
 use std::string::FromUtf8Error;
+use std::ops::Index;
 
 use super::util;
 
@@ -52,6 +53,15 @@ impl Name {
   }
 }
 
+
+impl Index<usize> for Name {
+    type Output = String;
+
+    fn index<'a>(&'a self, _index: usize) -> &'a String {
+        &self.labels[_index]
+    }
+}
+
 /// This is the list of states for the label parsing state machine
 enum LabelParseState {
   LabelLengthOrPointer, // basically the start of the FSM
@@ -80,6 +90,9 @@ mod tests {
       println!("test: {}", test_num);
       binary.reverse();
       assert_eq!(Name::parse(&mut binary).ok().unwrap().labels, expect);
+      if (expect.len() > 0) {
+        assert_eq!(Name::parse(&mut binary).ok().unwrap()[0], expect[0]);
+      }
     }
   }
 }
