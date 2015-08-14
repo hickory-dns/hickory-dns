@@ -1,38 +1,40 @@
-/// RFC 1035        Domain Implementation and Specification    November 1987 
-///
-/// RCODE           Response code - this 4 bit field is set as part of
-///                 responses.  The values have the following
-///                 interpretation:
-///
-///                 0               No error condition
-///
-///                 1               Format error - The name server was
-///                                 unable to interpret the query.
-///
-///                 2               Server failure - The name server was
-///                                 unable to process this query due to a
-///                                 problem with the name server.
-///
-///                 3               Name Error - Meaningful only for
-///                                 responses from an authoritative name
-///                                 server, this code signifies that the
-///                                 domain name referenced in the query does
-///                                 not exist.
-///
-///                 4               Not Implemented - The name server does
-///                                 not support the requested kind of query.
-///
-///                 5               Refused - The name server refuses to
-///                                 perform the specified operation for
-///                                 policy reasons.  For example, a name
-///                                 server may not wish to provide the
-///                                 information to the particular requester,
-///                                 or a name server may not wish to perform
-///                                 a particular operation (e.g., zone
-///
-///                                 transfer) for particular data.
-///
-///                 6-15            Reserved for future use.
+/*
+ * RFC 1035        Domain Implementation and Specification    November 1987
+ *
+ * RCODE           Response code - this 4 bit field is set as part of
+ *                 responses.  The values have the following
+ *                 interpretation:
+ *
+ *                 0               No error condition
+ *
+ *                 1               Format error - The name server was
+ *                                 unable to interpret the query.
+ *
+ *                 2               Server failure - The name server was
+ *                                 unable to process this query due to a
+ *                                 problem with the name server.
+ *
+ *                 3               Name Error - Meaningful only for
+ *                                 responses from an authoritative name
+ *                                 server, this code signifies that the
+ *                                 domain name referenced in the query does
+ *                                 not exist.
+ *
+ *                 4               Not Implemented - The name server does
+ *                                 not support the requested kind of query.
+ *
+ *                 5               Refused - The name server refuses to
+ *                                 perform the specified operation for
+ *                                 policy reasons.  For example, a name
+ *                                 server may not wish to provide the
+ *                                 information to the particular requester,
+ *                                 or a name server may not wish to perform
+ *                                 a particular operation (e.g., zone
+ *
+ *                                 transfer) for particular data.
+ *
+ *                 6-15            Reserved for future use.
+ */
 #[derive(Debug, PartialEq, PartialOrd)]
 #[allow(dead_code)]
 pub enum ResponseCode {
@@ -64,18 +66,20 @@ pub enum ResponseCode {
              // 65535	Reserved, can be allocated by Standards Action		[RFC6895]
 }
 
-/// Convert from ResponseCode to u8
-///
-/// ```
-/// use std::convert::From;
-/// use trust_dns::op::result_code::ResponseCode;
-///
-/// let var: ResponseCode = From::from(0);
-/// assert_eq!(ResponseCode::NoError, var);
-///
-/// let var: ResponseCode = 0.into();
-/// assert_eq!(ResponseCode::NoError, var);
-/// ```
+/**
+ * Convert from ResponseCode to u8
+ *
+ * ```
+ * use std::convert::From;
+ * use trust_dns::op::response_code::ResponseCode;
+ *
+ * let var: ResponseCode = From::from(0);
+ * assert_eq!(ResponseCode::NoError, var);
+ *
+ * let var: ResponseCode = 0.into();
+ * assert_eq!(ResponseCode::NoError, var);
+ * ```
+ */
 impl From<ResponseCode> for u8 {
   fn from(rt: ResponseCode) -> Self {
     match rt {
@@ -103,18 +107,20 @@ impl From<ResponseCode> for u8 {
   }
 }
 
-/// Convert from u8 to ResponseCode
-///
-/// ```
-/// use std::convert::From;
-/// use trust_dns::op::result_code::ResponseCode;
-///
-/// let var: u8 = From::from(ResponseCode::NoError);
-/// assert_eq!(0, var);
-///
-/// let var: u8 = ResponseCode::NoError.into();
-/// assert_eq!(0, var);
-/// ```
+/**
+ * Convert from u8 to ResponseCode
+ *
+ * ```
+ * use std::convert::From;
+ * use trust_dns::op::response_code::ResponseCode;
+ *
+ * let var: u8 = From::from(ResponseCode::NoError);
+ * assert_eq!(0, var);
+ *
+ * let var: u8 = ResponseCode::NoError.into();
+ * assert_eq!(0, var);
+ * ```
+ */
 impl From<u8> for ResponseCode {
   fn from(value: u8) -> Self {
     match value {

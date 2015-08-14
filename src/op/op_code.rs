@@ -1,18 +1,20 @@
 use std::convert::From;
 
-/// RFC 1035        Domain Implementation and Specification    November 1987
-///
-/// OPCODE          A four bit field that specifies kind of query in this
-///                 message.  This value is set by the originator of a query
-///                 and copied into the response.  The values are:
-///
-///                 0               a standard query (QUERY)
-///
-///                 1               an inverse query (IQUERY)
-///
-///                 2               a server status request (STATUS)
-///
-///                 3-15            reserved for future use
+/*
+ * RFC 1035        Domain Implementation and Specification    November 1987
+ *
+ * OPCODE          A four bit field that specifies kind of query in this
+ *                 message.  This value is set by the originator of a query
+ *                 and copied into the response.  The values are:
+ *
+ *                 0               a standard query (QUERY)
+ *
+ *                 1               an inverse query (IQUERY)
+ *
+ *                 2               a server status request (STATUS)
+ *
+ *                 3-15            reserved for future use
+ */
 #[derive(Debug, PartialEq, PartialOrd)]
 #[allow(dead_code)]
 pub enum OpCode {
