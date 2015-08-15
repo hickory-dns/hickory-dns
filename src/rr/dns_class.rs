@@ -1,6 +1,7 @@
 use std::convert::From;
+use super::util;
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 #[allow(dead_code)]
 pub enum DNSClass {
   IN,          //	1	RFC 1035	Internet (IN)
@@ -8,6 +9,12 @@ pub enum DNSClass {
   HS,          // 4 Hesiod (HS)
   NONE,        // 254 QCLASS NONE
   ANY,         // 255 QCLASS * (ANY)
+}
+
+impl DNSClass {
+  pub fn parse(data: &mut Vec<u8>) -> Self {
+    util::parse_u16(data).into()
+  }
 }
 
 // TODO make these a macro or annotation

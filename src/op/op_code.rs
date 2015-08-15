@@ -15,7 +15,7 @@ use std::convert::From;
  *
  *                 3-15            reserved for future use
  */
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 #[allow(dead_code)]
 pub enum OpCode {
   Query,  // 0	Query	[RFC1035]

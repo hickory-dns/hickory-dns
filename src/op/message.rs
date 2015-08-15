@@ -1,4 +1,5 @@
 use super::header::Header;
+use super::query::Query;
 
 /*
  * RFC 1035        Domain Implementation and Specification    November 1987
@@ -38,5 +39,22 @@ use super::header::Header;
  * question.
  */
 pub struct Message {
-  header: Header, /*question: Question, answer: Answer, authority: domain::Name, additional: Additional*/
+  header: Header, queries: Vec<Query>, /*answer: Answer, authority: domain::Name, additional: Additional*/
+}
+
+impl Message {
+  pub fn parse(data: &mut Vec<u8>) -> Self {
+    let header = Header::parse(data);
+
+    // get the questions
+    let queryCount: usize = header.getQueryCount() as usize;
+    let mut queries = Vec::with_capacity(queryCount);
+    for _ in 0 .. queryCount {
+      queries.push(Query::parse(data));
+    }
+
+    // get the answers
+
+    Message { header: header, queries: queries}
+  }
 }

@@ -1,6 +1,7 @@
 use std::convert::From;
+use super::util;
 
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {
     A,          //	1	RFC 1035[1]	IPv4 Address record
@@ -44,6 +45,12 @@ pub enum RecordType {
     AXFR,       //	252	RFC 1035[1]	Authoritative Zone Transfer
     IXFR,       //	251	RFC 1996	Incremental Zone Transfer
     OPT,        //	41	RFC 6891	Option
+}
+
+impl RecordType {
+  pub fn parse(data: &mut Vec<u8>) -> Self {
+    util::parse_u16(data).into()
+  }
 }
 
 

@@ -1,3 +1,4 @@
+
 /*
  * RFC 1035        Domain Implementation and Specification    November 1987
  *
@@ -35,7 +36,7 @@
  *
  *                 6-15            Reserved for future use.
  */
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 #[allow(dead_code)]
 pub enum ResponseCode {
   NoError,   // 0	NoError	No Error	[RFC1035]

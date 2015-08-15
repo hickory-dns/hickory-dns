@@ -33,10 +33,10 @@ impl Record {
     let name_labels: domain::Name = try!(domain::Name::parse(&mut data));
 
     // TYPE            two octets containing one of the RR TYPE codes.
-    let record_type: RecordType = RecordType::from(util::parse_u16(&mut data));
+    let record_type: RecordType = RecordType::parse(&mut data);
 
     // CLASS           two octets containing one of the RR CLASS codes.
-    let class: DNSClass = DNSClass::from(util::parse_u16(&mut data));
+    let class: DNSClass = DNSClass::parse(&mut data);
 
     // TTL             a 32 bit signed integer that specifies the time interval
     //                that the resource record may be cached before the source

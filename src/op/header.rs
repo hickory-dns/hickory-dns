@@ -86,11 +86,11 @@ pub struct Header {
   id: u16, message_type: MessageType, op_code: OpCode,
   authoritative: bool, truncation: bool, recursion_desired: bool, recursion_available: bool,
   response_code: ResponseCode,
-  question_count: u16, answer_count: u16, name_server_count: u16, additional_count: u16
+  query_count: u16, answer_count: u16, name_server_count: u16, additional_count: u16
 }
 
-#[derive(Debug, PartialEq, PartialOrd)]
-enum MessageType {
+#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
+pub enum MessageType {
   Query, Response
 }
 
@@ -111,7 +111,7 @@ impl Header {
     let recursion_available = (0x80 & r_zzz_rcod) == 0x80;
     // TODO the > 16 codes in ResponseCode come from somewhere, (zzz?) need to better understand RFC
     let response_code: ResponseCode = (0x7 & r_zzz_rcod).into();
-    let question_count = util::parse_u16(data);
+    let query_count = util::parse_u16(data);
     let answer_count = util::parse_u16(data);
     let name_server_count = util::parse_u16(data);
     let additional_count = util::parse_u16(data);
@@ -119,9 +119,22 @@ impl Header {
     Header { id: id, message_type: message_type, op_code: op_code, authoritative: authoritative,
              truncation: truncation, recursion_desired: recursion_desired,
              recursion_available: recursion_available, response_code: response_code,
-             question_count: question_count, answer_count: answer_count,
+             query_count: query_count, answer_count: answer_count,
              name_server_count: name_server_count, additional_count: additional_count }
   }
+
+  pub fn getId(&self) -> u16 { self.id }
+  pub fn getMessageType(&self) -> MessageType { self.message_type }
+  pub fn getOpCode(&self) -> OpCode { self.op_code }
+  pub fn isAuthoritative(&self) -> bool { self.authoritative }
+  pub fn isTruncated(&self) -> bool { self.truncation }
+  pub fn isRecursionDesired(&self) -> bool { self.recursion_desired }
+  pub fn isRecursionAvailable(&self) -> bool {self.recursion_available }
+  pub fn getResponseCode(&self) -> ResponseCode { self.response_code }
+  pub fn getQueryCount(&self) -> u16 { self.query_count }
+  pub fn getAnswerCount(&self) -> u16 { self.answer_count }
+  pub fn getNameServerCount(&self) -> u16 { self.name_server_count }
+  pub fn getAdditionalCount(&self) -> u16 { self.additional_count }
 }
 
 #[test]
@@ -138,7 +151,7 @@ fn test_parse() {
   let expect = Header { id: 0x0110, message_type: MessageType::Response, op_code: OpCode::Update,
            authoritative: false, truncation: true, recursion_desired: false,
            recursion_available: true, response_code: ResponseCode::NXDomain,
-           question_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
+           query_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
 
   let got = Header::parse(&mut data);
 
