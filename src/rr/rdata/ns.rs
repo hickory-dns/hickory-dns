@@ -26,7 +26,7 @@ use super::super::domain::Name;
 //
 // NS { nsdname: Name },
 pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::NS{ nsdname: Name::parse(data).unwrap() }
+  RData::NS{ nsdname: Name::parse(data) }
 }
 
 #[test]

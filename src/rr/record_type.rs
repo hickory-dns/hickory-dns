@@ -51,6 +51,10 @@ impl RecordType {
   pub fn parse(data: &mut Vec<u8>) -> Self {
     util::parse_u16(data).into()
   }
+
+  pub fn write_to(buf: &mut Vec<u8>) {
+    
+  }
 }
 
 

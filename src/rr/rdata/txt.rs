@@ -22,7 +22,7 @@ pub fn parse(data: &mut Vec<u8>, count: u16) -> RData {
   let mut strings = Vec::with_capacity(1);
 
   while data_len - data.len() < count as usize {
-    util::parse_character_data(data).and_then(|s: String| -> Result<(), FromUtf8Error> { strings.push(s); Ok(()) });
+    strings.push(util::parse_character_data(data));
   }
   RData::TXT{ txt_data: strings }
 }

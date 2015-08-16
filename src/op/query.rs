@@ -46,7 +46,7 @@ pub struct Query {
 
 impl Query {
   pub fn parse(data: &mut Vec<u8>) -> Self {
-    let name = Name::parse(data).unwrap();
+    let name = Name::parse(data);
     let query_type = RecordType::parse(data);
     let query_class = DNSClass::parse(data);
 

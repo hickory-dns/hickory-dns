@@ -26,7 +26,7 @@ use super::super::domain::Name;
 //
 // MX { preference: u16, exchange: Name },
 pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::MX { preference: util::parse_u16(data), exchange: Name::parse(data).unwrap() }
+  RData::MX { preference: util::parse_u16(data), exchange: Name::parse(data) }
 }
 
 #[test]

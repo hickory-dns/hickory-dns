@@ -1,22 +1,17 @@
 use std::string::FromUtf8Error;
 
+// TODO: !!! Need to convert to an internally stored [] and not destroy on read,
+//   so that "pointer" types can be handled
+
 ///<character-string> is a single
 /// length octet followed by that number of characters.  <character-string>
 /// is treated as binary information, and can be up to 256 characters in
 /// length (including the length octet).
 ///
 /// the vector should be reversed before calling.
-pub fn parse_character_data(data: &mut Vec<u8>) -> Result<String, FromUtf8Error> {
-  let length: u8 = data.pop().unwrap_or(0);
-  parse_label(data, length)
-}
-
-/// parse a label of a particular length (it's a portion of the vector)
-/// the vector should be reversed before calling.
-///```
-/// assert_eq(parse_lable(b"bbbaaa", 6).ok().unwrap(), "aaabbb".to_string());
-///```
-pub fn parse_label(data: &mut Vec<u8>, length: u8) -> Result<String, FromUtf8Error> {
+pub fn parse_character_data(data: &mut Vec<u8>) -> String {
+  let length: u8 = data.pop().unwrap();
+  assert!(length <= 255u8);
   // TODO once Drain stabalizes on Vec, this should be replaced...
   let mut label_vec: Vec<u8> = Vec::with_capacity(length as usize);
   for _ in 0..length as usize {
@@ -27,21 +22,53 @@ pub fn parse_label(data: &mut Vec<u8>, length: u8) -> Result<String, FromUtf8Err
   }
 
   // translate bytes to string, then lowercase...
-  Ok(try!(String::from_utf8(label_vec)).to_lowercase())
+  String::from_utf8(label_vec).unwrap().to_lowercase()
 }
 
+/// matches description from above.
+///
+/// ```
+/// use trust_dns::rr::util;
+///
+/// let mut buf: Vec<u8> = Vec::new();
+/// util::write_character_data_to(&mut buf, "abc");
+/// assert_eq!(buf, vec![3,b'a',b'b',b'c']);
+/// ```
+pub fn write_character_data_to(buf: &mut Vec<u8>, char_data: &str) {
+  let char_bytes = char_data.as_bytes();
+  assert!(char_bytes.len() < 256);
+
+  buf.reserve(char_bytes.len()+1); // reserve the full space for the string
+  buf.push(char_bytes.len() as u8);
+
+  // a separate writer isn't necessary for label since it's the same first byte that's being written
+
+  // TODO use append() once it stabalizes
+  for b in char_bytes {
+    buf.push(*b);
+  }
+}
 
 /// parses the next 2 bytes into u16. This performs a byte-by-byte manipulation, there
 ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
 ///
 /// the vector should be reversed before calling.
 pub fn parse_u16(data: &mut Vec<u8>) -> u16 {
-  // TODO should this use a default rather than the panic! that will happen in the None case?
   let b1: u8 = data.pop().unwrap();
   let b2: u8 = data.pop().unwrap();
 
   // translate from network byte order, i.e. big endian
   ((b1 as u16) << 8) + (b2 as u16)
+}
+
+pub fn write_u16_to(buf: &mut Vec<u8>, data: u16) {
+  buf.reserve(2); // two bytes coming
+
+  let b1: u8 = (data >> 8 & 0xFF) as u8;
+  let b2: u8 = (data & 0xFF) as u8;
+
+  buf.push(b1);
+  buf.push(b2);
 }
 
 /// parses the next four bytes into i32. This performs a byte-by-byte manipulation, there
@@ -59,6 +86,20 @@ pub fn parse_i32(data: &mut Vec<u8>) -> i32 {
   ((b1 as i32) << 24) + ((b2 as i32) << 16) + ((b3 as i32) << 8) + (b4 as i32)
 }
 
+pub fn write_i32_to(buf: &mut Vec<u8>, data: i32) {
+  buf.reserve(4); // four bytes coming...
+
+  let b1: u8 = (data >> 24 & 0xFF) as u8;
+  let b2: u8 = (data >> 16 & 0xFF) as u8;
+  let b3: u8 = (data >> 8 & 0xFF) as u8;
+  let b4: u8 = (data & 0xFF) as u8;
+
+  buf.push(b1);
+  buf.push(b2);
+  buf.push(b3);
+  buf.push(b4);
+}
+
 /// parses the next four bytes into u32. This performs a byte-by-byte manipulation, there
 ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
 ///
@@ -74,8 +115,24 @@ pub fn parse_u32(data: &mut Vec<u8>) -> u32 {
   ((b1 as u32) << 24) + ((b2 as u32) << 16) + ((b3 as u32) << 8) + (b4 as u32)
 }
 
+pub fn write_u32_to(buf: &mut Vec<u8>, data: u32) {
+  buf.reserve(4); // four bytes coming...
+
+  let b1: u8 = (data >> 24 & 0xFF) as u8;
+  let b2: u8 = (data >> 16 & 0xFF) as u8;
+  let b3: u8 = (data >> 8 & 0xFF) as u8;
+  let b4: u8 = (data & 0xFF) as u8;
+
+  buf.push(b1);
+  buf.push(b2);
+  buf.push(b3);
+  buf.push(b4);
+}
+
 #[cfg(test)]
-mod tests {
+pub mod tests {
+  use std::fmt::Debug;
+
   #[test]
   fn parse_character_data() {
     let data: Vec<(Vec<u8>, String)> = vec![
@@ -86,12 +143,25 @@ mod tests {
       (vec![1,b'A'], "a".to_string()), // a single 'a' label, lowercased
     ];
 
+    test_parse_data_set(data, |b| super::parse_character_data(b));
+  }
+
+  #[test]
+  fn write_character_data() {
+    let data: Vec<(&'static str, Vec<u8>)> = vec![
+      ("", vec![0]), // base case, only the root
+      ("a", vec![1,b'a']), // a single 'a' label
+      ("bc", vec![2,b'b',b'c']), // two labels, 'a.bc'
+      ("♥", vec![3,0xE2,0x99,0xA5]), // two labels utf8, 'a.♥'
+    ];
+
     let mut test_num = 0;
-    for (mut binary, expect) in data {
+    for (data, expect) in data {
       test_num += 1;
-      println!("test: {}", test_num);
-      binary.reverse();
-      assert_eq!(super::parse_character_data(&mut binary).ok().unwrap(), expect);
+      println!("test {}: {:?}", test_num, data);
+      let mut buf: Vec<u8> = Vec::with_capacity(expect.len());
+      super::write_character_data_to(&mut buf, data);
+      assert_eq!(buf, expect);
     }
   }
 
@@ -104,13 +174,19 @@ mod tests {
       (vec![0xFF,0xFF], u16::max_value()),
     ];
 
-    let mut test_num = 0;
-    for (mut binary, expect) in data {
-      test_num += 1;
-      println!("test: {}", test_num);
-      binary.reverse();
-      assert_eq!(super::parse_u16(&mut binary), expect);
-    }
+    test_parse_data_set(data, |b| super::parse_u16(b));
+  }
+
+  #[test]
+  fn write_u16() {
+    let data: Vec<(u16, Vec<u8>)> = vec![
+      (0, vec![0x00,0x00]),
+      (1, vec![0x00,0x01]),
+      (256, vec![0x01,0x00]),
+      (u16::max_value(), vec![0xFF,0xFF]),
+    ];
+
+    test_write_data_set_to(data, |b, d| super::write_u16_to(b,d));
   }
 
   #[test]
@@ -126,13 +202,23 @@ mod tests {
       (vec![0x7F,0xFF,0xFF,0xFF], i32::max_value()),
     ];
 
-    let mut test_num = 0;
-    for (mut binary, expect) in data {
-      test_num += 1;
-      println!("test: {}", test_num);
-      binary.reverse();
-      assert_eq!(super::parse_i32(&mut binary), expect);
-    }
+    test_parse_data_set(data, |b| super::parse_i32(b));
+  }
+
+  #[test]
+  fn write_i32() {
+    let data: Vec<(i32, Vec<u8>)> = vec![
+      (0, vec![0x00,0x00,0x00,0x00]),
+      (1, vec![0x00,0x00,0x00,0x01]),
+      (256, vec![0x00,0x00,0x01,0x00]),
+      (256*256, vec![0x00,0x01,0x00,0x00]),
+      (256*256*256, vec![0x01,0x00,0x00,0x00]),
+      (-1, vec![0xFF,0xFF,0xFF,0xFF]),
+      (i32::min_value(), vec![0x80,0x00,0x00,0x00]),
+      (i32::max_value(), vec![0x7F,0xFF,0xFF,0xFF]),
+    ];
+
+    test_write_data_set_to(data, |b, d| super::write_i32_to(b,d));
   }
 
   #[test]
@@ -148,12 +234,47 @@ mod tests {
       (vec![0x7F,0xFF,0xFF,0xFF], i32::max_value() as u32),
     ];
 
-    let mut test_num = 0;
-    for (mut binary, expect) in data {
-      test_num += 1;
-      println!("test: {} binary: {:?} expect: {:?}", test_num, binary, expect);
+    test_parse_data_set(data, |b| super::parse_u32(b));
+  }
+
+  #[test]
+  fn write_u32() {
+    let data: Vec<(u32, Vec<u8>)> = vec![
+      (0, vec![0x00,0x00,0x00,0x00]),
+      (1, vec![0x00,0x00,0x00,0x01]),
+      (256, vec![0x00,0x00,0x01,0x00]),
+      (256*256, vec![0x00,0x01,0x00,0x00]),
+      (256*256*256, vec![0x01,0x00,0x00,0x00]),
+      (u32::max_value(), vec![0xFF,0xFF,0xFF,0xFF]),
+      (2147483648, vec![0x80,0x00,0x00,0x00]),
+      (i32::max_value() as u32, vec![0x7F,0xFF,0xFF,0xFF]),
+    ];
+
+    test_write_data_set_to(data, |b, d| super::write_u32_to(b,d));
+  }
+
+
+  pub fn test_parse_data_set<E, F>(data_set: Vec<(Vec<u8>, E)>, parse_func: F)
+  where E: PartialEq<E> + Debug, F: Fn(&mut Vec<u8>) -> E {
+    let mut test_pass = 0;
+    for (mut binary, expect) in data_set {
+      test_pass += 1;
+      println!("test {}: {:?}", test_pass, binary);
       binary.reverse();
-      assert_eq!(super::parse_u32(&mut binary), expect);
+      assert_eq!(parse_func(&mut binary), expect);
+    }
+  }
+
+  pub fn test_write_data_set_to<S, F>(data_set: Vec<(S, Vec<u8>)>, write_func: F)
+  where F: Fn(&mut Vec<u8>, S), S: Debug {
+    let mut test_pass = 0;
+
+    for (data, expect) in data_set {
+      test_pass += 1;
+      println!("test {}: {:?}", test_pass, data);
+      let mut buf: Vec<u8> = Vec::with_capacity(expect.len());
+      write_func(&mut buf, data);
+      assert_eq!(buf, expect);
     }
   }
 }

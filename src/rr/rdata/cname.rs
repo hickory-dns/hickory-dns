@@ -19,7 +19,7 @@ use super::super::domain::Name;
 //
 // CNAME { cname: Name },
 pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::CNAME{ cname: Name::parse(data).unwrap() }
+  RData::CNAME{ cname: Name::parse(data) }
 }
 
 #[test]

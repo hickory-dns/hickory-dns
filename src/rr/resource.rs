@@ -30,7 +30,7 @@ impl Record {
 
     // NAME            an owner name, i.e., the name of the node to which this
     //                 resource record pertains.
-    let name_labels: domain::Name = try!(domain::Name::parse(&mut data));
+    let name_labels: domain::Name = domain::Name::parse(&mut data);
 
     // TYPE            two octets containing one of the RR TYPE codes.
     let record_type: RecordType = RecordType::parse(&mut data);

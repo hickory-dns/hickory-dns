@@ -24,7 +24,7 @@ use super::super::util;
 //
 // HINFO { cpu: String, os: String},
 pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::HINFO { cpu: util::parse_character_data(data).unwrap(), os: util::parse_character_data(data).unwrap() }
+  RData::HINFO { cpu: util::parse_character_data(data), os: util::parse_character_data(data)}
 }
 
 #[test]

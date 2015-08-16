@@ -20,7 +20,7 @@ use super::super::domain::Name;
 //
 // PTR { ptrdname: Name },
 pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::PTR{ ptrdname: Name::parse(data).unwrap() }
+  RData::PTR{ ptrdname: Name::parse(data) }
 }
 
 #[test]

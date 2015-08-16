@@ -70,8 +70,8 @@ use super::super::domain::Name;
 // SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
 pub fn parse(data: &mut Vec<u8>) -> RData {
   RData::SOA{
-    mname:   Name::parse(data).unwrap(),
-    rname:   Name::parse(data).unwrap(),
+    mname:   Name::parse(data),
+    rname:   Name::parse(data),
     serial:  util::parse_u32(data),
     refresh: util::parse_i32(data),
     retry:   util::parse_i32(data),
