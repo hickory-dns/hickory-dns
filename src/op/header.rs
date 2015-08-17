@@ -1,3 +1,5 @@
+use std::convert::From;
+
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
 use super::super::rr::util;
@@ -116,11 +118,40 @@ impl Header {
     let name_server_count = util::parse_u16(data);
     let additional_count = util::parse_u16(data);
 
+    // TODO: question, should this use the builder pattern instead? might be cleaner code, but
+    //  this guarantees that the Header is
     Header { id: id, message_type: message_type, op_code: op_code, authoritative: authoritative,
              truncation: truncation, recursion_desired: recursion_desired,
              recursion_available: recursion_available, response_code: response_code,
              query_count: query_count, answer_count: answer_count,
              name_server_count: name_server_count, additional_count: additional_count }
+  }
+
+  pub fn write_to(&self, buf: &mut Vec<u8>) {
+    buf.reserve(12); // the 12 bytes for the following fields;
+
+    // Id
+    util::write_u16_to(buf, self.id);
+
+    // IsQuery, OpCode, Authoritative, Truncation, RecursionDesired
+    let mut q_opcd_a_t_r: u8 = 0;
+    q_opcd_a_t_r = if let MessageType::Response = self.message_type { 0x80 } else { 0x00 };
+    q_opcd_a_t_r |= u8::from(self.op_code) << 3;
+    q_opcd_a_t_r |= if self.authoritative { 0x4 } else { 0x0 };
+    q_opcd_a_t_r |= if self.truncation { 0x2 } else { 0x0 };
+    q_opcd_a_t_r |= if self.recursion_desired { 0x1 } else { 0x0 };
+    buf.push(q_opcd_a_t_r);
+
+    // IsRecursionAvailable, Triple 0's, ResponseCode
+    let mut r_zzz_rcod: u8 = 0;
+    r_zzz_rcod = if self.recursion_available { 0x80 } else { 0x00 };
+    r_zzz_rcod |= u8::from(self.response_code);
+    buf.push(r_zzz_rcod);
+
+    util::write_u16_to(buf, self.query_count);
+    util::write_u16_to(buf, self.answer_count);
+    util::write_u16_to(buf, self.name_server_count);
+    util::write_u16_to(buf, self.additional_count);
   }
 
   pub fn getId(&self) -> u16 { self.id }
@@ -149,11 +180,31 @@ fn test_parse() {
   data.reverse();
 
   let expect = Header { id: 0x0110, message_type: MessageType::Response, op_code: OpCode::Update,
-           authoritative: false, truncation: true, recursion_desired: false,
-           recursion_available: true, response_code: ResponseCode::NXDomain,
-           query_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
+    authoritative: false, truncation: true, recursion_desired: false,
+    recursion_available: true, response_code: ResponseCode::NXDomain,
+    query_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
 
   let got = Header::parse(&mut data);
+
+  assert_eq!(got, expect);
+}
+
+#[test]
+fn test_write() {
+  let header = Header { id: 0x0110, message_type: MessageType::Response, op_code: OpCode::Update,
+    authoritative: false, truncation: true, recursion_desired: false,
+    recursion_available: true, response_code: ResponseCode::NXDomain,
+    query_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
+
+  let expect: Vec<u8> = vec![0x01, 0x10,
+                             0xAA, 0x83, // 0b1010 1010 1000 0011
+                             0x88, 0x77,
+                             0x66, 0x55,
+                             0x44, 0x33,
+                             0x22, 0x11];
+
+  let mut got: Vec<u8> = Vec::with_capacity(expect.len());
+  header.write_to(&mut got);
 
   assert_eq!(got, expect);
 }

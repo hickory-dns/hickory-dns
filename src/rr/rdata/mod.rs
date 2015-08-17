@@ -8,5 +8,4 @@ pub mod ptr;
 pub mod soa;
 pub mod txt;
 pub mod a;
-pub mod wks;
 pub mod aaaa;

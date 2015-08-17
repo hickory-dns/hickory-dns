@@ -15,6 +15,10 @@ impl DNSClass {
   pub fn parse(data: &mut Vec<u8>) -> Self {
     util::parse_u16(data).into()
   }
+
+  pub fn write_to(&self, buf: &mut Vec<u8>) {
+    util::write_u16_to(buf, (*self).into());
+  }
 }
 
 // TODO make these a macro or annotation

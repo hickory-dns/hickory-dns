@@ -47,13 +47,18 @@ impl Message {
     let header = Header::parse(data);
 
     // get the questions
-    let queryCount: usize = header.getQueryCount() as usize;
-    let mut queries = Vec::with_capacity(queryCount);
-    for _ in 0 .. queryCount {
+    let count: usize = header.getQueryCount() as usize;
+    let mut queries = Vec::with_capacity(count);
+    for _ in 0 .. count {
       queries.push(Query::parse(data));
     }
 
     // get the answers
+    // let count: usize = header.getAnswerCount() as usize;
+    // let mut answers = Vec::with_capacity(count);
+    // for _ in 0 .. count {
+    //   answers.push(Answer)
+    // }
 
     Message { header: header, queries: queries}
   }

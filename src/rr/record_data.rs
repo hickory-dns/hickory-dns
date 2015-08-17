@@ -2,6 +2,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 
 use super::domain::Name;
 use super::record_type::RecordType;
+use super::rdata;
 
 // 3.3. Standard RRs
 //
@@ -309,17 +310,31 @@ pub enum RData {
 
 impl RData {
   pub fn parse(data: &mut Vec<u8>, rtype: &RecordType, rd_length: u16) -> Self {
-    use super::rdata;
-    match rtype {
-      &RecordType::A => rdata::a::parse(data),
-      &RecordType::AAAA => rdata::aaaa::parse(data),
-      &RecordType::CNAME => rdata::cname::parse(data),
-      &RecordType::MX => rdata::mx::parse(data),
-      &RecordType::NS => rdata::ns::parse(data),
-      &RecordType::PTR => rdata::ptr::parse(data),
-      &RecordType::SOA => rdata::soa::parse(data),
-      &RecordType::TXT => rdata::txt::parse(data, rd_length),
+    match *rtype {
+      RecordType::CNAME => rdata::cname::parse(data),
+      RecordType::MX => rdata::mx::parse(data),
+      RecordType::NS => rdata::ns::parse(data),
+      RecordType::PTR => rdata::ptr::parse(data),
+      RecordType::SOA => rdata::soa::parse(data),
+      RecordType::TXT => rdata::txt::parse(data, rd_length),
+      RecordType::A => rdata::a::parse(data),
+      RecordType::AAAA => rdata::aaaa::parse(data),
       _ => unimplemented!()
+    }
+  }
+
+  pub fn write_to(&self, buf: &mut Vec<u8>) {
+    match self {
+      // CNAME => rdata::cname::write_to(self, buf),
+      // MX => rdata::mx::write_to(self, buf),
+      // NULL => rdata::null::write_to(self, buf),
+      // NS => rdata::null::write_to(self, buf),
+      // PTR => rdata::ptr::write_to(self, buf),
+      // SOA => rdata::soa::write_to(self, buf),
+      // TXT => rdata::txt::write_to(self, buf),
+      // A => rdata::a::write_to(self, buf),
+      AAAA => rdata::aaaa::write_to(self, buf),
+    //  _ => unimplemented!()
     }
   }
 }

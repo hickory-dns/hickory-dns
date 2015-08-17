@@ -9,6 +9,19 @@ pub struct Name {
 }
 
 impl Name {
+  pub fn new() -> Self {
+    Name { labels: Vec::new() }
+  }
+
+  pub fn with_labels(labels: Vec<String>) -> Self {
+    Name { labels: labels }
+  }
+
+  pub fn add_label(&mut self, label: String) -> &mut Self {
+    self.labels.push(label);
+    self
+  }
+
   /// parses the chain of labels
   ///  this has a max of 255 octets, with each label being less than 63.
   ///  all names will be stored lowercase internally.

@@ -24,6 +24,24 @@ pub fn parse(data: &mut Vec<u8>) -> RData {
   RData::AAAA{ address: Ipv6Addr::new(a,b,c,d,e,f,g,h)}
 }
 
+pub fn write_to(aaaa: &RData, buf: &mut Vec<u8>) {
+  if let RData::AAAA { address } = *aaaa {
+    let segments = address.segments();
+
+    util::write_u16_to(buf, segments[0]);
+    util::write_u16_to(buf, segments[1]);
+    util::write_u16_to(buf, segments[2]);
+    util::write_u16_to(buf, segments[3]);
+    util::write_u16_to(buf, segments[4]);
+    util::write_u16_to(buf, segments[5]);
+    util::write_u16_to(buf, segments[6]);
+    util::write_u16_to(buf, segments[7]);
+  } else {
+    assert!(false)
+  }
+}
+
+
 #[test]
 fn test_parse() {
   use std::net::Ipv6Addr;

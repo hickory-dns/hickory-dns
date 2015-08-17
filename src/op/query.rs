@@ -40,11 +40,13 @@ use super::super::rr::dns_class::DNSClass;
  * QCLASS          a two octet code that specifies the class of the query.
  *                 For example, the QCLASS field is IN for the Internet.
  */
+#[derive(PartialEq, Debug)]
 pub struct Query {
   name: Name, query_type: RecordType, query_class: DNSClass
 }
 
 impl Query {
+  // TODO: these functions certainly seem like they could just be rustc::encodable
   pub fn parse(data: &mut Vec<u8>) -> Self {
     let name = Name::parse(data);
     let query_type = RecordType::parse(data);
@@ -52,9 +54,23 @@ impl Query {
 
     Query { name: name, query_type: query_type, query_class: query_class}
   }
+
+  pub fn write_to(&self, buf: &mut Vec<u8>) {
+    self.name.write_to(buf);
+    self.query_type.write_to(buf);
+    self.query_class.write_to(buf);
+  }
 }
 
 #[test]
-fn test_parse() {
+fn test_parse_and_write() {
+  let expect = Query { name: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+                       query_type: RecordType::AAAA, query_class: DNSClass::IN };
 
+  let mut written = Vec::new();
+  expect.write_to(&mut written);
+  written.reverse(); // flip it around to read in...
+
+  let got = Query::parse(&mut written);
+  assert_eq!(got, expect);
 }
