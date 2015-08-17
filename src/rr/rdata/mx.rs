@@ -29,15 +29,13 @@ pub fn parse(data: &mut Vec<u8>) -> RData {
   RData::MX { preference: util::parse_u16(data), exchange: Name::parse(data) }
 }
 
-#[test]
-fn test_parse() {
-  let mut data: Vec<u8> = vec![1,0,1,b'n',0];
-  data.reverse();
-
-  if let RData::MX{ preference, exchange } = parse(&mut data) {
-    assert_eq!(preference, 256);
-    assert_eq!(exchange[0], "n".to_string());
+pub fn write_to(mx: &RData, buf: &mut Vec<u8>) {
+  if let RData::MX { ref preference, ref exchange } = *mx {
+    util::write_u16_to(buf, *preference);
+    exchange.write_to(buf);
   } else {
     panic!();
   }
 }
+
+// #[test] is performed at the record_data module, the inner name in domain::Name

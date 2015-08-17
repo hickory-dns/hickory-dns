@@ -107,7 +107,7 @@ impl Record {
     // RDATA           a variable length string of octets that describes the
     //                resource.  The format of this information varies
     //                according to the TYPE and CLASS of the resource record.
-    let rdata = RData::parse(data, &record_type, rd_length);
+    let rdata = RData::parse(data, record_type, rd_length);
 
     Ok(Record{ name_labels: name_labels, rr_type: record_type, dns_class: class, ttl: ttl, rdata: rdata })
   }

@@ -22,17 +22,12 @@ pub fn parse(data: &mut Vec<u8>) -> RData {
   RData::CNAME{ cname: Name::parse(data) }
 }
 
-#[test]
-fn test_parse() {
-  let mut data: Vec<u8> = vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0];
-  data.reverse();
-  if let RData::CNAME { cname } = parse(&mut data) {
-    let expect = vec!["www","example","com"];
-    assert_eq!(cname[0], expect[0]);
-    assert_eq!(cname[1], expect[1]);
-    assert_eq!(cname[2], expect[2]);
+pub fn write_to(cname_data: &RData, buf: &mut Vec<u8>) {
+  if let RData::CNAME { ref cname } = *cname_data {
+    cname.write_to(buf);
   } else {
-    panic!();
+    panic!("wrong type: {:?}", cname_data)
   }
-
 }
+
+// #[test] is performed at the record_data module, the inner name in domain::Name

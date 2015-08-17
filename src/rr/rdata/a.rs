@@ -28,29 +28,47 @@ pub fn parse(data: &mut Vec<u8>) -> RData {
   RData::A{ address: Ipv4Addr::new(data.pop().unwrap(), data.pop().unwrap(), data.pop().unwrap(), data.pop().unwrap()) }
 }
 
-#[test]
-fn test_parse() {
+pub fn write_to(a: &RData, buf: &mut Vec<u8>) {
+  if let RData::A { address } = *a {
+    let segments = address.octets();
+
+    buf.push(segments[0]);
+    buf.push(segments[1]);
+    buf.push(segments[2]);
+    buf.push(segments[3]);
+  } else {
+    panic!("wrong type here {:?}", a)
+  }
+}
+
+#[cfg(test)]
+mod tests {
   use std::net::Ipv4Addr;
+  use std::str::FromStr;
 
-  let data: Vec<(Vec<u8>, Ipv4Addr)> = vec![
-    (vec![0,0,0,0], Ipv4Addr::from_str("0.0.0.0").unwrap()), // base case
-    (vec![1,0,0,0], Ipv4Addr::from_str("1.0.0.0").unwrap()),
-    (vec![0,1,0,0], Ipv4Addr::from_str("0.1.0.0").unwrap()),
-    (vec![0,0,1,0], Ipv4Addr::from_str("0.0.1.0").unwrap()),
-    (vec![0,0,0,1], Ipv4Addr::from_str("0.0.0.1").unwrap()),
-    (vec![127,0,0,1], Ipv4Addr::from_str("127.0.0.1").unwrap()),
-    (vec![192,168,64,32], Ipv4Addr::from_str("192.168.64.32").unwrap()),
-  ];
+  use super::*;
+  use super::super::super::record_data::RData;
+  use super::super::super::util::tests::{test_parse_data_set, test_write_data_set_to};
 
-  let mut test_num = 0;
-  for (mut binary, expect) in data {
-    test_num += 1;
-    println!("test: {}", test_num);
-    binary.reverse();
-    if let RData::A{address} = parse(&mut binary) {
-      assert_eq!(address, expect);
-    } else {
-      panic!();
-    }
+  fn get_data() -> Vec<(RData, Vec<u8>)> {
+    vec![
+    (RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()}, vec![0,0,0,0]), // base case
+    (RData::A{ address: Ipv4Addr::from_str("1.0.0.0").unwrap()}, vec![1,0,0,0]),
+    (RData::A{ address: Ipv4Addr::from_str("0.1.0.0").unwrap()}, vec![0,1,0,0]),
+    (RData::A{ address: Ipv4Addr::from_str("0.0.1.0").unwrap()}, vec![0,0,1,0]),
+    (RData::A{ address: Ipv4Addr::from_str("0.0.0.1").unwrap()}, vec![0,0,0,1]),
+    (RData::A{ address: Ipv4Addr::from_str("127.0.0.1").unwrap()}, vec![127,0,0,1]),
+    (RData::A{ address: Ipv4Addr::from_str("192.168.64.32").unwrap()}, vec![192,168,64,32]),
+    ]
+  }
+
+  #[test]
+  fn test_parse() {
+    test_parse_data_set(get_data(), |b| parse(b));
+  }
+
+  #[test]
+  fn test_write_to() {
+    test_write_data_set_to(get_data(), |b,d| write_to(&d,b));
   }
 }

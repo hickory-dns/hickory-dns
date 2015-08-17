@@ -80,28 +80,16 @@ pub fn parse(data: &mut Vec<u8>) -> RData {
   }
 }
 
-#[test]
-fn test_parse() {
-  let mut data: Vec<u8> = vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0,
-                               3,b'x',b'x',b'x',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0,
-                               0xFF,0xFF,0xFF,0xFF,
-                               0xFF,0xFF,0xFF,0xFF,
-                               0xFF,0xFF,0xFF,0xFF,
-                               0xFF,0xFF,0xFF,0xFF,
-                               0xFF,0xFF,0xFF,0xFF];
-  data.reverse();
-  if let RData::SOA { mname, rname, serial, refresh, retry, expire, minimum } = parse(&mut data) {
-    let expect1 = vec!["www","example","com"];
-    let expect2 = vec!["xxx","example","com"];
-
-    assert_eq!(mname[0], expect1[0]);
-    assert_eq!(rname[0], expect2[0]);
-    assert_eq!(serial,  u32::max_value());
-    assert_eq!(refresh, -1 as i32);
-    assert_eq!(retry,   -1 as i32);
-    assert_eq!(expire,  -1 as i32);
-    assert_eq!(minimum, u32::max_value());
+pub fn write_to(soa: &RData, buf: &mut Vec<u8>) {
+  if let RData::SOA { ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum} = *soa {
+    mname.write_to(buf);
+    rname.write_to(buf);
+    util::write_u32_to(buf, *serial);
+    util::write_i32_to(buf, *refresh);
+    util::write_i32_to(buf, *retry);
+    util::write_i32_to(buf, *expire);
+    util::write_u32_to(buf, *minimum);
   } else {
-    panic!();
+    panic!()
   }
 }

@@ -1,4 +1,5 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::convert::From;
 
 use super::domain::Name;
 use super::record_type::RecordType;
@@ -18,6 +19,7 @@ use super::rdata;
 // is treated as binary information, and can be up to 256 characters in
 // length (including the length octet).
 //
+#[derive(Debug, PartialEq)]
 pub enum RData {
   //-- RFC 1035 -- Domain Implementation and Specification    November 1987
 
@@ -309,8 +311,8 @@ pub enum RData {
 }
 
 impl RData {
-  pub fn parse(data: &mut Vec<u8>, rtype: &RecordType, rd_length: u16) -> Self {
-    match *rtype {
+  pub fn parse(data: &mut Vec<u8>, rtype: RecordType, rd_length: u16) -> Self {
+    match rtype {
       RecordType::CNAME => rdata::cname::parse(data),
       RecordType::MX => rdata::mx::parse(data),
       RecordType::NS => rdata::ns::parse(data),
@@ -324,17 +326,85 @@ impl RData {
   }
 
   pub fn write_to(&self, buf: &mut Vec<u8>) {
-    match self {
-      // CNAME => rdata::cname::write_to(self, buf),
-      // MX => rdata::mx::write_to(self, buf),
-      // NULL => rdata::null::write_to(self, buf),
-      // NS => rdata::null::write_to(self, buf),
-      // PTR => rdata::ptr::write_to(self, buf),
-      // SOA => rdata::soa::write_to(self, buf),
-      // TXT => rdata::txt::write_to(self, buf),
-      // A => rdata::a::write_to(self, buf),
-      AAAA => rdata::aaaa::write_to(self, buf),
-    //  _ => unimplemented!()
+    match *self {
+      RData::CNAME{ref cname} => rdata::cname::write_to(self, buf),
+      RData::MX{ref preference,ref  exchange} => rdata::mx::write_to(self, buf),
+      // RData::NULL => rdata::null::write_to(self, buf),
+      RData::NS{ref nsdname} => rdata::ns::write_to(self, buf),
+      RData::PTR{ref ptrdname} => rdata::ptr::write_to(self, buf),
+      RData::SOA{ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum} => rdata::soa::write_to(self, buf),
+      RData::TXT{ ref txt_data } => rdata::txt::write_to(self, buf),
+      RData::A{ ref address } => rdata::a::write_to(self, buf),
+      RData::AAAA{ ref address } => rdata::aaaa::write_to(self, buf),
+      _ => unimplemented!()
     }
+  }
+}
+
+impl<'a> From<&'a RData> for RecordType {
+  fn from(rdata: &'a RData) -> Self {
+    match *rdata {
+      RData::CNAME{ref cname} => RecordType::CNAME,
+      RData::MX{ref preference,ref  exchange} => RecordType::MX,
+      RData::NS{ref nsdname} => RecordType::NS,
+      RData::PTR{ref ptrdname} => RecordType::PTR,
+      RData::SOA{ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum} => RecordType::SOA,
+      RData::TXT{ref txt_data } => RecordType::TXT,
+      RData::A{ref address } => RecordType::A,
+      RData::AAAA{ref address } => RecordType::AAAA,
+      _ => unimplemented!()
+    }
+  }
+}
+
+#[cfg(test)]
+mod tests {
+  use std::fmt::Debug;
+  use std::net::Ipv6Addr;
+  use std::net::Ipv4Addr;
+  use std::str::FromStr;
+
+  use super::*;
+  use super::super::util::tests::test_write_data_set_to;
+  use super::super::domain::Name;
+
+  fn get_data() -> Vec<(RData, Vec<u8>)> {
+    vec![
+    (RData::CNAME{cname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])}, vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
+    (RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])}, vec![1,0,1,b'n',0]),
+    (RData::NS{nsdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])}, vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
+    (RData::PTR{ptrdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])}, vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
+    (RData::SOA{mname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+    rname: Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
+    serial: u32::max_value(), refresh: -1 as i32, retry: -1 as i32, expire: -1 as i32, minimum: u32::max_value()},
+    vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0,
+    3,b'x',b'x',b'x',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0,
+    0xFF,0xFF,0xFF,0xFF,
+    0xFF,0xFF,0xFF,0xFF,
+    0xFF,0xFF,0xFF,0xFF,
+    0xFF,0xFF,0xFF,0xFF,
+    0xFF,0xFF,0xFF,0xFF]),
+    (RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
+    vec![6,b'a',b'b',b'c',b'd',b'e',b'f', 3,b'g',b'h',b'i', 0, 1,b'j']),
+    (RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()}, vec![0,0,0,0]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0])
+    ]
+  }
+
+  #[test]
+  fn test_parse() {
+    let mut test_pass = 0;
+    for (expect, mut binary) in get_data() {
+      test_pass += 1;
+      println!("test {}: {:?}", test_pass, binary);
+      binary.reverse();
+      let length = binary.len() as u16; // pre exclusive borrow
+      assert_eq!(RData::parse(&mut binary, super::super::record_type::RecordType::from(&expect), length), expect);
+    }
+  }
+
+  #[test]
+  fn test_write_to() {
+    test_write_data_set_to(get_data(), |b,d| RData::write_to(&d,b));
   }
 }

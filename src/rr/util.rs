@@ -133,81 +133,46 @@ pub fn write_u32_to(buf: &mut Vec<u8>, data: u32) {
 pub mod tests {
   use std::fmt::Debug;
 
+  fn get_character_data() -> Vec<(String, Vec<u8>)> {
+    vec![
+      ("".to_string(), vec![0]), // base case, only the root
+      ("a".to_string(), vec![1,b'a']), // a single 'a' label
+      ("bc".to_string(), vec![2,b'b',b'c']), // two labels, 'a.bc'
+      ("♥".to_string(), vec![3,0xE2,0x99,0xA5]), // two labels utf8, 'a.♥'
+    ]
+  }
+
   #[test]
   fn parse_character_data() {
-    let data: Vec<(Vec<u8>, String)> = vec![
-      (vec![0], "".to_string()), // base case, only the root
-      (vec![1,b'a'], "a".to_string()), // a single 'a' label
-      (vec![2,b'b',b'c'], "bc".to_string()), // two labels, 'a.bc'
-      (vec![3,0xE2,0x99,0xA5], "♥".to_string()), // two labels utf8, 'a.♥'
-      (vec![1,b'A'], "a".to_string()), // a single 'a' label, lowercased
-    ];
-
-    test_parse_data_set(data, |b| super::parse_character_data(b));
+    test_parse_data_set(get_character_data(), |b| super::parse_character_data(b));
   }
 
   #[test]
   fn write_character_data() {
-    let data: Vec<(&'static str, Vec<u8>)> = vec![
-      ("", vec![0]), // base case, only the root
-      ("a", vec![1,b'a']), // a single 'a' label
-      ("bc", vec![2,b'b',b'c']), // two labels, 'a.bc'
-      ("♥", vec![3,0xE2,0x99,0xA5]), // two labels utf8, 'a.♥'
-    ];
-
-    let mut test_num = 0;
-    for (data, expect) in data {
-      test_num += 1;
-      println!("test {}: {:?}", test_num, data);
-      let mut buf: Vec<u8> = Vec::with_capacity(expect.len());
-      super::write_character_data_to(&mut buf, data);
-      assert_eq!(buf, expect);
-    }
+    test_write_data_set_to(get_character_data(), |b, d| super::write_character_data_to(b,&d));
   }
 
-  #[test]
-  fn parse_u16() {
-    let data: Vec<(Vec<u8>, u16)> = vec![
-      (vec![0x00,0x00], 0),
-      (vec![0x00,0x01], 1),
-      (vec![0x01,0x00], 256),
-      (vec![0xFF,0xFF], u16::max_value()),
-    ];
-
-    test_parse_data_set(data, |b| super::parse_u16(b));
-  }
-
-  #[test]
-  fn write_u16() {
-    let data: Vec<(u16, Vec<u8>)> = vec![
+  fn get_u16_data() -> Vec<(u16, Vec<u8>)> {
+    vec![
       (0, vec![0x00,0x00]),
       (1, vec![0x00,0x01]),
       (256, vec![0x01,0x00]),
       (u16::max_value(), vec![0xFF,0xFF]),
-    ];
-
-    test_write_data_set_to(data, |b, d| super::write_u16_to(b,d));
+    ]
   }
 
   #[test]
-  fn parse_i32() {
-    let data: Vec<(Vec<u8>, i32)> = vec![
-      (vec![0x00,0x00,0x00,0x00], 0),
-      (vec![0x00,0x00,0x00,0x01], 1),
-      (vec![0x00,0x00,0x01,0x00], 256),
-      (vec![0x00,0x01,0x00,0x00], 256*256),
-      (vec![0x01,0x00,0x00,0x00], 256*256*256),
-      (vec![0xFF,0xFF,0xFF,0xFF], -1),
-      (vec![0x80,0x00,0x00,0x00], i32::min_value()),
-      (vec![0x7F,0xFF,0xFF,0xFF], i32::max_value()),
-    ];
-
-    test_parse_data_set(data, |b| super::parse_i32(b));
+  fn parse_u16() {
+    test_parse_data_set(get_u16_data(), |b| super::parse_u16(b));
   }
 
   #[test]
-  fn write_i32() {
-    let data: Vec<(i32, Vec<u8>)> = vec![
+  fn write_u16() {
+    test_write_data_set_to(get_u16_data(), |b, d| super::write_u16_to(b,d));
+  }
+
+  fn get_i32_data() -> Vec<(i32, Vec<u8>)> {
+    vec![
       (0, vec![0x00,0x00,0x00,0x00]),
       (1, vec![0x00,0x00,0x00,0x01]),
       (256, vec![0x00,0x00,0x01,0x00]),
@@ -216,30 +181,21 @@ pub mod tests {
       (-1, vec![0xFF,0xFF,0xFF,0xFF]),
       (i32::min_value(), vec![0x80,0x00,0x00,0x00]),
       (i32::max_value(), vec![0x7F,0xFF,0xFF,0xFF]),
-    ];
-
-    test_write_data_set_to(data, |b, d| super::write_i32_to(b,d));
+    ]
   }
 
   #[test]
-  fn parse_u32() {
-    let data: Vec<(Vec<u8>, u32)> = vec![
-      (vec![0x00,0x00,0x00,0x00], 0),
-      (vec![0x00,0x00,0x00,0x01], 1),
-      (vec![0x00,0x00,0x01,0x00], 256),
-      (vec![0x00,0x01,0x00,0x00], 256*256),
-      (vec![0x01,0x00,0x00,0x00], 256*256*256),
-      (vec![0xFF,0xFF,0xFF,0xFF], u32::max_value()),
-      (vec![0x80,0x00,0x00,0x00], 2147483648),
-      (vec![0x7F,0xFF,0xFF,0xFF], i32::max_value() as u32),
-    ];
-
-    test_parse_data_set(data, |b| super::parse_u32(b));
+  fn parse_i32() {
+    test_parse_data_set(get_i32_data(), |b| super::parse_i32(b));
   }
 
   #[test]
-  fn write_u32() {
-    let data: Vec<(u32, Vec<u8>)> = vec![
+  fn write_i32() {
+    test_write_data_set_to(get_i32_data(), |b, d| super::write_i32_to(b,d));
+  }
+
+  fn get_u32_data() -> Vec<(u32, Vec<u8>)> {
+    vec![
       (0, vec![0x00,0x00,0x00,0x00]),
       (1, vec![0x00,0x00,0x00,0x01]),
       (256, vec![0x00,0x00,0x01,0x00]),
@@ -248,16 +204,24 @@ pub mod tests {
       (u32::max_value(), vec![0xFF,0xFF,0xFF,0xFF]),
       (2147483648, vec![0x80,0x00,0x00,0x00]),
       (i32::max_value() as u32, vec![0x7F,0xFF,0xFF,0xFF]),
-    ];
+    ]
+  }
 
-    test_write_data_set_to(data, |b, d| super::write_u32_to(b,d));
+  #[test]
+  fn parse_u32() {
+    test_parse_data_set(get_u32_data(), |b| super::parse_u32(b));
+  }
+
+  #[test]
+  fn write_u32() {
+    test_write_data_set_to(get_u32_data(), |b, d| super::write_u32_to(b,d));
   }
 
 
-  pub fn test_parse_data_set<E, F>(data_set: Vec<(Vec<u8>, E)>, parse_func: F)
+  pub fn test_parse_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, parse_func: F)
   where E: PartialEq<E> + Debug, F: Fn(&mut Vec<u8>) -> E {
     let mut test_pass = 0;
-    for (mut binary, expect) in data_set {
+    for (expect, mut binary) in data_set {
       test_pass += 1;
       println!("test {}: {:?}", test_pass, binary);
       binary.reverse();

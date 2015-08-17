@@ -101,28 +101,22 @@ mod tests {
   use super::*;
   use super::super::util::tests::{test_parse_data_set, test_write_data_set_to};
 
-  #[test]
-  fn parse() {
-    let data: Vec<(Vec<u8>, Name)> = vec![
-      (vec![0], Name{ labels: vec![] }), // base case, only the root
-      (vec![1,b'a',0], Name{ labels: vec!["a".to_string()] }), // a single 'a' label
-      (vec![1,b'a',2,b'b',b'c',0], Name{ labels: vec!["a".to_string(), "bc".to_string()] }), // two labels, 'a.bc'
-      (vec![1,b'a',3,0xE2,0x99,0xA5,0], Name{ labels: vec!["a".to_string(), "♥".to_string()] }), // two labels utf8, 'a.♥'
-      (vec![1,b'A',0], Name { labels: vec!["a".to_string()] }), // a single 'a' label, lowercased
-    ];
-
-    test_parse_data_set(data, |b| Name::parse(b));
-  }
-
-  #[test]
-  fn write_to() {
-    let data: Vec<(Name, Vec<u8>)> = vec![
+  fn get_data() -> Vec<(Name, Vec<u8>)> {
+    vec![
       (Name { labels: vec![] }, vec![0]), // base case, only the root
       (Name { labels: vec!["a".to_string()] }, vec![1,b'a',0]), // a single 'a' label
       (Name { labels: vec!["a".to_string(), "bc".to_string()] }, vec![1,b'a',2,b'b',b'c',0]), // two labels, 'a.bc'
       (Name { labels: vec!["a".to_string(), "♥".to_string()] }, vec![1,b'a',3,0xE2,0x99,0xA5,0]), // two labels utf8, 'a.♥'
-    ];
+    ]
+  }
 
-    test_write_data_set_to(data, |b, n| n.write_to(b));
+  #[test]
+  fn parse() {
+    test_parse_data_set(get_data(), |b| Name::parse(b));
+  }
+
+  #[test]
+  fn write_to() {
+    test_write_data_set_to(get_data(), |b, n| n.write_to(b));
   }
 }

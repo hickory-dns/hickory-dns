@@ -29,16 +29,10 @@ pub fn parse(data: &mut Vec<u8>) -> RData {
   RData::NS{ nsdname: Name::parse(data) }
 }
 
-#[test]
-fn test_parse() {
-  let mut data: Vec<u8> = vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0];
-  data.reverse();
-  if let RData::NS { nsdname } = parse(&mut data) {
-    let expect = vec!["www","example","com"];
-    assert_eq!(nsdname[0], expect[0]);
-    assert_eq!(nsdname[1], expect[1]);
-    assert_eq!(nsdname[2], expect[2]);
+pub fn write_to(ns: &RData, buf: &mut Vec<u8>) {
+  if let RData::NS{ ref nsdname } = *ns {
+    nsdname.write_to(buf);
   } else {
-    panic!();
+    panic!()
   }
 }

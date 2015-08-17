@@ -1,5 +1,4 @@
 use std::net::Ipv6Addr;
-use std::str::FromStr;
 
 use super::super::record_data::RData;
 use super::super::util;
@@ -37,38 +36,43 @@ pub fn write_to(aaaa: &RData, buf: &mut Vec<u8>) {
     util::write_u16_to(buf, segments[6]);
     util::write_u16_to(buf, segments[7]);
   } else {
-    assert!(false)
+    panic!("wrong type here {:?}", aaaa)
   }
 }
 
 
-#[test]
-fn test_parse() {
+#[cfg(test)]
+mod tests {
   use std::net::Ipv6Addr;
+  use std::str::FromStr;
 
-  let data: Vec<(Vec<u8>, Ipv6Addr)> = vec![
-    (vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0], Ipv6Addr::from_str("::").unwrap()), // base case
-    (vec![0,1,0,0,0,0,0,0, 0,0,0,0,0,0,0,0], Ipv6Addr::from_str("1::").unwrap()),
-    (vec![0,0,0,1,0,0,0,0, 0,0,0,0,0,0,0,0], Ipv6Addr::from_str("0:1::").unwrap()),
-    (vec![0,0,0,0,0,1,0,0, 0,0,0,0,0,0,0,0], Ipv6Addr::from_str("0:0:1::").unwrap()),
-    (vec![0,0,0,0,0,0,0,1, 0,0,0,0,0,0,0,0], Ipv6Addr::from_str("0:0:0:1::").unwrap()),
-    (vec![0,0,0,0,0,0,0,0, 0,1,0,0,0,0,0,0], Ipv6Addr::from_str("::1:0:0:0").unwrap()),
-    (vec![0,0,0,0,0,0,0,0, 0,0,0,1,0,0,0,0], Ipv6Addr::from_str("::1:0:0").unwrap()),
-    (vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,1,0,0], Ipv6Addr::from_str("::1:0").unwrap()),
-    (vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1], Ipv6Addr::from_str("::1").unwrap()),
-    (vec![0,0,0,0,0,0,0,0, 0,0,0,0,127,0,0,1], Ipv6Addr::from_str("::127.0.0.1").unwrap()),
-    (vec![255,0,0,0,0,0,0,0, 0,0,0,0,192,168,64,32], Ipv6Addr::from_str("FF00::192.168.64.32").unwrap()),
-  ];
+  use super::*;
+  use super::super::super::record_data::RData;
+  use super::super::super::util::tests::{test_parse_data_set, test_write_data_set_to};
 
-  let mut test_num = 0;
-  for (mut binary, expect) in data {
-    test_num += 1;
-    println!("test: {}", test_num);
-    binary.reverse();
-    if let RData::AAAA{address} = parse(&mut binary) {
-      assert_eq!(address, expect);
-    } else {
-      panic!();
-    }
+  fn get_data() -> Vec<(RData, Vec<u8>)> {
+    vec![
+    (RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]), // base case
+    (RData::AAAA{ address: Ipv6Addr::from_str("1::").unwrap()}, vec![0,1,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("0:1::").unwrap()}, vec![0,0,0,1,0,0,0,0, 0,0,0,0,0,0,0,0]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("0:0:1::").unwrap()}, vec![0,0,0,0,0,1,0,0, 0,0,0,0,0,0,0,0]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("0:0:0:1::").unwrap()}, vec![0,0,0,0,0,0,0,1, 0,0,0,0,0,0,0,0]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("::1:0:0:0").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,1,0,0,0,0,0,0]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("::1:0:0").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,1,0,0,0,0]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("::1:0").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,1,0,0]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("::1").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,1]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("::127.0.0.1").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,0,127,0,0,1]),
+    (RData::AAAA{ address: Ipv6Addr::from_str("FF00::192.168.64.32").unwrap()}, vec![255,0,0,0,0,0,0,0, 0,0,0,0,192,168,64,32]),
+    ]
+  }
+
+  #[test]
+  fn test_parse() {
+    test_parse_data_set(get_data(), |b| parse(b));
+  }
+
+  #[test]
+  fn test_write_to() {
+    test_write_data_set_to(get_data(), |b,d| write_to(&d,b));
   }
 }
