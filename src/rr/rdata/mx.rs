@@ -34,7 +34,7 @@ pub fn write_to(mx: &RData, buf: &mut Vec<u8>) {
     util::write_u16_to(buf, *preference);
     exchange.write_to(buf);
   } else {
-    panic!();
+    panic!("wrong type here {:?}", mx);
   }
 }
 

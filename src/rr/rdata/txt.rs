@@ -33,6 +33,6 @@ pub fn write_to(txt: &RData, buf: &mut Vec<u8>) {
       util::write_character_data_to(buf, s);
     }
   } else {
-    panic!()
+    panic!("wrong type here {:?}", txt);
   }
 }

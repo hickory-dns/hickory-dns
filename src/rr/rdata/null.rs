@@ -18,3 +18,13 @@ use super::super::record_data::RData;
 pub fn parse(data: &mut Vec<u8>) -> RData {
   unimplemented!()
 }
+
+pub fn write_to(nil: &RData, buf: &mut Vec<u8>) {
+  if let RData::NULL{ref anything} = *nil {
+    for b in anything {
+      buf.push(*b);
+    }
+  } else {
+    panic!("wrong type here {:?}", nil);
+  }
+}

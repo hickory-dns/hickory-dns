@@ -46,9 +46,9 @@ pub struct Query {
 }
 
 impl Query {
-  /// return a default query with an empty name and ANY, ANY for the query_type and query_class
+  /// return a default query with an empty name and A, IN for the query_type and query_class
   pub fn new() -> Self {
-    Query { name: Name::new(), query_type: RecordType::ANY, query_class: DNSClass::ANY }
+    Query { name: Name::new(), query_type: RecordType::A, query_class: DNSClass::IN }
   }
 
   /// replaces name with the new name

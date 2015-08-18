@@ -82,7 +82,7 @@ impl From<RecordType> for &'static str {
       RecordType::NS => "NS",
       RecordType::SOA => "SOA",
       RecordType::ANY => "ANY",
-      _ => unimplemented!(),
+      _ => panic!("unsupported RecordType: {:?}", rt),
     }
   }
 }
@@ -109,7 +109,7 @@ impl<'a> From<&'a str> for RecordType {
       "SOA" => RecordType::SOA,
       "ANY" => RecordType::ANY,
       "*" => RecordType::ANY,
-      _ => unimplemented!(),
+      _ => panic!("unsupported RecordType: {:?}", str),
     }
   }
 }
@@ -135,7 +135,7 @@ impl From<RecordType> for u16 {
       RecordType::NS => 2,
       RecordType::SOA => 6,
       RecordType::ANY => 255,
-      _ => unimplemented!(),
+      _ => panic!("unsupported RecordType: {:?}", rt),
     }
   }
 }
@@ -161,7 +161,7 @@ impl From<u16> for RecordType {
       2 => RecordType::NS,
       6 => RecordType::SOA,
       255 => RecordType::ANY,
-      _ => unimplemented!(),
+      _ => panic!("unsupported RecordType: {:?}", value),
     }
   }
 }

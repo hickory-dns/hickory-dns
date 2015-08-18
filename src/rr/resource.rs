@@ -1,6 +1,7 @@
 use std::io::Read;
 use std::iter;
 use std::slice::{IterMut,Iter};
+use std::net::Ipv4Addr;
 
 use super::record_data::RData;
 use super::record_type::RecordType;
@@ -76,14 +77,16 @@ pub struct Record {
 impl Record {
   /**
    * Creates a not very useful empty record, use the setters to build a more useful object
+   *  There are no optional elements in this object, defaults are an empty name, type A, class IN,
+   *  ttl of 0 and the 0.0.0.0 ip address.
    */
   pub fn new() -> Record {
     Record {
       name_labels: domain::Name::new(),
-      rr_type: RecordType::ANY,
-      dns_class: DNSClass::ANY,
+      rr_type: RecordType::A,
+      dns_class: DNSClass::IN,
       ttl: 0,
-      rdata: RData::NULL { anything: vec![] }
+      rdata: RData::A { address: Ipv4Addr::new(0,0,0,0) }
     }
   }
 

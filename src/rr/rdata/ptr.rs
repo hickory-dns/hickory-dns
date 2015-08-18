@@ -27,6 +27,6 @@ pub fn write_to(ptr: &RData, buf: &mut Vec<u8>) {
   if let RData::PTR { ref ptrdname } = *ptr {
     ptrdname.write_to(buf);
   } else {
-    panic!()
+    panic!("wrong type here {:?}", ptr);
   }
 }

@@ -90,6 +90,6 @@ pub fn write_to(soa: &RData, buf: &mut Vec<u8>) {
     util::write_i32_to(buf, *expire);
     util::write_u32_to(buf, *minimum);
   } else {
-    panic!()
+    panic!("wrong type here {:?}", soa);
   }
 }

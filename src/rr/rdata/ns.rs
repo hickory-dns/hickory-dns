@@ -33,6 +33,6 @@ pub fn write_to(ns: &RData, buf: &mut Vec<u8>) {
   if let RData::NS{ ref nsdname } = *ns {
     nsdname.write_to(buf);
   } else {
-    panic!()
+    panic!("wrong type here {:?}", ns);
   }
 }

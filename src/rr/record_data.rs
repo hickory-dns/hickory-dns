@@ -321,7 +321,7 @@ impl RData {
       RecordType::TXT => rdata::txt::parse(data, rd_length),
       RecordType::A => rdata::a::parse(data),
       RecordType::AAAA => rdata::aaaa::parse(data),
-      _ => unimplemented!()
+      _ => panic!("unsupported RecordType: {:?}", rtype)
     }
   }
 
@@ -329,14 +329,14 @@ impl RData {
     match *self {
       RData::CNAME{ref cname} => rdata::cname::write_to(self, buf),
       RData::MX{ref preference,ref  exchange} => rdata::mx::write_to(self, buf),
-      // RData::NULL => rdata::null::write_to(self, buf),
+      RData::NULL{ref anything} => rdata::null::write_to(self, buf),
       RData::NS{ref nsdname} => rdata::ns::write_to(self, buf),
       RData::PTR{ref ptrdname} => rdata::ptr::write_to(self, buf),
       RData::SOA{ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum} => rdata::soa::write_to(self, buf),
       RData::TXT{ ref txt_data } => rdata::txt::write_to(self, buf),
       RData::A{ ref address } => rdata::a::write_to(self, buf),
       RData::AAAA{ ref address } => rdata::aaaa::write_to(self, buf),
-      _ => unimplemented!()
+      _ => panic!("unsupported RecordType: {:?}", self)
     }
   }
 }
@@ -352,7 +352,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::TXT{ref txt_data } => RecordType::TXT,
       RData::A{ref address } => RecordType::A,
       RData::AAAA{ref address } => RecordType::AAAA,
-      _ => unimplemented!()
+      _ => panic!("unsupported RecordType: {:?}", rdata)
     }
   }
 }
