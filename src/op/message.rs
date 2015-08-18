@@ -1,5 +1,6 @@
 use super::header::Header;
 use super::query::Query;
+use super::super::rr::resource::Record;
 
 /*
  * RFC 1035        Domain Implementation and Specification    November 1987
@@ -39,7 +40,7 @@ use super::query::Query;
  * question.
  */
 pub struct Message {
-  header: Header, queries: Vec<Query>, /*answer: Answer, authority: domain::Name, additional: Additional*/
+  header: Header, queries: Vec<Query>, answers: Vec<Record>, name_servers: Vec<Record>, additionals: Vec<Record>
 }
 
 impl Message {
@@ -47,19 +48,54 @@ impl Message {
     let header = Header::parse(data);
 
     // get the questions
-    let count: usize = header.getQueryCount() as usize;
+    let count = header.getQueryCount() as usize;
     let mut queries = Vec::with_capacity(count);
     for _ in 0 .. count {
       queries.push(Query::parse(data));
     }
 
-    // get the answers
-    // let count: usize = header.getAnswerCount() as usize;
-    // let mut answers = Vec::with_capacity(count);
-    // for _ in 0 .. count {
-    //   answers.push(Answer)
-    // }
+    // get all counts before header moves
+    let answer_count = header.getAnswerCount() as usize;
+    let name_server_count = header.getNameServerCount() as usize;
+    let additional_count = header.getAdditionalCount() as usize;
 
-    Message { header: header, queries: queries}
+    Message {
+      header: header,
+      queries: queries,
+      answers: Self::parse_records(data, answer_count),
+      name_servers: Self::parse_records(data, name_server_count),
+      additionals: Self::parse_records(data, additional_count),
+    }
+  }
+
+  fn parse_records(data: &mut Vec<u8>, count: usize) -> Vec<Record> {
+    let mut records: Vec<Record> = Vec::with_capacity(count);
+    for _ in 0 .. count {
+       records.push(Record::parse(data))
+    }
+    records
+  }
+
+  pub fn write_to(&self, buf: &mut Vec<u8>) {
+    self.header.write_to(buf);
+
+    assert_eq!(self.header.getQueryCount() as usize, self.queries.len());
+    assert_eq!(self.header.getAnswerCount() as usize, self.answers.len());
+    assert_eq!(self.header.getNameServerCount() as usize, self.name_servers.len());
+    assert_eq!(self.header.getAdditionalCount() as usize, self.additionals.len());
+
+    for q in &self.queries {
+      q.write_to(buf);
+    }
+
+    Self::write_records(buf, &self.answers);
+    Self::write_records(buf, &self.name_servers);
+    Self::write_records(buf, &self.additionals);
+  }
+
+  fn write_records(buf: &mut Vec<u8>, records: &Vec<Record>) {
+    for r in records {
+      r.write_to(buf);
+    }
   }
 }
