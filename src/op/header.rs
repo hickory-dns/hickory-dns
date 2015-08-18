@@ -88,7 +88,7 @@ pub struct Header {
   id: u16, message_type: MessageType, op_code: OpCode,
   authoritative: bool, truncation: bool, recursion_desired: bool, recursion_available: bool,
   response_code: ResponseCode,
-  query_count: u16, answer_count: u16, name_server_count: u16, additional_count: u16
+  query_count: u16, answer_count: u16, name_server_count: u16, additional_count: u16,
 }
 
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
@@ -97,12 +97,52 @@ pub enum MessageType {
 }
 
 impl Header {
+  /// A default Header, not very useful.
+  pub fn new() -> Self {
+    Header {
+      id: 0,
+      message_type: MessageType::Query,
+      op_code: OpCode::Query,
+      authoritative: false,
+      truncation: false,
+      recursion_desired: false,
+      recursion_available: false,
+      response_code: ResponseCode::NoError,
+      query_count: 0,
+      answer_count: 0,
+      name_server_count: 0,
+      additional_count: 0,
+    }
+  }
+
+  pub fn id(&mut self, id: u16) -> &mut Self { self.id = id; self }
+  pub fn message_type(&mut self, message_type: MessageType) -> &mut Self { self.message_type = message_type; self }
+  pub fn op_code(&mut self, op_code: OpCode) -> &mut Self { self.op_code = op_code; self }
+  pub fn authoritative(&mut self, authoritative: bool) -> &mut Self { self.authoritative = authoritative; self }
+  pub fn truncated(&mut self, truncated: bool) -> &mut Self { self.truncation = truncated; self }
+  pub fn recursion_desired(&mut self, recursion_desired: bool) -> &mut Self { self.recursion_desired = recursion_desired; self }
+  pub fn recursion_available(&mut self, recursion_available: bool) -> &mut Self {self.recursion_available = recursion_available; self }
+  pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.response_code = response_code; self }
+  pub fn query_count(&mut self, query_count: u16) -> &mut Self { self.query_count = query_count; self }
+  pub fn answer_count(&mut self, answer_count: u16) -> &mut Self { self.answer_count = answer_count; self }
+  pub fn name_server_count(&mut self, name_server_count: u16) -> &mut Self { self.name_server_count = name_server_count; self }
+  pub fn additional_count(&mut self, additional_count: u16) -> &mut Self { self.additional_count = additional_count; self }
+
+  /// This is a specialized clone which clones all the fields but the counts
+  ///  handy for setting the count fields before sending over the wire.
+  pub fn clone(&self, query_count: u16, answer_count: u16, name_server_count: u16, additional_count: u16) -> Self {
+    Header {
+      query_count: query_count, answer_count: answer_count, name_server_count: name_server_count,
+      additional_count: additional_count, .. *self
+    }
+  }
+
   pub fn parse(data: &mut Vec<u8>) -> Self {
     let id = util::parse_u16(data);
 
     let q_opcd_a_t_r = data.pop().unwrap(); // fail fast...
     // if the first bit is set
-    let message_type = if ((0x80 & q_opcd_a_t_r) == 0x80) { MessageType::Response } else { MessageType::Query };
+    let message_type = if (0x80 & q_opcd_a_t_r) == 0x80 { MessageType::Response } else { MessageType::Query };
     // the 4bit opcode, masked and then shifted right 3bits for the u8...
     let op_code: OpCode = ((0x78 & q_opcd_a_t_r) >> 3).into();
     let authoritative = (0x4 & q_opcd_a_t_r) == 0x4;
@@ -134,8 +174,7 @@ impl Header {
     util::write_u16_to(buf, self.id);
 
     // IsQuery, OpCode, Authoritative, Truncation, RecursionDesired
-    let mut q_opcd_a_t_r: u8 = 0;
-    q_opcd_a_t_r = if let MessageType::Response = self.message_type { 0x80 } else { 0x00 };
+    let mut q_opcd_a_t_r: u8 = if let MessageType::Response = self.message_type { 0x80 } else { 0x00 };
     q_opcd_a_t_r |= u8::from(self.op_code) << 3;
     q_opcd_a_t_r |= if self.authoritative { 0x4 } else { 0x0 };
     q_opcd_a_t_r |= if self.truncation { 0x2 } else { 0x0 };
@@ -143,8 +182,7 @@ impl Header {
     buf.push(q_opcd_a_t_r);
 
     // IsRecursionAvailable, Triple 0's, ResponseCode
-    let mut r_zzz_rcod: u8 = 0;
-    r_zzz_rcod = if self.recursion_available { 0x80 } else { 0x00 };
+    let mut r_zzz_rcod: u8 = if self.recursion_available { 0x80 } else { 0x00 };
     r_zzz_rcod |= u8::from(self.response_code);
     buf.push(r_zzz_rcod);
 
@@ -154,18 +192,18 @@ impl Header {
     util::write_u16_to(buf, self.additional_count);
   }
 
-  pub fn getId(&self) -> u16 { self.id }
-  pub fn getMessageType(&self) -> MessageType { self.message_type }
-  pub fn getOpCode(&self) -> OpCode { self.op_code }
-  pub fn isAuthoritative(&self) -> bool { self.authoritative }
-  pub fn isTruncated(&self) -> bool { self.truncation }
-  pub fn isRecursionDesired(&self) -> bool { self.recursion_desired }
-  pub fn isRecursionAvailable(&self) -> bool {self.recursion_available }
-  pub fn getResponseCode(&self) -> ResponseCode { self.response_code }
-  pub fn getQueryCount(&self) -> u16 { self.query_count }
-  pub fn getAnswerCount(&self) -> u16 { self.answer_count }
-  pub fn getNameServerCount(&self) -> u16 { self.name_server_count }
-  pub fn getAdditionalCount(&self) -> u16 { self.additional_count }
+  pub fn get_id(&self) -> u16 { self.id }
+  pub fn get_message_type(&self) -> MessageType { self.message_type }
+  pub fn get_op_code(&self) -> OpCode { self.op_code }
+  pub fn is_authoritative(&self) -> bool { self.authoritative }
+  pub fn is_truncated(&self) -> bool { self.truncation }
+  pub fn is_recursion_desired(&self) -> bool { self.recursion_desired }
+  pub fn is_recursion_available(&self) -> bool {self.recursion_available }
+  pub fn get_response_code(&self) -> ResponseCode { self.response_code }
+  pub fn get_query_count(&self) -> u16 { self.query_count }
+  pub fn get_answer_count(&self) -> u16 { self.answer_count }
+  pub fn get_name_server_count(&self) -> u16 { self.name_server_count }
+  pub fn get_additional_count(&self) -> u16 { self.additional_count }
 }
 
 #[test]

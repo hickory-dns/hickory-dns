@@ -87,30 +87,11 @@ impl Record {
     }
   }
 
-  pub fn add_name(&mut self, label: String) -> &mut Self {
-    self.name_labels.add_label(label);
-    self
-  }
-
-  pub fn rr_type(&mut self, rr_type: RecordType) -> &mut Self {
-    self.rr_type = rr_type;
-    self
-  }
-
-  pub fn dns_class(&mut self, dns_class: DNSClass) -> &mut Self {
-    self.dns_class = dns_class;
-    self
-  }
-
-  pub fn ttl(&mut self, ttl: i32) -> &mut Self {
-    self.ttl = ttl;
-    self
-  }
-
-  pub fn rdata(&mut self, rdata: RData) -> &mut Self {
-    self.rdata = rdata;
-    self
-  }
+  pub fn add_name(&mut self, label: String) -> &mut Self { self.name_labels.add_label(label); self }
+  pub fn rr_type(&mut self, rr_type: RecordType) -> &mut Self { self.rr_type = rr_type; self }
+  pub fn dns_class(&mut self, dns_class: DNSClass) -> &mut Self { self.dns_class = dns_class; self }
+  pub fn ttl(&mut self, ttl: i32) -> &mut Self { self.ttl = ttl; self }
+  pub fn rdata(&mut self, rdata: RData) -> &mut Self { self.rdata = rdata; self }
 
   /// parse a resource record line example:
   ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
@@ -185,11 +166,9 @@ mod tests {
   #[test]
   fn test_write_and_parse() {
     let mut record = Record::new();
-    record.add_name("www".to_string()).add_name("example".to_string()).add_name("com".to_string());
-    record.rr_type(RecordType::A);
-    record.dns_class(DNSClass::IN);
-    record.ttl(5);
-    record.rdata(RData::A { address: Ipv4Addr::new(192, 168, 0, 1)});
+    record.add_name("www".to_string()).add_name("example".to_string()).add_name("com".to_string())
+    .rr_type(RecordType::A).dns_class(DNSClass::IN).ttl(5)
+    .rdata(RData::A { address: Ipv4Addr::new(192, 168, 0, 1)});
 
     let mut buf: Vec<u8> = Vec::new();
     record.write_to(&mut buf);

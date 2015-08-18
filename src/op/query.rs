@@ -46,6 +46,16 @@ pub struct Query {
 }
 
 impl Query {
+  /// return a default query with an empty name and ANY, ANY for the query_type and query_class
+  pub fn new() -> Self {
+    Query { name: Name::new(), query_type: RecordType::ANY, query_class: DNSClass::ANY }
+  }
+
+  /// replaces name with the new name
+  pub fn name(&mut self, name: Name) -> &mut Self { self.name = name; self }
+  pub fn query_type(&mut self, query_type: RecordType) -> &mut Self { self.query_type = query_type; self }
+  pub fn query_class(&mut self, query_class: DNSClass) -> &mut Self { self.query_class = query_class; self }
+
   // TODO: these functions certainly seem like they could just be rustc::encodable
   pub fn parse(data: &mut Vec<u8>) -> Self {
     let name = Name::parse(data);

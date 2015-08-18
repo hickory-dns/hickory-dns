@@ -1,6 +1,9 @@
-use super::header::Header;
+use super::header::{MessageType, Header};
 use super::query::Query;
 use super::super::rr::resource::Record;
+use super::op_code::OpCode;
+use super::response_code::ResponseCode;
+use super::super::rr::domain::Name;
 
 /*
  * RFC 1035        Domain Implementation and Specification    November 1987
@@ -39,25 +42,43 @@ use super::super::rr::resource::Record;
  * which relate to the query, but are not strictly answers for the
  * question.
  */
+#[derive(Debug, PartialEq)]
 pub struct Message {
   header: Header, queries: Vec<Query>, answers: Vec<Record>, name_servers: Vec<Record>, additionals: Vec<Record>
 }
 
 impl Message {
+  pub fn new() -> Self {
+    Message { header: Header::new(), queries: Vec::new(), answers: Vec::new(), name_servers: Vec::new(), additionals: Vec::new() }
+  }
+
+  pub fn id(&mut self, id: u16) -> &mut Self { self.header.id(id); self }
+  pub fn message_type(&mut self, message_type: MessageType) -> &mut Self { self.header.message_type(message_type); self }
+  pub fn op_code(&mut self, op_code: OpCode) -> &mut Self { self.header.op_code(op_code); self }
+  pub fn authoritative(&mut self, authoritative: bool) -> &mut Self { self.header.authoritative(authoritative); self }
+  pub fn truncated(&mut self, truncated: bool) -> &mut Self { self.header.truncated(truncated); self }
+  pub fn recursion_desired(&mut self, recursion_desired: bool) -> &mut Self { self.header.recursion_desired(recursion_desired); self }
+  pub fn recursion_available(&mut self, recursion_available: bool) -> &mut Self {self.header.recursion_available(recursion_available); self }
+  pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.header.response_code(response_code); self }
+  pub fn add_query(&mut self, query: Query) -> &mut Self { self.queries.push(query); self }
+  pub fn add_answer(&mut self, record: Record) -> &mut Self { self.answers.push(record); self }
+  pub fn add_name_server(&mut self, record: Record) -> &mut Self { self.name_servers.push(record); self }
+  pub fn add_additional(&mut self, record: Record) -> &mut Self { self.additionals.push(record); self }
+
   pub fn parse(data: &mut Vec<u8>) -> Self {
     let header = Header::parse(data);
 
     // get the questions
-    let count = header.getQueryCount() as usize;
+    let count = header.get_query_count() as usize;
     let mut queries = Vec::with_capacity(count);
     for _ in 0 .. count {
       queries.push(Query::parse(data));
     }
 
     // get all counts before header moves
-    let answer_count = header.getAnswerCount() as usize;
-    let name_server_count = header.getNameServerCount() as usize;
-    let additional_count = header.getAdditionalCount() as usize;
+    let answer_count = header.get_answer_count() as usize;
+    let name_server_count = header.get_name_server_count() as usize;
+    let additional_count = header.get_additional_count() as usize;
 
     Message {
       header: header,
@@ -77,12 +98,24 @@ impl Message {
   }
 
   pub fn write_to(&self, buf: &mut Vec<u8>) {
-    self.header.write_to(buf);
+    assert!(self.queries.len() <= u16::max_value() as usize);
+    assert!(self.answers.len() <= u16::max_value() as usize);
+    assert!(self.name_servers.len() <= u16::max_value() as usize);
+    assert!(self.additionals.len() <= u16::max_value() as usize);
 
-    assert_eq!(self.header.getQueryCount() as usize, self.queries.len());
-    assert_eq!(self.header.getAnswerCount() as usize, self.answers.len());
-    assert_eq!(self.header.getNameServerCount() as usize, self.name_servers.len());
-    assert_eq!(self.header.getAdditionalCount() as usize, self.additionals.len());
+    // clone the header to set the counts lazily
+    self.header.clone(
+      self.queries.len() as u16,
+      self.answers.len() as u16,
+      self.name_servers.len() as u16,
+      self.additionals.len() as u16).write_to(buf);
+
+    // self.header.write_to(buf);
+    //
+    // assert_eq!(self.header.getQueryCount() as usize, self.queries.len());
+    // assert_eq!(self.header.getAnswerCount() as usize, self.answers.len());
+    // assert_eq!(self.header.getNameServerCount() as usize, self.name_servers.len());
+    // assert_eq!(self.header.getAdditionalCount() as usize, self.additionals.len());
 
     for q in &self.queries {
       q.write_to(buf);
@@ -98,4 +131,57 @@ impl Message {
       r.write_to(buf);
     }
   }
+}
+
+#[test]
+fn test_write_and_parse_header() {
+  let mut message = Message::new();
+  message.id(10).message_type(MessageType::Response).op_code(OpCode::Update).
+    authoritative(true).truncated(true).recursion_desired(true).recursion_available(true).
+    response_code(ResponseCode::ServFail);
+
+  let mut buf: Vec<u8> = Vec::new();
+  message.write_to(&mut buf);
+
+  buf.reverse();
+  let got = Message::parse(&mut buf);
+
+  assert_eq!(got, message);
+}
+
+#[test]
+fn test_write_and_parse_query() {
+  let mut message = Message::new();
+  message.id(10).message_type(MessageType::Response).op_code(OpCode::Update).
+    authoritative(true).truncated(true).recursion_desired(true).recursion_available(true).
+    response_code(ResponseCode::ServFail).add_query(Query::new()); // we're not testing the query parsing, just message
+
+  let mut buf: Vec<u8> = Vec::new();
+  message.write_to(&mut buf);
+
+  buf.reverse();
+  let got = Message::parse(&mut buf);
+
+  assert_eq!(got, message);
+}
+
+#[test]
+fn test_write_and_parse_records() {
+  let mut message = Message::new();
+  message.id(10).message_type(MessageType::Response).op_code(OpCode::Update).
+    authoritative(true).truncated(true).recursion_desired(true).recursion_available(true).
+    response_code(ResponseCode::ServFail);
+
+  message.add_answer(Record::new());
+  message.add_name_server(Record::new());
+  message.add_additional(Record::new());
+
+
+  let mut buf: Vec<u8> = Vec::new();
+  message.write_to(&mut buf);
+
+  buf.reverse();
+  let got = Message::parse(&mut buf);
+
+  assert_eq!(got, message);
 }
