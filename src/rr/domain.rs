@@ -3,7 +3,7 @@ use std::ops::Index;
 
 use super::util;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Name {
   labels: Vec<String>
 }

@@ -96,6 +96,13 @@ impl Record {
   pub fn ttl(&mut self, ttl: i32) -> &mut Self { self.ttl = ttl; self }
   pub fn rdata(&mut self, rdata: RData) -> &mut Self { self.rdata = rdata; self }
 
+  pub fn get_name(&self) -> &domain::Name { &self.name_labels }
+  pub fn get_rr_type(&self) -> RecordType { self.rr_type }
+  pub fn get_dns_class(&self) -> DNSClass { self.dns_class }
+  pub fn get_ttl(&self) -> i32 { self.ttl }
+  pub fn get_rdata(&self) -> &RData { &self.rdata }
+
+
   /// parse a resource record line example:
   ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
   pub fn parse(data: &mut Vec<u8>) -> Record {

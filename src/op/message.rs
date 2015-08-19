@@ -65,6 +65,20 @@ impl Message {
   pub fn add_name_server(&mut self, record: Record) -> &mut Self { self.name_servers.push(record); self }
   pub fn add_additional(&mut self, record: Record) -> &mut Self { self.additionals.push(record); self }
 
+  pub fn get_id(&self) -> u16 { self.header.get_id() }
+  pub fn get_message_type(&self) -> MessageType { self.header.get_message_type() }
+  pub fn get_op_code(&self) -> OpCode { self.header.get_op_code() }
+  pub fn is_authoritative(&self) -> bool { self.header.is_authoritative() }
+  pub fn is_truncated(&self) -> bool { self.header.is_truncated() }
+  pub fn is_recursion_desired(&self) -> bool { self.header.is_recursion_desired() }
+  pub fn is_recursion_available(&self) -> bool { self.header.is_recursion_available() }
+  pub fn get_response_code(&self) -> ResponseCode { self.header.get_response_code() }
+  pub fn get_queries(&self) -> &Vec<Query> { &self.queries }
+  pub fn get_answers(&self) -> &Vec<Record> { &self.answers }
+  pub fn get_name_servers(&self) -> &Vec<Record> { &self.name_servers }
+  pub fn get_additional(&self) -> &Vec<Record> { &self.additionals }
+
+
   /// this is necessary to match the counts in the header from the record sections
   ///  this happens implicitly on write_to, so no need to call before write_to
   pub fn update_counts(&mut self) -> &mut Self {

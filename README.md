@@ -1,5 +1,5 @@
 # trust-dns
-A Rust based DNS server
+A Rust based DNS client and server
 
 # Goals
 
@@ -21,6 +21,7 @@ All parsers complete.
 Todo: Serializers.
 Todo: Operations.
 
+- EDNS http://tools.ietf.org/html/rfc2671
 - Support DNS Update RFC 2136.
 - DNSSEC Resource Records RFC 4034
 - DNSSec protocol RFC 4035

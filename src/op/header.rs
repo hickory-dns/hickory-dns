@@ -128,6 +128,19 @@ impl Header {
   pub fn name_server_count(&mut self, name_server_count: u16) -> &mut Self { self.name_server_count = name_server_count; self }
   pub fn additional_count(&mut self, additional_count: u16) -> &mut Self { self.additional_count = additional_count; self }
 
+  pub fn get_id(&self) -> u16 { self.id }
+  pub fn get_message_type(&self) -> MessageType { self.message_type }
+  pub fn get_op_code(&self) -> OpCode { self.op_code }
+  pub fn is_authoritative(&self) -> bool { self.authoritative }
+  pub fn is_truncated(&self) -> bool { self.truncation }
+  pub fn is_recursion_desired(&self) -> bool { self.recursion_desired }
+  pub fn is_recursion_available(&self) -> bool {self.recursion_available }
+  pub fn get_response_code(&self) -> ResponseCode { self.response_code }
+  pub fn get_query_count(&self) -> u16 { self.query_count }
+  pub fn get_answer_count(&self) -> u16 { self.answer_count }
+  pub fn get_name_server_count(&self) -> u16 { self.name_server_count }
+  pub fn get_additional_count(&self) -> u16 { self.additional_count }
+
   /// This is a specialized clone which clones all the fields but the counts
   ///  handy for setting the count fields before sending over the wire.
   pub fn clone(&self, query_count: u16, answer_count: u16, name_server_count: u16, additional_count: u16) -> Self {
@@ -191,19 +204,6 @@ impl Header {
     util::write_u16_to(buf, self.name_server_count);
     util::write_u16_to(buf, self.additional_count);
   }
-
-  pub fn get_id(&self) -> u16 { self.id }
-  pub fn get_message_type(&self) -> MessageType { self.message_type }
-  pub fn get_op_code(&self) -> OpCode { self.op_code }
-  pub fn is_authoritative(&self) -> bool { self.authoritative }
-  pub fn is_truncated(&self) -> bool { self.truncation }
-  pub fn is_recursion_desired(&self) -> bool { self.recursion_desired }
-  pub fn is_recursion_available(&self) -> bool {self.recursion_available }
-  pub fn get_response_code(&self) -> ResponseCode { self.response_code }
-  pub fn get_query_count(&self) -> u16 { self.query_count }
-  pub fn get_answer_count(&self) -> u16 { self.answer_count }
-  pub fn get_name_server_count(&self) -> u16 { self.name_server_count }
-  pub fn get_additional_count(&self) -> u16 { self.additional_count }
 }
 
 #[test]

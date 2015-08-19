@@ -8,7 +8,7 @@ pub enum DNSClass {
   CH,          // 3 Chaos (CH)
   HS,          // 4 Hesiod (HS)
   NONE,        // 254 QCLASS NONE
-  ANY,         // 255 QCLASS * (ANY)
+//  ANY,         // 255 QCLASS * (ANY)
 }
 
 impl DNSClass {
@@ -42,7 +42,7 @@ impl From<DNSClass> for &'static str {
       DNSClass::CH => "CH",
       DNSClass::HS => "HS",
       DNSClass::NONE => "NONE",
-      DNSClass::ANY => "ANY",
+//      DNSClass::ANY => "ANY",
     }
   }
 }
@@ -66,8 +66,8 @@ impl<'a> From<&'a str> for DNSClass {
       "CH" => DNSClass::CH,
       "HS" => DNSClass::HS,
       "NONE" => DNSClass::NONE,
-      "ANY" => DNSClass::ANY,
-      "*" => DNSClass::ANY,
+//      "ANY" => DNSClass::ANY,
+//      "*" => DNSClass::ANY,
       _ => unimplemented!(),
     }
   }
@@ -92,7 +92,7 @@ impl From<DNSClass> for u16 {
       DNSClass::CH => 3,
       DNSClass::HS => 4,
       DNSClass::NONE => 254,
-      DNSClass::ANY => 255,
+//      DNSClass::ANY => 255,
     }
   }
 }
@@ -116,7 +116,7 @@ impl From<u16> for DNSClass {
       3 => DNSClass::CH,
       4 => DNSClass::HS,
       254 => DNSClass::NONE,
-      255 => DNSClass::ANY,
+//      255 => DNSClass::ANY,
       _ => unimplemented!(),
     }
   }
