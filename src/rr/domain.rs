@@ -54,9 +54,38 @@ impl BinSerializable for Name {
           // reset to collect more data
           LabelParseState::LabelLengthOrPointer
         },
+        //         4.1.4. Message compression
+        //
+        // In order to reduce the size of messages, the domain system utilizes a
+        // compression scheme which eliminates the repetition of domain names in a
+        // message.  In this scheme, an entire domain name or a list of labels at
+        // the end of a domain name is replaced with a pointer to a prior occurance
+        // of the same name.
+        //
+        // The pointer takes the form of a two octet sequence:
+        //
+        //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+        //     | 1  1|                OFFSET                   |
+        //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+        //
+        // The first two bits are ones.  This allows a pointer to be distinguished
+        // from a label, since the label must begin with two zero bits because
+        // labels are restricted to 63 octets or less.  (The 10 and 01 combinations
+        // are reserved for future use.)  The OFFSET field specifies an offset from
+        // the start of the message (i.e., the first octet of the ID field in the
+        // domain header).  A zero offset specifies the first byte of the ID field,
+        // etc.
         LabelParseState::Pointer => {
-          // lookup in the hashmap the label to use
-          unimplemented!()
+          let location = try!(decoder.read_u16()) & 0x3FFF; // get rid of the two high order bits
+          let mut pointer = decoder.clone(location);
+          let pointed = try!(Name::read(&mut pointer));
+
+          for l in pointed.labels {
+            labels.push(l);
+          }
+
+          // Pointers always finish the name, break like Root.
+          break;
         },
         LabelParseState::Root => {
           // need to pop() the 0 off the stack...
@@ -66,10 +95,13 @@ impl BinSerializable for Name {
       }
     }
 
+    println!("found name: {:?}", labels);
+
     Ok(Name { labels: labels })
   }
 
   fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+
     let buf_len = encoder.len(); // lazily assert the size is less than 255...
     for label in &self.labels {
       let label_len = encoder.len();

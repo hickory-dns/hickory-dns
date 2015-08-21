@@ -48,6 +48,17 @@ impl BinDecoder {
     }
   }
 
+  /// this makes a new copy of the underlying segment of the array, need a better way...
+  /// TODO: change this to a internal reference to make this faster and use less memory
+  pub fn clone(&self, index_at: u16) -> BinDecoder {
+    BinDecoder {
+      buffer: self.buffer.clone(),
+      index: index_at as usize,
+      record_type: self.record_type,
+      rdata_length: self.rdata_length,
+    }
+  }
+
   ///<character-string> is a single
   /// length octet followed by that number of characters.  <character-string>
   /// is treated as binary information, and can be up to 256 characters in

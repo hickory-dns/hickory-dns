@@ -202,3 +202,30 @@ fn test_emit_and_read(message: Message) {
 
   assert_eq!(got, message);
 }
+
+#[test]
+fn test_legit_message() {
+  let buf: Vec<u8> = vec![
+  0x10,0x00,0x81,0x80, // id = 4096, response, op=query, recursion_desired, recursion_available, no_error
+  0x00,0x01,0x00,0x01, // 1 query, 1 answer,
+  0x00,0x00,0x00,0x00, // 0 namesservers, 1 additional record
+
+  0x03,b'w',b'w',b'w', // query --- www.example.com
+  0x07,b'e',b'x',b'a', //
+  b'm',b'p',b'l',b'e', //
+  0x03,b'c',b'o',b'm', //
+  0x00,                // 0 = endname
+  0x00,0x01,0x00,0x01, // ReordType = A, Class = IN
+
+  0xC0,0x0C,           // name pointer to www.example.com
+  0x00,0x01,0x00,0x01, // RecordType = A, Class = IN
+  0x00,0x00,0x00,0x02, // TTL = 2 seconds
+  0x00,0x04,           // record length = 4 (ipv4 address)
+  0x5D,0xB8,0xD8,0x22, // address = 93.184.216.34
+  ];
+
+  let mut decoder = BinDecoder::new(buf);
+  let message = Message::read(&mut decoder).unwrap();
+
+  assert_eq!(message.get_id(), 4096);
+}

@@ -88,9 +88,15 @@ impl Client {
     let mut buf = [0u8; 4096];
     let (bytes_recv, _) = try!(self.socket.recv_from(&mut buf));
 
+    // for i in 0..bytes_recv {
+    //   println!("{:02X}", buf[i]);
+    // }
+
     // TODO change parsers to use Read or something else, so that we don't need to copy here.
     let resp_bytes = buf[..bytes_recv].to_vec();
     //resp_bytes.truncate(bytes_recv);
+
+
 
     // TODO, this could probably just be a reference to the slice rather than an owned Vec
     let mut decoder = BinDecoder::new(resp_bytes);
@@ -105,5 +111,31 @@ impl Client {
     let id = self.next_id.get();
     self.next_id.set(id + 1);
     id
+  }
+}
+
+#[test]
+fn test_query() {
+  use std::net::*;
+
+  use ::rr::dns_class::DNSClass;
+  use ::rr::record_type::RecordType;
+  use ::rr::domain;
+  use ::rr::record_data::RData;
+  use ::udp::client::Client;
+
+  let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+  let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
+  let response = client.query(name.clone(), DNSClass::IN, RecordType::A).unwrap();
+
+  let record = &response.get_answers()[0];
+  assert_eq!(record.get_name(), &name);
+  assert_eq!(record.get_rr_type(), RecordType::A);
+  assert_eq!(record.get_dns_class(), DNSClass::IN);
+
+  if let &RData::A{ ref address } = record.get_rdata() {
+    assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+  } else {
+    assert!(false);
   }
 }
