@@ -1,8 +1,9 @@
 use std::convert::From;
 
+use ::serialize::binary::*;
+use ::error::*;
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
-use super::super::rr::util;
 
 /*
  * RFC 1035        Domain Implementation and Specification    November 1987
@@ -149,11 +150,13 @@ impl Header {
       additional_count: additional_count, .. *self
     }
   }
+}
 
-  pub fn parse(data: &mut Vec<u8>) -> Self {
-    let id = util::parse_u16(data);
+impl BinSerializable for Header {
+  fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    let id = try!(decoder.read_u16());
 
-    let q_opcd_a_t_r = data.pop().unwrap(); // fail fast...
+    let q_opcd_a_t_r = try!(decoder.pop());
     // if the first bit is set
     let message_type = if (0x80 & q_opcd_a_t_r) == 0x80 { MessageType::Response } else { MessageType::Query };
     // the 4bit opcode, masked and then shifted right 3bits for the u8...
@@ -162,29 +165,30 @@ impl Header {
     let truncation = (0x2 & q_opcd_a_t_r) == 0x2;
     let recursion_desired = (0x1 & q_opcd_a_t_r) == 0x1;
 
-    let r_zzz_rcod = data.pop().unwrap(); // fail fast...
+    let r_zzz_rcod = try!(decoder.pop()); // fail fast...
     let recursion_available = (0x80 & r_zzz_rcod) == 0x80;
     // TODO the > 16 codes in ResponseCode come from somewhere, (zzz?) need to better understand RFC
     let response_code: ResponseCode = (0x7 & r_zzz_rcod).into();
-    let query_count = util::parse_u16(data);
-    let answer_count = util::parse_u16(data);
-    let name_server_count = util::parse_u16(data);
-    let additional_count = util::parse_u16(data);
+
+    let query_count = try!(decoder.read_u16());
+    let answer_count = try!(decoder.read_u16());
+    let name_server_count = try!(decoder.read_u16());
+    let additional_count = try!(decoder.read_u16());
 
     // TODO: question, should this use the builder pattern instead? might be cleaner code, but
-    //  this guarantees that the Header is
-    Header { id: id, message_type: message_type, op_code: op_code, authoritative: authoritative,
+    //  this guarantees that the Header is fully instantiated with all values...
+    Ok(Header { id: id, message_type: message_type, op_code: op_code, authoritative: authoritative,
              truncation: truncation, recursion_desired: recursion_desired,
              recursion_available: recursion_available, response_code: response_code,
              query_count: query_count, answer_count: answer_count,
-             name_server_count: name_server_count, additional_count: additional_count }
+             name_server_count: name_server_count, additional_count: additional_count })
   }
 
-  pub fn write_to(&self, buf: &mut Vec<u8>) {
-    buf.reserve(12); // the 12 bytes for the following fields;
+  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    encoder.reserve(12); // the 12 bytes for the following fields;
 
     // Id
-    util::write_u16_to(buf, self.id);
+    try!(encoder.emit_u16(self.id));
 
     // IsQuery, OpCode, Authoritative, Truncation, RecursionDesired
     let mut q_opcd_a_t_r: u8 = if let MessageType::Response = self.message_type { 0x80 } else { 0x00 };
@@ -192,37 +196,38 @@ impl Header {
     q_opcd_a_t_r |= if self.authoritative { 0x4 } else { 0x0 };
     q_opcd_a_t_r |= if self.truncation { 0x2 } else { 0x0 };
     q_opcd_a_t_r |= if self.recursion_desired { 0x1 } else { 0x0 };
-    buf.push(q_opcd_a_t_r);
+    try!(encoder.emit(q_opcd_a_t_r));
 
     // IsRecursionAvailable, Triple 0's, ResponseCode
     let mut r_zzz_rcod: u8 = if self.recursion_available { 0x80 } else { 0x00 };
     r_zzz_rcod |= u8::from(self.response_code);
-    buf.push(r_zzz_rcod);
+    try!(encoder.emit(r_zzz_rcod));
 
-    util::write_u16_to(buf, self.query_count);
-    util::write_u16_to(buf, self.answer_count);
-    util::write_u16_to(buf, self.name_server_count);
-    util::write_u16_to(buf, self.additional_count);
+    try!(encoder.emit_u16(self.query_count));
+    try!(encoder.emit_u16(self.answer_count));
+    try!(encoder.emit_u16(self.name_server_count));
+    try!(encoder.emit_u16(self.additional_count));
+
+    Ok(())
   }
 }
 
 #[test]
 fn test_parse() {
-  let mut data: Vec<u8> = vec![0x01, 0x10,
-                               0xAA, 0x83, // 0b1010 1010 1000 0011
-                               0x88, 0x77,
-                               0x66, 0x55,
-                               0x44, 0x33,
-                               0x22, 0x11];
-
-  data.reverse();
+  let mut decoder = BinDecoder::new(vec![
+    0x01, 0x10,
+    0xAA, 0x83, // 0b1010 1010 1000 0011
+    0x88, 0x77,
+    0x66, 0x55,
+    0x44, 0x33,
+    0x22, 0x11]);
 
   let expect = Header { id: 0x0110, message_type: MessageType::Response, op_code: OpCode::Update,
     authoritative: false, truncation: true, recursion_desired: false,
     recursion_available: true, response_code: ResponseCode::NXDomain,
     query_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
 
-  let got = Header::parse(&mut data);
+  let got = Header::read(&mut decoder).unwrap();
 
   assert_eq!(got, expect);
 }
@@ -241,8 +246,8 @@ fn test_write() {
                              0x44, 0x33,
                              0x22, 0x11];
 
-  let mut got: Vec<u8> = Vec::with_capacity(expect.len());
-  header.write_to(&mut got);
+  let mut encoder = BinEncoder::new();
+  header.emit(&mut encoder).unwrap();
 
-  assert_eq!(got, expect);
+  assert_eq!(encoder.as_bytes(), expect);
 }

@@ -1,7 +1,7 @@
-use std::string::FromUtf8Error;
 use std::ops::Index;
 
-use super::util;
+use ::serialize::binary::*;
+use ::error::*;
 
 #[derive(Debug, PartialEq, Clone)]
 pub struct Name {
@@ -21,12 +21,14 @@ impl Name {
     self.labels.push(label);
     self
   }
+}
 
+impl BinSerializable for Name {
   /// parses the chain of labels
   ///  this has a max of 255 octets, with each label being less than 63.
   ///  all names will be stored lowercase internally.
   /// This will consume the portions of the Vec which it is reading...
-  pub fn parse(slice: &mut Vec<u8>) -> Name {
+  fn read(decoder: &mut BinDecoder) -> DecodeResult<Name> {
     let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
     let mut labels: Vec<String> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
 
@@ -39,15 +41,15 @@ impl Name {
       state = match state {
         LabelParseState::LabelLengthOrPointer => {
           // determine what the next label is
-          match slice.last() {
-            Some(&0) | None => LabelParseState::Root,
-            Some(&byte) if byte & 0xC0 == 0xC0 => LabelParseState::Pointer,
-            Some(&byte) if byte <= 0x3F        => LabelParseState::Label,
+          match decoder.peek() {
+            Some(0) | None => LabelParseState::Root,
+            Some(byte) if byte & 0xC0 == 0xC0 => LabelParseState::Pointer,
+            Some(byte) if byte <= 0x3F        => LabelParseState::Label,
             _ => unimplemented!(),
           }
         },
         LabelParseState::Label => {
-          labels.push(util::parse_character_data(slice));
+          labels.push(try!(decoder.read_character_data()));
 
           // reset to collect more data
           LabelParseState::LabelLengthOrPointer
@@ -58,25 +60,34 @@ impl Name {
         },
         LabelParseState::Root => {
           // need to pop() the 0 off the stack...
-          slice.pop();
+          try!(decoder.pop());
           break;
         }
       }
     }
 
-    Name { labels: labels }
+    Ok(Name { labels: labels })
   }
 
-  pub fn write_to(&self, buf: &mut Vec<u8>) {
-    let buf_len = buf.len(); // lazily assert the size is less than 255...
+  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    let buf_len = encoder.len(); // lazily assert the size is less than 255...
     for label in &self.labels {
-      util::write_character_data_to(buf, label);
-      assert!((buf.len() - buf_len) <= 63); // individual labels must be shorter than 63.
+      let label_len = encoder.len();
+      try!(encoder.emit_character_data(label));
+
+      // individual labels must be shorter than 63.
+      let length = encoder.len() - label_len;
+      if length > 63 { return Err(EncodeError::LabelBytesTooLong(length)); }
     }
 
     // the end of the list of names
-    buf.push(0);
-    assert!((buf.len() - buf_len) <= 255); // the entire name needs to be less than 256.
+    try!(encoder.emit(0));
+
+     // the entire name needs to be less than 256.
+    let length = encoder.len() - buf_len;
+    if length > 255 { return Err(EncodeError::DomainNameTooLong(length)); }
+
+    Ok(())
   }
 }
 
@@ -99,7 +110,8 @@ enum LabelParseState {
 #[cfg(test)]
 mod tests {
   use super::*;
-  use super::super::util::tests::{test_parse_data_set, test_write_data_set_to};
+  use ::serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
+  use ::serialize::binary::*;
 
   fn get_data() -> Vec<(Name, Vec<u8>)> {
     vec![
@@ -112,11 +124,11 @@ mod tests {
 
   #[test]
   fn parse() {
-    test_parse_data_set(get_data(), |b| Name::parse(b));
+    test_read_data_set(get_data(), |ref mut d| Name::read(d));
   }
 
   #[test]
   fn write_to() {
-    test_write_data_set_to(get_data(), |b, n| n.write_to(b));
+    test_emit_data_set(get_data(), |e, n| n.emit(e));
   }
 }

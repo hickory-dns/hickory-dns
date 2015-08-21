@@ -1,6 +1,9 @@
-use super::super::rr::domain::Name;
-use super::super::rr::record_type::RecordType;
-use super::super::rr::dns_class::DNSClass;
+use ::rr::domain::Name;
+use ::rr::record_type::RecordType;
+use ::rr::dns_class::DNSClass;
+use ::serialize::binary::*;
+use ::error::*;
+
 
 /*
  * RFC 1035        Domain Implementation and Specification    November 1987
@@ -55,32 +58,35 @@ impl Query {
   pub fn name(&mut self, name: Name) -> &mut Self { self.name = name; self }
   pub fn query_type(&mut self, query_type: RecordType) -> &mut Self { self.query_type = query_type; self }
   pub fn query_class(&mut self, query_class: DNSClass) -> &mut Self { self.query_class = query_class; self }
+}
 
-  // TODO: these functions certainly seem like they could just be rustc::encodable
-  pub fn parse(data: &mut Vec<u8>) -> Self {
-    let name = Name::parse(data);
-    let query_type = RecordType::parse(data);
-    let query_class = DNSClass::parse(data);
+impl BinSerializable for Query {
+  fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    let name = try!(Name::read(decoder));
+    let query_type = try!(RecordType::read(decoder));
+    let query_class = try!(DNSClass::read(decoder));
 
-    Query { name: name, query_type: query_type, query_class: query_class}
+    Ok(Query { name: name, query_type: query_type, query_class: query_class})
   }
 
-  pub fn write_to(&self, buf: &mut Vec<u8>) {
-    self.name.write_to(buf);
-    self.query_type.write_to(buf);
-    self.query_class.write_to(buf);
+  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    try!(self.name.emit(encoder));
+    try!(self.query_type.emit(encoder));
+    try!(self.query_class.emit(encoder));
+
+    Ok(())
   }
 }
 
 #[test]
-fn test_parse_and_write() {
+fn test_read_and_emit() {
   let expect = Query { name: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
                        query_type: RecordType::AAAA, query_class: DNSClass::IN };
 
-  let mut written = Vec::new();
-  expect.write_to(&mut written);
-  written.reverse(); // flip it around to read in...
+  let mut encoder = BinEncoder::new();
+  expect.emit(&mut encoder).unwrap();
 
-  let got = Query::parse(&mut written);
+  let mut decoder = BinDecoder::new(encoder.as_bytes());
+  let got = Query::read(&mut decoder).unwrap();
   assert_eq!(got, expect);
 }

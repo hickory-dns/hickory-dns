@@ -1,15 +1,15 @@
 use std::net::*; // we need almost everything in here...
 use std::cell::Cell;
-use std::io;
 
-use super::super::rr::resource::Record;
-use super::super::rr::dns_class::DNSClass;
-use super::super::rr::record_type::RecordType;
-use super::super::rr::domain;
-use super::super::op::message::Message;
-use super::super::op::header::{Header, MessageType};
-use super::super::op::op_code::OpCode;
-use super::super::op::query::Query;
+use ::error::*;
+use ::rr::dns_class::DNSClass;
+use ::rr::record_type::RecordType;
+use ::rr::domain;
+use ::op::message::Message;
+use ::op::header::MessageType;
+use ::op::op_code::OpCode;
+use ::op::query::Query;
+use ::serialize::binary::*;
 
 pub struct Client {
   socket: UdpSocket,
@@ -19,12 +19,12 @@ pub struct Client {
 
 impl Client {
   /// name_server to connect to with default port 53
-  pub fn new(name_server: Ipv4Addr) -> io::Result<Client> {
+  pub fn new(name_server: Ipv4Addr) -> ClientResult<Client> {
     Self::with_port(name_server, 53)
   }
 
   /// name_server to connect to, port is the port number that server is listening on (default 53)
-  pub fn with_port(name_server: Ipv4Addr, port: u16) -> io::Result<Client> {
+  pub fn with_port(name_server: Ipv4Addr, port: u16) -> ClientResult<Client> {
     // client binds to all addresses...
     // TODO when the socket_opts interfaces stabilize, need to add timeouts, ttl, etc.
     let socket = try!(UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::new(0,0,0,0),0)));
@@ -58,10 +58,11 @@ impl Client {
   /// }
   ///
   /// ```
-  pub fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType) -> Result<Message, ()> {
+  pub fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
     // build the message
     let mut message: Message = Message::new();
     let id = self.next_id();
+    // TODO make recursion a parameter
     message.id(id).message_type(MessageType::Query).op_code(OpCode::Query).recursion_desired(true);
 
     // add the query
@@ -70,13 +71,14 @@ impl Client {
     message.add_query(query);
 
     // get the message bytes and send the query
-    let mut buf: Vec<u8> = Vec::new();
-    message.write_to(&mut buf);
+    let mut encoder = BinEncoder::new();
+    try!(message.emit(&mut encoder));
 
     // TODO proper error handling
     // TODO when the socket_opts interfaces stabilize, need to add timeouts, ttl, etc.
-    let bytes_sent = self.socket.send_to(&buf, self.name_server).unwrap();
-    assert_eq!(bytes_sent, buf.len()); // TODO, proper error...
+    let bytes = encoder.as_bytes();
+    let bytes_sent = try!(self.socket.send_to(&bytes, self.name_server));
+    if bytes_sent != bytes.len() { return Err(ClientError::NotAllBytesSent{sent: bytes_sent, expect: bytes.len()}); }
 
     //----------------------------
     // now listen for the response
@@ -84,15 +86,18 @@ impl Client {
 
     // the max buffer size we'll except is 4k
     let mut buf = [0u8; 4096];
-    let (bytes_recv, remote) = self.socket.recv_from(&mut buf).unwrap();
+    let (bytes_recv, _) = try!(self.socket.recv_from(&mut buf));
 
     // TODO change parsers to use Read or something else, so that we don't need to copy here.
-    let mut resp_bytes = buf.to_vec();
-    resp_bytes.truncate(bytes_recv);
-    resp_bytes.reverse();
-    let response = Message::parse(&mut resp_bytes);    // TODO, change all parses to return Results...
+    let resp_bytes = buf[..bytes_recv].to_vec();
+    //resp_bytes.truncate(bytes_recv);
 
-    assert_eq!(response.get_id(), id); // TODO, better error...
+    // TODO, this could probably just be a reference to the slice rather than an owned Vec
+    let mut decoder = BinDecoder::new(resp_bytes);
+    let response = try!(Message::read(&mut decoder));    // TODO, change all parses to return Results...
+
+    if response.get_id() != id { return Err(ClientError::IncorrectMessageId{ got: response.get_id(), expect: id }); }
+
     Ok(response)
   }
 

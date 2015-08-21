@@ -1,7 +1,9 @@
 use std::net::Ipv6Addr;
 
-use super::super::record_data::RData;
-use super::super::util;
+use ::serialize::binary::*;
+use ::error::*;
+use ::rr::record_data::RData;
+
 //-- RFC 1886 -- IPv6 DNS Extensions              December 1995
 
 // 2.2 AAAA data format
@@ -10,31 +12,32 @@ use super::super::util;
 //    resource record in network byte order (high-order byte first).
 //
 // AAAA { address: Ipv6Addr }
-pub fn parse(data: &mut Vec<u8>) -> RData {
-  let a: u16 = util::parse_u16(data);
-  let b: u16 = util::parse_u16(data);
-  let c: u16 = util::parse_u16(data);
-  let d: u16 = util::parse_u16(data);
-  let e: u16 = util::parse_u16(data);
-  let f: u16 = util::parse_u16(data);
-  let g: u16 = util::parse_u16(data);
-  let h: u16 = util::parse_u16(data);
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+  let a: u16 = try!(decoder.read_u16());
+  let b: u16 = try!(decoder.read_u16());
+  let c: u16 = try!(decoder.read_u16());
+  let d: u16 = try!(decoder.read_u16());
+  let e: u16 = try!(decoder.read_u16());
+  let f: u16 = try!(decoder.read_u16());
+  let g: u16 = try!(decoder.read_u16());
+  let h: u16 = try!(decoder.read_u16());
 
-  RData::AAAA{ address: Ipv6Addr::new(a,b,c,d,e,f,g,h)}
+  Ok(RData::AAAA{ address: Ipv6Addr::new(a,b,c,d,e,f,g,h)})
 }
 
-pub fn write_to(aaaa: &RData, buf: &mut Vec<u8>) {
+pub fn emit(encoder: &mut BinEncoder, aaaa: &RData) -> EncodeResult {
   if let RData::AAAA { address } = *aaaa {
     let segments = address.segments();
 
-    util::write_u16_to(buf, segments[0]);
-    util::write_u16_to(buf, segments[1]);
-    util::write_u16_to(buf, segments[2]);
-    util::write_u16_to(buf, segments[3]);
-    util::write_u16_to(buf, segments[4]);
-    util::write_u16_to(buf, segments[5]);
-    util::write_u16_to(buf, segments[6]);
-    util::write_u16_to(buf, segments[7]);
+    try!(encoder.emit_u16(segments[0]));
+    try!(encoder.emit_u16(segments[1]));
+    try!(encoder.emit_u16(segments[2]));
+    try!(encoder.emit_u16(segments[3]));
+    try!(encoder.emit_u16(segments[4]));
+    try!(encoder.emit_u16(segments[5]));
+    try!(encoder.emit_u16(segments[6]));
+    try!(encoder.emit_u16(segments[7]));
+    Ok(())
   } else {
     panic!("wrong type here {:?}", aaaa)
   }
@@ -47,8 +50,8 @@ mod tests {
   use std::str::FromStr;
 
   use super::*;
-  use super::super::super::record_data::RData;
-  use super::super::super::util::tests::{test_parse_data_set, test_write_data_set_to};
+  use ::rr::record_data::RData;
+  use ::serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
 
   fn get_data() -> Vec<(RData, Vec<u8>)> {
     vec![
@@ -67,12 +70,12 @@ mod tests {
   }
 
   #[test]
-  fn test_parse() {
-    test_parse_data_set(get_data(), |b| parse(b));
+  fn test_read() {
+    test_read_data_set(get_data(), |ref mut d| read(d));
   }
 
   #[test]
-  fn test_write_to() {
-    test_write_data_set_to(get_data(), |b,d| write_to(&d,b));
+  fn test_emit() {
+    test_emit_data_set(get_data(), |e,d| emit(e,&d));
   }
 }

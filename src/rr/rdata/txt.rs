@@ -1,7 +1,6 @@
-use std::string::FromUtf8Error;
-
-use super::super::record_data::RData;
-use super::super::util;
+use ::serialize::binary::*;
+use ::error::*;
+use ::rr::record_data::RData;
 
 // 3.3.14. TXT RDATA format
 //
@@ -17,21 +16,23 @@ use super::super::util;
 // depends on the domain where it is found.
 //
 // TXT { txt_data: Vec<String> }
-pub fn parse(data: &mut Vec<u8>, count: u16) -> RData {
-  let data_len = data.len();
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+  let length = try!(decoder.rdata_length().ok_or(DecodeError::NoRecordDataLength));
+  let data_len = decoder.len();
   let mut strings = Vec::with_capacity(1);
 
-  while data_len - data.len() < count as usize {
-    strings.push(util::parse_character_data(data));
+  while data_len - decoder.len() < length as usize {
+    strings.push(try!(decoder.read_character_data()));
   }
-  RData::TXT{ txt_data: strings }
+  Ok(RData::TXT{ txt_data: strings })
 }
 
-pub fn write_to(txt: &RData, buf: &mut Vec<u8>) {
+pub fn emit(encoder: &mut BinEncoder, txt: &RData) -> EncodeResult {
   if let RData::TXT { ref txt_data } = *txt {
     for s in txt_data {
-      util::write_character_data_to(buf, s);
+      try!(encoder.emit_character_data(s));
     }
+    Ok(())
   } else {
     panic!("wrong type here {:?}", txt);
   }

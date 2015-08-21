@@ -1,7 +1,8 @@
 use std::net::Ipv4Addr;
-use std::str::FromStr;
 
-use super::super::record_data::RData;
+use ::serialize::binary::*;
+use ::error::*;
+use ::rr::record_data::RData;
 
 // 3.4. Internet specific RRs
 //
@@ -24,31 +25,37 @@ use super::super::record_data::RData;
 // "10.2.0.52" or "192.0.5.6").
 //
 // A { address: Ipv4Addr }
-pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::A{ address: Ipv4Addr::new(data.pop().unwrap(), data.pop().unwrap(), data.pop().unwrap(), data.pop().unwrap()) }
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+  Ok(RData::A{ address: Ipv4Addr::new(
+    try!(decoder.pop()),
+    try!(decoder.pop()),
+    try!(decoder.pop()),
+    try!(decoder.pop()))
+    })
 }
 
-pub fn write_to(a: &RData, buf: &mut Vec<u8>) {
+pub fn emit(encoder: &mut BinEncoder, a: &RData) -> EncodeResult {
   if let RData::A { address } = *a {
     let segments = address.octets();
 
-    buf.push(segments[0]);
-    buf.push(segments[1]);
-    buf.push(segments[2]);
-    buf.push(segments[3]);
+    try!(encoder.emit(segments[0]));
+    try!(encoder.emit(segments[1]));
+    try!(encoder.emit(segments[2]));
+    try!(encoder.emit(segments[3]));
+    Ok(())
   } else {
     panic!("wrong type here {:?}", a)
   }
 }
 
 #[cfg(test)]
-mod tests {
+mod mytests {
   use std::net::Ipv4Addr;
   use std::str::FromStr;
 
   use super::*;
-  use super::super::super::record_data::RData;
-  use super::super::super::util::tests::{test_parse_data_set, test_write_data_set_to};
+  use ::rr::record_data::RData;
+  use ::serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
 
   fn get_data() -> Vec<(RData, Vec<u8>)> {
     vec![
@@ -64,11 +71,11 @@ mod tests {
 
   #[test]
   fn test_parse() {
-    test_parse_data_set(get_data(), |b| parse(b));
+    test_read_data_set(get_data(), |ref mut d| read(d));
   }
 
   #[test]
   fn test_write_to() {
-    test_write_data_set_to(get_data(), |b,d| write_to(&d,b));
+    test_emit_data_set(get_data(), |ref mut e, d| emit(e, &d));
   }
 }

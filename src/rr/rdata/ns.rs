@@ -1,5 +1,7 @@
-use super::super::record_data::RData;
-use super::super::domain::Name;
+use ::serialize::binary::*;
+use ::error::*;
+use ::rr::record_data::RData;
+use ::rr::domain::Name;
 
 // 3.3.11. NS RDATA format
 //
@@ -25,13 +27,14 @@ use super::super::domain::Name;
 // class information are normally queried using IN class protocols.
 //
 // NS { nsdname: Name },
-pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::NS{ nsdname: Name::parse(data) }
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+  Ok(RData::NS{ nsdname: try!(Name::read(decoder)) })
 }
 
-pub fn write_to(ns: &RData, buf: &mut Vec<u8>) {
+pub fn emit(encoder: &mut BinEncoder, ns: &RData) -> EncodeResult {
   if let RData::NS{ ref nsdname } = *ns {
-    nsdname.write_to(buf);
+    try!(nsdname.emit(encoder));
+    Ok(())
   } else {
     panic!("wrong type here {:?}", ns);
   }

@@ -1,6 +1,8 @@
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::convert::From;
 
+use ::error::*;
+use ::serialize::binary::*;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
@@ -310,32 +312,34 @@ pub enum RData {
   AAAA { address: Ipv6Addr },
 }
 
-impl RData {
-  pub fn parse(data: &mut Vec<u8>, rtype: RecordType, rd_length: u16) -> Self {
-    match rtype {
-      RecordType::CNAME => rdata::cname::parse(data),
-      RecordType::MX => rdata::mx::parse(data),
-      RecordType::NS => rdata::ns::parse(data),
-      RecordType::PTR => rdata::ptr::parse(data),
-      RecordType::SOA => rdata::soa::parse(data),
-      RecordType::TXT => rdata::txt::parse(data, rd_length),
-      RecordType::A => rdata::a::parse(data),
-      RecordType::AAAA => rdata::aaaa::parse(data),
-      _ => panic!("unsupported RecordType: {:?}", rtype)
+impl BinSerializable for RData {
+  // TODO, maybe move the rd_length into the BinDecoder
+  fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    match try!(decoder.record_type().ok_or(DecodeError::NoRecordDataType)) {
+      RecordType::CNAME => rdata::cname::read(decoder),
+      RecordType::MX => rdata::mx::read(decoder),
+      RecordType::NULL => rdata::null::read(decoder),
+      RecordType::NS => rdata::ns::read(decoder),
+      RecordType::PTR => rdata::ptr::read(decoder),
+      RecordType::SOA => rdata::soa::read(decoder),
+      RecordType::TXT => rdata::txt::read(decoder),
+      RecordType::A => rdata::a::read(decoder),
+      RecordType::AAAA => rdata::aaaa::read(decoder),
+      _ => panic!("unsupported RecordType: {:?}", decoder.record_type().unwrap()) // safe unwrap
     }
   }
 
-  pub fn write_to(&self, buf: &mut Vec<u8>) {
+  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     match *self {
-      RData::CNAME{ref cname} => rdata::cname::write_to(self, buf),
-      RData::MX{ref preference,ref  exchange} => rdata::mx::write_to(self, buf),
-      RData::NULL{ref anything} => rdata::null::write_to(self, buf),
-      RData::NS{ref nsdname} => rdata::ns::write_to(self, buf),
-      RData::PTR{ref ptrdname} => rdata::ptr::write_to(self, buf),
-      RData::SOA{ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum} => rdata::soa::write_to(self, buf),
-      RData::TXT{ ref txt_data } => rdata::txt::write_to(self, buf),
-      RData::A{ ref address } => rdata::a::write_to(self, buf),
-      RData::AAAA{ ref address } => rdata::aaaa::write_to(self, buf),
+      RData::CNAME{..} => rdata::cname::emit(encoder, self),
+      RData::MX{..} => rdata::mx::emit(encoder, self),
+      RData::NULL{..} => rdata::null::emit(encoder, self),
+      RData::NS{..} => rdata::ns::emit(encoder, self),
+      RData::PTR{..} => rdata::ptr::emit(encoder, self),
+      RData::SOA{..} => rdata::soa::emit(encoder, self),
+      RData::TXT{..} => rdata::txt::emit(encoder, self),
+      RData::A{..} => rdata::a::emit(encoder, self),
+      RData::AAAA{..} => rdata::aaaa::emit(encoder, self),
       _ => panic!("unsupported RecordType: {:?}", self)
     }
   }
@@ -344,14 +348,14 @@ impl RData {
 impl<'a> From<&'a RData> for RecordType {
   fn from(rdata: &'a RData) -> Self {
     match *rdata {
-      RData::CNAME{ref cname} => RecordType::CNAME,
-      RData::MX{ref preference,ref  exchange} => RecordType::MX,
-      RData::NS{ref nsdname} => RecordType::NS,
-      RData::PTR{ref ptrdname} => RecordType::PTR,
-      RData::SOA{ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum} => RecordType::SOA,
-      RData::TXT{ref txt_data } => RecordType::TXT,
-      RData::A{ref address } => RecordType::A,
-      RData::AAAA{ref address } => RecordType::AAAA,
+      RData::CNAME{..} => RecordType::CNAME,
+      RData::MX{..} => RecordType::MX,
+      RData::NS{..} => RecordType::NS,
+      RData::PTR{..} => RecordType::PTR,
+      RData::SOA{..} => RecordType::SOA,
+      RData::TXT{..} => RecordType::TXT,
+      RData::A{..} => RecordType::A,
+      RData::AAAA{..} => RecordType::AAAA,
       _ => panic!("unsupported RecordType: {:?}", rdata)
     }
   }
@@ -359,14 +363,14 @@ impl<'a> From<&'a RData> for RecordType {
 
 #[cfg(test)]
 mod tests {
-  use std::fmt::Debug;
   use std::net::Ipv6Addr;
   use std::net::Ipv4Addr;
   use std::str::FromStr;
 
   use super::*;
-  use super::super::util::tests::test_write_data_set_to;
-  use super::super::domain::Name;
+  use ::serialize::binary::*;
+  use ::serialize::binary::bin_tests::test_emit_data_set;
+  use ::rr::domain::Name;
 
   fn get_data() -> Vec<(RData, Vec<u8>)> {
     vec![
@@ -392,19 +396,23 @@ mod tests {
   }
 
   #[test]
-  fn test_parse() {
+  fn test_read() {
     let mut test_pass = 0;
-    for (expect, mut binary) in get_data() {
+    for (expect, binary) in get_data() {
       test_pass += 1;
       println!("test {}: {:?}", test_pass, binary);
-      binary.reverse();
       let length = binary.len() as u16; // pre exclusive borrow
-      assert_eq!(RData::parse(&mut binary, super::super::record_type::RecordType::from(&expect), length), expect);
+      let mut decoder = BinDecoder::new(binary);
+
+      decoder.set_rdata_length(length);
+      decoder.set_record_type(::rr::record_type::RecordType::from(&expect));
+
+      assert_eq!(RData::read(&mut decoder).unwrap(), expect);
     }
   }
 
   #[test]
   fn test_write_to() {
-    test_write_data_set_to(get_data(), |b,d| RData::write_to(&d,b));
+    test_emit_data_set(get_data(), |e,d| d.emit(e));
   }
 }

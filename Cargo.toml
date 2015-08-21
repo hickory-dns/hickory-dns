@@ -1,6 +1,31 @@
 [package]
 name = "trust-dns"
 version = "0.1.0"
-authors = ["Benjamin Fry <benjaminfry@mac.com>"]
+authors = ["Benjamin Fry <benjaminfry@me.com>"]
+
+# A short blurb about the package. This is not rendered in any format when
+# uploaded to crates.io (aka this is not markdown)
+description = "TRust-DNS is meant to be a drop in replacement for BIND9, and be a safe and secure DNS server and client"
+
+# These URLs point to more information about the repository
+# documentation = "..."
+# homepage = "..."
+repository = "https://github.com/bluejekyll/trust-dns"
+
+# This points to a file in the repository (relative to this Cargo.toml). The
+# contents of this file are stored and indexed in the registry.
+readme = "README.md"
+
+# This is a small list of keywords used to categorize and search for this
+# package.
+keywords = ["DNS", "dns", "host", "BIND", "dig", "named", "dnssec"]
+
+# This is a string description of the license for this package. Currently
+# crates.io will validate the license provided against a whitelist of known
+# license identifiers from http://spdx.org/licenses/. Multiple licenses can
+# be separated with a `/`
+license = "Apache-2.0"
 
 [dependencies]
+
+rustc-serialize = "^0.3.16"

@@ -1,6 +1,7 @@
-use super::super::record_data::RData;
-use super::super::util;
-use super::super::domain::Name;
+use ::serialize::binary::*;
+use ::error::*;
+use ::rr::record_data::RData;
+use ::rr::domain::Name;
 
 // 3.3.13. SOA RDATA format
 //
@@ -68,27 +69,28 @@ use super::super::domain::Name;
 // change the SOA RR with known semantics.
 //
 // SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
-pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::SOA{
-    mname:   Name::parse(data),
-    rname:   Name::parse(data),
-    serial:  util::parse_u32(data),
-    refresh: util::parse_i32(data),
-    retry:   util::parse_i32(data),
-    expire:  util::parse_i32(data),
-    minimum: util::parse_u32(data),
-  }
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+  Ok(RData::SOA{
+    mname:   try!(Name::read(decoder)),
+    rname:   try!(Name::read(decoder)),
+    serial:  try!(decoder.read_u32()),
+    refresh: try!(decoder.read_i32()),
+    retry:   try!(decoder.read_i32()),
+    expire:  try!(decoder.read_i32()),
+    minimum: try!(decoder.read_u32()),
+  })
 }
 
-pub fn write_to(soa: &RData, buf: &mut Vec<u8>) {
+pub fn emit(encoder: &mut BinEncoder, soa: &RData) -> EncodeResult {
   if let RData::SOA { ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum} = *soa {
-    mname.write_to(buf);
-    rname.write_to(buf);
-    util::write_u32_to(buf, *serial);
-    util::write_i32_to(buf, *refresh);
-    util::write_i32_to(buf, *retry);
-    util::write_i32_to(buf, *expire);
-    util::write_u32_to(buf, *minimum);
+    try!(mname.emit(encoder));
+    try!(rname.emit(encoder));
+    try!(encoder.emit_u32(*serial));
+    try!(encoder.emit_i32(*refresh));
+    try!(encoder.emit_i32(*retry));
+    try!(encoder.emit_i32(*expire));
+    try!(encoder.emit_u32(*minimum));
+    Ok(())
   } else {
     panic!("wrong type here {:?}", soa);
   }

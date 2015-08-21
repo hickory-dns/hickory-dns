@@ -1,5 +1,9 @@
 use std::convert::From;
-use super::util;
+
+use ::serialize::binary::*;
+use ::error::*;
+
+type FromResult = Result<RecordType, DecodeError>;
 
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 #[allow(dead_code)]
@@ -26,6 +30,7 @@ pub enum RecordType {
     MX,         //	15	RFC 1035[1]	Mail exchange record
   //  NAPTR,      //	35	RFC 3403	Naming Authority Pointer
     NS,         //	2	RFC 1035[1]	Name server record
+    NULL,         //	0	RFC 1035[1]	Null server record, for testing
   //  NSEC,       //	47	RFC 4034	Next-Secure record
   //  NSEC3,      //	50	RFC 5155	NSEC record version 3
   //  NSEC3PARAM, //	51	RFC 5155	NSEC3 parameters
@@ -48,12 +53,54 @@ pub enum RecordType {
 }
 
 impl RecordType {
-  pub fn parse(data: &mut Vec<u8>) -> Self {
-    util::parse_u16(data).into()
+  /// Convert from RecordType to &str
+  ///
+  /// ```
+  /// use trust_dns::rr::record_type::RecordType;
+  ///
+  /// let var: RecordType = RecordType::from_str("A").unwrap();
+  /// assert_eq!(RecordType::A, var);
+  /// ```
+  pub fn from_str(str: &str) -> DecodeResult<Self> {
+    match str {
+      "A" => Ok(RecordType::A),
+      "AAAA" => Ok(RecordType::AAAA),
+      "CNAME" => Ok(RecordType::CNAME),
+      "NULL" => Ok(RecordType::NULL),
+      "NS" => Ok(RecordType::NS),
+      "SOA" => Ok(RecordType::SOA),
+      _ => Err(DecodeError::UnknownRecordTypeStr(str.to_string())),
+    }
   }
 
-  pub fn write_to(&self, buf: &mut Vec<u8>) {
-    util::write_u16_to(buf, (*self).into());
+  /// Convert from RecordType to &str
+  ///
+  /// ```
+  /// use trust_dns::rr::record_type::RecordType;
+  ///
+  /// let var = RecordType::from_u16(1).unwrap();
+  /// assert_eq!(RecordType::A, var);
+  /// ```
+  pub fn from_u16(value: u16) -> DecodeResult<Self> {
+    match value {
+      1 => Ok(RecordType::A),
+      28 => Ok(RecordType::AAAA),
+      5 => Ok(RecordType::CNAME),
+      0 => Ok(RecordType::NULL),
+      2 => Ok(RecordType::NS),
+      6 => Ok(RecordType::SOA),
+      _ => Err(DecodeError::UnknownRecordTypeValue(value)),
+    }
+  }
+}
+
+impl BinSerializable for RecordType {
+  fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    Self::from_u16(try!(decoder.read_u16()))
+  }
+
+  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    encoder.emit_u16((*self).into())
   }
 }
 
@@ -79,9 +126,10 @@ impl From<RecordType> for &'static str {
       RecordType::A => "A",
       RecordType::AAAA => "AAAA",
       RecordType::CNAME => "CNAME",
+      RecordType::NULL => "NULL",
       RecordType::NS => "NS",
       RecordType::SOA => "SOA",
-      _ => panic!("unsupported RecordType: {:?}", rt),
+      _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned
     }
   }
 }
@@ -92,36 +140,8 @@ impl From<RecordType> for &'static str {
 /// use std::convert::From;
 /// use trust_dns::rr::record_type::RecordType;
 ///
-/// let var: RecordType = From::from("A");
-/// assert_eq!(RecordType::A, var);
-///
-/// let var: RecordType = "A".into();
-/// assert_eq!(RecordType::A, var);
-/// ```
-impl<'a> From<&'a str> for RecordType {
-  fn from(str: &'a str) -> Self {
-    match str {
-      "A" => RecordType::A,
-      "AAAA" => RecordType::AAAA,
-      "CNAME" => RecordType::CNAME,
-      "NS" => RecordType::NS,
-      "SOA" => RecordType::SOA,
-      _ => panic!("unsupported RecordType: {:?}", str),
-    }
-  }
-}
-
-/// Convert from RecordType to &str
-///
-/// ```
-/// use std::convert::From;
-/// use trust_dns::rr::record_type::RecordType;
-///
-/// let var: RecordType = From::from(1);
-/// assert_eq!(RecordType::A, var);
-///
-/// let var: RecordType = 1.into();
-/// assert_eq!(RecordType::A, var);
+/// let var: u16 = RecordType::A.into();
+/// assert_eq!(1, var);
 /// ```
 impl From<RecordType> for u16 {
   fn from(rt: RecordType) -> Self {
@@ -129,34 +149,10 @@ impl From<RecordType> for u16 {
       RecordType::A => 1,
       RecordType::AAAA => 28,
       RecordType::CNAME => 5,
+      RecordType::NULL => 0,
       RecordType::NS => 2,
       RecordType::SOA => 6,
-      _ => panic!("unsupported RecordType: {:?}", rt),
-    }
-  }
-}
-
-/// Convert from RecordType to &str
-///
-/// ```
-/// use std::convert::From;
-/// use trust_dns::rr::record_type::RecordType;
-///
-/// let var: u16 = From::from(RecordType::A);
-/// assert_eq!(1, var);
-///
-/// let var: u16 = RecordType::A.into();
-/// assert_eq!(1, var);
-/// ```
-impl From<u16> for RecordType {
-  fn from(value: u16) -> Self {
-    match value {
-      1 => RecordType::A,
-      28 => RecordType::AAAA,
-      5 => RecordType::CNAME,
-      2 => RecordType::NS,
-      6 => RecordType::SOA,
-      _ => panic!("unsupported RecordType: {:?}", value),
+      _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned...
     }
   }
 }

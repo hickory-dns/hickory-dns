@@ -1,5 +1,7 @@
-use super::super::record_data::RData;
-use super::super::domain::Name;
+use ::serialize::binary::*;
+use ::error::*;
+use ::rr::record_data::RData;
+use ::rr::domain::Name;
 
 // 3.3.1. CNAME RDATA format
 //
@@ -18,13 +20,14 @@ use super::super::domain::Name;
 // the description of name server logic in [RFC-1034] for details.
 //
 // CNAME { cname: Name },
-pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::CNAME{ cname: Name::parse(data) }
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+  Ok(RData::CNAME{ cname: try!(Name::read(decoder)) })
 }
 
-pub fn write_to(cname_data: &RData, buf: &mut Vec<u8>) {
+pub fn emit(encoder: &mut BinEncoder, cname_data: &RData) -> EncodeResult {
   if let RData::CNAME { ref cname } = *cname_data {
-    cname.write_to(buf);
+    try!(cname.emit(encoder));
+    Ok(())
   } else {
     panic!("wrong type: {:?}", cname_data)
   }

@@ -1,9 +1,11 @@
 use super::header::{MessageType, Header};
 use super::query::Query;
-use super::super::rr::resource::Record;
+use ::rr::resource::Record;
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
-use super::super::rr::domain::Name;
+use ::serialize::binary::*;
+use ::error::*;
+
 
 /*
  * RFC 1035        Domain Implementation and Specification    November 1987
@@ -99,14 +101,31 @@ impl Message {
       self.additionals.len() as u16)
   }
 
-  pub fn parse(data: &mut Vec<u8>) -> Self {
-    let header = Header::parse(data);
+  fn read_records(decoder: &mut BinDecoder, count: usize) -> DecodeResult<Vec<Record>> {
+    let mut records: Vec<Record> = Vec::with_capacity(count);
+    for _ in 0 .. count {
+       records.push(try!(Record::read(decoder)))
+    }
+    Ok(records)
+  }
+
+  fn emit_records(encoder: &mut BinEncoder, records: &Vec<Record>) -> EncodeResult {
+    for r in records {
+      try!(r.emit(encoder));
+    }
+    Ok(())
+  }
+}
+
+impl BinSerializable for Message {
+  fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    let header = try!(Header::read(decoder));
 
     // get the questions
     let count = header.get_query_count() as usize;
     let mut queries = Vec::with_capacity(count);
     for _ in 0 .. count {
-      queries.push(Query::parse(data));
+      queries.push(try!(Query::read(decoder)));
     }
 
     // get all counts before header moves
@@ -114,92 +133,72 @@ impl Message {
     let name_server_count = header.get_name_server_count() as usize;
     let additional_count = header.get_additional_count() as usize;
 
-    Message {
+    Ok(Message {
       header: header,
       queries: queries,
-      answers: Self::parse_records(data, answer_count),
-      name_servers: Self::parse_records(data, name_server_count),
-      additionals: Self::parse_records(data, additional_count),
-    }
+      answers: try!(Self::read_records(decoder, answer_count)),
+      name_servers: try!(Self::read_records(decoder, name_server_count)),
+      additionals: try!(Self::read_records(decoder, additional_count)),
+    })
   }
 
-  fn parse_records(data: &mut Vec<u8>, count: usize) -> Vec<Record> {
-    let mut records: Vec<Record> = Vec::with_capacity(count);
-    for _ in 0 .. count {
-       records.push(Record::parse(data))
-    }
-    records
-  }
-
-  pub fn write_to(&self, buf: &mut Vec<u8>) {
+  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     // clone the header to set the counts lazily
-    self.update_header_counts().write_to(buf);
+    try!(self.update_header_counts().emit(encoder));
 
     for q in &self.queries {
-      q.write_to(buf);
+      try!(q.emit(encoder));
     }
 
-    Self::write_records(buf, &self.answers);
-    Self::write_records(buf, &self.name_servers);
-    Self::write_records(buf, &self.additionals);
-  }
-
-  fn write_records(buf: &mut Vec<u8>, records: &Vec<Record>) {
-    for r in records {
-      r.write_to(buf);
-    }
+    try!(Self::emit_records(encoder, &self.answers));
+    try!(Self::emit_records(encoder, &self.name_servers));
+    try!(Self::emit_records(encoder, &self.additionals));
+    Ok(())
   }
 }
 
 #[test]
-fn test_write_and_parse_header() {
+fn test_emit_and_read_header() {
   let mut message = Message::new();
   message.id(10).message_type(MessageType::Response).op_code(OpCode::Update).
     authoritative(true).truncated(true).recursion_desired(true).recursion_available(true).
     response_code(ResponseCode::ServFail);
 
-  let mut buf: Vec<u8> = Vec::new();
-  message.write_to(&mut buf);
-
-  buf.reverse();
-  let got = Message::parse(&mut buf);
-
-  assert_eq!(got, message);
+  test_emit_and_read(message);
 }
 
 #[test]
-fn test_write_and_parse_query() {
+fn test_emit_and_read_query() {
   let mut message = Message::new();
   message.id(10).message_type(MessageType::Response).op_code(OpCode::Update).
     authoritative(true).truncated(true).recursion_desired(true).recursion_available(true).
     response_code(ResponseCode::ServFail).add_query(Query::new()).update_counts(); // we're not testing the query parsing, just message
 
-  let mut buf: Vec<u8> = Vec::new();
-  message.write_to(&mut buf);
-
-  buf.reverse();
-  let got = Message::parse(&mut buf);
-
-  assert_eq!(got, message);
+  test_emit_and_read(message);
 }
 
 #[test]
-fn test_write_and_parse_records() {
+fn test_emit_and_read_records() {
   let mut message = Message::new();
   message.id(10).message_type(MessageType::Response).op_code(OpCode::Update).
     authoritative(true).truncated(true).recursion_desired(true).recursion_available(true).
     response_code(ResponseCode::ServFail);
 
   message.add_answer(Record::new());
-  //message.add_name_server(Record::new());
-  //message.add_additional(Record::new());
+  message.add_name_server(Record::new());
+  message.add_additional(Record::new());
   message.update_counts(); // needed for the comparison...
 
-  let mut buf: Vec<u8> = Vec::new();
-  message.write_to(&mut buf);
+  test_emit_and_read(message);
+}
 
-  buf.reverse();
-  let got = Message::parse(&mut buf);
+#[cfg(test)]
+fn test_emit_and_read(message: Message) {
+  let mut encoder = BinEncoder::new();
+  message.emit(&mut encoder).unwrap();
+
+  let mut decoder = BinDecoder::new(encoder.as_bytes());
+  let got = Message::read(&mut decoder).unwrap();
 
   assert_eq!(got, message);
 }

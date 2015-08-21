@@ -1,6 +1,7 @@
-use super::super::record_data::RData;
-use super::super::util;
-use super::super::domain::Name;
+use ::serialize::binary::*;
+use ::error::*;
+use ::rr::record_data::RData;
+use ::rr::domain::Name;
 
 // 3.3.9. MX RDATA format
 //
@@ -25,14 +26,15 @@ use super::super::domain::Name;
 // [RFC-974].
 //
 // MX { preference: u16, exchange: Name },
-pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::MX { preference: util::parse_u16(data), exchange: Name::parse(data) }
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+  Ok(RData::MX { preference: try!(decoder.read_u16()), exchange: try!(Name::read(decoder)) })
 }
 
-pub fn write_to(mx: &RData, buf: &mut Vec<u8>) {
+pub fn emit(encoder: &mut BinEncoder, mx: &RData) -> EncodeResult {
   if let RData::MX { ref preference, ref exchange } = *mx {
-    util::write_u16_to(buf, *preference);
-    exchange.write_to(buf);
+    try!(encoder.emit_u16(*preference));
+    try!(exchange.emit(encoder));
+    Ok(())
   } else {
     panic!("wrong type here {:?}", mx);
   }

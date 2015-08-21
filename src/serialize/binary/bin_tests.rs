@@ -1,0 +1,114 @@
+use std::fmt::Debug;
+use ::error::*;
+use super::*;
+
+fn get_character_data() -> Vec<(String, Vec<u8>)> {
+  vec![
+    ("".to_string(), vec![0]), // base case, only the root
+    ("a".to_string(), vec![1,b'a']), // a single 'a' label
+    ("bc".to_string(), vec![2,b'b',b'c']), // two labels, 'a.bc'
+    ("♥".to_string(), vec![3,0xE2,0x99,0xA5]), // two labels utf8, 'a.♥'
+  ]
+}
+
+#[test]
+fn read_character_data() {
+  test_read_data_set(get_character_data(), |mut d| d.read_character_data());
+}
+
+#[test]
+fn emit_character_data() {
+  test_emit_data_set(get_character_data(), |ref mut e, d| e.emit_character_data(&d));
+}
+
+fn get_u16_data() -> Vec<(u16, Vec<u8>)> {
+  vec![
+    (0, vec![0x00,0x00]),
+    (1, vec![0x00,0x01]),
+    (256, vec![0x01,0x00]),
+    (u16::max_value(), vec![0xFF,0xFF]),
+  ]
+}
+
+#[test]
+fn read_u16() {
+  test_read_data_set(get_u16_data(), |mut d| d.read_u16());
+}
+
+#[test]
+fn emit_u16() {
+  test_emit_data_set(get_u16_data(), |ref mut e, d| e.emit_u16(d));
+}
+
+fn get_i32_data() -> Vec<(i32, Vec<u8>)> {
+  vec![
+    (0, vec![0x00,0x00,0x00,0x00]),
+    (1, vec![0x00,0x00,0x00,0x01]),
+    (256, vec![0x00,0x00,0x01,0x00]),
+    (256*256, vec![0x00,0x01,0x00,0x00]),
+    (256*256*256, vec![0x01,0x00,0x00,0x00]),
+    (-1, vec![0xFF,0xFF,0xFF,0xFF]),
+    (i32::min_value(), vec![0x80,0x00,0x00,0x00]),
+    (i32::max_value(), vec![0x7F,0xFF,0xFF,0xFF]),
+  ]
+}
+
+#[test]
+fn read_i32() {
+  test_read_data_set(get_i32_data(), |mut d| d.read_i32());
+}
+
+#[test]
+fn emit_i32() {
+  test_emit_data_set(get_i32_data(), |ref mut e, d| e.emit_i32(d));
+}
+
+fn get_u32_data() -> Vec<(u32, Vec<u8>)> {
+  vec![
+    (0, vec![0x00,0x00,0x00,0x00]),
+    (1, vec![0x00,0x00,0x00,0x01]),
+    (256, vec![0x00,0x00,0x01,0x00]),
+    (256*256, vec![0x00,0x01,0x00,0x00]),
+    (256*256*256, vec![0x01,0x00,0x00,0x00]),
+    (u32::max_value(), vec![0xFF,0xFF,0xFF,0xFF]),
+    (2147483648, vec![0x80,0x00,0x00,0x00]),
+    (i32::max_value() as u32, vec![0x7F,0xFF,0xFF,0xFF]),
+  ]
+}
+
+#[test]
+fn read_u32() {
+  test_read_data_set(get_u32_data(), |mut d| d.read_u32());
+}
+
+#[test]
+fn emit_u32() {
+  test_emit_data_set(get_u32_data(), |ref mut e, d| e.emit_u32(d));
+}
+
+
+pub fn test_read_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, read_func: F)
+where E: PartialEq<E> + Debug, F: Fn(BinDecoder) -> DecodeResult<E> {
+  let mut test_pass = 0;
+  for (expect, binary) in data_set {
+    test_pass += 1;
+    println!("test {}: {:?}", test_pass, binary);
+
+    let decoder = BinDecoder::new(binary);
+    assert_eq!(read_func(decoder).unwrap(), expect);
+  }
+}
+
+pub fn test_emit_data_set<S, F>(data_set: Vec<(S, Vec<u8>)>, emit_func: F)
+where F: Fn(&mut BinEncoder, S) -> EncodeResult, S: Debug {
+  let mut test_pass = 0;
+
+  for (data, expect) in data_set {
+    test_pass += 1;
+    println!("test {}: {:?}", test_pass, data);
+
+    let mut encoder = BinEncoder::new();
+    emit_func(&mut encoder, data).unwrap();
+    assert_eq!(encoder.as_bytes(), expect);
+  }
+}

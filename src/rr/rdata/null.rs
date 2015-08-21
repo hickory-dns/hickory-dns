@@ -1,4 +1,6 @@
-use super::super::record_data::RData;
+use ::serialize::binary::*;
+use ::error::*;
+use ::rr::record_data::RData;
 
 // 3.3.10. NULL RDATA format (EXPERIMENTAL)
 //
@@ -15,15 +17,28 @@ use super::super::record_data::RData;
 // experimental extensions of the DNS.
 //
 // NULL { anything: Vec<u8> },
-pub fn parse(data: &mut Vec<u8>) -> RData {
-  unimplemented!()
+// TODO: length should be stored in the decoder, and guaranteed everywhere, right?
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+  let length = try!(decoder.rdata_length().ok_or(DecodeError::NoRecordDataLength));
+  let mut anything: Vec<u8> = Vec::with_capacity(length as usize);
+  for _ in 0..length {
+    if let Ok(byte) = decoder.pop() {
+      anything.push(byte);
+    } else {
+      return Err(DecodeError::EOF);
+    }
+  }
+
+  Ok(RData::NULL{ anything: anything })
 }
 
-pub fn write_to(nil: &RData, buf: &mut Vec<u8>) {
+pub fn emit(encoder: &mut BinEncoder, nil: &RData) -> EncodeResult {
   if let RData::NULL{ref anything} = *nil {
     for b in anything {
-      buf.push(*b);
+      try!(encoder.emit(*b));
     }
+
+    Ok(())
   } else {
     panic!("wrong type here {:?}", nil);
   }

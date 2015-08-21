@@ -1,5 +1,7 @@
-use super::super::record_data::RData;
-use super::super::domain::Name;
+use ::serialize::binary::*;
+use ::error::*;
+use ::rr::record_data::RData;
+use ::rr::domain::Name;
 
 // 3.3.12. PTR RDATA format
 //
@@ -19,14 +21,15 @@ use super::super::domain::Name;
 // description of the IN-ADDR.ARPA domain for an example.
 //
 // PTR { ptrdname: Name },
-pub fn parse(data: &mut Vec<u8>) -> RData {
-  RData::PTR{ ptrdname: Name::parse(data) }
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+  Ok(RData::PTR{ ptrdname: try!(Name::read(decoder)) })
 }
 
-pub fn write_to(ptr: &RData, buf: &mut Vec<u8>) {
+pub fn emit(encoder: &mut BinEncoder, ptr: &RData) -> EncodeResult {
   if let RData::PTR { ref ptrdname } = *ptr {
-    ptrdname.write_to(buf);
+    try!(ptrdname.emit(encoder));
+    Ok(())
   } else {
-    panic!("wrong type here {:?}", ptr);
+    panic!("wrong type: {:?}", ptr)
   }
 }

@@ -1,13 +1,11 @@
-use std::io::Read;
-use std::iter;
-use std::slice::{IterMut,Iter};
 use std::net::Ipv4Addr;
 
+use ::serialize::binary::*;
+use ::error::*;
 use super::record_data::RData;
 use super::record_type::RecordType;
 use super::dns_class::DNSClass;
 use super::domain;
-use super::util;
 
 /*
  * RFC 1035        Domain Implementation and Specification    November 1987
@@ -101,20 +99,22 @@ impl Record {
   pub fn get_dns_class(&self) -> DNSClass { self.dns_class }
   pub fn get_ttl(&self) -> i32 { self.ttl }
   pub fn get_rdata(&self) -> &RData { &self.rdata }
+}
 
-
+impl BinSerializable for Record {
   /// parse a resource record line example:
   ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
-  pub fn parse(data: &mut Vec<u8>) -> Record {
+  fn read(decoder: &mut BinDecoder) -> DecodeResult<Record> {
     // NAME            an owner name, i.e., the name of the node to which this
     //                 resource record pertains.
-    let name_labels: domain::Name = domain::Name::parse(data);
+    let name_labels: domain::Name = try!(domain::Name::read(decoder));
 
     // TYPE            two octets containing one of the RR TYPE codes.
-    let record_type: RecordType = RecordType::parse(data);
+    let record_type: RecordType = try!(RecordType::read(decoder));
+    decoder.set_record_type(record_type);
 
     // CLASS           two octets containing one of the RR CLASS codes.
-    let class: DNSClass = DNSClass::parse(data);
+    let class: DNSClass = try!(DNSClass::read(decoder));
 
     // TTL             a 32 bit signed integer that specifies the time interval
     //                that the resource record may be cached before the source
@@ -124,39 +124,43 @@ impl Record {
     //                cached.  For example, SOA records are always distributed
     //                with a zero TTL to prohibit caching.  Zero values can
     //                also be used for extremely volatile data.
-    let ttl: i32 = util::parse_i32(data);
+    let ttl: i32 = try!(decoder.read_i32());
 
     // RDLENGTH        an unsigned 16 bit integer that specifies the length in
     //                octets of the RDATA field.
-    let rd_length: u16 = util::parse_u16(data);
+    let rd_length: u16 = try!(decoder.read_u16());
+    decoder.set_rdata_length(rd_length);
 
     // RDATA           a variable length string of octets that describes the
     //                resource.  The format of this information varies
     //                according to the TYPE and CLASS of the resource record.
-    let rdata = RData::parse(data, record_type, rd_length);
+    let rdata = try!(RData::read(decoder));
 
-    Record{ name_labels: name_labels, rr_type: record_type, dns_class: class, ttl: ttl, rdata: rdata }
+    Ok(Record{ name_labels: name_labels, rr_type: record_type, dns_class: class, ttl: ttl, rdata: rdata })
   }
 
-  pub fn write_to(&self, buf: &mut Vec<u8>) {
-    self.name_labels.write_to(buf);
-    self.rr_type.write_to(buf);
-    self.dns_class.write_to(buf);
-    util::write_i32_to(buf, self.ttl);
+  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    try!(self.name_labels.emit(encoder));
+    try!(self.rr_type.emit(encoder));
+    try!(self.dns_class.emit(encoder));
+    try!(encoder.emit_i32(self.ttl));
 
     // TODO: gah... need to write rdata before we know the size of rdata...
-    let mut tmp_buf: Vec<u8> = Vec::with_capacity(255); // making random space
-    self.rdata.write_to(&mut tmp_buf);
+    let mut tmp_encoder: BinEncoder = BinEncoder::new(); // making random space
+    try!(self.rdata.emit(&mut tmp_encoder));
+    let mut tmp_buf = tmp_encoder.as_bytes();
 
     assert!(tmp_buf.len() <= u16::max_value() as usize);
 
-    util::write_u16_to(buf, tmp_buf.len() as u16);
-    buf.reserve(tmp_buf.len());
+    try!(encoder.emit_u16(tmp_buf.len() as u16));
+    encoder.reserve(tmp_buf.len());
 
     tmp_buf.reverse();
     while let Some(byte) = tmp_buf.pop() {
-      buf.push(byte);
+      try!(encoder.emit(byte));
     }
+
+    Ok(())
   }
 }
 
@@ -166,26 +170,25 @@ mod tests {
 
   use super::*;
 
-  use super::super::record_data::RData;
-  use super::super::record_type::RecordType;
-  use super::super::dns_class::DNSClass;
-  use super::super::domain;
-  use super::super::util;
+  use ::serialize::binary::*;
+  use ::rr::record_data::RData;
+  use ::rr::record_type::RecordType;
+  use ::rr::dns_class::DNSClass;
 
 
   #[test]
-  fn test_write_and_parse() {
+  fn test_emit_and_read() {
     let mut record = Record::new();
     record.add_name("www".to_string()).add_name("example".to_string()).add_name("com".to_string())
     .rr_type(RecordType::A).dns_class(DNSClass::IN).ttl(5)
     .rdata(RData::A { address: Ipv4Addr::new(192, 168, 0, 1)});
 
-    let mut buf: Vec<u8> = Vec::new();
-    record.write_to(&mut buf);
+    let mut encoder = BinEncoder::new();
+    record.emit(&mut encoder).unwrap();
 
-    buf.reverse(); // reverse the stream...
+    let mut decoder = BinDecoder::new(encoder.as_bytes());
 
-    let got = Record::parse(&mut buf);
+    let got = Record::read(&mut decoder).unwrap();
 
     assert_eq!(got, record);
   }
