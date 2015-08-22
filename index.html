@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html>
+
+  <head>
+    <meta charset='utf-8'>
+    <meta http-equiv="X-UA-Compatible" content="chrome=1">
+    <meta name="description" content="Trust-dns : A Rust based DNS server ">
+
+    <link rel="stylesheet" type="text/css" media="screen" href="stylesheets/stylesheet.css">
+
+    <title>Trust-dns</title>
+  </head>
+
+  <body>
+
+    <!-- HEADER -->
+    <div id="header_wrap" class="outer">
+        <header class="inner">
+          <a id="forkme_banner" href="https://github.com/bluejekyll/trust-dns">View on GitHub</a>
+
+          <h1 id="project_title">Trust-dns</h1>
+          <h2 id="project_tagline">A Rust based DNS server </h2>
+
+            <section id="downloads">
+              <a class="zip_download_link" href="https://github.com/bluejekyll/trust-dns/zipball/master">Download this project as a .zip file</a>
+              <a class="tar_download_link" href="https://github.com/bluejekyll/trust-dns/tarball/master">Download this project as a tar.gz file</a>
+            </section>
+        </header>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div id="main_content_wrap" class="outer">
+      <section id="main_content" class="inner">
+        <h1>
+<a id="trustdns" class="anchor" href="#trustdns" aria-hidden="true"><span class="octicon octicon-link"></span></a>TRustDNS</h1>
+
+<p>TRustDNS was started to answer a few problems that have been seen in BIND and other standard DNS servers on the internet.</p>
+
+<ul>
+<li>DNSSec is difficult to manage and is often ignored by many configurations. 
+TRustDNS is designed from the ground up to be easy to use and ensure that DNSSec and other security features are easy to use.</li>
+<li>DynamicDNS should be easy to enable</li>
+<li>Resilient to attacks
+TRustDNS is written in 100% safe <a href="https://www.rust-lang.org">Rust</a>. Rust is a compiled language designed to offer a memory safe programming environment which drastically reduces the risk of data race conditions, memory leaks and unsafe access to uninitialized memory. These are common issues in other languages which can lead to security and availability issues of DNS servers.</li>
+<li>Easy to configure and manage </li>
+</ul>
+
+<h1>
+<a id="status" class="anchor" href="#status" aria-hidden="true"><span class="octicon octicon-link"></span></a>Status</h1>
+
+<p><strong>WARNING!!!</strong> <em>Under active development! Do not attempt to use in any production systems.</em></p>
+
+<p>A note on sockets, this client is only using Rust stable, socket options are
+currently feature restricted. This means that the Client is very dangerous to use
+at the moment because it will wait forever for a response from the server.</p>
+
+<h2>
+<a id="in-progress" class="anchor" href="#in-progress" aria-hidden="true"><span class="octicon octicon-link"></span></a>In progress:</h2>
+
+<ul>
+<li><p>Support original (minus unused) RFC 1035 specification.
+Client is complete, all requests should work
+Todo: Server...</p></li>
+<li><p>EDNS <a href="http://tools.ietf.org/html/rfc2671">http://tools.ietf.org/html/rfc2671</a></p></li>
+<li>Support DNS Update RFC 2136.</li>
+<li>DNSSEC Resource Records RFC 4034</li>
+<li>DNSSec protocol RFC 4035</li>
+<li>Dynamic DNS Update Leases <a href="https://tools.ietf.org/html/draft-sekar-dns-ul-01">https://tools.ietf.org/html/draft-sekar-dns-ul-01</a>
+</li>
+<li>DNS Long-Lived Queries <a href="http://tools.ietf.org/html/draft-sekar-dns-llq-01">http://tools.ietf.org/html/draft-sekar-dns-llq-01</a>
+</li>
+</ul>
+
+<h1>
+<a id="authors-and-contributors" class="anchor" href="#authors-and-contributors" aria-hidden="true"><span class="octicon octicon-link"></span></a>Authors and Contributors</h1>
+
+<p>Benjamin Fry (<a href="https://github.com/bluejekyll" class="user-mention">@bluejekyll</a>) started TRustDNS in 2015, mostly to play with Rust.</p>
+
+<h1>
+<a id="license-and-copyright" class="anchor" href="#license-and-copyright" aria-hidden="true"><span class="octicon octicon-link"></span></a>License and Copyright</h1>
+
+<p>Copyright is held by Benjamin Fry, the project is license under the <a href="http://www.apache.org/licenses/LICENSE-2.0">Apache 2.0 License</a>. In order to have the flexibility of changing both the copyright and the license in the future, all code in TRustDNS repository will share this license and copyright.</p>
+      </section>
+    </div>
+
+    <!-- FOOTER  -->
+    <div id="footer_wrap" class="outer">
+      <footer class="inner">
+        <p class="copyright">Trust-dns maintained by <a href="https://github.com/bluejekyll">bluejekyll</a></p>
+        <p>Published with <a href="https://pages.github.com">GitHub Pages</a></p>
+      </footer>
+    </div>
+
+    
+
+  </body>
+</html>
