@@ -1,4 +1,4 @@
-# trust-dns
+# trust-dns [![Build Status](https://travis-ci.org/bluejekyll/trust-dns.svg?branch=master)](https://travis-ci.org/bluejekyll/trust-dns)
 A Rust based DNS client and server, built to be safe and secure from the
 ground up.
 
@@ -19,7 +19,7 @@ WARNING!!! Under active development! Do not attempt to use in any production sys
 
 A note on sockets, this client is only using Rust stable, socket options are
 currently feature restricted. This means that the Client is very dangerous to use
-at the moment because it will wait forever for a response from the server. 
+at the moment because it will wait forever for a response from the server.
 
 # In progress:
 
