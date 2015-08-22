@@ -1,25 +1,32 @@
 # trust-dns
-A Rust based DNS client and server
+A Rust based DNS client and server, built to be safe and secure from the
+ground up.
 
 # Goals
 
 - Build a safe and secure DNS server and client with modern features.
 - Use Threads to allow all code to panic! and fail fast, without taking down
 the server.
+- Use only safe Rust, and avoid all panics with proper Error handling
+- Use only stable Rust
 - Protect against DDOS attacks (to a degree)
 - Support options for Global Load Balancer functions
 - Build in a nice REST interface for managing server?
 
 # Status:
 
-Under active development! Do not attempt to use in any production systems.
+WARNING!!! Under active development! Do not attempt to use in any production systems.
+
+A note on sockets, this client is only using Rust stable, socket options are
+currently feature restricted. This means that the Client is very dangerous to use
+at the moment because it will wait forever for a response from the server. 
 
 # In progress:
 
 - Support original (minus unused) RFC 1035 specification.
-All parsers complete.
-Todo: Serializers.
-Todo: Operations.
+Client is complete, all requests should work
+
+Todo: Server...
 
 - EDNS http://tools.ietf.org/html/rfc2671
 - Support DNS Update RFC 2136.
