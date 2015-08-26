@@ -7,6 +7,7 @@ use ::error::{LexerResult,LexerError};
 
 pub struct Lexer<'a> {
   txt: Peekable<Chars<'a>>,
+  is_first_line: bool,
 }
 
 impl<'a> Lexer<'a> {
@@ -15,7 +16,7 @@ impl<'a> Lexer<'a> {
   }
 
   pub fn with_chars(chars: Chars) -> Lexer {
-    Lexer { txt: chars.peekable() }
+    Lexer { txt: chars.peekable(), is_first_line: true }
   }
 
   pub fn next_token(&mut self) -> LexerResult<Option<Token>> {
@@ -49,16 +50,15 @@ impl<'a> Lexer<'a> {
         }
       }
       match ch {
-        ' '|'\t'|'\r' => {
-          match cur_token.get() {
-            None => {self.txt.next(); continue},  // gobble all whitespace
-            Some(..) => break, // end previous thing...
-          }
+        ' '|'\t' => {
+          if self.is_first_line { self.set_token_if_not(State::Blank, &cur_token); break } // need the first blank on a line
+          if cur_token.get().is_some() { break } else { self.txt.next(); continue }  // gobble all whitespace
         },
         'a' ... 'z' | 'A' ... 'Z' | '-'                     => { self.push(State::CharData, &cur_token, &cur_string, ch); },
         '0' ... '9'                                         => { self.push(State::Number, &cur_token, &cur_string, ch); },
         '\u{E000}' ... '\u{10FFFF}' if ch.is_alphanumeric() => { self.push(State::CharData, &cur_token, &cur_string, ch); },
-        '\n' => { self.set_token_if_not(State::EOL, &cur_token);         break },
+        '\r' => if cur_token.get().is_some() { break } else { self.txt.next(); continue },
+        '\n' => { self.set_token_if_not(State::EOL, &cur_token); self.is_first_line = true; break },
         '@'  => { self.set_token_if_not(State::At, &cur_token);          break },
         '$'  => if self.set_token_if_not(State::Dollar, &cur_token) { continue } else { break },
         '('  => { self.set_token_if_not(State::LeftParen, &cur_token);   break },
@@ -126,6 +126,7 @@ impl<'a> Lexer<'a> {
 
   /// set's the token if it's not set, if it is succesul it advances the txt iter
   fn set_token_if_not(&mut self, next_state: State, cur_token: &Cell<Option<State>>) -> bool {
+    self.is_first_line = false;
     if cur_token.get().is_none() {
       cur_token.set(Some(next_state));
       self.txt.next();
@@ -136,6 +137,7 @@ impl<'a> Lexer<'a> {
   }
 
   fn push(&mut self, next_state: State, cur_token: &Cell<Option<State>>, cell_string: &RefCell<Option<String>>, ch: char) {
+    self.is_first_line = false;
     if cur_token.get().is_none() {
       cur_token.set(Some(next_state));
     }
@@ -152,6 +154,7 @@ impl<'a> Lexer<'a> {
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum State {
+  Blank,             // only if the first part of the line
   Dot,               // .
   LeftParen,         // (
   RightParen,        // )
@@ -167,6 +170,7 @@ pub enum State {
 
 #[derive(PartialEq, Debug)]
 pub enum Token {
+  Blank,             // only if the first part of the line
   Dot,               // .
   LeftParen,         // (
   RightParen,        // )
@@ -181,6 +185,7 @@ pub enum Token {
 impl Token {
   pub fn from(state: State, value: Option<String>) -> LexerResult<Option<Token>> {
     Ok(Some(match state {
+      State::Blank => Token::Blank,
       State::Dot => Token::Dot,
       State::LeftParen => Token::LeftParen,
       State::RightParen => Token::RightParen,
@@ -200,11 +205,34 @@ impl Token {
 mod lex_test {
   use super::*;
 
+  #[test]
+  fn blank() {
+    // first blank
+    let mut lexer = Lexer::new("     dead beef");
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("dead".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("beef".to_string()));
+
+    // not the second blank
+    let mut lexer = Lexer::new("dead beef");
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("dead".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("beef".to_string()));
+
+
+    let mut lexer = Lexer::new("dead beef\r\n after");
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("dead".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("beef".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("after".to_string()));
+
+  }
+
   // fun with tests!!! lots of options
   #[test]
   fn lex() {
     assert_eq!(Lexer::new(".").next_token().unwrap().unwrap(), Token::Dot);
-    assert_eq!(Lexer::new("            .").next_token().unwrap().unwrap(), Token::Dot);
+    assert_eq!(Lexer::new("            .").next_token().unwrap().unwrap(), Token::Blank);
     assert_eq!(Lexer::new("(").next_token().unwrap().unwrap(), Token::LeftParen);
     assert_eq!(Lexer::new(")").next_token().unwrap().unwrap(), Token::RightParen);
     assert_eq!(Lexer::new("abc").next_token().unwrap().unwrap(), Token::CharData("abc".to_string()));
@@ -222,7 +250,10 @@ mod lex_test {
     assert_eq!(Lexer::new("$$Bill").next_token().unwrap().unwrap(), Token::Dollar("".to_string()));
     assert_eq!(Lexer::new("\n").next_token().unwrap().unwrap(), Token::EOL);
     assert_eq!(Lexer::new("\r\n").next_token().unwrap().unwrap(), Token::EOL);
+  }
 
+  #[test]
+  fn soa() {
     let mut lexer = Lexer::new("@   IN  SOA     VENERA      Action\\.domains (\n\
                                  20     ; SERIAL\n\
                                  7200   ; REFRESH\n\
