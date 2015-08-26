@@ -13,5 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod binary;
-pub mod txt;
+// mod master;
+mod master_lex;
+mod decoder;
+//mod encoder;
+
+
+
+pub use self::decoder::TxtDecoder;
+//pub use self::encoder::TxtEncoder;
+
+//#[cfg(test)]
+//pub mod txt_tests;
+
+//use ::error::*;
+
+// pub trait TxtSerializable {
+//   fn read(decoder: &mut TxtDecoder) -> DecodeResult<Self>;
+//   fn emit(&self, encoder: &mut TxtEncoder) -> EncodeResult;
+// }

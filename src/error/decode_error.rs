@@ -55,7 +55,7 @@ impl Error for DecodeError {
       DecodeError::UnknownRecordTypeStr(..) => "RecordType string unknown",
       DecodeError::NoRecordDataType => "RecordType unspecified",
       DecodeError::NoRecordDataLength => "RecordData length unspecified",
-      DecodeError::EOF => "End of file",
+      DecodeError::EOF => "End of input",
     }
   }
 

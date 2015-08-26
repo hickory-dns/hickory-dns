@@ -13,15 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- 
+
 mod decode_error;
 mod encode_error;
 mod client_error;
+mod lexer_error;
 
 pub use self::decode_error::DecodeError;
 pub use self::encode_error::EncodeError;
 pub use self::client_error::ClientError;
+pub use self::lexer_error::LexerError;
 
 pub type DecodeResult<T> = Result<T, DecodeError>;
 pub type EncodeResult = Result<(), EncodeError>;
 pub type ClientResult<T> = Result<T, ClientError>;
+pub type LexerResult<T> = Result<T, LexerError>;

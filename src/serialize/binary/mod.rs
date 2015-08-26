@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-pub mod decoder;
-pub mod encoder;
+mod decoder;
+mod encoder;
 
 pub use self::decoder::BinDecoder;
 pub use self::encoder::BinEncoder;

@@ -46,7 +46,7 @@ impl BinEncoder {
   /// matches description from above.
   ///
   /// ```
-  /// use trust_dns::serialize::binary::encoder::BinEncoder;
+  /// use trust_dns::serialize::binary::BinEncoder;
   ///
   /// let mut encoder: BinEncoder = BinEncoder::new();
   /// encoder.emit_character_data("abc");

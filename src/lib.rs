@@ -18,3 +18,6 @@ pub mod op;
 pub mod udp;
 pub mod error;
 pub mod serialize;
+
+#[macro_use] extern crate log;
+extern crate regex;
