@@ -18,13 +18,16 @@ mod decode_error;
 mod encode_error;
 mod client_error;
 mod lexer_error;
+mod parse_error;
 
 pub use self::decode_error::DecodeError;
 pub use self::encode_error::EncodeError;
 pub use self::client_error::ClientError;
 pub use self::lexer_error::LexerError;
+pub use self::parse_error::ParseError;
 
 pub type DecodeResult<T> = Result<T, DecodeError>;
 pub type EncodeResult = Result<(), EncodeError>;
 pub type ClientResult<T> = Result<T, ClientError>;
 pub type LexerResult<T> = Result<T, LexerError>;
+pub type ParseResult<T> = Result<T, ParseError>;

@@ -28,6 +28,8 @@ pub enum LexerError {
   UnrecognizedOctet(u32),
   ParseIntError(num::ParseIntError),
   UnclosedQuotedString,
+  UnclosedList,
+  UnrecognizedDollar(String),
   EOF,
 }
 
@@ -42,6 +44,8 @@ impl fmt::Display for LexerError {
       LexerError::UnrecognizedOctet(o) => write!(f, "Unrecognized octet: {}", o),
       LexerError::ParseIntError(ref err) => err.fmt(f),
       LexerError::UnclosedQuotedString => write!(f, "Unclosed quoted string"),
+      LexerError::UnclosedList => write!(f, "Unclosed list, missing ')'"),
+      LexerError::UnrecognizedDollar(ref s) => write!(f, "Unrecognized dollar content: {}", s),
       LexerError::EOF => write!(f, "End of input reached before next read could complete"),
     }
   }
@@ -58,6 +62,8 @@ impl Error for LexerError {
       LexerError::UnrecognizedOctet(..) => "Unrecognized octet",
       LexerError::ParseIntError(ref err) => err.description(),
       LexerError::UnclosedQuotedString => "Unclosed quoted string",
+      LexerError::UnclosedList => "Unclosed list",
+      LexerError::UnrecognizedDollar(..) => "Unrecognized dollar content",
       LexerError::EOF => "End of input",
     }
   }
@@ -76,7 +82,6 @@ impl From<FromUtf8Error> for LexerError {
         LexerError::ParseUtf8Error(err)
     }
 }
-
 
 impl From<num::ParseIntError> for LexerError {
     fn from(err: num::ParseIntError) -> LexerError {

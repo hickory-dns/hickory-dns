@@ -28,5 +28,5 @@ license = "Apache-2.0"
 
 [dependencies]
 log = "^0.3.1"
-regex = "^0.1.41"
+# regex = "^0.1.41"
 # rustc-serialize = "^0.3.16"

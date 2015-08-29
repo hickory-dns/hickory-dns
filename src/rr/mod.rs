@@ -13,10 +13,16 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- pub mod record_type;
+pub mod record_type;
 pub mod dns_class;
 pub mod resource;
 pub mod record_data;
 pub mod domain;
+
+pub use self::record_type::RecordType;
+pub use self::resource::Record;
+pub use self::domain::Name;
+pub use self::dns_class::DNSClass;
+pub use self::record_data::RData;
 
 mod rdata;

@@ -20,7 +20,7 @@ use ::error::*;
 
 type FromResult = Result<RecordType, DecodeError>;
 
-#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {
     A,          //	1	RFC 1035[1]	IPv4 Address record

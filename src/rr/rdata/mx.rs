@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 
+use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 use ::rr::record_data::RData;
@@ -55,5 +56,10 @@ pub fn emit(encoder: &mut BinEncoder, mx: &RData) -> EncodeResult {
     panic!("wrong type here {:?}", mx);
   }
 }
+
+pub fn parse(tokens: Vec<Token>) -> ParseResult<RData> {
+  unimplemented!()
+}
+
 
 // #[test] is performed at the record_data module, the inner name in domain::Name

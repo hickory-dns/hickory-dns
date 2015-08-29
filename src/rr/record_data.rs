@@ -18,6 +18,7 @@ use std::convert::From;
 
 use ::error::*;
 use ::serialize::binary::*;
+use ::serialize::txt::*;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
@@ -327,8 +328,24 @@ pub enum RData {
   AAAA { address: Ipv6Addr },
 }
 
+impl RData {
+  fn parse(record_type: RecordType, tokens: Vec<Token>) -> ParseResult<Self> {
+    match record_type {
+      RecordType::CNAME => rdata::cname::parse(tokens),
+      RecordType::MX => rdata::mx::parse(tokens),
+      RecordType::NULL => rdata::null::parse(tokens),
+      RecordType::NS => rdata::ns::parse(tokens),
+      RecordType::PTR => rdata::ptr::parse(tokens),
+      RecordType::SOA => rdata::soa::parse(tokens),
+      RecordType::TXT => rdata::txt::parse(tokens),
+      RecordType::A => rdata::a::parse(tokens),
+      RecordType::AAAA => rdata::aaaa::parse(tokens),
+      _ => panic!("unsupported RecordType: {:?}", record_type)
+    }
+  }
+}
+
 impl BinSerializable for RData {
-  // TODO, maybe move the rd_length into the BinDecoder
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     match try!(decoder.record_type().ok_or(DecodeError::NoRecordDataType)) {
       RecordType::CNAME => rdata::cname::read(decoder),

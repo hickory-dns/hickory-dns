@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 use ::rr::record_data::RData;
@@ -47,4 +48,8 @@ pub fn emit(encoder: &mut BinEncoder, ptr: &RData) -> EncodeResult {
   } else {
     panic!("wrong type: {:?}", ptr)
   }
+}
+
+pub fn parse(tokens: Vec<Token>) -> ParseResult<RData> {
+  unimplemented!()
 }

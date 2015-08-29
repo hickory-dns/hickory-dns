@@ -16,6 +16,7 @@
 
 use std::net::Ipv6Addr;
 
+use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 use ::rr::record_data::RData;
@@ -57,6 +58,10 @@ pub fn emit(encoder: &mut BinEncoder, aaaa: &RData) -> EncodeResult {
   } else {
     panic!("wrong type here {:?}", aaaa)
   }
+}
+
+pub fn parse(tokens: Vec<Token>) -> ParseResult<RData> {
+  unimplemented!()
 }
 
 

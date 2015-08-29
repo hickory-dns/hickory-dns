@@ -20,4 +20,4 @@ pub mod error;
 pub mod serialize;
 
 #[macro_use] extern crate log;
-extern crate regex;
+// extern crate regex;
