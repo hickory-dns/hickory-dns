@@ -329,7 +329,7 @@ pub enum RData {
 }
 
 impl RData {
-  fn parse(record_type: RecordType, tokens: Vec<Token>) -> ParseResult<Self> {
+  pub fn parse(record_type: RecordType, tokens: &Vec<Token>) -> ParseResult<Self> {
     match record_type {
       RecordType::CNAME => rdata::cname::parse(tokens),
       RecordType::MX => rdata::mx::parse(tokens),

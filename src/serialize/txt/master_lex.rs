@@ -2,6 +2,7 @@ use std::cell::{Cell,RefCell};
 use std::iter::Peekable;
 use std::str::Chars;
 use std::char;
+use std::fs::File;
 
 use ::error::{LexerResult,LexerError};
 
@@ -13,11 +14,7 @@ pub struct Lexer<'a> {
 
 impl<'a> Lexer<'a> {
   pub fn new(txt: &str) -> Lexer {
-    Self::with_chars(txt.chars())
-  }
-
-  pub fn with_chars(chars: Chars) -> Lexer {
-    Lexer { txt: chars.peekable(), is_first_line: true, in_list: false }
+    Lexer { txt: txt.chars().peekable(), is_first_line: true, in_list: false }
   }
 
   pub fn next_token(&mut self) -> LexerResult<Option<Token>> {
@@ -198,7 +195,7 @@ pub enum State {
   EOL,               // \n or \r\n
 }
 
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub enum Token {
   Blank,             // only if the first part of the line
   StartList,         // (

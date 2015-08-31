@@ -103,6 +103,7 @@ impl Record {
     }
   }
 
+  pub fn name(&mut self, name: domain::Name) -> &mut Self { self.name_labels = name; self }
   pub fn add_name(&mut self, label: String) -> &mut Self { self.name_labels.add_label(label); self }
   pub fn rr_type(&mut self, rr_type: RecordType) -> &mut Self { self.rr_type = rr_type; self }
   pub fn dns_class(&mut self, dns_class: DNSClass) -> &mut Self { self.dns_class = dns_class; self }

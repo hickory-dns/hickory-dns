@@ -18,7 +18,7 @@ use std::ops::Index;
 use ::serialize::binary::*;
 use ::error::*;
 
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Name {
   labels: Vec<String>
 }
@@ -35,6 +35,32 @@ impl Name {
   pub fn add_label(&mut self, label: String) -> &mut Self {
     self.labels.push(label);
     self
+  }
+
+  pub fn append(&mut self, other: &Self) -> &mut Self {
+    for s in &other.labels {
+      self.add_label(s.to_string());
+    }
+
+    self
+  }
+
+  pub fn parse(local: String, origin: &Option<Self>) -> ParseResult<Self> {
+    let mut build = Name::new();
+    // split the local part
+
+    // TODO: this should be a real lexer, to varify all data is legal name...
+    for s in local.split('.') {
+      if s.len() > 0 {
+        build.add_label(s.to_string());
+      }
+    }
+
+    if !local.ends_with('.') {
+      build.append(try!(origin.as_ref().ok_or(ParseError::OriginIsUndefined)));
+    }
+
+    Ok(build)
   }
 }
 

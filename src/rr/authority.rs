@@ -13,15 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use ::error::ParseResult;
+use std::collections::HashMap;
 
-mod master_lex;
-mod master;
+use ::serialize::txt::*;
+use ::error::*;
+use ::rr::{RecordType, Record, Name};
 
-pub use self::master::Parser;
-pub use self::master_lex::Lexer;
-pub use self::master_lex::Token;
+/// Authority is the storage method for all
+///
+pub struct Authority {
+  origin: Name,
+  records: HashMap<(Name, RecordType), Vec<Record>>,
+}
 
-pub trait TxtSerializable {
-  fn parse(lexer: &mut Lexer) -> ParseResult<Self>;
+impl Authority {
+  pub fn new(origin: Name, records: HashMap<(Name, RecordType), Vec<Record>>) -> Authority {
+    Authority{ origin: origin, records: records }
+  }
 }

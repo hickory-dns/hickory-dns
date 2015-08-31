@@ -18,11 +18,13 @@ pub mod dns_class;
 pub mod resource;
 pub mod record_data;
 pub mod domain;
+mod authority;
 
 pub use self::record_type::RecordType;
 pub use self::resource::Record;
 pub use self::domain::Name;
 pub use self::dns_class::DNSClass;
 pub use self::record_data::RData;
+pub use self::authority::Authority;
 
 mod rdata;

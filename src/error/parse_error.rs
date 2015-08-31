@@ -16,6 +16,7 @@
 use std::error::Error;
 use std::fmt;
 use std::num;
+use std::io;
 
 use super::DecodeError;
 use super::LexerError;
@@ -26,6 +27,14 @@ pub enum ParseError {
   LexerError(LexerError),
   DecodeError(DecodeError),
   UnrecognizedToken(Token),
+  OriginIsUndefined,
+  RecordTypeNotSpecified,
+  RecordNameNotSpecified,
+  RecordClassNotSpecified,
+  RecordTTLNotSpecified,
+  RecordDataNotSpecified,
+  SoaAlreadySpecified,
+  IoError(io::Error),
 }
 
 impl fmt::Display for ParseError {
@@ -34,6 +43,14 @@ impl fmt::Display for ParseError {
       ParseError::LexerError(ref err) => err.fmt(f),
       ParseError::DecodeError(ref err) => err.fmt(f),
       ParseError::UnrecognizedToken(ref t) => write!(f, "Unrecognized Token in stream: {:?}", t),
+      ParseError::OriginIsUndefined => write!(f, "$ORIGIN was not specified"),
+      ParseError::RecordTypeNotSpecified => write!(f, "Record type not specified"),
+      ParseError::RecordNameNotSpecified => write!(f, "Record name not specified"),
+      ParseError::RecordClassNotSpecified => write!(f, "Record class not specified"),
+      ParseError::RecordTTLNotSpecified => write!(f, "Record ttl not specified"),
+      ParseError::RecordDataNotSpecified => write!(f, "Record data not specified"),
+      ParseError::SoaAlreadySpecified => write!(f, "SOA is already specified"),
+      ParseError::IoError(ref err) => err.fmt(f),
     }
   }
 }
@@ -43,13 +60,23 @@ impl Error for ParseError {
     match *self {
       ParseError::LexerError(ref err) => err.description(),
       ParseError::DecodeError(ref err) => err.description(),
-      ParseError::UnrecognizedToken(..) => "Unrecognized Token"
+      ParseError::UnrecognizedToken(..) => "Unrecognized Token",
+      ParseError::OriginIsUndefined => "$ORIGIN was not specified",
+      ParseError::RecordTypeNotSpecified => "Record type not specified",
+      ParseError::RecordNameNotSpecified => "Record name not specified",
+      ParseError::RecordClassNotSpecified => "Record class not specified",
+      ParseError::RecordTTLNotSpecified => "Record ttl not specified",
+      ParseError::RecordDataNotSpecified => "Record data not specified",
+      ParseError::SoaAlreadySpecified => "SOA is already specified",
+      ParseError::IoError(ref err) => err.description(),
     }
   }
 
   fn cause(&self) -> Option<&Error> {
     match *self {
       ParseError::LexerError(ref err) => Some(err),
+      ParseError::DecodeError(ref err) => Some(err),
+      ParseError::IoError(ref err) => Some(err),
       _ => None,
     }
   }
@@ -64,5 +91,11 @@ impl From<LexerError> for ParseError {
 impl From<DecodeError> for ParseError {
   fn from(err: DecodeError) -> ParseError {
     ParseError::DecodeError(err)
+  }
+}
+
+impl From<io::Error> for ParseError {
+  fn from(err: io::Error) -> ParseError {
+    ParseError::IoError(err)
   }
 }
