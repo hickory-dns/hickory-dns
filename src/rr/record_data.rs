@@ -329,14 +329,14 @@ pub enum RData {
 }
 
 impl RData {
-  pub fn parse(record_type: RecordType, tokens: &Vec<Token>) -> ParseResult<Self> {
+  pub fn parse(record_type: RecordType, tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Self> {
     match record_type {
-      RecordType::CNAME => rdata::cname::parse(tokens),
-      RecordType::MX => rdata::mx::parse(tokens),
+      RecordType::CNAME => rdata::cname::parse(tokens, origin),
+      RecordType::MX => rdata::mx::parse(tokens, origin),
       RecordType::NULL => rdata::null::parse(tokens),
-      RecordType::NS => rdata::ns::parse(tokens),
-      RecordType::PTR => rdata::ptr::parse(tokens),
-      RecordType::SOA => rdata::soa::parse(tokens),
+      RecordType::NS => rdata::ns::parse(tokens, origin),
+      RecordType::PTR => rdata::ptr::parse(tokens, origin),
+      RecordType::SOA => rdata::soa::parse(tokens, origin),
       RecordType::TXT => rdata::txt::parse(tokens),
       RecordType::A => rdata::a::parse(tokens),
       RecordType::AAAA => rdata::aaaa::parse(tokens),

@@ -82,8 +82,12 @@ impl RecordType {
       "AAAA" => Ok(RecordType::AAAA),
       "CNAME" => Ok(RecordType::CNAME),
       "NULL" => Ok(RecordType::NULL),
+      "MX" => Ok(RecordType::MX),
       "NS" => Ok(RecordType::NS),
+      "PTR" => Ok(RecordType::PTR),
       "SOA" => Ok(RecordType::SOA),
+      "TXT" => Ok(RecordType::TXT),
+
       _ => Err(DecodeError::UnknownRecordTypeStr(str.to_string())),
     }
   }
@@ -102,8 +106,11 @@ impl RecordType {
       28 => Ok(RecordType::AAAA),
       5 => Ok(RecordType::CNAME),
       0 => Ok(RecordType::NULL),
+      15 => Ok(RecordType::MX),
       2 => Ok(RecordType::NS),
+      12 => Ok(RecordType::PTR),
       6 => Ok(RecordType::SOA),
+      16 => Ok(RecordType::TXT),
       _ => Err(DecodeError::UnknownRecordTypeValue(value)),
     }
   }
@@ -142,8 +149,11 @@ impl From<RecordType> for &'static str {
       RecordType::AAAA => "AAAA",
       RecordType::CNAME => "CNAME",
       RecordType::NULL => "NULL",
+      RecordType::MX => "MX",
       RecordType::NS => "NS",
+      RecordType::PTR => "PTR",
       RecordType::SOA => "SOA",
+      RecordType::TXT => "TXT",
       _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned
     }
   }
@@ -165,8 +175,11 @@ impl From<RecordType> for u16 {
       RecordType::AAAA => 28,
       RecordType::CNAME => 5,
       RecordType::NULL => 0,
+      RecordType::MX => 15,
       RecordType::NS => 2,
+      RecordType::PTR => 12,
       RecordType::SOA => 6,
+      RecordType::TXT => 16,
       _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned...
     }
   }

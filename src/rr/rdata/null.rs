@@ -60,6 +60,7 @@ pub fn emit(encoder: &mut BinEncoder, nil: &RData) -> EncodeResult {
   }
 }
 
+#[allow(unused)]
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
   unimplemented!()
 }

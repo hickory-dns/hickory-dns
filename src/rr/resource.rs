@@ -95,6 +95,7 @@ impl Record {
    */
   pub fn new() -> Record {
     Record {
+      // TODO: these really should all be Optionals, I was lazy.
       name_labels: domain::Name::new(),
       rr_type: RecordType::A,
       dns_class: DNSClass::IN,

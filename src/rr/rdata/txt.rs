@@ -55,5 +55,13 @@ pub fn emit(encoder: &mut BinEncoder, txt: &RData) -> EncodeResult {
 }
 
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
-  unimplemented!()
+  let mut txt_data: Vec<String> = Vec::with_capacity(tokens.len());
+  for t in tokens {
+    match *t {
+      Token::CharData(ref txt) => txt_data.push(txt.clone()),
+      _ => return Err(ParseError::UnexpectedToken(t.clone())),
+    }
+  }
+
+  Ok(RData::TXT { txt_data: txt_data })
 }

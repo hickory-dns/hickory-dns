@@ -15,8 +15,6 @@
  */
 use std::collections::HashMap;
 
-use ::serialize::txt::*;
-use ::error::*;
 use ::rr::{RecordType, Record, Name};
 
 /// Authority is the storage method for all
@@ -29,5 +27,17 @@ pub struct Authority {
 impl Authority {
   pub fn new(origin: Name, records: HashMap<(Name, RecordType), Vec<Record>>) -> Authority {
     Authority{ origin: origin, records: records }
+  }
+
+  pub fn get_soa(&self) -> Option<&Record> {
+    // SOA should be origin|SOA
+    self.lookup(&self.origin, RecordType::SOA).and_then(|v|v.first())
+  }
+
+  pub fn lookup(&self, name: &Name, rtype: RecordType) -> Option<&Vec<Record>> {
+    // TODO this should be an unnecessary copy... need to create a key type, and then use that for
+    //  all queries
+    //self.records.get(&(self.origin.clone(), RecordType::SOA)).map(|v|v.first())
+    self.records.get(&(name.clone(), rtype))
   }
 }

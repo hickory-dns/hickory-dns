@@ -98,7 +98,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
 }
 
 pub fn emit(encoder: &mut BinEncoder, soa: &RData) -> EncodeResult {
-  if let RData::SOA { ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum} = *soa {
+  if let RData::SOA { ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum } = *soa {
     try!(mname.emit(encoder));
     try!(rname.emit(encoder));
     try!(encoder.emit_u32(*serial));
@@ -112,6 +112,32 @@ pub fn emit(encoder: &mut BinEncoder, soa: &RData) -> EncodeResult {
   }
 }
 
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
-  unimplemented!()
+// VENERA      Action\.domains (
+//                                 20     ; SERIAL
+//                                 7200   ; REFRESH
+//                                 600    ; RETRY
+//                                 3600000; EXPIRE
+//                                 60)    ; MINIMUM
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
+  let mut token = tokens.iter();
+
+  let mname: Name = try!(token.next().ok_or(ParseError::MissingToken("mname".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let rname: Name = try!(token.next().ok_or(ParseError::MissingToken("rname".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  try!(token.next().ok_or(ParseError::MissingToken("(".to_string())).and_then(|t| if let &Token::StartList = t {Ok(t)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let serial: u32 = try!(token.next().ok_or(ParseError::MissingToken("serial".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let refresh: i32 = try!(token.next().ok_or(ParseError::MissingToken("refresh".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let retry: i32 = try!(token.next().ok_or(ParseError::MissingToken("retry".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let expire: i32 = try!(token.next().ok_or(ParseError::MissingToken("expire".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let minimum: u32 = try!(token.next().ok_or(ParseError::MissingToken("minimum".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  try!(token.next().ok_or(ParseError::MissingToken(")".to_string())).and_then(|t| if let &Token::EndList = t {Ok(t)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+
+  Ok(RData::SOA{
+    mname:   mname,
+    rname:   rname,
+    serial:  serial,
+    refresh: refresh,
+    retry:   retry,
+    expire:  expire,
+    minimum: minimum,
+  })
 }

@@ -17,6 +17,7 @@
 use std::collections::HashMap;
 use std::io::Read;
 use std::fs::File;
+use std::num::ParseIntError;
 
 use ::error::*;
 use ::rr::Name;
@@ -133,15 +134,20 @@ impl Parser {
     Parser
   }
 
-  pub fn parse(&mut self, file: File, origin: Option<Name>) -> ParseResult<Authority> {
-    let mut records: HashMap<(Name, RecordType), Vec<Record>> = HashMap::new();
-    let mut buf = String::new();
+  pub fn parse_from(&mut self, file: File, origin: Option<Name>) -> ParseResult<Authority> {
     let mut file = file;
+    let mut buf = String::new();
 
     // TODO, this should really use something to read line by line or some other method to
-    //  keep the usage down.
+    //  keep the usage down. and be a custom lexer...
     try!(file.read_to_string(&mut buf));
-    let mut lexer = Lexer::new(&buf);
+    let lexer = Lexer::new(&buf);
+    self.parse(lexer, origin)
+  }
+
+  pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>) -> ParseResult<Authority> {
+    let mut lexer = lexer;
+    let mut records: HashMap<(Name, RecordType), Vec<Record>> = HashMap::new();
 
     let mut origin: Option<Name> = origin;
     let mut current_name: Option<Name> = None;
@@ -164,55 +170,55 @@ impl Parser {
             Token::Origin => State::Origin,
 
             // if CharData, then Name then ttl_class_type
-            Token::CharData(data) => {
-              current_name = Some(try!(Name::parse(data, &origin)));
-              State::Ttl_Class_Type
+            Token::CharData(ref data) => {
+              current_name = Some(try!(Name::parse(data, origin.as_ref())));
+              State::TtlClassType
             },
 
             // @ is a placeholder for specifying the current origin
             Token::At => {
               current_name = origin.clone(); // TODO a COW or RC would reduce copies...
-              State::Ttl_Class_Type
+              State::TtlClassType
             }
 
-            // if blank, then nothing or ttl_class_type... grr...
+            // if blank, then nothing or ttl_class_type
             Token::Blank => {
-              State::Ttl_Class_Type
+              State::TtlClassType
             },
             Token::EOL => State::StartLine, // probably a comment
-            _ => return Err(ParseError::UnrecognizedToken(t)),
+            _ => return Err(ParseError::UnexpectedToken(t)),
           }
         },
         State::Origin => {
           match t {
-            Token::CharData(data) => {
+            Token::CharData(ref data) => {
               // TODO an origin was specified, should this be legal? definitely confusing...
-              origin = Some(try!(Name::parse(data, &None)));
+              origin = Some(try!(Name::parse(data, None)));
               State::StartLine
             }
-            _ => return Err(ParseError::UnrecognizedToken(t)),
+            _ => return Err(ParseError::UnexpectedToken(t)),
           }
         }
         State::Include => unimplemented!(),
-        State::Ttl_Class_Type => {
+        State::TtlClassType => {
           match t {
             // if number, TTL
             // Token::Number(ref num) => ttl = Some(*num),
             // One of Class or Type (these cannot be overlapping!)
             Token::CharData(ref data) => {
               // if it's a number it's a ttl
-              let result = data.parse();
+              let result: Result<i32, ParseIntError> = data.parse();
               if result.is_ok() {
-                if ttl.is_some() { return Err(ParseError::UnrecognizedToken(t.clone())) } // ideally there is no copy in normal usage
                 ttl = result.ok();
-                State::Ttl_Class_Type
+                State::TtlClassType
               } else {
                 // if can parse DNSClass, then class
                 let result = DNSClass::from_str(data);
                 if result.is_ok() {
                   class = result.ok();
-                  State::Ttl_Class_Type
+                  State::TtlClassType
                 } else {
+
                   // if can parse RecordType, then RecordType
                   rtype = Some(try!(RecordType::from_str(data)));
                   State::Record
@@ -223,81 +229,80 @@ impl Parser {
             Token::EOL => {
               State::StartLine // next line
             },
-            _ => return Err(ParseError::UnrecognizedToken(t)),
+            _ => return Err(ParseError::UnexpectedToken(t)),
           }
         },
         State::Record => {
           // b/c of ownership rules, perhaps, just collect all the RData components as a list of
           //  tokens to pass into the processor
           match t {
-            Token::EOL => State::EndRecord,
+            Token::EOL => {
+              // call out to parsers for difference record types
+              let rdata = try!(RData::parse(try!(rtype.ok_or(ParseError::RecordTypeNotSpecified)), &tokens, origin.as_ref()));
+
+              // verify that we have everything we need for the record
+              let mut record = Record::new();
+              // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
+              //  might want to wait until RC.weak() stabilizes, as that would be needed for global
+              //  memory where you want
+              record.name(try!(current_name.clone().ok_or(ParseError::RecordNameNotSpecified)));
+              record.rr_type(rtype.unwrap());
+              record.dns_class(try!(class.ok_or(ParseError::RecordClassNotSpecified)));
+
+              // slightly annoying, need to grab the TTL, then move rdata into the record,
+              //  then check the Type again and have custom add logic.
+              match rtype.unwrap() {
+                RecordType::SOA => {
+                  // TTL for the SOA is set internally...
+                  // expire is for the SOA, minimum is default for records
+                  if let RData::SOA { ref expire, ref minimum, ..} = rdata {
+                    record.ttl(*expire);
+                    ttl = Some(*minimum as i32);
+                  } else { assert!(false, "Invalid RData here, expected SOA: {:?}", rdata); }
+                },
+                _ => {
+                  record.ttl(try!(ttl.ok_or(ParseError::RecordTTLNotSpecified)));
+                },
+              }
+
+              // move the rdata into record...
+              record.rdata(rdata);
+
+              // add to the map
+              let key = (record.get_name().clone(), record.get_rr_type());
+
+              match rtype.unwrap() {
+                RecordType::SOA => {
+                  if records.insert(key, vec![record]).is_some() {
+                    return Err(ParseError::SoaAlreadySpecified);
+                  }
+                },
+                _ => {
+                  // add a Vec if it's not there, then add the record to the list
+                  let mut records = records.entry(key).or_insert(Vec::with_capacity(1));
+                  records.push(record);
+                },
+              }
+
+              State::StartLine
+            },
             _ => { tokens.push(t); State::Record },
           }
-        },
-        State::EndRecord => {
-          // call out to parsers for difference record types
-          let rdata = try!(RData::parse(try!(rtype.ok_or(ParseError::RecordTypeNotSpecified)), &tokens));
-
-          // verify that we have everything we need for the record
-          let mut record = Record::new();
-          // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
-          //  might want to wait until RC.weak() stabilizes, as that would be needed for global
-          //  memory where you want
-          record.name(try!(current_name.clone().ok_or(ParseError::RecordNameNotSpecified)));
-          record.rr_type(rtype.unwrap());
-          record.dns_class(try!(class.ok_or(ParseError::RecordClassNotSpecified)));
-
-          // slightly annoying, need to grab the TTL, then move rdata into the record,
-          //  then check the Type again and have custom add logic.
-          match rtype.unwrap() {
-            RecordType::SOA => {
-              // TTL for the SOA is set internally...
-              // expire is for the SOA, minimum is default for records
-              if let RData::SOA { ref expire, ref minimum, ..} = rdata {
-                record.ttl(*expire);
-                ttl = Some(*minimum as i32);
-              } else { assert!(false, "Invalid RData here, expected SOA: {:?}", rdata); }
-            },
-            _ => {
-              record.ttl(try!(ttl.ok_or(ParseError::RecordTTLNotSpecified)));
-            },
-          }
-
-          // move the rdata into record...
-          record.rdata(rdata);
-
-          // add to the map
-          let key = (record.get_name().clone(), record.get_rr_type());
-
-          match rtype.unwrap() {
-            RecordType::SOA => {
-              if records.insert(key, vec![record]).is_some() {
-                return Err(ParseError::SoaAlreadySpecified);
-              }
-            },
-            _ => {
-              // add a Vec if it's not there, then add the record to the list
-              let mut records = records.entry(key).or_insert(Vec::with_capacity(1));
-              records.push(record);
-            },
-          }
-
-          State::StartLine
         },
       }
     }
 
     //
     // build the Authority and return.
+    records.shrink_to_fit(); // this shouldn't change once stored (replacement instead)
     Ok(Authority::new(try!(origin.ok_or(ParseError::OriginIsUndefined)), records))
   }
 }
 
 enum State {
   StartLine,       // start of line, @, $<WORD>, Name, Blank
-  Ttl_Class_Type,  // [<TTL>] [<class>] <type>,
+  TtlClassType,  // [<TTL>] [<class>] <type>,
   Record,
   Include,         // $INCLUDE <filename>
   Origin,
-  EndRecord,
 }

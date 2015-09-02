@@ -25,3 +25,6 @@ pub use self::master_lex::Token;
 pub trait TxtSerializable {
   fn parse(lexer: &mut Lexer) -> ParseResult<Self>;
 }
+
+#[cfg(test)]
+mod txt_tests;

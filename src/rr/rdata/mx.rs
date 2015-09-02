@@ -48,8 +48,8 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
 }
 
 pub fn emit(encoder: &mut BinEncoder, mx: &RData) -> EncodeResult {
-  if let RData::MX { ref preference, ref exchange } = *mx {
-    try!(encoder.emit_u16(*preference));
+  if let RData::MX { preference, ref exchange } = *mx {
+    try!(encoder.emit_u16(preference));
     try!(exchange.emit(encoder));
     Ok(())
   } else {
@@ -57,8 +57,13 @@ pub fn emit(encoder: &mut BinEncoder, mx: &RData) -> EncodeResult {
   }
 }
 
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
-  unimplemented!()
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
+  let mut token = tokens.iter();
+
+  let preference: u16 = try!(token.next().ok_or(ParseError::MissingToken("preference".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let exchange: Name = try!(token.next().ok_or(ParseError::MissingToken("exchange".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+
+  Ok(RData::MX { preference: preference, exchange: exchange})
 }
 
 

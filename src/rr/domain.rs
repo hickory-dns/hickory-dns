@@ -28,6 +28,14 @@ impl Name {
     Name { labels: Vec::new() }
   }
 
+  // inline builder
+  pub fn label(self, label: &'static str) -> Self {
+    let mut me = self;
+    me.labels.push(label.into());
+    me
+  }
+
+  // for mutating over time
   pub fn with_labels(labels: Vec<String>) -> Self {
     Name { labels: labels }
   }
@@ -45,19 +53,20 @@ impl Name {
     self
   }
 
-  pub fn parse(local: String, origin: &Option<Self>) -> ParseResult<Self> {
+  // TODO: I think this does the wrong thing for escaped data
+  pub fn parse(local: &String, origin: Option<&Self>) -> ParseResult<Self> {
     let mut build = Name::new();
     // split the local part
 
     // TODO: this should be a real lexer, to varify all data is legal name...
     for s in local.split('.') {
       if s.len() > 0 {
-        build.add_label(s.to_string());
+        build.add_label(s.to_string().to_lowercase()); // all names stored in lowercase
       }
     }
 
     if !local.ends_with('.') {
-      build.append(try!(origin.as_ref().ok_or(ParseError::OriginIsUndefined)));
+      build.append(try!(origin.ok_or(ParseError::OriginIsUndefined)));
     }
 
     Ok(build)
@@ -86,7 +95,7 @@ impl BinSerializable for Name {
             Some(0) | None => LabelParseState::Root,
             Some(byte) if byte & 0xC0 == 0xC0 => LabelParseState::Pointer,
             Some(byte) if byte <= 0x3F        => LabelParseState::Label,
-            _ => unimplemented!(),
+            _ => unreachable!(),
           }
         },
         LabelParseState::Label => {

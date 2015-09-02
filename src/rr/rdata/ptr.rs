@@ -50,6 +50,9 @@ pub fn emit(encoder: &mut BinEncoder, ptr: &RData) -> EncodeResult {
   }
 }
 
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
-  unimplemented!()
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
+  let mut token = tokens.iter();
+
+  let ptrdname: Name = try!(token.next().ok_or(ParseError::MissingToken("ptrdname".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  Ok(RData::PTR{ ptrdname: ptrdname })
 }

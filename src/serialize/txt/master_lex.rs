@@ -2,7 +2,6 @@ use std::cell::{Cell,RefCell};
 use std::iter::Peekable;
 use std::str::Chars;
 use std::char;
-use std::fs::File;
 
 use ::error::{LexerResult,LexerError};
 
@@ -18,8 +17,8 @@ impl<'a> Lexer<'a> {
   }
 
   pub fn next_token(&mut self) -> LexerResult<Option<Token>> {
-    let mut cur_token: Cell<Option<State>> = Cell::new(None);
-    let mut cur_string: RefCell<Option<String>> = RefCell::new(None);
+    let cur_token: Cell<Option<State>> = Cell::new(None);
+    let cur_string: RefCell<Option<String>> = RefCell::new(None);
 
     //while let Some(ch) = self.txt.by_ref().peekable().peek() {
     'out: for i in 0..4096 { // max chars in a single lex, helps with issues in the lexer...
@@ -122,8 +121,8 @@ impl<'a> Lexer<'a> {
     self.txt.next(); // consume the escape
     let ch = try!(self.peek().ok_or(LexerError::EOF));
 
-    if (!ch.is_control()) {
-      if (ch.is_numeric()) {
+    if !ch.is_control() {
+      if ch.is_numeric() {
         // in this case it's an excaped octal: \DDD
         let d1 = try!(self.txt.next().ok_or(LexerError::EOF)); // gobble
         let d2 = try!(self.txt.next().ok_or(LexerError::EOF)); // gobble
@@ -200,9 +199,8 @@ pub enum Token {
   Blank,             // only if the first part of the line
   StartList,         // (
   EndList,           // )
-  CharData(String),  // [a-zA-Z, non-control utf8, ., -, 0-9]+
+  CharData(String),  // [a-zA-Z, non-control utf8, ., -, 0-9]+, ".*"
   At,                // @
-  Quote(String),     // ".*"
   Include,           // $INCLUDE
   Origin,            // $ORIGIN
   EOL,               // \n or \r\n
@@ -218,7 +216,7 @@ impl Token {
       State::Comment => Token::EOL, // comments can't end a sequence, so must be EOF/EOL
       State::At => Token::At,
       State::Quote => return Err(LexerError::UnclosedQuotedString),
-      State::Quoted => Token::Quote(value.unwrap_or_default()),
+      State::Quoted => Token::CharData(value.unwrap_or_default()),
       State::Dollar => {
         let s = value.unwrap_or_default();
         if "INCLUDE".to_string() == s { Token::Include }
@@ -232,7 +230,6 @@ impl Token {
 
 #[cfg(test)]
 mod lex_test {
-  use ::error::*;
   use super::*;
 
   #[test]
@@ -256,6 +253,16 @@ mod lex_test {
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("after".to_string()));
 
+    let mut lexer = Lexer::new("dead beef ();comment
+         after");
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("dead".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("beef".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::StartList);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EndList);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("after".to_string()));
+
   }
 
   #[test]
@@ -270,18 +277,18 @@ mod lex_test {
 
   #[test]
   fn quoted_txt() {
-    assert_eq!(Lexer::new("\"Quoted\"").next_token().unwrap().unwrap(), Token::Quote("Quoted".to_string()));
-    assert_eq!(Lexer::new("\";@$\"").next_token().unwrap().unwrap(), Token::Quote(";@$".to_string()));
-    assert_eq!(Lexer::new("\"some \\A\"").next_token().unwrap().unwrap(), Token::Quote("some A".to_string()));
+    assert_eq!(Lexer::new("\"Quoted\"").next_token().unwrap().unwrap(), Token::CharData("Quoted".to_string()));
+    assert_eq!(Lexer::new("\";@$\"").next_token().unwrap().unwrap(), Token::CharData(";@$".to_string()));
+    assert_eq!(Lexer::new("\"some \\A\"").next_token().unwrap().unwrap(), Token::CharData("some A".to_string()));
 
     let mut lexer = Lexer::new("\"multi\nline\ntext\"");
 
-    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Quote("multi\nline\ntext".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("multi\nline\ntext".to_string()));
     assert_eq!(lexer.next_token().unwrap(), None);
 
     let mut lexer = Lexer::new("\"multi\r\nline\r\ntext\"\r\n");
 
-    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Quote("multi\r\nline\r\ntext".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("multi\r\nline\r\ntext".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
     assert_eq!(lexer.next_token().unwrap(), None);
 
@@ -345,36 +352,36 @@ mod lex_test {
 
     let mut lexer = Lexer::new("(\n\"abc\"\n)");
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::StartList);
-    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Quote("abc".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("abc".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EndList);
     assert_eq!(lexer.next_token().unwrap(), None);
     let mut lexer = Lexer::new("(\n\"abc\";comment\n)");
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::StartList);
-    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Quote("abc".to_string()));
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("abc".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EndList);
     assert_eq!(lexer.next_token().unwrap(), None);
   }
 
   #[test]
   fn soa() {
-    let mut lexer = Lexer::new("@   IN  SOA     VENERA      Action\\.domains (\n\
-                                 20     ; SERIAL\n\
-                                 7200   ; REFRESH\n\
-                                 600    ; RETRY\n\
-                                 3600000; EXPIRE\n\
-                                 60)    ; MINIMUM\n\
-\n\
-        NS      A.ISI.EDU.\n\
-        NS      VENERA\n\
-        NS      VAXA\n\
-        MX      10      VENERA\n\
-        MX      20      VAXA\n\
-\n\
-A       A       26.3.0.103\n\
-\n\
-VENERA  A       10.1.0.52\n\
-        A       128.9.0.32\n\
-\n\
+    let mut lexer = Lexer::new("@   IN  SOA     VENERA      Action\\.domains (
+                                 20     ; SERIAL
+                                 7200   ; REFRESH
+                                 600    ; RETRY
+                                 3600000; EXPIRE
+                                 60)    ; MINIMUM
+
+        NS      A.ISI.EDU.
+        NS      VENERA
+        NS      VAXA
+        MX      10      VENERA
+        MX      20      VAXA
+
+A       A       26.3.0.103
+
+VENERA  A       10.1.0.52
+        A       128.9.0.32
+
 $INCLUDE <SUBSYS>ISI-MAILBOXES.TXT");
 
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::At);
@@ -391,19 +398,24 @@ $INCLUDE <SUBSYS>ISI-MAILBOXES.TXT");
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EndList);
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("NS".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("A.ISI.EDU.".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("NS".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("VENERA".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("NS".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("VAXA".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("MX".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("10".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("VENERA".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("MX".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("20".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("VAXA".to_string()));
@@ -418,6 +430,7 @@ $INCLUDE <SUBSYS>ISI-MAILBOXES.TXT");
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("A".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("10.1.0.52".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
+    assert_eq!(lexer.next_token().unwrap().unwrap(), Token::Blank);
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("A".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::CharData("128.9.0.32".to_string()));
     assert_eq!(lexer.next_token().unwrap().unwrap(), Token::EOL);
