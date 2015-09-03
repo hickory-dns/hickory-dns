@@ -31,6 +31,7 @@ pub enum LexerError {
   UnclosedList,
   UnrecognizedDollar(String),
   EOF,
+  IllegalState(&'static str),
 }
 
 impl fmt::Display for LexerError {
@@ -47,6 +48,7 @@ impl fmt::Display for LexerError {
       LexerError::UnclosedList => write!(f, "Unclosed list, missing ')'"),
       LexerError::UnrecognizedDollar(ref s) => write!(f, "Unrecognized dollar content: {}", s),
       LexerError::EOF => write!(f, "End of input reached before next read could complete"),
+      LexerError::IllegalState(s) => write!(f, "Illegal state: {}", s),
     }
   }
 }
@@ -65,6 +67,7 @@ impl Error for LexerError {
       LexerError::UnclosedList => "Unclosed list",
       LexerError::UnrecognizedDollar(..) => "Unrecognized dollar content",
       LexerError::EOF => "End of input",
+      LexerError::IllegalState(..) => "Illegal state",
     }
   }
 
