@@ -25,7 +25,7 @@ impl<'a> Lexer<'a> {
       let ch: Option<char> = self.peek();
 
       // handy line for debugging
-      println!("ch = {:?}; state = {:?}(c: {:?}, v: {:?})", ch, self.state, char_data, char_data_vec);
+      // println!("ch = {:?}; state = {:?}(c: {:?}, v: {:?})", ch, self.state, char_data, char_data_vec);
 
       // continuing states should pass back the state as the last statement,
       //  terminal states should set the state internally and return the proper Token::*.
@@ -43,7 +43,7 @@ impl<'a> Lexer<'a> {
           State::RestOfLine => {
             match ch {
               Some('@') => { self.state = State::At },
-              Some('(') => { self.txt.next(); char_data_vec = Some(Vec::new()); self.state = State::StartList; },
+              Some('(') => { self.txt.next(); char_data_vec = Some(Vec::new()); self.state = State::List; },
               Some(')') => { return Err(LexerError::IllegalCharacter(ch.unwrap_or(')'))) },
               Some('$') => { self.txt.next(); char_data = Some(String::new()); self.state = State::Dollar; },
               Some('\r') | Some('\n') => { self.state = State::EOL; },
@@ -64,7 +64,7 @@ impl<'a> Lexer<'a> {
           State::Comment{ is_list } => {
             match ch {
               Some('\r') | Some('\n') => {
-                if is_list { self.state = State::StartList; }
+                if is_list { self.state = State::List; }
                 else { self.state = State::EOL; }
               }, // out of the comment
               Some(_) => { self.txt.next(); }, // advance the token by default and maintain state
@@ -95,7 +95,7 @@ impl<'a> Lexer<'a> {
               },
             }
           },
-          State::StartList => {
+          State::List => {
             match ch {
               Some(';') => { self.txt.next(); self.state = State::Comment{ is_list: true } },
               Some(')') => { self.txt.next(); self.state = State::RestOfLine; return char_data_vec.take().ok_or(LexerError::IllegalState("char_data_vec is None")).map(|v|Some(Token::List(v))); }
@@ -111,7 +111,7 @@ impl<'a> Lexer<'a> {
               Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
                 if is_list {
                   try!(char_data_vec.as_mut().ok_or(LexerError::IllegalState("char_data_vec is None")).and_then(|v|Ok(v.push(try!(char_data.take().ok_or(LexerError::IllegalState("char_data is None")))))));
-                  self.state = State::StartList;
+                  self.state = State::List;
                 } else {
                   self.state = State::RestOfLine;
                   let result = char_data.take().ok_or(LexerError::IllegalState("char_data is None"));
@@ -201,7 +201,7 @@ pub enum State {
   StartLine,
   RestOfLine,
   Blank,             // only if the first part of the line
-  StartList,         // (..)
+  List,              // (..)
   CharData{ is_list: bool },          // [a-zA-Z, non-control utf8]+
   //  Name,              // CharData + '.' + CharData
   Comment{ is_list: bool }, // ;.*
@@ -215,8 +215,6 @@ pub enum State {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
   Blank,             // only if the first part of the line
-  StartList,         // (
-  EndList,           // )
   List(Vec<String>), // (..)
   CharData(String),  // [a-zA-Z, non-control utf8, ., -, 0-9]+, ".*"
   At,                // @
@@ -229,7 +227,7 @@ pub enum Token {
 //   pub fn from(state: State, value: Option<String>) -> LexerResult<Option<Token>> {
 //     Ok(Some(match state {
 //       State::Blank => Token::Blank,
-//       State::StartList => Token::StartList,
+//       State::List => Token::List,
 //       State::EndList => Token::EndList,
 //       State::CharData => Token::CharData(value.unwrap()),
 //       State::Comment => Token::EOL, // comments can't end a sequence, so must be EOF/EOL
