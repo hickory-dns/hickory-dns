@@ -25,7 +25,7 @@ use ::rr::RecordType;
 use ::rr::Record;
 use ::rr::DNSClass;
 use ::rr::RData;
-use ::rr::Authority;
+use ::authority::Authority;
 
 use super::master_lex::{Lexer, Token};
 

@@ -13,7 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod logger;
 pub mod rr;
+pub mod authority;
 pub mod op;
 pub mod udp;
 pub mod error;
@@ -21,3 +23,10 @@ pub mod serialize;
 
 #[macro_use] extern crate log;
 // extern crate regex;
+
+
+#[test]
+fn enable_logging() {
+  use log::LogLevel;
+  logger::TrustDnsLogger::new(LogLevel::Debug).init().unwrap();
+}

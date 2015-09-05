@@ -15,29 +15,33 @@
  */
 use std::collections::HashMap;
 
-use ::rr::{RecordType, Record, Name};
+use ::rr::*;
 
 /// Authority is the storage method for all
 ///
 pub struct Authority {
   origin: Name,
   records: HashMap<(Name, RecordType), Vec<Record>>,
+  // this controls if this server responds to queries with authoritative answers for the autority
+  owned_by_me: bool,
 }
 
 impl Authority {
   pub fn new(origin: Name, records: HashMap<(Name, RecordType), Vec<Record>>) -> Authority {
-    Authority{ origin: origin, records: records }
+    Authority{ origin: origin, records: records, owned_by_me: false }
   }
 
-  pub fn get_soa(&self) -> Option<&Record> {
+  pub fn get_soa(&self) -> Option<Record> {
     // SOA should be origin|SOA
-    self.lookup(&self.origin, RecordType::SOA).and_then(|v|v.first())
+    self.lookup(&self.origin, RecordType::SOA, DNSClass::IN).and_then(|v|v.first().cloned())
   }
 
-  pub fn lookup(&self, name: &Name, rtype: RecordType) -> Option<&Vec<Record>> {
-    // TODO this should be an unnecessary copy... need to create a key type, and then use that for
+  pub fn lookup(&self, name: &Name, rtype: RecordType, class: DNSClass) -> Option<Vec<Record>> {
+    // TODO this should be an unnecessary clone... need to create a key type, and then use that for
     //  all queries
     //self.records.get(&(self.origin.clone(), RecordType::SOA)).map(|v|v.first())
-    self.records.get(&(name.clone(), rtype))
+    // TODO: lots of clones here... need to clean this up to work with refs... probably will affect
+    //  things like Message which will need two variants for owned vs. shared memory.
+    self.records.get(&(name.clone(), rtype)).map(|v|v.clone().iter().filter(|r|r.get_dns_class() == class).cloned().collect())
   }
 }

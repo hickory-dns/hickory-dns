@@ -53,6 +53,16 @@ impl Name {
     self
   }
 
+  /// Trims off the first part of the name, to help with searching for the domain piece
+  /// TODO: This makes a copy right now, probably can do something better...
+  pub fn base_name(&self) -> Option<Name> {
+    if self.labels.len() >= 1 {
+      Some(Self::with_labels(self.labels[1..].to_vec()))
+    } else {
+      None
+    }
+  }
+
   // TODO: I think this does the wrong thing for escaped data
   pub fn parse(local: &String, origin: Option<&Self>) -> ParseResult<Self> {
     let mut build = Name::new();
@@ -144,8 +154,6 @@ impl BinSerializable for Name {
         }
       }
     }
-
-    println!("found name: {:?}", labels);
 
     Ok(Name { labels: labels })
   }

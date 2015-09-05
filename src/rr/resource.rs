@@ -78,7 +78,7 @@ use super::domain;
  *                 For example, the if the TYPE is A and the CLASS is IN,
  *                 the RDATA field is a 4 octet ARPA Internet address.
  */
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Record {
   name_labels: domain::Name,
   rr_type: RecordType,

@@ -61,7 +61,7 @@ VENERA  A       10.1.0.52
   }
 
   // NS
-  let ns_records: &Vec<Record> = authority.lookup(&Name::with_labels(vec!["isi".into(),"edu".into()]), RecordType::NS).unwrap();
+  let ns_records: Vec<Record> = authority.lookup(&Name::with_labels(vec!["isi".into(),"edu".into()]), RecordType::NS, DNSClass::IN).unwrap();
   let compare = ns_records.iter().zip(vec![  // this is cool, zip up the expected results... works as long as the order is good.
     Name::new().label("a").label("isi").label("edu"),
     Name::new().label("venera").label("isi").label("edu"),
@@ -81,7 +81,7 @@ VENERA  A       10.1.0.52
   }
 
   // MX
-  let mx_records: &Vec<Record> = authority.lookup(&Name::new().label("isi").label("edu"), RecordType::MX).unwrap();
+  let mx_records: Vec<Record> = authority.lookup(&Name::new().label("isi").label("edu"), RecordType::MX, DNSClass::IN).unwrap();
   let compare = mx_records.iter().zip(vec![
     (10, Name::new().label("venera").label("isi").label("edu")),
     (20, Name::new().label("vaxa").label("isi").label("edu")),
@@ -101,7 +101,7 @@ VENERA  A       10.1.0.52
   }
 
   // A
-  let a_record: &Record = authority.lookup(&Name::new().label("a").label("isi").label("edu"), RecordType::A).unwrap().first().unwrap();
+  let a_record: Record = authority.lookup(&Name::new().label("a").label("isi").label("edu"), RecordType::A, DNSClass::IN).unwrap().first().cloned().unwrap();
   assert_eq!(&Name::new().label("a").label("isi").label("edu"), a_record.get_name());
   assert_eq!(60, a_record.get_ttl()); // TODO: should this be minimum or expire?
   assert_eq!(DNSClass::IN, a_record.get_dns_class());
@@ -113,7 +113,7 @@ VENERA  A       10.1.0.52
   }
 
   // AAAA
-  let aaaa_record: &Record = authority.lookup(&Name::new().label("aaaa").label("isi").label("edu"), RecordType::AAAA).unwrap().first().unwrap();
+  let aaaa_record: Record = authority.lookup(&Name::new().label("aaaa").label("isi").label("edu"), RecordType::AAAA, DNSClass::IN).unwrap().first().cloned().unwrap();
   assert_eq!(&Name::new().label("aaaa").label("isi").label("edu"), aaaa_record.get_name());
   if let RData::AAAA{ ref address } = *aaaa_record.get_rdata() {
     assert_eq!(&Ipv6Addr::from_str("4321:0:1:2:3:4:567:89ab").unwrap(), address);
@@ -122,7 +122,7 @@ VENERA  A       10.1.0.52
   }
 
   // SHORT
-  let short_record: &Record = authority.lookup(&Name::new().label("short").label("isi").label("edu"), RecordType::A).unwrap().first().unwrap();
+  let short_record: Record = authority.lookup(&Name::new().label("short").label("isi").label("edu"), RecordType::A, DNSClass::IN).unwrap().first().cloned().unwrap();
   assert_eq!(&Name::new().label("short").label("isi").label("edu"), short_record.get_name());
   assert_eq!(70, short_record.get_ttl());
   if let RData::A{ ref address } = *short_record.get_rdata() {
@@ -132,7 +132,7 @@ VENERA  A       10.1.0.52
   }
 
   // TXT
-  let txt_records: &Vec<Record> = authority.lookup(&Name::new().label("a").label("isi").label("edu"), RecordType::TXT).unwrap();
+  let txt_records: Vec<Record> = authority.lookup(&Name::new().label("a").label("isi").label("edu"), RecordType::TXT, DNSClass::IN).unwrap();
   let compare = txt_records.iter().zip(vec![
     vec!["I".to_string(), "am".to_string(), "a".to_string(), "txt".to_string(), "record".to_string()],
     vec!["I".to_string(), "am".to_string(), "another".to_string(), "txt".to_string(), "record".to_string()],
@@ -149,7 +149,7 @@ VENERA  A       10.1.0.52
   }
 
   // PTR
-  let ptr_record: &Record = authority.lookup(&Name::new().label("103").label("0").label("3").label("26").label("in-addr").label("arpa"), RecordType::PTR).unwrap().first().unwrap();
+  let ptr_record: Record = authority.lookup(&Name::new().label("103").label("0").label("3").label("26").label("in-addr").label("arpa"), RecordType::PTR, DNSClass::IN).unwrap().first().cloned().unwrap();
   if let RData::PTR{ ref ptrdname } = *ptr_record.get_rdata() {
     assert_eq!(&Name::new().label("a").label("isi").label("edu"), ptrdname);
   } else {

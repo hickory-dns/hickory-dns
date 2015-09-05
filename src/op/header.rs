@@ -114,6 +114,7 @@ pub enum MessageType {
 }
 
 impl Header {
+  // TODO: we should make id, message_type and op_code all required and non-editable
   /// A default Header, not very useful.
   pub fn new() -> Self {
     Header {

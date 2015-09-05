@@ -80,6 +80,12 @@ impl Message {
   pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.header.response_code(response_code); self }
   pub fn add_query(&mut self, query: Query) -> &mut Self { self.queries.push(query); self }
   pub fn add_answer(&mut self, record: Record) -> &mut Self { self.answers.push(record); self }
+  pub fn add_all_answers(&mut self, vector: &[Record]) -> &mut Self {
+    for r in vector {
+      self.add_answer(r.clone());
+    }
+    self
+  }
   pub fn add_name_server(&mut self, record: Record) -> &mut Self { self.name_servers.push(record); self }
   pub fn add_additional(&mut self, record: Record) -> &mut Self { self.additionals.push(record); self }
 

@@ -26,24 +26,25 @@ use ::op::op_code::OpCode;
 use ::op::query::Query;
 use ::serialize::binary::*;
 
-pub struct Client {
+pub struct Client<A: ToSocketAddrs + Copy> {
   socket: UdpSocket,
-  name_server: SocketAddrV4,
+  name_server: A,
   next_id: Cell<u16>,
 }
 
-impl Client {
+impl Client<(Ipv4Addr,u16)> {
   /// name_server to connect to with default port 53
-  pub fn new(name_server: Ipv4Addr) -> ClientResult<Client> {
-    Self::with_port(name_server, 53)
+  pub fn new(name_server: Ipv4Addr) -> ClientResult<Client<(Ipv4Addr,u16)>> {
+    Self::with_addr((name_server, 53))
   }
+}
 
-  /// name_server to connect to, port is the port number that server is listening on (default 53)
-  pub fn with_port(name_server: Ipv4Addr, port: u16) -> ClientResult<Client> {
+impl<A: ToSocketAddrs + Copy> Client<A> {
+  pub fn with_addr(addr: A) -> ClientResult<Client<A>> {
     // client binds to all addresses...
     // TODO when the socket_opts interfaces stabilize, need to add timeouts, ttl, etc.
     let socket = try!(UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::new(0,0,0,0),0)));
-    Ok(Client { socket: socket, name_server: SocketAddrV4::new(name_server, port), next_id: Cell::new(4096) })
+    Ok(Client { socket: socket, name_server: addr, next_id: Cell::new(1024) } )
   }
 
   /// send a DNS query to the name_server specified in Clint.

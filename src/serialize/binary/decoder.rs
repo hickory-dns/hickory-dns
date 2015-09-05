@@ -24,7 +24,7 @@ use ::rr::record_type::RecordType;
 ///  this is a simpler implementation without the cruft, at least for serializing to/from the
 ///  binary DNS protocols. rustc-serialization will be used for other coms, e.g. json over http
 pub struct BinDecoder {
-  buffer: Vec<u8>,
+  buffer: Vec<u8>, // TODO maybe this should be &[u8], not sure since it will always be copied out of the buffer.
   index: usize,
   record_type: Option<RecordType>,
   rdata_length: Option<u16>,

@@ -14,14 +14,12 @@
  * limitations under the License.
  */
 
-pub mod op_code;
-pub mod response_code;
-pub mod message;
-pub mod header;
-pub mod query;
+/*!
+  The catalog module has the types necessary for storing and caching authoritative records.
+ */
 
-pub use self::message::Message;
-pub use self::query::Query;
-pub use self::header::MessageType;
-pub use self::op_code::OpCode;
-pub use self::response_code::ResponseCode;
+mod authority;
+mod catalog;
+
+pub use self::authority::Authority;
+pub use self::catalog::Catalog;

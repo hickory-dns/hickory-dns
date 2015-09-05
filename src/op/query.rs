@@ -74,6 +74,11 @@ impl Query {
   pub fn name(&mut self, name: Name) -> &mut Self { self.name = name; self }
   pub fn query_type(&mut self, query_type: RecordType) -> &mut Self { self.query_type = query_type; self }
   pub fn query_class(&mut self, query_class: DNSClass) -> &mut Self { self.query_class = query_class; self }
+
+  pub fn get_name(&self) -> &Name { &self.name }
+  pub fn get_query_type(&self) -> RecordType { self.query_type }
+  pub fn get_query_class(&self) -> DNSClass { self.query_class }
+
 }
 
 impl BinSerializable for Query {
