@@ -18,7 +18,7 @@ readme = "README.md"
 
 # This is a small list of keywords used to categorize and search for this
 # package.
-keywords = ["DNS", "dns", "host", "BIND", "dig", "named", "dnssec"]
+keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
 
 # This is a string description of the license for this package. Currently
 # crates.io will validate the license provided against a whitelist of known
