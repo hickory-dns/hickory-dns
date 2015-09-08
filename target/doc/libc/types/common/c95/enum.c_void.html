@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `c_void` enum in crate `libc`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, c_void">
+
+    <title>libc::types::common::c95::c_void - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../../main.css">
+
+    <link rel="shortcut icon" href="https://doc.rust-lang.org/favicon.ico">
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        <a href='../../../../libc/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png' alt='' width='100'></a>
+        <p class='location'><a href='../../../index.html'>libc</a>::<wbr><a href='../../index.html'>types</a>::<wbr><a href='../index.html'>common</a>::<wbr><a href='index.html'>c95</a></p><script>window.sidebarCurrent = {name: 'c_void', ty: 'enum', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press 'S' to search, '?' for more options..."
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content enum">
+<h1 class='fqn'><span class='in-band'>Enum <a href='../../../index.html'>libc</a>::<wbr><a href='../../index.html'>types</a>::<wbr><a href='../index.html'>common</a>::<wbr><a href='index.html'>c95</a>::<wbr><a class='enum' href=''>c_void</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-43' class='srclink' href='../../../../src/libc/lib.rs.html#199-202' title='goto source code'>[src]</a></span></h1>
+<pre class='rust enum'>pub enum c_void {
+    __variant1,
+    __variant2,
+}</pre><div class='docblock'><p>Type used to construct void pointers for use with C.</p>
+
+<p>This type is only useful as a pointer target. Do not use it as a
+return type for FFI functions which have the <code>void</code> return type in
+C. Use the unit type <code>()</code> or omit the return type instead.</p>
+
+<p>For LLVM to recognize the void pointer type and by extension
+functions like malloc(), we need to have it represented as i8* in
+LLVM bitcode. The enum used here ensures this and prevents misuse
+of the &quot;raw&quot; type by only having private variants.. We need two
+variants, because the compiler complains about the repr attribute
+otherwise.</p>
+</div><h2 class='variants'>Variants</h2>
+<table><tr><td id='variant.__variant1'><code>__variant1</code></td><td></td></tr><tr><td id='variant.__variant2'><code>__variant2</code></td><td></td></tr></table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div class="shortcuts">
+            <h1>Keyboard shortcuts</h1>
+            <dl>
+                <dt>?</dt>
+                <dd>Show this help dialog</dd>
+                <dt>S</dt>
+                <dd>Focus the search field</dd>
+                <dt>&larrb;</dt>
+                <dd>Move up in search results</dd>
+                <dt>&rarrb;</dt>
+                <dd>Move down in search results</dd>
+                <dt>&#9166;</dt>
+                <dd>Go to active search result</dd>
+            </dl>
+        </div>
+        <div class="infos">
+            <h1>Search tricks</h1>
+            <p>
+                Prefix searches with a type followed by a colon (e.g.
+                <code>fn:</code>) to restrict the search to a given type.
+            </p>
+            <p>
+                Accepted types are: <code>fn</code>, <code>mod</code>,
+                <code>struct</code>, <code>enum</code>,
+                <code>trait</code>, <code>typedef</code> (or
+                <code>tdef</code>).
+            </p>
+            <p>
+                Search functions by type signature (e.g.
+                <code>vec -> usize</code>)
+            </p>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../../../";
+        window.currentCrate = "libc";
+        window.playgroundUrl = "https://play.rust-lang.org/";
+    </script>
+    <script src="../../../../jquery.js"></script>
+    <script src="../../../../main.js"></script>
+    <script src="../../../../playpen.js"></script>
+    <script async src="../../../../search-index.js"></script>
+</body>
+</html>

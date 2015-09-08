@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["FILE",""],["c_void","Type used to construct void pointers for use with C."],["fpos_t",""]]});

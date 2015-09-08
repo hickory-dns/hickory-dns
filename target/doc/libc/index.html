@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `libc` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, libc">
+
+    <title>libc - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    <link rel="shortcut icon" href="https://doc.rust-lang.org/favicon.ico">
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        <a href='../libc/index.html'><img src='https://www.rust-lang.org/logos/rust-logo-128x128-blk-v2.png' alt='' width='100'></a>
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'libc', ty: 'mod', relpath: '../'};</script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press 'S' to search, '?' for more options..."
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>libc</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-0' class='srclink' href='../src/libc/lib.rs.html#12-6547' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>Bindings for the C standard library and other platform libraries</p>
+
+<p><strong>NOTE:</strong> These are <em>architecture and libc</em> specific. On Linux, these
+bindings are only correct for glibc.</p>
+
+<p>This module contains bindings to the C standard library, organized into
+modules by their defining standard.  Additionally, it contains some assorted
+platform-specific definitions.  For convenience, most functions and types
+are reexported, so <code>use libc::*</code> will import the available C bindings as
+appropriate for the target platform. The exact set of functions available
+are platform specific.</p>
+
+<p><em>Note:</em> Because these definitions are platform-specific, some may not appear
+in the generated documentation.</p>
+
+<p>We consider the following specs reasonably normative with respect to
+interoperating with the C standard library (libc/msvcrt):</p>
+
+<ul>
+<li>ISO 9899:1990 (&#39;C95&#39;, &#39;ANSI C&#39;, &#39;Standard C&#39;), NA1, 1995.</li>
+<li>ISO 9899:1999 (&#39;C99&#39; or &#39;C9x&#39;).</li>
+<li>ISO 9945:1988 / IEEE 1003.1-1988 (&#39;POSIX.1&#39;).</li>
+<li>ISO 9945:2001 / IEEE 1003.1-2001 (&#39;POSIX:2001&#39;, &#39;SUSv3&#39;).</li>
+<li>ISO 9945:2008 / IEEE 1003.1-2008 (&#39;POSIX:2008&#39;, &#39;SUSv4&#39;).</li>
+</ul>
+
+<p>Note that any reference to the 1996 revision of POSIX, or any revs between
+1990 (when &#39;88 was approved at ISO) and 2001 (when the next actual
+revision-revision happened), are merely additions of other chapters (1b and
+1c) outside the core interfaces.</p>
+
+<p>Despite having several names each, these are <em>reasonably</em> coherent
+point-in-time, list-of-definition sorts of specs. You can get each under a
+variety of names but will wind up with the same definition in each case.</p>
+
+<p>See standards(7) in linux-manpages for more details.</p>
+
+<p>Our interface to these libraries is complicated by the non-universality of
+conformance to any of them. About the only thing universally supported is
+the first (C95), beyond that definitions quickly become absent on various
+platforms.</p>
+
+<p>We therefore wind up dividing our module-space up (mostly for the sake of
+sanity while editing, filling-in-details and eliminating duplication) into
+definitions common-to-all (held in modules named c95, c99, posix88, posix01
+and posix08) and definitions that appear only on <em>some</em> platforms (named
+&#39;extra&#39;). This would be things like significant OSX foundation kit, or Windows
+library kernel32.dll, or various fancy glibc, Linux or BSD extensions.</p>
+
+<p>In addition to the per-platform &#39;extra&#39; modules, we define a module of
+&#39;common BSD&#39; libc routines that never quite made it into POSIX but show up
+in multiple derived systems. This is the 4.4BSD r2 / 1995 release, the final
+one from Berkeley after the lawsuits died down and the CSRG dissolved.</p>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
+<table><tr><td><code>pub use types::common::<a class='mod' href='../libc/types/common/c95/index.html' title='libc::types::common::c95'>c95</a>::*;</code></td></tr><tr><td><code>pub use types::common::<a class='mod' href='../libc/types/common/c99/index.html' title='libc::types::common::c99'>c99</a>::*;</code></td></tr><tr><td><code>pub use types::common::<a class='mod' href='../libc/types/common/posix88/index.html' title='libc::types::common::posix88'>posix88</a>::*;</code></td></tr><tr><td><code>pub use types::os::common::<a class='mod' href='../libc/types/os/common/posix01/index.html' title='libc::types::os::common::posix01'>posix01</a>::*;</code></td></tr><tr><td><code>pub use types::os::common::<a class='mod' href='../libc/types/os/common/bsd44/index.html' title='libc::types::os::common::bsd44'>bsd44</a>::*;</code></td></tr><tr><td><code>pub use types::os::arch::<a class='mod' href='../libc/types/os/arch/c95/index.html' title='libc::types::os::arch::c95'>c95</a>::*;</code></td></tr><tr><td><code>pub use types::os::arch::<a class='mod' href='../libc/types/os/arch/c99/index.html' title='libc::types::os::arch::c99'>c99</a>::*;</code></td></tr><tr><td><code>pub use types::os::arch::<a class='mod' href='../libc/types/os/arch/posix88/index.html' title='libc::types::os::arch::posix88'>posix88</a>::*;</code></td></tr><tr><td><code>pub use types::os::arch::<a class='mod' href='../libc/types/os/arch/posix01/index.html' title='libc::types::os::arch::posix01'>posix01</a>::*;</code></td></tr><tr><td><code>pub use types::os::arch::<a class='mod' href='../libc/types/os/arch/extra/index.html' title='libc::types::os::arch::extra'>extra</a>::*;</code></td></tr><tr><td><code>pub use consts::os::<a class='mod' href='../libc/consts/os/c95/index.html' title='libc::consts::os::c95'>c95</a>::*;</code></td></tr><tr><td><code>pub use consts::os::<a class='mod' href='../libc/consts/os/posix88/index.html' title='libc::consts::os::posix88'>posix88</a>::*;</code></td></tr><tr><td><code>pub use consts::os::<a class='mod' href='../libc/consts/os/posix01/index.html' title='libc::consts::os::posix01'>posix01</a>::*;</code></td></tr><tr><td><code>pub use consts::os::<a class='mod' href='../libc/consts/os/bsd44/index.html' title='libc::consts::os::bsd44'>bsd44</a>::*;</code></td></tr><tr><td><code>pub use consts::os::<a class='mod' href='../libc/consts/os/extra/index.html' title='libc::consts::os::extra'>extra</a>::*;</code></td></tr><tr><td><code>pub use funcs::c95::<a class='mod' href='../libc/funcs/c95/ctype/index.html' title='libc::funcs::c95::ctype'>ctype</a>::*;</code></td></tr><tr><td><code>pub use funcs::c95::<a class='mod' href='../libc/funcs/c95/stdio/index.html' title='libc::funcs::c95::stdio'>stdio</a>::*;</code></td></tr><tr><td><code>pub use funcs::c95::<a class='mod' href='../libc/funcs/c95/stdlib/index.html' title='libc::funcs::c95::stdlib'>stdlib</a>::*;</code></td></tr><tr><td><code>pub use funcs::c95::<a class='mod' href='../libc/funcs/c95/string/index.html' title='libc::funcs::c95::string'>string</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix88::<a class='mod' href='../libc/funcs/posix88/fcntl/index.html' title='libc::funcs::posix88::fcntl'>fcntl</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix88::<a class='mod' href='../libc/funcs/posix88/stat_/index.html' title='libc::funcs::posix88::stat_'>stat_</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix88::<a class='mod' href='../libc/funcs/posix88/stdio/index.html' title='libc::funcs::posix88::stdio'>stdio</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix88::<a class='mod' href='../libc/funcs/posix88/unistd/index.html' title='libc::funcs::posix88::unistd'>unistd</a>::*;</code></td></tr><tr><td><code>pub use funcs::<a class='mod' href='../libc/funcs/bsd43/index.html' title='libc::funcs::bsd43'>bsd43</a>::*;</code></td></tr><tr><td><code>pub use consts::os::<a class='mod' href='../libc/consts/os/sysconf/index.html' title='libc::consts::os::sysconf'>sysconf</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix88::<a class='mod' href='../libc/funcs/posix88/mman/index.html' title='libc::funcs::posix88::mman'>mman</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix88::<a class='mod' href='../libc/funcs/posix88/dirent/index.html' title='libc::funcs::posix88::dirent'>dirent</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix88::<a class='mod' href='../libc/funcs/posix88/net/index.html' title='libc::funcs::posix88::net'>net</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix01::<a class='mod' href='../libc/funcs/posix01/stat_/index.html' title='libc::funcs::posix01::stat_'>stat_</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix01::<a class='mod' href='../libc/funcs/posix01/unistd/index.html' title='libc::funcs::posix01::unistd'>unistd</a>::*;</code></td></tr><tr><td><code>pub use funcs::posix01::<a class='mod' href='../libc/funcs/posix01/resource/index.html' title='libc::funcs::posix01::resource'>resource</a>::*;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='consts/index.html'
+                               title='libc::consts'>consts</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='funcs/index.html'
+                               title='libc::funcs'>funcs</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='types/index.html'
+                               title='libc::types'>types</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div class="shortcuts">
+            <h1>Keyboard shortcuts</h1>
+            <dl>
+                <dt>?</dt>
+                <dd>Show this help dialog</dd>
+                <dt>S</dt>
+                <dd>Focus the search field</dd>
+                <dt>&larrb;</dt>
+                <dd>Move up in search results</dd>
+                <dt>&rarrb;</dt>
+                <dd>Move down in search results</dd>
+                <dt>&#9166;</dt>
+                <dd>Go to active search result</dd>
+            </dl>
+        </div>
+        <div class="infos">
+            <h1>Search tricks</h1>
+            <p>
+                Prefix searches with a type followed by a colon (e.g.
+                <code>fn:</code>) to restrict the search to a given type.
+            </p>
+            <p>
+                Accepted types are: <code>fn</code>, <code>mod</code>,
+                <code>struct</code>, <code>enum</code>,
+                <code>trait</code>, <code>typedef</code> (or
+                <code>tdef</code>).
+            </p>
+            <p>
+                Search functions by type signature (e.g.
+                <code>vec -> usize</code>)
+            </p>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "libc";
+        window.playgroundUrl = "https://play.rust-lang.org/";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    <script src="../playpen.js"></script>
+    <script async src="../search-index.js"></script>
+</body>
+</html>

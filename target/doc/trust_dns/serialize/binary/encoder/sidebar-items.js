@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BinEncoder","Encode DNS messages and resource record types."]]});

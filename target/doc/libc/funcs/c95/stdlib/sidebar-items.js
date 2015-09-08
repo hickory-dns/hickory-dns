@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["_exit",""],["abs",""],["atexit",""],["atof",""],["atoi",""],["calloc",""],["exit","Exits the running program in a possibly dangerous manner."],["free",""],["getenv",""],["labs",""],["malloc",""],["rand",""],["realloc",""],["srand",""],["strtod",""],["strtol",""],["strtoul",""],["system",""]]});

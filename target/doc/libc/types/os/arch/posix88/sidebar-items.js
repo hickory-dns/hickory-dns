@@ -1,0 +1,1 @@
+initSidebarItems({"type":[["dev_t",""],["gid_t",""],["ino_t",""],["mode_t",""],["off_t",""],["pid_t",""],["ssize_t",""],["uid_t",""],["useconds_t",""]]});
