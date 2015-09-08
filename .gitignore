@@ -3,7 +3,7 @@
 *.so
 *.rlib
 *.dll
-
+.DS_Store
 # Executables
 *.exe
 
