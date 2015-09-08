@@ -8,8 +8,8 @@ authors = ["Benjamin Fry <benjaminfry@me.com>"]
 description = "TRust-DNS is meant to be a drop in replacement for BIND9, and be a safe and secure DNS server and client"
 
 # These URLs point to more information about the repository
-# documentation = "..."
-# homepage = "..."
+documentation = "http://www.trust-dns.org/target/doc/trust_dns/index.html"
+homepage = "http://www.trust-dns.org/index.html"
 repository = "https://github.com/bluejekyll/trust-dns"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
