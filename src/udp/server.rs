@@ -14,13 +14,10 @@
  * limitations under the License.
  */
 use std::net::*;
-use std::collections::HashMap;
 use std::io;
 
-use ::rr::Name;
 use ::authority::Catalog;
 use ::op::*;
-use ::error::*;
 use ::serialize::binary::*;
 
 pub struct Server {
@@ -56,7 +53,7 @@ impl Server {
     let request = Message::read(&mut decoder);
 
     if let Err(decode_error) = request {
-      warn!("unable to decode request from client: {}", addr);
+      warn!("unable to decode request from client: {}: {}", addr, decode_error);
       self.error_to(addr, 0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr);
     } else {
       let request = request.unwrap(); // unwrap the Ok()
@@ -81,6 +78,7 @@ impl Server {
     match request.get_op_code() {
       OpCode::Query => {
         let response = self.catalog.lookup(&request);
+        debug!("query response: {:?}", response);
         self.send_to(addr, response);
       },
       c @ _ => {
@@ -100,7 +98,7 @@ impl Server {
     self.send_to(addr, message);
   }
 
-  pub fn send_to(&self, addr: SocketAddr, mut response: Message) {
+  pub fn send_to(&self, addr: SocketAddr, response: Message) {
     // all responses need these fields set:
     let mut encoder:BinEncoder = BinEncoder::new();
     let encode_result = response.emit(&mut encoder);
@@ -132,21 +130,28 @@ mod server_tests {
   use std::thread;
   use std::net::*;
 
+  use ::authority::authority_tests::create_example;
   use ::op::*;
   use ::rr::dns_class::DNSClass;
   use ::rr::record_type::RecordType;
-  use ::rr::domain;
+  use ::rr::domain::Name;
   use ::rr::record_data::RData;
   use ::udp::client::Client;
   use ::authority::Catalog;
 
   #[test]
-  fn test_server() {
-    let server = Server::with_authorities(Catalog::new());
+  fn test_server_origin() {
+    let example = create_example();
+    let origin = example.get_origin().clone();
+
+    let mut catalog: Catalog = Catalog::new();
+    catalog.upsert(origin.clone(), example);
+
+    let server = Server::with_authorities(catalog);
     let ipaddr = server.local_addr().unwrap(); // for the client to connect to
 
-    let mut server_thread = thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
-    let mut client_thread = thread::Builder::new().name("test_server:client".to_string()).spawn(move || client_thread(ipaddr)).unwrap();
+    let server_thread = thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
+    let client_thread = thread::Builder::new().name("test_server:client".to_string()).spawn(move || client_thread_origin(ipaddr)).unwrap();
 
     let client_result = client_thread.join();
     let server_result = server_thread.join();
@@ -155,8 +160,30 @@ mod server_tests {
     assert!(server_result.is_ok(), "server failed: {:?}", server_result);
   }
 
-  fn client_thread(server_addr: SocketAddr) {
-    let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+  #[test]
+  fn test_server_www() {
+    let example = create_example();
+    let origin = example.get_origin().clone();
+
+    let mut catalog: Catalog = Catalog::new();
+    catalog.upsert(origin.clone(), example);
+
+    let server = Server::with_authorities(catalog);
+    let ipaddr = server.local_addr().unwrap(); // for the client to connect to
+
+    let server_thread = thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
+    let client_thread = thread::Builder::new().name("test_server:client".to_string()).spawn(move || client_thread_www(ipaddr)).unwrap();
+
+    let client_result = client_thread.join();
+    let server_result = server_thread.join();
+
+    assert!(client_result.is_ok(), "client failed: {:?}", client_result);
+    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
+  }
+
+
+  fn client_thread_origin(server_addr: SocketAddr) {
+    let name = Name::with_labels(vec!["example".to_string(), "com".to_string()]);
     let client = Client::with_addr(server_addr).unwrap();
 
     println!("about to query server: {:?}", server_addr);
@@ -174,6 +201,41 @@ mod server_tests {
     } else {
       assert!(false);
     }
+
+    let ns = response.get_name_servers();
+    assert_eq!(ns.len(), 2);
+    assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
+    assert_eq!(ns.first().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() });
+    assert_eq!(ns.last().unwrap().get_rr_type(), RecordType::NS);
+    assert_eq!(ns.last().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() });
+  }
+
+  fn client_thread_www(server_addr: SocketAddr) {
+    let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+    let client = Client::with_addr(server_addr).unwrap();
+
+    println!("about to query server: {:?}", server_addr);
+    let response = client.query(name.clone(), DNSClass::IN, RecordType::A).unwrap();
+
+    assert!(response.get_response_code() == ResponseCode::NoError, "got an error: {:?}", response.get_response_code());
+
+    let record = &response.get_answers()[0];
+    assert_eq!(record.get_name(), &name);
+    assert_eq!(record.get_rr_type(), RecordType::A);
+    assert_eq!(record.get_dns_class(), DNSClass::IN);
+
+    if let &RData::A{ ref address } = record.get_rdata() {
+      assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+    } else {
+      assert!(false);
+    }
+
+    let ns = response.get_name_servers();
+    assert_eq!(ns.len(), 2);
+    assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
+    assert_eq!(ns.first().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() });
+    assert_eq!(ns.last().unwrap().get_rr_type(), RecordType::NS);
+    assert_eq!(ns.last().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() });
   }
 
   fn server_thread(server: Server) {

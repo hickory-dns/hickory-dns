@@ -23,3 +23,6 @@ mod catalog;
 
 pub use self::authority::Authority;
 pub use self::catalog::Catalog;
+
+#[cfg(test)]
+pub use self::authority::authority_tests;

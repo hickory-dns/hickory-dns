@@ -87,6 +87,12 @@ impl Message {
     self
   }
   pub fn add_name_server(&mut self, record: Record) -> &mut Self { self.name_servers.push(record); self }
+  pub fn add_all_name_servers(&mut self, vector: &[Record]) -> &mut Self {
+    for r in vector {
+      self.add_name_server(r.clone());
+    }
+    self
+  }
   pub fn add_additional(&mut self, record: Record) -> &mut Self { self.additionals.push(record); self }
 
   pub fn get_id(&self) -> u16 { self.header.get_id() }

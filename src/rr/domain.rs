@@ -18,6 +18,8 @@ use std::ops::Index;
 use ::serialize::binary::*;
 use ::error::*;
 
+/// TODO: all Names should be stored in a global "intern" space, and then everything that uses
+///  them should be through references.
 #[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Name {
   labels: Vec<String>
@@ -64,7 +66,7 @@ impl Name {
   }
 
   // TODO: I think this does the wrong thing for escaped data
-  pub fn parse(local: &String, origin: Option<&Self>) -> ParseResult<Self> {
+  pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {
     let mut build = Name::new();
     // split the local part
 

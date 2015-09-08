@@ -1,13 +1,16 @@
 use log;
 use log::{LogLevel, SetLoggerError, LogMetadata, LogRecord};
 
+#[allow(unused)]
 pub struct TrustDnsLogger { level: LogLevel }
 
 impl TrustDnsLogger {
+  #[allow(dead_code)]
   pub fn new(level: LogLevel) -> TrustDnsLogger {
     TrustDnsLogger { level: level }
   }
 
+  #[allow(dead_code)]
   pub fn init(self) -> Result<(), SetLoggerError> {
     let result = log::set_logger(|max_log_level| {
         max_log_level.set(self.level.to_log_level_filter());
