@@ -26,6 +26,18 @@ keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
 # be separated with a `/`
 license = "Apache-2.0"
 
+# custom build steps
+build = "build.rs"
+
+[lib]
+name = "trust_dns"
+path = "src/lib.rs"
+
+[[bin]]
+name = "named"
+path = "src/bin.rs"
+
+
 [profile.dev]
 opt-level = 0  # Controls the --opt-level the compiler builds with
 debug = true   # Controls whether the compiler passes `-g`
@@ -45,6 +57,8 @@ debug-assertions = true
 codegen-units = 1
 
 [dependencies]
+rustc-serialize = "^0.3.16"
 log = "^0.3.1"
+docopt = "^0.6.72"
+
 # regex = "^0.1.41"
-# rustc-serialize = "^0.3.16"

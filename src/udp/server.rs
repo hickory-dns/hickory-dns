@@ -129,6 +129,7 @@ mod server_tests {
   use super::*;
   use std::thread;
   use std::net::*;
+  use std::process::*;
 
   use ::authority::authority_tests::create_example;
   use ::op::*;
@@ -181,6 +182,31 @@ mod server_tests {
     assert!(server_result.is_ok(), "server failed: {:?}", server_result);
   }
 
+  // TODO: functional test!
+  /// This test verifies that we work with standard tools
+  #[test]
+  fn test_server_host_cli() {
+    let example = create_example();
+    let origin = example.get_origin().clone();
+
+    let mut catalog: Catalog = Catalog::new();
+    catalog.upsert(origin.clone(), example);
+
+    let server = Server::with_authorities(catalog);
+    let ipaddr = server.local_addr().unwrap(); // for the client to connect to
+
+    let server_thread = thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
+    let client_result = Command::new("dig").arg("@127.0.0.1").arg(format!("-p{}", ipaddr.port()))
+                                           .arg("www.example.com").arg("+short")
+                                           .output().unwrap_or_else(|e| panic!("failed to spawn dig: {}", e) );
+
+    let server_result = server_thread.join();
+
+    assert!(&(client_result.status).success());
+    assert_eq!(client_result.stdout, "93.184.216.34\n".as_bytes()); // newline from the dig output
+
+    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
+  }
 
   fn client_thread_origin(server_addr: SocketAddr) {
     let name = Name::with_labels(vec!["example".to_string(), "com".to_string()]);

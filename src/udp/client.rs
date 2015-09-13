@@ -130,6 +130,7 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
   }
 }
 
+// TODO: this should be flagged with cfg as a functional test.
 #[test]
 fn test_query() {
   use std::net::*;
