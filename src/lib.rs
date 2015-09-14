@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+extern crate mio;
+#[macro_use] extern crate log;
+
 pub mod logger;
 pub mod rr;
 pub mod authority;
@@ -20,9 +23,6 @@ pub mod op;
 pub mod udp;
 pub mod error;
 pub mod serialize;
-
-#[macro_use] extern crate log;
-// extern crate regex;
 
 /// this exposes a version function which gives access to the access
 include!(concat!(env!("OUT_DIR"), "/version.rs"));

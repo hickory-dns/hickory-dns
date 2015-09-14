@@ -13,12 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::net::*;
+use std::net::{SocketAddr, ToSocketAddrs};
 use std::io;
+use std::io::Cursor;
+
+use mio::udp::UdpSocket;
+use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want confusion with std::net
 
 use ::authority::Catalog;
 use ::op::*;
 use ::serialize::binary::*;
+
+const SERVER: Token = Token(0);
 
 pub struct Server {
   socket: UdpSocket,
@@ -30,30 +36,39 @@ pub struct Server {
 impl Server {
   pub fn with_authorities(catalog: Catalog) -> Self {
     // TODO: obviously needs some work ;) waiting on stable socket options
-    Server { socket: UdpSocket::bind(("127.0.0.1", 0)).unwrap(), catalog: catalog }
+    let socket_addr = ("127.0.0.1", 0).to_socket_addrs().unwrap().next().unwrap();
+    Server { socket: UdpSocket::bound(&socket_addr).unwrap(), catalog: catalog }
   }
 
   pub fn local_addr(&self) -> io::Result<SocketAddr> {
     self.socket.local_addr()
   }
 
-  // TODO how to do threads? should we do a bunch of listener threads and then query threads?
-  pub fn listen(&self) {
+
+  /// TODO how to do threads? should we do a bunch of listener threads and then query threads?
+  /// Ideally the processing would be n-threads for recieving, which hand off to m-threads for
+  ///  request handling. It would generally be the case that n <= m.
+  pub fn listen(&mut self) -> io::Result<()> {
     info!("Server starting up: {:?}", self.socket);
 
-    // TODO loop on recv... eventually make multiple threads for running recv concurrently.
-    let mut buf = [0u8; 4096];
-    let (read_count, addr) = self.socket.recv_from(&mut buf).unwrap();
-    info!("bytes: {:?} from: {:?}", read_count, addr);
+    // TODO this should be done per thread.
+    // Create an event loop
+    let mut event_loop: EventLoop<Server> = try!(EventLoop::new());
+    try!(event_loop.register_opt(&self.socket, SERVER, EventSet::readable(), PollOpt::level()));
 
-    // read message in
-    let read_bytes = buf[..read_count].to_vec();  // copy out the bytes from the buffer
-    let mut decoder = BinDecoder::new(read_bytes);
+    // I wonder if the event_loop should be outside the method
+    //  to make this easier for testing... or return the event_loop...
+    try!(event_loop.run_once(self));
+    Ok(())
+  }
+
+  pub fn handle_message(&self, addr: SocketAddr, request_bytes: Vec<u8>) {
+    let mut decoder = BinDecoder::new(request_bytes);
 
     let request = Message::read(&mut decoder);
 
     if let Err(decode_error) = request {
-      warn!("unable to decode request from client: {}: {}", addr, decode_error);
+      warn!("unable to decode request from client: {:?}: {}", addr, decode_error);
       self.error_to(addr, 0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr);
     } else {
       let request = request.unwrap(); // unwrap the Ok()
@@ -64,27 +79,24 @@ impl Server {
       match request.get_message_type() {
         // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
         //  especially for recursive lookups
-        // TODO probably kick off a thread here
-        MessageType::Query => self.handle_message(addr, request),
+        MessageType::Query => {
+          match request.get_op_code() {
+            OpCode::Query => {
+              let response = self.catalog.lookup(&request);
+              debug!("query response: {:?}", response);
+              self.send_to(addr, response);
+            },
+            c @ _ => {
+              error!("unimplemented op_code: {:?}", c);
+              self.error_to(addr, request.get_id(), request.get_op_code(), ResponseCode::NotImp);
+            },
+          }
+        },
         MessageType::Response => {
-          warn!("got a response as a request from: {} id: {}", addr, id);
+          warn!("got a response as a request from: {:?} id: {}", addr, id);
           self.error_to(addr, id, request.get_op_code(), ResponseCode::NotImp);
         },
       }
-    }
-  }
-
-  pub fn handle_message(&self, addr: SocketAddr, request: Message) {
-    match request.get_op_code() {
-      OpCode::Query => {
-        let response = self.catalog.lookup(&request);
-        debug!("query response: {:?}", response);
-        self.send_to(addr, response);
-      },
-      c @ _ => {
-        error!("unimplemented op_code: {:?}", c);
-        self.error_to(addr, request.get_id(), request.get_op_code(), ResponseCode::NotImp);
-      },
     }
   }
 
@@ -111,17 +123,51 @@ impl Server {
       self.error_to(addr, response.get_id(), response.get_op_code(), ResponseCode::ServFail);
     } else {
       info!("sending message to: {} id: {} rcode: {:?}", addr, response.get_id(), response.get_response_code());
-      let bytes = encoder.as_bytes();
-      let result = self.socket.send_to(&bytes, addr);
+      let mut bytes = Cursor::new(encoder.as_bytes());
+      let result = self.socket.send_to(&mut bytes, &addr);
       if let Err(error) = result {
         error!("error sending to: {} id: {} error: {}", addr, response.get_id(), error);
       } else {
-        debug!("successfully sent message to: {} id: {} bytes: {}", addr, response.get_id(), bytes.len());
+        debug!("successfully sent message to: {} id: {} bytes: {}", addr, response.get_id(), bytes.get_ref().len());
       }
     }
   }
 }
 
+impl Handler for Server {
+  type Timeout = ();
+  type Message = ();
+
+  fn ready(&mut self, _: &mut EventLoop<Self>, token: Token, events: EventSet) {
+    match token {
+      SERVER => {
+        if !events.is_readable() {
+          debug!("got woken up, but not readable: {:?}", token);
+        }
+
+        // it would great to have a pool of buffers, more efficient.
+        let mut buf: Vec<u8> = Vec::with_capacity(4096);
+
+        let recv_result = self.socket.recv_from(&mut buf);
+        if recv_result.is_err() {
+          error!("could not recv_from on {:?}: {:?}", self.socket, recv_result);
+          return
+        }
+
+        if recv_result.as_ref().unwrap().is_none() {
+          error!("no return address on recv_from: {:?}", self.socket);
+          return
+        }
+
+        let addr = recv_result.unwrap().unwrap();
+        info!("bytes: {:?} from: {:?}", buf.len(), addr);
+
+        self.handle_message(addr, buf);
+      },
+      _ => warn!("unrecognized token: {:?}", token),
+    }
+  }
+}
 
 
 #[cfg(test)]
@@ -264,7 +310,7 @@ mod server_tests {
     assert_eq!(ns.last().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() });
   }
 
-  fn server_thread(server: Server) {
-    server.listen();
+  fn server_thread(mut server: Server) {
+    server.listen().unwrap();
   }
 }
