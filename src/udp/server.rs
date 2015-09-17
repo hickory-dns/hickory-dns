@@ -186,7 +186,6 @@ mod server_tests {
   use super::*;
   use std::thread;
   use std::net::*;
-  use std::process::*;
 
   use ::authority::authority_tests::create_example;
   use ::op::*;
@@ -247,7 +246,10 @@ mod server_tests {
   // TODO: functional test!
   /// This test verifies that we work with standard tools
   #[test]
+  #[cfg(feature = "ftest")]
   fn test_server_host_cli() {
+    use std::process::*;
+    
     let example = create_example();
     let origin = example.get_origin().clone();
 
