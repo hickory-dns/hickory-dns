@@ -46,7 +46,7 @@ pub fn main() {
   info!("Trust-DNS {} starting", trust_dns::version());
   // start up the server for listening
 
-  
+
 
   // we're exiting for some reason...
   info!("Trust-DNS {} stopping", trust_dns::version());

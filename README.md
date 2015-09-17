@@ -17,17 +17,15 @@ the server.
 
 WARNING!!! Under active development! Do not attempt to use in any production systems.
 
-A note on sockets, this client is only using Rust stable, socket options are
-currently feature restricted. This means that the Client is very dangerous to use
-at the moment because it will wait forever for a response from the server.
+The client now supports timeouts (thanks mio!). Currently hardcoded to 5 seconds, I'll make
+this configurable if people ask for that, but this allows me to move on.
+
+The server code is complete, the daemon is currently in progress. Once this is done
+the plan is to start self-host trust-dns.org on the trust-dns software.
 
 # In progress:
 
-- Support original (minus unused) RFC 1035 specification.
-Client is complete, all requests should work
-
-Todo: Server...
-
+- Support original (minus unused) RFC 1035 specification. (mostly compelete)
 - EDNS http://tools.ietf.org/html/rfc2671
 - Support DNS Update RFC 2136.
 - DNSSEC Resource Records RFC 4034

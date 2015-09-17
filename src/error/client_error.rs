@@ -25,6 +25,11 @@ pub enum ClientError {
   IoError(io::Error),
   NotAllBytesSent{ sent: usize, expect: usize},
   IncorrectMessageId{ got: u16, expect: u16},
+  TimedOut,
+  NoAddress,
+  NoNameServer,
+  TimerError,
+  NoDataReceived,
 }
 
 impl fmt::Display for ClientError {
@@ -35,6 +40,11 @@ impl fmt::Display for ClientError {
       ClientError::IoError(ref err) => err.fmt(f),
       ClientError::NotAllBytesSent{ sent, expect } => write!(f, "Not all bytes were sent: {}, expected: {}", sent, expect),
       ClientError::IncorrectMessageId { got, expect } => write!(f, "IncorrectMessageId got: {}, expected: {}", got, expect),
+      ClientError::TimedOut => write!(f, "TimedOut awaiting response from server(s)"),
+      ClientError::NoAddress => write!(f, "No address received in response"),
+      ClientError::NoNameServer => write!(f, "No name server address available"),
+      ClientError::TimerError => write!(f, "Error setting timer"),
+      ClientError::NoDataReceived => write!(f, "No data was received from the remote"),
     }
   }
 }
@@ -46,7 +56,12 @@ impl Error for ClientError {
       ClientError::EncodeError(ref err) => err.description(),
       ClientError::IoError(ref err) => err.description(),
       ClientError::NotAllBytesSent{ .. } => "Not all bytes were sent to server",
-      ClientError::IncorrectMessageId { .. } => "IncorrectMessageId recieved",
+      ClientError::IncorrectMessageId { .. } => "IncorrectMessageId received",
+      ClientError::TimedOut => "TimedOut",
+      ClientError::NoAddress => "NoAddress received",
+      ClientError::NoNameServer => "No name server address available",
+      ClientError::TimerError => "Error setting timer",
+      ClientError::NoDataReceived => "No data was received from the remote",
     }
   }
 
@@ -61,19 +76,19 @@ impl Error for ClientError {
 }
 
 impl From<super::DecodeError> for ClientError {
-    fn from(err: super::DecodeError) -> Self {
-        ClientError::DecodeError(err)
-    }
+  fn from(err: super::DecodeError) -> Self {
+    ClientError::DecodeError(err)
+  }
 }
 
 impl From<super::EncodeError> for ClientError {
-    fn from(err: super::EncodeError) -> Self {
-        ClientError::EncodeError(err)
-    }
+  fn from(err: super::EncodeError) -> Self {
+    ClientError::EncodeError(err)
+  }
 }
 
 impl From<io::Error> for ClientError {
-    fn from(err: io::Error) -> Self {
-        ClientError::IoError(err)
-    }
+  fn from(err: io::Error) -> Self {
+    ClientError::IoError(err)
+  }
 }

@@ -18,7 +18,7 @@ use std::io;
 use std::io::Cursor;
 
 use mio::udp::UdpSocket;
-use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want confusion with std::net
+use mio::{Token, EventLoop, Handler, EventSet, PollOpt }; // not * b/c don't want confusion with std::net
 
 use ::authority::Catalog;
 use ::op::*;
@@ -29,21 +29,22 @@ const SERVER: Token = Token(0);
 pub struct Server {
   socket: UdpSocket,
   catalog: Catalog,
+  error: Option<io::Result<()>>
   // cache?
 }
 
 // TODO: convert this to use the MIO library.
 impl Server {
-  pub fn with_authorities(catalog: Catalog) -> Self {
-    // TODO: obviously needs some work ;) waiting on stable socket options
+  pub fn with_authorities(catalog: Catalog) -> io::Result<Self> {
+    // TODO: obviously needs some work ;)
     let socket_addr = ("127.0.0.1", 0).to_socket_addrs().unwrap().next().unwrap();
-    Server { socket: UdpSocket::bound(&socket_addr).unwrap(), catalog: catalog }
+
+    Ok(Server { socket: UdpSocket::bound(&socket_addr).unwrap(), catalog: catalog, error: None, })
   }
 
   pub fn local_addr(&self) -> io::Result<SocketAddr> {
     self.socket.local_addr()
   }
-
 
   /// TODO how to do threads? should we do a bunch of listener threads and then query threads?
   /// Ideally the processing would be n-threads for recieving, which hand off to m-threads for
@@ -51,15 +52,15 @@ impl Server {
   pub fn listen(&mut self) -> io::Result<()> {
     info!("Server starting up: {:?}", self.socket);
 
-    // TODO this should be done per thread.
-    // Create an event loop
     let mut event_loop: EventLoop<Server> = try!(EventLoop::new());
     try!(event_loop.register_opt(&self.socket, SERVER, EventSet::readable(), PollOpt::level()));
 
     // I wonder if the event_loop should be outside the method
     //  to make this easier for testing... or return the event_loop...
-    try!(event_loop.run_once(self));
-    Ok(())
+    try!(event_loop.run(self));
+
+    if self.error.is_none() { Ok(()) }
+    else { Err(io::Error::new(io::ErrorKind::Interrupted, format!("{:?} Interrupted", self.socket))) }
   }
 
   pub fn handle_message(&self, addr: SocketAddr, request_bytes: Vec<u8>) {
@@ -143,6 +144,7 @@ impl Handler for Server {
       SERVER => {
         if !events.is_readable() {
           debug!("got woken up, but not readable: {:?}", token);
+          return;
         }
 
         // it would great to have a pool of buffers, more efficient.
@@ -150,12 +152,12 @@ impl Handler for Server {
 
         let recv_result = self.socket.recv_from(&mut buf);
         if recv_result.is_err() {
-          error!("could not recv_from on {:?}: {:?}", self.socket, recv_result);
+          warn!("could not recv_from on {:?}: {:?}", self.socket, recv_result);
           return
         }
 
         if recv_result.as_ref().unwrap().is_none() {
-          error!("no return address on recv_from: {:?}", self.socket);
+          warn!("no return address on recv_from: {:?}", self.socket);
           return
         }
 
@@ -164,8 +166,17 @@ impl Handler for Server {
 
         self.handle_message(addr, buf);
       },
-      _ => warn!("unrecognized token: {:?}", token),
+      _ => {
+        error!("unrecognized token: {:?}", token);
+        self.error = Some(Err(io::Error::new(io::ErrorKind::InvalidInput, format!("{:?} InvalidInput", self.socket))));
+      },
     }
+  }
+
+  fn interrupted(&mut self, event_loop: &mut EventLoop<Self>) {
+    event_loop.shutdown();
+    warn!("{:?} interrupted", self.socket);
+    self.error = Some(Err(io::Error::new(io::ErrorKind::Interrupted, format!("{:?} interrupted", self.socket))));
   }
 }
 
@@ -194,17 +205,22 @@ mod server_tests {
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), example);
 
-    let server = Server::with_authorities(catalog);
+    let server = Server::with_authorities(catalog).unwrap();
     let ipaddr = server.local_addr().unwrap(); // for the client to connect to
 
-    let server_thread = thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
+    /*let server_thread = */thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
     let client_thread = thread::Builder::new().name("test_server:client".to_string()).spawn(move || client_thread_origin(ipaddr)).unwrap();
+    // check that the server will work with multiple requests...
+    let client_thread2 = thread::Builder::new().name("test_server:client".to_string()).spawn(move || client_thread_origin(ipaddr)).unwrap();
 
     let client_result = client_thread.join();
-    let server_result = server_thread.join();
+    let client_result2 = client_thread2.join();
+
+    //    let server_result = server_thread.join();
 
     assert!(client_result.is_ok(), "client failed: {:?}", client_result);
-    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
+    assert!(client_result2.is_ok(), "client2 failed: {:?}", client_result2);
+    //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
   }
 
   #[test]
@@ -215,17 +231,17 @@ mod server_tests {
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), example);
 
-    let server = Server::with_authorities(catalog);
+    let server = Server::with_authorities(catalog).unwrap();
     let ipaddr = server.local_addr().unwrap(); // for the client to connect to
 
-    let server_thread = thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
+    /*let server_thread = */thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
     let client_thread = thread::Builder::new().name("test_server:client".to_string()).spawn(move || client_thread_www(ipaddr)).unwrap();
 
     let client_result = client_thread.join();
-    let server_result = server_thread.join();
+    //    let server_result = server_thread.join();
 
     assert!(client_result.is_ok(), "client failed: {:?}", client_result);
-    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
+    //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
   }
 
   // TODO: functional test!
@@ -238,20 +254,20 @@ mod server_tests {
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), example);
 
-    let server = Server::with_authorities(catalog);
+    let server = Server::with_authorities(catalog).unwrap();
     let ipaddr = server.local_addr().unwrap(); // for the client to connect to
 
-    let server_thread = thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
+    /*let server_thread = */thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
     let client_result = Command::new("dig").arg("@127.0.0.1").arg(format!("-p{}", ipaddr.port()))
                                            .arg("www.example.com").arg("+short")
                                            .output().unwrap_or_else(|e| panic!("failed to spawn dig: {}", e) );
 
-    let server_result = server_thread.join();
+    //    let server_result = server_thread.join();
 
     assert!(&(client_result.status).success());
     assert_eq!(client_result.stdout, "93.184.216.34\n".as_bytes()); // newline from the dig output
 
-    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
+    //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
   }
 
   fn client_thread_origin(server_addr: SocketAddr) {
