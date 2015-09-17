@@ -23,15 +23,16 @@ this configurable if people ask for that, but this allows me to move on.
 The server code is complete, the daemon is currently in progress. Once this is done
 the plan is to start self-host trust-dns.org on the trust-dns software.
 
-# In progress:
+# Goals:
 
-- Support original (minus unused) RFC 1035 specification. (mostly compelete)
-- EDNS http://tools.ietf.org/html/rfc2671
-- Support DNS Update RFC 2136.
-- DNSSEC Resource Records RFC 4034
-- DNSSec protocol RFC 4035
-- Dynamic DNS Update Leases https://tools.ietf.org/html/draft-sekar-dns-ul-01
-- DNS Long-Lived Queries http://tools.ietf.org/html/draft-sekar-dns-llq-01
+- Support original (minus unused) RFC 1035 specification. (nearing completion)
+- EDNS http://tools.ietf.org/html/rfc2671 (not started)
+- Support DNS Update RFC 2136.            (not started)
+- DNSSEC Resource Records RFC 4034        (not started)
+- DNSSec protocol RFC 4035                (not started)
+- DNSCrypt https://dnscrypt.org/          (not started)
+- Dynamic DNS Update Leases https://tools.ietf.org/html/draft-sekar-dns-ul-01 (not started)
+- DNS Long-Lived Queries http://tools.ietf.org/html/draft-sekar-dns-llq-01    (not started)
 
 # FAQ
 
