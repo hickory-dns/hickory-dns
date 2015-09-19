@@ -29,6 +29,11 @@ license = "Apache-2.0"
 # custom build steps
 build = "build.rs"
 
+[features]
+# run functional tests with tests
+ftest = []
+
+
 [lib]
 name = "trust_dns"
 path = "src/lib.rs"
