@@ -91,6 +91,7 @@ impl<'a> Lexer<'a> {
 
                 if     "INCLUDE" == dollar { return Ok(Some(Token::Include)) }
                 else if "ORIGIN" == dollar { return Ok(Some(Token::Origin)) }
+                else if "TTL"    == dollar { return Ok(Some(Token::Ttl)) }
                 else { return Err(LexerError::UnrecognizedDollar(char_data.take().unwrap_or("".into()))) }
               },
             }
@@ -220,30 +221,9 @@ pub enum Token {
   At,                // @
   Include,           // $INCLUDE
   Origin,            // $ORIGIN
+  Ttl,               // $TTL
   EOL,               // \n or \r\n
 }
-
-// impl Token {
-//   pub fn from(state: State, value: Option<String>) -> LexerResult<Option<Token>> {
-//     Ok(Some(match state {
-//       State::Blank => Token::Blank,
-//       State::List => Token::List,
-//       State::EndList => Token::EndList,
-//       State::CharData => Token::CharData(value.unwrap()),
-//       State::Comment => Token::EOL, // comments can't end a sequence, so must be EOF/EOL
-//       State::At => Token::At,
-//       State::Quote => return Err(LexerError::UnclosedQuotedString),
-//       State::Quoted => Token::CharData(value.unwrap_or()),
-//       State::Dollar => {
-//         let s = value.unwrap_or();
-//         if "INCLUDE".to_string() == s { Token::Include }
-//         else if "ORIGIN".to_string() == s { Token::Origin }
-//         else { return Err(LexerError::UnrecognizedDollar(s)) }
-//       },
-//       State::EOL => Token::EOL,
-//     }))
-//   }
-// }
 
 #[cfg(test)]
 mod lex_test {
@@ -335,6 +315,7 @@ mod lex_test {
     assert_eq!(next_token(&mut Lexer::new("123")).unwrap(), Token::CharData("123".to_string()));
     assert_eq!(next_token(&mut Lexer::new("$INCLUDE")).unwrap(), Token::Include);
     assert_eq!(next_token(&mut Lexer::new("$ORIGIN")).unwrap(), Token::Origin);
+    assert_eq!(next_token(&mut Lexer::new("$TTL")).unwrap(), Token::Ttl);
     assert_eq!(next_token(&mut Lexer::new("\n")), Some(Token::EOL));
     assert_eq!(next_token(&mut Lexer::new("\r\n")), Some(Token::EOL));
   }

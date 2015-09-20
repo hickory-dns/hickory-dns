@@ -39,6 +39,8 @@ pub enum ParseError {
   IoError(io::Error),
   ParseIntError(num::ParseIntError),
   AddrParseError(AddrParseError),
+  CharToIntError(char),
+  ParseTimeError(String),
 }
 
 impl fmt::Display for ParseError {
@@ -58,6 +60,8 @@ impl fmt::Display for ParseError {
       ParseError::IoError(ref err) => err.fmt(f),
       ParseError::ParseIntError(ref err) => err.fmt(f),
       ParseError::AddrParseError(ref s) => write!(f, "Could not parse address: {:?}", s),
+      ParseError::CharToIntError(c) => write!(f, "Invalid numerical character: {}", c),
+      ParseError::ParseTimeError(ref s) => write!(f, "Invalid time string: {}", s),
     }
   }
 }
@@ -79,6 +83,8 @@ impl Error for ParseError {
       ParseError::IoError(ref err) => err.description(),
       ParseError::ParseIntError(ref err) => err.description(),
       ParseError::AddrParseError(..) => "Could not parse address",
+      ParseError::CharToIntError(..) => "Invalid numerical character",
+      ParseError::ParseTimeError(..) => "Invalid time string",
     }
   }
 
