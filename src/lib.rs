@@ -15,6 +15,8 @@
  */
 extern crate mio;
 #[macro_use] extern crate log;
+extern crate toml;
+extern crate rustc_serialize;
 
 pub mod logger;
 pub mod rr;
@@ -23,6 +25,7 @@ pub mod op;
 pub mod udp;
 pub mod error;
 pub mod serialize;
+pub mod config;
 
 /// this exposes a version function which gives access to the access
 include!(concat!(env!("OUT_DIR"), "/version.rs"));

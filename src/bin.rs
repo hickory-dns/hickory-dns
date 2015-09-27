@@ -9,7 +9,8 @@ use docopt::Docopt;
 use trust_dns::logger;
 use trust_dns::version;
 
-// Write the Docopt usage string.
+// the Docopt usage string.
+//  http://docopt.org
 const USAGE: &'static str = "
 Usage: named [options]
        named (-h | --help | --version)
