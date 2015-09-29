@@ -23,6 +23,7 @@ use ::rr::Name;
 use ::authority::Authority;
 use ::op::*;
 
+#[derive(Debug)]
 pub struct Catalog {
   authorities: HashMap<Name, Authority>,
 }
@@ -61,8 +62,6 @@ impl Catalog {
           // in the nx section it's standard to return the SOA in the authority section
           response.response_code(ResponseCode::NXDomain);
 
-          println!("getting SOA");
-
           let soa = authority.get_soa();
           if soa.is_none() { warn!("there is no SOA record for: {:?}", authority.get_origin()); }
           else {
@@ -71,7 +70,6 @@ impl Catalog {
         }
       } else {
         // we found nothing.
-        println!("found nothing");
         response.response_code(ResponseCode::NXDomain);
       }
     }
@@ -83,7 +81,7 @@ impl Catalog {
 
   pub fn search(&self, query: &Query) -> Option<(&Authority, Option<Vec<Record>>)> {
     if let Some(authority) = self.find_auth_recurse(query.get_name()) {
-      println!("found authority");
+      debug!("found authority: {:?}", authority.get_origin());
       Some((authority, authority.lookup(query.get_name(), query.get_query_type(), query.get_query_class())))
     } else {
       None
@@ -91,7 +89,6 @@ impl Catalog {
   }
 
   fn find_auth_recurse(&self, name: &Name) -> Option<&Authority> {
-    println!("searching for {:?}", name);
     let authority = self.authorities.get(name);
     if authority.is_some() { return authority; }
     else if let Some(name) = name.base_name() {
@@ -104,8 +101,10 @@ impl Catalog {
 
 #[cfg(test)]
 mod catalog_tests {
+  use std::collections::*;
   use ::authority::authority_tests::create_example;
   use super::*;
+  use super::super::Authority;
   use ::rr::*;
   use ::op::*;
   use std::net::*;
@@ -153,13 +152,36 @@ mod catalog_tests {
     }
   }
 
+  pub fn create_test() -> Authority {
+    let origin: Name = Name::parse("test.com.", None).unwrap();
+    let mut records: HashMap<(Name, RecordType), Vec<Record>> = HashMap::new();
+    records.insert((origin.clone(), RecordType::SOA), vec![Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone()]);
+
+    records.insert((origin.clone(), RecordType::NS), vec![
+      Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(),
+      Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone(),
+    ]);
+
+    records.insert((origin.clone(), RecordType::A), vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(94,184,216,34) }).clone()]);
+    records.insert((origin.clone(), RecordType::AAAA), vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone()]);
+
+    let www_name: Name = Name::parse("www.test.com.", None).unwrap();
+    records.insert((www_name.clone(), RecordType::A), vec![Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(94,184,216,34) }).clone()]);
+    records.insert((www_name.clone(), RecordType::AAAA), vec![Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone()]);
+
+    Authority::new(origin.clone(), records)
+  }
+
   #[test]
   fn test_catalog_lookup() {
     let example = create_example();
+    let test = create_test();
     let origin = example.get_origin().clone();
+    let test_origin = test.get_origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), example);
+    catalog.upsert(test_origin.clone(), test);
 
     let mut question: Message = Message::new();
 
@@ -186,6 +208,23 @@ mod catalog_tests {
     assert_eq!(ns.first().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() });
     assert_eq!(ns.last().unwrap().get_rr_type(), RecordType::NS);
     assert_eq!(ns.last().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() });
+
+    // other zone
+    let mut query: Query = Query::new();
+    query.name(test_origin.clone());
+
+    question.add_query(query);
+
+    let result: Message = catalog.lookup(&question);
+
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    assert_eq!(result.get_message_type(), MessageType::Response);
+
+    let answers: &Vec<Record> = result.get_answers();
+
+    assert!(!answers.is_empty());
+    assert_eq!(answers.first().unwrap().get_rr_type(), RecordType::A);
+    assert_eq!(answers.first().unwrap().get_rdata(), &RData::A{ address: Ipv4Addr::new(93,184,216,34) });
   }
 
   #[test]

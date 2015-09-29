@@ -19,6 +19,7 @@ use ::rr::*;
 
 /// Authority is the storage method for all
 ///
+#[derive(Debug)]
 pub struct Authority {
   origin: Name,
   records: HashMap<(Name, RecordType), Vec<Record>>,
@@ -144,5 +145,6 @@ pub mod authority_tests {
     assert!(authority.lookup(authority.get_origin(), RecordType::TXT, DNSClass::HS).is_some());
     assert_eq!(*authority.lookup(authority.get_origin(), RecordType::TXT, DNSClass::HS).unwrap().first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(3600).rr_type(RecordType::TXT).dns_class(DNSClass::HS).rdata(RData::TXT{ txt_data: vec!["foo=bar".to_string()] }).clone());
 
+    assert_eq!(*authority.lookup(authority.get_origin(), RecordType::A, DNSClass::IN).unwrap().first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
   }
 }

@@ -133,7 +133,7 @@ impl Parser {
     Parser
   }
 
-  pub fn parse_from(&mut self, file: File, origin: Option<Name>) -> ParseResult<Authority> {
+  pub fn parse_file(file: File, origin: Option<Name>) -> ParseResult<Authority> {
     let mut file = file;
     let mut buf = String::new();
 
@@ -141,7 +141,7 @@ impl Parser {
     //  keep the usage down. and be a custom lexer...
     try!(file.read_to_string(&mut buf));
     let lexer = Lexer::new(&buf);
-    self.parse(lexer, origin)
+    Self::new().parse(lexer, origin)
   }
 
   pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>) -> ParseResult<Authority> {

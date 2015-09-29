@@ -17,6 +17,7 @@ extern crate mio;
 #[macro_use] extern crate log;
 extern crate toml;
 extern crate rustc_serialize;
+extern crate chrono;
 
 pub mod logger;
 pub mod rr;

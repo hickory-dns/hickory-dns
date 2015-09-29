@@ -1,5 +1,6 @@
 use log;
 use log::{LogLevel, SetLoggerError, LogMetadata, LogRecord};
+use chrono::*;
 
 #[allow(unused)]
 pub struct TrustDnsLogger { level: LogLevel }
@@ -32,7 +33,10 @@ impl log::Log for TrustDnsLogger {
 
   fn log(&self, record: &LogRecord) {
     if self.enabled(record.metadata()) {
-      println!("{} {}:{} {}", record.level(), record.location().module_path(), record.location().line(), record.args());
+      let local: DateTime<UTC> = UTC::now();
+
+
+      println!("{} {} {}:{} {}", local.to_rfc3339(), record.level(), record.location().module_path(), record.location().line(), record.args());
     }
   }
 }

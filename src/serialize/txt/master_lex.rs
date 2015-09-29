@@ -25,7 +25,7 @@ impl<'a> Lexer<'a> {
       let ch: Option<char> = self.peek();
 
       // handy line for debugging
-      // println!("ch = {:?}; state = {:?}(c: {:?}, v: {:?})", ch, self.state, char_data, char_data_vec);
+      // debug!("ch = {:?}; state = {:?}(c: {:?}, v: {:?})", ch, self.state, char_data, char_data_vec);
 
       // continuing states should pass back the state as the last statement,
       //  terminal states should set the state internally and return the proper Token::*.
@@ -116,12 +116,8 @@ impl<'a> Lexer<'a> {
                 } else {
                   self.state = State::RestOfLine;
                   let result = char_data.take().ok_or(LexerError::IllegalState("char_data is None"));
-                  println!("result: {:?}", result);
                   let opt = result.map(|s|Some(Token::CharData(s)));
-                  println!("opt: {:?}", opt);
                   return opt;
-
-//                  return char_data.take().ok_or(LexerError::IllegalState("char_data is None")).map(|s|Some(Token::CharData(s)))
                 }
               },
               Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },

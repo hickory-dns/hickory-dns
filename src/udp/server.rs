@@ -252,7 +252,6 @@ mod server_tests {
     //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
   }
 
-  // TODO: functional test!
   /// This test verifies that we work with standard tools
   #[test]
   #[cfg(feature = "ftest")]

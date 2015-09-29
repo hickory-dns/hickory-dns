@@ -15,3 +15,6 @@
  */
 pub mod client;
 pub mod server;
+
+pub use self::server::Server;
+pub use self::client::Client;

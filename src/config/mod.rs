@@ -15,7 +15,7 @@
  */
 use std::io::Read;
 use std::fs::File;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -25,6 +25,7 @@ use rustc_serialize::Decodable;
 use toml::{Decoder, Value};
 
 use ::error::*;
+use ::rr::Name;
 
 static DEFAULT_PORT: u16 = 53;
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)
@@ -41,17 +42,17 @@ pub struct Config {
 
 impl Config {
   /// read a Config file from the file specified at path.
-  fn read_config(path: &Path) -> ConfigResult<Config> {
+  pub fn read_config(path: &Path) -> ConfigResult<Config> {
     let mut file: File = try!(File::open(path));
     let mut toml: String = String::new();
     try!(file.read_to_string(&mut toml));
     toml.parse()
   }
 
-  fn get_listen_addrs_ipv4(&self) -> Vec<Ipv4Addr> { self.listen_addrs_ipv4.iter().map(|s| s.parse().unwrap()).collect() }
-  fn get_listen_addrs_ipv6(&self) -> Vec<Ipv6Addr> { self.listen_addrs_ipv6.iter().map(|s| s.parse().unwrap()).collect() }
-  fn get_listen_port(&self) -> u16 { self.listen_port.unwrap_or(DEFAULT_PORT) }
-  fn get_log_level(&self) -> LogLevel {
+  pub fn get_listen_addrs_ipv4(&self) -> Vec<Ipv4Addr> { self.listen_addrs_ipv4.iter().map(|s| s.parse().unwrap()).collect() }
+  pub fn get_listen_addrs_ipv6(&self) -> Vec<Ipv6Addr> { self.listen_addrs_ipv6.iter().map(|s| s.parse().unwrap()).collect() }
+  pub fn get_listen_port(&self) -> u16 { self.listen_port.unwrap_or(DEFAULT_PORT) }
+  pub fn get_log_level(&self) -> LogLevel {
     if let Some(ref level_str) = self.log_level {
       match level_str as &str {
         "Trace" => LogLevel::Trace,
@@ -65,8 +66,8 @@ impl Config {
       LogLevel::Info
     }
   }
-  fn get_directory(&self) -> &Path { self.directory.as_ref().map_or(Path::new(DEFAULT_PATH), |s|Path::new(s)) }
-  fn get_zones(&self) -> &[ZoneConfig] { &self.zones }
+  pub fn get_directory(&self) -> &Path { self.directory.as_ref().map_or(Path::new(DEFAULT_PATH), |s|Path::new(s)) }
+  pub fn get_zones(&self) -> &[ZoneConfig] { &self.zones }
 }
 
 impl FromStr for Config {
@@ -84,6 +85,13 @@ pub struct ZoneConfig {
   zone: String, // TODO: make Domain::Name decodable
   zone_type: ZoneType,
   file: String,
+}
+
+impl ZoneConfig {
+  // TODO this is a little ugly for the parse, b/c there is no terminal char
+  pub fn get_zone(&self) -> ParseResult<Name> { Name::parse(&self.zone, Some(&Name::new())) }
+  pub fn get_zone_type(&self) -> ZoneType { self.zone_type }
+  pub fn get_file(&self) -> PathBuf { PathBuf::from(&self.file) }
 }
 
 #[derive(RustcDecodable, PartialEq, Eq, Debug, Clone, Copy)]

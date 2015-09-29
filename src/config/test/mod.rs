@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 use std::path::{Path, PathBuf};
-use std::fs;
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 use log::LogLevel;
@@ -38,11 +37,11 @@ fn test_read_config() {
   assert_eq!(config.get_log_level(), LogLevel::Info);
   assert_eq!(config.get_directory(), Path::new("/var/named"));
   assert_eq!(config.get_zones(), [
-    ZoneConfig { zone: "localhost".into(), zone_type: ZoneType::master, file: "localhost.zone".into() },
-    ZoneConfig { zone: "0.0.127.in-addr.arpa".into(), zone_type: ZoneType::master, file: "127.0.0.zone".into() },
-    ZoneConfig { zone: "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa".into(), zone_type: ZoneType::master, file: "::1.zone".into() },
-    ZoneConfig { zone: "255.in-addr.arpa".into(), zone_type: ZoneType::master, file: "255.zone".into() },
-    ZoneConfig { zone: "0.in-addr.arpa".into(), zone_type: ZoneType::master, file: "0.zone".into() }
+    ZoneConfig { zone: "localhost".into(), zone_type: ZoneType::Master, file: "default/localhost.zone".into() },
+    ZoneConfig { zone: "0.0.127.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/127.0.0.1.zone".into() },
+    ZoneConfig { zone: "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa".into(), zone_type: ZoneType::Master, file: "default/::1.zone".into() },
+    ZoneConfig { zone: "255.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/255.zone".into() },
+    ZoneConfig { zone: "0.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/0.zone".into() }
   ]);
 }
 
