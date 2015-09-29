@@ -18,12 +18,12 @@
 
 ## listen_addrs: address on which to listen for incoming connections
 ##  this can be a list of ipv4 or ipv6 addresses
-listen_addrs_ipv4 = ["127.0.0.1"]
+# listen_addrs_ipv4 = ["0.0.0.0"]
 
 # listen_addrs_ipv6 = ["::0"]
 
 ## listen_port: port on which to list
-listen_port = 2053
+# listen_port = 53
 
 ## log_level: Trace, Debug, Info, Warn, Error
 # log_level = "Info"
@@ -63,7 +63,7 @@ zone = "0.in-addr.arpa"
 zone_type = "Master"
 file = "default/0.zone"
 
-[[zones]]
-zone = "example.com"
-zone_type = "Master"
-file = "example.com.zone"
+# [[zones]]
+# zone = "example.com"
+# zone_type = "Master"
+# file = "example.com.zone"
