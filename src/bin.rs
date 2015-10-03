@@ -45,7 +45,8 @@ Options:
     -h, --help              Show this message
     -v, --version           Show the version of trust-dns
     -c FILE, --config=FILE  Path to configuration file, default is /etc/named.toml
-    -z DIR, --zonedir=DIR       Path to the root directory for all zone files, see also config toml
+    -z DIR, --zonedir=DIR   Path to the root directory for all zone files, see also config toml
+    -p PORT, --port=PORT    Override the listening port
 ";
 
 #[derive(RustcDecodable)]
@@ -56,16 +57,13 @@ struct Args {
   pub flag_version: bool,
   pub flag_config: Option<String>,
   pub flag_zonedir: Option<String>,
+  pub flag_port: Option<u16>,
 }
 
 /// Main method for running the named server.
 /// As of this writing, this will panic on any invalid input. At this top level binary is the only
 ///  part Trust-DNS where panics are allowed.
 pub fn main() {
-
-    use trust_dns::rr::*;
-    use trust_dns::op::*;
-
   // read any command line options
   let args: Args = Docopt::new(USAGE)
                         .and_then(|d| d.help(true).version(Some(trust_dns::version().into())).decode())
@@ -103,15 +101,9 @@ pub fn main() {
 
   debug!("catalog: {:?}", catalog);
 
-  let mut expect: Query = Query::new();
-  expect.name(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])).
-                                query_type(RecordType::A).query_class(DNSClass::IN);
-
-  assert!(catalog.search(&expect).is_some());
-
   // TODO support all the IPs asked to listen on...
-  let listen_addr: Ipv4Addr = *config.get_listen_addrs_ipv4().first().unwrap();
-  let listen_port: u16 = config.get_listen_port();
+  let listen_addr: Ipv4Addr = *config.get_listen_addrs_ipv4().first().unwrap_or(&Ipv4Addr::new(0,0,0,0));
+  let listen_port: u16 = args.flag_port.unwrap_or(config.get_listen_port());
 
   // now, run the server, based on the config
   info!("listening on {}:{}", listen_addr, listen_port);

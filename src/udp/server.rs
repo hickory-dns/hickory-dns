@@ -207,11 +207,14 @@ mod server_tests {
 
   #[test]
   fn test_server_origin() {
-    let example = create_example();
-    let origin = example.get_origin().clone();
+    let catalog: Catalog = {
+      let example = create_example();
+      let origin = example.get_origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), example);
+      let mut catalog: Catalog = Catalog::new();
+      catalog.upsert(origin.clone(), example);
+      catalog
+    };
 
     let server = Server::new(("127.0.0.1", 0), catalog).unwrap();
     let ipaddr = server.local_addr().unwrap(); // for the client to connect to
