@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 use std::net::Ipv4Addr;
+use std::sync::Arc as Rc;
 
 use ::serialize::binary::*;
 use ::error::*;
@@ -78,12 +79,12 @@ use super::domain;
  *                 For example, the if the TYPE is A and the CLASS is IN,
  *                 the RDATA field is a 4 octet ARPA Internet address.
  */
-#[derive(PartialEq, Debug, Clone)]
+#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Clone)]
 pub struct Record {
   name_labels: domain::Name,
   rr_type: RecordType,
   dns_class: DNSClass,
-  ttl: i32,
+  ttl: u32,
   rdata: RData,
 }
 
@@ -105,16 +106,16 @@ impl Record {
   }
 
   pub fn name(&mut self, name: domain::Name) -> &mut Self { self.name_labels = name; self }
-  pub fn add_name(&mut self, label: String) -> &mut Self { self.name_labels.add_label(label); self }
+  pub fn add_name(&mut self, label: String) -> &mut Self { self.name_labels.add_label(Rc::new(label)); self }
   pub fn rr_type(&mut self, rr_type: RecordType) -> &mut Self { self.rr_type = rr_type; self }
   pub fn dns_class(&mut self, dns_class: DNSClass) -> &mut Self { self.dns_class = dns_class; self }
-  pub fn ttl(&mut self, ttl: i32) -> &mut Self { self.ttl = ttl; self }
+  pub fn ttl(&mut self, ttl: u32) -> &mut Self { self.ttl = ttl; self }
   pub fn rdata(&mut self, rdata: RData) -> &mut Self { self.rdata = rdata; self }
 
   pub fn get_name(&self) -> &domain::Name { &self.name_labels }
   pub fn get_rr_type(&self) -> RecordType { self.rr_type }
   pub fn get_dns_class(&self) -> DNSClass { self.dns_class }
-  pub fn get_ttl(&self) -> i32 { self.ttl }
+  pub fn get_ttl(&self) -> u32 { self.ttl }
   pub fn get_rdata(&self) -> &RData { &self.rdata }
 }
 
@@ -141,7 +142,8 @@ impl BinSerializable for Record {
     //                cached.  For example, SOA records are always distributed
     //                with a zero TTL to prohibit caching.  Zero values can
     //                also be used for extremely volatile data.
-    let ttl: i32 = try!(decoder.read_i32());
+    // note: u32 seems more accurate given that it can only be positive
+    let ttl: u32 = try!(decoder.read_u32());
 
     // RDLENGTH        an unsigned 16 bit integer that specifies the length in
     //                octets of the RDATA field.
@@ -160,7 +162,7 @@ impl BinSerializable for Record {
     try!(self.name_labels.emit(encoder));
     try!(self.rr_type.emit(encoder));
     try!(self.dns_class.emit(encoder));
-    try!(encoder.emit_i32(self.ttl));
+    try!(encoder.emit_u32(self.ttl));
 
     // TODO: gah... need to write rdata before we know the size of rdata...
     let mut tmp_encoder: BinEncoder = BinEncoder::new(); // making random space
@@ -203,7 +205,9 @@ mod tests {
     let mut encoder = BinEncoder::new();
     record.emit(&mut encoder).unwrap();
 
-    let mut decoder = BinDecoder::new(encoder.as_bytes());
+    let vec_bytes = encoder.as_bytes();
+
+    let mut decoder = BinDecoder::new(&vec_bytes);
 
     let got = Record::read(&mut decoder).unwrap();
 

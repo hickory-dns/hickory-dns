@@ -37,7 +37,7 @@ use super::rdata;
 // is treated as binary information, and can be up to 256 characters in
 // length (including the length octet).
 //
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub enum RData {
   //-- RFC 1035 -- Domain Implementation and Specification    November 1987
 
@@ -414,7 +414,7 @@ mod tests {
     rname: Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
     serial: u32::max_value(), refresh: -1 as i32, retry: -1 as i32, expire: -1 as i32, minimum: u32::max_value()},
     vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0,
-    3,b'x',b'x',b'x',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0,
+    3,b'x',b'x',b'x',0xC0, 0x04,
     0xFF,0xFF,0xFF,0xFF,
     0xFF,0xFF,0xFF,0xFF,
     0xFF,0xFF,0xFF,0xFF,
@@ -434,7 +434,7 @@ mod tests {
       test_pass += 1;
       println!("test {}: {:?}", test_pass, binary);
       let length = binary.len() as u16; // pre exclusive borrow
-      let mut decoder = BinDecoder::new(binary);
+      let mut decoder = BinDecoder::new(&binary);
 
       decoder.set_rdata_length(length);
       decoder.set_record_type(::rr::record_type::RecordType::from(&expect));

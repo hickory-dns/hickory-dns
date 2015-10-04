@@ -109,7 +109,7 @@ where E: PartialEq<E> + Debug, F: Fn(BinDecoder) -> DecodeResult<E> {
     test_pass += 1;
     println!("test {}: {:?}", test_pass, binary);
 
-    let decoder = BinDecoder::new(binary);
+    let decoder = BinDecoder::new(&binary);
     assert_eq!(read_func(decoder).unwrap(), expect);
   }
 }

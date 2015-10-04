@@ -13,11 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::fs::File;
-use std::num::ParseIntError;
 
 use ::error::*;
 use ::rr::Name;
@@ -134,7 +132,7 @@ impl Parser {
     Parser
   }
 
-  pub fn parse_from(&mut self, file: File, origin: Option<Name>) -> ParseResult<Authority> {
+  pub fn parse_file(file: File, origin: Option<Name>) -> ParseResult<Authority> {
     let mut file = file;
     let mut buf = String::new();
 
@@ -142,17 +140,17 @@ impl Parser {
     //  keep the usage down. and be a custom lexer...
     try!(file.read_to_string(&mut buf));
     let lexer = Lexer::new(&buf);
-    self.parse(lexer, origin)
+    Self::new().parse(lexer, origin)
   }
 
   pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>) -> ParseResult<Authority> {
     let mut lexer = lexer;
-    let mut records: HashMap<(Name, RecordType), Vec<Record>> = HashMap::new();
+    let mut records: HashMap<Name, HashSet<Record>> = HashMap::new();
 
     let mut origin: Option<Name> = origin;
     let mut current_name: Option<Name> = None;
     let mut rtype: Option<RecordType> = None;
-    let mut ttl: Option<i32> = None;
+    let mut ttl: Option<u32> = None;
     let mut class: Option<DNSClass> = None;
     let mut state = State::StartLine;
     let mut tokens: Vec<Token> = Vec::new();
@@ -168,6 +166,7 @@ impl Parser {
             // if Dollar, then $INCLUDE or $ORIGIN
             Token::Include => unimplemented!(),
             Token::Origin => State::Origin,
+            Token::Ttl => State::Ttl,
 
             // if CharData, then Name then ttl_class_type
             Token::CharData(ref data) => {
@@ -189,6 +188,15 @@ impl Parser {
             _ => return Err(ParseError::UnexpectedToken(t)),
           }
         },
+        State::Ttl => {
+          match t {
+            Token::CharData(ref data) => {
+              ttl = Some(try!(Self::parse_time(data)));
+              State::StartLine
+            }
+            _ => return Err(ParseError::UnexpectedToken(t)),
+          }
+        }
         State::Origin => {
           match t {
             Token::CharData(ref data) => {
@@ -207,10 +215,10 @@ impl Parser {
             // One of Class or Type (these cannot be overlapping!)
             Token::CharData(ref data) => {
               // if it's a number it's a ttl
-              let result: Result<i32, ParseIntError> = data.parse();
+              let result: Result<u32, ParseError> = Self::parse_time(data);
               if result.is_ok() {
                 ttl = result.ok();
-                State::TtlClassType
+                State::TtlClassType // hm, should this go to just ClassType?
               } else {
                 // if can parse DNSClass, then class
                 let result = DNSClass::from_str(data);
@@ -256,8 +264,8 @@ impl Parser {
                   // TTL for the SOA is set internally...
                   // expire is for the SOA, minimum is default for records
                   if let RData::SOA { ref expire, ref minimum, ..} = rdata {
-                    record.ttl(*expire);
-                    ttl = Some(*minimum as i32);
+                    record.ttl(*expire as u32); // the spec seems a little inaccurate with u32 and i32
+                    if ttl.is_none() { ttl = Some(*minimum); } // TODO: should this only set it if it's not set?
                   } else { assert!(false, "Invalid RData here, expected SOA: {:?}", rdata); }
                 },
                 _ => {
@@ -269,18 +277,20 @@ impl Parser {
               record.rdata(rdata);
 
               // add to the map
-              let key = (record.get_name().clone(), record.get_rr_type());
+              let key = record.get_name().clone();
 
               match rtype.unwrap() {
                 RecordType::SOA => {
-                  if records.insert(key, vec![record]).is_some() {
+                  let mut set: HashSet<Record, _> = HashSet::new();
+                  set.insert(record);
+                  if records.insert(key, set).is_some() {
                     return Err(ParseError::SoaAlreadySpecified);
                   }
                 },
                 _ => {
                   // add a Vec if it's not there, then add the record to the list
-                  let mut records = records.entry(key).or_insert(Vec::with_capacity(1));
-                  records.push(record);
+                  let mut set = records.entry(key).or_insert(HashSet::new());
+                  set.insert(record);
                 },
               }
 
@@ -297,12 +307,67 @@ impl Parser {
     records.shrink_to_fit(); // this shouldn't change once stored (replacement instead)
     Ok(Authority::new(try!(origin.ok_or(ParseError::OriginIsUndefined)), records))
   }
+
+  /// parses the string following the rules from:
+  ///  https://tools.ietf.org/html/rfc2308 (NXCaching RFC) and
+  ///  http://www.zytrax.com/books/dns/apa/time.html
+  ///
+  /// default is seconds
+  /// #s = seconds = # x 1 seconds (really!)
+  /// #m = minutes = # x 60 seconds
+  /// #h = hours   = # x 3600 seconds
+  /// #d = day     = # x 86400 seconds
+  /// #w = week    = # x 604800 seconds
+  ///
+  /// returns the result of the parsing or and error
+  ///
+  /// # Example
+  /// ```
+  /// use trust_dns::serialize::txt::Parser;
+  ///
+  /// assert_eq!(Parser::parse_time("0").unwrap(),  0);
+  /// assert_eq!(Parser::parse_time("s").unwrap(),  0);
+  /// assert_eq!(Parser::parse_time("0s").unwrap(), 0);
+  /// assert_eq!(Parser::parse_time("1").unwrap(),  1);
+  /// assert_eq!(Parser::parse_time("1S").unwrap(), 1);
+  /// assert_eq!(Parser::parse_time("1s").unwrap(), 1);
+  /// assert_eq!(Parser::parse_time("1M").unwrap(), 60);
+  /// assert_eq!(Parser::parse_time("1m").unwrap(), 60);
+  /// assert_eq!(Parser::parse_time("1H").unwrap(), 3600);
+  /// assert_eq!(Parser::parse_time("1h").unwrap(), 3600);
+  /// assert_eq!(Parser::parse_time("1D").unwrap(), 86400);
+  /// assert_eq!(Parser::parse_time("1d").unwrap(), 86400);
+  /// assert_eq!(Parser::parse_time("1W").unwrap(), 604800);
+  /// assert_eq!(Parser::parse_time("1w").unwrap(), 604800);
+  /// assert_eq!(Parser::parse_time("1s2d3w4h2m").unwrap(), 1+2*86400+3*604800+4*3600+2*60);
+  /// assert_eq!(Parser::parse_time("3w3w").unwrap(), 3*604800+3*604800);
+  /// ```
+  pub fn parse_time(ttl_str: &str) -> ParseResult<u32> {
+    let mut value: u32 = 0;
+    let mut collect: u32 = 0;
+
+    for c in ttl_str.chars() {
+      match c {
+        // TODO, should these all be checked operations?
+        '0' ... '9' => { collect *= 10; collect += try!(c.to_digit(10).ok_or(ParseError::CharToIntError(c))); },
+        'S' | 's'  => { value += collect; collect = 0; },
+        'M' | 'm'  => { value += collect * 60; collect = 0; },
+        'H' | 'h'  => { value += collect * 3600; collect = 0; },
+        'D' | 'd'  => { value += collect * 86400; collect = 0; },
+        'W' | 'w'  => { value += collect * 604800; collect = 0; },
+        _ => return Err(ParseError::ParseTimeError(ttl_str.to_string())),
+      }
+    }
+
+    return Ok(value + collect); // collects the initial num, or 0 if it was already collected
+  }
 }
 
 #[allow(unused)]
 enum State {
   StartLine,       // start of line, @, $<WORD>, Name, Blank
-  TtlClassType,  // [<TTL>] [<class>] <type>,
+  TtlClassType,    // [<TTL>] [<class>] <type>,
+  Ttl,             // $TTL <time>
   Record,
   Include,         // $INCLUDE <filename>
   Origin,

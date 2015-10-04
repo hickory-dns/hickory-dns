@@ -13,17 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- use ::error::{EncodeError, EncodeResult};
+use std::collections::HashMap;
+use std::sync::Arc as Rc;
 
+use ::error::{EncodeError, EncodeResult};
 
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder {
   buffer: Vec<u8>,
+  // TODO, it would be cool to make this slices, but then the stored slice needs to live longer
+  //  than the callee of store_pointer which isn't obvious right now.
+  name_pointers: HashMap<Vec<Rc<String>>, u16>, // array of string, label, location in stream
 }
 
 impl BinEncoder {
   pub fn new() -> Self {
-    BinEncoder { buffer: Vec::new() }
+    BinEncoder { buffer: Vec::new(), name_pointers: HashMap::new() }
   }
 
   pub fn as_bytes(self) -> Vec<u8> {
@@ -41,6 +46,16 @@ impl BinEncoder {
   pub fn emit(&mut self, b: u8) -> EncodeResult {
     self.buffer.push(b);
     Ok(())
+  }
+
+  /// store the label pointer, the location is the current position in the buffer
+  ///  implicitly, it is expected that the name will be written to the stream after this.
+  pub fn store_label_pointer(&mut self, labels: Vec<Rc<String>>) {
+    self.name_pointers.insert(labels, self.buffer.len() as u16); // the next char will be at the len() location
+  }
+
+  pub fn get_label_pointer(&self, labels: &[Rc<String>]) -> Option<u16> {
+    self.name_pointers.get(labels).map(|i|*i)
   }
 
   /// matches description from above.

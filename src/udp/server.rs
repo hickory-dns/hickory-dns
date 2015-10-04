@@ -16,6 +16,7 @@
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::io;
 use std::io::Cursor;
+use std::fmt::Debug;
 
 use mio::udp::UdpSocket;
 use mio::{Token, EventLoop, Handler, EventSet, PollOpt }; // not * b/c don't want confusion with std::net
@@ -29,15 +30,21 @@ const SERVER: Token = Token(0);
 pub struct Server {
   socket: UdpSocket,
   catalog: Catalog,
+  // TODO: cache?
+  // TODO: having this here looks ugly.
   error: Option<io::Result<()>>
-  // cache?
 }
 
-// TODO: convert this to use the MIO library.
 impl Server {
-  pub fn with_authorities(catalog: Catalog) -> io::Result<Self> {
-    // TODO: obviously needs some work ;)
-    let socket_addr = ("127.0.0.1", 0).to_socket_addrs().unwrap().next().unwrap();
+  /// This should take a list of IPs on which to listen, i.e. IPv4 and IPv6 etc.
+  ///  as well as supporting many interfaces at once.
+  ///  At the moment it only supports one or the other.
+  /// Pass in (0.0.0.0, 53) for to listen on all IPs.
+  ///
+  /// As of now, this only supports UDP eventually this will also listen on TCP
+  pub fn new<A: ToSocketAddrs + Debug>(listen_addr: A, catalog: Catalog) -> io::Result<Self> {
+    let socket_addr = try!(try!(listen_addr.to_socket_addrs()).next().
+      ok_or(io::Error::new(io::ErrorKind::AddrNotAvailable, format!("no valid IPs: {:?}", listen_addr))));
 
     Ok(Server { socket: UdpSocket::bound(&socket_addr).unwrap(), catalog: catalog, error: None, })
   }
@@ -64,7 +71,7 @@ impl Server {
   }
 
   pub fn handle_message(&self, addr: SocketAddr, request_bytes: Vec<u8>) {
-    let mut decoder = BinDecoder::new(request_bytes);
+    let mut decoder = BinDecoder::new(&request_bytes);
 
     let request = Message::read(&mut decoder);
 
@@ -86,6 +93,8 @@ impl Server {
               let response = self.catalog.lookup(&request);
               debug!("query response: {:?}", response);
               self.send_to(addr, response);
+              // TODO, handle recursion here or in the catalog?
+              // recursive queries should be cached.
             },
             c @ _ => {
               error!("unimplemented op_code: {:?}", c);
@@ -198,13 +207,16 @@ mod server_tests {
 
   #[test]
   fn test_server_origin() {
-    let example = create_example();
-    let origin = example.get_origin().clone();
+    let catalog: Catalog = {
+      let example = create_example();
+      let origin = example.get_origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), example);
+      let mut catalog: Catalog = Catalog::new();
+      catalog.upsert(origin.clone(), example);
+      catalog
+    };
 
-    let server = Server::with_authorities(catalog).unwrap();
+    let server = Server::new(("127.0.0.1", 0), catalog).unwrap();
     let ipaddr = server.local_addr().unwrap(); // for the client to connect to
 
     /*let server_thread = */thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
@@ -230,7 +242,7 @@ mod server_tests {
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), example);
 
-    let server = Server::with_authorities(catalog).unwrap();
+    let server = Server::new(("127.0.0.1", 0), catalog).unwrap();
     let ipaddr = server.local_addr().unwrap(); // for the client to connect to
 
     /*let server_thread = */thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
@@ -243,20 +255,19 @@ mod server_tests {
     //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
   }
 
-  // TODO: functional test!
   /// This test verifies that we work with standard tools
   #[test]
   #[cfg(feature = "ftest")]
   fn test_server_host_cli() {
     use std::process::*;
-    
+
     let example = create_example();
     let origin = example.get_origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), example);
 
-    let server = Server::with_authorities(catalog).unwrap();
+    let server = Server::new(("127.0.0.1", 0), catalog).unwrap();
     let ipaddr = server.local_addr().unwrap(); // for the client to connect to
 
     /*let server_thread = */thread::Builder::new().name("test_server:server".to_string()).spawn(move || server_thread(server)).unwrap();
@@ -292,7 +303,9 @@ mod server_tests {
       assert!(false);
     }
 
-    let ns = response.get_name_servers();
+    let mut ns: Vec<_> = response.get_name_servers().clone();
+    ns.sort();
+
     assert_eq!(ns.len(), 2);
     assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
     assert_eq!(ns.first().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() });
@@ -320,7 +333,9 @@ mod server_tests {
       assert!(false);
     }
 
-    let ns = response.get_name_servers();
+    let mut ns: Vec<_> = response.get_name_servers().clone();
+    ns.sort();
+
     assert_eq!(ns.len(), 2);
     assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
     assert_eq!(ns.first().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() });
