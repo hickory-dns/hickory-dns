@@ -1,0 +1,347 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `docopt` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, docopt">
+
+    <title>docopt - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'docopt', ty: 'mod', relpath: '../'};</script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>docopt</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-0' class='srclink' href='../src/docopt/lib.rs.html#1-241' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>Docopt for Rust. This implementation conforms to the
+<a href="http://docopt.org/">official description of Docopt</a> and
+<a href="https://github.com/docopt/docopt/pull/201">passes its test suite</a>.</p>
+
+<p>This library is <a href="https://github.com/docopt/docopt.rs">on GitHub</a>.</p>
+
+<p>Fundamentally, Docopt is a command line argument parser. The detail that
+distinguishes it from most parsers is that the parser is derived from the
+usage string. Here&#39;s a simple example:</p>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>docopt</span>::<span class='ident'>Docopt</span>;
+
+<span class='comment'>// Write the Docopt usage string.</span>
+<span class='kw'>const</span> <span class='ident'>USAGE</span>: <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span> <span class='op'>=</span> <span class='string'>&quot;
+Usage: cp [-a] &lt;source&gt; &lt;dest&gt;
+       cp [-a] &lt;source&gt;... &lt;dir&gt;
+
+Options:
+    -a, --archive  Copy everything.
+&quot;</span>;
+
+<span class='comment'>// The argv. Normally you&#39;d just use `parse` which will automatically</span>
+<span class='comment'>// use `std::env::args()`.</span>
+<span class='kw'>let</span> <span class='ident'>argv</span> <span class='op'>=</span> <span class='op'>||</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;cp&quot;</span>, <span class='string'>&quot;-a&quot;</span>, <span class='string'>&quot;file1&quot;</span>, <span class='string'>&quot;file2&quot;</span>, <span class='string'>&quot;dest/&quot;</span>];
+
+<span class='comment'>// Parse argv and exit the program with an error message if it fails.</span>
+<span class='kw'>let</span> <span class='ident'>args</span> <span class='op'>=</span> <span class='ident'>Docopt</span>::<span class='ident'>new</span>(<span class='ident'>USAGE</span>)
+                  .<span class='ident'>and_then</span>(<span class='op'>|</span><span class='ident'>d</span><span class='op'>|</span> <span class='ident'>d</span>.<span class='ident'>argv</span>(<span class='ident'>argv</span>().<span class='ident'>into_iter</span>()).<span class='ident'>parse</span>())
+                  .<span class='ident'>unwrap_or_else</span>(<span class='op'>|</span><span class='ident'>e</span><span class='op'>|</span> <span class='ident'>e</span>.<span class='ident'>exit</span>());
+
+<span class='comment'>// Now access your argv values. Synonyms work just fine!</span>
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>get_bool</span>(<span class='string'>&quot;-a&quot;</span>) <span class='op'>&amp;&amp;</span> <span class='ident'>args</span>.<span class='ident'>get_bool</span>(<span class='string'>&quot;--archive&quot;</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>get_vec</span>(<span class='string'>&quot;&lt;source&gt;&quot;</span>), <span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;file1&quot;</span>, <span class='string'>&quot;file2&quot;</span>]);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>get_str</span>(<span class='string'>&quot;&lt;dir&gt;&quot;</span>), <span class='string'>&quot;dest/&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>get_str</span>(<span class='string'>&quot;&lt;dest&gt;&quot;</span>), <span class='string'>&quot;&quot;</span>);</pre>
+
+<h1 id="type-based-decoding" class='section-header'><a
+                           href="#type-based-decoding">Type based decoding</a></h1>
+<p>Often, command line values aren&#39;t just strings or booleans---sometimes
+they are integers, or enums, or something more elaborate. Using the
+standard Docopt interface can be inconvenient for this purpose, because
+you&#39;ll need to convert all of the values explicitly. Instead, this crate
+provides a <code>Decoder</code> that converts an <code>ArgvMap</code> to your custom struct.
+Here is the same example as above using type based decoding:</p>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>docopt</span>::<span class='ident'>Docopt</span>;
+
+<span class='comment'>// Write the Docopt usage string.</span>
+<span class='kw'>const</span> <span class='ident'>USAGE</span>: <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span> <span class='op'>=</span> <span class='string'>&quot;
+Usage: cp [-a] &lt;source&gt; &lt;dest&gt;
+       cp [-a] &lt;source&gt;... &lt;dir&gt;
+
+Options:
+    -a, --archive  Copy everything.
+&quot;</span>;
+
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>RustcDecodable</span>)]</span>
+<span class='kw'>struct</span> <span class='ident'>Args</span> {
+    <span class='ident'>arg_source</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>,
+    <span class='ident'>arg_dest</span>: <span class='ident'>String</span>,
+    <span class='ident'>arg_dir</span>: <span class='ident'>String</span>,
+    <span class='ident'>flag_archive</span>: <span class='ident'>bool</span>,
+}
+
+<span class='kw'>let</span> <span class='ident'>argv</span> <span class='op'>=</span> <span class='op'>||</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;cp&quot;</span>, <span class='string'>&quot;-a&quot;</span>, <span class='string'>&quot;file1&quot;</span>, <span class='string'>&quot;file2&quot;</span>, <span class='string'>&quot;dest/&quot;</span>];
+<span class='kw'>let</span> <span class='ident'>args</span>: <span class='ident'>Args</span> <span class='op'>=</span> <span class='ident'>Docopt</span>::<span class='ident'>new</span>(<span class='ident'>USAGE</span>)
+                        .<span class='ident'>and_then</span>(<span class='op'>|</span><span class='ident'>d</span><span class='op'>|</span> <span class='ident'>d</span>.<span class='ident'>argv</span>(<span class='ident'>argv</span>().<span class='ident'>into_iter</span>()).<span class='ident'>decode</span>())
+                        .<span class='ident'>unwrap_or_else</span>(<span class='op'>|</span><span class='ident'>e</span><span class='op'>|</span> <span class='ident'>e</span>.<span class='ident'>exit</span>());
+
+<span class='comment'>// Now access your argv values.</span>
+<span class='kw'>fn</span> <span class='ident'>s</span>(<span class='ident'>x</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='ident'>String</span> { <span class='ident'>x</span>.<span class='ident'>to_string</span>() }
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>flag_archive</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>arg_source</span>, <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>s</span>(<span class='string'>&quot;file1&quot;</span>), <span class='ident'>s</span>(<span class='string'>&quot;file2&quot;</span>)]);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>arg_dir</span>, <span class='ident'>s</span>(<span class='string'>&quot;dest/&quot;</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>arg_dest</span>, <span class='ident'>s</span>(<span class='string'>&quot;&quot;</span>));</pre>
+
+<h1 id="command-line-arguments-for-rustc" class='section-header'><a
+                           href="#command-line-arguments-for-rustc">Command line arguments for <code>rustc</code></a></h1>
+<p>Here&#39;s an example with a subset of <code>rustc</code>&#39;s command line arguments that
+shows more of Docopt and some of the benefits of type based decoding.</p>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>docopt</span>::<span class='ident'>Docopt</span>;
+
+<span class='comment'>// Write the Docopt usage string.</span>
+<span class='kw'>const</span> <span class='ident'>USAGE</span>: <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;static</span> <span class='ident'>str</span> <span class='op'>=</span> <span class='string'>&quot;
+Usage: rustc [options] [--cfg SPEC... -L PATH...] INPUT
+       rustc (--help | --version)
+
+Options:
+    -h, --help         Show this message.
+    --version          Show the version of rustc.
+    --cfg SPEC         Configure the compilation environment.
+    -L PATH            Add a directory to the library search path.
+    --emit TYPE        Configure the output that rustc will produce.
+                       Valid values: asm, ir, bc, obj, link.
+    --opt-level LEVEL  Optimize with possible levels 0-3.
+&quot;</span>;
+
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>RustcDecodable</span>)]</span>
+<span class='kw'>struct</span> <span class='ident'>Args</span> {
+    <span class='ident'>arg_INPUT</span>: <span class='ident'>String</span>,
+    <span class='ident'>flag_emit</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Emit</span><span class='op'>&gt;</span>,
+    <span class='ident'>flag_opt_level</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>OptLevel</span><span class='op'>&gt;</span>,
+    <span class='ident'>flag_cfg</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>,
+    <span class='ident'>flag_L</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>String</span><span class='op'>&gt;</span>,
+    <span class='ident'>flag_help</span>: <span class='ident'>bool</span>,
+    <span class='ident'>flag_version</span>: <span class='ident'>bool</span>,
+}
+
+<span class='comment'>// This is easy. The decoder will automatically restrict values to</span>
+<span class='comment'>// strings that match one of the enum variants.</span>
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>RustcDecodable</span>)]</span>
+<span class='kw'>enum</span> <span class='ident'>Emit</span> { <span class='ident'>Asm</span>, <span class='ident'>Ir</span>, <span class='ident'>Bc</span>, <span class='ident'>Obj</span>, <span class='ident'>Link</span> }
+
+<span class='comment'>// This one is harder because we want the user to specify an integer,</span>
+<span class='comment'>// but restrict it to a specific range. So we implement `Decodable`</span>
+<span class='comment'>// ourselves.</span>
+<span class='kw'>enum</span> <span class='ident'>OptLevel</span> { <span class='ident'>Zero</span>, <span class='ident'>One</span>, <span class='ident'>Two</span>, <span class='ident'>Three</span> }
+
+<span class='kw'>impl</span> <span class='ident'>rustc_serialize</span>::<span class='ident'>Decodable</span> <span class='kw'>for</span> <span class='ident'>OptLevel</span> {
+    <span class='kw'>fn</span> <span class='ident'>decode</span><span class='op'>&lt;</span><span class='ident'>D</span>: <span class='ident'>rustc_serialize</span>::<span class='ident'>Decoder</span><span class='op'>&gt;</span>(<span class='ident'>d</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>D</span>)
+                                           <span class='op'>-&gt;</span> <span class='prelude-ty'>Result</span><span class='op'>&lt;</span><span class='ident'>OptLevel</span>, <span class='ident'>D</span>::<span class='ident'>Error</span><span class='op'>&gt;</span> {
+        <span class='prelude-val'>Ok</span>(<span class='kw'>match</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>read_usize</span>()) {
+            <span class='number'>0</span> <span class='op'>=&gt;</span> <span class='ident'>OptLevel</span>::<span class='ident'>Zero</span>, <span class='number'>1</span> <span class='op'>=&gt;</span> <span class='ident'>OptLevel</span>::<span class='ident'>One</span>,
+            <span class='number'>2</span> <span class='op'>=&gt;</span> <span class='ident'>OptLevel</span>::<span class='ident'>Two</span>, <span class='number'>3</span> <span class='op'>=&gt;</span> <span class='ident'>OptLevel</span>::<span class='ident'>Three</span>,
+            <span class='ident'>n</span> <span class='op'>=&gt;</span> {
+                <span class='kw'>let</span> <span class='ident'>err</span> <span class='op'>=</span> <span class='macro'>format</span><span class='macro'>!</span>(
+                    <span class='string'>&quot;Could not decode &#39;{}&#39; as opt-level.&quot;</span>, <span class='ident'>n</span>);
+                <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>d</span>.<span class='ident'>error</span>(<span class='kw-2'>&amp;</span><span class='op'>*</span><span class='ident'>err</span>));
+            }
+        })
+    }
+}
+
+<span class='kw'>let</span> <span class='ident'>argv</span> <span class='op'>=</span> <span class='op'>||</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;rustc&quot;</span>, <span class='string'>&quot;-L&quot;</span>, <span class='string'>&quot;.&quot;</span>, <span class='string'>&quot;-L&quot;</span>, <span class='string'>&quot;..&quot;</span>, <span class='string'>&quot;--cfg&quot;</span>, <span class='string'>&quot;a&quot;</span>,
+                            <span class='string'>&quot;--opt-level&quot;</span>, <span class='string'>&quot;2&quot;</span>, <span class='string'>&quot;--emit=ir&quot;</span>, <span class='string'>&quot;docopt.rs&quot;</span>];
+<span class='kw'>let</span> <span class='ident'>args</span>: <span class='ident'>Args</span> <span class='op'>=</span> <span class='ident'>Docopt</span>::<span class='ident'>new</span>(<span class='ident'>USAGE</span>)
+                        .<span class='ident'>and_then</span>(<span class='op'>|</span><span class='ident'>d</span><span class='op'>|</span> <span class='ident'>d</span>.<span class='ident'>argv</span>(<span class='ident'>argv</span>().<span class='ident'>into_iter</span>()).<span class='ident'>decode</span>())
+                        .<span class='ident'>unwrap_or_else</span>(<span class='op'>|</span><span class='ident'>e</span><span class='op'>|</span> <span class='ident'>e</span>.<span class='ident'>exit</span>());
+
+<span class='comment'>// Now access your argv values.</span>
+<span class='kw'>fn</span> <span class='ident'>s</span>(<span class='ident'>x</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='ident'>String</span> { <span class='ident'>x</span>.<span class='ident'>to_string</span>() }
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>arg_INPUT</span>, <span class='string'>&quot;docopt.rs&quot;</span>.<span class='ident'>to_string</span>());
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>flag_L</span>, <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>s</span>(<span class='string'>&quot;.&quot;</span>), <span class='ident'>s</span>(<span class='string'>&quot;..&quot;</span>)]);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>flag_cfg</span>, <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>s</span>(<span class='string'>&quot;a&quot;</span>)]);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>flag_opt_level</span>, <span class='prelude-val'>Some</span>(<span class='ident'>OptLevel</span>::<span class='ident'>Two</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>flag_emit</span>, <span class='prelude-val'>Some</span>(<span class='ident'>Emit</span>::<span class='ident'>Ir</span>));</pre>
+
+<h1 id="the-docopt!-macro" class='section-header'><a
+                           href="#the-docopt!-macro">The <code>docopt!</code> macro</a></h1>
+<p>This package comes bundled with an additional crate, <code>docopt_macros</code>,
+which provides a <code>docopt!</code> syntax extension. Its purpose is to automate
+the creation of a Rust struct from a Docopt usage string. In particular,
+this provides a single point of truth about the definition of command line
+arguments in your program.</p>
+
+<p>Another advantage of using the macro is that errors in your Docopt usage
+string will be caught at compile time. Stated differently, your program
+will not compile with an invalid Docopt usage string.</p>
+
+<p>The example above using type based decoding can be simplified to this:</p>
+<pre class='rust rust-example-rendered'>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>feature</span>(<span class='ident'>plugin</span>)]</span>
+<span class='attribute'>#<span class='op'>!</span>[<span class='ident'>plugin</span>(<span class='ident'>docopt_macros</span>)]</span>
+
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>rustc_serialize</span>;
+
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>docopt</span>;
+
+<span class='comment'>// Write the Docopt usage string with the `docopt!` macro.</span>
+<span class='macro'>docopt</span><span class='macro'>!</span>(<span class='ident'>Args</span>, <span class='string'>&quot;
+Usage: cp [-a] &lt;source&gt; &lt;dest&gt;
+       cp [-a] &lt;source&gt;... &lt;dir&gt;
+
+Options:
+    -a, --archive  Copy everything.
+&quot;</span>)
+
+<span class='kw'>fn</span> <span class='ident'>main</span>() {
+    <span class='kw'>let</span> <span class='ident'>argv</span> <span class='op'>=</span> <span class='op'>||</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;cp&quot;</span>, <span class='string'>&quot;-a&quot;</span>, <span class='string'>&quot;file1&quot;</span>, <span class='string'>&quot;file2&quot;</span>, <span class='string'>&quot;dest/&quot;</span>];
+
+    <span class='comment'>// Your `Args` struct has a single static method defined on it,</span>
+    <span class='comment'>// `docopt`, which will return a normal `Docopt` value.</span>
+    <span class='kw'>let</span> <span class='ident'>args</span>: <span class='ident'>Args</span> <span class='op'>=</span> <span class='ident'>Args</span>::<span class='ident'>docopt</span>().<span class='ident'>decode</span>().<span class='ident'>unwrap_or_else</span>(<span class='op'>|</span><span class='ident'>e</span><span class='op'>|</span> <span class='ident'>e</span>.<span class='ident'>exit</span>());
+
+    <span class='comment'>// Now access your argv values.</span>
+    <span class='kw'>fn</span> <span class='ident'>s</span>(<span class='ident'>x</span>: <span class='kw-2'>&amp;</span><span class='ident'>str</span>) <span class='op'>-&gt;</span> <span class='ident'>String</span> { <span class='ident'>x</span>.<span class='ident'>to_string</span>() }
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>flag_archive</span>);
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>arg_source</span>, <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>s</span>(<span class='string'>&quot;file1&quot;</span>), <span class='ident'>s</span>(<span class='string'>&quot;file2&quot;</span>)]);
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>arg_dir</span>, <span class='ident'>s</span>(<span class='string'>&quot;dest/&quot;</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>args</span>.<span class='ident'>arg_dest</span>, <span class='ident'>s</span>(<span class='string'>&quot;&quot;</span>));
+}</pre>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.ArgvMap.html'
+                               title='docopt::ArgvMap'>ArgvMap</a></td>
+                        <td class='docblock short'>
+                             <p>A map containing matched values from command line arguments.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Decoder.html'
+                               title='docopt::Decoder'>Decoder</a></td>
+                        <td class='docblock short'>
+                             <p>Decoder for <code>ArgvMap</code> into your own <code>Decodable</code> types.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Docopt.html'
+                               title='docopt::Docopt'>Docopt</a></td>
+                        <td class='docblock short'>
+                             <p>The main Docopt type, which is constructed with a Docopt usage string.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Error.html'
+                               title='docopt::Error'>Error</a></td>
+                        <td class='docblock short'>
+                             <p>Represents the different types of Docopt errors.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Value.html'
+                               title='docopt::Value'>Value</a></td>
+                        <td class='docblock short'>
+                             <p>A matched command line value.</p>
+
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "docopt";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

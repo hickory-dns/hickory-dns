@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `toml` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, toml">
+
+    <title>toml - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'toml', ty: 'mod', relpath: '../'};</script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>toml</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-0' class='srclink' href='../src/toml/lib.rs.html#1-263' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>A TOML-parsing library</p>
+
+<p>This library is an implementation in Rust of a parser for TOML configuration
+files <a href="https://github.com/mojombo/toml">1</a>. It is focused around high quality errors including specific spans
+and detailed error messages when things go wrong.</p>
+
+<p>This implementation currently passes the language agnostic <a href="https://github.com/BurntSushi/toml-test">test suite</a>.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>let</span> <span class='ident'>toml</span> <span class='op'>=</span> <span class='string'>r#&quot;
+    [test]
+    foo = &quot;bar&quot;
+&quot;#</span>;
+
+<span class='kw'>let</span> <span class='ident'>value</span> <span class='op'>=</span> <span class='ident'>toml</span>::<span class='ident'>Parser</span>::<span class='ident'>new</span>(<span class='ident'>toml</span>).<span class='ident'>parse</span>().<span class='ident'>unwrap</span>();
+<span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;{:?}&quot;</span>, <span class='ident'>value</span>);</pre>
+
+<h1 id="conversions" class='section-header'><a
+                           href="#conversions">Conversions</a></h1>
+<p>This library also supports using the standard <code>Encodable</code> and <code>Decodable</code>
+traits with TOML values. This library provides the following conversion
+capabilities:</p>
+
+<ul>
+<li><code>String</code> =&gt; <code>toml::Value</code> - via <code>Parser</code></li>
+<li><code>toml::Value</code> =&gt; <code>String</code> - via <code>Display</code></li>
+<li><code>toml::Value</code> =&gt; rust object - via <code>Decoder</code></li>
+<li>rust object =&gt; <code>toml::Value</code> - via <code>Encoder</code></li>
+</ul>
+
+<p>Convenience functions for performing multiple conversions at a time are also
+provided.</p>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.DecodeError.html'
+                               title='toml::DecodeError'>DecodeError</a></td>
+                        <td class='docblock short'>
+                             <p>Description for errors which can occur while decoding a type.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Decoder.html'
+                               title='toml::Decoder'>Decoder</a></td>
+                        <td class='docblock short'>
+                             <p>A structure to transform TOML values into Rust values.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Encoder.html'
+                               title='toml::Encoder'>Encoder</a></td>
+                        <td class='docblock short'>
+                             <p>A structure to transform Rust values into TOML values.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Parser.html'
+                               title='toml::Parser'>Parser</a></td>
+                        <td class='docblock short'>
+                             <p>Parser for converting a string to a TOML <code>Value</code> instance.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.ParserError.html'
+                               title='toml::ParserError'>ParserError</a></td>
+                        <td class='docblock short'>
+                             <p>A structure representing a parse error.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.DecodeErrorKind.html'
+                               title='toml::DecodeErrorKind'>DecodeErrorKind</a></td>
+                        <td class='docblock short'>
+                             <p>Enumeration of possible errors which can occur while decoding a structure.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Error.html'
+                               title='toml::Error'>Error</a></td>
+                        <td class='docblock short'>
+                             <p>Enumeration of errors which can occur while encoding a rust value into a
+TOML value.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Value.html'
+                               title='toml::Value'>Value</a></td>
+                        <td class='docblock short'>
+                             <p>Representation of a TOML value.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.decode.html'
+                               title='toml::decode'>decode</a></td>
+                        <td class='docblock short'>
+                             <p>Decodes a TOML value into a decodable type.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.decode_str.html'
+                               title='toml::decode_str'>decode_str</a></td>
+                        <td class='docblock short'>
+                             <p>Decodes a string into a toml-encoded value.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.encode.html'
+                               title='toml::encode'>encode</a></td>
+                        <td class='docblock short'>
+                             <p>Encodes an encodable value into a TOML value.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.encode_str.html'
+                               title='toml::encode_str'>encode_str</a></td>
+                        <td class='docblock short'>
+                             <p>Encodes an encodable value into a TOML string.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='type' href='type.Array.html'
+                               title='toml::Array'>Array</a></td>
+                        <td class='docblock short'>
+                             <p>Type representing a TOML array, payload of the Value::Array variant</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='type' href='type.Table.html'
+                               title='toml::Table'>Table</a></td>
+                        <td class='docblock short'>
+                             <p>Type representing a TOML table, payload of the Value::Table variant</p>
+
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "toml";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

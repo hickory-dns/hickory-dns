@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `SliceBuf` struct in crate `mio`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, SliceBuf">
+
+    <title>mio::buf::SliceBuf - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../index.html'>mio</a>::<wbr><a href='index.html'>buf</a></p><script>window.sidebarCurrent = {name: 'SliceBuf', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>mio</a>::<wbr><a href='index.html'>buf</a>::<wbr><a class='struct' href=''>SliceBuf</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-2048' class='srclink' href='../../bytes/buf/slice/struct.SliceBuf.html?gotosrc=2048' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct SliceBuf&lt;'a&gt; {
+    // some fields omitted
+}</pre><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;'a&gt; <a class='struct' href='../../mio/buf/struct.SliceBuf.html' title='mio::buf::SliceBuf'>SliceBuf</a>&lt;'a&gt;</code></h3><div class='impl-items'><h4 id='method.wrap' class='method'><code>fn <a href='#method.wrap' class='fnname'>wrap</a>(bytes: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;'a [</a><a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='struct' href='../../mio/buf/struct.SliceBuf.html' title='mio::buf::SliceBuf'>SliceBuf</a>&lt;'a&gt;</code></h4>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl&lt;'a&gt; <a class='trait' href='../../mio/buf/trait.Buf.html' title='mio::buf::Buf'>Buf</a> for <a class='struct' href='../../mio/buf/struct.SliceBuf.html' title='mio::buf::SliceBuf'>SliceBuf</a>&lt;'a&gt;</code></h3><div class='impl-items'><h4 id='method.remaining' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.remaining' class='fnname'>remaining</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.bytes' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.bytes' class='fnname'>bytes</a>(&amp;'b self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;'b [</a><a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a></code></h4>
+<h4 id='method.advance' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.advance' class='fnname'>advance</a>(&amp;mut self, cnt: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>)</code></h4>
+<h4 id='method.has_remaining' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.has_remaining' class='fnname'>has_remaining</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.read_slice' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.read_slice' class='fnname'>read_slice</a>(&amp;mut self, dst: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;mut [</a><a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.read_byte' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.read_byte' class='fnname'>read_byte</a>(&amp;mut self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;</code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "mio";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script async src="../../search-index.js"></script>
+</body>
+</html>

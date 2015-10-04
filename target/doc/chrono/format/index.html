@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `format` mod in crate `chrono`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, format">
+
+    <title>chrono::format - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../index.html'>chrono</a></p><script>window.sidebarCurrent = {name: 'format', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Module <a href='../index.html'>chrono</a>::<wbr><a class='mod' href=''>format</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-15869' class='srclink' href='../../src/chrono/format/mod.rs.html#5-488' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>Formatting utilities for date and time.</p>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
+<table><tr><td><code>pub use self::<a class='mod'
+                                            href='./strftime/index.html'>strftime</a>::<a class='struct' href='../../chrono/format/strftime/struct.StrftimeItems.html' title='chrono::format::strftime::StrftimeItems'>StrftimeItems</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                            href='./parsed/index.html'>parsed</a>::<a class='struct' href='../../chrono/format/parsed/struct.Parsed.html' title='chrono::format::parsed::Parsed'>Parsed</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='parsed/index.html'
+                               title='chrono::format::parsed'>parsed</a></td>
+                        <td class='docblock short'>
+                             <p>A collection of parsed date and time items.
+They can be constructed incrementally while being checked for consistency.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='strftime/index.html'
+                               title='chrono::format::strftime'>strftime</a></td>
+                        <td class='docblock short'>
+                             <p><code>strftime</code>/<code>strptime</code>-inspired date and time formatting syntax.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.DelayedFormat.html'
+                               title='chrono::format::DelayedFormat'>DelayedFormat</a></td>
+                        <td class='docblock short'>
+                             <p>A <em>temporary</em> object which can be used as an argument to <code>format!</code> or others.
+This is normally constructed via <code>format</code> methods of each date and time type.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.ParseError.html'
+                               title='chrono::format::ParseError'>ParseError</a></td>
+                        <td class='docblock short'>
+                             <p>An error from the <code>parse</code> function.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Fixed.html'
+                               title='chrono::format::Fixed'>Fixed</a></td>
+                        <td class='docblock short'>
+                             <p>Fixed-format item types.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Item.html'
+                               title='chrono::format::Item'>Item</a></td>
+                        <td class='docblock short'>
+                             <p>A single formatting item. This is used for both formatting and parsing.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Numeric.html'
+                               title='chrono::format::Numeric'>Numeric</a></td>
+                        <td class='docblock short'>
+                             <p>Numeric item types.
+They have associated formatting width (FW) and parsing width (PW).</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Pad.html'
+                               title='chrono::format::Pad'>Pad</a></td>
+                        <td class='docblock short'>
+                             <p>Padding characters for numeric items.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.format.html'
+                               title='chrono::format::format'>format</a></td>
+                        <td class='docblock short'>
+                             <p>Tries to format given arguments with given formatting items.
+Internally used by <code>DelayedFormat</code>.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.parse.html'
+                               title='chrono::format::parse'>parse</a></td>
+                        <td class='docblock short'>
+                             <p>Tries to parse given string into <code>parsed</code> with given formatting items.
+Returns <code>Ok</code> when the entire string has been parsed (otherwise <code>parsed</code> should not be used).
+There should be no trailing string after parsing; use a stray <code>Item::Space</code> to trim whitespaces.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='type' href='type.ParseResult.html'
+                               title='chrono::format::ParseResult'>ParseResult</a></td>
+                        <td class='docblock short'>
+                             <p>Same to <code>Result&lt;T, ParseError&gt;</code>.</p>
+
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "chrono";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script async src="../../search-index.js"></script>
+</body>
+</html>

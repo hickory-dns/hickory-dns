@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `UnixSocket` struct in crate `mio`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, UnixSocket">
+
+    <title>mio::unix::UnixSocket - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../index.html'>mio</a>::<wbr><a href='index.html'>unix</a></p><script>window.sidebarCurrent = {name: 'UnixSocket', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>mio</a>::<wbr><a href='index.html'>unix</a>::<wbr><a class='struct' href=''>UnixSocket</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-5519' class='srclink' href='../../src/mio/net/unix.rs.html#6-8' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct UnixSocket {
+    // some fields omitted
+}</pre><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.stream' class='method'><code>fn <a href='#method.stream' class='fnname'>stream</a>() -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a>&gt;</code></h4>
+<div class='docblock'><p>Returns a new, unbound, non-blocking Unix domain socket</p>
+</div><h4 id='method.connect' class='method'><code>fn <a href='#method.connect' class='fnname'>connect</a>&lt;P: <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a class='struct' href='http://doc.rust-lang.org/nightly/std/path/struct.Path.html' title='std::path::Path'>Path</a>&gt; + ?<a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Sized.html' title='core::marker::Sized'>Sized</a>&gt;(self, addr: &amp;P) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a class='struct' href='../../mio/unix/struct.UnixStream.html' title='mio::unix::UnixStream'>UnixStream</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>)</a>&gt;</code></h4>
+<div class='docblock'><p>Connect the socket to the specified address</p>
+</div><h4 id='method.bind' class='method'><code>fn <a href='#method.bind' class='fnname'>bind</a>&lt;P: <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a class='struct' href='http://doc.rust-lang.org/nightly/std/path/struct.Path.html' title='std::path::Path'>Path</a>&gt; + ?<a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Sized.html' title='core::marker::Sized'>Sized</a>&gt;(&amp;self, addr: &amp;P) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<div class='docblock'><p>Bind the socket to the specified address</p>
+</div><h4 id='method.listen' class='method'><code>fn <a href='#method.listen' class='fnname'>listen</a>(self, backlog: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../../mio/unix/struct.UnixListener.html' title='mio::unix::UnixListener'>UnixListener</a>&gt;</code></h4>
+<div class='docblock'><p>Listen for incoming requests</p>
+</div><h4 id='method.try_clone' class='method'><code>fn <a href='#method.try_clone' class='fnname'>try_clone</a>(&amp;self) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a>&gt;</code></h4>
+</div><h3 class='impl'><code>impl <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.stream' class='method'><code>fn <a href='#method.stream' class='fnname'>stream</a>() -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a>&gt;</code></h4>
+<div class='docblock'><p>Returns a new, unbound, non-blocking Unix domain socket</p>
+</div><h4 id='method.connect' class='method'><code>fn <a href='#method.connect' class='fnname'>connect</a>&lt;P: <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a class='struct' href='http://doc.rust-lang.org/nightly/std/path/struct.Path.html' title='std::path::Path'>Path</a>&gt; + ?<a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Sized.html' title='core::marker::Sized'>Sized</a>&gt;(self, addr: &amp;P) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a class='struct' href='../../mio/unix/struct.UnixStream.html' title='mio::unix::UnixStream'>UnixStream</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>)</a>&gt;</code></h4>
+<div class='docblock'><p>Connect the socket to the specified address</p>
+</div><h4 id='method.bind' class='method'><code>fn <a href='#method.bind' class='fnname'>bind</a>&lt;P: <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a class='struct' href='http://doc.rust-lang.org/nightly/std/path/struct.Path.html' title='std::path::Path'>Path</a>&gt; + ?<a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Sized.html' title='core::marker::Sized'>Sized</a>&gt;(&amp;self, addr: &amp;P) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<div class='docblock'><p>Bind the socket to the specified address</p>
+</div><h4 id='method.listen' class='method'><code>fn <a href='#method.listen' class='fnname'>listen</a>(self, backlog: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../../mio/unix/struct.UnixListener.html' title='mio::unix::UnixListener'>UnixListener</a>&gt;</code></h4>
+<div class='docblock'><p>Listen for incoming requests</p>
+</div><h4 id='method.try_clone' class='method'><code>fn <a href='#method.try_clone' class='fnname'>try_clone</a>(&amp;self) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a>&gt;</code></h4>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='../../mio/trait.Evented.html' title='mio::Evented'>Evented</a> for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.register' class='method'><code>fn <a href='../../mio/trait.Evented.html#method.register' class='fnname'>register</a>(&amp;self, selector: &amp;mut Selector, token: <a class='struct' href='../../mio/struct.Token.html' title='mio::Token'>Token</a>, interest: <a class='struct' href='../../mio/struct.EventSet.html' title='mio::EventSet'>EventSet</a>, opts: <a class='struct' href='../../mio/struct.PollOpt.html' title='mio::PollOpt'>PollOpt</a>) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<h4 id='method.reregister' class='method'><code>fn <a href='../../mio/trait.Evented.html#method.reregister' class='fnname'>reregister</a>(&amp;self, selector: &amp;mut Selector, token: <a class='struct' href='../../mio/struct.Token.html' title='mio::Token'>Token</a>, interest: <a class='struct' href='../../mio/struct.EventSet.html' title='mio::EventSet'>EventSet</a>, opts: <a class='struct' href='../../mio/struct.PollOpt.html' title='mio::PollOpt'>PollOpt</a>) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<h4 id='method.deregister' class='method'><code>fn <a href='../../mio/trait.Evented.html#method.deregister' class='fnname'>deregister</a>(&amp;self, selector: &amp;mut Selector) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.From.html' title='core::convert::From'>From</a>&lt;UnixSocket&gt; for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/convert/trait.From.html#method.from' class='fnname'>from</a>(sys: UnixSocket) -&gt; <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/std/sys/ext/io/trait.AsRawFd.html' title='std::sys::ext::io::AsRawFd'>AsRawFd</a> for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.as_raw_fd' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/std/sys/ext/io/trait.AsRawFd.html#method.as_raw_fd' class='fnname'>as_raw_fd</a>(&amp;self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/sys/ext/io/type.RawFd.html' title='std::sys::ext::io::RawFd'>RawFd</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/std/sys/ext/io/trait.FromRawFd.html' title='std::sys::ext::io::FromRawFd'>FromRawFd</a> for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.from_raw_fd' class='method'><code>unsafe fn <a href='http://doc.rust-lang.org/nightly/std/sys/ext/io/trait.FromRawFd.html#method.from_raw_fd' class='fnname'>from_raw_fd</a>(fd: <a class='type' href='http://doc.rust-lang.org/nightly/std/sys/ext/io/type.RawFd.html' title='std::sys::ext::io::RawFd'>RawFd</a>) -&gt; <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='../../mio/trait.Evented.html' title='mio::Evented'>Evented</a> for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.register' class='method'><code>fn <a href='../../mio/trait.Evented.html#method.register' class='fnname'>register</a>(&amp;self, selector: &amp;mut Selector, token: <a class='struct' href='../../mio/struct.Token.html' title='mio::Token'>Token</a>, interest: <a class='struct' href='../../mio/struct.EventSet.html' title='mio::EventSet'>EventSet</a>, opts: <a class='struct' href='../../mio/struct.PollOpt.html' title='mio::PollOpt'>PollOpt</a>) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<h4 id='method.reregister' class='method'><code>fn <a href='../../mio/trait.Evented.html#method.reregister' class='fnname'>reregister</a>(&amp;self, selector: &amp;mut Selector, token: <a class='struct' href='../../mio/struct.Token.html' title='mio::Token'>Token</a>, interest: <a class='struct' href='../../mio/struct.EventSet.html' title='mio::EventSet'>EventSet</a>, opts: <a class='struct' href='../../mio/struct.PollOpt.html' title='mio::PollOpt'>PollOpt</a>) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<h4 id='method.deregister' class='method'><code>fn <a href='../../mio/trait.Evented.html#method.deregister' class='fnname'>deregister</a>(&amp;self, selector: &amp;mut Selector) -&gt; <a class='type' href='../../std/io/error/type.Result.html' title='std::io::error::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.From.html' title='core::convert::From'>From</a>&lt;UnixSocket&gt; for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/convert/trait.From.html#method.from' class='fnname'>from</a>(sys: UnixSocket) -&gt; <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/std/sys/ext/io/trait.AsRawFd.html' title='std::sys::ext::io::AsRawFd'>AsRawFd</a> for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.as_raw_fd' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/std/sys/ext/io/trait.AsRawFd.html#method.as_raw_fd' class='fnname'>as_raw_fd</a>(&amp;self) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/std/sys/ext/io/type.RawFd.html' title='std::sys::ext::io::RawFd'>RawFd</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/std/sys/ext/io/trait.FromRawFd.html' title='std::sys::ext::io::FromRawFd'>FromRawFd</a> for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.from_raw_fd' class='method'><code>unsafe fn <a href='http://doc.rust-lang.org/nightly/std/sys/ext/io/trait.FromRawFd.html#method.from_raw_fd' class='fnname'>from_raw_fd</a>(fd: <a class='type' href='http://doc.rust-lang.org/nightly/std/sys/ext/io/type.RawFd.html' title='std::sys::ext::io::RawFd'>RawFd</a>) -&gt; <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../mio/unix/struct.UnixSocket.html' title='mio::unix::UnixSocket'>UnixSocket</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "mio";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script async src="../../search-index.js"></script>
+</body>
+</html>

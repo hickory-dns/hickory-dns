@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `socket` mod in crate `nix`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, socket">
+
+    <title>nix::sys::socket - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a></p><script>window.sidebarCurrent = {name: 'socket', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Module <a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a>::<wbr><a class='mod' href=''>socket</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-10477' class='srclink' href='../../../src/nix/sys/socket/mod.rs.html#1-443' title='goto source code'>[src]</a></span></h1>
+<div class='docblock'><p>Socket interface functions</p>
+
+<p><a href="http://man7.org/linux/man-pages/man7/socket.7.html">Further reading</a></p>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
+<table><tr><td><code>pub use self::os::*;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='sockopt/index.html'
+                               title='nix::sys::socket::sockopt'>sockopt</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Ipv4Addr.html'
+                               title='nix::sys::socket::Ipv4Addr'>Ipv4Addr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Ipv6Addr.html'
+                               title='nix::sys::socket::Ipv6Addr'>Ipv6Addr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.SockFlag.html'
+                               title='nix::sys::socket::SockFlag'>SockFlag</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.UnixAddr.html'
+                               title='nix::sys::socket::UnixAddr'>UnixAddr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.in6_addr.html'
+                               title='nix::sys::socket::in6_addr'>in6_addr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.in_addr.html'
+                               title='nix::sys::socket::in_addr'>in_addr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.ip_mreq.html'
+                               title='nix::sys::socket::ip_mreq'>ip_mreq</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.ipv6_mreq.html'
+                               title='nix::sys::socket::ipv6_mreq'>ipv6_mreq</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.linger.html'
+                               title='nix::sys::socket::linger'>linger</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.sockaddr.html'
+                               title='nix::sys::socket::sockaddr'>sockaddr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.sockaddr_in.html'
+                               title='nix::sys::socket::sockaddr_in'>sockaddr_in</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.sockaddr_in6.html'
+                               title='nix::sys::socket::sockaddr_in6'>sockaddr_in6</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.sockaddr_storage.html'
+                               title='nix::sys::socket::sockaddr_storage'>sockaddr_storage</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.sockaddr_un.html'
+                               title='nix::sys::socket::sockaddr_un'>sockaddr_un</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.AddressFamily.html'
+                               title='nix::sys::socket::AddressFamily'>AddressFamily</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.InetAddr.html'
+                               title='nix::sys::socket::InetAddr'>InetAddr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.IpAddr.html'
+                               title='nix::sys::socket::IpAddr'>IpAddr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.Shutdown.html'
+                               title='nix::sys::socket::Shutdown'>Shutdown</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.SockAddr.html'
+                               title='nix::sys::socket::SockAddr'>SockAddr</a></td>
+                        <td class='docblock short'>
+                             <p>Represents a socket address</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.SockLevel.html'
+                               title='nix::sys::socket::SockLevel'>SockLevel</a></td>
+                        <td class='docblock short'>
+                             <p>The protocol level at which to get / set socket options. Used as an
+argument to <code>getsockopt</code> and <code>setsockopt</code>.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.SockType.html'
+                               title='nix::sys::socket::SockType'>SockType</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IPV6_ADD_MEMBERSHIP.html'
+                               title='nix::sys::socket::IPV6_ADD_MEMBERSHIP'>IPV6_ADD_MEMBERSHIP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IPV6_DROP_MEMBERSHIP.html'
+                               title='nix::sys::socket::IPV6_DROP_MEMBERSHIP'>IPV6_DROP_MEMBERSHIP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SOCK_CLOEXEC.html'
+                               title='nix::sys::socket::SOCK_CLOEXEC'>SOCK_CLOEXEC</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SOCK_NONBLOCK.html'
+                               title='nix::sys::socket::SOCK_NONBLOCK'>SOCK_NONBLOCK</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.GetSockOpt.html'
+                               title='nix::sys::socket::GetSockOpt'>GetSockOpt</a></td>
+                        <td class='docblock short'>
+                             <p>Represents a socket option that can be accessed or set. Used as an argument
+to <code>getsockopt</code></p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.SetSockOpt.html'
+                               title='nix::sys::socket::SetSockOpt'>SetSockOpt</a></td>
+                        <td class='docblock short'>
+                             <p>Represents a socket option that can be accessed or set. Used as an argument
+to <code>setsockopt</code></p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.accept.html'
+                               title='nix::sys::socket::accept'>accept</a></td>
+                        <td class='docblock short'>
+                             <p>Accept a connection on a socket</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.accept4.html'
+                               title='nix::sys::socket::accept4'>accept4</a></td>
+                        <td class='docblock short'>
+                             <p>Accept a connection on a socket</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.bind.html'
+                               title='nix::sys::socket::bind'>bind</a></td>
+                        <td class='docblock short'>
+                             <p>Bind a name to a socket</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.connect.html'
+                               title='nix::sys::socket::connect'>connect</a></td>
+                        <td class='docblock short'>
+                             <p>Initiate a connection on a socket</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.getpeername.html'
+                               title='nix::sys::socket::getpeername'>getpeername</a></td>
+                        <td class='docblock short'>
+                             <p>Get the address of the peer connected to the socket <code>fd</code>.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.getsockname.html'
+                               title='nix::sys::socket::getsockname'>getsockname</a></td>
+                        <td class='docblock short'>
+                             <p>Get the current address to which the socket <code>fd</code> is bound.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.getsockopt.html'
+                               title='nix::sys::socket::getsockopt'>getsockopt</a></td>
+                        <td class='docblock short'>
+                             <p>Get the current value for the requested socket option</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.listen.html'
+                               title='nix::sys::socket::listen'>listen</a></td>
+                        <td class='docblock short'>
+                             <p>Listen for connections on a socket</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.recv.html'
+                               title='nix::sys::socket::recv'>recv</a></td>
+                        <td class='docblock short'>
+                             <p>Receive data from a connection-oriented socket. Returns the number of
+bytes read</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.recvfrom.html'
+                               title='nix::sys::socket::recvfrom'>recvfrom</a></td>
+                        <td class='docblock short'>
+                             <p>Receive data from a connectionless or connection-oriented socket. Returns
+the number of bytes read and the socket address of the sender.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.send.html'
+                               title='nix::sys::socket::send'>send</a></td>
+                        <td class='docblock short'>
+                             <p>Send data to a connection-oriented socket. Returns the number of bytes read</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.sendto.html'
+                               title='nix::sys::socket::sendto'>sendto</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.setsockopt.html'
+                               title='nix::sys::socket::setsockopt'>setsockopt</a></td>
+                        <td class='docblock short'>
+                             <p>Sets the value for the requested socket option</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.shutdown.html'
+                               title='nix::sys::socket::shutdown'>shutdown</a></td>
+                        <td class='docblock short'>
+                             <p>Shut down part of a full-duplex connection.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.sockaddr_storage_to_addr.html'
+                               title='nix::sys::socket::sockaddr_storage_to_addr'>sockaddr_storage_to_addr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.socket.html'
+                               title='nix::sys::socket::socket'>socket</a></td>
+                        <td class='docblock short'>
+                             <p>Create an endpoint for communication</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.socketpair.html'
+                               title='nix::sys::socket::socketpair'>socketpair</a></td>
+                        <td class='docblock short'>
+                             <p>Create a pair of connected sockets</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='type' href='type.sa_family_t.html'
+                               title='nix::sys::socket::sa_family_t'>sa_family_t</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "nix";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script async src="../../../search-index.js"></script>
+</body>
+</html>

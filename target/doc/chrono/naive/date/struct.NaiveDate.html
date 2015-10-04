@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `NaiveDate` struct in crate `chrono`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, NaiveDate">
+
+    <title>chrono::naive::date::NaiveDate - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>chrono</a>::<wbr><a href='../index.html'>naive</a>::<wbr><a href='index.html'>date</a></p><script>window.sidebarCurrent = {name: 'NaiveDate', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../../index.html'>chrono</a>::<wbr><a href='../index.html'>naive</a>::<wbr><a href='index.html'>date</a>::<wbr><a class='struct' href=''>NaiveDate</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-2516' class='srclink' href='../../../src/chrono/naive/date.rs.html#53-55' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct NaiveDate {
+    // some fields omitted
+}</pre><div class='docblock'><p>ISO 8601 calendar date without timezone.
+Allows for every proleptic Gregorian date from Jan 1, 262145 BCE to Dec 31, 262143 CE.
+Also supports the conversion from ISO 8601 ordinal and week date.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='impl-items'><h4 id='method.from_ymd' class='method'><code>fn <a href='#method.from_ymd' class='fnname'>from_ymd</a>(year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, month: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, day: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> from year, month and day.
+This assumes the proleptic Gregorian calendar, with the year 0 being 1 BCE.</p>
+
+<p>Fails on the out-of-range date, invalid month and/or day.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Datelike</span>, <span class='ident'>Weekday</span>};
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>3</span>, <span class='number'>14</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>year</span>(), <span class='number'>2015</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>month</span>(), <span class='number'>3</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>day</span>(), <span class='number'>14</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>ordinal</span>(), <span class='number'>73</span>); <span class='comment'>// day of year</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>isoweekdate</span>(), (<span class='number'>2015</span>, <span class='number'>11</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sat</span>)); <span class='comment'>// ISO week and weekday</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>num_days_from_ce</span>(), <span class='number'>735671</span>); <span class='comment'>// days since January 1, 1 CE</span></pre>
+</div><h4 id='method.from_ymd_opt' class='method'><code>fn <a href='#method.from_ymd_opt' class='fnname'>from_ymd_opt</a>(year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, month: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, day: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> from year, month and day.
+This assumes the proleptic Gregorian calendar, with the year 0 being 1 BCE.</p>
+
+<p>Returns <code>None</code> on the out-of-range date, invalid month and/or day.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='kw'>let</span> <span class='ident'>ymd</span> <span class='op'>=</span> <span class='op'>|</span><span class='ident'>y</span>,<span class='ident'>m</span>,<span class='ident'>d</span><span class='op'>|</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd_opt</span>(<span class='ident'>y</span>, <span class='ident'>m</span>, <span class='ident'>d</span>);
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2015</span>, <span class='number'>3</span>, <span class='number'>14</span>).<span class='ident'>is_some</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2015</span>, <span class='number'>0</span>, <span class='number'>14</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2015</span>, <span class='number'>2</span>, <span class='number'>29</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='op'>-</span><span class='number'>4</span>, <span class='number'>2</span>, <span class='number'>29</span>).<span class='ident'>is_some</span>()); <span class='comment'>// 5 BCE is a leap year</span>
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>400000</span>, <span class='number'>1</span>, <span class='number'>1</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='op'>-</span><span class='number'>400000</span>, <span class='number'>1</span>, <span class='number'>1</span>).<span class='ident'>is_none</span>());</pre>
+</div><h4 id='method.from_yo' class='method'><code>fn <a href='#method.from_yo' class='fnname'>from_yo</a>(year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, ordinal: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> from year and day of year (DOY or &quot;ordinal&quot;).
+This assumes the proleptic Gregorian calendar, with the year 0 being 1 BCE.</p>
+
+<p>Fails on the out-of-range date and/or invalid DOY.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Datelike</span>, <span class='ident'>Weekday</span>};
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_yo</span>(<span class='number'>2015</span>, <span class='number'>73</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>ordinal</span>(), <span class='number'>73</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>year</span>(), <span class='number'>2015</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>month</span>(), <span class='number'>3</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>day</span>(), <span class='number'>14</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>isoweekdate</span>(), (<span class='number'>2015</span>, <span class='number'>11</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sat</span>)); <span class='comment'>// ISO week and weekday</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>num_days_from_ce</span>(), <span class='number'>735671</span>); <span class='comment'>// days since January 1, 1 CE</span></pre>
+</div><h4 id='method.from_yo_opt' class='method'><code>fn <a href='#method.from_yo_opt' class='fnname'>from_yo_opt</a>(year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, ordinal: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> from year and day of year (DOY or &quot;ordinal&quot;).
+This assumes the proleptic Gregorian calendar, with the year 0 being 1 BCE.</p>
+
+<p>Returns <code>None</code> on the out-of-range date and/or invalid DOY.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='kw'>let</span> <span class='ident'>yo</span> <span class='op'>=</span> <span class='op'>|</span><span class='ident'>y</span>,<span class='ident'>o</span><span class='op'>|</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_yo_opt</span>(<span class='ident'>y</span>, <span class='ident'>o</span>);
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>yo</span>(<span class='number'>2015</span>, <span class='number'>100</span>).<span class='ident'>is_some</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>yo</span>(<span class='number'>2015</span>, <span class='number'>0</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>yo</span>(<span class='number'>2015</span>, <span class='number'>365</span>).<span class='ident'>is_some</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>yo</span>(<span class='number'>2015</span>, <span class='number'>366</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>yo</span>(<span class='op'>-</span><span class='number'>4</span>, <span class='number'>366</span>).<span class='ident'>is_some</span>()); <span class='comment'>// 5 BCE is a leap year</span>
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>yo</span>(<span class='number'>400000</span>, <span class='number'>1</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>yo</span>(<span class='op'>-</span><span class='number'>400000</span>, <span class='number'>1</span>).<span class='ident'>is_none</span>());</pre>
+</div><h4 id='method.from_isoywd' class='method'><code>fn <a href='#method.from_isoywd' class='fnname'>from_isoywd</a>(year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, week: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, weekday: <a class='enum' href='../../../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a>) -&gt; <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> from ISO week date (year and week number) and day of the week (DOW).
+This assumes the proleptic Gregorian calendar, with the year 0 being 1 BCE.
+The resulting <code>NaiveDate</code> may have a different year from the input year.</p>
+
+<p>Fails on the out-of-range date and/or invalid week number.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Datelike</span>, <span class='ident'>Weekday</span>};
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_isoywd</span>(<span class='number'>2015</span>, <span class='number'>11</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sat</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>isoweekdate</span>(), (<span class='number'>2015</span>, <span class='number'>11</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sat</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>year</span>(), <span class='number'>2015</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>month</span>(), <span class='number'>3</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>day</span>(), <span class='number'>14</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>ordinal</span>(), <span class='number'>73</span>); <span class='comment'>// day of year</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>num_days_from_ce</span>(), <span class='number'>735671</span>); <span class='comment'>// days since January 1, 1 CE</span></pre>
+</div><h4 id='method.from_isoywd_opt' class='method'><code>fn <a href='#method.from_isoywd_opt' class='fnname'>from_isoywd_opt</a>(year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, week: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, weekday: <a class='enum' href='../../../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> from ISO week date (year and week number) and day of the week (DOW).
+This assumes the proleptic Gregorian calendar, with the year 0 being 1 BCE.
+The resulting <code>NaiveDate</code> may have a different year from the input year.</p>
+
+<p>Returns <code>None</code> on the out-of-range date and/or invalid week number.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Weekday</span>};
+
+<span class='kw'>let</span> <span class='ident'>ymd</span> <span class='op'>=</span> <span class='op'>|</span><span class='ident'>y</span>,<span class='ident'>m</span>,<span class='ident'>d</span><span class='op'>|</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='ident'>y</span>, <span class='ident'>m</span>, <span class='ident'>d</span>);
+<span class='kw'>let</span> <span class='ident'>isoywd</span> <span class='op'>=</span> <span class='op'>|</span><span class='ident'>y</span>,<span class='ident'>w</span>,<span class='ident'>d</span><span class='op'>|</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_isoywd_opt</span>(<span class='ident'>y</span>, <span class='ident'>w</span>, <span class='ident'>d</span>);
+
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2015</span>, <span class='number'>0</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sun</span>), <span class='prelude-val'>None</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2015</span>, <span class='number'>10</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sun</span>), <span class='prelude-val'>Some</span>(<span class='ident'>ymd</span>(<span class='number'>2015</span>, <span class='number'>3</span>, <span class='number'>8</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2015</span>, <span class='number'>30</span>, <span class='ident'>Weekday</span>::<span class='ident'>Mon</span>), <span class='prelude-val'>Some</span>(<span class='ident'>ymd</span>(<span class='number'>2015</span>, <span class='number'>7</span>, <span class='number'>20</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2015</span>, <span class='number'>60</span>, <span class='ident'>Weekday</span>::<span class='ident'>Mon</span>), <span class='prelude-val'>None</span>);
+
+<span class='comment'>// out-of-range dates</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>400000</span>, <span class='number'>10</span>, <span class='ident'>Weekday</span>::<span class='ident'>Fri</span>), <span class='prelude-val'>None</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='op'>-</span><span class='number'>400000</span>, <span class='number'>10</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sat</span>), <span class='prelude-val'>None</span>);
+
+<span class='comment'>// year boundary behaviors</span>
+<span class='comment'>//</span>
+<span class='comment'>//           Mo Tu We Th Fr Sa Su</span>
+<span class='comment'>// 2014-W52  22 23 24 25 26 27 28    has 4+ days of new year,</span>
+<span class='comment'>// 2015-W01  29 30 31  1  2  3  4 &lt;- so this is the first week</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2014</span>, <span class='number'>52</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sun</span>), <span class='prelude-val'>Some</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>12</span>, <span class='number'>28</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2014</span>, <span class='number'>53</span>, <span class='ident'>Weekday</span>::<span class='ident'>Mon</span>), <span class='prelude-val'>None</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2015</span>, <span class='number'>1</span>, <span class='ident'>Weekday</span>::<span class='ident'>Mon</span>), <span class='prelude-val'>Some</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>12</span>, <span class='number'>29</span>)));
+
+<span class='comment'>// 2015-W52  21 22 23 24 25 26 27    has 4+ days of old year,</span>
+<span class='comment'>// 2015-W53  28 29 30 31  1  2  3 &lt;- so this is the last week</span>
+<span class='comment'>// 2016-W01   4  5  6  7  8  9 10</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2015</span>, <span class='number'>52</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sun</span>), <span class='prelude-val'>Some</span>(<span class='ident'>ymd</span>(<span class='number'>2015</span>, <span class='number'>12</span>, <span class='number'>27</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2015</span>, <span class='number'>53</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sun</span>), <span class='prelude-val'>Some</span>(<span class='ident'>ymd</span>(<span class='number'>2016</span>, <span class='number'>1</span>, <span class='number'>3</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2015</span>, <span class='number'>54</span>, <span class='ident'>Weekday</span>::<span class='ident'>Mon</span>), <span class='prelude-val'>None</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>isoywd</span>(<span class='number'>2016</span>, <span class='number'>1</span>, <span class='ident'>Weekday</span>::<span class='ident'>Mon</span>), <span class='prelude-val'>Some</span>(<span class='ident'>ymd</span>(<span class='number'>2016</span>, <span class='number'>1</span>, <span class='number'>4</span>)));</pre>
+</div><h4 id='method.from_num_days_from_ce' class='method'><code>fn <a href='#method.from_num_days_from_ce' class='fnname'>from_num_days_from_ce</a>(days: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>) -&gt; <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> from the number of days since January 1, 1 (Day 1)
+in the proleptic Gregorian calendar.</p>
+
+<p>Fails on the out-of-range date.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Datelike</span>, <span class='ident'>Weekday</span>};
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_num_days_from_ce</span>(<span class='number'>735671</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>num_days_from_ce</span>(), <span class='number'>735671</span>); <span class='comment'>// days since January 1, 1 CE</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>year</span>(), <span class='number'>2015</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>month</span>(), <span class='number'>3</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>day</span>(), <span class='number'>14</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>ordinal</span>(), <span class='number'>73</span>); <span class='comment'>// day of year</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>isoweekdate</span>(), (<span class='number'>2015</span>, <span class='number'>11</span>, <span class='ident'>Weekday</span>::<span class='ident'>Sat</span>)); <span class='comment'>// ISO week and weekday</span></pre>
+</div><h4 id='method.from_num_days_from_ce_opt' class='method'><code>fn <a href='#method.from_num_days_from_ce_opt' class='fnname'>from_num_days_from_ce_opt</a>(days: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> from the number of days since January 1, 1 (Day 1)
+in the proleptic Gregorian calendar.</p>
+
+<p>Returns <code>None</code> on the out-of-range date.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='kw'>let</span> <span class='ident'>days</span> <span class='op'>=</span> <span class='op'>|</span><span class='ident'>ndays</span><span class='op'>|</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_num_days_from_ce_opt</span>(<span class='ident'>ndays</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>days</span>(<span class='number'>730000</span>),     <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>1999</span>, <span class='number'>9</span>, <span class='number'>3</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>days</span>(<span class='number'>1</span>),          <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>1</span>, <span class='number'>1</span>, <span class='number'>1</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>days</span>(<span class='number'>0</span>),          <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>0</span>, <span class='number'>12</span>, <span class='number'>31</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>days</span>(<span class='op'>-</span><span class='number'>1</span>),         <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>0</span>, <span class='number'>12</span>, <span class='number'>30</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>days</span>(<span class='number'>100000000</span>),  <span class='prelude-val'>None</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>days</span>(<span class='op'>-</span><span class='number'>100000000</span>), <span class='prelude-val'>None</span>);</pre>
+</div><h4 id='method.parse_from_str' class='method'><code>fn <a href='#method.parse_from_str' class='fnname'>parse_from_str</a>(s: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>, fmt: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='type' href='../../../chrono/format/type.ParseResult.html' title='chrono::format::ParseResult'>ParseResult</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<div class='docblock'><p>Parses a string with the specified format string and returns a new <code>NaiveDate</code>.
+See the <a href="../../format/strftime/index.html"><code>format::strftime</code> module</a>
+on the supported escape sequences.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>parse_from_str</span>(<span class='string'>&quot;2015-09-05&quot;</span>, <span class='string'>&quot;%Y-%m-%d&quot;</span>),
+           <span class='prelude-val'>Ok</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>9</span>, <span class='number'>5</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>parse_from_str</span>(<span class='string'>&quot;5sep2015&quot;</span>, <span class='string'>&quot;%d%b%Y&quot;</span>),
+           <span class='prelude-val'>Ok</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>9</span>, <span class='number'>5</span>)));
+
+<span class='comment'>// time and offset is ignored for the purpose of parsing</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>parse_from_str</span>(<span class='string'>&quot;2014-5-17T12:34:56+09:30&quot;</span>, <span class='string'>&quot;%Y-%m-%dT%H:%M:%S%z&quot;</span>),
+           <span class='prelude-val'>Ok</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2014</span>, <span class='number'>5</span>, <span class='number'>17</span>)));
+
+<span class='comment'>// either out-of-bound dates or insufficient fields are errors</span>
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>parse_from_str</span>(<span class='string'>&quot;2015/9&quot;</span>, <span class='string'>&quot;%Y/%m&quot;</span>).<span class='ident'>is_err</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>parse_from_str</span>(<span class='string'>&quot;2015/9/31&quot;</span>, <span class='string'>&quot;%Y/%m/%d&quot;</span>).<span class='ident'>is_err</span>());
+
+<span class='comment'>// all parsed fields should be consistent to each other, otherwise it&#39;s an error</span>
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>parse_from_str</span>(<span class='string'>&quot;Sat, 09 Aug 2013&quot;</span>, <span class='string'>&quot;%a, %d %b %Y&quot;</span>).<span class='ident'>is_err</span>());</pre>
+</div><h4 id='method.and_time' class='method'><code>fn <a href='#method.and_time' class='fnname'>and_time</a>(&amp;self, time: <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDateTime</code> from the current date and given <code>NaiveTime</code>.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>NaiveTime</span>, <span class='ident'>NaiveDateTime</span>};
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>);
+<span class='kw'>let</span> <span class='ident'>t</span> <span class='op'>=</span> <span class='ident'>NaiveTime</span>::<span class='ident'>from_hms_milli</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>56</span>, <span class='number'>789</span>);
+
+<span class='kw'>let</span> <span class='ident'>dt</span>: <span class='ident'>NaiveDateTime</span> <span class='op'>=</span> <span class='ident'>d</span>.<span class='ident'>and_time</span>(<span class='ident'>t</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>date</span>(), <span class='ident'>d</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>time</span>(), <span class='ident'>t</span>);</pre>
+</div><h4 id='method.and_hms' class='method'><code>fn <a href='#method.and_hms' class='fnname'>and_hms</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDateTime</code> from the current date, hour, minute and second.</p>
+
+<p>Fails on invalid hour, minute and/or second.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>NaiveDateTime</span>, <span class='ident'>Datelike</span>, <span class='ident'>Timelike</span>, <span class='ident'>Weekday</span>};
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>);
+
+<span class='kw'>let</span> <span class='ident'>dt</span>: <span class='ident'>NaiveDateTime</span> <span class='op'>=</span> <span class='ident'>d</span>.<span class='ident'>and_hms</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>56</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>year</span>(), <span class='number'>2015</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>weekday</span>(), <span class='ident'>Weekday</span>::<span class='ident'>Wed</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>second</span>(), <span class='number'>56</span>);</pre>
+</div><h4 id='method.and_hms_opt' class='method'><code>fn <a href='#method.and_hms_opt' class='fnname'>and_hms_opt</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDateTime</code> from the current date, hour, minute and second.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute and/or second.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>);
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>56</span>).<span class='ident'>is_some</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>60</span>).<span class='ident'>is_none</span>()); <span class='comment'>// use `and_hms_milli_opt` instead</span>
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_opt</span>(<span class='number'>12</span>, <span class='number'>60</span>, <span class='number'>56</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_opt</span>(<span class='number'>24</span>, <span class='number'>34</span>, <span class='number'>56</span>).<span class='ident'>is_none</span>());</pre>
+</div><h4 id='method.and_hms_milli' class='method'><code>fn <a href='#method.and_hms_milli' class='fnname'>and_hms_milli</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, milli: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDateTime</code> from the current date, hour, minute, second and millisecond.
+The millisecond part can exceed 1,000 in order to represent the leap second.</p>
+
+<p>Fails on invalid hour, minute, second and/or millisecond.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>NaiveDateTime</span>, <span class='ident'>Datelike</span>, <span class='ident'>Timelike</span>, <span class='ident'>Weekday</span>};
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>);
+
+<span class='kw'>let</span> <span class='ident'>dt</span>: <span class='ident'>NaiveDateTime</span> <span class='op'>=</span> <span class='ident'>d</span>.<span class='ident'>and_hms_milli</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>56</span>, <span class='number'>789</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>year</span>(), <span class='number'>2015</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>weekday</span>(), <span class='ident'>Weekday</span>::<span class='ident'>Wed</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>second</span>(), <span class='number'>56</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>nanosecond</span>(), <span class='number'>789_000_000</span>);</pre>
+</div><h4 id='method.and_hms_milli_opt' class='method'><code>fn <a href='#method.and_hms_milli_opt' class='fnname'>and_hms_milli_opt</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, milli: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDateTime</code> from the current date, hour, minute, second and millisecond.
+The millisecond part can exceed 1,000 in order to represent the leap second.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute, second and/or millisecond.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>);
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_milli_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>56</span>,   <span class='number'>789</span>).<span class='ident'>is_some</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_milli_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>59</span>, <span class='number'>1_789</span>).<span class='ident'>is_some</span>()); <span class='comment'>// leap second</span>
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_milli_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>59</span>, <span class='number'>2_789</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_milli_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>60</span>,   <span class='number'>789</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_milli_opt</span>(<span class='number'>12</span>, <span class='number'>60</span>, <span class='number'>56</span>,   <span class='number'>789</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_milli_opt</span>(<span class='number'>24</span>, <span class='number'>34</span>, <span class='number'>56</span>,   <span class='number'>789</span>).<span class='ident'>is_none</span>());</pre>
+</div><h4 id='method.and_hms_micro' class='method'><code>fn <a href='#method.and_hms_micro' class='fnname'>and_hms_micro</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, micro: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDateTime</code> from the current date, hour, minute, second and microsecond.
+The microsecond part can exceed 1,000,000 in order to represent the leap second.</p>
+
+<p>Fails on invalid hour, minute, second and/or microsecond.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>NaiveDateTime</span>, <span class='ident'>Datelike</span>, <span class='ident'>Timelike</span>, <span class='ident'>Weekday</span>};
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>);
+
+<span class='kw'>let</span> <span class='ident'>dt</span>: <span class='ident'>NaiveDateTime</span> <span class='op'>=</span> <span class='ident'>d</span>.<span class='ident'>and_hms_micro</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>56</span>, <span class='number'>789_012</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>year</span>(), <span class='number'>2015</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>weekday</span>(), <span class='ident'>Weekday</span>::<span class='ident'>Wed</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>second</span>(), <span class='number'>56</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>nanosecond</span>(), <span class='number'>789_012_000</span>);</pre>
+</div><h4 id='method.and_hms_micro_opt' class='method'><code>fn <a href='#method.and_hms_micro_opt' class='fnname'>and_hms_micro_opt</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, micro: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDateTime</code> from the current date, hour, minute, second and microsecond.
+The microsecond part can exceed 1,000,000 in order to represent the leap second.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute, second and/or microsecond.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>);
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_micro_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>56</span>,   <span class='number'>789_012</span>).<span class='ident'>is_some</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_micro_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>59</span>, <span class='number'>1_789_012</span>).<span class='ident'>is_some</span>()); <span class='comment'>// leap second</span>
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_micro_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>59</span>, <span class='number'>2_789_012</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_micro_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>60</span>,   <span class='number'>789_012</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_micro_opt</span>(<span class='number'>12</span>, <span class='number'>60</span>, <span class='number'>56</span>,   <span class='number'>789_012</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_micro_opt</span>(<span class='number'>24</span>, <span class='number'>34</span>, <span class='number'>56</span>,   <span class='number'>789_012</span>).<span class='ident'>is_none</span>());</pre>
+</div><h4 id='method.and_hms_nano' class='method'><code>fn <a href='#method.and_hms_nano' class='fnname'>and_hms_nano</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, nano: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDateTime</code> from the current date, hour, minute, second and nanosecond.
+The nanosecond part can exceed 1,000,000,000 in order to represent the leap second.</p>
+
+<p>Fails on invalid hour, minute, second and/or nanosecond.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>NaiveDateTime</span>, <span class='ident'>Datelike</span>, <span class='ident'>Timelike</span>, <span class='ident'>Weekday</span>};
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>);
+
+<span class='kw'>let</span> <span class='ident'>dt</span>: <span class='ident'>NaiveDateTime</span> <span class='op'>=</span> <span class='ident'>d</span>.<span class='ident'>and_hms_nano</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>56</span>, <span class='number'>789_012_345</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>year</span>(), <span class='number'>2015</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>weekday</span>(), <span class='ident'>Weekday</span>::<span class='ident'>Wed</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>second</span>(), <span class='number'>56</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>dt</span>.<span class='ident'>nanosecond</span>(), <span class='number'>789_012_345</span>);</pre>
+</div><h4 id='method.and_hms_nano_opt' class='method'><code>fn <a href='#method.and_hms_nano_opt' class='fnname'>and_hms_nano_opt</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, nano: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDateTime</code> from the current date, hour, minute, second and nanosecond.
+The nanosecond part can exceed 1,000,000,000 in order to represent the leap second.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute, second and/or nanosecond.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>);
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_nano_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>56</span>,   <span class='number'>789_012_345</span>).<span class='ident'>is_some</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_nano_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>59</span>, <span class='number'>1_789_012_345</span>).<span class='ident'>is_some</span>()); <span class='comment'>// leap second</span>
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_nano_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>59</span>, <span class='number'>2_789_012_345</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_nano_opt</span>(<span class='number'>12</span>, <span class='number'>34</span>, <span class='number'>60</span>,   <span class='number'>789_012_345</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_nano_opt</span>(<span class='number'>12</span>, <span class='number'>60</span>, <span class='number'>56</span>,   <span class='number'>789_012_345</span>).<span class='ident'>is_none</span>());
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>and_hms_nano_opt</span>(<span class='number'>24</span>, <span class='number'>34</span>, <span class='number'>56</span>,   <span class='number'>789_012_345</span>).<span class='ident'>is_none</span>());</pre>
+</div><h4 id='method.succ' class='method'><code>fn <a href='#method.succ' class='fnname'>succ</a>(&amp;self) -&gt; <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> for the next date.</p>
+
+<p>Fails when <code>self</code> is the last representable date.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>,  <span class='number'>6</span>,  <span class='number'>3</span>).<span class='ident'>succ</span>(), <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>4</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>,  <span class='number'>6</span>, <span class='number'>30</span>).<span class='ident'>succ</span>(), <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>7</span>, <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>12</span>, <span class='number'>31</span>).<span class='ident'>succ</span>(), <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2016</span>, <span class='number'>1</span>, <span class='number'>1</span>));</pre>
+</div><h4 id='method.succ_opt' class='method'><code>fn <a href='#method.succ_opt' class='fnname'>succ_opt</a>(&amp;self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> for the next date.</p>
+
+<p>Returns <code>None</code> when <code>self</code> is the last representable date.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>naive</span>::<span class='ident'>date</span>::<span class='ident'>MAX</span>;
+
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>).<span class='ident'>succ_opt</span>(),
+           <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>4</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>MAX</span>.<span class='ident'>succ_opt</span>(), <span class='prelude-val'>None</span>);</pre>
+</div><h4 id='method.pred' class='method'><code>fn <a href='#method.pred' class='fnname'>pred</a>(&amp;self) -&gt; <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> for the prior date.</p>
+
+<p>Fails when <code>self</code> is the first representable date.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>).<span class='ident'>pred</span>(), <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>,  <span class='number'>6</span>,  <span class='number'>2</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>1</span>).<span class='ident'>pred</span>(), <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>,  <span class='number'>5</span>, <span class='number'>31</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>1</span>, <span class='number'>1</span>).<span class='ident'>pred</span>(), <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2014</span>, <span class='number'>12</span>, <span class='number'>31</span>));</pre>
+</div><h4 id='method.pred_opt' class='method'><code>fn <a href='#method.pred_opt' class='fnname'>pred_opt</a>(&amp;self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveDate</code> for the prior date.</p>
+
+<p>Returns <code>None</code> when <code>self</code> is the first representable date.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>naive</span>::<span class='ident'>date</span>::<span class='ident'>MIN</span>;
+
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>3</span>).<span class='ident'>pred_opt</span>(),
+           <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>6</span>, <span class='number'>2</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>MIN</span>.<span class='ident'>pred_opt</span>(), <span class='prelude-val'>None</span>);</pre>
+</div><h4 id='method.checked_add' class='method'><code>fn <a href='#method.checked_add' class='fnname'>checked_add</a>(self, rhs: <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<div class='docblock'><p>Adds the <code>days</code> part of given <code>Duration</code> to the current date.</p>
+
+<p>Returns <code>None</code> when it will result in overflow.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Duration</span>};
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>naive</span>::<span class='ident'>date</span>::<span class='ident'>MAX</span>;
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>9</span>, <span class='number'>5</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>checked_add</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>40</span>)), <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>10</span>, <span class='number'>15</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>checked_add</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='op'>-</span><span class='number'>40</span>)), <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>7</span>, <span class='number'>27</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>checked_add</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>1000_000_000</span>)), <span class='prelude-val'>None</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>checked_add</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='op'>-</span><span class='number'>1000_000_000</span>)), <span class='prelude-val'>None</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>MAX</span>.<span class='ident'>checked_add</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>1</span>)), <span class='prelude-val'>None</span>);</pre>
+</div><h4 id='method.checked_sub' class='method'><code>fn <a href='#method.checked_sub' class='fnname'>checked_sub</a>(self, rhs: <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<div class='docblock'><p>Subtracts the <code>days</code> part of given <code>Duration</code> from the current date.</p>
+
+<p>Returns <code>None</code> when it will result in overflow.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Duration</span>};
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>naive</span>::<span class='ident'>date</span>::<span class='ident'>MIN</span>;
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>9</span>, <span class='number'>5</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>checked_sub</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>40</span>)), <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>7</span>, <span class='number'>27</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>checked_sub</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='op'>-</span><span class='number'>40</span>)), <span class='prelude-val'>Some</span>(<span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>10</span>, <span class='number'>15</span>)));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>checked_sub</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>1000_000_000</span>)), <span class='prelude-val'>None</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>checked_sub</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='op'>-</span><span class='number'>1000_000_000</span>)), <span class='prelude-val'>None</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>MIN</span>.<span class='ident'>checked_sub</span>(<span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>1</span>)), <span class='prelude-val'>None</span>);</pre>
+</div><h4 id='method.format_with_items' class='method'><code>fn <a href='#method.format_with_items' class='fnname'>format_with_items</a>&lt;'a, I&gt;(&amp;self, items: I) -&gt; <a class='struct' href='../../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;I&gt; <span class='where'>where I: <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.Iterator.html' title='core::iter::Iterator'>Iterator</a>&lt;Item=<a class='enum' href='../../../chrono/format/enum.Item.html' title='chrono::format::Item'>Item</a>&lt;'a&gt;&gt; + <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a></span></code></h4>
+<div class='docblock'><p>Formats the date with the specified formatting items.
+Otherwise it is same to the ordinary <code>format</code> method.</p>
+
+<p>The <code>Iterator</code> of items should be <code>Clone</code>able,
+since the resulting <code>DelayedFormat</code> value may be formatted multiple times.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>format</span>::<span class='ident'>strftime</span>::<span class='ident'>StrftimeItems</span>;
+
+<span class='kw'>let</span> <span class='ident'>fmt</span> <span class='op'>=</span> <span class='ident'>StrftimeItems</span>::<span class='ident'>new</span>(<span class='string'>&quot;%Y-%m-%d&quot;</span>);
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>9</span>, <span class='number'>5</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>format_with_items</span>(<span class='ident'>fmt</span>.<span class='ident'>clone</span>()).<span class='ident'>to_string</span>(), <span class='string'>&quot;2015-09-05&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>format</span>(<span class='string'>&quot;%Y-%m-%d&quot;</span>).<span class='ident'>to_string</span>(), <span class='string'>&quot;2015-09-05&quot;</span>);</pre>
+</div><h4 id='method.format' class='method'><code>fn <a href='#method.format' class='fnname'>format</a>&lt;'a&gt;(&amp;self, fmt: &amp;'a <a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='struct' href='../../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;<a class='struct' href='../../../chrono/format/strftime/struct.StrftimeItems.html' title='chrono::format::strftime::StrftimeItems'>StrftimeItems</a>&lt;'a&gt;&gt;</code></h4>
+<div class='docblock'><p>Formats the date with the specified format string.
+See the <a href="../../format/strftime/index.html"><code>format::strftime</code> module</a>
+on the supported escape sequences.</p>
+
+<p>This returns a <code>DelayedFormat</code>,
+which gets converted to a string only when actual formatting happens.
+You may use the <code>to_string</code> method to get a <code>String</code>,
+or just feed it into <code>print!</code> and other formatting macros.
+(In this way it avoids the excees memory allocation.)</p>
+
+<p>A wrong format string does <em>not</em> issue an error immediately.
+Rather, converting or formatting the <code>DelayedFormat</code> fails.
+You are recommended to immediately use <code>DelayedFormat</code> for this reason.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>9</span>, <span class='number'>5</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>format</span>(<span class='string'>&quot;%Y-%m-%d&quot;</span>).<span class='ident'>to_string</span>(), <span class='string'>&quot;2015-09-05&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>d</span>.<span class='ident'>format</span>(<span class='string'>&quot;%A, %-d %B, %C%y&quot;</span>).<span class='ident'>to_string</span>(), <span class='string'>&quot;Saturday, 5 September, 2015&quot;</span>);</pre>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='../../../chrono/trait.Datelike.html' title='chrono::Datelike'>Datelike</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='impl-items'><h4 id='method.year' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.year' class='fnname'>year</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a></code></h4>
+<h4 id='method.month' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.month' class='fnname'>month</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.month0' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.month0' class='fnname'>month0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.day' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.day' class='fnname'>day</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.day0' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.day0' class='fnname'>day0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.ordinal' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.ordinal' class='fnname'>ordinal</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.ordinal0' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.ordinal0' class='fnname'>ordinal0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.weekday' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.weekday' class='fnname'>weekday</a>(&amp;self) -&gt; <a class='enum' href='../../../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a></code></h4>
+<h4 id='method.isoweekdate' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.isoweekdate' class='fnname'>isoweekdate</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, <a class='enum' href='../../../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a>)</a></code></h4>
+<h4 id='method.with_year' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.with_year' class='fnname'>with_year</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<h4 id='method.with_month' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.with_month' class='fnname'>with_month</a>(&amp;self, month: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<h4 id='method.with_month0' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.with_month0' class='fnname'>with_month0</a>(&amp;self, month0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<h4 id='method.with_day' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.with_day' class='fnname'>with_day</a>(&amp;self, day: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<h4 id='method.with_day0' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.with_day0' class='fnname'>with_day0</a>(&amp;self, day0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<h4 id='method.with_ordinal' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.with_ordinal' class='fnname'>with_ordinal</a>(&amp;self, ordinal: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<h4 id='method.with_ordinal0' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.with_ordinal0' class='fnname'>with_ordinal0</a>(&amp;self, ordinal0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+<h4 id='method.year_ce' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.year_ce' class='fnname'>year_ce</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>)</a></code></h4>
+<h4 id='method.num_days_from_ce' class='method'><code>fn <a href='../../../chrono/trait.Datelike.html#method.num_days_from_ce' class='fnname'>num_days_from_ce</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html' title='core::hash::Hash'>Hash</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='impl-items'><h4 id='method.hash' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash' class='fnname'>hash</a>&lt;H: <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a>&gt;(&amp;self, state: &amp;mut H)</code></h4>
+<h4 id='method.hash_slice' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash_slice' class='fnname'>hash_slice</a>&lt;H&gt;(data: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[Self]</a>, state: &amp;mut H) <span class='where'>where H: <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a></span></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Add.html' title='core::ops::Add'>Add</a>&lt;<a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>&gt; for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='docblock'><p>An addition of <code>Duration</code> to <code>NaiveDate</code> discards the fractional days,
+rounding to the closest integral number of days towards <code>Duration::zero()</code>.</p>
+
+<p>Fails on underflow or overflow.
+Use <code>NaiveDate::checked_add</code> for detecting that.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Duration</span>};
+
+<span class='kw'>let</span> <span class='ident'>ymd</span> <span class='op'>=</span> <span class='op'>|</span><span class='ident'>y</span>,<span class='ident'>m</span>,<span class='ident'>d</span><span class='op'>|</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='ident'>y</span>, <span class='ident'>m</span>, <span class='ident'>d</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>+</span> <span class='ident'>Duration</span>::<span class='ident'>zero</span>(),             <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>+</span> <span class='ident'>Duration</span>::<span class='ident'>seconds</span>(<span class='number'>86399</span>),     <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>+</span> <span class='ident'>Duration</span>::<span class='ident'>seconds</span>(<span class='op'>-</span><span class='number'>86399</span>),    <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>+</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>1</span>),            <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>2</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>+</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='op'>-</span><span class='number'>1</span>),           <span class='ident'>ymd</span>(<span class='number'>2013</span>, <span class='number'>12</span>, <span class='number'>31</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>+</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>364</span>),          <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>12</span>, <span class='number'>31</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>+</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>365</span><span class='op'>*</span><span class='number'>4</span> <span class='op'>+</span> <span class='number'>1</span>),    <span class='ident'>ymd</span>(<span class='number'>2018</span>, <span class='number'>1</span>, <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>+</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>365</span><span class='op'>*</span><span class='number'>400</span> <span class='op'>+</span> <span class='number'>97</span>), <span class='ident'>ymd</span>(<span class='number'>2414</span>, <span class='number'>1</span>, <span class='number'>1</span>));</pre>
+</div><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<h4 id='method.add' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Add.html#method.add' class='fnname'>add</a>(self, rhs: <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html' title='core::ops::Sub'>Sub</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt; for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='docblock'><p>A subtraction of <code>NaiveDate</code> from <code>NaiveDate</code> yields a <code>Duration</code> of integral numbers,
+and does not overflow or underflow at all.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Duration</span>};
+
+<span class='kw'>let</span> <span class='ident'>ymd</span> <span class='op'>=</span> <span class='op'>|</span><span class='ident'>y</span>,<span class='ident'>m</span>,<span class='ident'>d</span><span class='op'>|</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='ident'>y</span>, <span class='ident'>m</span>, <span class='ident'>d</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>),   <span class='ident'>Duration</span>::<span class='ident'>zero</span>());
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>ymd</span>(<span class='number'>2013</span>, <span class='number'>12</span>, <span class='number'>31</span>), <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>2</span>),   <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='op'>-</span><span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>ymd</span>(<span class='number'>2013</span>, <span class='number'>9</span>, <span class='number'>23</span>),  <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>100</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>ymd</span>(<span class='number'>2013</span>, <span class='number'>1</span>, <span class='number'>1</span>),   <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>365</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>ymd</span>(<span class='number'>2010</span>, <span class='number'>1</span>, <span class='number'>1</span>),   <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>365</span><span class='op'>*</span><span class='number'>4</span> <span class='op'>+</span> <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>ymd</span>(<span class='number'>1614</span>, <span class='number'>1</span>, <span class='number'>1</span>),   <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>365</span><span class='op'>*</span><span class='number'>400</span> <span class='op'>+</span> <span class='number'>97</span>));</pre>
+</div><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a></code></h4>
+<h4 id='method.sub' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html#method.sub' class='fnname'>sub</a>(self, rhs: <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html' title='core::ops::Sub'>Sub</a>&lt;<a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>&gt; for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='docblock'><p>A subtraction of <code>Duration</code> from <code>NaiveDate</code> discards the fractional days,
+rounding to the closest integral number of days towards <code>Duration::zero()</code>.</p>
+
+<p>Fails on underflow or overflow.
+Use <code>NaiveDate::checked_sub</code> for detecting that.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::{<span class='ident'>NaiveDate</span>, <span class='ident'>Duration</span>};
+
+<span class='kw'>let</span> <span class='ident'>ymd</span> <span class='op'>=</span> <span class='op'>|</span><span class='ident'>y</span>,<span class='ident'>m</span>,<span class='ident'>d</span><span class='op'>|</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='ident'>y</span>, <span class='ident'>m</span>, <span class='ident'>d</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>Duration</span>::<span class='ident'>zero</span>(),             <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>Duration</span>::<span class='ident'>seconds</span>(<span class='number'>86399</span>),     <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>Duration</span>::<span class='ident'>seconds</span>(<span class='op'>-</span><span class='number'>86399</span>),    <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>1</span>),            <span class='ident'>ymd</span>(<span class='number'>2013</span>, <span class='number'>12</span>, <span class='number'>31</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='op'>-</span><span class='number'>1</span>),           <span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>2</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>364</span>),          <span class='ident'>ymd</span>(<span class='number'>2013</span>, <span class='number'>1</span>, <span class='number'>2</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>365</span><span class='op'>*</span><span class='number'>4</span> <span class='op'>+</span> <span class='number'>1</span>),    <span class='ident'>ymd</span>(<span class='number'>2010</span>, <span class='number'>1</span>, <span class='number'>1</span>));
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>ymd</span>(<span class='number'>2014</span>, <span class='number'>1</span>, <span class='number'>1</span>) <span class='op'>-</span> <span class='ident'>Duration</span>::<span class='ident'>days</span>(<span class='number'>365</span><span class='op'>*</span><span class='number'>400</span> <span class='op'>+</span> <span class='number'>97</span>), <span class='ident'>ymd</span>(<span class='number'>1614</span>, <span class='number'>1</span>, <span class='number'>1</span>));</pre>
+</div><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<h4 id='method.sub' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html#method.sub' class='fnname'>sub</a>(self, rhs: <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='docblock'><p>The <code>Debug</code> output of the naive date <code>d</code> is same to <code>d.format(&quot;%Y-%m-%d&quot;)</code>.
+Note that ISO 8601 requires an explicit sign for years before 1 BCE or after 9999 CE.</p>
+
+<p>The string printed can be readily parsed via the <code>parse</code> method on <code>str</code>.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{:?}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>,  <span class='number'>9</span>,  <span class='number'>5</span>)), <span class='string'>&quot;2015-09-05&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{:?}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(   <span class='number'>0</span>,  <span class='number'>1</span>,  <span class='number'>1</span>)), <span class='string'>&quot;0000-01-01&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{:?}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>9999</span>, <span class='number'>12</span>, <span class='number'>31</span>)), <span class='string'>&quot;9999-12-31&quot;</span>);
+
+<span class='comment'>// examples of an explicit year sign</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{:?}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(   <span class='op'>-</span><span class='number'>1</span>,  <span class='number'>1</span>,  <span class='number'>1</span>)),  <span class='string'>&quot;-0001-01-01&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{:?}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>10000</span>, <span class='number'>12</span>, <span class='number'>31</span>)), <span class='string'>&quot;+10000-12-31&quot;</span>);</pre>
+</div><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='docblock'><p>The <code>Display</code> output of the naive date <code>d</code> is same to <code>d.format(&quot;%Y-%m-%d&quot;)</code>.
+Note that ISO 8601 requires an explicit sign for years before 1 BCE or after 9999 CE.</p>
+
+<p>The string printed can be readily parsed via the <code>parse</code> method on <code>str</code>.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>,  <span class='number'>9</span>,  <span class='number'>5</span>)), <span class='string'>&quot;2015-09-05&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(   <span class='number'>0</span>,  <span class='number'>1</span>,  <span class='number'>1</span>)), <span class='string'>&quot;0000-01-01&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>9999</span>, <span class='number'>12</span>, <span class='number'>31</span>)), <span class='string'>&quot;9999-12-31&quot;</span>);
+
+<span class='comment'>// examples of an explicit year sign</span>
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(   <span class='op'>-</span><span class='number'>1</span>,  <span class='number'>1</span>,  <span class='number'>1</span>)),  <span class='string'>&quot;-0001-01-01&quot;</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{}&quot;</span>, <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>10000</span>, <span class='number'>12</span>, <span class='number'>31</span>)), <span class='string'>&quot;+10000-12-31&quot;</span>);</pre>
+</div><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/str/trait.FromStr.html' title='core::str::FromStr'>FromStr</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='docblock'><p>Parsing a str into a <code>NaiveDate</code> uses the same format, <code>%Y-%m-%d</code>, as <code>Debug</code> and <code>Display</code>.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>NaiveDate</span>;
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>2015</span>, <span class='number'>9</span>, <span class='number'>18</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{}&quot;</span>, <span class='ident'>d</span>).<span class='ident'>parse</span>::<span class='op'>&lt;</span><span class='ident'>NaiveDate</span><span class='op'>&gt;</span>(), <span class='prelude-val'>Ok</span>(<span class='ident'>d</span>));
+
+<span class='kw'>let</span> <span class='ident'>d</span> <span class='op'>=</span> <span class='ident'>NaiveDate</span>::<span class='ident'>from_ymd</span>(<span class='number'>12345</span>, <span class='number'>6</span>, <span class='number'>7</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='macro'>format</span><span class='macro'>!</span>(<span class='string'>&quot;{}&quot;</span>, <span class='ident'>d</span>).<span class='ident'>parse</span>::<span class='op'>&lt;</span><span class='ident'>NaiveDate</span><span class='op'>&gt;</span>(), <span class='prelude-val'>Ok</span>(<span class='ident'>d</span>));
+
+<span class='macro'>assert</span><span class='macro'>!</span>(<span class='string'>&quot;foo&quot;</span>.<span class='ident'>parse</span>::<span class='op'>&lt;</span><span class='ident'>NaiveDate</span><span class='op'>&gt;</span>().<span class='ident'>is_err</span>());</pre>
+</div><div class='impl-items'><h4 id='assoc_type.Err' class='type'><code>type Err = <a class='struct' href='../../../chrono/format/struct.ParseError.html' title='chrono::format::ParseError'>ParseError</a></code></h4>
+<h4 id='method.from_str' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/str/trait.FromStr.html#method.from_str' class='fnname'>from_str</a>(s: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='type' href='../../../chrono/format/type.ParseResult.html' title='chrono::format::ParseResult'>ParseResult</a>&lt;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;</code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Copy.html' title='core::marker::Copy'>Copy</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html' title='core::cmp::Ord'>Ord</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='impl-items'><h4 id='method.cmp' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#method.cmp' class='fnname'>cmp</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html' title='core::cmp::PartialOrd'>PartialOrd</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='impl-items'><h4 id='method.partial_cmp' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.partial_cmp' class='fnname'>partial_cmp</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='enum' href='http://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a>&gt;</code></h4>
+<h4 id='method.lt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt' class='fnname'>lt</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.le' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le' class='fnname'>le</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.gt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt' class='fnname'>gt</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ge' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge' class='fnname'>ge</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "chrono";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script async src="../../../search-index.js"></script>
+</body>
+</html>

@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Ipv4Addr` struct in crate `mio`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Ipv4Addr">
+
+    <title>mio::Ipv4Addr - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='index.html'>mio</a></p><script>window.sidebarCurrent = {name: 'Ipv4Addr', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>mio</a>::<wbr><a class='struct' href=''>Ipv4Addr</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-29943' class='srclink' href='http://doc.rust-lang.org/nightly/std/net/ip/struct.Ipv4Addr.html?gotosrc=29943' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Ipv4Addr {
+    // some fields omitted
+}</pre><div class='docblock'><p>Representation of an IPv4 address.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(a: <a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>, b: <a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>, c: <a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>, d: <a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>) -&gt; <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h4>
+<div class='docblock'><p>Creates a new IPv4 address from four eight-bit octets.</p>
+
+<p>The result will represent the IP address <code>a</code>.<code>b</code>.<code>c</code>.<code>d</code>.</p>
+</div><h4 id='method.octets' class='method'><code>fn <a href='#method.octets' class='fnname'>octets</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.array.html'>[<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>; 4]</a></code></h4>
+<div class='docblock'><p>Returns the four eight-bit integers that make up this address.</p>
+</div><h4 id='method.is_unspecified' class='method'><code>fn <a href='#method.is_unspecified' class='fnname'>is_unspecified</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='stability'><em class='stab unstable'>Unstable<p>: extra functionality has not been scrutinized to the level that it should be stable</p>
+</em></div><div class='docblock'><p>Returns true for the special &#39;unspecified&#39; address 0.0.0.0.</p>
+</div><h4 id='method.is_loopback' class='method'><code>fn <a href='#method.is_loopback' class='fnname'>is_loopback</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='stability'><em class='stab unstable'>Unstable<p>: extra functionality has not been scrutinized to the level that it should be stable</p>
+</em></div><div class='docblock'><p>Returns true if this is a loopback address (127.0.0.0/8).</p>
+</div><h4 id='method.is_private' class='method'><code>fn <a href='#method.is_private' class='fnname'>is_private</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='stability'><em class='stab unstable'>Unstable<p>: extra functionality has not been scrutinized to the level that it should be stable</p>
+</em></div><div class='docblock'><p>Returns true if this is a private address.</p>
+
+<p>The private address ranges are defined in RFC1918 and include:</p>
+
+<ul>
+<li>10.0.0.0/8</li>
+<li>172.16.0.0/12</li>
+<li>192.168.0.0/16</li>
+</ul>
+</div><h4 id='method.is_link_local' class='method'><code>fn <a href='#method.is_link_local' class='fnname'>is_link_local</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='stability'><em class='stab unstable'>Unstable<p>: extra functionality has not been scrutinized to the level that it should be stable</p>
+</em></div><div class='docblock'><p>Returns true if the address is link-local (169.254.0.0/16).</p>
+</div><h4 id='method.is_global' class='method'><code>fn <a href='#method.is_global' class='fnname'>is_global</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='stability'><em class='stab unstable'>Unstable<p>: extra functionality has not been scrutinized to the level that it should be stable</p>
+</em></div><div class='docblock'><p>Returns true if the address appears to be globally routable.</p>
+
+<p>The following return false:</p>
+
+<ul>
+<li>private address (10.0.0.0/8, 172.16.0.0/12 and 192.168.0.0/16)</li>
+<li>the loopback address (127.0.0.0/8)</li>
+<li>the link-local address (169.254.0.0/16)</li>
+<li>the broadcast address (255.255.255.255/32)</li>
+<li>test addresses used for documentation (192.0.2.0/24, 198.51.100.0/24 and 203.0.113.0/24)</li>
+</ul>
+</div><h4 id='method.is_multicast' class='method'><code>fn <a href='#method.is_multicast' class='fnname'>is_multicast</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='stability'><em class='stab unstable'>Unstable<p>: extra functionality has not been scrutinized to the level that it should be stable</p>
+</em></div><div class='docblock'><p>Returns true if this is a multicast address.</p>
+
+<p>Multicast addresses have a most significant octet between 224 and 239.</p>
+</div><h4 id='method.is_broadcast' class='method'><code>fn <a href='#method.is_broadcast' class='fnname'>is_broadcast</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='stability'><em class='stab unstable'>Unstable<p>: extra functionality has not been scrutinized to the level that it should be stable</p>
+</em></div><div class='docblock'><p>Returns true if this is a broadcast address.</p>
+
+<p>A broadcast address has all octets set to 255 as defined in RFC 919.</p>
+</div><h4 id='method.is_documentation' class='method'><code>fn <a href='#method.is_documentation' class='fnname'>is_documentation</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='stability'><em class='stab unstable'>Unstable<p>: extra functionality has not been scrutinized to the level that it should be stable</p>
+</em></div><div class='docblock'><p>Returns true if this address is in a range designated for documentation.</p>
+
+<p>This is defined in RFC 5737:</p>
+
+<ul>
+<li>192.0.2.0/24 (TEST-NET-1)</li>
+<li>198.51.100.0/24 (TEST-NET-2)</li>
+<li>203.0.113.0/24 (TEST-NET-3)</li>
+</ul>
+</div><h4 id='method.to_ipv6_compatible' class='method'><code>fn <a href='#method.to_ipv6_compatible' class='fnname'>to_ipv6_compatible</a>(&amp;self) -&gt; <a class='struct' href='../mio/struct.Ipv6Addr.html' title='mio::Ipv6Addr'>Ipv6Addr</a></code></h4>
+<div class='docblock'><p>Converts this address to an IPv4-compatible IPv6 address.</p>
+
+<p>a.b.c.d becomes ::a.b.c.d</p>
+</div><h4 id='method.to_ipv6_mapped' class='method'><code>fn <a href='#method.to_ipv6_mapped' class='fnname'>to_ipv6_mapped</a>(&amp;self) -&gt; <a class='struct' href='../mio/struct.Ipv6Addr.html' title='mio::Ipv6Addr'>Ipv6Addr</a></code></h4>
+<div class='docblock'><p>Converts this address to an IPv4-mapped IPv6 address.</p>
+
+<p>a.b.c.d becomes ::ffff:a.b.c.d</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, fmt: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Error.html' title='core::fmt::Error'>Error</a>&gt;</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, fmt: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Error.html' title='core::fmt::Error'>Error</a>&gt;</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a>&lt;<a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a>&gt; for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, other: &amp;<a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html' title='core::hash::Hash'>Hash</a> for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='method.hash' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash' class='fnname'>hash</a>&lt;H&gt;(&amp;self, s: &amp;mut H) <span class='where'>where H: <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a></span></code></h4>
+<h4 id='method.hash_slice' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash_slice' class='fnname'>hash_slice</a>&lt;H&gt;(data: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[Self]</a>, state: &amp;mut H) <span class='where'>where H: <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a></span></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html' title='core::cmp::PartialOrd'>PartialOrd</a>&lt;<a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a>&gt; for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='method.partial_cmp' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.partial_cmp' class='fnname'>partial_cmp</a>(&amp;self, other: &amp;<a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='enum' href='http://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a>&gt;</code></h4>
+<h4 id='method.lt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt' class='fnname'>lt</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.le' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le' class='fnname'>le</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.gt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt' class='fnname'>gt</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ge' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge' class='fnname'>ge</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html' title='core::cmp::Ord'>Ord</a> for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='method.cmp' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#method.cmp' class='fnname'>cmp</a>(&amp;self, other: &amp;<a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.From.html' title='core::convert::From'>From</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>&gt; for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='method.from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/convert/trait.From.html#method.from' class='fnname'>from</a>(ip: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/str/trait.FromStr.html' title='core::str::FromStr'>FromStr</a> for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'><h4 id='assoc_type.Err' class='type'><code>type Err = <a class='struct' href='http://doc.rust-lang.org/nightly/std/net/parser/struct.AddrParseError.html' title='std::net::parser::AddrParseError'>AddrParseError</a></code></h4>
+<h4 id='method.from_str' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/str/trait.FromStr.html#method.from_str' class='fnname'>from_str</a>(s: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a>, <a class='struct' href='http://doc.rust-lang.org/nightly/std/net/parser/struct.AddrParseError.html' title='std::net::parser::AddrParseError'>AddrParseError</a>&gt;</code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Copy.html' title='core::marker::Copy'>Copy</a> for <a class='struct' href='../mio/struct.Ipv4Addr.html' title='mio::Ipv4Addr'>Ipv4Addr</a></code></h3><div class='impl-items'></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "mio";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

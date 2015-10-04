@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Slab` struct in crate `slab`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Slab">
+
+    <title>slab::Slab - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='index.html'>slab</a></p><script>window.sidebarCurrent = {name: 'Slab', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>slab</a>::<wbr><a class='struct' href=''>Slab</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-10' class='srclink' href='../src/slab/lib.rs.html#6-16' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Slab&lt;T, I: <a class='trait' href='../slab/trait.Index.html' title='slab::Index'>Index</a>&gt; {
+    // some fields omitted
+}</pre><div class='docblock'><p>A preallocated chunk of memory for storing objects of the same type.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;T, I: <a class='trait' href='../slab/trait.Index.html' title='slab::Index'>Index</a>&gt; <a class='struct' href='../slab/struct.Slab.html' title='slab::Slab'>Slab</a>&lt;T, I&gt;</code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(cap: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='struct' href='../slab/struct.Slab.html' title='slab::Slab'>Slab</a>&lt;T, I&gt;</code></h4>
+<h4 id='method.new_starting_at' class='method'><code>fn <a href='#method.new_starting_at' class='fnname'>new_starting_at</a>(offset: I, cap: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='struct' href='../slab/struct.Slab.html' title='slab::Slab'>Slab</a>&lt;T, I&gt;</code></h4>
+<h4 id='method.count' class='method'><code>fn <a href='#method.count' class='fnname'>count</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.is_empty' class='method'><code>fn <a href='#method.is_empty' class='fnname'>is_empty</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.remaining' class='method'><code>fn <a href='#method.remaining' class='fnname'>remaining</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.has_remaining' class='method'><code>fn <a href='#method.has_remaining' class='fnname'>has_remaining</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.contains' class='method'><code>fn <a href='#method.contains' class='fnname'>contains</a>(&amp;self, idx: I) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.get' class='method'><code>fn <a href='#method.get' class='fnname'>get</a>(&amp;self, idx: I) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;T&gt;</code></h4>
+<h4 id='method.get_mut' class='method'><code>fn <a href='#method.get_mut' class='fnname'>get_mut</a>(&amp;mut self, idx: I) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;mut T&gt;</code></h4>
+<h4 id='method.insert' class='method'><code>fn <a href='#method.insert' class='fnname'>insert</a>(&amp;mut self, val: T) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;I, T&gt;</code></h4>
+<h4 id='method.insert_with' class='method'><code>fn <a href='#method.insert_with' class='fnname'>insert_with</a>&lt;F&gt;(&amp;mut self, f: F) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;I&gt; <span class='where'>where F: <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>(I) -&gt; T</span></code></h4>
+<div class='docblock'><p>Like <code>insert</code> but for objects that require newly allocated
+usize in their constructor.</p>
+</div><h4 id='method.remove' class='method'><code>fn <a href='#method.remove' class='fnname'>remove</a>(&amp;mut self, idx: I) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;T&gt;</code></h4>
+<div class='docblock'><p>Releases the given slot</p>
+</div><h4 id='method.replace' class='method'><code>fn <a href='#method.replace' class='fnname'>replace</a>(&amp;mut self, idx: I, t: T) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;T&gt;</code></h4>
+<h4 id='method.replace_with' class='method'><code>fn <a href='#method.replace_with' class='fnname'>replace_with</a>&lt;F&gt;(&amp;mut self, idx: I, fun: F) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt; <span class='where'>where F: <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.FnOnce.html' title='core::ops::FnOnce'>FnOnce</a>(T) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;T&gt;</span></code></h4>
+<div class='docblock'><p>Execute a function on the <em>value</em> in the slot and put the result of
+the function back into the slot. If function returns None,
+slot is left empty on exit.</p>
+
+<p>Returns Err(()) if slot was empty</p>
+
+<p>This method is very useful for storing state machines inside Slab</p>
+</div><h4 id='method.iter' class='method'><code>fn <a href='#method.iter' class='fnname'>iter</a>(&amp;self) -&gt; <a class='struct' href='../slab/struct.SlabIter.html' title='slab::SlabIter'>SlabIter</a>&lt;T, I&gt;</code></h4>
+<h4 id='method.iter_mut' class='method'><code>fn <a href='#method.iter_mut' class='fnname'>iter_mut</a>(&amp;mut self) -&gt; <a class='struct' href='../slab/struct.SlabMutIter.html' title='slab::SlabMutIter'>SlabMutIter</a>&lt;T, I&gt;</code></h4>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl&lt;T, I: <a class='trait' href='../slab/trait.Index.html' title='slab::Index'>Index</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> for <a class='struct' href='../slab/struct.Slab.html' title='slab::Slab'>Slab</a>&lt;T, I&gt; <span class='where'>where T: <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a></span></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl&lt;T, I: <a class='trait' href='../slab/trait.Index.html' title='slab::Index'>Index</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Index.html' title='core::ops::Index'>Index</a>&lt;I&gt; for <a class='struct' href='../slab/struct.Slab.html' title='slab::Slab'>Slab</a>&lt;T, I&gt;</code></h3><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = T</code></h4>
+<h4 id='method.index' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Index.html#method.index' class='fnname'>index</a>&lt;'a&gt;(&amp;'a self, idx: I) -&gt; &amp;'a T</code></h4>
+</div><h3 class='impl'><code>impl&lt;T, I: <a class='trait' href='../slab/trait.Index.html' title='slab::Index'>Index</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.IndexMut.html' title='core::ops::IndexMut'>IndexMut</a>&lt;I&gt; for <a class='struct' href='../slab/struct.Slab.html' title='slab::Slab'>Slab</a>&lt;T, I&gt;</code></h3><div class='impl-items'><h4 id='method.index_mut' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.IndexMut.html#method.index_mut' class='fnname'>index_mut</a>&lt;'a&gt;(&amp;'a mut self, idx: I) -&gt; &amp;'a mut T</code></h4>
+</div><h3 class='impl'><code>impl&lt;T, I: <a class='trait' href='../slab/trait.Index.html' title='slab::Index'>Index</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../slab/struct.Slab.html' title='slab::Slab'>Slab</a>&lt;T, I&gt;</code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, fmt: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl&lt;'a, T, I: <a class='trait' href='../slab/trait.Index.html' title='slab::Index'>Index</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.IntoIterator.html' title='core::iter::IntoIterator'>IntoIterator</a> for &amp;'a <a class='struct' href='../slab/struct.Slab.html' title='slab::Slab'>Slab</a>&lt;T, I&gt;</code></h3><div class='impl-items'><h4 id='assoc_type.Item' class='type'><code>type Item = &amp;'a T</code></h4>
+<h4 id='assoc_type.IntoIter' class='type'><code>type IntoIter = <a class='struct' href='../slab/struct.SlabIter.html' title='slab::SlabIter'>SlabIter</a>&lt;'a, T, I&gt;</code></h4>
+<h4 id='method.into_iter' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/iter/trait.IntoIterator.html#method.into_iter' class='fnname'>into_iter</a>(self) -&gt; <a class='struct' href='../slab/struct.SlabIter.html' title='slab::SlabIter'>SlabIter</a>&lt;'a, T, I&gt;</code></h4>
+</div><h3 class='impl'><code>impl&lt;'a, T, I: <a class='trait' href='../slab/trait.Index.html' title='slab::Index'>Index</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.IntoIterator.html' title='core::iter::IntoIterator'>IntoIterator</a> for &amp;'a mut <a class='struct' href='../slab/struct.Slab.html' title='slab::Slab'>Slab</a>&lt;T, I&gt;</code></h3><div class='impl-items'><h4 id='assoc_type.Item' class='type'><code>type Item = &amp;'a mut T</code></h4>
+<h4 id='assoc_type.IntoIter' class='type'><code>type IntoIter = <a class='struct' href='../slab/struct.SlabMutIter.html' title='slab::SlabMutIter'>SlabMutIter</a>&lt;'a, T, I&gt;</code></h4>
+<h4 id='method.into_iter' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/iter/trait.IntoIterator.html#method.into_iter' class='fnname'>into_iter</a>(self) -&gt; <a class='struct' href='../slab/struct.SlabMutIter.html' title='slab::SlabMutIter'>SlabMutIter</a>&lt;'a, T, I&gt;</code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "slab";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

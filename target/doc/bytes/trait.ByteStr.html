@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `ByteStr` trait in crate `bytes`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, ByteStr">
+
+    <title>bytes::ByteStr - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='index.html'>bytes</a></p><script>window.sidebarCurrent = {name: 'ByteStr', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content trait">
+<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>bytes</a>::<wbr><a class='trait' href=''>ByteStr</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-7026' class='srclink' href='../src/bytes/str/mod.rs.html#18-69' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub trait ByteStr: <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> + <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Sized.html' title='core::marker::Sized'>Sized</a> + <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> + <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Sync.html' title='core::marker::Sync'>Sync</a> + <a class='trait' href='http://doc.rust-lang.org/nightly/core/any/trait.Any.html' title='core::any::Any'>Any</a> + <a class='trait' href='../bytes/trait.ToBytes.html' title='bytes::ToBytes'>ToBytes</a> + <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Index.html' title='core::ops::Index'>Index</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, Output=<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt; + 'static {
+    type Buf: <a class='trait' href='../bytes/trait.Buf.html' title='bytes::Buf'>Buf</a> + 'static;
+    fn <a href='#tymethod.buf' class='fnname'>buf</a>(&amp;self) -&gt; Self::<a class='trait' href='../bytes/trait.ByteStr.html' title='bytes::ByteStr'>Buf</a>;
+    fn <a href='#tymethod.concat' class='fnname'>concat</a>&lt;B: <a class='trait' href='../bytes/trait.ByteStr.html' title='bytes::ByteStr'>ByteStr</a> + 'static&gt;(&amp;self, other: &amp;B) -&gt; Bytes;
+    fn <a href='#tymethod.len' class='fnname'>len</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>;
+    fn <a href='#tymethod.slice' class='fnname'>slice</a>(&amp;self, begin: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, end: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; Bytes;
+
+    fn <a href='#method.is_empty' class='fnname'>is_empty</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a> { ... }
+    fn <a href='#method.slice_from' class='fnname'>slice_from</a>(&amp;self, begin: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; Bytes { ... }
+    fn <a href='#method.slice_to' class='fnname'>slice_to</a>(&amp;self, end: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; Bytes { ... }
+    fn <a href='#method.split_at' class='fnname'>split_at</a>(&amp;self, mid: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(Bytes, Bytes)</a> { ... }
+}</pre><div class='docblock'><p>An immutable sequence of bytes. Operations will not mutate the original
+value. Since only immutable access is permitted, operations do not require
+copying (though, sometimes copying will happen as an optimization).</p>
+</div>
+            <h2 id='associated-types'>Associated Types</h2>
+            <div class='methods'>
+        <h3 id='associatedtype.Buf' class='method stab '><code>type Buf: <a class='trait' href='../bytes/trait.Buf.html' title='bytes::Buf'>Buf</a> + 'static</code></h3></div>
+            <h2 id='required-methods'>Required Methods</h2>
+            <div class='methods'>
+        <h3 id='tymethod.buf' class='method stab '><code>fn <a href='#tymethod.buf' class='fnname'>buf</a>(&amp;self) -&gt; Self::<a class='trait' href='../bytes/trait.ByteStr.html' title='bytes::ByteStr'>Buf</a></code></h3><div class='docblock'><p>Returns a read-only <code>Buf</code> for accessing the byte contents of the
+<code>ByteStr</code>.</p>
+</div><h3 id='tymethod.concat' class='method stab '><code>fn <a href='#tymethod.concat' class='fnname'>concat</a>&lt;B: <a class='trait' href='../bytes/trait.ByteStr.html' title='bytes::ByteStr'>ByteStr</a> + 'static&gt;(&amp;self, other: &amp;B) -&gt; Bytes</code></h3><div class='docblock'><p>Returns a new <code>Bytes</code> value representing the concatenation of <code>self</code>
+with the given <code>Bytes</code>.</p>
+</div><h3 id='tymethod.len' class='method stab '><code>fn <a href='#tymethod.len' class='fnname'>len</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h3><div class='docblock'><p>Returns the number of bytes in the ByteStr</p>
+</div><h3 id='tymethod.slice' class='method stab '><code>fn <a href='#tymethod.slice' class='fnname'>slice</a>(&amp;self, begin: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, end: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; Bytes</code></h3><div class='docblock'><p>Returns a new ByteStr value containing the byte range between <code>begin</code>
+(inclusive) and <code>end</code> (exclusive)</p>
+</div></div>
+            <h2 id='provided-methods'>Provided Methods</h2>
+            <div class='methods'>
+        <h3 id='method.is_empty' class='method stab '><code>fn <a href='#method.is_empty' class='fnname'>is_empty</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h3><div class='docblock'><p>Returns true if the length of the <code>ByteStr</code> is 0</p>
+</div><h3 id='method.slice_from' class='method stab '><code>fn <a href='#method.slice_from' class='fnname'>slice_from</a>(&amp;self, begin: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; Bytes</code></h3><div class='docblock'><p>Returns a new ByteStr value containing the byte range starting from
+<code>begin</code> (inclusive) to the end of the byte str.</p>
+
+<p>Equivalent to <code>bytes.slice(begin, bytes.len())</code></p>
+</div><h3 id='method.slice_to' class='method stab '><code>fn <a href='#method.slice_to' class='fnname'>slice_to</a>(&amp;self, end: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; Bytes</code></h3><div class='docblock'><p>Returns a new ByteStr value containing the byte range from the start up
+to <code>end</code> (exclusive).</p>
+
+<p>Equivalent to <code>bytes.slice(0, end)</code></p>
+</div><h3 id='method.split_at' class='method stab '><code>fn <a href='#method.split_at' class='fnname'>split_at</a>(&amp;self, mid: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(Bytes, Bytes)</a></code></h3><div class='docblock'><p>Divides the value into two <code>Bytes</code> at the given index.</p>
+
+<p>The first will contain all bytes from <code>[0, mid]</code> (excluding the index
+<code>mid</code> itself) and the second will contain all indices from <code>[mid, len)</code>
+(excluding the index <code>len</code> itself).</p>
+
+<p>Panics if <code>mid &gt; len</code>.</p>
+</div></div>
+        <h2 id='implementors'>Implementors</h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><code>impl <a class='trait' href='../bytes/trait.ByteStr.html' title='bytes::ByteStr'>ByteStr</a> for Bytes</code></li>
+<li><code>impl <a class='trait' href='../bytes/trait.ByteStr.html' title='bytes::ByteStr'>ByteStr</a> for Rope</code></li>
+<li><code>impl <a class='trait' href='../bytes/trait.ByteStr.html' title='bytes::ByteStr'>ByteStr</a> for SeqByteStr</code></li>
+<li><code>impl <a class='trait' href='../bytes/trait.ByteStr.html' title='bytes::ByteStr'>ByteStr</a> for SmallByteStr</code></li>
+</ul><script type="text/javascript" async
+                              src="../implementors/bytes/trait.ByteStr.js">
+                      </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "bytes";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

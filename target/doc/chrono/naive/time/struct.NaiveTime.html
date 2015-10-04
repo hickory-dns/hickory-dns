@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `NaiveTime` struct in crate `chrono`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, NaiveTime">
+
+    <title>chrono::naive::time::NaiveTime - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>chrono</a>::<wbr><a href='../index.html'>naive</a>::<wbr><a href='index.html'>time</a></p><script>window.sidebarCurrent = {name: 'NaiveTime', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../../index.html'>chrono</a>::<wbr><a href='../index.html'>naive</a>::<wbr><a href='index.html'>time</a>::<wbr><a class='struct' href=''>NaiveTime</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-9271' class='srclink' href='../../../src/chrono/naive/time.rs.html#22-25' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct NaiveTime {
+    // some fields omitted
+}</pre><div class='docblock'><p>ISO 8601 time without timezone.
+Allows for the nanosecond precision and optional leap second representation.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='method.from_hms' class='method'><code>fn <a href='#method.from_hms' class='fnname'>from_hms</a>(hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from hour, minute and second.</p>
+
+<p>Fails on invalid hour, minute and/or second.</p>
+</div><h4 id='method.from_hms_opt' class='method'><code>fn <a href='#method.from_hms_opt' class='fnname'>from_hms_opt</a>(hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from hour, minute and second.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute and/or second.</p>
+</div><h4 id='method.from_hms_milli' class='method'><code>fn <a href='#method.from_hms_milli' class='fnname'>from_hms_milli</a>(hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, milli: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from hour, minute, second and millisecond.
+The millisecond part can exceed 1,000 in order to represent the leap second.</p>
+
+<p>Fails on invalid hour, minute, second and/or millisecond.</p>
+</div><h4 id='method.from_hms_milli_opt' class='method'><code>fn <a href='#method.from_hms_milli_opt' class='fnname'>from_hms_milli_opt</a>(hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, milli: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from hour, minute, second and millisecond.
+The millisecond part can exceed 1,000 in order to represent the leap second.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute, second and/or millisecond.</p>
+</div><h4 id='method.from_hms_micro' class='method'><code>fn <a href='#method.from_hms_micro' class='fnname'>from_hms_micro</a>(hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, micro: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from hour, minute, second and microsecond.
+The microsecond part can exceed 1,000,000 in order to represent the leap second.</p>
+
+<p>Fails on invalid hour, minute, second and/or microsecond.</p>
+</div><h4 id='method.from_hms_micro_opt' class='method'><code>fn <a href='#method.from_hms_micro_opt' class='fnname'>from_hms_micro_opt</a>(hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, micro: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from hour, minute, second and microsecond.
+The microsecond part can exceed 1,000,000 in order to represent the leap second.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute, second and/or microsecond.</p>
+</div><h4 id='method.from_hms_nano' class='method'><code>fn <a href='#method.from_hms_nano' class='fnname'>from_hms_nano</a>(hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, nano: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from hour, minute, second and nanosecond.
+The nanosecond part can exceed 1,000,000,000 in order to represent the leap second.</p>
+
+<p>Fails on invalid hour, minute, second and/or nanosecond.</p>
+</div><h4 id='method.from_hms_nano_opt' class='method'><code>fn <a href='#method.from_hms_nano_opt' class='fnname'>from_hms_nano_opt</a>(hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, nano: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from hour, minute, second and nanosecond.
+The nanosecond part can exceed 1,000,000,000 in order to represent the leap second.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute, second and/or nanosecond.</p>
+</div><h4 id='method.from_num_seconds_from_midnight' class='method'><code>fn <a href='#method.from_num_seconds_from_midnight' class='fnname'>from_num_seconds_from_midnight</a>(secs: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, nano: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from the number of seconds since midnight and nanosecond.
+The nanosecond part can exceed 1,000,000,000 in order to represent the leap second.</p>
+
+<p>Fails on invalid number of seconds and/or nanosecond.</p>
+</div><h4 id='method.from_num_seconds_from_midnight_opt' class='method'><code>fn <a href='#method.from_num_seconds_from_midnight_opt' class='fnname'>from_num_seconds_from_midnight_opt</a>(secs: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, nano: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>NaiveTime</code> from the number of seconds since midnight and nanosecond.
+The nanosecond part can exceed 1,000,000,000 in order to represent the leap second.</p>
+
+<p>Returns <code>None</code> on invalid number of seconds and/or nanosecond.</p>
+</div><h4 id='method.parse_from_str' class='method'><code>fn <a href='#method.parse_from_str' class='fnname'>parse_from_str</a>(s: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>, fmt: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='type' href='../../../chrono/format/type.ParseResult.html' title='chrono::format::ParseResult'>ParseResult</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<div class='docblock'><p>Parses a string with the specified format string and returns a new <code>NaiveTime</code>.
+See the <a href="../../format/strftime/index.html"><code>format::strftime</code> module</a>
+on the supported escape sequences.</p>
+</div><h4 id='method.format_with_items' class='method'><code>fn <a href='#method.format_with_items' class='fnname'>format_with_items</a>&lt;'a, I&gt;(&amp;self, items: I) -&gt; <a class='struct' href='../../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;I&gt; <span class='where'>where I: <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.Iterator.html' title='core::iter::Iterator'>Iterator</a>&lt;Item=<a class='enum' href='../../../chrono/format/enum.Item.html' title='chrono::format::Item'>Item</a>&lt;'a&gt;&gt; + <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a></span></code></h4>
+<div class='docblock'><p>Formats the time with the specified formatting items.</p>
+</div><h4 id='method.format' class='method'><code>fn <a href='#method.format' class='fnname'>format</a>&lt;'a&gt;(&amp;self, fmt: &amp;'a <a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='struct' href='../../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;<a class='struct' href='../../../chrono/format/strftime/struct.StrftimeItems.html' title='chrono::format::strftime::StrftimeItems'>StrftimeItems</a>&lt;'a&gt;&gt;</code></h4>
+<div class='docblock'><p>Formats the time with the specified format string.
+See the <a href="../../format/strftime/index.html"><code>format::strftime</code> module</a>
+on the supported escape sequences.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='../../../chrono/trait.Timelike.html' title='chrono::Timelike'>Timelike</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='method.hour' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.hour' class='fnname'>hour</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.minute' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.minute' class='fnname'>minute</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.second' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.second' class='fnname'>second</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.nanosecond' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.nanosecond' class='fnname'>nanosecond</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.with_hour' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.with_hour' class='fnname'>with_hour</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<h4 id='method.with_minute' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.with_minute' class='fnname'>with_minute</a>(&amp;self, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<h4 id='method.with_second' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.with_second' class='fnname'>with_second</a>(&amp;self, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<h4 id='method.with_nanosecond' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.with_nanosecond' class='fnname'>with_nanosecond</a>(&amp;self, nano: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+<h4 id='method.num_seconds_from_midnight' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.num_seconds_from_midnight' class='fnname'>num_seconds_from_midnight</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.hour12' class='method'><code>fn <a href='../../../chrono/trait.Timelike.html#method.hour12' class='fnname'>hour12</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>)</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html' title='core::hash::Hash'>Hash</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='method.hash' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash' class='fnname'>hash</a>&lt;H: <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a>&gt;(&amp;self, state: &amp;mut H)</code></h4>
+<h4 id='method.hash_slice' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash_slice' class='fnname'>hash_slice</a>&lt;H&gt;(data: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[Self]</a>, state: &amp;mut H) <span class='where'>where H: <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a></span></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Add.html' title='core::ops::Add'>Add</a>&lt;<a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>&gt; for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+<h4 id='method.add' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Add.html#method.add' class='fnname'>add</a>(self, rhs: <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html' title='core::ops::Sub'>Sub</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt; for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a></code></h4>
+<h4 id='method.sub' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html#method.sub' class='fnname'>sub</a>(self, rhs: <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html' title='core::ops::Sub'>Sub</a>&lt;<a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>&gt; for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+<h4 id='method.sub' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html#method.sub' class='fnname'>sub</a>(self, rhs: <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/str/trait.FromStr.html' title='core::str::FromStr'>FromStr</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='assoc_type.Err' class='type'><code>type Err = <a class='struct' href='../../../chrono/format/struct.ParseError.html' title='chrono::format::ParseError'>ParseError</a></code></h4>
+<h4 id='method.from_str' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/str/trait.FromStr.html#method.from_str' class='fnname'>from_str</a>(s: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='type' href='../../../chrono/format/type.ParseResult.html' title='chrono::format::ParseResult'>ParseResult</a>&lt;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;</code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Copy.html' title='core::marker::Copy'>Copy</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html' title='core::cmp::Ord'>Ord</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='method.cmp' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#method.cmp' class='fnname'>cmp</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html' title='core::cmp::PartialOrd'>PartialOrd</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='method.partial_cmp' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.partial_cmp' class='fnname'>partial_cmp</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='enum' href='http://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a>&gt;</code></h4>
+<h4 id='method.lt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt' class='fnname'>lt</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.le' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le' class='fnname'>le</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.gt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt' class='fnname'>gt</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ge' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge' class='fnname'>ge</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "chrono";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script async src="../../../search-index.js"></script>
+</body>
+</html>

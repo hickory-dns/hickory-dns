@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `UTC` struct in crate `chrono`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, UTC">
+
+    <title>chrono::offset::utc::UTC - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>chrono</a>::<wbr><a href='../index.html'>offset</a>::<wbr><a href='index.html'>utc</a></p><script>window.sidebarCurrent = {name: 'UTC', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../../index.html'>chrono</a>::<wbr><a href='../index.html'>offset</a>::<wbr><a href='index.html'>utc</a>::<wbr><a class='struct' href=''>UTC</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-1207' class='srclink' href='../../../src/chrono/offset/utc.rs.html#23' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct UTC;</pre><div class='docblock'><p>The UTC time zone. This is the most efficient time zone when you don&#39;t need the local time.
+It is also used as an offset (which is also a dummy type).</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h3><div class='impl-items'><h4 id='method.today' class='method'><code>fn <a href='#method.today' class='fnname'>today</a>() -&gt; <a class='struct' href='../../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;<a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a>&gt;</code></h4>
+<div class='docblock'><p>Returns a <code>Date</code> which corresponds to the current date.</p>
+</div><h4 id='method.now' class='method'><code>fn <a href='#method.now' class='fnname'>now</a>() -&gt; <a class='struct' href='../../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;<a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a>&gt;</code></h4>
+<div class='docblock'><p>Returns a <code>DateTime</code> which corresponds to the current date.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='../../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a> for <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h3><div class='impl-items'><h4 id='assoc_type.Offset' class='type'><code>type Offset = <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h4>
+<h4 id='method.from_offset' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.from_offset' class='fnname'>from_offset</a>(_state: &amp;<a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a>) -&gt; <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h4>
+<h4 id='method.offset_from_local_date' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.offset_from_local_date' class='fnname'>offset_from_local_date</a>(&amp;self, _local: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a class='enum' href='../../../chrono/offset/enum.LocalResult.html' title='chrono::offset::LocalResult'>LocalResult</a>&lt;<a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a>&gt;</code></h4>
+<h4 id='method.offset_from_local_datetime' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.offset_from_local_datetime' class='fnname'>offset_from_local_datetime</a>(&amp;self, _local: &amp;<a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a>) -&gt; <a class='enum' href='../../../chrono/offset/enum.LocalResult.html' title='chrono::offset::LocalResult'>LocalResult</a>&lt;<a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a>&gt;</code></h4>
+<h4 id='method.offset_from_utc_date' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.offset_from_utc_date' class='fnname'>offset_from_utc_date</a>(&amp;self, _utc: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h4>
+<h4 id='method.offset_from_utc_datetime' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.offset_from_utc_datetime' class='fnname'>offset_from_utc_datetime</a>(&amp;self, _utc: &amp;<a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a>) -&gt; <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h4>
+<h4 id='method.ymd' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.ymd' class='fnname'>ymd</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, month: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, day: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Self&gt;</code></h4>
+<h4 id='method.ymd_opt' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.ymd_opt' class='fnname'>ymd_opt</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, month: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, day: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='../../../chrono/offset/enum.LocalResult.html' title='chrono::offset::LocalResult'>LocalResult</a>&lt;<a class='struct' href='../../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Self&gt;&gt;</code></h4>
+<h4 id='method.yo' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.yo' class='fnname'>yo</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, ordinal: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Self&gt;</code></h4>
+<h4 id='method.yo_opt' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.yo_opt' class='fnname'>yo_opt</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, ordinal: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='../../../chrono/offset/enum.LocalResult.html' title='chrono::offset::LocalResult'>LocalResult</a>&lt;<a class='struct' href='../../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Self&gt;&gt;</code></h4>
+<h4 id='method.isoywd' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.isoywd' class='fnname'>isoywd</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, week: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, weekday: <a class='enum' href='../../../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a>) -&gt; <a class='struct' href='../../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Self&gt;</code></h4>
+<h4 id='method.isoywd_opt' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.isoywd_opt' class='fnname'>isoywd_opt</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, week: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, weekday: <a class='enum' href='../../../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a>) -&gt; <a class='enum' href='../../../chrono/offset/enum.LocalResult.html' title='chrono::offset::LocalResult'>LocalResult</a>&lt;<a class='struct' href='../../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Self&gt;&gt;</code></h4>
+<h4 id='method.timestamp' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.timestamp' class='fnname'>timestamp</a>(&amp;self, secs: <a href='http://doc.rust-lang.org/nightly/std/primitive.i64.html'>i64</a>, nsecs: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Self&gt;</code></h4>
+<h4 id='method.timestamp_opt' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.timestamp_opt' class='fnname'>timestamp_opt</a>(&amp;self, secs: <a href='http://doc.rust-lang.org/nightly/std/primitive.i64.html'>i64</a>, nsecs: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='../../../chrono/offset/enum.LocalResult.html' title='chrono::offset::LocalResult'>LocalResult</a>&lt;<a class='struct' href='../../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Self&gt;&gt;</code></h4>
+<h4 id='method.datetime_from_str' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.datetime_from_str' class='fnname'>datetime_from_str</a>(&amp;self, s: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>, fmt: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='type' href='../../../chrono/format/type.ParseResult.html' title='chrono::format::ParseResult'>ParseResult</a>&lt;<a class='struct' href='../../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Self&gt;&gt;</code></h4>
+<h4 id='method.from_local_date' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.from_local_date' class='fnname'>from_local_date</a>(&amp;self, local: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a class='enum' href='../../../chrono/offset/enum.LocalResult.html' title='chrono::offset::LocalResult'>LocalResult</a>&lt;<a class='struct' href='../../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Self&gt;&gt;</code></h4>
+<h4 id='method.from_local_datetime' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.from_local_datetime' class='fnname'>from_local_datetime</a>(&amp;self, local: &amp;<a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a>) -&gt; <a class='enum' href='../../../chrono/offset/enum.LocalResult.html' title='chrono::offset::LocalResult'>LocalResult</a>&lt;<a class='struct' href='../../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Self&gt;&gt;</code></h4>
+<h4 id='method.from_utc_date' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.from_utc_date' class='fnname'>from_utc_date</a>(&amp;self, utc: &amp;<a class='struct' href='../../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>) -&gt; <a class='struct' href='../../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Self&gt;</code></h4>
+<h4 id='method.from_utc_datetime' class='method'><code>fn <a href='../../../chrono/offset/trait.TimeZone.html#method.from_utc_datetime' class='fnname'>from_utc_datetime</a>(&amp;self, utc: &amp;<a class='struct' href='../../../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a>) -&gt; <a class='struct' href='../../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Self&gt;</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='../../../chrono/offset/trait.Offset.html' title='chrono::offset::Offset'>Offset</a> for <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h3><div class='impl-items'><h4 id='method.local_minus_utc' class='method'><code>fn <a href='../../../chrono/offset/trait.Offset.html#method.local_minus_utc' class='fnname'>local_minus_utc</a>(&amp;self) -&gt; <a class='struct' href='../../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Copy.html' title='core::marker::Copy'>Copy</a> for <a class='struct' href='../../../chrono/offset/utc/struct.UTC.html' title='chrono::offset::utc::UTC'>UTC</a></code></h3><div class='impl-items'></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "chrono";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script async src="../../../search-index.js"></script>
+</body>
+</html>

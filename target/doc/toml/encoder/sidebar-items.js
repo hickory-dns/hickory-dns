@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Error","Enumeration of errors which can occur while encoding a rust value into a TOML value."]],"fn":[["encode","Encodes an encodable value into a TOML value."],["encode_str","Encodes an encodable value into a TOML string."]],"struct":[["Encoder","A structure to transform Rust values into TOML values."]]});

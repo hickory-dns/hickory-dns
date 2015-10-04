@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `DelayedFormat` struct in crate `chrono`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, DelayedFormat">
+
+    <title>chrono::format::DelayedFormat - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../index.html'>chrono</a>::<wbr><a href='index.html'>format</a></p><script>window.sidebarCurrent = {name: 'DelayedFormat', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>chrono</a>::<wbr><a href='index.html'>format</a>::<wbr><a class='struct' href=''>DelayedFormat</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-29698' class='srclink' href='../../src/chrono/format/mod.rs.html#458-467' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct DelayedFormat&lt;I&gt; {
+    // some fields omitted
+}</pre><div class='docblock'><p>A <em>temporary</em> object which can be used as an argument to <code>format!</code> or others.
+This is normally constructed via <code>format</code> methods of each date and time type.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;'a, I: <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.Iterator.html' title='core::iter::Iterator'>Iterator</a>&lt;Item=<a class='enum' href='../../chrono/format/enum.Item.html' title='chrono::format::Item'>Item</a>&lt;'a&gt;&gt; + <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a>&gt; <a class='struct' href='../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;I&gt;</code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(date: <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;, time: <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;, items: I) -&gt; <a class='struct' href='../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;I&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DelayedFormat</code> value out of local date and time.</p>
+</div><h4 id='method.new_with_offset' class='method'><code>fn <a href='#method.new_with_offset' class='fnname'>new_with_offset</a>&lt;Off&gt;(date: <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>&gt;, time: <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>&gt;, offset: &amp;Off, items: I) -&gt; <a class='struct' href='../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;I&gt; <span class='where'>where Off: <a class='trait' href='../../chrono/offset/trait.Offset.html' title='chrono::offset::Offset'>Offset</a> + <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a></span></code></h4>
+<div class='docblock'><p>Makes a new <code>DelayedFormat</code> value out of local date and time and UTC offset.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl&lt;'a, I: <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.Iterator.html' title='core::iter::Iterator'>Iterator</a>&lt;Item=<a class='enum' href='../../chrono/format/enum.Item.html' title='chrono::format::Item'>Item</a>&lt;'a&gt;&gt; + <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='struct' href='../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;I&gt;</code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl&lt;I: <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;I&gt;</code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "chrono";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script async src="../../search-index.js"></script>
+</body>
+</html>

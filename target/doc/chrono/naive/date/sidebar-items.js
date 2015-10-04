@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["MAX","The maximum possible `NaiveDate`."],["MIN","The minimum possible `NaiveDate`."]],"struct":[["NaiveDate","ISO 8601 calendar date without timezone. Allows for every proleptic Gregorian date from Jan 1, 262145 BCE to Dec 31, 262143 CE. Also supports the conversion from ISO 8601 ordinal and week date."]]});

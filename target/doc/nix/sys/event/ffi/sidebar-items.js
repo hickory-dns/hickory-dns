@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["c_void","Type used to construct void pointers for use with C."]],"fn":[["kevent",""]],"struct":[["kevent",""],["timespec",""]],"type":[["c_int",""],["intptr_t",""],["uintptr_t",""]]});

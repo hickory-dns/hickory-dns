@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Datelike` trait in crate `chrono`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Datelike">
+
+    <title>chrono::Datelike - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='index.html'>chrono</a></p><script>window.sidebarCurrent = {name: 'Datelike', ty: 'trait', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content trait">
+<h1 class='fqn'><span class='in-band'>Trait <a href='index.html'>chrono</a>::<wbr><a class='trait' href=''>Datelike</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-30518' class='srclink' href='../src/chrono/lib.rs.html#463-553' title='goto source code'>[src]</a></span></h1>
+<pre class='rust trait'>pub trait Datelike: <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Sized.html' title='core::marker::Sized'>Sized</a> {
+    fn <a href='#tymethod.year' class='fnname'>year</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>;
+    fn <a href='#tymethod.month' class='fnname'>month</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>;
+    fn <a href='#tymethod.month0' class='fnname'>month0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>;
+    fn <a href='#tymethod.day' class='fnname'>day</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>;
+    fn <a href='#tymethod.day0' class='fnname'>day0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>;
+    fn <a href='#tymethod.ordinal' class='fnname'>ordinal</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>;
+    fn <a href='#tymethod.ordinal0' class='fnname'>ordinal0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>;
+    fn <a href='#tymethod.weekday' class='fnname'>weekday</a>(&amp;self) -&gt; <a class='enum' href='../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a>;
+    fn <a href='#tymethod.isoweekdate' class='fnname'>isoweekdate</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, <a class='enum' href='../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a>)</a>;
+    fn <a href='#tymethod.with_year' class='fnname'>with_year</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;;
+    fn <a href='#tymethod.with_month' class='fnname'>with_month</a>(&amp;self, month: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;;
+    fn <a href='#tymethod.with_month0' class='fnname'>with_month0</a>(&amp;self, month0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;;
+    fn <a href='#tymethod.with_day' class='fnname'>with_day</a>(&amp;self, day: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;;
+    fn <a href='#tymethod.with_day0' class='fnname'>with_day0</a>(&amp;self, day0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;;
+    fn <a href='#tymethod.with_ordinal' class='fnname'>with_ordinal</a>(&amp;self, ordinal: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;;
+    fn <a href='#tymethod.with_ordinal0' class='fnname'>with_ordinal0</a>(&amp;self, ordinal0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;;
+
+    fn <a href='#method.year_ce' class='fnname'>year_ce</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>)</a> { ... }
+    fn <a href='#method.num_days_from_ce' class='fnname'>num_days_from_ce</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a> { ... }
+}</pre><div class='docblock'><p>The common set of methods for date component.</p>
+</div>
+            <h2 id='required-methods'>Required Methods</h2>
+            <div class='methods'>
+        <h3 id='tymethod.year' class='method stab '><code>fn <a href='#tymethod.year' class='fnname'>year</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a></code></h3><div class='docblock'><p>Returns the year number.</p>
+</div><h3 id='tymethod.month' class='method stab '><code>fn <a href='#tymethod.month' class='fnname'>month</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h3><div class='docblock'><p>Returns the month number starting from 1.</p>
+</div><h3 id='tymethod.month0' class='method stab '><code>fn <a href='#tymethod.month0' class='fnname'>month0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h3><div class='docblock'><p>Returns the month number starting from 0.</p>
+</div><h3 id='tymethod.day' class='method stab '><code>fn <a href='#tymethod.day' class='fnname'>day</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h3><div class='docblock'><p>Returns the day of month starting from 1.</p>
+</div><h3 id='tymethod.day0' class='method stab '><code>fn <a href='#tymethod.day0' class='fnname'>day0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h3><div class='docblock'><p>Returns the day of month starting from 0.</p>
+</div><h3 id='tymethod.ordinal' class='method stab '><code>fn <a href='#tymethod.ordinal' class='fnname'>ordinal</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h3><div class='docblock'><p>Returns the day of year starting from 1.</p>
+</div><h3 id='tymethod.ordinal0' class='method stab '><code>fn <a href='#tymethod.ordinal0' class='fnname'>ordinal0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h3><div class='docblock'><p>Returns the day of year starting from 0.</p>
+</div><h3 id='tymethod.weekday' class='method stab '><code>fn <a href='#tymethod.weekday' class='fnname'>weekday</a>(&amp;self) -&gt; <a class='enum' href='../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a></code></h3><div class='docblock'><p>Returns the day of week.</p>
+</div><h3 id='tymethod.isoweekdate' class='method stab '><code>fn <a href='#tymethod.isoweekdate' class='fnname'>isoweekdate</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, <a class='enum' href='../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a>)</a></code></h3><div class='docblock'><p>Returns the ISO week date: an adjusted year, week number and day of week.
+The adjusted year may differ from that of the calendar date.</p>
+</div><h3 id='tymethod.with_year' class='method stab '><code>fn <a href='#tymethod.with_year' class='fnname'>with_year</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;</code></h3><div class='docblock'><p>Makes a new value with the year number changed.</p>
+
+<p>Returns <code>None</code> when the resulting value would be invalid.</p>
+</div><h3 id='tymethod.with_month' class='method stab '><code>fn <a href='#tymethod.with_month' class='fnname'>with_month</a>(&amp;self, month: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;</code></h3><div class='docblock'><p>Makes a new value with the month number (starting from 1) changed.</p>
+
+<p>Returns <code>None</code> when the resulting value would be invalid.</p>
+</div><h3 id='tymethod.with_month0' class='method stab '><code>fn <a href='#tymethod.with_month0' class='fnname'>with_month0</a>(&amp;self, month0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;</code></h3><div class='docblock'><p>Makes a new value with the month number (starting from 0) changed.</p>
+
+<p>Returns <code>None</code> when the resulting value would be invalid.</p>
+</div><h3 id='tymethod.with_day' class='method stab '><code>fn <a href='#tymethod.with_day' class='fnname'>with_day</a>(&amp;self, day: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;</code></h3><div class='docblock'><p>Makes a new value with the day of month (starting from 1) changed.</p>
+
+<p>Returns <code>None</code> when the resulting value would be invalid.</p>
+</div><h3 id='tymethod.with_day0' class='method stab '><code>fn <a href='#tymethod.with_day0' class='fnname'>with_day0</a>(&amp;self, day0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;</code></h3><div class='docblock'><p>Makes a new value with the day of month (starting from 0) changed.</p>
+
+<p>Returns <code>None</code> when the resulting value would be invalid.</p>
+</div><h3 id='tymethod.with_ordinal' class='method stab '><code>fn <a href='#tymethod.with_ordinal' class='fnname'>with_ordinal</a>(&amp;self, ordinal: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;</code></h3><div class='docblock'><p>Makes a new value with the day of year (starting from 1) changed.</p>
+
+<p>Returns <code>None</code> when the resulting value would be invalid.</p>
+</div><h3 id='tymethod.with_ordinal0' class='method stab '><code>fn <a href='#tymethod.with_ordinal0' class='fnname'>with_ordinal0</a>(&amp;self, ordinal0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;Self&gt;</code></h3><div class='docblock'><p>Makes a new value with the day of year (starting from 0) changed.</p>
+
+<p>Returns <code>None</code> when the resulting value would be invalid.</p>
+</div></div>
+            <h2 id='provided-methods'>Provided Methods</h2>
+            <div class='methods'>
+        <h3 id='method.year_ce' class='method stab '><code>fn <a href='#method.year_ce' class='fnname'>year_ce</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>)</a></code></h3><div class='docblock'><p>Returns the absolute year number starting from 1 with a boolean flag,
+which is false when the year predates the epoch (BCE/BC) and true otherwise (CE/AD).</p>
+</div><h3 id='method.num_days_from_ce' class='method stab '><code>fn <a href='#method.num_days_from_ce' class='fnname'>num_days_from_ce</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a></code></h3><div class='docblock'><p>Returns the number of days since January 1, 1 (Day 1) in the proleptic Gregorian calendar.</p>
+</div></div>
+        <h2 id='implementors'>Implementors</h2>
+        <ul class='item-list' id='implementors-list'>
+    <li><code>impl <a class='trait' href='../chrono/trait.Datelike.html' title='chrono::Datelike'>Datelike</a> for <a class='struct' href='../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></li>
+<li><code>impl <a class='trait' href='../chrono/trait.Datelike.html' title='chrono::Datelike'>Datelike</a> for <a class='struct' href='../chrono/naive/datetime/struct.NaiveDateTime.html' title='chrono::naive::datetime::NaiveDateTime'>NaiveDateTime</a></code></li>
+<li><code>impl&lt;Tz: <a class='trait' href='../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='../chrono/trait.Datelike.html' title='chrono::Datelike'>Datelike</a> for <a class='struct' href='../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></li>
+<li><code>impl&lt;Tz: <a class='trait' href='../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='../chrono/trait.Datelike.html' title='chrono::Datelike'>Datelike</a> for <a class='struct' href='../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;</code></li>
+</ul><script type="text/javascript" async
+                              src="../implementors/chrono/trait.Datelike.js">
+                      </script></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "chrono";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

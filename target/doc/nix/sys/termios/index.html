@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `termios` mod in crate `nix`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, termios">
+
+    <title>nix::sys::termios - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a></p><script>window.sidebarCurrent = {name: 'termios', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Module <a href='../../index.html'>nix</a>::<wbr><a href='../index.html'>sys</a>::<wbr><a class='mod' href=''>termios</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-20140' class='srclink' href='../../../src/nix/sys/termios.rs.html#1-480' title='goto source code'>[src]</a></span></h1>
+<h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.ControlFlags.html'
+                               title='nix::sys::termios::ControlFlags'>ControlFlags</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.InputFlags.html'
+                               title='nix::sys::termios::InputFlags'>InputFlags</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.LocalFlags.html'
+                               title='nix::sys::termios::LocalFlags'>LocalFlags</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.OutputFlags.html'
+                               title='nix::sys::termios::OutputFlags'>OutputFlags</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.Termios.html'
+                               title='nix::sys::termios::Termios'>Termios</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.FlowArg.html'
+                               title='nix::sys::termios::FlowArg'>FlowArg</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.FlushArg.html'
+                               title='nix::sys::termios::FlushArg'>FlushArg</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.SetArg.html'
+                               title='nix::sys::termios::SetArg'>SetArg</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ALTWERASE.html'
+                               title='nix::sys::termios::ALTWERASE'>ALTWERASE</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.BRKINT.html'
+                               title='nix::sys::termios::BRKINT'>BRKINT</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.BS0.html'
+                               title='nix::sys::termios::BS0'>BS0</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.BS1.html'
+                               title='nix::sys::termios::BS1'>BS1</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CCAR_OFLOW.html'
+                               title='nix::sys::termios::CCAR_OFLOW'>CCAR_OFLOW</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CCTS_OFLOW.html'
+                               title='nix::sys::termios::CCTS_OFLOW'>CCTS_OFLOW</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CDSR_OFLOW.html'
+                               title='nix::sys::termios::CDSR_OFLOW'>CDSR_OFLOW</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CDTR_IFLOW.html'
+                               title='nix::sys::termios::CDTR_IFLOW'>CDTR_IFLOW</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CIGNORE.html'
+                               title='nix::sys::termios::CIGNORE'>CIGNORE</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CLOCAL.html'
+                               title='nix::sys::termios::CLOCAL'>CLOCAL</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CR0.html'
+                               title='nix::sys::termios::CR0'>CR0</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CR1.html'
+                               title='nix::sys::termios::CR1'>CR1</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CR2.html'
+                               title='nix::sys::termios::CR2'>CR2</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CR3.html'
+                               title='nix::sys::termios::CR3'>CR3</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CREAD.html'
+                               title='nix::sys::termios::CREAD'>CREAD</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CRTSCTS.html'
+                               title='nix::sys::termios::CRTSCTS'>CRTSCTS</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CRTS_IFLOW.html'
+                               title='nix::sys::termios::CRTS_IFLOW'>CRTS_IFLOW</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CS5.html'
+                               title='nix::sys::termios::CS5'>CS5</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CS6.html'
+                               title='nix::sys::termios::CS6'>CS6</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CS7.html'
+                               title='nix::sys::termios::CS7'>CS7</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CS8.html'
+                               title='nix::sys::termios::CS8'>CS8</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CSIZE.html'
+                               title='nix::sys::termios::CSIZE'>CSIZE</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.CSTOPB.html'
+                               title='nix::sys::termios::CSTOPB'>CSTOPB</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ECHO.html'
+                               title='nix::sys::termios::ECHO'>ECHO</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ECHOCTL.html'
+                               title='nix::sys::termios::ECHOCTL'>ECHOCTL</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ECHOE.html'
+                               title='nix::sys::termios::ECHOE'>ECHOE</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ECHOK.html'
+                               title='nix::sys::termios::ECHOK'>ECHOK</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ECHOKE.html'
+                               title='nix::sys::termios::ECHOKE'>ECHOKE</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ECHONL.html'
+                               title='nix::sys::termios::ECHONL'>ECHONL</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ECHOPRT.html'
+                               title='nix::sys::termios::ECHOPRT'>ECHOPRT</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.EXTPROC.html'
+                               title='nix::sys::termios::EXTPROC'>EXTPROC</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.FF0.html'
+                               title='nix::sys::termios::FF0'>FF0</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.FF1.html'
+                               title='nix::sys::termios::FF1'>FF1</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.FLUSHO.html'
+                               title='nix::sys::termios::FLUSHO'>FLUSHO</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.HUPCL.html'
+                               title='nix::sys::termios::HUPCL'>HUPCL</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ICANON.html'
+                               title='nix::sys::termios::ICANON'>ICANON</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ICRNL.html'
+                               title='nix::sys::termios::ICRNL'>ICRNL</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IEXTEN.html'
+                               title='nix::sys::termios::IEXTEN'>IEXTEN</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IGNBRK.html'
+                               title='nix::sys::termios::IGNBRK'>IGNBRK</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IGNCR.html'
+                               title='nix::sys::termios::IGNCR'>IGNCR</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IGNPAR.html'
+                               title='nix::sys::termios::IGNPAR'>IGNPAR</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IMAXBEL.html'
+                               title='nix::sys::termios::IMAXBEL'>IMAXBEL</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.INLCR.html'
+                               title='nix::sys::termios::INLCR'>INLCR</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.INPCK.html'
+                               title='nix::sys::termios::INPCK'>INPCK</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ISIG.html'
+                               title='nix::sys::termios::ISIG'>ISIG</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ISTRIP.html'
+                               title='nix::sys::termios::ISTRIP'>ISTRIP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IUTF8.html'
+                               title='nix::sys::termios::IUTF8'>IUTF8</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IXANY.html'
+                               title='nix::sys::termios::IXANY'>IXANY</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IXOFF.html'
+                               title='nix::sys::termios::IXOFF'>IXOFF</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.IXON.html'
+                               title='nix::sys::termios::IXON'>IXON</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.MDMBUF.html'
+                               title='nix::sys::termios::MDMBUF'>MDMBUF</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.NCCS.html'
+                               title='nix::sys::termios::NCCS'>NCCS</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.NL0.html'
+                               title='nix::sys::termios::NL0'>NL0</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.NL1.html'
+                               title='nix::sys::termios::NL1'>NL1</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.NL2.html'
+                               title='nix::sys::termios::NL2'>NL2</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.NL3.html'
+                               title='nix::sys::termios::NL3'>NL3</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.NOFLSH.html'
+                               title='nix::sys::termios::NOFLSH'>NOFLSH</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.NOKERNINFO.html'
+                               title='nix::sys::termios::NOKERNINFO'>NOKERNINFO</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ONLCR.html'
+                               title='nix::sys::termios::ONLCR'>ONLCR</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.ONOEOT.html'
+                               title='nix::sys::termios::ONOEOT'>ONOEOT</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.OPOST.html'
+                               title='nix::sys::termios::OPOST'>OPOST</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.OXTABS.html'
+                               title='nix::sys::termios::OXTABS'>OXTABS</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.PARENB.html'
+                               title='nix::sys::termios::PARENB'>PARENB</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.PARMRK.html'
+                               title='nix::sys::termios::PARMRK'>PARMRK</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.PARODD.html'
+                               title='nix::sys::termios::PARODD'>PARODD</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.PENDIN.html'
+                               title='nix::sys::termios::PENDIN'>PENDIN</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.TAB0.html'
+                               title='nix::sys::termios::TAB0'>TAB0</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.TAB1.html'
+                               title='nix::sys::termios::TAB1'>TAB1</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.TAB2.html'
+                               title='nix::sys::termios::TAB2'>TAB2</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.TAB3.html'
+                               title='nix::sys::termios::TAB3'>TAB3</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.TOSTOP.html'
+                               title='nix::sys::termios::TOSTOP'>TOSTOP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VDISCARD.html'
+                               title='nix::sys::termios::VDISCARD'>VDISCARD</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VDSUSP.html'
+                               title='nix::sys::termios::VDSUSP'>VDSUSP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VEOF.html'
+                               title='nix::sys::termios::VEOF'>VEOF</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VEOL.html'
+                               title='nix::sys::termios::VEOL'>VEOL</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VEOL2.html'
+                               title='nix::sys::termios::VEOL2'>VEOL2</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VERASE.html'
+                               title='nix::sys::termios::VERASE'>VERASE</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VINTR.html'
+                               title='nix::sys::termios::VINTR'>VINTR</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VKILL.html'
+                               title='nix::sys::termios::VKILL'>VKILL</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VLNEXT.html'
+                               title='nix::sys::termios::VLNEXT'>VLNEXT</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VMIN.html'
+                               title='nix::sys::termios::VMIN'>VMIN</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VQUIT.html'
+                               title='nix::sys::termios::VQUIT'>VQUIT</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VREPRINT.html'
+                               title='nix::sys::termios::VREPRINT'>VREPRINT</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VSTART.html'
+                               title='nix::sys::termios::VSTART'>VSTART</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VSTATUS.html'
+                               title='nix::sys::termios::VSTATUS'>VSTATUS</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VSTOP.html'
+                               title='nix::sys::termios::VSTOP'>VSTOP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VSUSP.html'
+                               title='nix::sys::termios::VSUSP'>VSUSP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VT0.html'
+                               title='nix::sys::termios::VT0'>VT0</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VT1.html'
+                               title='nix::sys::termios::VT1'>VT1</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VTIME.html'
+                               title='nix::sys::termios::VTIME'>VTIME</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.VWERASE.html'
+                               title='nix::sys::termios::VWERASE'>VWERASE</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.cfgetispeed.html'
+                               title='nix::sys::termios::cfgetispeed'>cfgetispeed</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.cfgetospeed.html'
+                               title='nix::sys::termios::cfgetospeed'>cfgetospeed</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.cfsetispeed.html'
+                               title='nix::sys::termios::cfsetispeed'>cfsetispeed</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.cfsetospeed.html'
+                               title='nix::sys::termios::cfsetospeed'>cfsetospeed</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.tcdrain.html'
+                               title='nix::sys::termios::tcdrain'>tcdrain</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.tcflow.html'
+                               title='nix::sys::termios::tcflow'>tcflow</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.tcflush.html'
+                               title='nix::sys::termios::tcflush'>tcflush</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.tcgetattr.html'
+                               title='nix::sys::termios::tcgetattr'>tcgetattr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.tcsendbreak.html'
+                               title='nix::sys::termios::tcsendbreak'>tcsendbreak</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='fn' href='fn.tcsetattr.html'
+                               title='nix::sys::termios::tcsetattr'>tcsetattr</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='type' href='type.cc_t.html'
+                               title='nix::sys::termios::cc_t'>cc_t</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='type' href='type.speed_t.html'
+                               title='nix::sys::termios::speed_t'>speed_t</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='type' href='type.tcflag_t.html'
+                               title='nix::sys::termios::tcflag_t'>tcflag_t</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "nix";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script async src="../../../search-index.js"></script>
+</body>
+</html>

@@ -1,0 +1,244 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Date` struct in crate `chrono`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Date">
+
+    <title>chrono::date::Date - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../index.html'>chrono</a>::<wbr><a href='index.html'>date</a></p><script>window.sidebarCurrent = {name: 'Date', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>chrono</a>::<wbr><a href='index.html'>date</a>::<wbr><a class='struct' href=''>Date</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-13109' class='srclink' href='../../src/chrono/date.rs.html#26-29' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Date&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; {
+    // some fields omitted
+}</pre><div class='docblock'><p>ISO 8601 calendar date with time zone.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='method.from_utc' class='method'><code>fn <a href='#method.from_utc' class='fnname'>from_utc</a>(date: <a class='struct' href='../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a>, offset: Tz::Offset) -&gt; <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>Date</code> with given <em>UTC</em> date and offset.
+The local date should be constructed via the <code>TimeZone</code> trait.</p>
+</div><h4 id='method.and_time' class='method'><code>fn <a href='#method.and_time' class='fnname'>and_time</a>(&amp;self, time: <a class='struct' href='../../chrono/naive/time/struct.NaiveTime.html' title='chrono::naive::time::NaiveTime'>NaiveTime</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DateTime</code> from the current date and given <code>NaiveTime</code>.
+The offset in the current date is preserved.</p>
+
+<p>Fails on invalid datetime.</p>
+</div><h4 id='method.and_hms' class='method'><code>fn <a href='#method.and_hms' class='fnname'>and_hms</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DateTime</code> from the current date, hour, minute and second.
+The offset in the current date is preserved.</p>
+
+<p>Fails on invalid hour, minute and/or second.</p>
+</div><h4 id='method.and_hms_opt' class='method'><code>fn <a href='#method.and_hms_opt' class='fnname'>and_hms_opt</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DateTime</code> from the current date, hour, minute and second.
+The offset in the current date is preserved.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute and/or second.</p>
+</div><h4 id='method.and_hms_milli' class='method'><code>fn <a href='#method.and_hms_milli' class='fnname'>and_hms_milli</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, milli: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DateTime</code> from the current date, hour, minute, second and millisecond.
+The millisecond part can exceed 1,000 in order to represent the leap second.
+The offset in the current date is preserved.</p>
+
+<p>Fails on invalid hour, minute, second and/or millisecond.</p>
+</div><h4 id='method.and_hms_milli_opt' class='method'><code>fn <a href='#method.and_hms_milli_opt' class='fnname'>and_hms_milli_opt</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, milli: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DateTime</code> from the current date, hour, minute, second and millisecond.
+The millisecond part can exceed 1,000 in order to represent the leap second.
+The offset in the current date is preserved.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute, second and/or millisecond.</p>
+</div><h4 id='method.and_hms_micro' class='method'><code>fn <a href='#method.and_hms_micro' class='fnname'>and_hms_micro</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, micro: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DateTime</code> from the current date, hour, minute, second and microsecond.
+The microsecond part can exceed 1,000,000 in order to represent the leap second.
+The offset in the current date is preserved.</p>
+
+<p>Fails on invalid hour, minute, second and/or microsecond.</p>
+</div><h4 id='method.and_hms_micro_opt' class='method'><code>fn <a href='#method.and_hms_micro_opt' class='fnname'>and_hms_micro_opt</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, micro: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DateTime</code> from the current date, hour, minute, second and microsecond.
+The microsecond part can exceed 1,000,000 in order to represent the leap second.
+The offset in the current date is preserved.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute, second and/or microsecond.</p>
+</div><h4 id='method.and_hms_nano' class='method'><code>fn <a href='#method.and_hms_nano' class='fnname'>and_hms_nano</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, nano: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DateTime</code> from the current date, hour, minute, second and nanosecond.
+The nanosecond part can exceed 1,000,000,000 in order to represent the leap second.
+The offset in the current date is preserved.</p>
+
+<p>Fails on invalid hour, minute, second and/or nanosecond.</p>
+</div><h4 id='method.and_hms_nano_opt' class='method'><code>fn <a href='#method.and_hms_nano_opt' class='fnname'>and_hms_nano_opt</a>(&amp;self, hour: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, min: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sec: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, nano: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/datetime/struct.DateTime.html' title='chrono::datetime::DateTime'>DateTime</a>&lt;Tz&gt;&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>DateTime</code> from the current date, hour, minute, second and nanosecond.
+The nanosecond part can exceed 1,000,000,000 in order to represent the leap second.
+The offset in the current date is preserved.</p>
+
+<p>Returns <code>None</code> on invalid hour, minute, second and/or nanosecond.</p>
+</div><h4 id='method.succ' class='method'><code>fn <a href='#method.succ' class='fnname'>succ</a>(&amp;self) -&gt; <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>Date</code> for the next date.</p>
+
+<p>Fails when <code>self</code> is the last representable date.</p>
+</div><h4 id='method.succ_opt' class='method'><code>fn <a href='#method.succ_opt' class='fnname'>succ_opt</a>(&amp;self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>Date</code> for the next date.</p>
+
+<p>Returns <code>None</code> when <code>self</code> is the last representable date.</p>
+</div><h4 id='method.pred' class='method'><code>fn <a href='#method.pred' class='fnname'>pred</a>(&amp;self) -&gt; <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>Date</code> for the prior date.</p>
+
+<p>Fails when <code>self</code> is the first representable date.</p>
+</div><h4 id='method.pred_opt' class='method'><code>fn <a href='#method.pred_opt' class='fnname'>pred_opt</a>(&amp;self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<div class='docblock'><p>Makes a new <code>Date</code> for the prior date.</p>
+
+<p>Returns <code>None</code> when <code>self</code> is the first representable date.</p>
+</div><h4 id='method.offset' class='method'><code>fn <a href='#method.offset' class='fnname'>offset</a>&lt;'a&gt;(&amp;'a self) -&gt; &amp;'a Tz::Offset</code></h4>
+<div class='docblock'><p>Retrieves an associated offset from UTC.</p>
+</div><h4 id='method.timezone' class='method'><code>fn <a href='#method.timezone' class='fnname'>timezone</a>(&amp;self) -&gt; Tz</code></h4>
+<div class='docblock'><p>Retrieves an associated time zone.</p>
+</div><h4 id='method.with_timezone' class='method'><code>fn <a href='#method.with_timezone' class='fnname'>with_timezone</a>&lt;Tz2: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt;(&amp;self, tz: &amp;Tz2) -&gt; <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz2&gt;</code></h4>
+<div class='docblock'><p>Changes the associated time zone.
+This does not change the actual <code>Date</code> (but will change the string representation).</p>
+</div><h4 id='method.checked_add' class='method'><code>fn <a href='#method.checked_add' class='fnname'>checked_add</a>(self, rhs: <a class='struct' href='../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<div class='docblock'><p>Adds given <code>Duration</code> to the current date.</p>
+
+<p>Returns <code>None</code> when it will result in overflow.</p>
+</div><h4 id='method.checked_sub' class='method'><code>fn <a href='#method.checked_sub' class='fnname'>checked_sub</a>(self, rhs: <a class='struct' href='../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<div class='docblock'><p>Subtracts given <code>Duration</code> from the current date.</p>
+
+<p>Returns <code>None</code> when it will result in overflow.</p>
+</div><h4 id='method.naive_utc' class='method'><code>fn <a href='#method.naive_utc' class='fnname'>naive_utc</a>(&amp;self) -&gt; <a class='struct' href='../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<div class='docblock'><p>Returns a view to the naive UTC date.</p>
+</div><h4 id='method.naive_local' class='method'><code>fn <a href='#method.naive_local' class='fnname'>naive_local</a>(&amp;self) -&gt; <a class='struct' href='../../chrono/naive/date/struct.NaiveDate.html' title='chrono::naive::date::NaiveDate'>NaiveDate</a></code></h4>
+<div class='docblock'><p>Returns a view to the naive local date.</p>
+</div></div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt; <span class='where'>where Tz::Offset: <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a></span></code></h3><div class='impl-items'><h4 id='method.format_with_items' class='method'><code>fn <a href='#method.format_with_items' class='fnname'>format_with_items</a>&lt;'a, I&gt;(&amp;self, items: I) -&gt; <a class='struct' href='../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;I&gt; <span class='where'>where I: <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.Iterator.html' title='core::iter::Iterator'>Iterator</a>&lt;Item=<a class='enum' href='../../chrono/format/enum.Item.html' title='chrono::format::Item'>Item</a>&lt;'a&gt;&gt; + <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a></span></code></h4>
+<div class='docblock'><p>Formats the date with the specified formatting items.</p>
+</div><h4 id='method.format' class='method'><code>fn <a href='#method.format' class='fnname'>format</a>&lt;'a&gt;(&amp;self, fmt: &amp;'a <a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='struct' href='../../chrono/format/struct.DelayedFormat.html' title='chrono::format::DelayedFormat'>DelayedFormat</a>&lt;<a class='struct' href='../../chrono/format/strftime/struct.StrftimeItems.html' title='chrono::format::strftime::StrftimeItems'>StrftimeItems</a>&lt;'a&gt;&gt;</code></h4>
+<div class='docblock'><p>Formats the date with the specified format string.
+See the <a href="../format/strftime/index.html"><code>format::strftime</code> module</a>
+on the supported escape sequences.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='../../chrono/trait.Datelike.html' title='chrono::Datelike'>Datelike</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='method.year' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.year' class='fnname'>year</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a></code></h4>
+<h4 id='method.month' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.month' class='fnname'>month</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.month0' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.month0' class='fnname'>month0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.day' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.day' class='fnname'>day</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.day0' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.day0' class='fnname'>day0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.ordinal' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.ordinal' class='fnname'>ordinal</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.ordinal0' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.ordinal0' class='fnname'>ordinal0</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a></code></h4>
+<h4 id='method.weekday' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.weekday' class='fnname'>weekday</a>(&amp;self) -&gt; <a class='enum' href='../../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a></code></h4>
+<h4 id='method.isoweekdate' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.isoweekdate' class='fnname'>isoweekdate</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, <a class='enum' href='../../chrono/enum.Weekday.html' title='chrono::Weekday'>Weekday</a>)</a></code></h4>
+<h4 id='method.with_year' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.with_year' class='fnname'>with_year</a>(&amp;self, year: <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<h4 id='method.with_month' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.with_month' class='fnname'>with_month</a>(&amp;self, month: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<h4 id='method.with_month0' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.with_month0' class='fnname'>with_month0</a>(&amp;self, month0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<h4 id='method.with_day' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.with_day' class='fnname'>with_day</a>(&amp;self, day: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<h4 id='method.with_day0' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.with_day0' class='fnname'>with_day0</a>(&amp;self, day0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<h4 id='method.with_ordinal' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.with_ordinal' class='fnname'>with_ordinal</a>(&amp;self, ordinal: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<h4 id='method.with_ordinal0' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.with_ordinal0' class='fnname'>with_ordinal0</a>(&amp;self, ordinal0: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;&gt;</code></h4>
+<h4 id='method.year_ce' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.year_ce' class='fnname'>year_ce</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>)</a></code></h4>
+<h4 id='method.num_days_from_ce' class='method'><code>fn <a href='../../chrono/trait.Datelike.html#method.num_days_from_ce' class='fnname'>num_days_from_ce</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a></code></h4>
+</div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Copy.html' title='core::marker::Copy'>Copy</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt; <span class='where'>where Tz::Offset: <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Copy.html' title='core::marker::Copy'>Copy</a></span></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt; <span class='where'>where Tz::Offset: <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Send.html' title='core::marker::Send'>Send</a></span></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>, Tz2: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz2&gt;&gt; for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, other: &amp;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz2&gt;) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'></div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html' title='core::cmp::PartialOrd'>PartialOrd</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='method.partial_cmp' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.partial_cmp' class='fnname'>partial_cmp</a>(&amp;self, other: &amp;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='enum' href='http://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a>&gt;</code></h4>
+<h4 id='method.lt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt' class='fnname'>lt</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.le' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le' class='fnname'>le</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.gt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt' class='fnname'>gt</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ge' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge' class='fnname'>ge</a>(&amp;self, other: &amp;Rhs) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html' title='core::cmp::Ord'>Ord</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='method.cmp' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#method.cmp' class='fnname'>cmp</a>(&amp;self, other: &amp;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a></code></h4>
+</div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html' title='core::hash::Hash'>Hash</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='method.hash' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash' class='fnname'>hash</a>&lt;H: <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a>&gt;(&amp;self, state: &amp;mut H)</code></h4>
+<h4 id='method.hash_slice' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash_slice' class='fnname'>hash_slice</a>&lt;H&gt;(data: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[Self]</a>, state: &amp;mut H) <span class='where'>where H: <a class='trait' href='http://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a></span></code></h4>
+</div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Add.html' title='core::ops::Add'>Add</a>&lt;<a class='struct' href='../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>&gt; for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h4>
+<h4 id='method.add' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Add.html#method.add' class='fnname'>add</a>(self, rhs: <a class='struct' href='../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h4>
+</div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>, Tz2: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html' title='core::ops::Sub'>Sub</a>&lt;<a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz2&gt;&gt; for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = <a class='struct' href='../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a></code></h4>
+<h4 id='method.sub' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html#method.sub' class='fnname'>sub</a>(self, rhs: <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz2&gt;) -&gt; <a class='struct' href='../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a></code></h4>
+</div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html' title='core::ops::Sub'>Sub</a>&lt;<a class='struct' href='../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>&gt; for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='assoc_type.Output' class='type'><code>type Output = <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h4>
+<h4 id='method.sub' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/ops/trait.Sub.html#method.sub' class='fnname'>sub</a>(self, rhs: <a class='struct' href='../../chrono/duration/struct.Duration.html' title='chrono::duration::Duration'>Duration</a>) -&gt; <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h4>
+</div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt; <span class='where'>where Tz::Offset: <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a></span></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl&lt;Tz: <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> + <a class='trait' href='../../chrono/offset/trait.TimeZone.html' title='chrono::offset::TimeZone'>TimeZone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt; <span class='where'>where Tz::Offset: <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a></span></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../../chrono/date/struct.Date.html' title='chrono::date::Date'>Date</a>&lt;Tz&gt;</code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "chrono";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script async src="../../search-index.js"></script>
+</body>
+</html>

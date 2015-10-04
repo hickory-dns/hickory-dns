@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Fork",""]],"fn":[["chdir",""],["chroot",""],["close",""],["daemon",""],["dup",""],["dup2",""],["dup3",""],["execve",""],["fork",""],["ftruncate",""],["gethostname",""],["getpid",""],["getppid",""],["isatty",""],["pipe",""],["pipe2",""],["read",""],["sethostname",""],["unlink",""],["write",""]]});

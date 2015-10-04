@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["parse","Tries to parse given string into `parsed` with given formatting items. Returns `Ok` when the entire string has been parsed (otherwise `parsed` should not be used). There should be no trailing string after parsing; use a stray `Item::Space` to trim whitespaces."]]});

@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `TrustDnsLogger` struct in crate `trust_dns`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, TrustDnsLogger">
+
+    <title>trust_dns::logger::TrustDnsLogger - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>logger</a></p><script>window.sidebarCurrent = {name: 'TrustDnsLogger', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>logger</a>::<wbr><a class='struct' href=''>TrustDnsLogger</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-18' class='srclink' href='../../src/trust_dns/logger.rs.html#6' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct TrustDnsLogger {
+    // some fields omitted
+}</pre><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../trust_dns/logger/struct.TrustDnsLogger.html' title='trust_dns::logger::TrustDnsLogger'>TrustDnsLogger</a></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(level: <a class='enum' href='../../log/enum.LogLevel.html' title='log::LogLevel'>LogLevel</a>) -&gt; <a class='struct' href='../../trust_dns/logger/struct.TrustDnsLogger.html' title='trust_dns::logger::TrustDnsLogger'>TrustDnsLogger</a></code></h4>
+<h4 id='method.init' class='method'><code>fn <a href='#method.init' class='fnname'>init</a>(self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>, <a class='struct' href='../../log/struct.SetLoggerError.html' title='log::SetLoggerError'>SetLoggerError</a>&gt;</code></h4>
+<h4 id='method.enable_logging' class='method'><code>fn <a href='#method.enable_logging' class='fnname'>enable_logging</a>(log_level: <a class='enum' href='../../log/enum.LogLevel.html' title='log::LogLevel'>LogLevel</a>)</code></h4>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='../../log/trait.Log.html' title='log::Log'>Log</a> for <a class='struct' href='../../trust_dns/logger/struct.TrustDnsLogger.html' title='trust_dns::logger::TrustDnsLogger'>TrustDnsLogger</a></code></h3><div class='impl-items'><h4 id='method.enabled' class='method'><code>fn <a href='../../log/trait.Log.html#method.enabled' class='fnname'>enabled</a>(&amp;self, metadata: &amp;<a class='struct' href='../../log/struct.LogMetadata.html' title='log::LogMetadata'>LogMetadata</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.log' class='method'><code>fn <a href='../../log/trait.Log.html#method.log' class='fnname'>log</a>(&amp;self, record: &amp;<a class='struct' href='../../log/struct.LogRecord.html' title='log::LogRecord'>LogRecord</a>)</code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script async src="../../search-index.js"></script>
+</body>
+</html>

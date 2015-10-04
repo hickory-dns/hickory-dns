@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `AcAutomaton` struct in crate `aho_corasick`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, AcAutomaton">
+
+    <title>aho_corasick::AcAutomaton - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='index.html'>aho_corasick</a></p><script>window.sidebarCurrent = {name: 'AcAutomaton', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>aho_corasick</a>::<wbr><a class='struct' href=''>AcAutomaton</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-2277' class='srclink' href='../src/aho_corasick/lib.rs.html#189-193' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct AcAutomaton&lt;P, T = <a class='struct' href='../aho_corasick/struct.Dense.html' title='aho_corasick::Dense'>Dense</a>&gt; {
+    // some fields omitted
+}</pre><div class='docblock'><p>An Aho-Corasick finite automaton.</p>
+
+<p>The type parameter <code>P</code> is the type of the pattern that was used to
+construct this AcAutomaton.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;P: <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>[<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>]</a>&gt;&gt; <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;P&gt;</code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>&lt;I&gt;(pats: I) -&gt; <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;P, <a class='struct' href='../aho_corasick/struct.Dense.html' title='aho_corasick::Dense'>Dense</a>&gt; <span class='where'>where I: <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.IntoIterator.html' title='core::iter::IntoIterator'>IntoIterator</a>&lt;Item=P&gt;</span></code></h4>
+<div class='docblock'><p>Create a new automaton from an iterator of patterns.</p>
+
+<p>The patterns must be convertible to bytes (<code>&amp;[u8]</code>) via the <code>AsRef</code>
+trait.</p>
+</div></div><h3 class='impl'><code>impl&lt;P: <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>[<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>]</a>&gt;, T: <a class='trait' href='../aho_corasick/trait.Transitions.html' title='aho_corasick::Transitions'>Transitions</a>&gt; <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;P, T&gt;</code></h3><div class='impl-items'><h4 id='method.with_transitions' class='method'><code>fn <a href='#method.with_transitions' class='fnname'>with_transitions</a>&lt;I&gt;(pats: I) -&gt; <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;P, T&gt; <span class='where'>where I: <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.IntoIterator.html' title='core::iter::IntoIterator'>IntoIterator</a>&lt;Item=P&gt;</span></code></h4>
+<div class='docblock'><p>Create a new automaton from an iterator of patterns.</p>
+
+<p>This constructor allows one to choose the transition representation.</p>
+
+<p>The patterns must be convertible to bytes (<code>&amp;[u8]</code>) via the <code>AsRef</code>
+trait.</p>
+</div><h4 id='method.into_full' class='method'><code>fn <a href='#method.into_full' class='fnname'>into_full</a>(self) -&gt; <a class='struct' href='../aho_corasick/struct.FullAcAutomaton.html' title='aho_corasick::FullAcAutomaton'>FullAcAutomaton</a>&lt;P&gt;</code></h4>
+<div class='docblock'><p>Build out the entire automaton into a single matrix.</p>
+
+<p>This will make searching as fast as possible at the expense of using
+at least <code>4 * 256 * #states</code> bytes of memory.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl&lt;P: <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>[<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>]</a>&gt;, T: <a class='trait' href='../aho_corasick/trait.Transitions.html' title='aho_corasick::Transitions'>Transitions</a>&gt; <a class='trait' href='../aho_corasick/trait.Automaton.html' title='aho_corasick::Automaton'>Automaton</a>&lt;P&gt; for <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;P, T&gt;</code></h3><div class='impl-items'><h4 id='method.next_state' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.next_state' class='fnname'>next_state</a>(&amp;self, si: <a class='type' href='../aho_corasick/type.StateIdx.html' title='aho_corasick::StateIdx'>StateIdx</a>, b: <a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>) -&gt; <a class='type' href='../aho_corasick/type.StateIdx.html' title='aho_corasick::StateIdx'>StateIdx</a></code></h4>
+<h4 id='method.get_match' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.get_match' class='fnname'>get_match</a>(&amp;self, si: <a class='type' href='../aho_corasick/type.StateIdx.html' title='aho_corasick::StateIdx'>StateIdx</a>, outi: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, texti: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='struct' href='../aho_corasick/struct.Match.html' title='aho_corasick::Match'>Match</a></code></h4>
+<h4 id='method.has_match' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.has_match' class='fnname'>has_match</a>(&amp;self, si: <a class='type' href='../aho_corasick/type.StateIdx.html' title='aho_corasick::StateIdx'>StateIdx</a>, outi: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.skip_to' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.skip_to' class='fnname'>skip_to</a>(&amp;self, si: <a class='type' href='../aho_corasick/type.StateIdx.html' title='aho_corasick::StateIdx'>StateIdx</a>, text: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>, at: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.is_skippable' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.is_skippable' class='fnname'>is_skippable</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.patterns' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.patterns' class='fnname'>patterns</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a>P<a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a></code></h4>
+<h4 id='method.pattern' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.pattern' class='fnname'>pattern</a>(&amp;self, i: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; &amp;P</code></h4>
+<h4 id='method.len' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.len' class='fnname'>len</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.is_empty' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.is_empty' class='fnname'>is_empty</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.find' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.find' class='fnname'>find</a>&lt;'a, 's&gt;(&amp;'a self, s: &amp;'s <a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='struct' href='../aho_corasick/struct.Matches.html' title='aho_corasick::Matches'>Matches</a>&lt;'a, 's, P, Self&gt;</code></h4>
+<h4 id='method.find_overlapping' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.find_overlapping' class='fnname'>find_overlapping</a>&lt;'a, 's&gt;(&amp;'a self, s: &amp;'s <a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='struct' href='../aho_corasick/struct.MatchesOverlapping.html' title='aho_corasick::MatchesOverlapping'>MatchesOverlapping</a>&lt;'a, 's, P, Self&gt;</code></h4>
+<h4 id='method.stream_find' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.stream_find' class='fnname'>stream_find</a>&lt;'a, R: <a class='trait' href='http://doc.rust-lang.org/nightly/std/io/trait.Read.html' title='std::io::Read'>Read</a>&gt;(&amp;'a self, rdr: R) -&gt; <a class='struct' href='../aho_corasick/struct.StreamMatches.html' title='aho_corasick::StreamMatches'>StreamMatches</a>&lt;'a, R, P, Self&gt;</code></h4>
+<h4 id='method.stream_find_overlapping' class='method'><code>fn <a href='../aho_corasick/trait.Automaton.html#method.stream_find_overlapping' class='fnname'>stream_find_overlapping</a>&lt;'a, R: <a class='trait' href='http://doc.rust-lang.org/nightly/std/io/trait.Read.html' title='std::io::Read'>Read</a>&gt;(&amp;'a self, rdr: R) -&gt; <a class='struct' href='../aho_corasick/struct.StreamMatchesOverlapping.html' title='aho_corasick::StreamMatchesOverlapping'>StreamMatchesOverlapping</a>&lt;'a, R, P, Self&gt;</code></h4>
+</div><h3 class='impl'><code>impl&lt;S: <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>[<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>]</a>&gt;&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.FromIterator.html' title='core::iter::FromIterator'>FromIterator</a>&lt;S&gt; for <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;S&gt;</code></h3><div class='impl-items'><h4 id='method.from_iter' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/iter/trait.FromIterator.html#method.from_iter' class='fnname'>from_iter</a>&lt;T&gt;(it: T) -&gt; <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;S&gt; <span class='where'>where T: <a class='trait' href='http://doc.rust-lang.org/nightly/core/iter/trait.IntoIterator.html' title='core::iter::IntoIterator'>IntoIterator</a>&lt;Item=S&gt;</span></code></h4>
+</div><h3 class='impl'><code>impl&lt;P: <a class='trait' href='http://doc.rust-lang.org/nightly/core/convert/trait.AsRef.html' title='core::convert::AsRef'>AsRef</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>[<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>]</a>&gt; + <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a>, T: <a class='trait' href='../aho_corasick/trait.Transitions.html' title='aho_corasick::Transitions'>Transitions</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;P, T&gt;</code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl&lt;P: <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a>, T: <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a>&gt; <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;P, T&gt;</code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../aho_corasick/struct.AcAutomaton.html' title='aho_corasick::AcAutomaton'>AcAutomaton</a>&lt;P, T&gt;</code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "aho_corasick";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Char","An inline representation of `Option<char>`."]]});

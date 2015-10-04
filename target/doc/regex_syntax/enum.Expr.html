@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Expr` enum in crate `regex_syntax`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Expr">
+
+    <title>regex_syntax::Expr - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='index.html'>regex_syntax</a></p><script>window.sidebarCurrent = {name: 'Expr', ty: 'enum', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content enum">
+<h1 class='fqn'><span class='in-band'>Enum <a href='index.html'>regex_syntax</a>::<wbr><a class='enum' href=''>Expr</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-45362' class='srclink' href='../src/regex_syntax/lib.rs.html#91-151' title='goto source code'>[src]</a></span></h1>
+<pre class='rust enum'>pub enum Expr {
+    Empty,
+    Literal {
+        chars: <a class='struct' href='http://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.char.html'>char</a>&gt;,
+        casei: <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>,
+    },
+    AnyChar,
+    AnyCharNoNL,
+    Class(<a class='struct' href='../regex_syntax/struct.CharClass.html' title='regex_syntax::CharClass'>CharClass</a>),
+    StartLine,
+    EndLine,
+    StartText,
+    EndText,
+    WordBoundary,
+    NotWordBoundary,
+    Group {
+        e: <a class='struct' href='http://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html' title='alloc::boxed::Box'>Box</a>&lt;<a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a>&gt;,
+        i: <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>&gt;,
+        name: <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='http://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;,
+    },
+    Repeat {
+        e: <a class='struct' href='http://doc.rust-lang.org/nightly/alloc/boxed/struct.Box.html' title='alloc::boxed::Box'>Box</a>&lt;<a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a>&gt;,
+        r: <a class='enum' href='../regex_syntax/enum.Repeater.html' title='regex_syntax::Repeater'>Repeater</a>,
+        greedy: <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>,
+    },
+    Concat(<a class='struct' href='http://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a>&gt;),
+    Alternate(<a class='struct' href='http://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a>&gt;),
+}</pre><div class='docblock'><p>A regular expression abstract syntax tree.</p>
+
+<p>An <code>Expr</code> represents the abstract syntax of a regular expression.</p>
+</div><h2 class='variants'>Variants</h2>
+<table><tr><td id='variant.Empty'><code>Empty</code></td><td><div class='docblock'><p>An empty regex (which never matches any text).</p>
+</div></td></tr><tr><td id='variant.Literal'><code>Literal</code></td><td><div class='docblock'><p>A sequence of one or more literal characters to be matched.</p>
+</div><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.Literal.field.chars'><code>chars</code></td><td><div class='docblock'><p>The characters.</p>
+</div></td></tr><tr><td id='variant.Literal.field.casei'><code>casei</code></td><td><div class='docblock'><p>Whether to match case insensitively.</p>
+</div></td></tr></table></td></tr><tr><td id='variant.AnyChar'><code>AnyChar</code></td><td><div class='docblock'><p>Match any character, excluding new line.</p>
+</div></td></tr><tr><td id='variant.AnyCharNoNL'><code>AnyCharNoNL</code></td><td><div class='docblock'><p>Match any character.</p>
+</div></td></tr><tr><td id='variant.Class'><code>Class</code></td><td><div class='docblock'><p>A character class.</p>
+</div></td></tr><tr><td id='variant.StartLine'><code>StartLine</code></td><td><div class='docblock'><p>Match the start of a line or beginning of input.</p>
+</div></td></tr><tr><td id='variant.EndLine'><code>EndLine</code></td><td><div class='docblock'><p>Match the end of a line or end of input.</p>
+</div></td></tr><tr><td id='variant.StartText'><code>StartText</code></td><td><div class='docblock'><p>Match the beginning of input.</p>
+</div></td></tr><tr><td id='variant.EndText'><code>EndText</code></td><td><div class='docblock'><p>Match the end of input.</p>
+</div></td></tr><tr><td id='variant.WordBoundary'><code>WordBoundary</code></td><td><div class='docblock'><p>Match a word boundary (word character on one side and a non-word
+character on the other).</p>
+</div></td></tr><tr><td id='variant.NotWordBoundary'><code>NotWordBoundary</code></td><td><div class='docblock'><p>Match a position that is not a word boundary (word or non-word
+characters on both sides).</p>
+</div></td></tr><tr><td id='variant.Group'><code>Group</code></td><td><div class='docblock'><p>A group, possibly non-capturing.</p>
+</div><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.Group.field.e'><code>e</code></td><td><div class='docblock'><p>The expression inside the group.</p>
+</div></td></tr><tr><td id='variant.Group.field.i'><code>i</code></td><td><div class='docblock'><p>The capture index (starting at <code>1</code>) only for capturing groups.</p>
+</div></td></tr><tr><td id='variant.Group.field.name'><code>name</code></td><td><div class='docblock'><p>The capture name, only for capturing named groups.</p>
+</div></td></tr></table></td></tr><tr><td id='variant.Repeat'><code>Repeat</code></td><td><div class='docblock'><p>A repeat operator (<code>?</code>, <code>*</code>, <code>+</code> or <code>{m,n}</code>).</p>
+</div><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.Repeat.field.e'><code>e</code></td><td><div class='docblock'><p>The expression to be repeated. Limited to literals, <code>.</code>, classes
+or grouped expressions.</p>
+</div></td></tr><tr><td id='variant.Repeat.field.r'><code>r</code></td><td><div class='docblock'><p>The type of repeat operator used.</p>
+</div></td></tr><tr><td id='variant.Repeat.field.greedy'><code>greedy</code></td><td><div class='docblock'><p>Whether the repeat is greedy (match the most) or not (match the
+least).</p>
+</div></td></tr></table></td></tr><tr><td id='variant.Concat'><code>Concat</code></td><td><div class='docblock'><p>A concatenation of expressions. Must be matched one after the other.</p>
+
+<p>N.B. A concat expression can only appear at the top-level or
+immediately inside a group expression.</p>
+</div></td></tr><tr><td id='variant.Alternate'><code>Alternate</code></td><td><div class='docblock'><p>An alternation of expressions. Only one must match.</p>
+
+<p>N.B. An alternate expression can only appear at the top-level or
+immediately inside a group expression.</p>
+</div></td></tr></table><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a></code></h3><div class='impl-items'><h4 id='method.parse' class='method'><code>fn <a href='#method.parse' class='fnname'>parse</a>(s: &amp;<a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='type' href='../regex_syntax/type.Result.html' title='regex_syntax::Result'>Result</a>&lt;<a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a>&gt;</code></h4>
+<div class='docblock'><p>Parses a string in a regular expression syntax tree.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a></code></h3><div class='docblock'><p>This implementation of <code>Display</code> will write a regular expression from the
+syntax tree. It does not write the original string parsed.</p>
+</div><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='enum' href='../regex_syntax/enum.Expr.html' title='regex_syntax::Expr'>Expr</a></code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "regex_syntax";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

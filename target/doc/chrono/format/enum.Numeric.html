@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Numeric` enum in crate `chrono`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Numeric">
+
+    <title>chrono::format::Numeric - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../index.html'>chrono</a>::<wbr><a href='index.html'>format</a></p><script>window.sidebarCurrent = {name: 'Numeric', ty: 'enum', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content enum">
+<h1 class='fqn'><span class='in-band'>Enum <a href='../index.html'>chrono</a>::<wbr><a href='index.html'>format</a>::<wbr><a class='enum' href=''>Numeric</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-16155' class='srclink' href='../../src/chrono/format/mod.rs.html#47-92' title='goto source code'>[src]</a></span></h1>
+<pre class='rust enum'>pub enum Numeric {
+    Year,
+    YearDiv100,
+    YearMod100,
+    IsoYear,
+    IsoYearDiv100,
+    IsoYearMod100,
+    Month,
+    Day,
+    WeekFromSun,
+    WeekFromMon,
+    IsoWeek,
+    NumDaysFromSun,
+    WeekdayFromMon,
+    Ordinal,
+    Hour,
+    Hour12,
+    Minute,
+    Second,
+    Nanosecond,
+    Timestamp,
+}</pre><div class='docblock'><p>Numeric item types.
+They have associated formatting width (FW) and parsing width (PW).</p>
+
+<p>The <strong>formatting width</strong> is the minimal width to be formatted.
+If the number is too short, and the padding is not <code>Pad::None</code>, then it is left-padded.
+If the number is too long or (in some cases) negative, it is printed as is.</p>
+
+<p>The <strong>parsing width</strong> is the maximal width to be scanned.
+The parser only tries to consume from one to given number of digits (greedily). 
+It also trims the preceding whitespaces if any.
+It cannot parse the negative number, so some date and time cannot be formatted then
+parsed with the same formatting items.</p>
+</div><h2 class='variants'>Variants</h2>
+<table><tr><td id='variant.Year'><code>Year</code></td><td><div class='docblock'><p>Full Gregorian year (FW=4, PW=infinity).
+May accept years before 1 BCE or after 9999 CE, given an initial sign.</p>
+</div></td></tr><tr><td id='variant.YearDiv100'><code>YearDiv100</code></td><td><div class='docblock'><p>Gregorian year divided by 100 (century number; FW=PW=2). Implies the non-negative year.</p>
+</div></td></tr><tr><td id='variant.YearMod100'><code>YearMod100</code></td><td><div class='docblock'><p>Gregorian year modulo 100 (FW=PW=2). Cannot be negative.</p>
+</div></td></tr><tr><td id='variant.IsoYear'><code>IsoYear</code></td><td><div class='docblock'><p>Year in the ISO week date (FW=4, PW=infinity).
+May accept years before 1 BCE or after 9999 CE, given an initial sign.</p>
+</div></td></tr><tr><td id='variant.IsoYearDiv100'><code>IsoYearDiv100</code></td><td><div class='docblock'><p>Year in the ISO week date, divided by 100 (FW=PW=2). Implies the non-negative year.</p>
+</div></td></tr><tr><td id='variant.IsoYearMod100'><code>IsoYearMod100</code></td><td><div class='docblock'><p>Year in the ISO week date, modulo 100 (FW=PW=2). Cannot be negative.</p>
+</div></td></tr><tr><td id='variant.Month'><code>Month</code></td><td><div class='docblock'><p>Month (FW=PW=2).</p>
+</div></td></tr><tr><td id='variant.Day'><code>Day</code></td><td><div class='docblock'><p>Day of the month (FW=PW=2).</p>
+</div></td></tr><tr><td id='variant.WeekFromSun'><code>WeekFromSun</code></td><td><div class='docblock'><p>Week number, where the week 1 starts at the first Sunday of January (FW=PW=2).</p>
+</div></td></tr><tr><td id='variant.WeekFromMon'><code>WeekFromMon</code></td><td><div class='docblock'><p>Week number, where the week 1 starts at the first Monday of January (FW=PW=2).</p>
+</div></td></tr><tr><td id='variant.IsoWeek'><code>IsoWeek</code></td><td><div class='docblock'><p>Week number in the ISO week date (FW=PW=2).</p>
+</div></td></tr><tr><td id='variant.NumDaysFromSun'><code>NumDaysFromSun</code></td><td><div class='docblock'><p>Day of the week, where Sunday = 0 and Saturday = 6 (FW=PW=1).</p>
+</div></td></tr><tr><td id='variant.WeekdayFromMon'><code>WeekdayFromMon</code></td><td><div class='docblock'><p>Day of the week, where Monday = 1 and Sunday = 7 (FW=PW=1).</p>
+</div></td></tr><tr><td id='variant.Ordinal'><code>Ordinal</code></td><td><div class='docblock'><p>Day of the year (FW=PW=3).</p>
+</div></td></tr><tr><td id='variant.Hour'><code>Hour</code></td><td><div class='docblock'><p>Hour number in the 24-hour clocks (FW=PW=2).</p>
+</div></td></tr><tr><td id='variant.Hour12'><code>Hour12</code></td><td><div class='docblock'><p>Hour number in the 12-hour clocks (FW=PW=2).</p>
+</div></td></tr><tr><td id='variant.Minute'><code>Minute</code></td><td><div class='docblock'><p>The number of minutes since the last whole hour (FW=PW=2).</p>
+</div></td></tr><tr><td id='variant.Second'><code>Second</code></td><td><div class='docblock'><p>The number of seconds since the last whole minute (FW=PW=2).</p>
+</div></td></tr><tr><td id='variant.Nanosecond'><code>Nanosecond</code></td><td><div class='docblock'><p>The number of nanoseconds since the last whole second (FW=PW=9).
+Note that this is <em>not</em> left-aligned; see also <code>Fixed::Nanosecond</code>.</p>
+</div></td></tr><tr><td id='variant.Timestamp'><code>Timestamp</code></td><td><div class='docblock'><p>The number of non-leap seconds since January 1, 1970 0:00:00 UTC (FW=1, PW=infinity).
+For formatting, it assumes UTC upon the absence of time zone offset.</p>
+</div></td></tr></table><h2 id='implementations'>Trait Implementations</h2><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='enum' href='../../chrono/format/enum.Numeric.html' title='chrono::format::Numeric'>Numeric</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='http://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='enum' href='../../chrono/format/enum.Numeric.html' title='chrono::format::Numeric'>Numeric</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='enum' href='../../chrono/format/enum.Numeric.html' title='chrono::format::Numeric'>Numeric</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../chrono/format/enum.Numeric.html' title='chrono::format::Numeric'>Numeric</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../chrono/format/enum.Numeric.html' title='chrono::format::Numeric'>Numeric</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='enum' href='../../chrono/format/enum.Numeric.html' title='chrono::format::Numeric'>Numeric</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='enum' href='../../chrono/format/enum.Numeric.html' title='chrono::format::Numeric'>Numeric</a></code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='http://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='http://doc.rust-lang.org/nightly/core/marker/trait.Copy.html' title='core::marker::Copy'>Copy</a> for <a class='enum' href='../../chrono/format/enum.Numeric.html' title='chrono::format::Numeric'>Numeric</a></code></h3><div class='impl-items'></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "chrono";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script async src="../../search-index.js"></script>
+</body>
+</html>

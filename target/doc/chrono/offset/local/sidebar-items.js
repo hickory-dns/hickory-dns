@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Local","The local timescale. This is implemented via the standard `time` crate."]]});

@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Parser` struct in crate `toml`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Parser">
+
+    <title>toml::Parser - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='index.html'>toml</a></p><script>window.sidebarCurrent = {name: 'Parser', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='index.html'>toml</a>::<wbr><a class='struct' href=''>Parser</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-224' class='srclink' href='../src/toml/parser.rs.html#90-100' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Parser&lt;'a&gt; {
+    pub errors: <a class='struct' href='http://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../toml/struct.ParserError.html' title='toml::ParserError'>ParserError</a>&gt;,
+    // some fields omitted
+}</pre><div class='docblock'><p>Parser for converting a string to a TOML <code>Value</code> instance.</p>
+
+<p>This parser contains the string slice that is being parsed, and exports the
+list of errors which have occurred during parsing.</p>
+</div><h2 class='fields'>Fields</h2>
+<table><tr class='stab '>
+                                  <td id='structfield.errors'><code>errors</code></td><td><div class='docblock'><p>A list of all errors which have occurred during parsing.</p>
+
+<p>Not all parse errors are fatal, so this list is added to as much as
+possible without aborting parsing. If <code>None</code> is returned by <code>parse</code>, it
+is guaranteed that this list is not empty.</p>
+</div></td></tr></table><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;'a&gt; <a class='struct' href='../toml/struct.Parser.html' title='toml::Parser'>Parser</a>&lt;'a&gt;</code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(s: &amp;'a <a href='http://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='struct' href='../toml/struct.Parser.html' title='toml::Parser'>Parser</a>&lt;'a&gt;</code></h4>
+<div class='docblock'><p>Creates a new parser for a string.</p>
+
+<p>The parser can be executed by invoking the <code>parse</code> method.</p>
+
+<h1 id="example" class='section-header'><a
+                           href="#example">Example</a></h1><pre class='rust rust-example-rendered'>
+<span class='kw'>let</span> <span class='ident'>toml</span> <span class='op'>=</span> <span class='string'>r#&quot;
+    [test]
+    foo = &quot;bar&quot;
+&quot;#</span>;
+
+<span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>parser</span> <span class='op'>=</span> <span class='ident'>toml</span>::<span class='ident'>Parser</span>::<span class='ident'>new</span>(<span class='ident'>toml</span>);
+<span class='kw'>match</span> <span class='ident'>parser</span>.<span class='ident'>parse</span>() {
+    <span class='prelude-val'>Some</span>(<span class='ident'>value</span>) <span class='op'>=&gt;</span> <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;found toml: {:?}&quot;</span>, <span class='ident'>value</span>),
+    <span class='prelude-val'>None</span> <span class='op'>=&gt;</span> {
+        <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;parse errors: {:?}&quot;</span>, <span class='ident'>parser</span>.<span class='ident'>errors</span>);
+    }
+}</pre>
+</div><h4 id='method.to_linecol' class='method'><code>fn <a href='#method.to_linecol' class='fnname'>to_linecol</a>(&amp;self, offset: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.tuple.html'>(<a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>)</a></code></h4>
+<div class='docblock'><p>Converts a byte offset from an error message to a (line, column) pair</p>
+
+<p>All indexes are 0-based.</p>
+</div><h4 id='method.parse' class='method'><code>fn <a href='#method.parse' class='fnname'>parse</a>(&amp;mut self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='type' href='../toml/type.Table.html' title='toml::Table'>Table</a>&gt;</code></h4>
+<div class='docblock'><p>Executes the parser, parsing the string contained within.</p>
+
+<p>This function will return the <code>TomlTable</code> instance if parsing is
+successful, or it will return <code>None</code> if any parse error or invalid TOML
+error occurs.</p>
+
+<p>If an error occurs, the <code>errors</code> field of this parser can be consulted
+to determine the cause of the parse failure.</p>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "toml";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

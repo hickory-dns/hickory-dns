@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `bytes` crate.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, bytes">
+
+    <title>bytes - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'></p><script>window.sidebarCurrent = {name: 'bytes', ty: 'mod', relpath: '../'};</script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>bytes</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-0' class='srclink' href='../src/bytes/lib.rs.html#1-54' title='goto source code'>[src]</a></span></h1>
+<h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
+<table><tr><td><code>pub use buf::{ByteBuf, MutByteBuf, RingBuf, ROByteBuf, SliceBuf, MutSliceBuf, Take};</code></td></tr><tr><td><code>pub use str::{Bytes, Rope, RopeBuf, SeqByteStr, SmallByteStr, SmallByteStrBuf};</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='alloc/index.html'
+                               title='bytes::alloc'>alloc</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='mod' href='traits/index.html'
+                               title='bytes::traits'>traits</a></td>
+                        <td class='docblock short'>
+                             <p>All traits are re-exported here to allow glob imports.</p>
+
+                        </td>
+                    </tr>
+                </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='enum' href='enum.BufError.html'
+                               title='bytes::BufError'>BufError</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.Buf.html'
+                               title='bytes::Buf'>Buf</a></td>
+                        <td class='docblock short'>
+                             <p>A trait for values that provide sequential read access to bytes.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.BufExt.html'
+                               title='bytes::BufExt'>BufExt</a></td>
+                        <td class='docblock short'>
+                             <p>An extension trait providing extra functions applicable to all <code>Buf</code> values.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.ByteStr.html'
+                               title='bytes::ByteStr'>ByteStr</a></td>
+                        <td class='docblock short'>
+                             <p>An immutable sequence of bytes. Operations will not mutate the original
+value. Since only immutable access is permitted, operations do not require
+copying (though, sometimes copying will happen as an optimization).</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.MutBuf.html'
+                               title='bytes::MutBuf'>MutBuf</a></td>
+                        <td class='docblock short'>
+                             <p>A trait for values that provide sequential write access to bytes.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.MutBufExt.html'
+                               title='bytes::MutBufExt'>MutBufExt</a></td>
+                        <td class='docblock short'>
+                             <p>An extension trait providing extra functions applicable to all <code>MutBuf</code> values.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.Sink.html'
+                               title='bytes::Sink'>Sink</a></td>
+                        <td class='docblock short'>
+                             <p>A value that reads bytes from a Buf into itself</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.Source.html'
+                               title='bytes::Source'>Source</a></td>
+                        <td class='docblock short'>
+                             <p>A value that writes bytes from itself into a <code>MutBuf</code>.</p>
+
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='trait' href='trait.ToBytes.html'
+                               title='bytes::ToBytes'>ToBytes</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../";
+        window.currentCrate = "bytes";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../jquery.js"></script>
+    <script src="../main.js"></script>
+    
+    <script async src="../search-index.js"></script>
+</body>
+</html>

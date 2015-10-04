@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `signal` mod in crate `nix`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, signal">
+
+    <title>nix::sys::signal::signal - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../../../index.html'>nix</a>::<wbr><a href='../../index.html'>sys</a>::<wbr><a href='../index.html'>signal</a></p><script>window.sidebarCurrent = {name: 'signal', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content mod">
+<h1 class='fqn'><span class='in-band'>Module <a href='../../../index.html'>nix</a>::<wbr><a href='../../index.html'>sys</a>::<wbr><a href='../index.html'>signal</a>::<wbr><a class='mod' href=''>signal</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-9254' class='srclink' href='../../../../src/nix/sys/signal.rs.html#206-288' title='goto source code'>[src]</a></span></h1>
+<h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.SockFlag.html'
+                               title='nix::sys::signal::signal::SockFlag'>SockFlag</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.sigaction.html'
+                               title='nix::sys::signal::signal::sigaction'>sigaction</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='struct' href='struct.siginfo.html'
+                               title='nix::sys::signal::signal::siginfo'>siginfo</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SA_NOCLDSTOP.html'
+                               title='nix::sys::signal::signal::SA_NOCLDSTOP'>SA_NOCLDSTOP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SA_NOCLDWAIT.html'
+                               title='nix::sys::signal::signal::SA_NOCLDWAIT'>SA_NOCLDWAIT</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SA_NODEFER.html'
+                               title='nix::sys::signal::signal::SA_NODEFER'>SA_NODEFER</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SA_ONSTACK.html'
+                               title='nix::sys::signal::signal::SA_ONSTACK'>SA_ONSTACK</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SA_RESETHAND.html'
+                               title='nix::sys::signal::signal::SA_RESETHAND'>SA_RESETHAND</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SA_RESTART.html'
+                               title='nix::sys::signal::signal::SA_RESTART'>SA_RESTART</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SA_SIGINFO.html'
+                               title='nix::sys::signal::signal::SA_SIGINFO'>SA_SIGINFO</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGBUS.html'
+                               title='nix::sys::signal::signal::SIGBUS'>SIGBUS</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGCHLD.html'
+                               title='nix::sys::signal::signal::SIGCHLD'>SIGCHLD</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGCONT.html'
+                               title='nix::sys::signal::signal::SIGCONT'>SIGCONT</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGINFO.html'
+                               title='nix::sys::signal::signal::SIGINFO'>SIGINFO</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGIO.html'
+                               title='nix::sys::signal::signal::SIGIO'>SIGIO</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGIOT.html'
+                               title='nix::sys::signal::signal::SIGIOT'>SIGIOT</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGPROF.html'
+                               title='nix::sys::signal::signal::SIGPROF'>SIGPROF</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGSTOP.html'
+                               title='nix::sys::signal::signal::SIGSTOP'>SIGSTOP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGSYS.html'
+                               title='nix::sys::signal::signal::SIGSYS'>SIGSYS</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGTRAP.html'
+                               title='nix::sys::signal::signal::SIGTRAP'>SIGTRAP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGTSTP.html'
+                               title='nix::sys::signal::signal::SIGTSTP'>SIGTSTP</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGTTIN.html'
+                               title='nix::sys::signal::signal::SIGTTIN'>SIGTTIN</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGTTOU.html'
+                               title='nix::sys::signal::signal::SIGTTOU'>SIGTTOU</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGURG.html'
+                               title='nix::sys::signal::signal::SIGURG'>SIGURG</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGUSR1.html'
+                               title='nix::sys::signal::signal::SIGUSR1'>SIGUSR1</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGUSR2.html'
+                               title='nix::sys::signal::signal::SIGUSR2'>SIGUSR2</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGVTALRM.html'
+                               title='nix::sys::signal::signal::SIGVTALRM'>SIGVTALRM</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGWINCH.html'
+                               title='nix::sys::signal::signal::SIGWINCH'>SIGWINCH</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGXCPU.html'
+                               title='nix::sys::signal::signal::SIGXCPU'>SIGXCPU</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                
+                    <tr class=' module-item'>
+                        <td><a class='constant' href='constant.SIGXFSZ.html'
+                               title='nix::sys::signal::signal::SIGXFSZ'>SIGXFSZ</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table>
+                    <tr class=' module-item'>
+                        <td><a class='type' href='type.sigset_t.html'
+                               title='nix::sys::signal::signal::sigset_t'>sigset_t</a></td>
+                        <td class='docblock short'>
+                             
+                        </td>
+                    </tr>
+                </table></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../../../";
+        window.currentCrate = "nix";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../../jquery.js"></script>
+    <script src="../../../../main.js"></script>
+    
+    <script async src="../../../../search-index.js"></script>
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `ByteBuf` struct in crate `mio`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, ByteBuf">
+
+    <title>mio::buf::ByteBuf - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <section class="sidebar">
+        
+        <p class='location'><a href='../index.html'>mio</a>::<wbr><a href='index.html'>buf</a></p><script>window.sidebarCurrent = {name: 'ByteBuf', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </section>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>mio</a>::<wbr><a href='index.html'>buf</a>::<wbr><a class='struct' href=''>ByteBuf</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-488' class='srclink' href='../../bytes/buf/byte/struct.ByteBuf.html?gotosrc=488' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct ByteBuf {
+    // some fields omitted
+}</pre><div class='docblock'><p>A <code>Buf</code> backed by a contiguous region of memory.</p>
+
+<p>This <code>Buf</code> is better suited for cases where there is a clear delineation
+between reading and writing.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../mio/buf/struct.ByteBuf.html' title='mio::buf::ByteBuf'>ByteBuf</a></code></h3><div class='impl-items'><h4 id='method.from_slice' class='method'><code>fn <a href='#method.from_slice' class='fnname'>from_slice</a>(bytes: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='struct' href='../../mio/buf/struct.ByteBuf.html' title='mio::buf::ByteBuf'>ByteBuf</a></code></h4>
+<div class='docblock'><p>Create a new <code>ByteBuf</code> by copying the contents of the given slice.</p>
+</div><h4 id='method.mut_with_capacity' class='method'><code>fn <a href='#method.mut_with_capacity' class='fnname'>mut_with_capacity</a>(capacity: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>) -&gt; <a class='struct' href='../../mio/buf/struct.MutByteBuf.html' title='mio::buf::MutByteBuf'>MutByteBuf</a></code></h4>
+<h4 id='method.none' class='method'><code>fn <a href='#method.none' class='fnname'>none</a>() -&gt; <a class='struct' href='../../mio/buf/struct.ByteBuf.html' title='mio::buf::ByteBuf'>ByteBuf</a></code></h4>
+<h4 id='method.from_mem_ref' class='method'><code>unsafe fn <a href='#method.from_mem_ref' class='fnname'>from_mem_ref</a>(mem: <a class='struct' href='../../bytes/alloc/struct.MemRef.html' title='bytes::alloc::MemRef'>MemRef</a>, cap: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, pos: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, lim: <a href='http://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>) -&gt; <a class='struct' href='../../mio/buf/struct.ByteBuf.html' title='mio::buf::ByteBuf'>ByteBuf</a></code></h4>
+<h4 id='method.capacity' class='method'><code>fn <a href='#method.capacity' class='fnname'>capacity</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.flip' class='method'><code>fn <a href='#method.flip' class='fnname'>flip</a>(self) -&gt; <a class='struct' href='../../mio/buf/struct.MutByteBuf.html' title='mio::buf::MutByteBuf'>MutByteBuf</a></code></h4>
+<h4 id='method.resume' class='method'><code>fn <a href='#method.resume' class='fnname'>resume</a>(self) -&gt; <a class='struct' href='../../mio/buf/struct.MutByteBuf.html' title='mio::buf::MutByteBuf'>MutByteBuf</a></code></h4>
+<div class='docblock'><p>Flips the buffer back to mutable, resetting the write position
+to the byte after the previous write.</p>
+</div><h4 id='method.read_slice' class='method'><code>fn <a href='#method.read_slice' class='fnname'>read_slice</a>(&amp;mut self, dst: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;mut [</a><a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.to_seq_byte_str' class='method'><code>fn <a href='#method.to_seq_byte_str' class='fnname'>to_seq_byte_str</a>(self) -&gt; <a class='struct' href='../../bytes/str/seq/struct.SeqByteStr.html' title='bytes::str::seq::SeqByteStr'>SeqByteStr</a></code></h4>
+<h4 id='method.to_bytes' class='method'><code>fn <a href='#method.to_bytes' class='fnname'>to_bytes</a>(self) -&gt; <a class='struct' href='../../bytes/str/bytes/struct.Bytes.html' title='bytes::str::bytes::Bytes'>Bytes</a></code></h4>
+<h4 id='method.mark' class='method'><code>fn <a href='#method.mark' class='fnname'>mark</a>(&amp;mut self)</code></h4>
+<div class='docblock'><p>Marks the current read location.</p>
+
+<p>Together with <code>reset</code>, this can be used to read from a section of the
+buffer multiple times. The marked location will be cleared when the
+buffer is flipped.</p>
+</div><h4 id='method.reset' class='method'><code>fn <a href='#method.reset' class='fnname'>reset</a>(&amp;mut self)</code></h4>
+<div class='docblock'><p>Resets the read position to the previously marked position.</p>
+
+<p>Together with <code>mark</code>, this can be used to read from a section of the
+buffer multiple times.</p>
+
+<h1 id="panics" class='section-header'><a
+                           href="#panics">Panics</a></h1>
+<p>This method will panic if no mark has been set.</p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='../../mio/buf/trait.Buf.html' title='mio::buf::Buf'>Buf</a> for <a class='struct' href='../../mio/buf/struct.ByteBuf.html' title='mio::buf::ByteBuf'>ByteBuf</a></code></h3><div class='impl-items'><h4 id='method.remaining' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.remaining' class='fnname'>remaining</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.bytes' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.bytes' class='fnname'>bytes</a>(&amp;'a self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;'a [</a><a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a></code></h4>
+<h4 id='method.advance' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.advance' class='fnname'>advance</a>(&amp;mut self, cnt: <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>)</code></h4>
+<h4 id='method.read_slice' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.read_slice' class='fnname'>read_slice</a>(&amp;mut self, dst: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;mut [</a><a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a></code></h4>
+<h4 id='method.has_remaining' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.has_remaining' class='fnname'>has_remaining</a>(&amp;self) -&gt; <a href='http://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.read_byte' class='method'><code>fn <a href='../../mio/buf/trait.Buf.html#method.read_byte' class='fnname'>read_byte</a>(&amp;mut self) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='../../std/io/trait.Read.html' title='std::io::Read'>Read</a> for <a class='struct' href='../../mio/buf/struct.ByteBuf.html' title='mio::buf::ByteBuf'>ByteBuf</a></code></h3><div class='impl-items'><h4 id='method.read' class='method'><code>fn <a href='../../std/io/trait.Read.html#method.read' class='fnname'>read</a>(&amp;mut self, buf: <a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;mut [</a><a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a href='http://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, <a class='struct' href='../../std/io/error/struct.Error.html' title='std::io::error::Error'>Error</a>&gt;</code></h4>
+<h4 id='method.read_to_end' class='method'><code>fn <a href='../../std/io/trait.Read.html#method.read_to_end' class='fnname'>read_to_end</a>(&amp;mut self, buf: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, <a class='struct' href='../../std/io/error/struct.Error.html' title='std::io::error::Error'>Error</a>&gt;</code></h4>
+<h4 id='method.read_to_string' class='method'><code>fn <a href='../../std/io/trait.Read.html#method.read_to_string' class='fnname'>read_to_string</a>(&amp;mut self, buf: &amp;mut <a class='struct' href='http://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>) -&gt; <a class='enum' href='http://doc.rust-lang.org/nightly/core/result/enum.Result.html' title='core::result::Result'>Result</a>&lt;<a href='http://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, <a class='struct' href='../../std/io/error/struct.Error.html' title='std::io::error::Error'>Error</a>&gt;</code></h4>
+<h4 id='method.by_ref' class='method'><code>fn <a href='../../std/io/trait.Read.html#method.by_ref' class='fnname'>by_ref</a>(&amp;mut self) -&gt; &amp;mut Self</code></h4>
+<h4 id='method.bytes' class='method'><code>fn <a href='../../std/io/trait.Read.html#method.bytes' class='fnname'>bytes</a>(self) -&gt; <a class='struct' href='http://doc.rust-lang.org/nightly/std/io/struct.Bytes.html' title='std::io::Bytes'>Bytes</a>&lt;Self&gt;</code></h4>
+<h4 id='method.chars' class='method'><code>fn <a href='../../std/io/trait.Read.html#method.chars' class='fnname'>chars</a>(self) -&gt; <a class='struct' href='http://doc.rust-lang.org/nightly/std/io/struct.Chars.html' title='std::io::Chars'>Chars</a>&lt;Self&gt;</code></h4>
+<h4 id='method.chain' class='method'><code>fn <a href='../../std/io/trait.Read.html#method.chain' class='fnname'>chain</a>&lt;R&gt;(self, next: R) -&gt; <a class='struct' href='http://doc.rust-lang.org/nightly/std/io/struct.Chain.html' title='std::io::Chain'>Chain</a>&lt;Self, R&gt; <span class='where'>where R: <a class='trait' href='../../std/io/trait.Read.html' title='std::io::Read'>Read</a></span></code></h4>
+<h4 id='method.take' class='method'><code>fn <a href='../../std/io/trait.Read.html#method.take' class='fnname'>take</a>(self, limit: <a href='http://doc.rust-lang.org/nightly/std/primitive.u64.html'>u64</a>) -&gt; <a class='struct' href='http://doc.rust-lang.org/nightly/std/io/struct.Take.html' title='std::io::Take'>Take</a>&lt;Self&gt;</code></h4>
+<h4 id='method.tee' class='method'><code>fn <a href='../../std/io/trait.Read.html#method.tee' class='fnname'>tee</a>&lt;W&gt;(self, out: W) -&gt; <a class='struct' href='http://doc.rust-lang.org/nightly/std/io/struct.Tee.html' title='std::io::Tee'>Tee</a>&lt;Self, W&gt; <span class='where'>where W: <a class='trait' href='../../std/io/trait.Write.html' title='std::io::Write'>Write</a></span></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <div id="help" class="hidden">
+        <div>
+            <div class="shortcuts">
+                <h1>Keyboard Shortcuts</h1>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h1>Search Tricks</h1>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>typedef</code> (or
+                    <code>tdef</code>).
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </div>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "mio";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script async src="../../search-index.js"></script>
+</body>
+</html>

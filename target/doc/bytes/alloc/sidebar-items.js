@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["heap",""]],"struct":[["Heap",""],["Mem","Memory allocated by an Allocator must be prefixed with Mem"],["MemRef",""]],"trait":[["Allocator","Allocates memory to be used by Bufs or Bytes. Allows allocating memory using alternate stratgies than the default Rust heap allocator. Also does not require that allocations are continuous in memory."]]});
