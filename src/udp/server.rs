@@ -303,7 +303,9 @@ mod server_tests {
       assert!(false);
     }
 
-    let ns = response.get_name_servers();
+    let mut ns: Vec<_> = response.get_name_servers().clone();
+    ns.sort();
+
     assert_eq!(ns.len(), 2);
     assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
     assert_eq!(ns.first().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() });
@@ -331,7 +333,9 @@ mod server_tests {
       assert!(false);
     }
 
-    let ns = response.get_name_servers();
+    let mut ns: Vec<_> = response.get_name_servers().clone();
+    ns.sort();
+
     assert_eq!(ns.len(), 2);
     assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
     assert_eq!(ns.first().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() });

@@ -14,43 +14,48 @@
  * limitations under the License.
  */
 use std::ops::Index;
-//use std::rc::Rc;
 use std::sync::Arc as Rc;
 
 use ::serialize::binary::*;
 use ::error::*;
 
 /// TODO: all Names should be stored in a global "intern" space, and then everything that uses
-///  them should be through references.
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+///  them should be through references. As a workaround the Strings are all Rc as well as the array
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct Name {
-  labels: Vec<Rc<String>>
+  labels: Rc<Vec<Rc<String>>>
 }
 
 impl Name {
   pub fn new() -> Self {
-    Name { labels: Vec::new() }
+    Name { labels: Rc::new(Vec::new()) }
   }
 
   // inline builder
   pub fn label(mut self, label: &'static str) -> Self {
-    self.labels.push(Rc::new(label.into()));
+    // TODO get_mut() on Arc was unstable when this was written
+    let mut new_labels: Vec<Rc<String>> = (*self.labels).clone();
+    new_labels.push(Rc::new(label.into()));
+    self.labels = Rc::new(new_labels);
     self
   }
 
   // for mutating over time
   pub fn with_labels(labels: Vec<String>) -> Self {
-    Name { labels: labels.into_iter().map(|s|Rc::new(s)).collect() }
+    Name { labels: Rc::new(labels.into_iter().map(|s|Rc::new(s)).collect()) }
   }
 
-  pub fn add_label(&mut self, label: String) -> &mut Self {
-    self.labels.push(Rc::new(label));
+  pub fn add_label(&mut self, label: Rc<String>) -> &mut Self {
+    // TODO get_mut() on Arc was unstable when this was written
+    let mut new_labels: Vec<Rc<String>> = (*self.labels).clone();
+    new_labels.push(label);
+    self.labels = Rc::new(new_labels);
     self
   }
 
   pub fn append(&mut self, other: &Self) -> &mut Self {
-    for rcs in &other.labels {
-      self.labels.push(rcs.clone());
+    for rcs in &*other.labels {
+      self.add_label(rcs.clone());
     }
 
     self
@@ -59,7 +64,7 @@ impl Name {
   /// Trims off the first part of the name, to help with searching for the domain piece
   pub fn base_name(&self) -> Option<Name> {
     if self.labels.len() >= 1 {
-      Some(Name { labels: self.labels[1..].to_vec() } )
+      Some(Name { labels: Rc::new(self.labels[1..].to_vec()) } )
     } else {
       None
     }
@@ -73,7 +78,7 @@ impl Name {
     // TODO: this should be a real lexer, to varify all data is legal name...
     for s in local.split('.') {
       if s.len() > 0 {
-        build.add_label(s.to_string().to_lowercase()); // all names stored in lowercase
+        build.add_label(Rc::new(s.to_string().to_lowercase())); // all names stored in lowercase
       }
     }
 
@@ -142,8 +147,8 @@ impl BinSerializable for Name {
           let mut pointer = decoder.clone(location);
           let pointed = try!(Name::read(&mut pointer));
 
-          for l in pointed.labels {
-            labels.push(l);
+          for l in &*pointed.labels {
+            labels.push(l.clone());
           }
 
           // Pointers always finish the name, break like Root.
@@ -157,7 +162,7 @@ impl BinSerializable for Name {
       }
     }
 
-    Ok(Name { labels: labels })
+    Ok(Name { labels: Rc::new(labels) })
   }
 
   fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {

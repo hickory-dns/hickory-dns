@@ -13,8 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::Read;
 use std::fs::File;
 
@@ -146,7 +145,7 @@ impl Parser {
 
   pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>) -> ParseResult<Authority> {
     let mut lexer = lexer;
-    let mut records: HashMap<(Name, RecordType), Vec<Record>> = HashMap::new();
+    let mut records: HashMap<Name, HashSet<Record>> = HashMap::new();
 
     let mut origin: Option<Name> = origin;
     let mut current_name: Option<Name> = None;
@@ -278,18 +277,20 @@ impl Parser {
               record.rdata(rdata);
 
               // add to the map
-              let key = (record.get_name().clone(), record.get_rr_type());
+              let key = record.get_name().clone();
 
               match rtype.unwrap() {
                 RecordType::SOA => {
-                  if records.insert(key, vec![record]).is_some() {
+                  let mut set: HashSet<Record, _> = HashSet::new();
+                  set.insert(record);
+                  if records.insert(key, set).is_some() {
                     return Err(ParseError::SoaAlreadySpecified);
                   }
                 },
                 _ => {
                   // add a Vec if it's not there, then add the record to the list
-                  let mut records = records.entry(key).or_insert(Vec::with_capacity(1));
-                  records.push(record);
+                  let mut set = records.entry(key).or_insert(HashSet::new());
+                  set.insert(record);
                 },
               }
 

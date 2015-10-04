@@ -17,7 +17,7 @@ use std::convert::From;
 use ::serialize::binary::*;
 use ::error::*;
 
-#[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
 #[allow(dead_code)]
 pub enum DNSClass {
   IN,          //	1	RFC 1035	Internet (IN)

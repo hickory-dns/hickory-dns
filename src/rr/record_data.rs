@@ -37,7 +37,7 @@ use super::rdata;
 // is treated as binary information, and can be up to 256 characters in
 // length (including the length octet).
 //
-#[derive(Debug, PartialEq, Clone)]
+#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub enum RData {
   //-- RFC 1035 -- Domain Implementation and Specification    November 1987
 

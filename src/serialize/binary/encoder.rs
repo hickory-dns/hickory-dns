@@ -17,7 +17,6 @@ use std::collections::HashMap;
 use std::sync::Arc as Rc;
 
 use ::error::{EncodeError, EncodeResult};
-use ::rr::Name;
 
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder {

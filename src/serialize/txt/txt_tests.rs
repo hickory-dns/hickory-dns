@@ -61,12 +61,16 @@ VENERA  A       10.1.0.52
   }
 
   // NS
-  let ns_records: Vec<Record> = authority.lookup(&Name::with_labels(vec!["isi".into(),"edu".into()]), RecordType::NS, DNSClass::IN).unwrap();
-  let compare = ns_records.iter().zip(vec![  // this is cool, zip up the expected results... works as long as the order is good.
+  let mut ns_records: Vec<Record> = authority.lookup(&Name::with_labels(vec!["isi".into(),"edu".into()]), RecordType::NS, DNSClass::IN).unwrap();
+  let mut compare = vec![  // this is cool, zip up the expected results... works as long as the order is good.
     Name::new().label("a").label("isi").label("edu"),
     Name::new().label("venera").label("isi").label("edu"),
     Name::new().label("vaxa").label("isi").label("edu")
-    ]);
+    ];
+
+  compare.sort();
+  ns_records.sort();
+  let compare = ns_records.iter().zip(compare);
 
   for (record, ref name) in compare {
     assert_eq!(&Name::with_labels(vec!["isi".into(),"edu".into()]), record.get_name());
@@ -81,11 +85,16 @@ VENERA  A       10.1.0.52
   }
 
   // MX
-  let mx_records: Vec<Record> = authority.lookup(&Name::new().label("isi").label("edu"), RecordType::MX, DNSClass::IN).unwrap();
-  let compare = mx_records.iter().zip(vec![
+  let mut mx_records: Vec<Record> = authority.lookup(&Name::new().label("isi").label("edu"), RecordType::MX, DNSClass::IN).unwrap();
+  let mut compare = vec![
     (10, Name::new().label("venera").label("isi").label("edu")),
     (20, Name::new().label("vaxa").label("isi").label("edu")),
-    ]);
+    ];
+
+  compare.sort();
+  mx_records.sort();
+  let compare = mx_records.iter().zip(compare);
+
 
   for (record, (num, ref name)) in compare {
     assert_eq!(&Name::new().label("isi").label("edu"), record.get_name());
@@ -132,13 +141,17 @@ VENERA  A       10.1.0.52
   }
 
   // TXT
-  let txt_records: Vec<Record> = authority.lookup(&Name::new().label("a").label("isi").label("edu"), RecordType::TXT, DNSClass::IN).unwrap();
-  let compare = txt_records.iter().zip(vec![
+  let mut txt_records: Vec<Record> = authority.lookup(&Name::new().label("a").label("isi").label("edu"), RecordType::TXT, DNSClass::IN).unwrap();
+  let mut compare = vec![
     vec!["I".to_string(), "am".to_string(), "a".to_string(), "txt".to_string(), "record".to_string()],
     vec!["I".to_string(), "am".to_string(), "another".to_string(), "txt".to_string(), "record".to_string()],
     vec!["I am a different".to_string(), "txt record".to_string()],
     vec!["key=val".to_string()],
-    ]);
+    ];
+
+  compare.sort();
+  txt_records.sort();
+  let compare = txt_records.iter().zip(compare);
 
   for (record, ref vector) in compare {
     if let RData::TXT{ ref txt_data } = *record.get_rdata() {
