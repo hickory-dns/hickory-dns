@@ -127,8 +127,9 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
 
     if response.error.is_some() { return Err(response.error.unwrap()) }
     if response.buf.is_none() { return Err(ClientError::NoDataReceived) }
+    let buffer = response.buf.unwrap();
 
-    let mut decoder = BinDecoder::new(response.buf.unwrap());
+    let mut decoder = BinDecoder::new(&buffer);
     let response = try!(Message::read(&mut decoder));
 
     if response.get_id() != id { return Err(ClientError::IncorrectMessageId{ got: response.get_id(), expect: id }); }
@@ -212,6 +213,7 @@ impl<'a> Handler for Response<'a> {
 
 // TODO: this should be flagged with cfg as a functional test.
 #[test]
+#[cfg(feature = "ftest")]
 fn test_query() {
   use std::net::*;
 

@@ -434,7 +434,7 @@ mod tests {
       test_pass += 1;
       println!("test {}: {:?}", test_pass, binary);
       let length = binary.len() as u16; // pre exclusive borrow
-      let mut decoder = BinDecoder::new(binary);
+      let mut decoder = BinDecoder::new(&binary);
 
       decoder.set_rdata_length(length);
       decoder.set_record_type(::rr::record_type::RecordType::from(&expect));

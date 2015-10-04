@@ -82,6 +82,8 @@ impl Message {
   pub fn add_answer(&mut self, record: Record) -> &mut Self { self.answers.push(record); self }
   pub fn add_all_answers(&mut self, vector: &[Record]) -> &mut Self {
     for r in vector {
+      // TODO: in order to get rid of this clone, we need an owned Message for decoding, and a
+      //  reference Message for encoding.
       self.add_answer(r.clone());
     }
     self
@@ -89,6 +91,8 @@ impl Message {
   pub fn add_name_server(&mut self, record: Record) -> &mut Self { self.name_servers.push(record); self }
   pub fn add_all_name_servers(&mut self, vector: &[Record]) -> &mut Self {
     for r in vector {
+      // TODO: in order to get rid of this clone, we need an owned Message for decoding, and a
+      //  reference Message for encoding.
       self.add_name_server(r.clone());
     }
     self
@@ -225,7 +229,9 @@ fn test_emit_and_read(message: Message) {
   let mut encoder = BinEncoder::new();
   message.emit(&mut encoder).unwrap();
 
-  let mut decoder = BinDecoder::new(encoder.as_bytes());
+  let byte_vec = encoder.as_bytes();
+
+  let mut decoder = BinDecoder::new(&byte_vec);
   let got = Message::read(&mut decoder).unwrap();
 
   assert_eq!(got, message);
@@ -252,7 +258,7 @@ fn test_legit_message() {
   0x5D,0xB8,0xD8,0x22, // address = 93.184.216.34
   ];
 
-  let mut decoder = BinDecoder::new(buf);
+  let mut decoder = BinDecoder::new(&buf);
   let message = Message::read(&mut decoder).unwrap();
 
   assert_eq!(message.get_id(), 4096);

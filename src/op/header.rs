@@ -231,13 +231,15 @@ impl BinSerializable for Header {
 
 #[test]
 fn test_parse() {
-  let mut decoder = BinDecoder::new(vec![
+  let byte_vec = vec![
     0x01, 0x10,
     0xAA, 0x83, // 0b1010 1010 1000 0011
     0x88, 0x77,
     0x66, 0x55,
     0x44, 0x33,
-    0x22, 0x11]);
+    0x22, 0x11];
+
+  let mut decoder = BinDecoder::new(&byte_vec);
 
   let expect = Header { id: 0x0110, message_type: MessageType::Response, op_code: OpCode::Update,
     authoritative: false, truncation: true, recursion_desired: false,

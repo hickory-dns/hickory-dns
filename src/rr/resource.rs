@@ -205,7 +205,9 @@ mod tests {
     let mut encoder = BinEncoder::new();
     record.emit(&mut encoder).unwrap();
 
-    let mut decoder = BinDecoder::new(encoder.as_bytes());
+    let vec_bytes = encoder.as_bytes();
+
+    let mut decoder = BinDecoder::new(&vec_bytes);
 
     let got = Record::read(&mut decoder).unwrap();
 

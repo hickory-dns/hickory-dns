@@ -107,7 +107,9 @@ fn test_read_and_emit() {
   let mut encoder = BinEncoder::new();
   expect.emit(&mut encoder).unwrap();
 
-  let mut decoder = BinDecoder::new(encoder.as_bytes());
+  let byte_vec = encoder.as_bytes();
+
+  let mut decoder = BinDecoder::new(&byte_vec);
   let got = Query::read(&mut decoder).unwrap();
   assert_eq!(got, expect);
 }

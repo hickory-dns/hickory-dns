@@ -71,7 +71,7 @@ impl Server {
   }
 
   pub fn handle_message(&self, addr: SocketAddr, request_bytes: Vec<u8>) {
-    let mut decoder = BinDecoder::new(request_bytes);
+    let mut decoder = BinDecoder::new(&request_bytes);
 
     let request = Message::read(&mut decoder);
 

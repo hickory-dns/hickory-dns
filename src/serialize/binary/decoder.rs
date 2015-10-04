@@ -23,15 +23,15 @@ use ::rr::record_type::RecordType;
 ///  but given that this is such a small subset of all the serialization which that performs
 ///  this is a simpler implementation without the cruft, at least for serializing to/from the
 ///  binary DNS protocols. rustc-serialization will be used for other coms, e.g. json over http
-pub struct BinDecoder {
-  buffer: Vec<u8>, // TODO maybe this should be &[u8], not sure since it will always be copied out of the buffer.
+pub struct BinDecoder<'a> {
+  buffer: &'a [u8],
   index: usize,
   record_type: Option<RecordType>,
   rdata_length: Option<u16>,
 }
 
-impl BinDecoder {
-  pub fn new(buffer: Vec<u8>) -> Self {
+impl<'a> BinDecoder<'a> {
+  pub fn new(buffer: &'a [u8]) -> Self {
     BinDecoder { buffer: buffer, index: 0, record_type: None, rdata_length: None }
   }
 
@@ -63,11 +63,11 @@ impl BinDecoder {
     }
   }
 
-  /// this makes a new copy of the underlying segment of the array, need a better way...
-  /// TODO: change this to a internal reference to make this faster and use less memory
+  /// This is a pretty efficient clone, as the buffer is never cloned, and only the index is set
+  ///  to the value passed in
   pub fn clone(&self, index_at: u16) -> BinDecoder {
     BinDecoder {
-      buffer: self.buffer.clone(),
+      buffer: self.buffer,
       index: index_at as usize,
       record_type: self.record_type,
       rdata_length: self.rdata_length,
