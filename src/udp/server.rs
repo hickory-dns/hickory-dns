@@ -303,7 +303,7 @@ mod server_tests {
       assert!(false);
     }
 
-    let mut ns: Vec<_> = response.get_name_servers().clone();
+    let mut ns: Vec<_> = response.get_name_servers().to_vec();
     ns.sort();
 
     assert_eq!(ns.len(), 2);
@@ -333,7 +333,7 @@ mod server_tests {
       assert!(false);
     }
 
-    let mut ns: Vec<_> = response.get_name_servers().clone();
+    let mut ns: Vec<_> = response.get_name_servers().to_vec();
     ns.sort();
 
     assert_eq!(ns.len(), 2);

@@ -17,7 +17,7 @@ use std::collections::{HashMap, HashSet};
 
 use ::rr::*;
 
-/// Authority is the storage method for all
+/// Authority is the storage method for all resource records
 #[derive(Debug)]
 pub struct Authority {
   origin: Name,
@@ -42,19 +42,43 @@ impl Authority {
     self.lookup(&self.origin, RecordType::NS, DNSClass::IN)
   }
 
-  // need to update the vector...
+  /// upserts into the resource vector
+  /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist
   pub fn upsert(&mut self, name: Name, record: Record) {
     let records: &mut HashSet<Record, _> = self.records.entry(name).or_insert(HashSet::new());
+
+    // RFC 2136                       DNS Update                     April 1997
+    //
+    // 1.1.5. The following RR types cannot be appended to an RRset.  If the
+    //  following comparison rules are met, then an attempt to add the new RR
+    //  will result in the replacement of the previous RR:
+    //
+    // SOA    compare only NAME, CLASS and TYPE -- it is not possible to
+    //         have more than one SOA per zone, even if any of the data
+    //         fields differ.
+    //
+    // CNAME  compare only NAME, CLASS, and TYPE -- it is not possible
+    //         to have more than one CNAME RR, even if their data fields
+    //         differ.
+    match record.get_rr_type() {
+      RecordType::SOA | RecordType::CNAME => {
+        records.clear();
+      },
+      _ => ()/* nothing to do */,
+    }
+
     records.insert(record);
+  }
+
+  fn matches_record_type_and_class(record: &Record, rtype: RecordType, class: DNSClass) -> bool {
+    (rtype == RecordType::ANY || record.get_rr_type() == rtype) &&
+    (class == DNSClass::ANY || record.get_dns_class() == class)
   }
 
   pub fn lookup(&self, name: &Name, rtype: RecordType, class: DNSClass) -> Option<Vec<Record>> {
     // TODO this should be an unnecessary clone... need to create a key type, and then use that for
     //  all queries
-    //self.records.get(&(self.origin.clone(), RecordType::SOA)).map(|v|v.first())
-    // TODO: lots of clones here... need to clean this up to work with refs... probably will affect
-    //  things like Message which will need two variants for owned vs. shared memory.
-    let result: Option<Vec<Record>> = self.records.get(name).map(|v|v.iter().filter(|r| r.get_rr_type() == rtype && r.get_dns_class() == class).cloned().collect());
+    let result: Option<Vec<Record>> = self.records.get(name).map(|v|v.iter().filter(|r| Self::matches_record_type_and_class(r, rtype, class)).cloned().collect());
     if let Some(ref v) = result {
       if v.is_empty() {
         return None;

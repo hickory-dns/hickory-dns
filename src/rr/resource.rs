@@ -79,7 +79,7 @@ use super::domain;
  *                 For example, the if the TYPE is A and the CLASS is IN,
  *                 the RDATA field is a 4 octet ARPA Internet address.
  */
-#[derive(PartialEq, Eq, Hash, PartialOrd, Ord, Debug, Clone)]
+#[derive(Eq, Hash, PartialOrd, Ord, Debug, Clone)]
 pub struct Record {
   name_labels: domain::Name,
   rr_type: RecordType,
@@ -164,8 +164,9 @@ impl BinSerializable for Record {
     try!(self.dns_class.emit(encoder));
     try!(encoder.emit_u32(self.ttl));
 
-    // TODO: gah... need to write rdata before we know the size of rdata...
-    let mut tmp_encoder: BinEncoder = BinEncoder::new(); // making random space
+    // gah... need to write rdata before we know the size of rdata...
+    // TODO: should we skip the fixed size header and write the rdata first? then write the header?
+    let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(encoder.offset() + 2 /*for u16 len*/);
     try!(self.rdata.emit(&mut tmp_encoder));
     let mut tmp_buf = tmp_encoder.as_bytes();
 
@@ -181,6 +182,28 @@ impl BinSerializable for Record {
 
     Ok(())
   }
+}
+
+// RFC 2136                       DNS Update                     April 1997
+//
+// 1.1.1. Two RRs are considered equal if their NAME, CLASS, TYPE,
+//   RDLENGTH and RDATA fields are equal.  Note that the time-to-live
+//   (TTL) field is explicitly excluded from the comparison.
+//
+//   1.1.2. The rules for comparison of character strings in names are
+//   specified in [RFC1035 2.3.3]. i.e. case insensitive
+impl PartialEq for Record {
+    fn eq(&self, other: &Self) -> bool {
+      // self == other && // the same pointer
+      self.name_labels == other.name_labels &&
+      self.rr_type == other.rr_type &&
+      self.dns_class == other.dns_class &&
+      self.rdata == other.rdata
+    }
+
+    fn ne(&self, other: &Self) -> bool {
+      !self.eq(other)
+    }
 }
 
 #[cfg(test)]

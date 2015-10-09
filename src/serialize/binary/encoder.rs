@@ -20,6 +20,7 @@ use ::error::{EncodeError, EncodeResult};
 
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder {
+  offset: u32,
   buffer: Vec<u8>,
   // TODO, it would be cool to make this slices, but then the stored slice needs to live longer
   //  than the callee of store_pointer which isn't obvious right now.
@@ -28,7 +29,11 @@ pub struct BinEncoder {
 
 impl BinEncoder {
   pub fn new() -> Self {
-    BinEncoder { buffer: Vec::new(), name_pointers: HashMap::new() }
+    Self::with_offset(0)
+  }
+
+  pub fn with_offset(offset: u32) -> Self {
+    BinEncoder { offset: offset, buffer: Vec::with_capacity(512), name_pointers: HashMap::new() }
   }
 
   pub fn as_bytes(self) -> Vec<u8> {
@@ -39,11 +44,16 @@ impl BinEncoder {
     self.buffer.len()
   }
 
+  pub fn offset(&self) -> u32 {
+    self.offset
+  }
+
   pub fn reserve(&mut self, extra: usize) {
     self.buffer.reserve(extra);
   }
 
   pub fn emit(&mut self, b: u8) -> EncodeResult {
+    self.offset += 1;
     self.buffer.push(b);
     Ok(())
   }
@@ -51,7 +61,9 @@ impl BinEncoder {
   /// store the label pointer, the location is the current position in the buffer
   ///  implicitly, it is expected that the name will be written to the stream after this.
   pub fn store_label_pointer(&mut self, labels: Vec<Rc<String>>) {
-    self.name_pointers.insert(labels, self.buffer.len() as u16); // the next char will be at the len() location
+    if self.offset < 0x3FFFu32 {
+      self.name_pointers.insert(labels, self.offset as u16); // the next char will be at the len() location
+    }
   }
 
   pub fn get_label_pointer(&self, labels: &[Rc<String>]) -> Option<u16> {
@@ -72,13 +84,13 @@ impl BinEncoder {
     if char_bytes.len() > 255 { return Err(EncodeError::CharacterDataTooLong(char_bytes.len())) }
 
     self.buffer.reserve(char_bytes.len() + 1); // reserve the full space for the string and length marker
-    self.buffer.push(char_bytes.len() as u8);
+    try!(self.emit(char_bytes.len() as u8));
 
     // a separate writer isn't necessary for label since it's the same first byte that's being written
 
     // TODO use append() once it stabalizes
     for b in char_bytes {
-      self.buffer.push(*b);
+      try!(self.emit(*b));
     }
 
     Ok(())
@@ -90,8 +102,8 @@ impl BinEncoder {
     let b1: u8 = (data >> 8 & 0xFF) as u8;
     let b2: u8 = (data & 0xFF) as u8;
 
-    self.buffer.push(b1);
-    self.buffer.push(b2);
+    try!(self.emit(b1));
+    try!(self.emit(b2));
 
     Ok(())
   }
@@ -105,10 +117,10 @@ impl BinEncoder {
     let b3: u8 = (data >> 8 & 0xFF) as u8;
     let b4: u8 = (data & 0xFF) as u8;
 
-    self.buffer.push(b1);
-    self.buffer.push(b2);
-    self.buffer.push(b3);
-    self.buffer.push(b4);
+    try!(self.emit(b1));
+    try!(self.emit(b2));
+    try!(self.emit(b3));
+    try!(self.emit(b4));
 
     Ok(())
   }
@@ -122,10 +134,10 @@ impl BinEncoder {
     let b3: u8 = (data >> 8 & 0xFF) as u8;
     let b4: u8 = (data & 0xFF) as u8;
 
-    self.buffer.push(b1);
-    self.buffer.push(b2);
-    self.buffer.push(b3);
-    self.buffer.push(b4);
+    try!(self.emit(b1));
+    try!(self.emit(b2));
+    try!(self.emit(b3));
+    try!(self.emit(b4));
 
     Ok(())
   }

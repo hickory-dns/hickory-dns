@@ -107,10 +107,10 @@ impl Message {
   pub fn is_recursion_desired(&self) -> bool { self.header.is_recursion_desired() }
   pub fn is_recursion_available(&self) -> bool { self.header.is_recursion_available() }
   pub fn get_response_code(&self) -> ResponseCode { self.header.get_response_code() }
-  pub fn get_queries(&self) -> &Vec<Query> { &self.queries }
-  pub fn get_answers(&self) -> &Vec<Record> { &self.answers }
-  pub fn get_name_servers(&self) -> &Vec<Record> { &self.name_servers }
-  pub fn get_additional(&self) -> &Vec<Record> { &self.additionals }
+  pub fn get_queries(&self) -> &[Query] { &self.queries }
+  pub fn get_answers(&self) -> &[Record] { &self.answers }
+  pub fn get_name_servers(&self) -> &[Record] { &self.name_servers }
+  pub fn get_additional(&self) -> &[Record] { &self.additionals }
 
 
   /// this is necessary to match the counts in the header from the record sections
@@ -242,7 +242,7 @@ fn test_legit_message() {
   let buf: Vec<u8> = vec![
   0x10,0x00,0x81,0x80, // id = 4096, response, op=query, recursion_desired, recursion_available, no_error
   0x00,0x01,0x00,0x01, // 1 query, 1 answer,
-  0x00,0x00,0x00,0x00, // 0 namesservers, 1 additional record
+  0x00,0x00,0x00,0x00, // 0 namesservers, 0 additional record
 
   0x03,b'w',b'w',b'w', // query --- www.example.com
   0x07,b'e',b'x',b'a', //
@@ -258,6 +258,15 @@ fn test_legit_message() {
   0x5D,0xB8,0xD8,0x22, // address = 93.184.216.34
   ];
 
+  let mut decoder = BinDecoder::new(&buf);
+  let message = Message::read(&mut decoder).unwrap();
+
+  assert_eq!(message.get_id(), 4096);
+
+  let mut encoder = BinEncoder::new();
+  message.emit(&mut encoder).unwrap();
+
+  let buf = encoder.as_bytes();
   let mut decoder = BinDecoder::new(&buf);
   let message = Message::read(&mut decoder).unwrap();
 

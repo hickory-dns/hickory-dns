@@ -176,7 +176,7 @@ impl BinSerializable for Name {
       if let Some(loc) = encoder.get_label_pointer(labels) {
         // write out the pointer marker
         //  or'd with the location with shouldn't be larger than this 2^14 or 16k
-        try!(encoder.emit_u16(0xC000 | loc));
+        try!(encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16)));
 
         // we found a pointer don't write more, break
         return Ok(())
@@ -245,5 +245,46 @@ mod tests {
   #[test]
   fn write_to() {
     test_emit_data_set(get_data(), |e, n| n.emit(e));
+  }
+
+  #[test]
+  fn test_pointer() {
+    let mut e = BinEncoder::new();
+
+    let first = Name::new().label("ra").label("rb").label("rc");
+    let second = Name::new().label("rb").label("rc");
+    let third = Name::new().label("rc");
+    let fourth = Name::new().label("z").label("ra").label("rb").label("rc");
+
+
+    first.emit(&mut e).unwrap();
+    assert_eq!(e.len(), 10); // should be 7 u8s...
+
+    second.emit(&mut e).unwrap();
+    // if this wrote the entire thing, then it would be +5... but a pointer should be +2
+    assert_eq!(e.len(), 12);
+
+    third.emit(&mut e).unwrap();
+    assert_eq!(e.len(), 14);
+
+    fourth.emit(&mut e).unwrap();
+    assert_eq!(e.len(), 18);
+
+
+    // now read them back
+    let bytes = e.as_bytes();
+    let mut d = BinDecoder::new(&bytes);
+
+    let r_test = Name::read(&mut d).unwrap();
+    assert_eq!(first, r_test);
+
+    let r_test = Name::read(&mut d).unwrap();
+    assert_eq!(second, r_test);
+
+    let r_test = Name::read(&mut d).unwrap();
+    assert_eq!(third, r_test);
+
+    let r_test = Name::read(&mut d).unwrap();
+    assert_eq!(fourth, r_test);
   }
 }

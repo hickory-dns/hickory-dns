@@ -61,7 +61,7 @@ pub enum RecordType {
   //  TLSA,       //	52	RFC 6698	TLSA certificate association
   //  TSIG,       //	250	RFC 2845	Transaction Signature
     TXT,        //	16	RFC 1035[1]	Text record
-  //  ANY,        //  *	255	RFC 1035[1]	All cached records, aka ANY
+    ANY,        //  *	255	RFC 1035[1]	All cached records, aka ANY
     AXFR,       //	252	RFC 1035[1]	Authoritative Zone Transfer
     IXFR,       //	251	RFC 1996	Incremental Zone Transfer
     OPT,        //	41	RFC 6891	Option
@@ -87,7 +87,7 @@ impl RecordType {
       "PTR" => Ok(RecordType::PTR),
       "SOA" => Ok(RecordType::SOA),
       "TXT" => Ok(RecordType::TXT),
-
+      "ANY" | "*" => Ok(RecordType::ANY),
       _ => Err(DecodeError::UnknownRecordTypeStr(str.to_string())),
     }
   }
@@ -111,6 +111,7 @@ impl RecordType {
       12 => Ok(RecordType::PTR),
       6 => Ok(RecordType::SOA),
       16 => Ok(RecordType::TXT),
+      255 => Ok(RecordType::ANY),
       _ => Err(DecodeError::UnknownRecordTypeValue(value)),
     }
   }
@@ -154,6 +155,7 @@ impl From<RecordType> for &'static str {
       RecordType::PTR => "PTR",
       RecordType::SOA => "SOA",
       RecordType::TXT => "TXT",
+      RecordType::ANY => "ANY",
       _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned
     }
   }
@@ -180,6 +182,7 @@ impl From<RecordType> for u16 {
       RecordType::PTR => 12,
       RecordType::SOA => 6,
       RecordType::TXT => 16,
+      RecordType::ANY => 255,
       _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned...
     }
   }

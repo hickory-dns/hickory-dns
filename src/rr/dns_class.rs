@@ -24,7 +24,7 @@ pub enum DNSClass {
   CH,          // 3 Chaos (CH)
   HS,          // 4 Hesiod (HS)
   NONE,        // 254 QCLASS NONE
-//  ANY,         // 255 QCLASS * (ANY)
+  ANY,         // 255 QCLASS * (ANY)
 }
 
 impl DNSClass {
@@ -42,8 +42,7 @@ impl DNSClass {
       "CH" => Ok(DNSClass::CH),
       "HS" => Ok(DNSClass::HS),
       "NONE" => Ok(DNSClass::NONE),
-      //      "ANY" => DNSClass::ANY,
-      //      "*" => DNSClass::ANY,
+      "ANY" | "*" => Ok(DNSClass::ANY),
       _ => Err(DecodeError::UnknownDnsClassStr(str.to_string())),
     }
   }
@@ -96,7 +95,7 @@ impl From<DNSClass> for &'static str {
       DNSClass::CH => "CH",
       DNSClass::HS => "HS",
       DNSClass::NONE => "NONE",
-//      DNSClass::ANY => "ANY",
+      DNSClass::ANY => "ANY",
     }
   }
 }
@@ -118,7 +117,7 @@ impl From<DNSClass> for u16 {
       DNSClass::CH => 3,
       DNSClass::HS => 4,
       DNSClass::NONE => 254,
-//      DNSClass::ANY => 255,
+      DNSClass::ANY => 255,
     }
   }
 }

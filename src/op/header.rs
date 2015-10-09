@@ -154,9 +154,20 @@ impl Header {
   pub fn is_recursion_desired(&self) -> bool { self.recursion_desired }
   pub fn is_recursion_available(&self) -> bool {self.recursion_available }
   pub fn get_response_code(&self) -> ResponseCode { self.response_code }
+
+  /// for query this is the count of query records
+  /// for updates this is the zone count (only 1 allowed)
   pub fn get_query_count(&self) -> u16 { self.query_count }
+
+  /// for queries this is the answer section and record count
+  /// for updates this is the prerequisite count
   pub fn get_answer_count(&self) -> u16 { self.answer_count }
+
+  /// for queries this is the nameservers which are authorities for the SOA of the Record
+  /// for updates this is the update record count
   pub fn get_name_server_count(&self) -> u16 { self.name_server_count }
+
+  /// number of records in the additional section, same for queries and updates.
   pub fn get_additional_count(&self) -> u16 { self.additional_count }
 
   /// This is a specialized clone which clones all the fields but the counts
