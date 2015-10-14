@@ -148,12 +148,19 @@ impl BinSerializable for Record {
     // RDLENGTH        an unsigned 16 bit integer that specifies the length in
     //                octets of the RDATA field.
     let rd_length: u16 = try!(decoder.read_u16());
-    decoder.set_rdata_length(rd_length);
 
-    // RDATA           a variable length string of octets that describes the
-    //                resource.  The format of this information varies
-    //                according to the TYPE and CLASS of the resource record.
-    let rdata = try!(RData::read(decoder));
+    // this is to handle updates, RFC 2036, which uses 0 to indicate certain aspects of
+    //  pre-requisites
+    let rdata: RData = if rd_length == 0 {
+      RData::NULL{ anything: vec![] }
+    } else {
+      decoder.set_rdata_length(rd_length);
+
+      // RDATA           a variable length string of octets that describes the
+      //                resource.  The format of this information varies
+      //                according to the TYPE and CLASS of the resource record.
+      try!(RData::read(decoder))
+    };
 
     Ok(Record{ name_labels: name_labels, rr_type: record_type, dns_class: class, ttl: ttl, rdata: rdata })
   }

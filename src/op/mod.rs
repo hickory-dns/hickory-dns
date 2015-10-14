@@ -20,7 +20,7 @@ pub mod message;
 pub mod header;
 pub mod query;
 
-pub use self::message::Message;
+pub use self::message::{Message, UpdateMessage};
 pub use self::query::Query;
 pub use self::header::MessageType;
 pub use self::op_code::OpCode;

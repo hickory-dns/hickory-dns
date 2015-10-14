@@ -2,6 +2,7 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
 use ::rr::*;
+use ::authority::ZoneType;
 
 use super::*;
 
@@ -35,7 +36,7 @@ SHORT 70 A      26.3.0.104
 VENERA  A       10.1.0.52
       A       128.9.0.32");
 
-  let authority = Parser::new().parse(lexer, Some(Name::new().label("isi").label("edu"))).unwrap();
+  let authority = Parser::new().parse(lexer, Some(Name::new().label("isi").label("edu")), ZoneType::Master, false).unwrap();
 
   // not validating everything, just one of each...
 

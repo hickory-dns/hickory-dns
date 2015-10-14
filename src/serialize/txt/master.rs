@@ -23,7 +23,7 @@ use ::rr::RecordType;
 use ::rr::Record;
 use ::rr::DNSClass;
 use ::rr::RData;
-use ::authority::Authority;
+use ::authority::{Authority, ZoneType};
 
 use super::master_lex::{Lexer, Token};
 
@@ -132,7 +132,7 @@ impl Parser {
     Parser
   }
 
-  pub fn parse_file(file: File, origin: Option<Name>) -> ParseResult<Authority> {
+  pub fn parse_file(file: File, origin: Option<Name>, zone_type: ZoneType, allow_update: bool) -> ParseResult<Authority> {
     let mut file = file;
     let mut buf = String::new();
 
@@ -140,10 +140,10 @@ impl Parser {
     //  keep the usage down. and be a custom lexer...
     try!(file.read_to_string(&mut buf));
     let lexer = Lexer::new(&buf);
-    Self::new().parse(lexer, origin)
+    Self::new().parse(lexer, origin, zone_type, allow_update)
   }
 
-  pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>) -> ParseResult<Authority> {
+  pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>, zone_type: ZoneType, allow_update: bool) -> ParseResult<Authority> {
     let mut lexer = lexer;
     let mut records: HashMap<Name, HashSet<Record>> = HashMap::new();
 
@@ -305,7 +305,7 @@ impl Parser {
     //
     // build the Authority and return.
     records.shrink_to_fit(); // this shouldn't change once stored (replacement instead)
-    Ok(Authority::new(try!(origin.ok_or(ParseError::OriginIsUndefined)), records))
+    Ok(Authority::new(try!(origin.ok_or(ParseError::OriginIsUndefined)), records, zone_type, allow_update))
   }
 
   /// parses the string following the rules from:

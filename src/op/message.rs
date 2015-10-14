@@ -32,17 +32,17 @@ use ::error::*;
  * format called a message.  The top level format of message is divided
  * into 5 sections (some of which are empty in certain cases) shown below:
  *
- *     +---------------------+
- *     |        Header       |
- *     +---------------------+
- *     |       Question      | the question for the name server
- *     +---------------------+
- *     |        Answer       | RRs answering the question
- *     +---------------------+
- *     |      Authority      | RRs pointing toward an authority
- *     +---------------------+
- *     |      Additional     | RRs holding additional information
- *     +---------------------+
+ *     +--------------------------+
+ *     |        Header            |
+ *     +--------------------------+
+ *     |  Question / Zone         | the question for the name server
+ *     +--------------------------+
+ *     |   Answer  / Prerequisite | RRs answering the question
+ *     +--------------------------+
+ *     | Authority / Update       | RRs pointing toward an authority
+ *     +--------------------------+
+ *     |      Additional          | RRs holding additional information
+ *     +--------------------------+
  *
  * The header section is always present.  The header includes fields that
  * specify which of the remaining sections are present, and also specify
@@ -60,6 +60,9 @@ use ::error::*;
  * which relate to the query, but are not strictly answers for the
  * question.
  */
+
+/// By default Message is a Query. Use the Message::as_update() to create and update, or
+///  Message::new_update()
 #[derive(Debug, PartialEq)]
 pub struct Message {
   header: Header, queries: Vec<Query>, answers: Vec<Record>, name_servers: Vec<Record>, additionals: Vec<Record>
@@ -147,6 +150,36 @@ impl Message {
     }
     Ok(())
   }
+}
+
+pub trait UpdateMessage {
+  fn add_zone(&mut self, query: Query);
+  fn add_pre_requisite(&mut self, record: Record);
+  fn add_all_pre_requisites(&mut self, vector: &[Record]);
+  fn add_update(&mut self, record: Record);
+  fn add_all_updates(&mut self, vector: &[Record]);
+  fn add_additional(&mut self, record: Record);
+
+  fn get_zones(&self) -> &[Query];
+  fn get_pre_requisites(&self) -> &[Record];
+  fn get_updates(&self) -> &[Record];
+  fn get_additional(&self) -> &[Record];
+}
+
+/// to reduce errors in using the Message struct as an Update, this will do the call throughs
+///   to properly do that.
+impl UpdateMessage for Message {
+  fn add_zone(&mut self, query: Query) { self.add_query(query); }
+  fn add_pre_requisite(&mut self, record: Record) { self.add_answer(record); }
+  fn add_all_pre_requisites(&mut self, vector: &[Record]) { self.add_all_answers(vector); }
+  fn add_update(&mut self, record: Record) { self.add_name_server(record); }
+  fn add_all_updates(&mut self, vector: &[Record]) { self.add_all_name_servers(vector); }
+  fn add_additional(&mut self, record: Record) { self.add_additional(record); }
+
+  fn get_zones(&self) -> &[Query] { self.get_queries() }
+  fn get_pre_requisites(&self) -> &[Record] { self.get_answers() }
+  fn get_updates(&self) -> &[Record] { self.get_name_servers() }
+  fn get_additional(&self) -> &[Record] { self.get_additional() }
 }
 
 impl BinSerializable for Message {

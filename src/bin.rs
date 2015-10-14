@@ -94,7 +94,7 @@ pub fn main() {
     info!("loading zone file: {:?}", zone_path);
 
     let zone_file = File::open(zone_path).unwrap();
-    let authority: Authority = Parser::parse_file(zone_file, Some(zone_name.clone())).unwrap();
+    let authority: Authority = Parser::parse_file(zone_file, Some(zone_name.clone()), zone.get_zone_type(), zone.get_allow_udpate()).unwrap();
 
     catalog.upsert(zone_name, authority);
   }

@@ -96,6 +96,11 @@ impl Server {
               // TODO, handle recursion here or in the catalog?
               // recursive queries should be cached.
             },
+            OpCode::Update => {
+              let response = self.catalog.update(&request);
+              debug!("update response: {:?}", response);
+              self.send_to(addr, response);
+            }
             c @ _ => {
               error!("unimplemented op_code: {:?}", c);
               self.error_to(addr, request.get_id(), request.get_op_code(), ResponseCode::NotImp);

@@ -26,6 +26,7 @@ use toml::{Decoder, Value};
 
 use ::error::*;
 use ::rr::Name;
+use ::authority::ZoneType;
 
 static DEFAULT_PORT: u16 = 53;
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)
@@ -85,6 +86,7 @@ pub struct ZoneConfig {
   zone: String, // TODO: make Domain::Name decodable
   zone_type: ZoneType,
   file: String,
+  allow_update: Option<bool>,
 }
 
 impl ZoneConfig {
@@ -92,10 +94,8 @@ impl ZoneConfig {
   pub fn get_zone(&self) -> ParseResult<Name> { Name::parse(&self.zone, Some(&Name::new())) }
   pub fn get_zone_type(&self) -> ZoneType { self.zone_type }
   pub fn get_file(&self) -> PathBuf { PathBuf::from(&self.file) }
+  pub fn get_allow_udpate(&self) -> bool { self.allow_update.unwrap_or(false) }
 }
-
-#[derive(RustcDecodable, PartialEq, Eq, Debug, Clone, Copy)]
-pub enum ZoneType { Master, Slave, Hint, Forward }
 
 #[cfg(test)]
 mod test;

@@ -15,6 +15,9 @@
  */
 use std::ops::Index;
 use std::sync::Arc as Rc;
+use std::fmt;
+use std::iter::Rev;
+use std::slice::Iter;
 
 use ::serialize::binary::*;
 use ::error::*;
@@ -68,6 +71,21 @@ impl Name {
     } else {
       None
     }
+  }
+
+  /// returns true if the name components of self are all present at the end of name
+  pub fn zone_of(&self, name: &Self) -> bool {
+    let self_len = self.labels.len();
+    let name_len = name.labels.len();
+
+    // TODO: there's probably a better way using iterators directly, but it wasn't obvious
+    for i in 1..(self_len+1) {
+      if self.labels.get(self_len - i) != name.labels.get(name_len - i) {
+        return false;
+      }
+    }
+
+    return true;
   }
 
   // TODO: I think this does the wrong thing for escaped data
@@ -206,6 +224,15 @@ impl BinSerializable for Name {
   }
 }
 
+impl fmt::Display for Name {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    for label in &*self.labels {
+      write!(f, "{}.", *label);
+    }
+    Ok(())
+  }
+}
+
 impl Index<usize> for Name {
     type Output = String;
 
@@ -286,5 +313,16 @@ mod tests {
 
     let r_test = Name::read(&mut d).unwrap();
     assert_eq!(fourth, r_test);
+  }
+
+  #[test]
+  fn test_zone_of() {
+    let zone = Name::new().label("example").label("com");
+    let www = Name::new().label("www").label("example").label("com");
+    let none = Name::new().label("none").label("com");
+
+    assert!(zone.zone_of(&zone));
+    assert!(zone.zone_of(&www));
+    assert!(!zone.zone_of(&none))
   }
 }

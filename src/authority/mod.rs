@@ -17,6 +17,12 @@
 /*!
   The catalog module has the types necessary for storing and caching authoritative records.
  */
+use ::op::ResponseCode;
+
+pub type UpdateResult<T> = Result<T, ResponseCode>;
+
+#[derive(RustcDecodable, PartialEq, Eq, Debug, Clone, Copy)]
+pub enum ZoneType { Master, Slave, Hint, Forward }
 
 mod authority;
 mod catalog;

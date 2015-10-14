@@ -34,12 +34,12 @@ use ::error::*;
  *       0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
  *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  *     |                                               |
- *     /                     QNAME                     /
+ *     /                     QNAME / ZNAME             /
  *     /                                               /
  *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *     |                     QTYPE                     |
+ *     |                     QTYPE / ZTYPE             |
  *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *     |                     QCLASS                    |
+ *     |                     QCLASS / ZCLASS           |
  *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  *
  * where:
@@ -58,6 +58,8 @@ use ::error::*;
  *
  * QCLASS          a two octet code that specifies the class of the query.
  *                 For example, the QCLASS field is IN for the Internet.
+ *
+ *
  */
 #[derive(PartialEq, Debug)]
 pub struct Query {
