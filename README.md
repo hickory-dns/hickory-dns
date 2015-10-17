@@ -5,34 +5,56 @@ ground up.
 # Goals
 
 - Build a safe and secure DNS server and client with modern features.
-- Use Threads to allow all code to panic! and fail fast, without taking down
-the server.
+- No panics, all code is guarded
 - Use only safe Rust, and avoid all panics with proper Error handling
 - Use only stable Rust
 - Protect against DDOS attacks (to a degree)
-- Support options for Global Load Balancer functions
-- Build in a nice REST interface for managing server?
+- Support options for Global Load Balancing functions
+- Make it dead simple to operate
 
 # Status:
 
-WARNING!!! Under active development! Do not attempt to use in any production systems.
+WARNING!!! Under active development!
 
-The client now supports timeouts (thanks mio!). Currently hardcoded to 5 seconds, I'll make
-this configurable if people ask for that, but this allows me to move on.
+The client now supports timeouts (thanks mio!). Currently hardcoded to 5 seconds,
+ I'll make this configurable if people ask for that, but this allows me to move on.
 
-The server code is complete, the daemon is currently in progress. Once this is done
-the plan is to start self-host trust-dns.org on the trust-dns software.
+The server code is complete, the daemon currently only supports IPv4. Master file
+parsing is complete and supported.
 
-# Goals:
+## RFC's implemented
 
-- Support original (minus unused) RFC 1035 specification. (nearing completion)
-- EDNS http://tools.ietf.org/html/rfc2671 (not started)
-- Support DNS Update RFC 2136.            (not started)
-- DNSSEC Resource Records RFC 4034        (not started)
-- DNSSec protocol RFC 4035                (not started)
-- DNSCrypt https://dnscrypt.org/          (not started)
-- Dynamic DNS Update Leases https://tools.ietf.org/html/draft-sekar-dns-ul-01 (not started)
-- DNS Long-Lived Queries http://tools.ietf.org/html/draft-sekar-dns-llq-01    (not started)
+- RFC 1035: Base DNS spec (partial, caching not yet supported)
+  https://tools.ietf.org/html/rfc1035
+- RFC 3596: IPv6
+  https://tools.ietf.org/html/rfc3596
+- RFC 2136: Dynamic Update
+  https://tools.ietf.org/html/rfc2136
+
+## RFC's in progress or not yet implemented
+
+- RFC 1995: Incremental Zone Transfer
+  https://tools.ietf.org/html/rfc1995
+- RFC 1996: Notify slaves of update
+  https://tools.ietf.org/html/rfc1996
+- RFC 2782: Service location
+  https://tools.ietf.org/html/rfc2782
+- RFC 3007: Secure Dynamic Update
+  https://tools.ietf.org/html/rfc3007
+- RFC 6891: Extension Mechanisms for DNS
+  https://tools.ietf.org/html/rfc6891
+- RFC 4034: DNSSEC Resource Records
+  https://tools.ietf.org/html/rfc4034
+- DNSCrypt
+  https://dnscrypt.org/
+- Dynamic DNS Update Leases
+  https://tools.ietf.org/html/draft-sekar-dns-ul-01
+- DNS Long-Lived Queries
+  http://tools.ietf.org/html/draft-sekar-dns-llq-01
+
+# Usage
+
+TBD
 
 # FAQ
 
