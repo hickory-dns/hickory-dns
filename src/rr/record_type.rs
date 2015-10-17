@@ -88,6 +88,7 @@ impl RecordType {
       "SOA" => Ok(RecordType::SOA),
       "TXT" => Ok(RecordType::TXT),
       "ANY" | "*" => Ok(RecordType::ANY),
+      "AXFR" => Ok(RecordType::AXFR),
       _ => Err(DecodeError::UnknownRecordTypeStr(str.to_string())),
     }
   }
@@ -112,6 +113,7 @@ impl RecordType {
       6 => Ok(RecordType::SOA),
       16 => Ok(RecordType::TXT),
       255 => Ok(RecordType::ANY),
+      252 => Ok(RecordType::AXFR),
       _ => Err(DecodeError::UnknownRecordTypeValue(value)),
     }
   }
@@ -156,6 +158,7 @@ impl From<RecordType> for &'static str {
       RecordType::SOA => "SOA",
       RecordType::TXT => "TXT",
       RecordType::ANY => "ANY",
+      RecordType::AXFR => "AXFR",
       _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned
     }
   }
@@ -183,6 +186,7 @@ impl From<RecordType> for u16 {
       RecordType::SOA => 6,
       RecordType::TXT => 16,
       RecordType::ANY => 255,
+      RecordType::AXFR => 252,
       _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned...
     }
   }

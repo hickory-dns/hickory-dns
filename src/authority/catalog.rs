@@ -167,7 +167,19 @@ impl Catalog {
     if let Some(ref_authority) = self.find_auth_recurse(query.get_name()) {
       let authority = ref_authority.borrow();
       debug!("found authority: {:?}", authority.get_origin());
-      Some((&ref_authority, authority.lookup(query.get_name(), query.get_query_type(), query.get_query_class())))
+
+      // if this is an AXFR zone transfer, verify that this is either the slave or master
+      let record_type = if let RecordType::AXFR = query.get_query_type() {
+        match authority.get_zone_type() {
+          ZoneType::Master | ZoneType::Slave => RecordType::ANY,
+          // TODO Forward?
+          _ => return None, // TODO this sould be an error.
+        }
+      } else {
+        query.get_query_type()
+      };
+
+      Some((&ref_authority, authority.lookup(query.get_name(), record_type, query.get_query_class())))
     } else {
       None
     }
@@ -336,5 +348,40 @@ mod catalog_tests {
     assert_eq!(ns.len(), 1);
     assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::SOA);
     assert_eq!(ns.first().unwrap().get_rdata(), &RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 });
+  }
+
+  #[test]
+  fn test_axfr() {
+    let test = create_test();
+    let origin = test.get_origin().clone();
+
+    let mut catalog: Catalog = Catalog::new();
+    catalog.upsert(origin.clone(), test);
+
+    let mut query: Query = Query::new();
+    query.name(origin.clone());
+    query.query_type(RecordType::AXFR);
+
+    let mut question: Message = Message::new();
+    question.add_query(query);
+
+    let result: Message = catalog.lookup(&question);
+    let mut answers: Vec<Record> = result.get_answers().to_vec();
+    answers.sort();
+
+    let www_name: Name = Name::parse("www.test.com.", None).unwrap();
+    let mut expected_set = vec![
+      Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone(),
+      Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(),
+      Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone(),
+      Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(94,184,216,34) }).clone(),
+      Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(),
+      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(94,184,216,34) }).clone(),
+      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(),
+    ];
+
+    expected_set.sort();
+
+    assert_eq!(expected_set, answers);
   }
 }

@@ -449,7 +449,7 @@ impl Authority {
         _ => (), // move on to the delete
       }
 
-      let mut rrset: Option<&mut HashSet<Record>> = self.records.get_mut(name);
+      let rrset: Option<&mut HashSet<Record>> = self.records.get_mut(name);
 
       debug!("delete: {:?}", delete_r);
       rrset.and_then(|rrs| Some(rrs.remove(&delete_r)));
@@ -571,6 +571,7 @@ impl Authority {
   }
 
   pub fn lookup(&self, name: &Name, rtype: RecordType, class: DNSClass) -> Option<Vec<Record>> {
+
     // TODO this should be an unnecessary clone... need to create a key type, and then use that for
     //  all queries
     let result: Option<Vec<Record>> = self.records.get(name).map(|v|v.iter().filter(|r| Self::matches_record_type_and_class(r, rtype, class)).cloned().collect());
