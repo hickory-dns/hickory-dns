@@ -191,14 +191,14 @@ impl BinSerializable for Record {
   }
 }
 
-// RFC 2136                       DNS Update                     April 1997
-//
-// 1.1.1. Two RRs are considered equal if their NAME, CLASS, TYPE,
-//   RDLENGTH and RDATA fields are equal.  Note that the time-to-live
-//   (TTL) field is explicitly excluded from the comparison.
-//
-//   1.1.2. The rules for comparison of character strings in names are
-//   specified in [RFC1035 2.3.3]. i.e. case insensitive
+/// RFC 2136                       DNS Update                     April 1997
+///
+///   1.1.1. Two RRs are considered equal if their NAME, CLASS, TYPE,
+///   RDLENGTH and RDATA fields are equal.  Note that the time-to-live
+///   (TTL) field is explicitly excluded from the comparison.
+///
+///   1.1.2. The rules for comparison of character strings in names are
+///   specified in [RFC1035 2.3.3]. i.e. case insensitive
 impl PartialEq for Record {
     fn eq(&self, other: &Self) -> bool {
       // self == other && // the same pointer
