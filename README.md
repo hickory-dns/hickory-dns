@@ -20,7 +20,8 @@ The client now supports timeouts (thanks mio!). Currently hardcoded to 5 seconds
  I'll make this configurable if people ask for that, but this allows me to move on.
 
 The server code is complete, the daemon currently only supports IPv4. Master file
-parsing is complete and supported.
+parsing is complete and supported. There is currently no forking option, and
+the server is not yet threaded.
 
 ## RFC's implemented
 
@@ -44,8 +45,9 @@ parsing is complete and supported.
 
 This assumes that you have [Rust](https://www.rust-lang.org) stable installed. These
 presume that the trust-dns repos have already been synced to the local system:
-> $ git clone https://github.com/bluejekyll/trust-dns.git
-> $ cd trust-dns
+
+    $ git clone https://github.com/bluejekyll/trust-dns.git
+    $ cd trust-dns
 
 ## Testing
 
@@ -53,14 +55,16 @@ presume that the trust-dns repos have already been synced to the local system:
 
     These are good for running on local systems. They will create sockets for
     local tests, but will not attempt to access remote systems.
-    > $ cargo test
+
+        $ cargo test
 
 -   Functional tests
 
     These will try to use some local system tools for compatibility testing,
     and also make some remote requests to verify compatibility with other DNS
     systems. These can not currently be run on Travis for example.
-    > $ cargo test --features=ftest
+
+        $ cargo test --features=ftest
 
 -   Benchmarks
 
@@ -69,7 +73,8 @@ presume that the trust-dns repos have already been synced to the local system:
 ## Building
 
 -   Production build
-    > $ cargo build --release
+
+        $ cargo build --release
 
 ## Running
 
@@ -78,15 +83,17 @@ recommended. The server is currently only single-threaded, it is non-blocking
 so this should allow it to work with most internal loads.
 
 -   Verify the version
-    > $ target/release/named --version
+
+        $ target/release/named --version
 
 -   Get help
-    > $ target/release/named --help
+
+        $ target/release/named --help
 
 # FAQ
 
-- Why are you building another DNS server?
+-   Why are you building another DNS server?
 
-Because I've gotten tired of seeing the security advisories out there for BIND.
+    Because I've gotten tired of seeing the security advisories out there for BIND.
 Using Rust semantics it should be possible to develop a high performance and
 safe DNS Server that is more resilient to attacks.
