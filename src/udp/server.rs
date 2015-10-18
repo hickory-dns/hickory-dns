@@ -77,52 +77,12 @@ impl Server {
 
     if let Err(decode_error) = request {
       warn!("unable to decode request from client: {:?}: {}", addr, decode_error);
-      self.error_to(addr, 0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr);
+      self.send_to(addr, Catalog::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr));
     } else {
       let request = request.unwrap(); // unwrap the Ok()
-      info!("id: {} type: {:?} op_code: {:?}", request.get_id(), request.get_message_type(), request.get_op_code());
-
-      let id = request.get_id();
-
-      match request.get_message_type() {
-        // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
-        //  especially for recursive lookups
-        MessageType::Query => {
-          match request.get_op_code() {
-            OpCode::Query => {
-              let response = self.catalog.lookup(&request);
-              debug!("query response: {:?}", response);
-              self.send_to(addr, response);
-              // TODO, handle recursion here or in the catalog?
-              // recursive queries should be cached.
-            },
-            OpCode::Update => {
-              let response = self.catalog.update(&request);
-              debug!("update response: {:?}", response);
-              self.send_to(addr, response);
-            }
-            c @ _ => {
-              error!("unimplemented op_code: {:?}", c);
-              self.error_to(addr, request.get_id(), request.get_op_code(), ResponseCode::NotImp);
-            },
-          }
-        },
-        MessageType::Response => {
-          warn!("got a response as a request from: {:?} id: {}", addr, id);
-          self.error_to(addr, id, request.get_op_code(), ResponseCode::NotImp);
-        },
-      }
+      let response = self.catalog.handle_request(request);
+      self.send_to(addr, response);
     }
-  }
-
-  pub fn error_to(&self, addr: SocketAddr, id: u16, op_code: OpCode, response_code: ResponseCode) {
-    let mut message: Message = Message::new();
-    message.message_type(MessageType::Response);
-    message.id(id);
-    message.response_code(response_code);
-    message.op_code(op_code);
-
-    self.send_to(addr, message);
   }
 
   pub fn send_to(&self, addr: SocketAddr, response: Message) {
@@ -135,7 +95,7 @@ impl Server {
       //  otherwise we'll blow the stack, which is ok, there's something horribly wrong in that
       //  case with the code.
       error!("error encoding response to client: {}", encode_error);
-      self.error_to(addr, response.get_id(), response.get_op_code(), ResponseCode::ServFail);
+      self.send_to(addr, Catalog::error_msg(response.get_id(), response.get_op_code(), ResponseCode::ServFail));
     } else {
       info!("sending message to: {} id: {} rcode: {:?}", addr, response.get_id(), response.get_response_code());
       let mut bytes = Cursor::new(encoder.as_bytes());

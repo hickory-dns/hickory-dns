@@ -33,6 +33,51 @@ impl Catalog {
     Catalog{ authorities: HashMap::new() }
   }
 
+  pub fn handle_request(&self, request: Message) -> Message {
+    info!("id: {} type: {:?} op_code: {:?}", request.get_id(), request.get_message_type(), request.get_op_code());
+
+    let id = request.get_id();
+
+    match request.get_message_type() {
+      // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
+      //  especially for recursive lookups
+      MessageType::Query => {
+        match request.get_op_code() {
+          OpCode::Query => {
+            let response = self.lookup(&request);
+            debug!("query response: {:?}", response);
+            return response;
+            // TODO, handle recursion here or in the catalog?
+            // recursive queries should be cached.
+          },
+          OpCode::Update => {
+            let response = self.update(&request);
+            debug!("update response: {:?}", response);
+            return response;
+          }
+          c @ _ => {
+            error!("unimplemented op_code: {:?}", c);
+            return Self::error_msg(request.get_id(), request.get_op_code(), ResponseCode::NotImp);
+          },
+        }
+      },
+      MessageType::Response => {
+        warn!("got a response as a request from id: {}", id);
+        return Self::error_msg(id, request.get_op_code(), ResponseCode::NotImp);
+      },
+    }
+  }
+
+  pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Message {
+    let mut message: Message = Message::new();
+    message.message_type(MessageType::Response);
+    message.id(id);
+    message.response_code(response_code);
+    message.op_code(op_code);
+
+    return message;
+  }
+
   pub fn upsert(&mut self, name: Name, authority: Authority) {
     self.authorities.insert(name, RefCell::new(authority));
   }
