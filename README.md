@@ -24,37 +24,64 @@ parsing is complete and supported.
 
 ## RFC's implemented
 
-- RFC 1035: Base DNS spec (partial, caching not yet supported)
-  https://tools.ietf.org/html/rfc1035
-- RFC 3596: IPv6
-  https://tools.ietf.org/html/rfc3596
-- RFC 2136: Dynamic Update
-  https://tools.ietf.org/html/rfc2136
+- [RFC 1035](https://tools.ietf.org/html/rfc1035): Base DNS spec (partial, caching not yet supported)
+- [RFC 3596](https://tools.ietf.org/html/rfc3596): IPv6
+- [RFC 2136](https://tools.ietf.org/html/rfc2136): Dynamic Update
 
 ## RFC's in progress or not yet implemented
 
-- RFC 1995: Incremental Zone Transfer
-  https://tools.ietf.org/html/rfc1995
-- RFC 1996: Notify slaves of update
-  https://tools.ietf.org/html/rfc1996
-- RFC 2782: Service location
-  https://tools.ietf.org/html/rfc2782
-- RFC 3007: Secure Dynamic Update
-  https://tools.ietf.org/html/rfc3007
-- RFC 6891: Extension Mechanisms for DNS
-  https://tools.ietf.org/html/rfc6891
-- RFC 4034: DNSSEC Resource Records
-  https://tools.ietf.org/html/rfc4034
-- DNSCrypt
-  https://dnscrypt.org/
-- Dynamic DNS Update Leases
-  https://tools.ietf.org/html/draft-sekar-dns-ul-01
-- DNS Long-Lived Queries
-  http://tools.ietf.org/html/draft-sekar-dns-llq-01
+- [RFC 1995](https://tools.ietf.org/html/rfc1995): Incremental Zone Transfer
+- [RFC 1996](https://tools.ietf.org/html/rfc1996): Notify slaves of update
+- [RFC 2782](https://tools.ietf.org/html/rfc2782): Service location
+- [RFC 3007](https://tools.ietf.org/html/rfc3007): Secure Dynamic Update
+- [RFC 6891](https://tools.ietf.org/html/rfc6891): Extension Mechanisms for DNS
+- [RFC 4034](https://tools.ietf.org/html/rfc4034): DNSSEC Resource Records
+- [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
+- [Update Leases](https://tools.ietf.org/html/draft-sekar-dns-ul-01): Dynamic DNS Update Leases
+- [Long-Lived Queries](http://tools.ietf.org/html/draft-sekar-dns-llq-01): Notify with bells
 
 # Usage
 
-TBD
+This assumes that you have [Rust](https://www.rust-lang.org) stable installed. These
+presume that the trust-dns repos have already been synced to the local system:
+> $ git clone https://github.com/bluejekyll/trust-dns.git
+> $ cd trust-dns
+
+## Testing
+
+-   Unit tests
+
+    These are good for running on local systems. They will create sockets for
+    local tests, but will not attempt to access remote systems.
+    > $ cargo test
+
+-   Functional tests
+
+    These will try to use some local system tools for compatibility testing,
+    and also make some remote requests to verify compatibility with other DNS
+    systems. These can not currently be run on Travis for example.
+    > $ cargo test --features=ftest
+
+-   Benchmarks
+
+    Waiting on benchmarks to stabilize in mainline Rust.
+
+## Building
+
+-   Production build
+    > $ cargo build --release
+
+## Running
+
+Warning: Trust-DNS is still under development, running in production is not
+recommended. The server is currently only single-threaded, it is non-blocking
+so this should allow it to work with most internal loads.
+
+-   Verify the version
+    > $ target/release/named --version
+
+-   Get help
+    > $ target/release/named --help
 
 # FAQ
 
