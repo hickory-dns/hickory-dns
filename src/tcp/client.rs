@@ -13,11 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::net::{SocketAddr, ToSocketAddrs, Ipv4Addr};
-use std::io::Cursor;
+use std::net::{ToSocketAddrs, Ipv4Addr};
+use std::io::{Write, Read};
 use std::cell::Cell;
 
-use mio::udp::UdpSocket;
+use mio::tcp::TcpStream;
 use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want confusion with std::net
 
 use ::error::*;
@@ -33,7 +33,6 @@ use ::serialize::binary::*;
 const RESPONSE: Token = Token(0);
 
 pub struct Client<A: ToSocketAddrs + Copy> {
-  socket: UdpSocket,
   name_server: A,
   next_id: Cell<u16>,
 }
@@ -49,11 +48,8 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
   pub fn with_addr(addr: A) -> ClientResult<Client<A>> {
     // client binds to all addresses...
     // this shouldn't ever fail
-    // TODO switch to use expect once that stabalizes
-    let zero_addr = ("0.0.0.0", 0).to_socket_addrs().unwrap().next().unwrap();
 
-    let socket = try!(UdpSocket::bound(&zero_addr));
-    Ok(Client { socket: socket, name_server: addr, next_id: Cell::new(1024) } )
+    Ok(Client { name_server: addr, next_id: Cell::new(1024) } )
   }
 
   // send a DNS query to the name_server specified in Clint.
@@ -95,14 +91,10 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
     query.name(name).query_class(query_class).query_type(query_type);
     message.add_query(query);
 
-    // get the message bytes and send the query
-    let mut encoder = BinEncoder::new();
-    try!(message.emit(&mut encoder));
-
-    let mut bytes =  Cursor::new(encoder.as_bytes());
-
+    // TODO, the client should cache the stream for multiple use.
     let addr = try!(try!(self.name_server.to_socket_addrs()).next().ok_or(ClientError::NoNameServer));
-    try!(self.socket.send_to(&mut bytes, &addr));
+    debug!("connecting to {:?}", addr);
+    let mut stream = try!(TcpStream::connect(&addr));
 
     //----------------------------
     // now listen for the response
@@ -114,11 +106,10 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
     // TODO make the timeout configurable, 5 seconds is the dig default
     // TODO the error is private to mio, which makes this awkward...
     if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientError::TimerError) };
-    try!(event_loop.register_opt(&self.socket, RESPONSE, EventSet::readable(), PollOpt::all()));
+    try!(event_loop.register_opt(&stream, RESPONSE, EventSet::all(), PollOpt::all()));
 
-    let mut response: Response = Response::new(&self.socket);
+    let mut response: Response = Response::new(message, &mut stream);
 
-    // run_once should be enough, if something else nepharious hits the socket, what?
     try!(event_loop.run(&mut response));
 
     if response.error.is_some() { return Err(response.error.unwrap()) }
@@ -141,15 +132,20 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
 }
 
 struct Response<'a> {
+  pub state: ClientState,
+  pub message: Message,
   pub buf: Option<Vec<u8>>,
-  pub addr: Option<SocketAddr>,
   pub error: Option<ClientError>,
-  pub socket: &'a UdpSocket,
+  pub stream: &'a mut TcpStream,
+}
+
+enum ClientState {
+  WillWrite, WillRead,
 }
 
 impl<'a> Response<'a> {
-  pub fn new(socket: &'a UdpSocket) -> Self {
-    Response{ buf: None, addr: None, error: None, socket: socket }
+  pub fn new(message: Message, stream: &'a mut TcpStream) -> Self {
+    Response{ state: ClientState::WillWrite, message: message, buf: None, error: None, stream: stream }
   }
 }
 
@@ -160,39 +156,74 @@ impl<'a> Handler for Response<'a> {
   fn ready(&mut self, event_loop: &mut EventLoop<Self>, token: Token, events: EventSet) {
     match token {
       RESPONSE => {
-        if !events.is_readable() {
-          debug!("got woken up, but not readable: {:?}", token);
+        if events.is_writable() {
+          // get the message bytes and send the query
+          let mut encoder = BinEncoder::new();
+          self.error = self.message.emit(&mut encoder).err().map(|o|o.into());
+          if self.error.is_some() { return }
+
+          let bytes: Vec<u8> = encoder.as_bytes();
+
+          debug!("writing to");
+          let len: [u8; 2] = [(bytes.len() >> 8 & 0xFF) as u8, (bytes.len() & 0xFF) as u8];
+          self.error = self.stream.write_all(&len).and_then(|_|self.stream.write_all(&bytes)).err().map(|o|o.into());
+          if self.error.is_some() { return }
+
+          self.error = self.stream.flush().err().map(|o|o.into());
+          debug!("wrote to");
+        } else if events.is_readable() {
+          // assuming we will always be able to read two bytes.
+          let mut len_bytes: [u8;2] = [0u8;2];
+
+          match self.stream.take(2).read(&mut len_bytes) {
+            Ok(len) if len != 2 => {
+              debug!("did not read all len_bytes expected: 2 got: {:?} bytes from: {:?}", len_bytes, self.stream);
+              self.error = Some(ClientError::NotAllBytesReceived{received: len, expect: 2});
+              return
+            },
+            Err(e) => {
+              self.error = Some(e.into());
+              return
+            },
+            Ok(_) => (),
+          }
+
+          let len: u16 = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
+
+          debug!("reading {:?} bytes from: {:?}", len, self.stream);
+          // use a cursor here, and seek to the write spot on each read...
+          let mut buf = Vec::with_capacity(len as usize);
+          match self.stream.take(len as u64).read_to_end(&mut buf) {
+            Ok(got) if got != len as usize => {
+              debug!("did not read all bytes got: {} expected: {} bytes from: {:?}", got, len, self.stream);
+              self.error = Some(ClientError::NotAllBytesReceived{received: got, expect: len as usize});
+              return
+            },
+            Err(e) => {
+              self.error = Some(e.into());
+              return
+            },
+            Ok(_) => (),
+          }
+
+          // we got our response, shutdown.
+          event_loop.shutdown();
+
+          debug!("read {:?} bytes from: {:?}", buf.len(), self.stream);
+
+          // set our data
+          self.buf = Some(buf);
+
+          // TODO, perhaps parse the response in here, so that the client could ignore messages with the
+          //  wrong serial number.
+        } else if events.is_error() || events.is_hup() {
+          debug!("an error occured, connection shutdown early: {:?}", token);
+          self.error = Some(ClientError::NoDataReceived);
+          event_loop.shutdown();
+        } else {
+          debug!("got woken up, but not readable or writable: {:?}", token);
           return
         }
-
-        let mut buf = Vec::with_capacity(4096);
-
-        let recv_result = self.socket.recv_from(&mut buf);
-        if recv_result.is_err() {
-          // debug b/c we're returning the error explicitly
-          debug!("could not recv_from on {:?}: {:?}", self.socket, recv_result);
-          self.error = Some(recv_result.unwrap_err().into());
-          return
-        }
-
-        if recv_result.as_ref().unwrap().is_none() {
-          // debug b/c we're returning the error explicitly
-          debug!("no return address on recv_from: {:?}", self.socket);
-          self.error = Some(ClientError::NoAddress);
-          return
-        }
-
-        self.addr = Some(recv_result.unwrap().unwrap());
-        debug!("bytes: {:?} from: {:?}", buf.len(), self.addr);
-
-        // we got our response, shutdown.
-        event_loop.shutdown();
-
-        // set our data
-        self.buf = Some(buf);
-
-        // TODO, perhaps parse the response in here, so that the client could ignore messages with the
-        //  wrong serial number.
       },
       _ => {
         error!("unrecognized token: {:?}", token);
@@ -217,7 +248,7 @@ fn test_query() {
   use ::rr::record_type::RecordType;
   use ::rr::domain;
   use ::rr::record_data::RData;
-  use ::udp::Client;
+  use ::tcp::Client;
 
   let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
   let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();

@@ -16,8 +16,6 @@
 use std::ops::Index;
 use std::sync::Arc as Rc;
 use std::fmt;
-use std::iter::Rev;
-use std::slice::Iter;
 
 use ::serialize::binary::*;
 use ::error::*;

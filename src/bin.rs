@@ -17,11 +17,14 @@ extern crate trust_dns;
 extern crate rustc_serialize;
 extern crate docopt;
 #[macro_use] extern crate log;
+extern crate mio;
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::net::Ipv4Addr;
+use std::net::{SocketAddr, ToSocketAddrs};
 
+use mio::tcp::TcpListener;
 use log::LogLevel;
 use docopt::Docopt;
 
@@ -31,7 +34,7 @@ use trust_dns::authority::{Catalog, Authority};
 use trust_dns::config::Config;
 use trust_dns::serialize::txt::Parser;
 use trust_dns::rr::Name;
-use trust_dns::udp::Server;
+use trust_dns::server::Server;
 
 // the Docopt usage string.
 //  http://docopt.org
@@ -104,11 +107,18 @@ pub fn main() {
   // TODO support all the IPs asked to listen on...
   let listen_addr: Ipv4Addr = *config.get_listen_addrs_ipv4().first().unwrap_or(&Ipv4Addr::new(0,0,0,0));
   let listen_port: u16 = args.flag_port.unwrap_or(config.get_listen_port());
+  let addr = (listen_addr, listen_port).to_socket_addrs().unwrap().next().unwrap();
+
+  let tcp_listener: TcpListener = TcpListener::bind(&addr).unwrap();
 
   // now, run the server, based on the config
   info!("listening on {}:{}", listen_addr, listen_port);
-  let mut server = Server::new((listen_addr, listen_port), catalog).unwrap();
-  server.listen().unwrap();
+
+  let mut server = Server::new(catalog);
+  server.register_listener(tcp_listener);
+
+  //let mut server = Server::new((listen_addr, listen_port), catalog).unwrap();
+  //server.listen().unwrap();
 
   // we're exiting for some reason...
   info!("Trust-DNS {} stopping", trust_dns::version());
