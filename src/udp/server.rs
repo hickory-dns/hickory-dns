@@ -75,20 +75,24 @@ impl Server {
 
     let request = Message::read(&mut decoder);
 
-    if let Err(decode_error) = request {
-      warn!("unable to decode request from client: {:?}: {}", addr, decode_error);
-      self.send_to(addr, Catalog::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr));
-    } else {
-      let request = request.unwrap(); // unwrap the Ok()
-      let response = self.catalog.handle_request(request);
-      self.send_to(addr, response);
-    }
+    let response = match request {
+      Err(decode_error) => {
+        warn!("unable to decode request from client: {:?}: {}", addr, decode_error);
+        Catalog::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr)
+      },
+      Ok(req) => self.catalog.handle_request(req),
+    };
+
+    self.send_to(addr, response);
   }
 
   pub fn send_to(&self, addr: SocketAddr, response: Message) {
     // all responses need these fields set:
-    let mut encoder:BinEncoder = BinEncoder::new();
-    let encode_result = response.emit(&mut encoder);
+    let mut bytes: Vec<u8> = Vec::with_capacity(512);
+    let encode_result = {
+      let mut encoder:BinEncoder = BinEncoder::new(&mut bytes);
+      response.emit(&mut encoder)
+    };
 
     if let Err(encode_error) = encode_result {
       // yes, dangerous, but errors are a much simpler message, so they should encode no problem
@@ -98,7 +102,9 @@ impl Server {
       self.send_to(addr, Catalog::error_msg(response.get_id(), response.get_op_code(), ResponseCode::ServFail));
     } else {
       info!("sending message to: {} id: {} rcode: {:?}", addr, response.get_id(), response.get_response_code());
-      let mut bytes = Cursor::new(encoder.as_bytes());
+
+      // TODO when the next version of MIO is released, this clone and unsafe will be unnecessary
+      let mut bytes = Cursor::new(bytes.clone());
       let result = self.socket.send_to(&mut bytes, &addr);
       if let Err(error) = result {
         error!("error sending to: {} id: {} error: {}", addr, response.get_id(), error);

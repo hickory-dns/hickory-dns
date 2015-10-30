@@ -14,7 +14,8 @@
  * limitations under the License.
  */
 mod client;
-mod server;
+mod handler;
 
-pub use self::server::Server;
+pub use self::handler::TcpHandler;
+pub use self::handler::TcpState;
 pub use self::client::Client;

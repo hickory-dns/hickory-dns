@@ -19,24 +19,27 @@ use std::sync::Arc as Rc;
 use ::error::{EncodeError, EncodeResult};
 
 /// Encode DNS messages and resource record types.
-pub struct BinEncoder {
+pub struct BinEncoder<'a> {
   offset: u32,
-  buffer: Vec<u8>,
+  buffer: &'a mut Vec<u8>,
   // TODO, it would be cool to make this slices, but then the stored slice needs to live longer
   //  than the callee of store_pointer which isn't obvious right now.
   name_pointers: HashMap<Vec<Rc<String>>, u16>, // array of string, label, location in stream
 }
 
-impl BinEncoder {
-  pub fn new() -> Self {
-    Self::with_offset(0)
+impl<'a> BinEncoder<'a> {
+  pub fn new(buf: &'a mut Vec<u8>) -> Self {
+    Self::with_offset(buf, 0)
   }
 
-  pub fn with_offset(offset: u32) -> Self {
-    BinEncoder { offset: offset, buffer: Vec::with_capacity(512), name_pointers: HashMap::new() }
+  /// offset is used mainly for pointers. If this encoder is starting at some point further in
+  ///  the sequence of bytes, for the proper offset of the pointer, the offset accounts for that
+  ///  by using the offset to add to the pointer location being written.
+  pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32) -> Self {
+    BinEncoder { offset: offset, buffer: buf, name_pointers: HashMap::new() }
   }
 
-  pub fn as_bytes(self) -> Vec<u8> {
+  pub fn as_bytes(self) -> &'a Vec<u8> {
     self.buffer
   }
 
@@ -75,9 +78,12 @@ impl BinEncoder {
   /// ```
   /// use trust_dns::serialize::binary::BinEncoder;
   ///
-  /// let mut encoder: BinEncoder = BinEncoder::new();
-  /// encoder.emit_character_data("abc");
-  /// assert_eq!(encoder.as_bytes(), vec![3,b'a',b'b',b'c']);
+  /// let mut bytes: Vec<u8> = Vec::new();
+  /// {
+  ///   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+  ///   encoder.emit_character_data("abc");
+  /// }
+  /// assert_eq!(bytes, vec![3,b'a',b'b',b'c']);
   /// ```
   pub fn emit_character_data(&mut self, char_data: &str) -> EncodeResult {
     let char_bytes = char_data.as_bytes();

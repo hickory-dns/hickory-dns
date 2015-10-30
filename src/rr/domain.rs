@@ -274,30 +274,31 @@ mod tests {
 
   #[test]
   fn test_pointer() {
-    let mut e = BinEncoder::new();
+    let mut bytes: Vec<u8> = Vec::with_capacity(512);
 
     let first = Name::new().label("ra").label("rb").label("rc");
     let second = Name::new().label("rb").label("rc");
     let third = Name::new().label("rc");
     let fourth = Name::new().label("z").label("ra").label("rb").label("rc");
 
+    {
+      let mut e = BinEncoder::new(&mut bytes);
 
-    first.emit(&mut e).unwrap();
-    assert_eq!(e.len(), 10); // should be 7 u8s...
+      first.emit(&mut e).unwrap();
+      assert_eq!(e.len(), 10); // should be 7 u8s...
 
-    second.emit(&mut e).unwrap();
-    // if this wrote the entire thing, then it would be +5... but a pointer should be +2
-    assert_eq!(e.len(), 12);
+      second.emit(&mut e).unwrap();
+      // if this wrote the entire thing, then it would be +5... but a pointer should be +2
+      assert_eq!(e.len(), 12);
 
-    third.emit(&mut e).unwrap();
-    assert_eq!(e.len(), 14);
+      third.emit(&mut e).unwrap();
+      assert_eq!(e.len(), 14);
 
-    fourth.emit(&mut e).unwrap();
-    assert_eq!(e.len(), 18);
-
+      fourth.emit(&mut e).unwrap();
+      assert_eq!(e.len(), 18);
+    }
 
     // now read them back
-    let bytes = e.as_bytes();
     let mut d = BinDecoder::new(&bytes);
 
     let r_test = Name::read(&mut d).unwrap();

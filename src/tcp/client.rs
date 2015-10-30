@@ -53,32 +53,6 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
   }
 
   // send a DNS query to the name_server specified in Clint.
-  //
-  // ```
-  // use std::net::*;
-  //
-  // use trust_dns::rr::dns_class::DNSClass;
-  // use trust_dns::rr::record_type::RecordType;
-  // use trust_dns::rr::domain;
-  // use trust_dns::rr::record_data::RData;
-  // use trust_dns::udp::client::Client;
-  //
-  // let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-  // let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
-  // let response = client.query(name.clone(), DNSClass::IN, RecordType::A).unwrap();
-  //
-  // let record = &response.get_answers()[0];
-  // assert_eq!(record.get_name(), &name);
-  // assert_eq!(record.get_rr_type(), RecordType::A);
-  // assert_eq!(record.get_dns_class(), DNSClass::IN);
-  //
-  // if let &RData::A{ ref address } = record.get_rdata() {
-  //   assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-  // } else {
-  //   assert!(false);
-  // }
-  //
-  // ```
   pub fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
     // build the message
     let mut message: Message = Message::new();
@@ -158,11 +132,12 @@ impl<'a> Handler for Response<'a> {
       RESPONSE => {
         if events.is_writable() {
           // get the message bytes and send the query
-          let mut encoder = BinEncoder::new();
-          self.error = self.message.emit(&mut encoder).err().map(|o|o.into());
-          if self.error.is_some() { return }
-
-          let bytes: Vec<u8> = encoder.as_bytes();
+          let mut bytes: Vec<u8> = Vec::with_capacity(512);
+          {
+            let mut encoder = BinEncoder::new(&mut bytes);
+            self.error = self.message.emit(&mut encoder).err().map(|o|o.into());
+            if self.error.is_some() { return }
+          }
 
           debug!("writing to");
           let len: [u8; 2] = [(bytes.len() >> 8 & 0xFF) as u8, (bytes.len() & 0xFF) as u8];
@@ -190,12 +165,12 @@ impl<'a> Handler for Response<'a> {
 
           let len: u16 = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
 
-          debug!("reading {:?} bytes from: {:?}", len, self.stream);
+          debug!("reading {:?} bytes from: {:?}", len, self.stream.peer_addr());
           // use a cursor here, and seek to the write spot on each read...
           let mut buf = Vec::with_capacity(len as usize);
           match self.stream.take(len as u64).read_to_end(&mut buf) {
             Ok(got) if got != len as usize => {
-              debug!("did not read all bytes got: {} expected: {} bytes from: {:?}", got, len, self.stream);
+              debug!("did not read all bytes got: {} expected: {} bytes from: {:?}", got, len, self.stream.peer_addr());
               self.error = Some(ClientError::NotAllBytesReceived{received: got, expect: len as usize});
               return
             },

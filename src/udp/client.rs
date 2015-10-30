@@ -96,10 +96,13 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
     message.add_query(query);
 
     // get the message bytes and send the query
-    let mut encoder = BinEncoder::new();
-    try!(message.emit(&mut encoder));
+    let mut buffer: Vec<u8> = Vec::with_capacity(512);
+    {
+      let mut encoder = BinEncoder::new(&mut buffer);
+      try!(message.emit(&mut encoder));
+    }
 
-    let mut bytes =  Cursor::new(encoder.as_bytes());
+    let mut bytes = Cursor::new(buffer);
 
     let addr = try!(try!(self.name_server.to_socket_addrs()).next().ok_or(ClientError::NoNameServer));
     try!(self.socket.send_to(&mut bytes, &addr));

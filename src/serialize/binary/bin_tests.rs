@@ -122,8 +122,11 @@ where F: Fn(&mut BinEncoder, S) -> EncodeResult, S: Debug {
     test_pass += 1;
     println!("test {}: {:?}", test_pass, data);
 
-    let mut encoder = BinEncoder::new();
-    emit_func(&mut encoder, data).unwrap();
-    assert_eq!(encoder.as_bytes(), expect);
+    let mut bytes: Vec<u8> = Vec::with_capacity(512);
+    {
+      let mut encoder = BinEncoder::new(&mut bytes);
+      emit_func(&mut encoder, data).unwrap();
+    }
+    assert_eq!(bytes, expect);
   }
 }

@@ -106,10 +106,11 @@ fn test_read_and_emit() {
   let expect = Query { name: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
                        query_type: RecordType::AAAA, query_class: DNSClass::IN };
 
-  let mut encoder = BinEncoder::new();
-  expect.emit(&mut encoder).unwrap();
-
-  let byte_vec = encoder.as_bytes();
+  let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
+  {
+    let mut encoder = BinEncoder::new(&mut byte_vec);
+    expect.emit(&mut encoder).unwrap();
+  }
 
   let mut decoder = BinDecoder::new(&byte_vec);
   let got = Query::read(&mut decoder).unwrap();

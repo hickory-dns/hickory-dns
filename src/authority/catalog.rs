@@ -16,8 +16,8 @@
 // TODO, I've implemented this as a seperate entity from the cache, but I wonder if the cache
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
-use std::cell::RefCell;
 use std::collections::HashMap;
+use std::sync::RwLock;
 
 use ::rr::{Record, Name, RecordType};
 use ::authority::{Authority, ZoneType};
@@ -25,7 +25,7 @@ use ::op::*;
 
 #[derive(Debug)]
 pub struct Catalog {
-  authorities: HashMap<Name, RefCell<Authority>>,
+  authorities: HashMap<Name, RwLock<Authority>>,
 }
 
 impl Catalog {
@@ -79,7 +79,7 @@ impl Catalog {
   }
 
   pub fn upsert(&mut self, name: Name, authority: Authority) {
-    self.authorities.insert(name, RefCell::new(authority));
+    self.authorities.insert(name, RwLock::new(authority));
   }
 
   /*
@@ -138,7 +138,7 @@ impl Catalog {
     }
 
     if let Some(authority) = self.find_auth_recurse(zones[0].get_name()) {
-      let mut authority = authority.borrow_mut();
+      let mut authority = authority.write().unwrap(); // poison errors should panic...
       match authority.get_zone_type() {
         ZoneType::Slave => {
           error!("slave forwarding for update not yet implemented");
@@ -175,7 +175,7 @@ impl Catalog {
     //  we will search for each, in the future, maybe make this threaded to respond even faster.
     for query in request.get_queries() {
       if let Some((authority, records)) = self.search(query) {
-        let authority = authority.borrow();
+        let authority = authority.read().unwrap(); // poison errors should panic
         if records.is_some() {
           response.response_code(ResponseCode::NoError);
           response.authoritative(true);
@@ -208,9 +208,9 @@ impl Catalog {
     response
   }
 
-  pub fn search(&self, query: &Query) -> Option<(&RefCell<Authority>, Option<Vec<Record>>)> {
+  pub fn search(&self, query: &Query) -> Option<(&RwLock<Authority>, Option<Vec<Record>>)> {
     if let Some(ref_authority) = self.find_auth_recurse(query.get_name()) {
-      let authority = ref_authority.borrow();
+      let authority = ref_authority.read().unwrap(); // poison errors should panic
       debug!("found authority: {:?}", authority.get_origin());
 
       // if this is an AXFR zone transfer, verify that this is either the slave or master
@@ -230,7 +230,7 @@ impl Catalog {
     }
   }
 
-  fn find_auth_recurse(&self, name: &Name) -> Option<&RefCell<Authority>> {
+  fn find_auth_recurse(&self, name: &Name) -> Option<&RwLock<Authority>> {
     let authority = self.authorities.get(name);
     if authority.is_some() { return authority; }
     else if let Some(name) = name.base_name() {

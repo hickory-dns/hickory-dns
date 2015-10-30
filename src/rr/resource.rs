@@ -173,9 +173,11 @@ impl BinSerializable for Record {
 
     // gah... need to write rdata before we know the size of rdata...
     // TODO: should we skip the fixed size header and write the rdata first? then write the header?
-    let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(encoder.offset() + 2 /*for u16 len*/);
-    try!(self.rdata.emit(&mut tmp_encoder));
-    let mut tmp_buf = tmp_encoder.as_bytes();
+    let mut tmp_buf: Vec<u8> = Vec::with_capacity(512);
+    {
+      let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(&mut tmp_buf, encoder.offset() + 2 /*for u16 len*/);
+      try!(self.rdata.emit(&mut tmp_encoder));
+    }
 
     assert!(tmp_buf.len() <= u16::max_value() as usize);
 
@@ -232,10 +234,11 @@ mod tests {
     .rr_type(RecordType::A).dns_class(DNSClass::IN).ttl(5)
     .rdata(RData::A { address: Ipv4Addr::new(192, 168, 0, 1)});
 
-    let mut encoder = BinEncoder::new();
-    record.emit(&mut encoder).unwrap();
-
-    let vec_bytes = encoder.as_bytes();
+    let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
+    {
+      let mut encoder = BinEncoder::new(&mut vec_bytes);
+      record.emit(&mut encoder).unwrap();
+    }
 
     let mut decoder = BinDecoder::new(&vec_bytes);
 

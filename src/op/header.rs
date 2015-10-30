@@ -276,8 +276,11 @@ fn test_write() {
                              0x44, 0x33,
                              0x22, 0x11];
 
-  let mut encoder = BinEncoder::new();
-  header.emit(&mut encoder).unwrap();
-
-  assert_eq!(encoder.as_bytes(), expect);
+  let mut bytes = Vec::with_capacity(512);
+  {
+    let mut encoder = BinEncoder::new(&mut bytes);
+    header.emit(&mut encoder).unwrap();
+  }
+  
+  assert_eq!(bytes, expect);
 }

@@ -259,10 +259,11 @@ fn test_emit_and_read_records() {
 
 #[cfg(test)]
 fn test_emit_and_read(message: Message) {
-  let mut encoder = BinEncoder::new();
-  message.emit(&mut encoder).unwrap();
-
-  let byte_vec = encoder.as_bytes();
+  let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
+  {
+    let mut encoder = BinEncoder::new(&mut byte_vec);
+    message.emit(&mut encoder).unwrap();
+  }
 
   let mut decoder = BinDecoder::new(&byte_vec);
   let got = Message::read(&mut decoder).unwrap();
@@ -296,10 +297,12 @@ fn test_legit_message() {
 
   assert_eq!(message.get_id(), 4096);
 
-  let mut encoder = BinEncoder::new();
-  message.emit(&mut encoder).unwrap();
-
-  let buf = encoder.as_bytes();
+  let mut buf: Vec<u8> = Vec::with_capacity(512);
+  {
+    let mut encoder = BinEncoder::new(&mut buf);
+    message.emit(&mut encoder).unwrap();
+  }
+  
   let mut decoder = BinDecoder::new(&buf);
   let message = Message::read(&mut decoder).unwrap();
 
