@@ -41,7 +41,6 @@ impl TcpHandler {
       let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
       message.emit(&mut encoder).unwrap(); // coding error if this panics (i think?)
     }
-    bytes.reverse();
 
     Self::new(TcpType::Client, TcpState::WillWriteLength, bytes, stream, catalog)
   }
@@ -78,7 +77,6 @@ impl TcpHandler {
   ///  handler should be put back into the event loop for more processing.
   pub fn handle_message(&mut self, events: EventSet) -> io::Result<TcpState> {
     // This will loop forever, or until the transaction is done.
-    debug!("handling request events: {:?}", events);
     loop {
       self.state = match self.state {
         TcpState::WillReadLength => {
@@ -93,7 +91,6 @@ impl TcpHandler {
 
             let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
 
-            debug!("WillReadLength: {}", length);
             self.buffer = Vec::with_capacity(length as usize);
             TcpState::WillRead{ length: length } // TODO clean up state change with param...
           } else {
