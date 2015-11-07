@@ -180,7 +180,7 @@ impl Header {
   }
 }
 
-impl BinSerializable for Header {
+impl BinSerializable<Header> for Header {
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     let id = try!(decoder.read_u16());
 
@@ -281,6 +281,6 @@ fn test_write() {
     let mut encoder = BinEncoder::new(&mut bytes);
     header.emit(&mut encoder).unwrap();
   }
-  
+
   assert_eq!(bytes, expect);
 }

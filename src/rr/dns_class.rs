@@ -68,7 +68,7 @@ impl DNSClass {
   }
 }
 
-impl BinSerializable for DNSClass {
+impl BinSerializable<DNSClass> for DNSClass {
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     Self::from_u16(try!(decoder.read_u16()))
   }

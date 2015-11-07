@@ -106,7 +106,7 @@ impl Name {
   }
 }
 
-impl BinSerializable for Name {
+impl BinSerializable<Name> for Name {
   /// parses the chain of labels
   ///  this has a max of 255 octets, with each label being less than 63.
   ///  all names will be stored lowercase internally.
@@ -225,7 +225,7 @@ impl BinSerializable for Name {
 impl fmt::Display for Name {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     for label in &*self.labels {
-      write!(f, "{}.", *label);
+      write!(f, "{}.", label);
     }
     Ok(())
   }

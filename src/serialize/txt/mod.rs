@@ -13,18 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use ::error::ParseResult;
-
 mod master_lex;
 mod master;
 
 pub use self::master::Parser;
 pub use self::master_lex::Lexer;
 pub use self::master_lex::Token;
-
-pub trait TxtSerializable {
-  fn parse(lexer: &mut Lexer) -> ParseResult<Self>;
-}
 
 #[cfg(test)]
 mod txt_tests;

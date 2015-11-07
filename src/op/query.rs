@@ -83,7 +83,7 @@ impl Query {
 
 }
 
-impl BinSerializable for Query {
+impl BinSerializable<Query> for Query {
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     let name = try!(Name::read(decoder));
     let query_type = try!(RecordType::read(decoder));

@@ -239,7 +239,7 @@ impl Handler for Server {
     // check if we need to remove something
     match remove {
       Some(RemoveFrom::TcpHandlers(t)) => { self.tcp_handlers.remove(&t); },
-      Some(RemoveFrom::UdpRequests(t)) => { self.udp_requests.remove(&t); },
+      //Some(RemoveFrom::UdpRequests(t)) => { self.udp_requests.remove(&t); },
       None => (),
     }
   }
@@ -253,7 +253,7 @@ impl Handler for Server {
 
 enum RemoveFrom {
   TcpHandlers(Token),
-  UdpRequests(Token),
+  //UdpRequests(Token),
 }
 
 #[cfg(test)]

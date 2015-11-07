@@ -119,7 +119,7 @@ impl RecordType {
   }
 }
 
-impl BinSerializable for RecordType {
+impl BinSerializable<RecordType> for RecordType {
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     Self::from_u16(try!(decoder.read_u16()))
   }

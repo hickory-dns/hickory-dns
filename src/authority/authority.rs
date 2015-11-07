@@ -33,6 +33,7 @@ impl Authority {
     Authority{ origin: origin, records: records, zone_type: zone_type, allow_update: allow_update}
   }
 
+  #[cfg(test)]
   fn set_allow_update(&mut self, allow_update: bool) {
     self.allow_update = allow_update;
   }

@@ -13,14 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::SocketAddr;
 use std::io;
 use std::io::Cursor;
-use std::fmt::Debug;
 use std::sync::Arc;
 
 use mio::udp::UdpSocket;
-use mio::{Token, EventLoop, Handler, EventSet, PollOpt }; // not * b/c don't want confusion with std::net
+use mio::EventSet; // not * b/c don't want confusion with std::net
 
 use ::authority::Catalog;
 use ::op::*;
@@ -29,7 +28,6 @@ use ::serialize::binary::*;
 pub struct UdpHandler {
   state: UdpState,
   addr: SocketAddr,
-  catalog: Option<Arc<Catalog>>,
   message: Message,
   buffer: Vec<u8>,
 }
@@ -42,7 +40,7 @@ impl UdpHandler {
       request.emit(&mut encoder).unwrap(); // coding error if this panics (i think?)
     }
 
-    UdpHandler{ state: UdpState::Writing, addr: server_addr, catalog: None, message: request, buffer: bytes}
+    UdpHandler{ state: UdpState::Writing, addr: server_addr, message: request, buffer: bytes}
   }
 
   pub fn new_server(socket: &UdpSocket, catalog: Arc<Catalog>) -> Option<Self> {
@@ -66,7 +64,7 @@ impl UdpHandler {
         };
 
         let buf = Self::serialize_msg(buf, &response);
-        Some(UdpHandler{ state: UdpState::Writing, addr: addr, catalog: Some(catalog), message: response, buffer: buf})
+        Some(UdpHandler{ state: UdpState::Writing, addr: addr, message: response, buffer: buf})
       },
       Err(e) => {
         warn!("error recieving on socket {:?}: {}", socket, e);

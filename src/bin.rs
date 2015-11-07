@@ -21,10 +21,11 @@ extern crate mio;
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
-use std::net::Ipv4Addr;
-use std::net::{SocketAddr, ToSocketAddrs};
+use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::ToSocketAddrs;
 
 use mio::tcp::TcpListener;
+use mio::udp::UdpSocket;
 use log::LogLevel;
 use docopt::Docopt;
 
@@ -105,17 +106,36 @@ pub fn main() {
   debug!("catalog: {:?}", catalog);
 
   // TODO support all the IPs asked to listen on...
-  let listen_addr: Ipv4Addr = *config.get_listen_addrs_ipv4().first().unwrap_or(&Ipv4Addr::new(0,0,0,0));
+  let listen_addr_v4: Ipv4Addr = *config.get_listen_addrs_ipv4().first().unwrap_or(&Ipv4Addr::new(0,0,0,0));
+  let listen_addr_v6: Ipv6Addr = *config.get_listen_addrs_ipv6().first().unwrap_or(&Ipv6Addr::new(0,0,0,0, 0,0,0,0));
   let listen_port: u16 = args.flag_port.unwrap_or(config.get_listen_port());
-  let addr = (listen_addr, listen_port).to_socket_addrs().unwrap().next().unwrap();
 
-  let tcp_listener: TcpListener = TcpListener::bind(&addr).unwrap();
+  let addr_v4 = (listen_addr_v4, listen_port).to_socket_addrs().unwrap().next().unwrap();
+  let addr_v6 = (listen_addr_v6, listen_port).to_socket_addrs().unwrap().next().unwrap();
+
+  let udp_sockets: Vec<UdpSocket> = vec![UdpSocket::bound(&addr_v4).unwrap(),
+                                         UdpSocket::bound(&addr_v6).unwrap()];
+  let tcp_listeners: Vec<TcpListener> = vec![TcpListener::bind(&addr_v4).unwrap(),
+                                             TcpListener::bind(&addr_v6).unwrap()];
+
 
   // now, run the server, based on the config
-  info!("listening on {}:{}", listen_addr, listen_port);
-
   let mut server = Server::new(catalog);
-  server.register_listener(tcp_listener);
+
+  for udp_socket in udp_sockets {
+    info!("listening for UDP on {:?}", udp_socket);
+    server.register_socket(udp_socket);
+  }
+
+  for tcp_listener in tcp_listeners {
+    info!("listening for TCP on {:?}", tcp_listener);
+    server.register_listener(tcp_listener);
+
+  }
+
+  if let Err(e) = server.listen() {
+    error!("failed to listen: {}", e);
+  }
 
   //let mut server = Server::new((listen_addr, listen_port), catalog).unwrap();
   //server.listen().unwrap();

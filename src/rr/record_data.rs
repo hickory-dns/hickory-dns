@@ -345,7 +345,7 @@ impl RData {
   }
 }
 
-impl BinSerializable for RData {
+impl BinSerializable<RData> for RData {
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     match try!(decoder.record_type().ok_or(DecodeError::NoRecordDataType)) {
       RecordType::CNAME => rdata::cname::read(decoder),

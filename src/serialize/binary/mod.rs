@@ -24,7 +24,7 @@ pub mod bin_tests;
 
 use ::error::*;
 
-pub trait BinSerializable {
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<Self>;
+pub trait BinSerializable<S: Sized> {
+  fn read(decoder: &mut BinDecoder) -> DecodeResult<S>;
   fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult;
 }

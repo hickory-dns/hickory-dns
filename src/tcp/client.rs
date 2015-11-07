@@ -114,7 +114,8 @@ struct Response<'a> {
 }
 
 enum ClientState {
-  WillWrite, WillRead,
+  WillWrite,
+  //WillRead,
 }
 
 impl<'a> Response<'a> {

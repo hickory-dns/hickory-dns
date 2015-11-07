@@ -182,7 +182,7 @@ impl UpdateMessage for Message {
   fn get_additional(&self) -> &[Record] { self.get_additional() }
 }
 
-impl BinSerializable for Message {
+impl BinSerializable<Message> for Message {
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     let header = try!(Header::read(decoder));
 
@@ -302,7 +302,7 @@ fn test_legit_message() {
     let mut encoder = BinEncoder::new(&mut buf);
     message.emit(&mut encoder).unwrap();
   }
-  
+
   let mut decoder = BinDecoder::new(&buf);
   let message = Message::read(&mut decoder).unwrap();
 

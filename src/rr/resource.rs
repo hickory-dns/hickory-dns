@@ -119,7 +119,7 @@ impl Record {
   pub fn get_rdata(&self) -> &RData { &self.rdata }
 }
 
-impl BinSerializable for Record {
+impl BinSerializable<Record> for Record {
   /// parse a resource record line example:
   ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Record> {
