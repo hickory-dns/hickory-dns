@@ -32,6 +32,8 @@ ALIAS   CNAME   A
 103.0.3.26.IN-ADDR.ARPA.   PTR A
 b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.1.2.3.4.IP6.ARPA. PTR AAAA
 
+_ldap._tcp.SERVICE SRV 1 2 3 SHORT
+
 SHORT 70 A      26.3.0.104
 VENERA  A       10.1.0.52
       A       128.9.0.32");
@@ -168,5 +170,16 @@ VENERA  A       10.1.0.52
     assert_eq!(&Name::new().label("a").label("isi").label("edu"), ptrdname);
   } else {
     panic!("Not a PTR record!!!")
+  }
+
+  // SRV
+  let srv_record: Record = authority.lookup(&Name::new().label("_ldap").label("_tcp").label("service").label("isi").label("edu"), RecordType::SRV, DNSClass::IN).unwrap().first().cloned().unwrap();
+  if let RData::SRV{ priority, weight, port, ref target } = *srv_record.get_rdata() {
+    assert_eq!(priority, 1);
+    assert_eq!(weight, 2);
+    assert_eq!(port, 3);
+    assert_eq!(&Name::new().label("short").label("isi").label("edu"), target);
+  } else {
+    panic!("Not an SRV record!!!")
   }
 }

@@ -54,7 +54,7 @@ pub enum RecordType {
   //  RP,         //	17	RFC 1183	Responsible person
   //  SIG,        //	24	RFC 2535	Signature
     SOA,        //	6	RFC 1035[1] and RFC 2308[9]	Start of [a zone of] authority record
-  //  SRV,        //	33	RFC 2782	Service locator
+    SRV,        //	33	RFC 2782	Service locator
   //  SSHFP,      //	44	RFC 4255	SSH Public Key Fingerprint
   //  TA,         //	32768	N/A	DNSSEC Trust Authorities
   //  TKEY,       //	249	RFC 2930	Secret key record
@@ -86,6 +86,7 @@ impl RecordType {
       "NS" => Ok(RecordType::NS),
       "PTR" => Ok(RecordType::PTR),
       "SOA" => Ok(RecordType::SOA),
+      "SRV" => Ok(RecordType::SRV),
       "TXT" => Ok(RecordType::TXT),
       "ANY" | "*" => Ok(RecordType::ANY),
       "AXFR" => Ok(RecordType::AXFR),
@@ -111,6 +112,7 @@ impl RecordType {
       2 => Ok(RecordType::NS),
       12 => Ok(RecordType::PTR),
       6 => Ok(RecordType::SOA),
+      33 => Ok(RecordType::SRV),
       16 => Ok(RecordType::TXT),
       255 => Ok(RecordType::ANY),
       252 => Ok(RecordType::AXFR),
@@ -156,6 +158,7 @@ impl From<RecordType> for &'static str {
       RecordType::NS => "NS",
       RecordType::PTR => "PTR",
       RecordType::SOA => "SOA",
+      RecordType::SRV => "SRV",
       RecordType::TXT => "TXT",
       RecordType::ANY => "ANY",
       RecordType::AXFR => "AXFR",
@@ -184,6 +187,7 @@ impl From<RecordType> for u16 {
       RecordType::NS => 2,
       RecordType::PTR => 12,
       RecordType::SOA => 6,
+      RecordType::SRV => 33,
       RecordType::TXT => 16,
       RecordType::ANY => 255,
       RecordType::AXFR => 252,

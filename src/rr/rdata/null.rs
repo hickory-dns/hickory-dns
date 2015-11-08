@@ -34,6 +34,7 @@ use ::rr::record_data::RData;
 //
 // NULL { anything: Vec<u8> },
 // TODO: length should be stored in the decoder, and guaranteed everywhere, right?
+// TODO: use this for unknown record types in caching...
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
   let length = try!(decoder.rdata_length().ok_or(DecodeError::NoRecordDataLength));
   let mut anything: Vec<u8> = Vec::with_capacity(length as usize);

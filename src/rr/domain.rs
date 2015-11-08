@@ -22,6 +22,7 @@ use ::error::*;
 
 /// TODO: all Names should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
+/// TODO: Currently this probably doesn't support binary names, it would be nice to do that.
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
 pub struct Name {
   labels: Rc<Vec<Rc<String>>>

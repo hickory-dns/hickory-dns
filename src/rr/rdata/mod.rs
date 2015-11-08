@@ -23,6 +23,7 @@ pub mod null;
 pub mod ns;
 pub mod ptr;
 pub mod soa;
+pub mod srv;
 pub mod txt;
 pub mod a;
 pub mod aaaa;

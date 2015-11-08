@@ -240,6 +240,13 @@ pub enum RData {
   // change the SOA RR with known semantics.
   SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
 
+  // RFC 2782                       DNS SRV RR                  February 2000
+  //
+  // The format of the SRV RR
+  //
+  //  _Service._Proto.Name TTL Class SRV Priority Weight Port Target
+  SRV { priority: u16, weight: u16, port: u16, target: Name, },
+
   // 3.3.14. TXT RDATA format
   //
   //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -337,6 +344,7 @@ impl RData {
       RecordType::NS => rdata::ns::parse(tokens, origin),
       RecordType::PTR => rdata::ptr::parse(tokens, origin),
       RecordType::SOA => rdata::soa::parse(tokens, origin),
+      RecordType::SRV => rdata::srv::parse(tokens, origin),
       RecordType::TXT => rdata::txt::parse(tokens),
       RecordType::A => rdata::a::parse(tokens),
       RecordType::AAAA => rdata::aaaa::parse(tokens),
@@ -354,6 +362,7 @@ impl BinSerializable<RData> for RData {
       RecordType::NS => rdata::ns::read(decoder),
       RecordType::PTR => rdata::ptr::read(decoder),
       RecordType::SOA => rdata::soa::read(decoder),
+      RecordType::SRV => rdata::srv::read(decoder),
       RecordType::TXT => rdata::txt::read(decoder),
       RecordType::A => rdata::a::read(decoder),
       RecordType::AAAA => rdata::aaaa::read(decoder),
@@ -369,6 +378,7 @@ impl BinSerializable<RData> for RData {
       RData::NS{..} => rdata::ns::emit(encoder, self),
       RData::PTR{..} => rdata::ptr::emit(encoder, self),
       RData::SOA{..} => rdata::soa::emit(encoder, self),
+      RData::SRV{..} => rdata::srv::emit(encoder, self),
       RData::TXT{..} => rdata::txt::emit(encoder, self),
       RData::A{..} => rdata::a::emit(encoder, self),
       RData::AAAA{..} => rdata::aaaa::emit(encoder, self),
@@ -385,6 +395,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::NS{..} => RecordType::NS,
       RData::PTR{..} => RecordType::PTR,
       RData::SOA{..} => RecordType::SOA,
+      RData::SRV{..} => RecordType::SRV,
       RData::TXT{..} => RecordType::TXT,
       RData::A{..} => RecordType::A,
       RData::AAAA{..} => RecordType::AAAA,
@@ -423,7 +434,8 @@ mod tests {
     (RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
     vec![6,b'a',b'b',b'c',b'd',b'e',b'f', 3,b'g',b'h',b'i', 0, 1,b'j']),
     (RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()}, vec![0,0,0,0]),
-    (RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0])
+    (RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]),
+    (RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),}, vec![0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
     ]
   }
 

@@ -212,7 +212,7 @@ pub enum State {
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
   Blank,             // only if the first part of the line
-  List(Vec<String>), // (..)
+  List(Vec<String>), // (..) TODO, this is probably wrong, List maybe should just skip line endings
   CharData(String),  // [a-zA-Z, non-control utf8, ., -, 0-9]+, ".*"
   At,                // @
   Include,           // $INCLUDE
