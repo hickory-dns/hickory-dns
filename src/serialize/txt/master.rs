@@ -273,6 +273,8 @@ impl Parser {
                 },
               }
 
+              // TODO validate record, e.g. the name of SRV record allows _ but others do not.
+
               // move the rdata into record...
               record.rdata(rdata);
 
