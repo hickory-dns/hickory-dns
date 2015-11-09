@@ -328,6 +328,7 @@ mod server_tests {
   }
 
   #[test]
+  #[cfg(feature = "ftest")]
   fn test_server_www_tcp() {
     let example = create_example();
     let origin = example.get_origin().clone();
