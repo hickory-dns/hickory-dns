@@ -35,8 +35,8 @@ pub enum RecordType {
   //  DHCID,      //	49	RFC 4701	DHCP identifier
   //  DLV,        //	32769	RFC 4431	DNSSEC Lookaside Validation record
   //  DNAME,      //	39	RFC 2672	Delegation Name
-  //  DNSKEY,     //	48	RFC 4034	DNS Key record
-  //  DS,         //	43	RFC 4034	Delegation signer
+    DNSKEY,     //	48	RFC 4034	DNS Key record: RSASHA256 and RSASHA512, RFC5702
+    DS,         //	43	RFC 4034	Delegation signer: RSASHA256 and RSASHA512, RFC5702
   //  HIP,        //	55	RFC 5205	Host Identity Protocol
   //  IPSECKEY,   //	45	RFC 4025	IPsec Key
   //  KEY,        //	25	RFC 2535[3] and RFC 2930[4]	Key record
@@ -47,12 +47,12 @@ pub enum RecordType {
     NS,         //	2	RFC 1035[1]	Name server record
     NULL,         //	0	RFC 1035[1]	Null server record, for testing
   //  NSEC,       //	47	RFC 4034	Next-Secure record
-  //  NSEC3,      //	50	RFC 5155	NSEC record version 3
+    NSEC3,      //	50	RFC 5155	NSEC record version 3
   //  NSEC3PARAM, //	51	RFC 5155	NSEC3 parameters
     PTR,        //	12	RFC 1035[1]	Pointer record
-  //  RRSIG,      //	46	RFC 4034	DNSSEC signature
+    RRSIG,      //	46	RFC 4034	DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
   //  RP,         //	17	RFC 1183	Responsible person
-  //  SIG,        //	24	RFC 2535	Signature
+    SIG,        //	24	RFC 2535 (2931)	Signature, to support 2137 Update
     SOA,        //	6	RFC 1035[1] and RFC 2308[9]	Start of [a zone of] authority record
     SRV,        //	33	RFC 2782	Service locator
   //  SSHFP,      //	44	RFC 4255	SSH Public Key Fingerprint

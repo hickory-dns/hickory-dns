@@ -248,7 +248,9 @@ impl Authority {
    *                if (local option)
    *                     return (REFUSED)
    */
-  fn authorize(&self) -> UpdateResult<()> {
+  fn authorize(&self/*, update_message: &UpdateMessage*/) -> UpdateResult<()> {
+    //
+
     if !self.allow_update {
       warn!("update attempted on non-updatable Authority: {}", self.origin);
       Err(ResponseCode::Refused)

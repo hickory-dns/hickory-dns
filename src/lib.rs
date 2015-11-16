@@ -18,6 +18,7 @@ extern crate mio;
 extern crate toml;
 extern crate rustc_serialize;
 extern crate chrono;
+extern crate openssl;
 
 pub mod logger;
 pub mod rr;

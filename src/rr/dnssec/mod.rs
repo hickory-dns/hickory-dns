@@ -13,18 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+mod algorithm;
 
-// TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
-//  and also a little more ergonomic when accessing.
-// each of these module's has the parser for that rdata embedded, to keep the file sizes down...
-pub mod a;
-pub mod aaaa;
-pub mod cname;
-pub mod mx;
-pub mod null;
-pub mod ns;
-pub mod ptr;
-pub mod sig;
-pub mod soa;
-pub mod srv;
-pub mod txt;
+pub use self::algorithm::Algorithm;

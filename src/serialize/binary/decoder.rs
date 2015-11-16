@@ -84,13 +84,24 @@ impl<'a> BinDecoder<'a> {
     let length: u8 = try!(self.pop());
 
     // TODO once Drain stabalizes on Vec, this should be replaced...
-    let mut label_vec: Vec<u8> = Vec::with_capacity(length as usize);
-    for _ in 0..length as usize {
-      label_vec.push(try!(self.pop()))
-    }
+    let mut label_vec: Vec<u8> = try!(self.read_vec(length as usize));
 
     // translate bytes to string, then lowercase...
     Ok(try!(String::from_utf8(label_vec)).to_lowercase())
+  }
+
+  pub fn read_vec(&mut self, len: usize) -> DecodeResult<Vec<u8>> {
+    // TODO once Drain stabalizes on Vec, this should be replaced...
+    let mut vec: Vec<u8> = Vec::with_capacity(len);
+    for _ in 0..len as usize {
+      vec.push(try!(self.pop()))
+    }
+
+    Ok(vec)
+  }
+
+  pub fn read_u8(&mut self) -> DecodeResult<u8> {
+    self.pop()
   }
 
   /// parses the next 2 bytes into u16. This performs a byte-by-byte manipulation, there

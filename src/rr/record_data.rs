@@ -19,6 +19,7 @@ use std::convert::From;
 use ::error::*;
 use ::serialize::binary::*;
 use ::serialize::txt::*;
+use ::rr::dnssec::Algorithm;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
@@ -173,6 +174,30 @@ pub enum RData {
   // similar to that performed by CNAME, which identifies aliases.  See the
   // description of the IN-ADDR.ARPA domain for an example.
   PTR { ptrdname: Name },
+
+  // RFC 2535 & 2931   DNS Security Extensions               March 1999
+  //
+  // 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  // 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  // |        type covered           |  algorithm    |     labels    |
+  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  // |                         original TTL                          |
+  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  // |                      signature expiration                     |
+  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  // |                      signature inception                      |
+  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  // |            key  tag           |                               |
+  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+         signer's name         +
+  // |                                                               /
+  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-/
+  // /                                                               /
+  // /                            signature                          /
+  // /                                                               /
+  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  SIG { type_covered: u16, algorithm: Algorithm, num_labels: u8, original_ttl: u32,
+        sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name, sig: Vec<u8> },
 
   // 3.3.13. SOA RDATA format
   //

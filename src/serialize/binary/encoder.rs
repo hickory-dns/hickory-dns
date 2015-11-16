@@ -147,4 +147,14 @@ impl<'a> BinEncoder<'a> {
 
     Ok(())
   }
+
+  pub fn emit_vec(&mut self, data: &[u8]) -> EncodeResult {
+    self.buffer.reserve(data.len());
+
+    for i in data {
+      try!(self.emit(*i));
+    }
+
+    Ok(())
+  }
 }
