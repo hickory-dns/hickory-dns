@@ -70,6 +70,15 @@ presume that the trust-dns repos have already been synced to the local system:
     $ git clone https://github.com/bluejekyll/trust-dns.git
     $ cd trust-dns
 
+## Prerequisites
+
+-   openssl development libraries are necessary
+
+    Mac OS X: using homebrew
+
+        $ brew install openssl
+        $ brew link --force openssl
+
 ## Testing
 
 -   Unit tests

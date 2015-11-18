@@ -16,6 +16,8 @@
 use std::ops::Index;
 use std::sync::Arc as Rc;
 use std::fmt;
+use std::cmp::Ordering;
+use std::char;
 
 use ::serialize::binary::*;
 use ::error::*;
@@ -23,7 +25,7 @@ use ::error::*;
 /// TODO: all Names should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 /// TODO: Currently this probably doesn't support binary names, it would be nice to do that.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Ord, Clone, Hash)]
 pub struct Name {
   labels: Rc<Vec<Rc<String>>>
 }
@@ -89,22 +91,71 @@ impl Name {
 
   // TODO: I think this does the wrong thing for escaped data
   pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {
-    let mut build = Name::new();
+    let mut name = Name::new();
+    let mut label = String::new();
     // split the local part
 
-    // TODO: this should be a real lexer, to varify all data is legal name...
-    for s in local.split('.') {
-      if s.len() > 0 {
-        build.add_label(Rc::new(s.to_string().to_lowercase())); // all names stored in lowercase
+    let mut state = ParseState::Label;
+
+    for ch in local.chars() {
+      match state {
+        ParseState::Label => {
+          match ch {
+            '.' => {
+              name.add_label(Rc::new(label.clone()));
+              label.clear();
+            },
+            '\\' => state = ParseState::Escape1,
+            ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch.to_lowercase().next().unwrap_or(ch)),
+            _ => return Err(ParseError::LexerError(LexerError::UnrecognizedChar(ch))),
+          }
+        },
+        ParseState::Escape1 => {
+          if ch.is_numeric() { state = ParseState::Escape2(try!(ch.to_digit(10).ok_or(LexerError::IllegalCharacter(ch)))) }
+          else {
+            // it's a single escaped char
+            label.push(ch);
+            state = ParseState::Label;
+          }
+        },
+        ParseState::Escape2(i) => {
+          if ch.is_numeric() {
+            state = ParseState::Escape3(i, try!(ch.to_digit(10).ok_or(LexerError::IllegalCharacter(ch))));
+          } else { return Err(ParseError::LexerError(LexerError::UnrecognizedChar(ch))) }
+        },
+        ParseState::Escape3(i, ii) => {
+          if ch.is_numeric() {
+            let val: u32 = (i << 16) + (ii << 8) + try!(ch.to_digit(10).ok_or(LexerError::IllegalCharacter(ch)));
+            let new: char = try!(char::from_u32(val).ok_or(ParseError::LexerError(LexerError::UnrecognizedOctet(val))));
+            label.push(new.to_lowercase().next().unwrap_or(new));
+            state = ParseState::Label;
+          } else { return Err(ParseError::LexerError(LexerError::UnrecognizedChar(ch))) }
+        },
       }
     }
 
+    if !label.is_empty() { name.add_label(Rc::new(label)); }
+
+    // TODO: this should be a real lexer, to varify all data is legal name...
+    // for s in local.split('.') {
+    //   if s.len() > 0 {
+    //     build.add_label(Rc::new(s.to_string().to_lowercase())); // all names stored in lowercase
+    //   }
+    // }
+
     if !local.ends_with('.') {
-      build.append(try!(origin.ok_or(ParseError::OriginIsUndefined)));
+      name.append(try!(origin.ok_or(ParseError::OriginIsUndefined)));
     }
 
-    Ok(build)
+    Ok(name)
   }
+}
+
+enum ParseState {
+  Label,
+  Escape1,
+  Escape2(u32),
+  Escape3(u32,u32),
 }
 
 impl BinSerializable<Name> for Name {
@@ -240,6 +291,61 @@ impl Index<usize> for Name {
     }
 }
 
+impl PartialOrd<Name> for Name {
+  // RFC 4034                DNSSEC Resource Records               March 2005
+  //
+  // 6.1.  Canonical DNS Name Order
+  //
+  //  For the purposes of DNS security, owner names are ordered by treating
+  //  individual labels as unsigned left-justified octet strings.  The
+  //  absence of a octet sorts before a zero value octet, and uppercase
+  //  US-ASCII letters are treated as if they were lowercase US-ASCII
+  //  letters.
+  //
+  //  To compute the canonical ordering of a set of DNS names, start by
+  //  sorting the names according to their most significant (rightmost)
+  //  labels.  For names in which the most significant label is identical,
+  //  continue sorting according to their next most significant label, and
+  //  so forth.
+  //
+  //  For example, the following names are sorted in canonical DNS name
+  //  order.  The most significant label is "example".  At this level,
+  //  "example" sorts first, followed by names ending in "a.example", then
+  //  by names ending "z.example".  The names within each level are sorted
+  //  in the same way.
+  //
+  //            example
+  //            a.example
+  //            yljkjljk.a.example
+  //            Z.a.example
+  //            zABC.a.EXAMPLE
+  //            z.example
+  //            \001.z.example
+  //            *.z.example
+  //            \200.z.example
+  fn partial_cmp(&self, other: &Name) -> Option<Ordering> {
+    if self.labels.is_empty() && other.labels.is_empty() { return Some(Ordering::Equal) }
+
+    let mut self_labels: Vec<_> = (*self.labels).clone();
+    let mut other_labels: Vec<_> = (*other.labels).clone();
+
+    self_labels.reverse();
+    other_labels.reverse();
+
+    for (l, r) in self_labels.iter().zip(other_labels.iter()) {
+      info!("l: {} r: {}", l, r);
+      match l.partial_cmp(r) {
+        o @ Some(Ordering::Less) | o @ Some(Ordering::Greater) => return o,
+        Some(Ordering::Equal) => continue,
+        None => panic!("strings not comparable? l: {}, r: {}", l, r),
+      }
+    }
+
+    info!("equal and bailed");
+    self.labels.len().partial_cmp(&other.labels.len())
+  }
+}
+
 /// This is the list of states for the label parsing state machine
 enum LabelParseState {
   LabelLengthOrPointer, // basically the start of the FSM
@@ -253,6 +359,7 @@ mod tests {
   use super::*;
   use ::serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
   use ::serialize::binary::*;
+  use std::cmp::Ordering;
 
   fn get_data() -> Vec<(Name, Vec<u8>)> {
     vec![
@@ -324,5 +431,38 @@ mod tests {
     assert!(zone.zone_of(&zone));
     assert!(zone.zone_of(&www));
     assert!(!zone.zone_of(&none))
+  }
+
+  #[test]
+  fn test_partial_cmp_eq() {
+    let root = Some(Name::with_labels(vec![]));
+    let comparisons:Vec<(Name, Name)> = vec![
+     (root.clone().unwrap(), root.clone().unwrap()),
+     (Name::parse("example", root.as_ref()).unwrap(), Name::parse("example", root.as_ref()).unwrap()),
+     ];
+
+    for (left, right) in comparisons {
+      println!("left: {}, right: {}", left, right);
+      assert_eq!(left.partial_cmp(&right), Some(Ordering::Equal));
+     }
+  }
+
+  #[test]
+  fn test_partial_cmp() {
+    let root = Some(Name::with_labels(vec![]));
+    let comparisons:Vec<(Name, Name)> = vec![
+     (Name::parse("example", root.as_ref()).unwrap(), Name::parse("a.example", root.as_ref()).unwrap()),
+     (Name::parse("a.example", root.as_ref()).unwrap(), Name::parse("yljkjljk.a.example", root.as_ref()).unwrap()),
+     (Name::parse("yljkjljk.a.example", root.as_ref()).unwrap(), Name::parse("Z.a.example", root.as_ref()).unwrap()),
+     (Name::parse("Z.a.example", root.as_ref()).unwrap(), Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap()),
+     (Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap(), Name::parse("z.example", root.as_ref()).unwrap()),
+     (Name::parse("z.example", root.as_ref()).unwrap(), Name::parse("\\001.z.example", root.as_ref()).unwrap()),
+     (Name::parse("\\001.z.example", root.as_ref()).unwrap(), Name::parse("*.z.example", root.as_ref()).unwrap()),
+     (Name::parse("*.z.example", root.as_ref()).unwrap(), Name::parse("\\200.z.example", root.as_ref()).unwrap())];
+
+    for (left, right) in comparisons {
+      println!("left: {}, right: {}", left, right);
+      assert_eq!(left.partial_cmp(&right), Some(Ordering::Less));
+     }
   }
 }
