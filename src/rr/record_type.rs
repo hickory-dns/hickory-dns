@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- use std::convert::From;
+use std::convert::From;
+use std::cmp::Ordering;
 
 use ::serialize::binary::*;
 use ::error::*;
 
 type FromResult = Result<RecordType, DecodeError>;
 
-#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Ord, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {
     A,          //	1	RFC 1035[1]	IPv4 Address record
@@ -193,5 +194,11 @@ impl From<RecordType> for u16 {
       RecordType::AXFR => 252,
       _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned...
     }
+  }
+}
+
+impl PartialOrd<RecordType> for RecordType {
+  fn partial_cmp(&self, other: &RecordType) -> Option<Ordering> {
+    u16::from(*self).partial_cmp(&u16::from(*other))
   }
 }

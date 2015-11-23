@@ -15,6 +15,7 @@
  */
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::convert::From;
+use std::cmp::Ordering;
 
 use ::error::*;
 use ::serialize::binary::*;
@@ -38,7 +39,7 @@ use super::rdata;
 // is treated as binary information, and can be up to 256 characters in
 // length (including the length octet).
 //
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Ord, Hash, Clone)]
 pub enum RData {
   //-- RFC 1035 -- Domain Implementation and Specification    November 1987
 
@@ -72,28 +73,6 @@ pub enum RData {
   // choose to restart the query at the canonical name in certain cases.  See
   // the description of name server logic in [RFC-1034] for details.
   CNAME { cname: Name },
-
-  // 3.3.2. HINFO RDATA format
-  //
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     /                      CPU                      /
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     /                       OS                      /
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //
-  // where:
-  //
-  // CPU             A <character-string> which specifies the CPU type.
-  //
-  // OS              A <character-string> which specifies the operating
-  //                 system type.
-  //
-  // Standard values for CPU and OS can be found in [RFC-1010].
-  //
-  // HINFO records are used to acquire general information about a host.  The
-  // main use is for protocols such as FTP that can use special procedures
-  // when talking between machines or operating systems of the same type.
-  HINFO { cpu: String, os: String},
 
   // 3.3.9. MX RDATA format
   //
@@ -307,50 +286,6 @@ pub enum RData {
   // "10.2.0.52" or "192.0.5.6").
   A { address: Ipv4Addr },
 
-  // 3.4.2. WKS RDATA format
-  //
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     |                    ADDRESS                    |
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     |       PROTOCOL        |                       |
-  //     +--+--+--+--+--+--+--+--+                       |
-  //     |                                               |
-  //     /                   <BIT MAP>                   /
-  //     /                                               /
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //
-  // where:
-  //
-  // ADDRESS         An 32 bit Internet address
-  //
-  // PROTOCOL        An 8 bit IP protocol number
-  //
-  // <BIT MAP>       A variable length bit map.  The bit map must be a
-  //                 multiple of 8 bits long.
-  //
-  // The WKS record is used to describe the well known services supported by
-  // a particular protocol on a particular internet address.  The PROTOCOL
-  // field specifies an IP protocol number, and the bit map has one bit per
-  // port of the specified protocol.  The first bit corresponds to port 0,
-  // the second to port 1, etc.  If the bit map does not include a bit for a
-  // protocol of interest, that bit is assumed zero.  The appropriate values
-  // and mnemonics for ports and protocols are specified in [RFC-1010].
-  //
-  // For example, if PROTOCOL=TCP (6), the 26th bit corresponds to TCP port
-  // 25 (SMTP).  If this bit is set, a SMTP server should be listening on TCP
-  // port 25; if zero, SMTP service is not supported on the specified
-  // address.
-  //
-  // The purpose of WKS RRs is to provide availability information for
-  // servers for TCP and UDP.  If a server supports both TCP and UDP, or has
-  // multiple Internet addresses, then multiple WKS RRs are used.
-  //
-  // WKS RRs cause no additional section processing.
-  //
-  // In master files, both ports and protocols are expressed using mnemonics
-  // or decimal numbers.
-  WKS { address: Ipv4Addr, protocol: u8, bitmap: Vec<u8> },
-
   //-- RFC 1886 -- IPv6 DNS Extensions              December 1995
 
   // 2.2 AAAA data format
@@ -373,8 +308,17 @@ impl RData {
       RecordType::TXT => rdata::txt::parse(tokens),
       RecordType::A => rdata::a::parse(tokens),
       RecordType::AAAA => rdata::aaaa::parse(tokens),
-      _ => panic!("unsupported RecordType: {:?}", record_type)
+      _ => panic!("parser not yet implemented for: {:?}", record_type),
     }
+  }
+
+  fn to_bytes(&self) -> Vec<u8> {
+    let mut buf: Vec<u8> = Vec::new();
+    {
+      let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+      self.emit(&mut encoder).unwrap_or_else(|_| { warn!("could not encode RDATA: {:?}", self); ()});
+    }
+    buf
   }
 }
 
@@ -391,7 +335,7 @@ impl BinSerializable<RData> for RData {
       RecordType::TXT => rdata::txt::read(decoder),
       RecordType::A => rdata::a::read(decoder),
       RecordType::AAAA => rdata::aaaa::read(decoder),
-      _ => panic!("unsupported RecordType: {:?}", decoder.record_type().unwrap()) // safe unwrap
+      record_type @ _ => panic!("read not yet implemented for: {:?}", record_type),
     }
   }
 
@@ -402,12 +346,12 @@ impl BinSerializable<RData> for RData {
       RData::NULL{..} => rdata::null::emit(encoder, self),
       RData::NS{..} => rdata::ns::emit(encoder, self),
       RData::PTR{..} => rdata::ptr::emit(encoder, self),
+      RData::SIG{..} => rdata::sig::emit(encoder, self),
       RData::SOA{..} => rdata::soa::emit(encoder, self),
       RData::SRV{..} => rdata::srv::emit(encoder, self),
       RData::TXT{..} => rdata::txt::emit(encoder, self),
       RData::A{..} => rdata::a::emit(encoder, self),
       RData::AAAA{..} => rdata::aaaa::emit(encoder, self),
-      _ => panic!("unsupported RecordType: {:?}", self)
     }
   }
 }
@@ -418,14 +362,41 @@ impl<'a> From<&'a RData> for RecordType {
       RData::CNAME{..} => RecordType::CNAME,
       RData::MX{..} => RecordType::MX,
       RData::NS{..} => RecordType::NS,
+      RData::NULL{..} => RecordType::NULL,
       RData::PTR{..} => RecordType::PTR,
+      RData::SIG{..} => RecordType::SIG,
       RData::SOA{..} => RecordType::SOA,
       RData::SRV{..} => RecordType::SRV,
       RData::TXT{..} => RecordType::TXT,
       RData::A{..} => RecordType::A,
       RData::AAAA{..} => RecordType::AAAA,
-      _ => panic!("unsupported RecordType: {:?}", rdata)
     }
+  }
+}
+
+impl PartialOrd<RData> for RData {
+  // RFC 4034                DNSSEC Resource Records               March 2005
+  //
+  // 6.3.  Canonical RR Ordering within an RRset
+  //
+  //    For the purposes of DNS security, RRs with the same owner name,
+  //    class, and type are sorted by treating the RDATA portion of the
+  //    canonical form of each RR as a left-justified unsigned octet sequence
+  //    in which the absence of an octet sorts before a zero octet.
+  //
+  //    [RFC2181] specifies that an RRset is not allowed to contain duplicate
+  //    records (multiple RRs with the same owner name, class, type, and
+  //    RDATA).  Therefore, if an implementation detects duplicate RRs when
+  //    putting the RRset in canonical form, it MUST treat this as a protocol
+  //    error.  If the implementation chooses to handle this protocol error
+  //    in the spirit of the robustness principle (being liberal in what it
+  //    accepts), it MUST remove all but one of the duplicate RR(s) for the
+  //    purposes of calculating the canonical form of the RRset.
+  fn partial_cmp(&self, other: &RData) -> Option<Ordering> {
+    // TODO: how about we just store the bytes with the decoded data?
+    //  the decoded data is useful for queries, the encoded data is needed for transfers, signing
+    //  and ordering.
+    self.to_bytes().partial_cmp(&other.to_bytes())
   }
 }
 

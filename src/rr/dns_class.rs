@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 use std::convert::From;
+use std::cmp::Ordering;
+
 use ::serialize::binary::*;
 use ::error::*;
 
-#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Ord, Copy, Clone)]
 #[allow(dead_code)]
 pub enum DNSClass {
   IN,          //	1	RFC 1035	Internet (IN)
@@ -100,8 +102,6 @@ impl From<DNSClass> for &'static str {
   }
 }
 
-
-
 /// Convert from DNSClass to u16
 ///
 /// ```
@@ -119,5 +119,11 @@ impl From<DNSClass> for u16 {
       DNSClass::NONE => 254,
       DNSClass::ANY => 255,
     }
+  }
+}
+
+impl PartialOrd<DNSClass> for DNSClass {
+  fn partial_cmp(&self, other: &DNSClass) -> Option<Ordering> {
+    u16::from(*self).partial_cmp(&u16::from(*other))
   }
 }

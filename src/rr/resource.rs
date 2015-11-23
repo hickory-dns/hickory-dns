@@ -15,6 +15,7 @@
  */
 use std::net::Ipv4Addr;
 use std::sync::Arc as Rc;
+use std::cmp::Ordering;
 
 use ::serialize::binary::*;
 use ::error::*;
@@ -79,7 +80,7 @@ use super::domain;
  *                 For example, the if the TYPE is A and the CLASS is IN,
  *                 the RDATA field is a 4 octet ARPA Internet address.
  */
-#[derive(Eq, Hash, PartialOrd, Ord, Debug, Clone)]
+#[derive(Eq, Hash, Ord, Debug, Clone)]
 pub struct Record {
   name_labels: domain::Name,
   rr_type: RecordType,
@@ -214,6 +215,62 @@ impl PartialEq for Record {
       !self.eq(other)
     }
 }
+
+/// returns the value of the compare if the items are greater or lesser, but coninues on equal
+macro_rules! compare_or_equal {
+  ( $x:ident, $y:ident, $z:ident ) => (
+    match $x.$z.partial_cmp(&$y.$z) {
+      o @ Some(Ordering::Less) | o @ Some(Ordering::Greater) => return o,
+      None => return None,
+      Some(Ordering::Equal) => (),
+    }
+  );
+}
+
+impl PartialOrd<Record> for Record {
+  // RFC 4034                DNSSEC Resource Records               March 2005
+  //
+  // 6.2.  Canonical RR Form
+  //
+  //    For the purposes of DNS security, the canonical form of an RR is the
+  //    wire format of the RR where:
+  //
+  //    1.  every domain name in the RR is fully expanded (no DNS name
+  //        compression) and fully qualified;
+  //
+  //    2.  all uppercase US-ASCII letters in the owner name of the RR are
+  //        replaced by the corresponding lowercase US-ASCII letters;
+  //
+  //    3.  if the type of the RR is NS, MD, MF, CNAME, SOA, MB, MG, MR, PTR,
+  //        HINFO, MINFO, MX, HINFO, RP, AFSDB, RT, SIG, PX, NXT, NAPTR, KX,
+  //        SRV, DNAME, A6, RRSIG, or NSEC, all uppercase US-ASCII letters in
+  //        the DNS names contained within the RDATA are replaced by the
+  //        corresponding lowercase US-ASCII letters;
+  //
+  //    4.  if the owner name of the RR is a wildcard name, the owner name is
+  //        in its original unexpanded form, including the "*" label (no
+  //        wildcard substitution); and
+  //
+  //    5.  the RR's TTL is set to its original value as it appears in the
+  //        originating authoritative zone or the Original TTL field of the
+  //        covering RRSIG RR.
+  fn partial_cmp(&self, other: &Record) -> Option<Ordering> {
+    // TODO: given that the ordering of Resource Records is dependent on it's binary form and this
+    //  method will be used during insertion sort or similar, we should probably do this
+    //  conversion once somehow and store it separately. Or should the internal storage of all
+    //  resource records be maintained in binary?
+
+    compare_or_equal!(self, other, name_labels);
+    compare_or_equal!(self, other, rr_type);
+    compare_or_equal!(self, other, dns_class);
+    compare_or_equal!(self, other, ttl);
+    compare_or_equal!(self, other, rdata);
+
+    // got here, means they are equal
+    Some(Ordering::Equal)
+  }
+}
+
 
 #[cfg(test)]
 mod tests {
