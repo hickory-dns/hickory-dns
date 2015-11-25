@@ -275,6 +275,7 @@ impl PartialOrd<Record> for Record {
 #[cfg(test)]
 mod tests {
   use std::net::Ipv4Addr;
+  use std::cmp::Ordering;
 
   use super::*;
 
@@ -282,6 +283,7 @@ mod tests {
   use ::rr::record_data::RData;
   use ::rr::record_type::RecordType;
   use ::rr::dns_class::DNSClass;
+  use ::rr::Name;
 
 
   #[test]
@@ -302,5 +304,36 @@ mod tests {
     let got = Record::read(&mut decoder).unwrap();
 
     assert_eq!(got, record);
+  }
+
+  #[test]
+  fn test_order() {
+    let mut record = Record::new();
+    record.add_name("www".to_string()).add_name("example".to_string()).add_name("com".to_string())
+    .rr_type(RecordType::A).dns_class(DNSClass::IN).ttl(5)
+    .rdata(RData::A { address: Ipv4Addr::new(192, 168, 0, 1)});
+
+    let mut greater_name = record.clone();
+    greater_name.name(Name::new().label("zzz").label("example").label("com"));
+
+    let mut greater_type = record.clone();
+    greater_type.rr_type(RecordType::AAAA);
+
+    let mut greater_class = record.clone();
+    greater_class.dns_class(DNSClass::NONE);
+
+    let mut greater_rdata = record.clone();
+    greater_rdata.rdata(RData::A { address: Ipv4Addr::new(192, 168, 0, 255) });
+
+    let compares = vec![(&record, &greater_name),
+                        (&record, &greater_type),
+                        (&record, &greater_class),
+                        (&record, &greater_rdata),];
+
+    assert_eq!(record.clone(), record.clone());
+    for (r, g) in compares {
+      println!("r, g: {:?}, {:?}", r, g);
+      assert_eq!(r.cmp(g), Ordering::Less);
+    }
   }
 }
