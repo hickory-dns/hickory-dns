@@ -25,7 +25,7 @@ use ::error::*;
 /// TODO: all Names should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 /// TODO: Currently this probably doesn't support binary names, it would be nice to do that.
-#[derive(Debug, PartialEq, Eq, Ord, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Name {
   labels: Rc<Vec<Rc<String>>>
 }
@@ -292,6 +292,12 @@ impl Index<usize> for Name {
 }
 
 impl PartialOrd<Name> for Name {
+  fn partial_cmp(&self, other: &Name) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for Name {
   // RFC 4034                DNSSEC Resource Records               March 2005
   //
   // 6.1.  Canonical DNS Name Order
@@ -323,8 +329,8 @@ impl PartialOrd<Name> for Name {
   //            \001.z.example
   //            *.z.example
   //            \200.z.example
-  fn partial_cmp(&self, other: &Name) -> Option<Ordering> {
-    if self.labels.is_empty() && other.labels.is_empty() { return Some(Ordering::Equal) }
+  fn cmp(&self, other: &Self) -> Ordering {
+    if self.labels.is_empty() && other.labels.is_empty() { return Ordering::Equal }
 
     let mut self_labels: Vec<_> = (*self.labels).clone();
     let mut other_labels: Vec<_> = (*other.labels).clone();
@@ -333,16 +339,13 @@ impl PartialOrd<Name> for Name {
     other_labels.reverse();
 
     for (l, r) in self_labels.iter().zip(other_labels.iter()) {
-      info!("l: {} r: {}", l, r);
-      match l.partial_cmp(r) {
-        o @ Some(Ordering::Less) | o @ Some(Ordering::Greater) => return o,
-        Some(Ordering::Equal) => continue,
-        None => panic!("strings not comparable? l: {}, r: {}", l, r),
+      match l.cmp(r) {
+        o @ Ordering::Less | o @ Ordering::Greater => return o,
+        Ordering::Equal => continue,
       }
     }
 
-    info!("equal and bailed");
-    self.labels.len().partial_cmp(&other.labels.len())
+    self.labels.len().cmp(&other.labels.len())
   }
 }
 

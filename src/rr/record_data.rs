@@ -39,7 +39,7 @@ use super::rdata;
 // is treated as binary information, and can be up to 256 characters in
 // length (including the length octet).
 //
-#[derive(Debug, PartialEq, Eq, Ord, Hash, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum RData {
   //-- RFC 1035 -- Domain Implementation and Specification    November 1987
 
@@ -375,6 +375,12 @@ impl<'a> From<&'a RData> for RecordType {
 }
 
 impl PartialOrd<RData> for RData {
+  fn partial_cmp(&self, other: &RData) -> Option<Ordering> {
+    Some(self.cmp(&other))
+  }
+}
+
+impl Ord for RData {
   // RFC 4034                DNSSEC Resource Records               March 2005
   //
   // 6.3.  Canonical RR Ordering within an RRset
@@ -392,11 +398,11 @@ impl PartialOrd<RData> for RData {
   //    in the spirit of the robustness principle (being liberal in what it
   //    accepts), it MUST remove all but one of the duplicate RR(s) for the
   //    purposes of calculating the canonical form of the RRset.
-  fn partial_cmp(&self, other: &RData) -> Option<Ordering> {
+  fn cmp(&self, other: &Self) -> Ordering {
     // TODO: how about we just store the bytes with the decoded data?
     //  the decoded data is useful for queries, the encoded data is needed for transfers, signing
     //  and ordering.
-    self.to_bytes().partial_cmp(&other.to_bytes())
+    self.to_bytes().cmp(&other.to_bytes())
   }
 }
 
@@ -433,6 +439,40 @@ mod tests {
     (RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]),
     (RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),}, vec![0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
     ]
+  }
+
+  // TODO this test kinda sucks, shows the problem with not storing the binary parts
+  #[test]
+  fn test_order() {
+    let ordered: Vec<RData> = vec![
+      RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()},
+      RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()},
+      RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),},
+      RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])},
+      RData::CNAME{cname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::PTR{ptrdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::NS{nsdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::SOA{mname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+                 rname: Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
+                 serial: u32::max_value(), refresh: -1 as i32, retry: -1 as i32, expire: -1 as i32, minimum: u32::max_value()},
+      RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
+    ];
+    let mut unordered = vec![
+      RData::CNAME{cname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])},
+      RData::PTR{ptrdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::NS{nsdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::SOA{mname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+                 rname: Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
+                 serial: u32::max_value(), refresh: -1 as i32, retry: -1 as i32, expire: -1 as i32, minimum: u32::max_value()},
+      RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
+      RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()},
+      RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()},
+      RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),},
+    ];
+
+    unordered.sort();
+    assert_eq!(ordered, unordered);
   }
 
   #[test]

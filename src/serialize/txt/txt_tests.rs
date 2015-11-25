@@ -146,16 +146,20 @@ VENERA  A       10.1.0.52
 
   // TXT
   let mut txt_records: Vec<Record> = authority.lookup(&Name::new().label("a").label("isi").label("edu"), RecordType::TXT, DNSClass::IN).unwrap();
-  let mut compare = vec![
+  let compare = vec![
     vec!["I".to_string(), "am".to_string(), "a".to_string(), "txt".to_string(), "record".to_string()],
     vec!["I".to_string(), "am".to_string(), "another".to_string(), "txt".to_string(), "record".to_string()],
-    vec!["I am a different".to_string(), "txt record".to_string()],
     vec!["key=val".to_string()],
+    vec!["I am a different".to_string(), "txt record".to_string()],
     ];
 
-  compare.sort();
   txt_records.sort();
+
+  println!("compare: {:?}", compare);
+  println!("txt_records: {:?}", txt_records);
+
   let compare = txt_records.iter().zip(compare);
+
 
   for (record, ref vector) in compare {
     if let RData::TXT{ ref txt_data } = *record.get_rdata() {

@@ -21,7 +21,7 @@ use ::error::*;
 
 type FromResult = Result<RecordType, DecodeError>;
 
-#[derive(Debug, PartialEq, Eq, Hash, Ord, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {
     A,          //	1	RFC 1035[1]	IPv4 Address record
@@ -199,6 +199,55 @@ impl From<RecordType> for u16 {
 
 impl PartialOrd<RecordType> for RecordType {
   fn partial_cmp(&self, other: &RecordType) -> Option<Ordering> {
-    u16::from(*self).partial_cmp(&u16::from(*other))
+    Some(self.cmp(other))
   }
+}
+
+impl Ord for RecordType {
+  fn cmp(&self, other: &Self) -> Ordering {
+    u16::from(*self).cmp(&u16::from(*other))
+  }
+}
+
+#[test]
+fn test_order() {
+  let ordered = vec![
+    RecordType::NULL,
+    RecordType::A,
+    RecordType::NS,
+    RecordType::CNAME,
+    RecordType::SOA,
+    RecordType::PTR,
+    RecordType::MX,
+    RecordType::TXT,
+    RecordType::AAAA,
+    RecordType::SRV,
+    RecordType::AXFR,
+    RecordType::ANY,
+  ];
+
+  let mut unordered = vec![
+    RecordType::ANY,
+    RecordType::NULL,
+    RecordType::AXFR,
+    RecordType::A,
+    RecordType::NS,
+    RecordType::SOA,
+    RecordType::SRV,
+    RecordType::PTR,
+    RecordType::MX,
+    RecordType::CNAME,
+    RecordType::TXT,
+    RecordType::AAAA,
+  ];
+
+  unordered.sort();
+
+  for rtype in unordered.clone() {
+    println!("u16 for {:?}: {}", rtype, u16::from(rtype));
+  }
+
+  assert_eq!(5.partial_cmp(&28), Some(Ordering::Less));
+
+  assert_eq!(ordered, unordered);
 }

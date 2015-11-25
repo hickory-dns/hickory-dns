@@ -19,7 +19,7 @@ use std::cmp::Ordering;
 use ::serialize::binary::*;
 use ::error::*;
 
-#[derive(Debug, PartialEq, Eq, Hash, Ord, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum DNSClass {
   IN,          //	1	RFC 1035	Internet (IN)
@@ -124,6 +124,23 @@ impl From<DNSClass> for u16 {
 
 impl PartialOrd<DNSClass> for DNSClass {
   fn partial_cmp(&self, other: &DNSClass) -> Option<Ordering> {
-    u16::from(*self).partial_cmp(&u16::from(*other))
+    Some(self.cmp(other))
   }
+}
+
+impl Ord for DNSClass {
+  fn cmp(&self, other: &Self) -> Ordering {
+    u16::from(*self).cmp(&u16::from(*other))
+  }
+}
+
+
+#[test]
+fn test_order() {
+  let ordered = vec![DNSClass::IN, DNSClass::CH, DNSClass::HS, DNSClass::NONE, DNSClass::ANY];
+  let mut unordered = vec![DNSClass::NONE, DNSClass::HS, DNSClass::CH, DNSClass::IN, DNSClass::ANY];
+
+  unordered.sort();
+
+  assert_eq!(unordered, ordered);
 }
