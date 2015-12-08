@@ -13,14 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt::Debug;
 
 use super::header::{MessageType, Header};
 use super::query::Query;
 use ::rr::resource::Record;
+use ::rr::domain::Name;
+use ::rr::{RData, RecordType, DNSClass};
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
 use ::serialize::binary::*;
 use ::error::*;
+use ::rr::dnssec::Signer;
 
 
 /*
@@ -65,12 +69,14 @@ use ::error::*;
 ///  Message::new_update()
 #[derive(Debug, PartialEq)]
 pub struct Message {
-  header: Header, queries: Vec<Query>, answers: Vec<Record>, name_servers: Vec<Record>, additionals: Vec<Record>
+  header: Header, queries: Vec<Query>, answers: Vec<Record>, name_servers: Vec<Record>,
+   additionals: Vec<Record>, sig0: Vec<Record>
 }
 
 impl Message {
   pub fn new() -> Self {
-    Message { header: Header::new(), queries: Vec::new(), answers: Vec::new(), name_servers: Vec::new(), additionals: Vec::new() }
+    Message { header: Header::new(), queries: Vec::new(), answers: Vec::new(),
+       name_servers: Vec::new(), additionals: Vec::new(), sig0: Vec::new(), }
   }
 
   pub fn id(&mut self, id: u16) -> &mut Self { self.header.id(id); self }
@@ -102,6 +108,12 @@ impl Message {
   }
   pub fn add_additional(&mut self, record: Record) -> &mut Self { self.additionals.push(record); self }
 
+  pub fn add_sig0(&mut self, record: Record) -> &mut Self {
+    assert_eq!(RecordType::SIG, record.get_rr_type());
+    self.sig0.push(record);
+    self
+  }
+
   pub fn get_id(&self) -> u16 { self.header.get_id() }
   pub fn get_message_type(&self) -> MessageType { self.header.get_message_type() }
   pub fn get_op_code(&self) -> OpCode { self.header.get_op_code() }
@@ -115,25 +127,43 @@ impl Message {
   pub fn get_name_servers(&self) -> &[Record] { &self.name_servers }
   pub fn get_additional(&self) -> &[Record] { &self.additionals }
 
+  /// returns the sig0, i.e. signed record, for verifying the sending and package integrity
+  ///  RFC 2535 section 4
+  /// this should be the final record in the additional section of the Message
+  ///
+  /// RFC 2535                DNS Security Extensions               March 1999
+  ///
+  /// A DNS request may be optionally signed by including one or more SIGs
+  ///  at the end of the query. Such SIGs are identified by having a "type
+  ///  covered" field of zero. They sign the preceding DNS request message
+  ///  including DNS header but not including the IP header or any request
+  ///  SIGs at the end and before the request RR counts have been adjusted
+  ///  for the inclusions of any request SIG(s).
+  fn get_sig0(&self) -> &[Record] { &self.sig0 }
 
+  // TODO only necessary in tests, should it be removed?
   /// this is necessary to match the counts in the header from the record sections
   ///  this happens implicitly on write_to, so no need to call before write_to
+  #[cfg(test)]
   pub fn update_counts(&mut self) -> &mut Self {
-    self.header = self.update_header_counts();
+    self.header = self.update_header_counts(true);
     self
   }
 
-  fn update_header_counts(&self) -> Header {
+  fn update_header_counts(&self, include_sig0: bool) -> Header {
     assert!(self.queries.len() <= u16::max_value() as usize);
     assert!(self.answers.len() <= u16::max_value() as usize);
     assert!(self.name_servers.len() <= u16::max_value() as usize);
-    assert!(self.additionals.len() <= u16::max_value() as usize);
+    assert!(self.additionals.len() + self.sig0.len() <= u16::max_value() as usize);
+
+    let mut additional_count = self.additionals.len();
+    if include_sig0 { additional_count += self.sig0.len() }
 
     self.header.clone(
       self.queries.len() as u16,
       self.answers.len() as u16,
       self.name_servers.len() as u16,
-      self.additionals.len() as u16)
+      additional_count as u16)
   }
 
   fn read_records(decoder: &mut BinDecoder, count: usize) -> DecodeResult<Vec<Record>> {
@@ -152,7 +182,9 @@ impl Message {
   }
 }
 
-pub trait UpdateMessage {
+/// to reduce errors in using the Message struct as an Update, this will do the call throughs
+///   to properly do that.
+pub trait UpdateMessage: Debug {
   fn add_zone(&mut self, query: Query);
   fn add_pre_requisite(&mut self, record: Record);
   fn add_all_pre_requisites(&mut self, vector: &[Record]);
@@ -164,6 +196,22 @@ pub trait UpdateMessage {
   fn get_pre_requisites(&self) -> &[Record];
   fn get_updates(&self) -> &[Record];
   fn get_additional(&self) -> &[Record];
+
+  /// returns the sig0, i.e. signed record, for verifying the sending and package integrity
+  ///  RFC 2535 section 4
+  /// this should be the final record in the additional section of the Message
+  ///
+  /// RFC 2535                DNS Security Extensions               March 1999
+  ///
+  /// A DNS request may be optionally signed by including one or more SIGs
+  ///  at the end of the query. Such SIGs are identified by having a "type
+  ///  covered" field of zero. They sign the preceding DNS request message
+  ///  including DNS header but not including the IP header or any request
+  ///  SIGs at the end and before the request RR counts have been adjusted
+  ///  for the inclusions of any request SIG(s).
+  fn get_sig0(&self) -> &[Record];
+
+  fn sign(&mut self, signer: &Signer, inception_time: u32);
 }
 
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -180,6 +228,52 @@ impl UpdateMessage for Message {
   fn get_pre_requisites(&self) -> &[Record] { self.get_answers() }
   fn get_updates(&self) -> &[Record] { self.get_name_servers() }
   fn get_additional(&self) -> &[Record] { self.get_additional() }
+
+  fn get_sig0(&self) -> &[Record] { self.get_sig0() }
+
+  // TODO: where's the 'right' spot for this function
+  fn sign(&mut self, signer: &Signer, inception_time: u32) {
+    let signature: Vec<u8> = signer.sign_message(self);
+    let key_tag: u16 = signer.calculate_key_tag();
+
+    // this is based on RFCs 2535, 2931 and 3007
+
+    // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
+    //  meaningless.' - 2931
+    let mut sig0 = Record::new();
+
+    // The TTL fields SHOULD be zero
+    sig0.ttl(0);
+
+    // The CLASS field SHOULD be ANY
+    sig0.dns_class(DNSClass::ANY);
+
+    // The owner name SHOULD be root (a single zero octet).
+    sig0.name(Name::root());
+    let num_labels = sig0.get_name().num_labels();
+
+    let expiration_time: u32 = inception_time + (5 * 60); // +5 minutes in seconds
+
+    sig0.rdata(
+      RData::SIG {
+        // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+        type_covered: 0,
+        algorithm: signer.get_algorithm(),
+        num_labels: num_labels,
+        // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+        original_ttl: 0,
+        // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+        sig_expiration: expiration_time,
+        // current time, this should be UTC
+        // unsigned numbers of seconds since the start of 1 January 1970, GMT
+        sig_inception: inception_time,
+        key_tag: key_tag,
+        // can probably get rid of this clone if the owndership is correct
+        signer_name: signer.get_signer_name().clone(),
+        sig: signature,
+      }
+    );
+  }
 }
 
 impl BinSerializable<Message> for Message {
@@ -196,20 +290,42 @@ impl BinSerializable<Message> for Message {
     // get all counts before header moves
     let answer_count = header.get_answer_count() as usize;
     let name_server_count = header.get_name_server_count() as usize;
-    let additional_count = header.get_additional_count() as usize;
+    let mut additional_count = header.get_additional_count() as usize;
+
+    let mut additionals: Vec<Record> = try!(Self::read_records(decoder, additional_count));
+    let mut sig0: Vec<Record> = Vec::new();
+
+    // get the sig0's and remove from from the additional section, and decrement the counts
+    // this will allow for the Message to be verified directly.
+    loop {
+      if additionals.is_empty() { break; }
+      if additionals.last().and_then(|r| if r.get_rr_type() == RecordType::SIG { Some(()) } else { None } ).is_none() { break; }
+
+      // TODO: make a function is_a() on Record for Type to RData Validation
+      if let Some(record) = additionals.pop() {
+        // this should be a SIG0 record, only! asserting above logic
+        assert_eq!(RecordType::SIG, record.get_rr_type());
+        additional_count -= 1; // decrement the additionals count.
+        sig0.push(record); // this reverses the order of the sigs, shouldn't matter.
+      }
+    }
+
+  //  additionals.shrink_to_fit();
 
     Ok(Message {
       header: header,
       queries: queries,
       answers: try!(Self::read_records(decoder, answer_count)),
       name_servers: try!(Self::read_records(decoder, name_server_count)),
-      additionals: try!(Self::read_records(decoder, additional_count)),
+      additionals: additionals,
+      sig0: sig0,
     })
   }
 
   fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     // clone the header to set the counts lazily
-    try!(self.update_header_counts().emit(encoder));
+    let include_sig0: bool = encoder.mode() != EncodeMode::Verify;
+    try!(self.update_header_counts(include_sig0).emit(encoder));
 
     for q in &self.queries {
       try!(q.emit(encoder));
@@ -218,6 +334,7 @@ impl BinSerializable<Message> for Message {
     try!(Self::emit_records(encoder, &self.answers));
     try!(Self::emit_records(encoder, &self.name_servers));
     try!(Self::emit_records(encoder, &self.additionals));
+    if include_sig0 { try!(Self::emit_records(encoder, &self.sig0)); }
     Ok(())
   }
 }

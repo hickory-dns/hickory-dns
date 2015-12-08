@@ -176,7 +176,7 @@ impl BinSerializable<Record> for Record {
     // TODO: should we skip the fixed size header and write the rdata first? then write the header?
     let mut tmp_buf: Vec<u8> = Vec::with_capacity(512);
     {
-      let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(&mut tmp_buf, encoder.offset() + 2 /*for u16 len*/);
+      let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(&mut tmp_buf, encoder.offset() + 2 /*for u16 len*/, EncodeMode::Normal);
       try!(self.rdata.emit(&mut tmp_encoder));
     }
 

@@ -19,7 +19,7 @@ pub mod resource;
 pub mod record_data;
 pub mod domain;
 mod rdata;
-mod dnssec;
+pub mod dnssec;
 
 pub use self::record_type::RecordType;
 pub use self::resource::Record;

@@ -35,17 +35,24 @@ impl Name {
     Name { labels: Rc::new(Vec::new()) }
   }
 
+  // this is the root label, i.e. no labels, can probably make this better in the future.
+  pub fn root() -> Self {
+    Self::new()
+  }
+
   // inline builder
   pub fn label(mut self, label: &'static str) -> Self {
     // TODO get_mut() on Arc was unstable when this was written
     let mut new_labels: Vec<Rc<String>> = (*self.labels).clone();
     new_labels.push(Rc::new(label.into()));
     self.labels = Rc::new(new_labels);
+    assert!(self.labels.len() < 256);
     self
   }
 
   // for mutating over time
   pub fn with_labels(labels: Vec<String>) -> Self {
+    assert!(labels.len() < 256);
     Name { labels: Rc::new(labels.into_iter().map(|s|Rc::new(s)).collect()) }
   }
 
@@ -54,6 +61,7 @@ impl Name {
     let mut new_labels: Vec<Rc<String>> = (*self.labels).clone();
     new_labels.push(label);
     self.labels = Rc::new(new_labels);
+    assert!(self.labels.len() < 256);
     self
   }
 
@@ -87,6 +95,11 @@ impl Name {
     }
 
     return true;
+  }
+
+  pub fn num_labels(&self) -> u8 {
+    // it is illegal to have more than 256 labels.
+    self.labels.len() as u8
   }
 
   // TODO: I think this does the wrong thing for escaped data

@@ -14,5 +14,7 @@
  * limitations under the License.
  */
 mod algorithm;
+mod signer;
 
 pub use self::algorithm::Algorithm;
+pub use self::signer::Signer;

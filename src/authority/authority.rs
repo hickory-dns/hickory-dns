@@ -248,15 +248,24 @@ impl Authority {
    *                if (local option)
    *                     return (REFUSED)
    */
-  fn authorize(&self/*, update_message: &UpdateMessage*/) -> UpdateResult<()> {
-    //
-
+  fn authorize(&self, update_message: &UpdateMessage) -> UpdateResult<()> {
+    // does this authority allow_updates?
     if !self.allow_update {
       warn!("update attempted on non-updatable Authority: {}", self.origin);
-      Err(ResponseCode::Refused)
-    } else {
-      Ok(())
+      return Err(ResponseCode::Refused)
     }
+
+    // verify sig0, currently the only authorization that is accepted.
+    let sig0: &[Record] = update_message.get_sig0();
+    if !sig0.is_empty() {
+      info!("attempted update rejected due to missing SIG0: {:?}", update_message);
+      return Err(ResponseCode::Refused);
+    }
+
+
+    // getting here, we will always default to rejecting the request
+    //  the code will only ever explcitly return authrorized actions.
+    Err(ResponseCode::Refused)
   }
 
   /*
@@ -506,7 +515,7 @@ impl Authority {
    */
   pub fn update(&mut self, update: &UpdateMessage) -> UpdateResult<()> {
     // the spec says to authorize after prereqs, seems better to auth first.
-    try!(self.authorize());
+    try!(self.authorize(update));
     try!(self.verify_prerequisites(update.get_pre_requisites()));
     try!(self.pre_scan(update.get_updates()));
 
@@ -684,11 +693,15 @@ pub mod authority_tests {
   #[test]
   fn test_authorize() {
     let mut authority: Authority = create_example();
-    assert_eq!(authority.authorize(), Err(ResponseCode::Refused));
+
+    let mut message = Message::new();
+    message.id(10).message_type(MessageType::Query).op_code(OpCode::Update);
+
+    assert_eq!(authority.authorize(&message), Err(ResponseCode::Refused));
 
     // TODO: this will nee to be more complex as additional policies are added
     authority.set_allow_update(true);
-    assert!(authority.authorize().is_ok());
+    assert!(authority.authorize(&message).is_ok());
   }
 
   #[test]
