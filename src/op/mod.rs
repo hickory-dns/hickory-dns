@@ -19,9 +19,12 @@ pub mod response_code;
 pub mod message;
 pub mod header;
 pub mod query;
+mod edns;
 
 pub use self::message::{Message, UpdateMessage};
 pub use self::query::Query;
+pub use self::header::Header;
 pub use self::header::MessageType;
 pub use self::op_code::OpCode;
 pub use self::response_code::ResponseCode;
+pub use self::edns::Edns;

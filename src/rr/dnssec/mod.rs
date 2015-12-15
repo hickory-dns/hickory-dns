@@ -15,6 +15,8 @@
  */
 mod algorithm;
 mod signer;
+mod supported_algorithm;
 
 pub use self::algorithm::Algorithm;
 pub use self::signer::Signer;
+pub use self::supported_algorithm::SupportedAlgorithms;

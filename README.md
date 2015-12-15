@@ -34,6 +34,7 @@ option, and the server is not yet threaded.
 - [RFC 1035](https://tools.ietf.org/html/rfc1035): Base DNS spec (partial, caching not yet supported)
 - [RFC 3596](https://tools.ietf.org/html/rfc3596): IPv6
 - [RFC 2782](https://tools.ietf.org/html/rfc2782): Service location
+- [RFC 6891](https://tools.ietf.org/html/rfc6891): Extension Mechanisms for DNS
 
 ### Update operations
 - [RFC 2136](https://tools.ietf.org/html/rfc2136): Dynamic Update
@@ -43,7 +44,6 @@ option, and the server is not yet threaded.
 ### Basic operations
 - [RFC 2308](https://tools.ietf.org/html/rfc2308): Negative Caching of DNS Queries
 - [RFC 2317](https://tools.ietf.org/html/rfc2317): Classless IN-ADDR.ARPA delegation
-- [RFC 6891](https://tools.ietf.org/html/rfc6891): Extension Mechanisms for DNS
 
 ### Update operations
 - [RFC 1995](https://tools.ietf.org/html/rfc1995): Incremental Zone Transfer
@@ -60,7 +60,9 @@ option, and the server is not yet threaded.
 - [RFC 5702](https://tools.ietf.org/html/rfc5702): SHA-2 Algorithms with RSA in DNSKEY and RRSIG for DNSSEC
 - [RFC 6840](https://tools.ietf.org/html/rfc6840): Clarifications and Implementation Notes for DNSSEC
 - [RFC 6944](https://tools.ietf.org/html/rfc6944): DNSKEY Algorithm Implementation Status
+- [RFC 6975](https://tools.ietf.org/html/rfc6975): Signaling Cryptographic Algorithm Understanding
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
+- [S/MIME](https://tools.ietf.org/html/draft-ietf-dane-smime-09): Domain Names For S/MIME
 
 # Usage
 

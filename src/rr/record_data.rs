@@ -44,6 +44,36 @@ use super::rdata;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum RData {
   //-- RFC 1035 -- Domain Implementation and Specification    November 1987
+  //
+  // 3.4. Internet specific RRs
+  //
+  // 3.4.1. A RDATA format
+  //
+  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+  //     |                    ADDRESS                    |
+  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+  //
+  // where:
+  //
+  // ADDRESS         A 32 bit Internet address.
+  //
+  // Hosts that have multiple Internet addresses will have multiple A
+  // records.
+  //
+  // A records cause no additional section processing.  The RDATA section of
+  // an A line in a master file is an Internet address expressed as four
+  // decimal numbers separated by dots without any imbedded spaces (e.g.,
+  // "10.2.0.52" or "192.0.5.6").
+  A { address: Ipv4Addr },
+
+  //-- RFC 1886 -- IPv6 DNS Extensions              December 1995
+  //
+  // 2.2 AAAA data format
+  //
+  //    A 128 bit IPv6 address is encoded in the data portion of an AAAA
+  //    resource record in network byte order (high-order byte first).
+  AAAA { address: Ipv6Addr },
+
 
   //   3.3. Standard RRs
   //
@@ -75,6 +105,7 @@ pub enum RData {
   // choose to restart the query at the canonical name in certain cases.  See
   // the description of name server logic in [RFC-1034] for details.
   CNAME { cname: Name },
+
 
   // 3.3.9. MX RDATA format
   //
@@ -137,6 +168,36 @@ pub enum RData {
   // hosts which are name servers for either Internet (IN) or Hesiod (HS)
   // class information are normally queried using IN class protocols.
   NS { nsdname: Name },
+
+  // RFC 6891                   EDNS(0) Extensions                 April 2013
+  // 6.1.2.  Wire Format
+  //
+  //        +------------+--------------+------------------------------+
+  //        | Field Name | Field Type   | Description                  |
+  //        +------------+--------------+------------------------------+
+  //        | NAME       | domain name  | MUST be 0 (root domain)      |
+  //        | TYPE       | u_int16_t    | OPT (41)                     |
+  //        | CLASS      | u_int16_t    | requestor's UDP payload size |
+  //        | TTL        | u_int32_t    | extended RCODE and flags     |
+  //        | RDLEN      | u_int16_t    | length of all RDATA          |
+  //        | RDATA      | octet stream | {attribute,value} pairs      |
+  //        +------------+--------------+------------------------------+
+  //
+  // The variable part of an OPT RR may contain zero or more options in
+  //    the RDATA.  Each option MUST be treated as a bit field.  Each option
+  //    is encoded as:
+  //
+  //                   +0 (MSB)                            +1 (LSB)
+  //        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+  //     0: |                          OPTION-CODE                          |
+  //        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+  //     2: |                         OPTION-LENGTH                         |
+  //        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+  //     4: |                                                               |
+  //        /                          OPTION-DATA                          /
+  //        /                                                               /
+  //        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+  OPT { option_rdata: Vec<u8> },
 
   // 3.3.12. PTR RDATA format
   //
@@ -267,34 +328,7 @@ pub enum RData {
   // depends on the domain where it is found.
   TXT { txt_data: Vec<String> },
 
-  // 3.4. Internet specific RRs
-  //
-  // 3.4.1. A RDATA format
-  //
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     |                    ADDRESS                    |
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //
-  // where:
-  //
-  // ADDRESS         A 32 bit Internet address.
-  //
-  // Hosts that have multiple Internet addresses will have multiple A
-  // records.
-  //
-  // A records cause no additional section processing.  The RDATA section of
-  // an A line in a master file is an Internet address expressed as four
-  // decimal numbers separated by dots without any imbedded spaces (e.g.,
-  // "10.2.0.52" or "192.0.5.6").
-  A { address: Ipv4Addr },
 
-  //-- RFC 1886 -- IPv6 DNS Extensions              December 1995
-
-  // 2.2 AAAA data format
-  //
-  //    A 128 bit IPv6 address is encoded in the data portion of an AAAA
-  //    resource record in network byte order (high-order byte first).
-  AAAA { address: Ipv6Addr },
 }
 
 impl RData {
@@ -343,17 +377,17 @@ impl BinSerializable<RData> for RData {
 
   fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     match *self {
-      RData::CNAME{..} => rdata::cname::emit(encoder, self),
+      RData::A{..} => rdata::a::emit(encoder, self),
+      RData::AAAA{..} => rdata::aaaa::emit(encoder, self),RData::CNAME{..} => rdata::cname::emit(encoder, self),
       RData::MX{..} => rdata::mx::emit(encoder, self),
       RData::NULL{..} => rdata::null::emit(encoder, self),
       RData::NS{..} => rdata::ns::emit(encoder, self),
+      RData::OPT{..} => rdata::ns::emit(encoder, self),
       RData::PTR{..} => rdata::ptr::emit(encoder, self),
       RData::SIG{..} => rdata::sig::emit(encoder, self),
       RData::SOA{..} => rdata::soa::emit(encoder, self),
       RData::SRV{..} => rdata::srv::emit(encoder, self),
       RData::TXT{..} => rdata::txt::emit(encoder, self),
-      RData::A{..} => rdata::a::emit(encoder, self),
-      RData::AAAA{..} => rdata::aaaa::emit(encoder, self),
     }
   }
 }
@@ -361,17 +395,18 @@ impl BinSerializable<RData> for RData {
 impl<'a> From<&'a RData> for RecordType {
   fn from(rdata: &'a RData) -> Self {
     match *rdata {
+      RData::A{..} => RecordType::A,
+      RData::AAAA{..} => RecordType::AAAA,
       RData::CNAME{..} => RecordType::CNAME,
       RData::MX{..} => RecordType::MX,
       RData::NS{..} => RecordType::NS,
       RData::NULL{..} => RecordType::NULL,
+      RData::OPT{..} => RecordType::OPT,
       RData::PTR{..} => RecordType::PTR,
       RData::SIG{..} => RecordType::SIG,
       RData::SOA{..} => RecordType::SOA,
       RData::SRV{..} => RecordType::SRV,
       RData::TXT{..} => RecordType::TXT,
-      RData::A{..} => RecordType::A,
-      RData::AAAA{..} => RecordType::AAAA,
     }
   }
 }

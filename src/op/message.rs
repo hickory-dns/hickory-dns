@@ -15,13 +15,10 @@
  */
 use std::fmt::Debug;
 
-use super::header::{MessageType, Header};
-use super::query::Query;
+use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
 use ::rr::resource::Record;
 use ::rr::domain::Name;
 use ::rr::{RData, RecordType, DNSClass};
-use super::op_code::OpCode;
-use super::response_code::ResponseCode;
 use ::serialize::binary::*;
 use ::error::*;
 use ::rr::dnssec::Signer;
@@ -70,13 +67,13 @@ use ::rr::dnssec::Signer;
 #[derive(Debug, PartialEq)]
 pub struct Message {
   header: Header, queries: Vec<Query>, answers: Vec<Record>, name_servers: Vec<Record>,
-   additionals: Vec<Record>, sig0: Vec<Record>
+   additionals: Vec<Record>, sig0: Vec<Record>, edns: Option<Edns>
 }
 
 impl Message {
   pub fn new() -> Self {
     Message { header: Header::new(), queries: Vec::new(), answers: Vec::new(),
-       name_servers: Vec::new(), additionals: Vec::new(), sig0: Vec::new(), }
+      name_servers: Vec::new(), additionals: Vec::new(), sig0: Vec::new(), edns: None }
   }
 
   pub fn id(&mut self, id: u16) -> &mut Self { self.header.id(id); self }
@@ -294,23 +291,41 @@ impl BinSerializable<Message> for Message {
 
     let mut additionals: Vec<Record> = try!(Self::read_records(decoder, additional_count));
     let mut sig0: Vec<Record> = Vec::new();
+    let mut edns: Option<Edns> = None;
 
     // get the sig0's and remove from from the additional section, and decrement the counts
     // this will allow for the Message to be verified directly.
+    // TODO: this would be cleaner as a recursive function...
     loop {
-      if additionals.is_empty() { break; }
-      if additionals.last().and_then(|r| if r.get_rr_type() == RecordType::SIG { Some(()) } else { None } ).is_none() { break; }
-
       // TODO: make a function is_a() on Record for Type to RData Validation
-      if let Some(record) = additionals.pop() {
-        // this should be a SIG0 record, only! asserting above logic
-        assert_eq!(RecordType::SIG, record.get_rr_type());
-        additional_count -= 1; // decrement the additionals count.
-        sig0.push(record); // this reverses the order of the sigs, shouldn't matter.
+      if let Some(record) = additionals.last() {
+        if record.get_rr_type() != RecordType::SIG {
+          // no more sig0's break
+          break;
+        }
+      } else {
+        // nothing in the list
+        break;
+      }
+
+      // we're only getting here if the SIG0 record is what was found
+      let record = additionals.pop().unwrap();
+      assert!(record.get_rr_type() == RecordType::SIG);
+      sig0.push(record);
+      additional_count -= 1;
+    }
+
+    // edns goes from the other direction, but unlike sig0, edns does not pop off the stack
+    //  will loop through them all to verify that there is only one OPT record
+    for r in additionals.iter() {
+      match r.get_rr_type() {
+        RecordType::OPT => edns = Some(r.into()),
+        RecordType::SIG => return Err(DecodeError::Sig0NotLast),
+        _ =>(),
       }
     }
 
-  //  additionals.shrink_to_fit();
+    additionals.shrink_to_fit();
 
     Ok(Message {
       header: header,
@@ -319,6 +334,7 @@ impl BinSerializable<Message> for Message {
       name_servers: try!(Self::read_records(decoder, name_server_count)),
       additionals: additionals,
       sig0: sig0,
+      edns: edns,
     })
   }
 

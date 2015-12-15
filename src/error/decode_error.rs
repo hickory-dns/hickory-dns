@@ -29,6 +29,7 @@ pub enum DecodeError {
   NoRecordDataType,
   NoRecordDataLength,
   EOF,
+  Sig0NotLast,
 }
 
 impl fmt::Display for DecodeError {
@@ -43,6 +44,7 @@ impl fmt::Display for DecodeError {
       DecodeError::NoRecordDataType => write!(f, "There was no record data type specified"),
       DecodeError::NoRecordDataLength => write!(f, "There was no record data length specified"),
       DecodeError::EOF => write!(f, "End of input reached before next read could complete"),
+      DecodeError::Sig0NotLast => write!(f, "SIG0 must be final resource record"),
     }
   }
 }
@@ -59,6 +61,7 @@ impl Error for DecodeError {
       DecodeError::NoRecordDataType => "RecordType unspecified",
       DecodeError::NoRecordDataLength => "RecordData length unspecified",
       DecodeError::EOF => "End of input",
+      DecodeError::Sig0NotLast => "SIG0 must be final resource record",
     }
   }
 
