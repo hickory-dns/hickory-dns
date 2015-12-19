@@ -577,7 +577,10 @@ impl Authority {
     }
   }
 
+  /// returns any records matching the specified query.
+  ///  for AXFR records, all records will be returned, with the exception of the SOA record.
   fn matches_record_type_and_class(record: &Record, rtype: RecordType, class: DNSClass) -> bool {
+    (rtype == RecordType::AXFR && record.get_rr_type() != RecordType::SOA) ||
     (rtype == RecordType::ANY || record.get_rr_type() == rtype) &&
     (class == DNSClass::ANY || record.get_dns_class() == class)
   }
