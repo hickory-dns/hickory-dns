@@ -84,7 +84,7 @@ impl<'a> BinDecoder<'a> {
     let length: u8 = try!(self.pop());
 
     // TODO once Drain stabalizes on Vec, this should be replaced...
-    let mut label_vec: Vec<u8> = try!(self.read_vec(length as usize));
+    let label_vec: Vec<u8> = try!(self.read_vec(length as usize));
 
     // translate bytes to string, then lowercase...
     Ok(try!(String::from_utf8(label_vec)).to_lowercase())

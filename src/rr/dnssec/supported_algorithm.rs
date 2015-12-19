@@ -33,19 +33,20 @@ impl SupportedAlgorithms {
     let bit_pos: u8 = match algorithm {
       Algorithm::RSASHA1 => 0,
       Algorithm::RSASHA256 => 1,
-      Algorithm::RSASHA1_NSEC3_SHA1 => 2,
+      Algorithm::RSASHA1NSEC3SHA1 => 2,
       Algorithm::RSASHA512 => 3,
       // ECDSAP256SHA256 => 4,
       // ECDSAP384SHA384 => 5,
     };
 
     assert!(bit_pos <= u8::max_value());
-    bit_pos
+    1u8 << bit_pos
   }
 
   pub fn set(&mut self, algorithm: Algorithm) {
     let bit_pos: u8 = self.pos(algorithm);
-    self.bit_map |= 1u8 << bit_pos;
+    println!("{:?}: {:x}", algorithm, bit_pos);
+    self.bit_map |= bit_pos;
   }
 
   pub fn has(&self, algorithm: Algorithm) -> bool {
@@ -77,10 +78,10 @@ fn test_has() {
   supported.set(Algorithm::RSASHA1);
 
   assert!(supported.has(Algorithm::RSASHA1));
-  assert!(!supported.has(Algorithm::RSASHA1_NSEC3_SHA1));
+  assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
 
   supported.set(Algorithm::RSASHA256);
   assert!(supported.has(Algorithm::RSASHA1));
-  assert!(!supported.has(Algorithm::RSASHA1_NSEC3_SHA1));
+  assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
   assert!(supported.has(Algorithm::RSASHA256));
 }

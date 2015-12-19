@@ -15,12 +15,11 @@
  */
 use std::io::Write;
 
-use openssl::crypto::hash::{Hasher, Type};
+use openssl::crypto::hash::Hasher;
 use openssl::crypto::pkey::{PKey, Role};
 
 use ::op::Message;
 use ::rr::dnssec::Algorithm;
-use ::rr::Record;
 use ::rr::domain::Name;
 use ::serialize::binary::{BinEncoder, BinSerializable};
 
@@ -113,7 +112,8 @@ impl Signer {
       message.emit(&mut encoder).unwrap(); // coding error if this panics (i think?)
     }
 
-    hasher.write_all(&buf);
+    // this is not IO backed, it should always succeed
+    assert!(hasher.write_all(&buf).is_ok());
     hasher.finish()
   }
 
@@ -131,7 +131,7 @@ impl Signer {
   ///  query message that produced this response, including the query's DNS
   ///  header and any request SIGs but not its IP header.  That is
   ///
-  ///     data = full response (less transaction SIG) | full query
+  ///  data = full response (less transaction SIG) | full query
   ///
   ///  Verification of the transaction SIG (which is signed by the server
   ///  host key, not the zone key) by the requesting resolver shows that the

@@ -366,6 +366,7 @@ impl BinSerializable<RData> for RData {
       RecordType::NULL => rdata::null::read(decoder),
       RecordType::NS => rdata::ns::read(decoder),
       RecordType::PTR => rdata::ptr::read(decoder),
+      RecordType::SIG => rdata::sig::read(decoder),
       RecordType::SOA => rdata::soa::read(decoder),
       RecordType::SRV => rdata::srv::read(decoder),
       RecordType::TXT => rdata::txt::read(decoder),

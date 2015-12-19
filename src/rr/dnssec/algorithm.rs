@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::convert::Into;
-
 use openssl::crypto::pkey;
 use openssl::crypto::hash;
 
@@ -100,7 +98,7 @@ pub enum Algorithm {
   RSASHA1,
   RSASHA256,
   /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
-  RSASHA1_NSEC3_SHA1,
+  RSASHA1NSEC3SHA1,
   RSASHA512,
 //  ECDSAP256SHA256, // not yet supported
 //  ECDSAP384SHA384,
@@ -109,7 +107,7 @@ pub enum Algorithm {
 impl Algorithm {
   pub fn get_hash_type(self) -> hash::Type {
     match self {
-      Algorithm::RSASHA1 | Algorithm::RSASHA1_NSEC3_SHA1 => hash::Type::SHA1,
+      Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => hash::Type::SHA1,
       Algorithm::RSASHA256 => hash::Type::SHA256,
       Algorithm::RSASHA512 => hash::Type::SHA512,
 //      Algorithm::ECDSAP256SHA256 => hash::Type::SHA256,
@@ -145,7 +143,7 @@ impl Algorithm {
   pub fn from_u8(value: u8) -> DecodeResult<Self> {
     match value {
       5  => Ok(Algorithm::RSASHA1),
-      7  => Ok(Algorithm::RSASHA1_NSEC3_SHA1),
+      7  => Ok(Algorithm::RSASHA1NSEC3SHA1),
       8  => Ok(Algorithm::RSASHA256),
       10 => Ok(Algorithm::RSASHA512),
 //      13 => Algorithm::ECDSAP256SHA256,
@@ -172,7 +170,7 @@ impl From<&'static str> for Algorithm {
     match s {
       "RSASHA1" => Algorithm::RSASHA1,
       "RSASHA256" => Algorithm::RSASHA256,
-      "RSASHA1-NSEC3-SHA1" => Algorithm::RSASHA1_NSEC3_SHA1,
+      "RSASHA1-NSEC3-SHA1" => Algorithm::RSASHA1NSEC3SHA1,
       "RSASHA512" => Algorithm::RSASHA512,
 //      "ECDSAP256SHA256" => Algorithm::ECDSAP256SHA256,
 //      "ECDSAP384SHA384" => Algorithm::ECDSAP384SHA384,
@@ -186,7 +184,7 @@ impl From<Algorithm> for &'static str {
     match a {
       Algorithm::RSASHA1 => "RSASHA1",
       Algorithm::RSASHA256 => "RSASHA256",
-      Algorithm::RSASHA1_NSEC3_SHA1 => "RSASHA1-NSEC3-SHA1",
+      Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
       Algorithm::RSASHA512 => "RSASHA512",
 //      ECDSAP256SHA256 => "ECDSAP256SHA256",
 //      ECDSAP384SHA384 => "ECDSAP384SHA384",
@@ -199,7 +197,7 @@ impl From<Algorithm> for u8 {
     match a {
       Algorithm::RSASHA1 => 5,
       Algorithm::RSASHA256 => 7,
-      Algorithm::RSASHA1_NSEC3_SHA1 => 8,
+      Algorithm::RSASHA1NSEC3SHA1 => 8,
       Algorithm::RSASHA512 => 10,
 //      ECDSAP256SHA256 => 13,
 //      ECDSAP384SHA384 => 14,
@@ -220,7 +218,7 @@ mod test {
 
     for algorithm in &[Algorithm::RSASHA1,
                        Algorithm::RSASHA256,
-                       Algorithm::RSASHA1_NSEC3_SHA1,
+                       Algorithm::RSASHA1NSEC3SHA1,
                        Algorithm::RSASHA512] {
       let sig = algorithm.sign(&pkey, bytes);
       assert!(algorithm.verify(&pkey, bytes, &sig));

@@ -290,7 +290,7 @@ impl BinSerializable<Name> for Name {
 impl fmt::Display for Name {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     for label in &*self.labels {
-      write!(f, "{}.", label);
+      write!(f, "{}.", label).unwrap();
     }
     Ok(())
   }

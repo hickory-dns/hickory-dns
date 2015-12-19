@@ -61,7 +61,7 @@ impl BinSerializable<u32> for u32 {
 }
 
 impl BinSerializable<Vec<u8>> for Vec<u8> {
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<Vec<u8>> {
+  fn read(_: &mut BinDecoder) -> DecodeResult<Vec<u8>> {
     panic!("do not know amount to read in this context")
   }
 
