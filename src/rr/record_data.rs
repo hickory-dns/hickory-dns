@@ -334,6 +334,8 @@ pub enum RData {
 impl RData {
   pub fn parse(record_type: RecordType, tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Self> {
     match record_type {
+      RecordType::A => rdata::a::parse(tokens),
+      RecordType::AAAA => rdata::aaaa::parse(tokens),
       RecordType::CNAME => rdata::cname::parse(tokens, origin),
       RecordType::MX => rdata::mx::parse(tokens, origin),
       RecordType::NULL => rdata::null::parse(tokens),
@@ -342,8 +344,6 @@ impl RData {
       RecordType::SOA => rdata::soa::parse(tokens, origin),
       RecordType::SRV => rdata::srv::parse(tokens, origin),
       RecordType::TXT => rdata::txt::parse(tokens),
-      RecordType::A => rdata::a::parse(tokens),
-      RecordType::AAAA => rdata::aaaa::parse(tokens),
       _ => panic!("parser not yet implemented for: {:?}", record_type),
     }
   }
@@ -361,17 +361,18 @@ impl RData {
 impl BinSerializable<RData> for RData {
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     match try!(decoder.record_type().ok_or(DecodeError::NoRecordDataType)) {
+      RecordType::A => rdata::a::read(decoder),
+      RecordType::AAAA => rdata::aaaa::read(decoder),
       RecordType::CNAME => rdata::cname::read(decoder),
       RecordType::MX => rdata::mx::read(decoder),
       RecordType::NULL => rdata::null::read(decoder),
       RecordType::NS => rdata::ns::read(decoder),
+      RecordType::OPT => rdata::opt::read(decoder),
       RecordType::PTR => rdata::ptr::read(decoder),
       RecordType::SIG => rdata::sig::read(decoder),
       RecordType::SOA => rdata::soa::read(decoder),
       RecordType::SRV => rdata::srv::read(decoder),
       RecordType::TXT => rdata::txt::read(decoder),
-      RecordType::A => rdata::a::read(decoder),
-      RecordType::AAAA => rdata::aaaa::read(decoder),
       record_type @ _ => panic!("read not yet implemented for: {:?}", record_type),
     }
   }
@@ -383,7 +384,7 @@ impl BinSerializable<RData> for RData {
       RData::MX{..} => rdata::mx::emit(encoder, self),
       RData::NULL{..} => rdata::null::emit(encoder, self),
       RData::NS{..} => rdata::ns::emit(encoder, self),
-      RData::OPT{..} => rdata::ns::emit(encoder, self),
+      RData::OPT{..} => rdata::opt::emit(encoder, self),
       RData::PTR{..} => rdata::ptr::emit(encoder, self),
       RData::SIG{..} => rdata::sig::emit(encoder, self),
       RData::SOA{..} => rdata::soa::emit(encoder, self),

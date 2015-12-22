@@ -133,7 +133,18 @@ impl BinSerializable<Record> for Record {
     decoder.set_record_type(record_type);
 
     // CLASS           two octets containing one of the RR CLASS codes.
-    let class: DNSClass = try!(DNSClass::read(decoder));
+    let class: DNSClass = if record_type == RecordType::OPT {
+      // verify that the OPT record is Root
+      if !name_labels.is_root() {
+        return Err(DecodeError::EdnsNameNotRoot)
+      }
+
+      //  DNS Class is overloaded for OPT records in EDNS - RFC 6891
+      DNSClass::for_opt(try!(decoder.read_u16()))
+
+    } else {
+      try!(DNSClass::read(decoder))
+    };
 
     // TTL             a 32 bit signed integer that specifies the time interval
     //                that the resource record may be cached before the source
@@ -150,7 +161,7 @@ impl BinSerializable<Record> for Record {
     //                octets of the RDATA field.
     let rd_length: u16 = try!(decoder.read_u16());
 
-    // this is to handle updates, RFC 2036, which uses 0 to indicate certain aspects of
+    // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of
     //  pre-requisites
     let rdata: RData = if rd_length == 0 {
       RData::NULL{ anything: vec![] }

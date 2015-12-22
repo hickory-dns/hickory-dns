@@ -30,6 +30,7 @@ pub enum DecodeError {
   NoRecordDataLength,
   EOF,
   Sig0NotLast,
+  EdnsNameNotRoot,
 }
 
 impl fmt::Display for DecodeError {
@@ -45,6 +46,7 @@ impl fmt::Display for DecodeError {
       DecodeError::NoRecordDataLength => write!(f, "There was no record data length specified"),
       DecodeError::EOF => write!(f, "End of input reached before next read could complete"),
       DecodeError::Sig0NotLast => write!(f, "SIG0 must be final resource record"),
+      DecodeError::EdnsNameNotRoot => write!(f, "EDNS resource record label must be the root label (.)"),
     }
   }
 }
@@ -62,6 +64,7 @@ impl Error for DecodeError {
       DecodeError::NoRecordDataLength => "RecordData length unspecified",
       DecodeError::EOF => "End of input",
       DecodeError::Sig0NotLast => "SIG0 must be final resource record",
+      DecodeError::EdnsNameNotRoot => "EDNS resource record label must be the root label (.)",
     }
   }
 

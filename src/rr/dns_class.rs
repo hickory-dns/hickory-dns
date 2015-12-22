@@ -27,6 +27,7 @@ pub enum DNSClass {
   HS,          // 4 Hesiod (HS)
   NONE,        // 254 QCLASS NONE
   ANY,         // 255 QCLASS * (ANY)
+  OPT(u16),    // Special class for OPT Version, it was overloaded for EDNS - RFC 6891
 }
 
 impl DNSClass {
@@ -64,9 +65,13 @@ impl DNSClass {
       3 => Ok(DNSClass::CH),
       4 => Ok(DNSClass::HS),
       254 => Ok(DNSClass::NONE),
-      //      255 => DNSClass::ANY,
+      255 => Ok(DNSClass::ANY),
       _ => Err(DecodeError::UnknownDnsClassValue(value)),
     }
+  }
+
+  pub fn for_opt(value: u16) -> Self {
+    DNSClass::OPT(value)
   }
 }
 
@@ -98,6 +103,7 @@ impl From<DNSClass> for &'static str {
       DNSClass::HS => "HS",
       DNSClass::NONE => "NONE",
       DNSClass::ANY => "ANY",
+      DNSClass::OPT(_) => "OPT"
     }
   }
 }
@@ -118,6 +124,7 @@ impl From<DNSClass> for u16 {
       DNSClass::HS => 4,
       DNSClass::NONE => 254,
       DNSClass::ANY => 255,
+      DNSClass::OPT(version) => version,
     }
   }
 }

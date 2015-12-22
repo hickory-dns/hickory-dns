@@ -40,6 +40,10 @@ impl Name {
     Self::new()
   }
 
+  pub fn is_root(&self) -> bool {
+    self.labels.is_empty()
+  }
+
   // inline builder
   pub fn label(mut self, label: &'static str) -> Self {
     // TODO get_mut() on Arc was unstable when this was written
@@ -102,7 +106,6 @@ impl Name {
     self.labels.len() as u8
   }
 
-  // TODO: I think this does the wrong thing for escaped data
   pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {
     let mut name = Name::new();
     let mut label = String::new();

@@ -123,6 +123,7 @@ impl Message {
   pub fn get_answers(&self) -> &[Record] { &self.answers }
   pub fn get_name_servers(&self) -> &[Record] { &self.name_servers }
   pub fn get_additional(&self) -> &[Record] { &self.additionals }
+  pub fn get_edns(&self) -> Option<&Edns> { self.edns.as_ref() }
 
   /// returns the sig0, i.e. signed record, for verifying the sending and package integrity
   ///  RFC 2535 section 4

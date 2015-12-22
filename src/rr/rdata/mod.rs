@@ -23,6 +23,7 @@ pub mod cname;
 pub mod mx;
 pub mod null;
 pub mod ns;
+pub mod opt;
 pub mod ptr;
 pub mod sig;
 pub mod soa;

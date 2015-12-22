@@ -28,7 +28,7 @@ impl SupportedAlgorithms {
     SupportedAlgorithms{ bit_map: 0 }
   }
 
-  fn pos(&self, algorithm: Algorithm) -> u8 {
+  fn pos(algorithm: Algorithm) -> u8 {
     // not using the values from the RFC's to keep the bit_map space condensed
     let bit_pos: u8 = match algorithm {
       Algorithm::RSASHA1 => 0,
@@ -43,17 +43,43 @@ impl SupportedAlgorithms {
     1u8 << bit_pos
   }
 
+  fn from_pos(pos: u8) -> Option<Algorithm> {
+    // TODO: should build a code generator or possibly a macro for deriving these inversions
+    match pos {
+      0 => Some(Algorithm::RSASHA1),
+      1 => Some(Algorithm::RSASHA256),
+      2 => Some(Algorithm::RSASHA1NSEC3SHA1),
+      3 => Some(Algorithm::RSASHA512),
+      _ => None,
+    }
+  }
+
   pub fn set(&mut self, algorithm: Algorithm) {
-    let bit_pos: u8 = self.pos(algorithm);
+    let bit_pos: u8 = Self::pos(algorithm);
     println!("{:?}: {:x}", algorithm, bit_pos);
     self.bit_map |= bit_pos;
   }
 
   pub fn has(&self, algorithm: Algorithm) -> bool {
-    let bit_pos: u8 = self.pos(algorithm);
+    let bit_pos: u8 = Self::pos(algorithm);
     (bit_pos & self.bit_map) == bit_pos
   }
+
+  pub fn iter(&self) -> SupportedAlgorithmsIter {
+    SupportedAlgorithmsIter::new(self)
+  }
+
+  pub fn len(&self) -> u16 {
+    // this is pretty much guaranteed to be less that u16::max_value()
+    self.iter().count() as u16
+  }
 }
+
+// impl<'a> SupportedAlgorithms {
+//   pub fn iter(&self) -> SupportedAlgorithmsIter<'a> {
+//     SupportedAlgorithmsIter::new(self)
+//   }
+// }
 
 impl<'a> From<&'a [u8]> for SupportedAlgorithms {
   fn from(value: &'a [u8]) -> Self {
@@ -71,6 +97,45 @@ impl<'a> From<&'a [u8]> for SupportedAlgorithms {
   }
 }
 
+impl<'a> From<&'a SupportedAlgorithms> for Vec<u8> {
+  fn from(value: &'a SupportedAlgorithms) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(8); // today this is less than 8
+
+    for a in value.iter() {
+      bytes.push(a.into());
+    }
+
+    bytes.shrink_to_fit();
+    bytes
+  }
+}
+
+pub struct SupportedAlgorithmsIter<'a> {
+  algorithms: &'a SupportedAlgorithms,
+  current: usize,
+}
+
+impl<'a> SupportedAlgorithmsIter<'a> {
+  pub fn new(algorithms: &'a SupportedAlgorithms) -> Self {
+    SupportedAlgorithmsIter{ algorithms: algorithms, current: 0 }
+  }
+}
+
+impl<'a> Iterator for SupportedAlgorithmsIter<'a> {
+  type Item = Algorithm;
+  fn next(&mut self) -> Option<Self::Item> {
+    // some quick bounds checking
+    if self.current >= u8::max_value() as usize { return None }
+
+    while let Some(algorithm) = SupportedAlgorithms::from_pos(self.current as u8) {
+      self.current += 1;
+      if self.algorithms.has(algorithm) { return Some(algorithm) }
+    }
+
+    None
+  }
+}
+
 #[test]
 fn test_has() {
   let mut supported = SupportedAlgorithms::new();
@@ -84,4 +149,28 @@ fn test_has() {
   assert!(supported.has(Algorithm::RSASHA1));
   assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
   assert!(supported.has(Algorithm::RSASHA256));
+}
+
+#[test]
+fn test_iterator() {
+  // it just so happens that the iterator has a fixed order...
+  let mut supported = SupportedAlgorithms::new();
+  supported.set(Algorithm::RSASHA1);
+  supported.set(Algorithm::RSASHA256);
+  supported.set(Algorithm::RSASHA1NSEC3SHA1);
+  supported.set(Algorithm::RSASHA512);
+
+  let mut iter = supported.iter();
+  assert_eq!(iter.next(), Some(Algorithm::RSASHA1));
+  assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
+  assert_eq!(iter.next(), Some(Algorithm::RSASHA1NSEC3SHA1));
+  assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
+
+  let mut supported = SupportedAlgorithms::new();
+  supported.set(Algorithm::RSASHA256);
+  supported.set(Algorithm::RSASHA512);
+
+  let mut iter = supported.iter();
+  assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
+  assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
 }

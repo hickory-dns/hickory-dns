@@ -35,10 +35,11 @@ impl Catalog {
 
   pub fn handle_request(&self, request: Message) -> Message {
     info!("id: {} type: {:?} op_code: {:?}", request.get_id(), request.get_message_type(), request.get_op_code());
+    debug!("request: {:?}", request);
 
     let id = request.get_id();
 
-    match request.get_message_type() {
+    let mut response: Message = match request.get_message_type() {
       // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
       //  especially for recursive lookups
       MessageType::Query => {
@@ -46,26 +47,50 @@ impl Catalog {
           OpCode::Query => {
             let response = self.lookup(&request);
             debug!("query response: {:?}", response);
-            return response;
+            response
             // TODO, handle recursion here or in the catalog?
             // recursive queries should be cached.
           },
           OpCode::Update => {
             let response = self.update(&request);
             debug!("update response: {:?}", response);
-            return response;
+            response
           }
           c @ _ => {
             error!("unimplemented op_code: {:?}", c);
-            return Self::error_msg(request.get_id(), request.get_op_code(), ResponseCode::NotImp);
+            Self::error_msg(request.get_id(), request.get_op_code(), ResponseCode::NotImp)
           },
         }
       },
       MessageType::Response => {
         warn!("got a response as a request from id: {}", id);
-        return Self::error_msg(id, request.get_op_code(), ResponseCode::NotImp);
+        Self::error_msg(id, request.get_op_code(), ResponseCode::NotImp)
       },
+    };
+
+    // check if it's edns
+    if let Some(req_edns) = request.get_edns() {
+      let mut resp_edns: Edns = Edns::new();
+
+      resp_edns.set_dnssec_ok(false);  // TODO: enable when we have DNSSec ready
+      resp_edns.set_version(0);        // TODO: what version are we?
+      resp_edns.set_max_payload(4096); // TODO: this should be configurable, e.g. MTU
+      resp_edns.set_rcode_high(0);     // TODO: set the rcode properly...
+
+      // TODO: inform of supported DNSSec protocols...
+      // TODO: add padding for private key hashing, need better knowledge of the length of the
+      //   response.
+      // resp_edns.set_option()
+
+      response.add_additional((&resp_edns).into());
+
+      // TODO: if req_edns.get_max_payload() < response.len(), set truncated and remove RR from
+      //  the query secion...
+
+      // TODO: if DNSSec supported, sign the package with SIG0
     }
+
+    response
   }
 
   pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Message {

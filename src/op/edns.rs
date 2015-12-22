@@ -15,14 +15,14 @@
  */
 use std::collections::HashMap;
 
-use ::rr::{Record, RecordType, RData};
+use ::rr::{DNSClass, Name, Record, RecordType, RData};
 use ::rr::dnssec::SupportedAlgorithms;
 
 #[derive(Debug, PartialEq)]
 pub struct Edns {
   // high 8 bits that make up the 12 bit total field when included with the 4bit rcode from the
   //  header (from TTL)
-  extended_rcode_high: u8,
+  rcode_high: u8,
   // Indicates the implementation level of the setter. (from TTL)
   version: u8,
   // Is DNSSec supported (from TTL)
@@ -33,71 +33,147 @@ pub struct Edns {
   options: HashMap<EdnsCode, EdnsOption>,
 }
 
+impl Edns {
+  pub fn new() -> Self {
+    Edns{ rcode_high: 0, version: 0, dnssec_ok: false, max_payload: 512, options: HashMap::new() }
+  }
+
+  pub fn get_rcode_high(&self) -> u8 { self.rcode_high }
+  pub fn get_version(&self) -> u8 { self.version }
+  pub fn is_dnssec_ok(&self) -> bool { self.dnssec_ok }
+  pub fn get_max_payload(&self) -> u16 { self.max_payload }
+  pub fn get_option(&self, code: &EdnsCode) -> Option<&EdnsOption> { self.options.get(&code) }
+  pub fn get_options(&self) -> &HashMap<EdnsCode, EdnsOption> { &self.options }
+
+  pub fn set_rcode_high(&mut self, rcode_high: u8) { self.rcode_high = rcode_high }
+  pub fn set_version(&mut self, version: u8) { self.version = version }
+  pub fn set_dnssec_ok(&mut self, dnssec_ok: bool) { self.dnssec_ok = dnssec_ok }
+  pub fn set_max_payload(&mut self, max_payload: u16) { self.max_payload = max_payload }
+  pub fn set_option(&mut self, code: EdnsCode, option: EdnsOption) { self.options.insert(code, option); }
+}
+
 impl<'a> From<&'a Record> for Edns {
   fn from(value: &'a Record) -> Self {
     assert!(value.get_rr_type() == RecordType::OPT);
 
-    let extended_rcode_high: u8 = ((value.get_ttl() & 0x0000FF00u32) >> 8) as u8;
+    let rcode_high: u8 = ((value.get_ttl() & 0x0000FF00u32) >> 8) as u8;
     let version: u8 = (value.get_ttl() & 0x000000FFu32) as u8;
     let dnssec_ok: bool = value.get_ttl() & 0x80000000 == 0x80000000;
     let max_payload: u16 = if u16::from(value.get_dns_class()) < 512 { 512 } else { value.get_dns_class().into() };
     let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
 
-    if let &RData::OPT{ ref option_rdata } = value.get_rdata() {
-      let mut state: OptReadState = OptReadState::Code1;
-      //    OPTION-CODE
-      //       Assigned by the Expert Review process as defined by the DNSEXT
-      //       working group and the IESG.
-      //
-      //    OPTION-LENGTH
-      //       Size (in octets) of OPTION-DATA.
-      //
-      //    OPTION-DATA
-      //       Varies per OPTION-CODE.  MUST be treated as a bit field.
-      for (i, byte) in option_rdata.iter().enumerate() {
-        match state {
-          OptReadState::Code1 => {
-            state = OptReadState::Code2{ high: *byte };
-          },
-          OptReadState::Code2{high} => {
-            state = OptReadState::Length1{ code: ((((high as u16) << 8) & 0xFF00u16) + (*byte as u16 & 0x00FFu16)).into() };
-          },
-          OptReadState::Length1{code} => {
-            state = OptReadState::Length2{ code: code, high: *byte };
-          },
-          OptReadState::Length2{code, high } => {
-            state = OptReadState::Data{code:code, length: (((high as usize) << 8) & 0xFF00usize) + (*byte as usize & 0x00FFusize), collected: 0 };
-          },
-          OptReadState::Data{code, length, collected } => {
-            let collected = collected + 1;
-            if length == collected {
-              options.insert(code, (code, &option_rdata[(i - length)..i]).into());
-              state = OptReadState::Code1;
-            } else {
-              state = OptReadState::Data{code: code, length: length, collected: collected};
-            }
-          },
+// change to this match
+    match value.get_rdata() {
+      &RData::NULL{ .. } => {
+        // NULL, there was no data in the OPT
+      },
+      &RData::OPT{ ref option_rdata } => {
+        let mut state: OptReadState = OptReadState::Code1;
+        //    OPTION-CODE
+        //       Assigned by the Expert Review process as defined by the DNSEXT
+        //       working group and the IESG.
+        //
+        //    OPTION-LENGTH
+        //       Size (in octets) of OPTION-DATA.
+        //
+        //    OPTION-DATA
+        //       Varies per OPTION-CODE.  MUST be treated as a bit field.
+        for (i, byte) in option_rdata.iter().enumerate() {
+          match state {
+            OptReadState::Code1 => {
+              state = OptReadState::Code2{ high: *byte };
+            },
+            OptReadState::Code2{high} => {
+              state = OptReadState::Length1{ code: ((((high as u16) << 8) & 0xFF00u16) + (*byte as u16 & 0x00FFu16)).into() };
+            },
+            OptReadState::Length1{code} => {
+              state = OptReadState::Length2{ code: code, high: *byte };
+            },
+            OptReadState::Length2{code, high } => {
+              state = OptReadState::Data{code:code, length: (((high as usize) << 8) & 0xFF00usize) + (*byte as usize & 0x00FFusize), collected: 0 };
+            },
+            OptReadState::Data{code, length, collected } => {
+              let collected = collected + 1;
+              if length == collected {
+                options.insert(code, (code, &option_rdata[(i - length)..i]).into());
+                state = OptReadState::Code1;
+              } else {
+                state = OptReadState::Data{code: code, length: length, collected: collected};
+              }
+            },
+          }
         }
-      }
 
-      if state != OptReadState::Code1 {
-        // there was some problem parsing the data for the options, ignoring them
-        // TODO: should we ignore all of the EDNS data in this case?
-        warn!("incomplete or poorly formatted EDNS options: {:?}", option_rdata);
-        options.clear();
-      }
-
-      Edns {
-        extended_rcode_high: extended_rcode_high,
-        version: version,
-        dnssec_ok: dnssec_ok,
-        max_payload: max_payload,
-        options: options,
-      }
-    } else {
-      // this should be a coding error, as opposed to a parsing error.
-      panic!("rr_type doesn't match the RData: {:?}", value.get_rdata());
+        if state != OptReadState::Code1 {
+          // there was some problem parsing the data for the options, ignoring them
+          // TODO: should we ignore all of the EDNS data in this case?
+          warn!("incomplete or poorly formatted EDNS options: {:?}", option_rdata);
+          options.clear();
+        }
+      },
+      _ => {
+        // this should be a coding error, as opposed to a parsing error.
+        panic!("rr_type doesn't match the RData: {:?}", value.get_rdata());
+      },
     }
+
+    Edns {
+      rcode_high: rcode_high,
+      version: version,
+      dnssec_ok: dnssec_ok,
+      max_payload: max_payload,
+      options: options,
+    }
+  }
+}
+
+#[inline(always)]
+fn bytes_from(data: u16) -> (u8, u8) {
+  let b1: u8 = (data >> 8 & 0xFF) as u8;
+  let b2: u8 = (data & 0xFF) as u8;
+
+  (b1, b2)
+}
+
+impl<'a> From<&'a Edns> for Record {
+  /// This returns a Resource Record that is formatted for Edns(0).
+  /// Note: the rcode_high value is only part of the rcode, the rest is part of the base
+  fn from(value: &'a Edns) -> Record {
+    let mut record: Record = Record::new();
+
+    record.name(Name::root());
+    record.rr_type(RecordType::OPT);
+    record.dns_class(DNSClass::OPT(value.get_max_payload()));
+
+    // rebuild the TTL field
+    let mut ttl: u32 = (value.get_rcode_high() as u32) << 8;
+    ttl |= value.get_version() as u32;
+
+    if value.is_dnssec_ok() {
+      ttl |= 0x80000000;
+    }
+    record.ttl(ttl);
+
+    // now for each option, write out the option array
+    //  also, since this is a hash, there is no guarantee that ordering will be preserved from
+    //  the original binary format.
+    // maybe switch to: https://crates.io/crates/linked-hash-map/
+    let mut option_rdata: Vec<u8> = Vec::new();
+    for (ref edns_code, ref edns_option) in value.get_options().iter() {
+      let code = bytes_from(u16::from(**edns_code));
+      option_rdata.push(code.0);
+      option_rdata.push(code.1);
+
+      let len = bytes_from(edns_option.len());
+      option_rdata.push(len.0);
+      option_rdata.push(len.1);
+
+      let mut data: Vec<u8> = Vec::from(*edns_option);
+      option_rdata.append(&mut data);
+    }
+    record.rdata(RData::OPT{ option_rdata: option_rdata });
+
+    record
   }
 }
 
@@ -151,6 +227,7 @@ pub enum EdnsCode {
   Unknown(u16)
 }
 
+// TODO: implement a macro to perform these inversions
 impl From<u16> for EdnsCode {
   fn from(value: u16) -> EdnsCode {
     match value {
@@ -235,6 +312,17 @@ pub enum EdnsOption {
   Unknown(u16, Vec<u8>)
 }
 
+impl EdnsOption {
+  pub fn len(&self) -> u16 {
+    match *self {
+      EdnsOption::DAU(ref algorithms) |
+      EdnsOption::DHU(ref algorithms) |
+      EdnsOption::N3U(ref algorithms) => algorithms.len(),
+      EdnsOption::Unknown(_, ref data) => data.len() as u16, // TODO: should we verify?
+    }
+  }
+}
+
 /// only the supported extensions are listed right now.
 impl<'a> From<(EdnsCode, &'a[u8])> for EdnsOption {
   fn from(value: (EdnsCode, &'a[u8])) -> EdnsOption {
@@ -243,6 +331,17 @@ impl<'a> From<(EdnsCode, &'a[u8])> for EdnsOption {
       EdnsCode::DHU => EdnsOption::DHU(value.1.into()),
       EdnsCode::N3U => EdnsOption::N3U(value.1.into()),
       _ => EdnsOption::Unknown(value.0.into(), value.1.to_vec()),
+    }
+  }
+}
+
+impl<'a> From<&'a EdnsOption> for Vec<u8> {
+  fn from(value: &'a EdnsOption) -> Vec<u8> {
+    match *value {
+      EdnsOption::DAU(ref algorithms) |
+      EdnsOption::DHU(ref algorithms) |
+      EdnsOption::N3U(ref algorithms) => algorithms.into(),
+      EdnsOption::Unknown(_, ref data) => data.clone(), // gah, clone needed or make a crazy api.
     }
   }
 }
