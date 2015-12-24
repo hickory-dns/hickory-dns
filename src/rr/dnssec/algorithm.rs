@@ -196,8 +196,8 @@ impl From<Algorithm> for u8 {
   fn from(a: Algorithm) -> u8 {
     match a {
       Algorithm::RSASHA1 => 5,
-      Algorithm::RSASHA256 => 7,
-      Algorithm::RSASHA1NSEC3SHA1 => 8,
+      Algorithm::RSASHA1NSEC3SHA1 => 7,
+      Algorithm::RSASHA256 => 8,
       Algorithm::RSASHA512 => 10,
 //      ECDSAP256SHA256 => 13,
 //      ECDSAP384SHA384 => 14,

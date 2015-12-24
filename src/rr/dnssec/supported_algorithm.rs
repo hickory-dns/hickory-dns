@@ -28,6 +28,10 @@ impl SupportedAlgorithms {
     SupportedAlgorithms{ bit_map: 0 }
   }
 
+  pub fn all() -> Self {
+    SupportedAlgorithms{ bit_map: 0b00001111 }
+  }
+
   fn pos(algorithm: Algorithm) -> u8 {
     // not using the values from the RFC's to keep the bit_map space condensed
     let bit_pos: u8 = match algorithm {
@@ -56,7 +60,6 @@ impl SupportedAlgorithms {
 
   pub fn set(&mut self, algorithm: Algorithm) {
     let bit_pos: u8 = Self::pos(algorithm);
-    println!("{:?}: {:x}", algorithm, bit_pos);
     self.bit_map |= bit_pos;
   }
 
@@ -85,13 +88,14 @@ impl<'a> From<&'a [u8]> for SupportedAlgorithms {
   fn from(value: &'a [u8]) -> Self {
     let mut supported = SupportedAlgorithms::new();
 
-    for i in value.iter().map(|i|Algorithm::from_u8(*i)) {
-      if i.is_ok() {
-        supported.set(i.unwrap());
+    for a in value.iter().map(|i|Algorithm::from_u8(*i)) {
+      if a.is_ok() {
+        supported.set(a.unwrap());
       } else {
-        warn!("unrecognized algorithm: {}", i.unwrap_err());
+        warn!("unrecognized algorithm: {}", a.unwrap_err());
       }
     }
+
 
     supported
   }
@@ -99,7 +103,7 @@ impl<'a> From<&'a [u8]> for SupportedAlgorithms {
 
 impl<'a> From<&'a SupportedAlgorithms> for Vec<u8> {
   fn from(value: &'a SupportedAlgorithms) -> Vec<u8> {
-    let mut bytes = Vec::with_capacity(8); // today this is less than 8
+    let mut bytes: Vec<u8> = Vec::with_capacity(8); // today this is less than 8
 
     for a in value.iter() {
       bytes.push(a.into());
@@ -125,7 +129,7 @@ impl<'a> Iterator for SupportedAlgorithmsIter<'a> {
   type Item = Algorithm;
   fn next(&mut self) -> Option<Self::Item> {
     // some quick bounds checking
-    if self.current >= u8::max_value() as usize { return None }
+    if self.current > u8::max_value() as usize { return None }
 
     while let Some(algorithm) = SupportedAlgorithms::from_pos(self.current as u8) {
       self.current += 1;
@@ -153,13 +157,11 @@ fn test_has() {
 
 #[test]
 fn test_iterator() {
-  // it just so happens that the iterator has a fixed order...
-  let mut supported = SupportedAlgorithms::new();
-  supported.set(Algorithm::RSASHA1);
-  supported.set(Algorithm::RSASHA256);
-  supported.set(Algorithm::RSASHA1NSEC3SHA1);
-  supported.set(Algorithm::RSASHA512);
+  let supported = SupportedAlgorithms::all();
+  assert_eq!(supported.iter().count(), 4);
 
+  // it just so happens that the iterator has a fixed order...
+  let supported = SupportedAlgorithms::all();
   let mut iter = supported.iter();
   assert_eq!(iter.next(), Some(Algorithm::RSASHA1));
   assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
@@ -173,4 +175,22 @@ fn test_iterator() {
   let mut iter = supported.iter();
   assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
   assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
+}
+
+#[test]
+fn test_vec() {
+  let supported = SupportedAlgorithms::all();
+  let array: Vec<u8> = (&supported).into();
+  let decoded: SupportedAlgorithms = (&array as &[_]).into();
+
+  assert_eq!(supported, decoded);
+
+  let mut supported = SupportedAlgorithms::new();
+  supported.set(Algorithm::RSASHA256);
+  supported.has(Algorithm::RSASHA256);
+  supported.has(Algorithm::RSASHA1NSEC3SHA1);
+  let array: Vec<u8> = (&supported).into();
+  let decoded: SupportedAlgorithms = (&array as &[_]).into();
+
+  assert_eq!(supported, decoded);
 }

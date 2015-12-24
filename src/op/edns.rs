@@ -56,9 +56,9 @@ impl<'a> From<&'a Record> for Edns {
   fn from(value: &'a Record) -> Self {
     assert!(value.get_rr_type() == RecordType::OPT);
 
-    let rcode_high: u8 = ((value.get_ttl() & 0x0000FF00u32) >> 8) as u8;
-    let version: u8 = (value.get_ttl() & 0x000000FFu32) as u8;
-    let dnssec_ok: bool = value.get_ttl() & 0x80000000 == 0x80000000;
+    let rcode_high: u8 = ((value.get_ttl() & 0xFF000000u32) >> 24) as u8;
+    let version: u8 = ((value.get_ttl() & 0x00FF0000u32) >> 16) as u8;
+    let dnssec_ok: bool = value.get_ttl() & 0x00008000 == 0x00008000;
     let max_payload: u16 = if u16::from(value.get_dns_class()) < 512 { 512 } else { value.get_dns_class().into() };
     let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
 
@@ -95,7 +95,8 @@ impl<'a> From<&'a Record> for Edns {
             OptReadState::Data{code, length, collected } => {
               let collected = collected + 1;
               if length == collected {
-                options.insert(code, (code, &option_rdata[(i - length)..i]).into());
+                let offset = i + 1;
+                options.insert(code, (code, &option_rdata[(offset - length)..offset]).into());
                 state = OptReadState::Code1;
               } else {
                 state = OptReadState::Data{code: code, length: length, collected: collected};
@@ -146,11 +147,11 @@ impl<'a> From<&'a Edns> for Record {
     record.dns_class(DNSClass::OPT(value.get_max_payload()));
 
     // rebuild the TTL field
-    let mut ttl: u32 = (value.get_rcode_high() as u32) << 8;
-    ttl |= value.get_version() as u32;
+    let mut ttl: u32 = (value.get_rcode_high() as u32) << 24;
+    ttl |= (value.get_version() as u32) << 16;
 
     if value.is_dnssec_ok() {
-      ttl |= 0x80000000;
+      ttl |= 0x00008000;
     }
     record.ttl(ttl);
 
@@ -197,11 +198,11 @@ pub enum EdnsCode {
   // 3	NSID	Standard	[RFC5001]
   NSID,
   // 4	Reserved		[draft-cheshire-edns0-owner-option] (EXPIRED)
-  // 5	DAU	Standard	[RFC6975]
+  // 5	DAU	Standard	[RFC6975] - DNSSEC Algorithm Understood
   DAU,
-  // 6	DHU	Standard	[RFC6975]
+  // 6	DHU	Standard	[RFC6975] - DS Hash Understood
   DHU,
-  // 7	N3U	Standard	[RFC6975]
+  // 7	N3U	Standard	[RFC6975] - NSEC3 Hash Understood
   N3U,
   // 8	edns-client-subnet	Optional	[draft-vandergaast-edns-client-subnet][Wilmer_van_der_Gaast]
   //    https://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-02
@@ -355,4 +356,24 @@ impl From<EdnsOption> for EdnsCode {
       EdnsOption::Unknown(code, _) => EdnsCode::Unknown(code),
     }
   }
+}
+
+#[test]
+fn test_encode_decode() {
+  let mut edns: Edns = Edns::new();
+
+  edns.set_dnssec_ok(true);
+  edns.set_max_payload(0x8008);
+  edns.set_version(0x40);
+  edns.set_rcode_high(0x01);
+  edns.set_option(EdnsCode::DAU, EdnsOption::DAU(SupportedAlgorithms::all()));
+
+  let record: Record = (&edns).into();
+  let edns_decode: Edns = (&record).into();
+
+  assert_eq!(edns.is_dnssec_ok(), edns_decode.is_dnssec_ok());
+  assert_eq!(edns.get_max_payload(), edns_decode.get_max_payload());
+  assert_eq!(edns.get_version(), edns_decode.get_version());
+  assert_eq!(edns.get_rcode_high(), edns_decode.get_rcode_high());
+  assert_eq!(edns.get_options(), edns_decode.get_options());
 }
