@@ -33,11 +33,40 @@ impl Catalog {
     Catalog{ authorities: HashMap::new() }
   }
 
-  pub fn handle_request(&self, request: Message) -> Message {
+  pub fn handle_request(&self, request: &Message) -> Message {
     info!("id: {} type: {:?} op_code: {:?}", request.get_id(), request.get_message_type(), request.get_op_code());
     debug!("request: {:?}", request);
 
-    let id = request.get_id();
+    let mut resp_edns_opt: Option<Edns> = None;
+
+    // check if it's edns
+    if let Some(req_edns) = request.get_edns() {
+      let mut response = Message::new();
+      response.id(request.get_id());
+
+      let mut resp_edns: Edns = Edns::new();
+
+      // check our version against the request
+      // TODO: what version are we?
+      let our_version = 0;
+      resp_edns.set_dnssec_ok(true);
+      resp_edns.set_max_payload( if req_edns.get_max_payload() < 512 { 512 } else { req_edns.get_max_payload() } );
+      resp_edns.set_version(our_version);
+
+      if req_edns.get_version() > our_version {
+        warn!("request edns version greater than {}: {}", our_version, req_edns.get_version());
+        response.response_code(ResponseCode::BADVERS);
+        response.set_edns(resp_edns);
+        return response
+      }
+
+      // TODO: inform of supported DNSSec protocols...
+      // TODO: add padding for private key hashing, need better knowledge of the length of the
+      //   response.
+      // resp_edns.set_option()
+
+      resp_edns_opt = Some(resp_edns);
+    }
 
     let mut response: Message = match request.get_message_type() {
       // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
@@ -63,31 +92,17 @@ impl Catalog {
         }
       },
       MessageType::Response => {
-        warn!("got a response as a request from id: {}", id);
-        Self::error_msg(id, request.get_op_code(), ResponseCode::NotImp)
+        warn!("got a response as a request from id: {}", request.get_id());
+        Self::error_msg(request.get_id(), request.get_op_code(), ResponseCode::NotImp)
       },
     };
 
-    // check if it's edns
-    if let Some(req_edns) = request.get_edns() {
-      let mut resp_edns: Edns = Edns::new();
-
-      resp_edns.set_dnssec_ok(false);  // TODO: enable when we have DNSSec ready
-      resp_edns.set_version(0);        // TODO: what version are we?
-      resp_edns.set_max_payload(4096); // TODO: this should be configurable, e.g. MTU
-      resp_edns.set_rcode_high(0);     // TODO: set the rcode properly...
-
-      // TODO: inform of supported DNSSec protocols...
-      // TODO: add padding for private key hashing, need better knowledge of the length of the
-      //   response.
-      // resp_edns.set_option()
-
-      response.add_additional((&resp_edns).into());
-
-      // TODO: if req_edns.get_max_payload() < response.len(), set truncated and remove RR from
-      //  the query secion...
+    if let Some(resp_edns) = resp_edns_opt {
+      response.set_edns(resp_edns);
 
       // TODO: if DNSSec supported, sign the package with SIG0
+      // get this servers private key ideally use pkcs11
+      // sign response and then add SIG0 or TSIG to response
     }
 
     response
@@ -213,7 +228,7 @@ impl Catalog {
             response.add_all_name_servers(&ns.unwrap());
           }
         } else {
-          // in the nx section it's standard to return the SOA in the authority section
+          // in the not found case it's standard to return the SOA in the authority section
           response.response_code(ResponseCode::NXDomain);
 
           let soa = authority.get_soa();

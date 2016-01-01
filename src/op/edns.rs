@@ -18,7 +18,7 @@ use std::collections::HashMap;
 use ::rr::{DNSClass, Name, Record, RecordType, RData};
 use ::rr::dnssec::SupportedAlgorithms;
 
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, Clone)]
 pub struct Edns {
   // high 8 bits that make up the 12 bit total field when included with the 4bit rcode from the
   //  header (from TTL)
@@ -272,7 +272,7 @@ impl From<EdnsCode> for u16 {
 }
 
 // http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13
-#[derive(Debug, PartialOrd, PartialEq)]
+#[derive(Debug, PartialOrd, PartialEq, Clone)]
 pub enum EdnsOption {
   /// 0	Reserved		[RFC6891]
   // Zero,

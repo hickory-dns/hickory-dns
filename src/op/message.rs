@@ -76,6 +76,22 @@ impl Message {
       name_servers: Vec::new(), additionals: Vec::new(), sig0: Vec::new(), edns: None }
   }
 
+  pub fn truncate(&self) -> Self {
+    let mut truncated: Message = Message::new();
+    truncated.id(self.get_id());
+    truncated.message_type(self.get_message_type());
+    truncated.op_code(self.get_op_code());
+    truncated.authoritative(self.is_authoritative());
+    truncated.truncated(true);
+    truncated.recursion_desired(self.is_recursion_desired());
+    truncated.recursion_available(self.is_recursion_available());
+    truncated.response_code(self.get_response_code());
+    if self.get_edns().is_some() { truncated.set_edns(self.get_edns().unwrap().clone()); }
+
+    // TODO, perhaps just quickly add a few response records here? that we know would fit?
+    truncated
+  }
+
   pub fn id(&mut self, id: u16) -> &mut Self { self.header.id(id); self }
   pub fn message_type(&mut self, message_type: MessageType) -> &mut Self { self.header.message_type(message_type); self }
   pub fn op_code(&mut self, op_code: OpCode) -> &mut Self { self.header.op_code(op_code); self }
@@ -104,6 +120,9 @@ impl Message {
     self
   }
   pub fn add_additional(&mut self, record: Record) -> &mut Self { self.additionals.push(record); self }
+  pub fn set_edns(&mut self, edns: Edns) {
+    self.edns = Some(edns);
+  }
 
   pub fn add_sig0(&mut self, record: Record) -> &mut Self {
     assert_eq!(RecordType::SIG, record.get_rr_type());
@@ -118,12 +137,17 @@ impl Message {
   pub fn is_truncated(&self) -> bool { self.header.is_truncated() }
   pub fn is_recursion_desired(&self) -> bool { self.header.is_recursion_desired() }
   pub fn is_recursion_available(&self) -> bool { self.header.is_recursion_available() }
-  pub fn get_response_code(&self) -> ResponseCode { self.header.get_response_code() }
+  pub fn get_response_code(&self) -> ResponseCode { ResponseCode::from(self.edns.as_ref().map_or(0, |e|e.get_rcode_high()), self.header.get_response_code()) }
   pub fn get_queries(&self) -> &[Query] { &self.queries }
   pub fn get_answers(&self) -> &[Record] { &self.answers }
   pub fn get_name_servers(&self) -> &[Record] { &self.name_servers }
   pub fn get_additional(&self) -> &[Record] { &self.additionals }
   pub fn get_edns(&self) -> Option<&Edns> { self.edns.as_ref() }
+  pub fn get_max_payload(&self) -> u16 {
+    let max_size = self.edns.as_ref().map_or(512, |e|e.get_max_payload());
+    if max_size < 512 { 512 } else { max_size }
+  }
+  pub fn get_version(&self) -> u8 { self.edns.as_ref().map_or(0, |e|e.get_version()) }
 
   /// returns the sig0, i.e. signed record, for verifying the sending and package integrity
   ///  RFC 2535 section 4
@@ -144,18 +168,19 @@ impl Message {
   ///  this happens implicitly on write_to, so no need to call before write_to
   #[cfg(test)]
   pub fn update_counts(&mut self) -> &mut Self {
-    self.header = self.update_header_counts(true);
+    self.header = self.update_header_counts(true, true);
     self
   }
 
-  fn update_header_counts(&self, include_sig0: bool) -> Header {
+  fn update_header_counts(&self, include_edns: bool, include_sig0: bool) -> Header {
     assert!(self.queries.len() <= u16::max_value() as usize);
     assert!(self.answers.len() <= u16::max_value() as usize);
     assert!(self.name_servers.len() <= u16::max_value() as usize);
     assert!(self.additionals.len() + self.sig0.len() <= u16::max_value() as usize);
 
     let mut additional_count = self.additionals.len();
-    if include_sig0 { additional_count += self.sig0.len() }
+    if include_edns && self.edns.is_some() { additional_count += 1 }
+    if include_sig0 { additional_count += self.sig0.len() };
 
     self.header.clone(
       self.queries.len() as u16,
@@ -290,6 +315,8 @@ impl BinSerializable<Message> for Message {
     let name_server_count = header.get_name_server_count() as usize;
     let mut additional_count = header.get_additional_count() as usize;
 
+    let answers: Vec<Record> = try!(Self::read_records(decoder, answer_count));
+    let name_servers: Vec<Record> = try!(Self::read_records(decoder, name_server_count));
     let mut additionals: Vec<Record> = try!(Self::read_records(decoder, additional_count));
     let mut sig0: Vec<Record> = Vec::new();
     let mut edns: Option<Edns> = None;
@@ -331,8 +358,8 @@ impl BinSerializable<Message> for Message {
     Ok(Message {
       header: header,
       queries: queries,
-      answers: try!(Self::read_records(decoder, answer_count)),
-      name_servers: try!(Self::read_records(decoder, name_server_count)),
+      answers: answers,
+      name_servers: name_servers,
       additionals: additionals,
       sig0: sig0,
       edns: edns,
@@ -342,16 +369,29 @@ impl BinSerializable<Message> for Message {
   fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     // clone the header to set the counts lazily
     let include_sig0: bool = encoder.mode() != EncodeMode::Verify;
-    try!(self.update_header_counts(include_sig0).emit(encoder));
+    try!(self.update_header_counts(include_sig0, include_sig0).emit(encoder));
 
     for q in &self.queries {
       try!(q.emit(encoder));
     }
 
+    // TODO this feels like the right place to verify the max packet size of the message,
+    //  will need to update the header for trucation and the lengths if we send less than the
+    //  full response.
     try!(Self::emit_records(encoder, &self.answers));
     try!(Self::emit_records(encoder, &self.name_servers));
     try!(Self::emit_records(encoder, &self.additionals));
-    if include_sig0 { try!(Self::emit_records(encoder, &self.sig0)); }
+
+    // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
+    //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
+    //  part of the additionals section.
+    if include_sig0 {
+      if let Some(edns) = self.get_edns() {
+        // need to commit the error code
+        try!(Record::from(edns).emit(encoder));
+      }
+      try!(Self::emit_records(encoder, &self.sig0));
+    }
     Ok(())
   }
 }

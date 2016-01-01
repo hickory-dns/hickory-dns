@@ -104,7 +104,7 @@ use super::response_code::ResponseCode;
 pub struct Header {
   id: u16, message_type: MessageType, op_code: OpCode,
   authoritative: bool, truncation: bool, recursion_desired: bool, recursion_available: bool,
-  response_code: ResponseCode,
+  response_code: u8 /* ideally u4 */,
   query_count: u16, answer_count: u16, name_server_count: u16, additional_count: u16,
 }
 
@@ -125,13 +125,16 @@ impl Header {
       truncation: false,
       recursion_desired: false,
       recursion_available: false,
-      response_code: ResponseCode::NoError,
+      response_code: 0,
       query_count: 0,
       answer_count: 0,
       name_server_count: 0,
       additional_count: 0,
     }
   }
+
+  #[inline(always)]
+  pub fn len() -> usize { 12 /* this is always 12 bytes */ }
 
   pub fn id(&mut self, id: u16) -> &mut Self { self.id = id; self }
   pub fn message_type(&mut self, message_type: MessageType) -> &mut Self { self.message_type = message_type; self }
@@ -140,7 +143,7 @@ impl Header {
   pub fn truncated(&mut self, truncated: bool) -> &mut Self { self.truncation = truncated; self }
   pub fn recursion_desired(&mut self, recursion_desired: bool) -> &mut Self { self.recursion_desired = recursion_desired; self }
   pub fn recursion_available(&mut self, recursion_available: bool) -> &mut Self {self.recursion_available = recursion_available; self }
-  pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.response_code = response_code; self }
+  pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.response_code = response_code.low(); self }
   pub fn query_count(&mut self, query_count: u16) -> &mut Self { self.query_count = query_count; self }
   pub fn answer_count(&mut self, answer_count: u16) -> &mut Self { self.answer_count = answer_count; self }
   pub fn name_server_count(&mut self, name_server_count: u16) -> &mut Self { self.name_server_count = name_server_count; self }
@@ -153,7 +156,7 @@ impl Header {
   pub fn is_truncated(&self) -> bool { self.truncation }
   pub fn is_recursion_desired(&self) -> bool { self.recursion_desired }
   pub fn is_recursion_available(&self) -> bool {self.recursion_available }
-  pub fn get_response_code(&self) -> ResponseCode { self.response_code }
+  pub fn get_response_code(&self) -> u8 { self.response_code }
 
   /// for query this is the count of query records
   /// for updates this is the zone count (only 1 allowed)
@@ -195,8 +198,7 @@ impl BinSerializable<Header> for Header {
 
     let r_zzz_rcod = try!(decoder.pop()); // fail fast...
     let recursion_available = (0x80 & r_zzz_rcod) == 0x80;
-    // TODO the > 16 codes in ResponseCode come from somewhere, (zzz?) need to better understand RFC
-    let response_code: ResponseCode = (0x7 & r_zzz_rcod).into();
+    let response_code: u8 = 0x0F & r_zzz_rcod;
 
     let query_count = try!(decoder.read_u16());
     let answer_count = try!(decoder.read_u16());
@@ -254,7 +256,7 @@ fn test_parse() {
 
   let expect = Header { id: 0x0110, message_type: MessageType::Response, op_code: OpCode::Update,
     authoritative: false, truncation: true, recursion_desired: false,
-    recursion_available: true, response_code: ResponseCode::NXDomain,
+    recursion_available: true, response_code: ResponseCode::NXDomain.low(),
     query_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
 
   let got = Header::read(&mut decoder).unwrap();
@@ -266,7 +268,7 @@ fn test_parse() {
 fn test_write() {
   let header = Header { id: 0x0110, message_type: MessageType::Response, op_code: OpCode::Update,
     authoritative: false, truncation: true, recursion_desired: false,
-    recursion_available: true, response_code: ResponseCode::NXDomain,
+    recursion_available: true, response_code: ResponseCode::NXDomain.low(),
     query_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
 
   let expect: Vec<u8> = vec![0x01, 0x10,

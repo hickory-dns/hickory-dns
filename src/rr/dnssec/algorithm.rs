@@ -151,6 +151,15 @@ impl Algorithm {
       _ => Err(DecodeError::UnknownAlgorithmTypeValue(value)),
     }
   }
+
+  /// length in bytes that the hash portion of this function will produce
+  pub fn hash_len(&self) -> usize {
+    match *self {
+      Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => 20,
+      Algorithm::RSASHA256 => 32,
+      Algorithm::RSASHA512 => 64,
+    }
+  }
 }
 
 impl BinSerializable<Algorithm> for Algorithm {

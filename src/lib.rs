@@ -13,12 +13,12 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-extern crate mio;
+extern crate chrono;
 #[macro_use] extern crate log;
+extern crate mio;
+extern crate openssl;
 extern crate toml;
 extern crate rustc_serialize;
-extern crate chrono;
-extern crate openssl;
 
 pub mod logger;
 pub mod rr;

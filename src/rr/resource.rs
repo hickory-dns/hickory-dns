@@ -118,6 +118,17 @@ impl Record {
   pub fn get_dns_class(&self) -> DNSClass { self.dns_class }
   pub fn get_ttl(&self) -> u32 { self.ttl }
   pub fn get_rdata(&self) -> &RData { &self.rdata }
+
+  /// returns the len of this record in bytes
+  pub fn len(&self) -> usize {
+    let mut length: usize = self.name_labels.len();
+    length += 2; // record_type u16
+    length += 2; // dns_class u16
+    length += 4; // ttl u32
+    length += self.rdata.len();
+
+    length
+  }
 }
 
 impl BinSerializable<Record> for Record {

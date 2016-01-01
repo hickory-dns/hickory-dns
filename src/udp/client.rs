@@ -24,10 +24,7 @@ use ::error::*;
 use ::rr::dns_class::DNSClass;
 use ::rr::record_type::RecordType;
 use ::rr::domain;
-use ::op::message::Message;
-use ::op::header::MessageType;
-use ::op::op_code::OpCode;
-use ::op::query::Query;
+use ::op::{ Message, MessageType, OpCode, Query, Edns };
 use ::serialize::binary::*;
 
 const RESPONSE: Token = Token(0);
@@ -84,11 +81,21 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
   //
   // ```
   pub fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
+    // TODO: this isn't DRY, duplicate code with the TCP client
+
     // build the message
     let mut message: Message = Message::new();
     let id = self.next_id();
     // TODO make recursion a parameter
     message.id(id).message_type(MessageType::Query).op_code(OpCode::Query).recursion_desired(true);
+
+    // Extended dns
+    let mut edns: Edns = Edns::new();
+    edns.set_dnssec_ok(false);
+    edns.set_max_payload(1400);
+    edns.set_version(0);
+
+    message.set_edns(edns);
 
     // add the query
     let mut query: Query = Query::new();
@@ -102,9 +109,23 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
       try!(message.emit(&mut encoder));
     }
 
-    let mut bytes = Cursor::new(buffer);
-
     let addr = try!(try!(self.name_server.to_socket_addrs()).next().ok_or(ClientError::NoNameServer));
+
+    // -- net2 client
+    // let sent = try!(self.socket.send_to(&buffer, &addr));
+    // println!("sent {} bytes to {:?}", sent, addr);
+    // debug!("sent {} bytes to {:?}", sent, addr);
+    //
+    // buffer.clear();
+    // let (_, addr) = try!(self.socket.recv_from(&mut buffer));
+    // println!("bytes: {:?} from: {:?}", buffer.len(), addr);
+    // debug!("bytes: {:?} from: {:?}", buffer.len(), addr);
+
+    // -- end net2 client
+
+    // --- MIO client, not really necessary unless we want parallel ---
+
+    let mut bytes = Cursor::new(buffer);
     try!(self.socket.send_to(&mut bytes, &addr));
 
     //----------------------------
@@ -127,6 +148,8 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
     if response.error.is_some() { return Err(response.error.unwrap()) }
     if response.buf.is_none() { return Err(ClientError::NoDataReceived) }
     let buffer = response.buf.unwrap();
+
+    // -- end MIO client
 
     let mut decoder = BinDecoder::new(&buffer);
     let response = try!(Message::read(&mut decoder));
@@ -229,6 +252,8 @@ fn test_query() {
   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
   let response = response.unwrap();
+
+  println!("response records: {:?}", response);
 
   let record = &response.get_answers()[0];
   assert_eq!(record.get_name(), &name);

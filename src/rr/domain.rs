@@ -165,6 +165,12 @@ impl Name {
 
     Ok(name)
   }
+
+  /// returns the length in bytes of the labels. '.' counts as 1
+  pub fn len(&self) -> usize {
+    let dots = if self.labels.len() > 0 { self.labels.len() } else { 1 };
+    self.labels.iter().fold(dots, |acc, item| acc + item.len())
+  }
 }
 
 enum ParseState {

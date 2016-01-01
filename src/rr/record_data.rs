@@ -336,15 +336,23 @@ impl RData {
     match record_type {
       RecordType::A => rdata::a::parse(tokens),
       RecordType::AAAA => rdata::aaaa::parse(tokens),
+      RecordType::ANY => panic!("parsing ANY doesn't make sense"),
+      RecordType::AXFR => panic!("parsing AXFR doesn't make sense"),
       RecordType::CNAME => rdata::cname::parse(tokens, origin),
+      RecordType::DNSKEY => panic!("DNSKEY should be dynamically generated"),
+      RecordType::DS => panic!("DS should be dynamically generated"),
+      RecordType::IXFR => panic!("parsing IXFR doesn't make sense"),
       RecordType::MX => rdata::mx::parse(tokens, origin),
       RecordType::NULL => rdata::null::parse(tokens),
       RecordType::NS => rdata::ns::parse(tokens, origin),
+      RecordType::NSEC3 => panic!("NSEC3 should be dynamically generated"),
+      RecordType::OPT => panic!("parsing OPT doesn't make sense"),
       RecordType::PTR => rdata::ptr::parse(tokens, origin),
+      RecordType::RRSIG => panic!("RRSIG should be dynamically generated"),
+      RecordType::SIG => panic!("parsing SIG doesn't make sense"),
       RecordType::SOA => rdata::soa::parse(tokens, origin),
       RecordType::SRV => rdata::srv::parse(tokens, origin),
       RecordType::TXT => rdata::txt::parse(tokens),
-      _ => panic!("parser not yet implemented for: {:?}", record_type),
     }
   }
 
@@ -356,6 +364,30 @@ impl RData {
     }
     buf
   }
+
+  pub fn len(&self) -> usize {
+    match *self {
+      RData::A{..} => 4 /* IPv4 u32 */,
+      RData::AAAA{..} => 16 /* IPv6 u128 */,
+      RData::CNAME{ref cname} => cname.len(),
+      RData::MX{ref exchange, .. } => 2 /* preference u16 */ + exchange.len(),
+      RData::NS{ref nsdname} => nsdname.len(),
+      RData::NULL{ref anything} => anything.len(),
+      RData::OPT{ref option_rdata} => option_rdata.len(),
+      RData::PTR{ref ptrdname} => ptrdname.len(),
+      // TODO SIG is fixed length based on the signature type
+      RData::SIG{ref signer_name, ref sig, ..} =>
+            2 /* type_covered: u16 */ + 1 /* algorithm u8 */ + 1 /* num_labels: u8 */ +
+            4 /* original_ttl: u32 */ + 4 /* sig_expiration: u32 */ + 4 /* sig_inception: u32 */ +
+            2 /* key_tag: u16 */ + signer_name.len() + sig.len(),
+      RData::SOA{ref mname, ref rname, ..} =>
+            mname.len() + rname.len() + 4 /* serial: u32 */ + 4 /* refresh: i32 */ +
+            4 /* retry: i32 */ + 4 /* expire: i32 */ + 4 /* minimum: u32 */,
+      RData::SRV{ref target, ..} => 2 /* priority: u16 */ + 2 /* weight: u16 */ +
+            2 /* port: u16 */ + target.len(),
+      RData::TXT{ref txt_data} => txt_data.iter().fold(0, |acc, item| acc + item.len()),
+    }
+  }
 }
 
 impl BinSerializable<RData> for RData {
@@ -363,17 +395,23 @@ impl BinSerializable<RData> for RData {
     match try!(decoder.record_type().ok_or(DecodeError::NoRecordDataType)) {
       RecordType::A => rdata::a::read(decoder),
       RecordType::AAAA => rdata::aaaa::read(decoder),
+      rt @ RecordType::ANY => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
+      rt @ RecordType::AXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::CNAME => rdata::cname::read(decoder),
+      RecordType::DNSKEY => unimplemented!(),
+      RecordType::DS => unimplemented!(),
+      rt @ RecordType::IXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::MX => rdata::mx::read(decoder),
       RecordType::NULL => rdata::null::read(decoder),
       RecordType::NS => rdata::ns::read(decoder),
+      RecordType::NSEC3 => unimplemented!(),
       RecordType::OPT => rdata::opt::read(decoder),
       RecordType::PTR => rdata::ptr::read(decoder),
+      RecordType::RRSIG => unimplemented!(),
       RecordType::SIG => rdata::sig::read(decoder),
       RecordType::SOA => rdata::soa::read(decoder),
       RecordType::SRV => rdata::srv::read(decoder),
       RecordType::TXT => rdata::txt::read(decoder),
-      record_type @ _ => panic!("read not yet implemented for: {:?}", record_type),
     }
   }
 

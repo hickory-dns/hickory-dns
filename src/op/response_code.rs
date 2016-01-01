@@ -82,8 +82,24 @@ pub enum ResponseCode {
              // 65535	Reserved, can be allocated by Standards Action		[RFC6895]
 }
 
+impl ResponseCode {
+  /// returns the lower 4 bits of the response code (for the original header portion of the code)
+  pub fn low(&self) -> u8 {
+    (u16::from(*self) & 0x000F) as u8
+  }
+
+  /// returns the high 12 bits for the edns portion of the response code
+  pub fn high(&self) {
+    (u16::from(*self) & 0x0FF0) >> 4;
+  }
+
+  pub fn from(high: u8, low: u8) -> ResponseCode {
+    (((high as u16) << 4) | ((low as u16) & 0x000F)).into()
+  }
+}
+
 /**
- * Convert from ResponseCode to u8
+ * Convert from ResponseCode to u16
  *
  * ```
  * use std::convert::From;
@@ -96,7 +112,7 @@ pub enum ResponseCode {
  * assert_eq!(ResponseCode::NoError, var);
  * ```
  */
-impl From<ResponseCode> for u8 {
+impl From<ResponseCode> for u16 {
   fn from(rt: ResponseCode) -> Self {
     match rt {
       ResponseCode::NoError   => 0,  // 0	  NoError	No Error	[RFC1035]
@@ -124,21 +140,21 @@ impl From<ResponseCode> for u8 {
 }
 
 /**
- * Convert from u8 to ResponseCode
+ * Convert from u16 to ResponseCode
  *
  * ```
  * use std::convert::From;
  * use trust_dns::op::response_code::ResponseCode;
  *
- * let var: u8 = From::from(ResponseCode::NoError);
+ * let var: u16 = From::from(ResponseCode::NoError);
  * assert_eq!(0, var);
  *
- * let var: u8 = ResponseCode::NoError.into();
+ * let var: u16 = ResponseCode::NoError.into();
  * assert_eq!(0, var);
  * ```
  */
-impl From<u8> for ResponseCode {
-  fn from(value: u8) -> Self {
+impl From<u16> for ResponseCode {
+  fn from(value: u16) -> Self {
     match value {
       0  => ResponseCode::NoError,   // 0	NoError	No Error	[RFC1035]
       1  => ResponseCode::FormErr,   // 1	FormErr	Format Error	[RFC1035]

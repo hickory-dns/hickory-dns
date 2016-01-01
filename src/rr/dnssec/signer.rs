@@ -167,6 +167,19 @@ impl Signer {
     let hash = self.hash_message(message);
     self.pkey.sign_with_hash(&hash, self.algorithm.get_hash_type())
   }
+
+  /// returns the length in bytes that the signer based on the current algorithm will produce
+  pub fn len(&self) -> usize() {
+    // TODO: duplicate code in record_data.rs
+    let mut length: usize = 2 /* type_covered: u16 */ + 1 /* algorithm u8 */ + 1 /* num_labels: u8 */ +
+    4 /* original_ttl: u32 */ + 4 /* sig_expiration: u32 */ + 4 /* sig_inception: u32 */ +
+    2 /* key_tag: u16 */;
+
+    length += self.algorithm.hash_len();
+    length += self.signer_name.len();
+
+    length
+  }
 }
 
 #[test]

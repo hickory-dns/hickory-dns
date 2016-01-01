@@ -24,10 +24,7 @@ use ::error::*;
 use ::rr::dns_class::DNSClass;
 use ::rr::record_type::RecordType;
 use ::rr::domain;
-use ::op::message::Message;
-use ::op::header::MessageType;
-use ::op::op_code::OpCode;
-use ::op::query::Query;
+use ::op::{Message, MessageType, OpCode, Query, Edns};
 use ::serialize::binary::*;
 
 const RESPONSE: Token = Token(0);
@@ -54,11 +51,21 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
 
   // send a DNS query to the name_server specified in Clint.
   pub fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
+    // TODO: this isn't DRY, duplicate code with the UDP client
+
     // build the message
     let mut message: Message = Message::new();
     let id = self.next_id();
     // TODO make recursion a parameter
     message.id(id).message_type(MessageType::Query).op_code(OpCode::Query).recursion_desired(true);
+
+    // Extended dns
+    let mut edns: Edns = Edns::new();
+    edns.set_dnssec_ok(false);
+    edns.set_max_payload(1400);
+    edns.set_version(0);
+
+    message.set_edns(edns);
 
     // add the query
     let mut query: Query = Query::new();
@@ -233,6 +240,8 @@ fn test_query() {
   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
   let response = response.unwrap();
+
+  println!("response records: {:?}", response);
 
   let record = &response.get_answers()[0];
   assert_eq!(record.get_name(), &name);
