@@ -66,5 +66,20 @@ pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
   Ok(RData::MX { preference: preference, exchange: exchange})
 }
 
+#[test]
+pub fn test() {
+  let rdata = RData::MX{ preference: 16,
+    exchange: Name::new().label("mail").label("example").label("com") };
 
-// #[test] is performed at the record_data module, the inner name in domain::Name
+  let mut bytes = Vec::new();
+  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+  assert!(emit(&mut encoder, &rdata).is_ok());
+  let bytes = encoder.as_bytes();
+
+  println!("bytes: {:?}", bytes);
+
+  let mut decoder: BinDecoder = BinDecoder::new(bytes);
+  let read_rdata = read(&mut decoder);
+  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
+  assert_eq!(rdata, read_rdata.unwrap());
+}

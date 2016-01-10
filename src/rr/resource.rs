@@ -119,16 +119,16 @@ impl Record {
   pub fn get_ttl(&self) -> u32 { self.ttl }
   pub fn get_rdata(&self) -> &RData { &self.rdata }
 
-  /// returns the len of this record in bytes
-  pub fn len(&self) -> usize {
-    let mut length: usize = self.name_labels.len();
-    length += 2; // record_type u16
-    length += 2; // dns_class u16
-    length += 4; // ttl u32
-    length += self.rdata.len();
-
-    length
-  }
+  // returns the len of this record in bytes
+  // pub fn len(&self) -> usize {
+  //   let mut length: usize = self.name_labels.len();
+  //   length += 2; // record_type u16
+  //   length += 2; // dns_class u16
+  //   length += 4; // ttl u32
+  //   length += self.rdata.len();
+  //
+  //   length
+  // }
 }
 
 impl BinSerializable<Record> for Record {
@@ -141,7 +141,6 @@ impl BinSerializable<Record> for Record {
 
     // TYPE            two octets containing one of the RR TYPE codes.
     let record_type: RecordType = try!(RecordType::read(decoder));
-    decoder.set_record_type(record_type);
 
     // CLASS           two octets containing one of the RR CLASS codes.
     let class: DNSClass = if record_type == RecordType::OPT {
@@ -177,12 +176,10 @@ impl BinSerializable<Record> for Record {
     let rdata: RData = if rd_length == 0 {
       RData::NULL{ anything: vec![] }
     } else {
-      decoder.set_rdata_length(rd_length);
-
       // RDATA           a variable length string of octets that describes the
       //                resource.  The format of this information varies
       //                according to the TYPE and CLASS of the resource record.
-      try!(RData::read(decoder))
+      try!(RData::read(decoder, record_type, rd_length))
     };
 
     Ok(Record{ name_labels: name_labels, rr_type: record_type, dns_class: class, ttl: ttl, rdata: rdata })

@@ -20,9 +20,13 @@
 pub mod a;
 pub mod aaaa;
 pub mod cname;
+pub mod ds;
+pub mod dnskey;
 pub mod mx;
 pub mod null;
 pub mod ns;
+pub mod nsec3;
+pub mod nsec3param;
 pub mod opt;
 pub mod ptr;
 pub mod sig;

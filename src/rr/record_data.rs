@@ -14,13 +14,14 @@
  * limitations under the License.
  */
 use std::net::{Ipv4Addr, Ipv6Addr};
+#[cfg(test)]
 use std::convert::From;
 use std::cmp::Ordering;
 
 use ::error::*;
 use ::serialize::binary::*;
 use ::serialize::txt::*;
-use ::rr::dnssec::Algorithm;
+use ::rr::dnssec::{Algorithm, DigestType, Nsec3HashAlgorithm};
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
@@ -106,6 +107,107 @@ pub enum RData {
   // the description of name server logic in [RFC-1034] for details.
   CNAME { cname: Name },
 
+  // RFC 4034                DNSSEC Resource Records               March 2005
+  //
+  // 2.1.  DNSKEY RDATA Wire Format
+  //
+  //    The RDATA for a DNSKEY RR consists of a 2 octet Flags Field, a 1
+  //    octet Protocol Field, a 1 octet Algorithm Field, and the Public Key
+  //    Field.
+  //
+  //                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |              Flags            |    Protocol   |   Algorithm   |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    /                                                               /
+  //    /                            Public Key                         /
+  //    /                                                               /
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //
+  // 2.1.1.  The Flags Field
+  //
+  //    Bit 7 of the Flags field is the Zone Key flag.  If bit 7 has value 1,
+  //    then the DNSKEY record holds a DNS zone key, and the DNSKEY RR's
+  //    owner name MUST be the name of a zone.  If bit 7 has value 0, then
+  //    the DNSKEY record holds some other type of DNS public key and MUST
+  //    NOT be used to verify RRSIGs that cover RRsets.
+  //
+  //    Bit 15 of the Flags field is the Secure Entry Point flag, described
+  //    in [RFC3757].  If bit 15 has value 1, then the DNSKEY record holds a
+  //    key intended for use as a secure entry point.  This flag is only
+  //    intended to be a hint to zone signing or debugging software as to the
+  //    intended use of this DNSKEY record; validators MUST NOT alter their
+  //    behavior during the signature validation process in any way based on
+  //    the setting of this bit.  This also means that a DNSKEY RR with the
+  //    SEP bit set would also need the Zone Key flag set in order to be able
+  //    to generate signatures legally.  A DNSKEY RR with the SEP set and the
+  //    Zone Key flag not set MUST NOT be used to verify RRSIGs that cover
+  //    RRsets.
+  //
+  //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
+  //    creation of the DNSKEY RR and MUST be ignored upon receipt.
+  DNSKEY { zone_key: bool, secure_entry_point:bool, algorithm: Algorithm,
+           public_key: Vec<u8> /* TODO, probably make this an enum variant */},
+
+
+  // 5.1.  DS RDATA Wire Format
+  //
+  // The RDATA for a DS RR consists of a 2 octet Key Tag field, a 1 octet
+  //           Algorithm field, a 1 octet Digest Type field, and a Digest field.
+  //
+  //                          1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //     |           Key Tag             |  Algorithm    |  Digest Type  |
+  //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //     /                                                               /
+  //     /                            Digest                             /
+  //     /                                                               /
+  //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //
+  // 5.1.1.  The Key Tag Field
+  //
+  //    The Key Tag field lists the key tag of the DNSKEY RR referred to by
+  //    the DS record, in network byte order.
+  //
+  //    The Key Tag used by the DS RR is identical to the Key Tag used by
+  //    RRSIG RRs.  Appendix B describes how to compute a Key Tag.
+  //
+  // 5.1.2.  The Algorithm Field
+  //
+  //    The Algorithm field lists the algorithm number of the DNSKEY RR
+  //    referred to by the DS record.
+  //
+  //    The algorithm number used by the DS RR is identical to the algorithm
+  //    number used by RRSIG and DNSKEY RRs.  Appendix A.1 lists the
+  //    algorithm number types.
+  //
+  // 5.1.3.  The Digest Type Field
+  //
+  //    The DS RR refers to a DNSKEY RR by including a digest of that DNSKEY
+  //    RR.  The Digest Type field identifies the algorithm used to construct
+  //    the digest.  Appendix A.2 lists the possible digest algorithm types.
+  //
+  // 5.1.4.  The Digest Field
+  //
+  //    The DS record refers to a DNSKEY RR by including a digest of that
+  //    DNSKEY RR.
+  //
+  //    The digest is calculated by concatenating the canonical form of the
+  //    fully qualified owner name of the DNSKEY RR with the DNSKEY RDATA,
+  //    and then applying the digest algorithm.
+  //
+  //      digest = digest_algorithm( DNSKEY owner name | DNSKEY RDATA);
+  //
+  //       "|" denotes concatenation
+  //
+  //      DNSKEY RDATA = Flags | Protocol | Algorithm | Public Key.
+  //
+  //    The size of the digest may vary depending on the digest algorithm and
+  //    DNSKEY RR size.  As of the time of this writing, the only defined
+  //    digest algorithm is SHA-1, which produces a 20 octet digest.
+  DS { key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8> },
 
   // 3.3.9. MX RDATA format
   //
@@ -169,6 +271,131 @@ pub enum RData {
   // class information are normally queried using IN class protocols.
   NS { nsdname: Name },
 
+  // RFC 5155                         NSEC3                        March 2008
+  //
+  // 3.2.  NSEC3 RDATA Wire Format
+  //
+  //  The RDATA of the NSEC3 RR is as shown below:
+  //
+  //                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |   Hash Alg.   |     Flags     |          Iterations           |
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |  Salt Length  |                     Salt                      /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |  Hash Length  |             Next Hashed Owner Name            /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  /                         Type Bit Maps                         /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //
+  //  Hash Algorithm is a single octet.
+  //
+  //  Flags field is a single octet, the Opt-Out flag is the least
+  //  significant bit, as shown below:
+  //
+  //   0 1 2 3 4 5 6 7
+  //  +-+-+-+-+-+-+-+-+
+  //  |             |O|
+  //  +-+-+-+-+-+-+-+-+
+  //
+  //  Iterations is represented as a 16-bit unsigned integer, with the most
+  //  significant bit first.
+  //
+  //  Salt Length is represented as an unsigned octet.  Salt Length
+  //  represents the length of the Salt field in octets.  If the value is
+  //  zero, the following Salt field is omitted.
+  //
+  //  Salt, if present, is encoded as a sequence of binary octets.  The
+  //  length of this field is determined by the preceding Salt Length
+  //  field.
+  //
+  //  Hash Length is represented as an unsigned octet.  Hash Length
+  //  represents the length of the Next Hashed Owner Name field in octets.
+  //
+  //  The next hashed owner name is not base32 encoded, unlike the owner
+  //  name of the NSEC3 RR.  It is the unmodified binary hash value.  It
+  //  does not include the name of the containing zone.  The length of this
+  //  field is determined by the preceding Hash Length field.
+  //
+  // 3.2.1.  Type Bit Maps Encoding
+  //
+  //  The encoding of the Type Bit Maps field is the same as that used by
+  //  the NSEC RR, described in [RFC4034].  It is explained and clarified
+  //  here for clarity.
+  //
+  //  The RR type space is split into 256 window blocks, each representing
+  //  the low-order 8 bits of the 16-bit RR type space.  Each block that
+  //  has at least one active RR type is encoded using a single octet
+  //  window number (from 0 to 255), a single octet bitmap length (from 1
+  //  to 32) indicating the number of octets used for the bitmap of the
+  //  window block, and up to 32 octets (256 bits) of bitmap.
+  //
+  //  Blocks are present in the NSEC3 RR RDATA in increasing numerical
+  //  order.
+  //
+  //     Type Bit Maps Field = ( Window Block # | Bitmap Length | Bitmap )+
+  //
+  //     where "|" denotes concatenation.
+  //
+  //  Each bitmap encodes the low-order 8 bits of RR types within the
+  //  window block, in network bit order.  The first bit is bit 0.  For
+  //  window block 0, bit 1 corresponds to RR type 1 (A), bit 2 corresponds
+  //  to RR type 2 (NS), and so forth.  For window block 1, bit 1
+  //  corresponds to RR type 257, bit 2 to RR type 258.  If a bit is set to
+  //  1, it indicates that an RRSet of that type is present for the
+  //  original owner name of the NSEC3 RR.  If a bit is set to 0, it
+  //  indicates that no RRSet of that type is present for the original
+  //  owner name of the NSEC3 RR.
+  //
+  //  Since bit 0 in window block 0 refers to the non-existing RR type 0,
+  //  it MUST be set to 0.  After verification, the validator MUST ignore
+  //  the value of bit 0 in window block 0.
+  //
+  //  Bits representing Meta-TYPEs or QTYPEs as specified in Section 3.1 of
+  //  [RFC2929] or within the range reserved for assignment only to QTYPEs
+  //  and Meta-TYPEs MUST be set to 0, since they do not appear in zone
+  //  data.  If encountered, they must be ignored upon reading.
+  //
+  //  Blocks with no types present MUST NOT be included.  Trailing zero
+  //  octets in the bitmap MUST be omitted.  The length of the bitmap of
+  //  each block is determined by the type code with the largest numerical
+  //  value, within that block, among the set of RR types present at the
+  //  original owner name of the NSEC3 RR.  Trailing octets not specified
+  //  MUST be interpreted as zero octets.
+  NSEC3{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>,
+    next_hashed_owner_name: Vec<u8>, type_bit_maps: Vec<RecordType>},
+
+  // RFC 5155                         NSEC3                        March 2008
+  //
+  // 4.2.  NSEC3PARAM RDATA Wire Format
+  //
+  //  The RDATA of the NSEC3PARAM RR is as shown below:
+  //
+  //                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |   Hash Alg.   |     Flags     |          Iterations           |
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |  Salt Length  |                     Salt                      /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //
+  //  Hash Algorithm is a single octet.
+  //
+  //  Flags field is a single octet.
+  //
+  //  Iterations is represented as a 16-bit unsigned integer, with the most
+  //  significant bit first.
+  //
+  //  Salt Length is represented as an unsigned octet.  Salt Length
+  //  represents the length of the following Salt field in octets.  If the
+  //  value is zero, the Salt field is omitted.
+  //
+  //  Salt, if present, is encoded as a sequence of binary octets.  The
+  //  length of this field is determined by the preceding Salt Length
+  //  field.
+  NSEC3PARAM{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8> },
+
   // RFC 6891                   EDNS(0) Extensions                 April 2013
   // 6.1.2.  Wire Format
   //
@@ -218,26 +445,35 @@ pub enum RData {
   PTR { ptrdname: Name },
 
   // RFC 2535 & 2931   DNS Security Extensions               March 1999
+  // RFC 4034                DNSSEC Resource Records               March 2005
   //
-  // 1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
-  // 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
-  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  // |        type covered           |  algorithm    |     labels    |
-  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  // |                         original TTL                          |
-  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  // |                      signature expiration                     |
-  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  // |                      signature inception                      |
-  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  // |            key  tag           |                               |
-  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+         signer's name         +
-  // |                                                               /
-  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-/
-  // /                                                               /
-  // /                            signature                          /
-  // /                                                               /
-  // +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  // 3.1.  RRSIG RDATA Wire Format
+  //
+  //    The RDATA for an RRSIG RR consists of a 2 octet Type Covered field, a
+  //    1 octet Algorithm field, a 1 octet Labels field, a 4 octet Original
+  //    TTL field, a 4 octet Signature Expiration field, a 4 octet Signature
+  //    Inception field, a 2 octet Key tag, the Signer's Name field, and the
+  //    Signature field.
+  //
+  //                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |        Type Covered           |  Algorithm    |     Labels    |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |                         Original TTL                          |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |                      Signature Expiration                     |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |                      Signature Inception                      |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |            Key Tag            |                               /
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+         Signer's Name         /
+  //    /                                                               /
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    /                                                               /
+  //    /                            Signature                          /
+  //    /                                                               /
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   SIG { type_covered: u16, algorithm: Algorithm, num_labels: u8, original_ttl: u32,
         sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name, sig: Vec<u8> },
 
@@ -346,6 +582,7 @@ impl RData {
       RecordType::NULL => rdata::null::parse(tokens),
       RecordType::NS => rdata::ns::parse(tokens, origin),
       RecordType::NSEC3 => panic!("NSEC3 should be dynamically generated"),
+      RecordType::NSEC3PARAM => panic!("NSEC3PARAM should be dynamically generated"),
       RecordType::OPT => panic!("parsing OPT doesn't make sense"),
       RecordType::PTR => rdata::ptr::parse(tokens, origin),
       RecordType::RRSIG => panic!("RRSIG should be dynamically generated"),
@@ -365,63 +602,69 @@ impl RData {
     buf
   }
 
-  pub fn len(&self) -> usize {
-    match *self {
-      RData::A{..} => 4 /* IPv4 u32 */,
-      RData::AAAA{..} => 16 /* IPv6 u128 */,
-      RData::CNAME{ref cname} => cname.len(),
-      RData::MX{ref exchange, .. } => 2 /* preference u16 */ + exchange.len(),
-      RData::NS{ref nsdname} => nsdname.len(),
-      RData::NULL{ref anything} => anything.len(),
-      RData::OPT{ref option_rdata} => option_rdata.len(),
-      RData::PTR{ref ptrdname} => ptrdname.len(),
-      // TODO SIG is fixed length based on the signature type
-      RData::SIG{ref signer_name, ref sig, ..} =>
-            2 /* type_covered: u16 */ + 1 /* algorithm u8 */ + 1 /* num_labels: u8 */ +
-            4 /* original_ttl: u32 */ + 4 /* sig_expiration: u32 */ + 4 /* sig_inception: u32 */ +
-            2 /* key_tag: u16 */ + signer_name.len() + sig.len(),
-      RData::SOA{ref mname, ref rname, ..} =>
-            mname.len() + rname.len() + 4 /* serial: u32 */ + 4 /* refresh: i32 */ +
-            4 /* retry: i32 */ + 4 /* expire: i32 */ + 4 /* minimum: u32 */,
-      RData::SRV{ref target, ..} => 2 /* priority: u16 */ + 2 /* weight: u16 */ +
-            2 /* port: u16 */ + target.len(),
-      RData::TXT{ref txt_data} => txt_data.iter().fold(0, |acc, item| acc + item.len()),
-    }
-  }
-}
+  // pub fn len(&self) -> usize {
+  //   match *self {
+  //     RData::A{..} => 4 /* IPv4 u32 */,
+  //     RData::AAAA{..} => 16 /* IPv6 u128 */,
+  //     RData::CNAME{ref cname} => cname.len(),
+  //     RData::DNSKEY{ref public_key, ..} => 2 /* flags u16 */ +
+  //                            1 /* protocol u8 */ + 1 /* algorithm u8*/ +
+  //                            public_key.len(),
+  //     RData::MX{ref exchange, .. } => 2 /* preference u16 */ + exchange.len(),
+  //     RData::NS{ref nsdname} => nsdname.len(),
+  //     RData::NULL{ref anything} => anything.len(),
+  //     RData::OPT{ref option_rdata} => option_rdata.len(),
+  //     RData::PTR{ref ptrdname} => ptrdname.len(),
+  //     RData::SIG{ref signer_name, ref sig, ..} =>
+  //           2 /* type_covered: u16 */ + 1 /* algorithm u8 */ + 1 /* num_labels: u8 */ +
+  //           4 /* original_ttl: u32 */ + 4 /* sig_expiration: u32 */ + 4 /* sig_inception: u32 */ +
+  //           2 /* key_tag: u16 */ + signer_name.len() + sig.len(),
+  //     RData::SOA{ref mname, ref rname, ..} =>
+  //           mname.len() + rname.len() + 4 /* serial: u32 */ + 4 /* refresh: i32 */ +
+  //           4 /* retry: i32 */ + 4 /* expire: i32 */ + 4 /* minimum: u32 */,
+  //     RData::SRV{ref target, ..} => 2 /* priority: u16 */ + 2 /* weight: u16 */ +
+  //           2 /* port: u16 */ + target.len(),
+  //     RData::TXT{ref txt_data} => txt_data.iter().fold(0, |acc, item| acc + item.len()),
+  //   }
+  // }
 
-impl BinSerializable<RData> for RData {
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
-    match try!(decoder.record_type().ok_or(DecodeError::NoRecordDataType)) {
+  pub fn read(decoder: &mut BinDecoder, record_type: RecordType, rdata_length: u16) -> DecodeResult<Self> {
+    match record_type {
       RecordType::A => rdata::a::read(decoder),
       RecordType::AAAA => rdata::aaaa::read(decoder),
       rt @ RecordType::ANY => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       rt @ RecordType::AXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::CNAME => rdata::cname::read(decoder),
-      RecordType::DNSKEY => unimplemented!(),
-      RecordType::DS => unimplemented!(),
+      RecordType::DNSKEY => rdata::dnskey::read(decoder, rdata_length),
+      RecordType::DS => rdata::ds::read(decoder, rdata_length),
       rt @ RecordType::IXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::MX => rdata::mx::read(decoder),
-      RecordType::NULL => rdata::null::read(decoder),
+      RecordType::NULL => rdata::null::read(decoder, rdata_length),
       RecordType::NS => rdata::ns::read(decoder),
-      RecordType::NSEC3 => unimplemented!(),
-      RecordType::OPT => rdata::opt::read(decoder),
+      RecordType::NSEC3 => rdata::nsec3::read(decoder, rdata_length),
+      RecordType::NSEC3PARAM => rdata::nsec3param::read(decoder),
+      RecordType::OPT => rdata::opt::read(decoder, rdata_length),
       RecordType::PTR => rdata::ptr::read(decoder),
-      RecordType::RRSIG => unimplemented!(),
+      RecordType::RRSIG => rdata::sig::read(decoder),
       RecordType::SIG => rdata::sig::read(decoder),
       RecordType::SOA => rdata::soa::read(decoder),
       RecordType::SRV => rdata::srv::read(decoder),
-      RecordType::TXT => rdata::txt::read(decoder),
+      RecordType::TXT => rdata::txt::read(decoder, rdata_length),
     }
   }
 
-  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+  pub fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     match *self {
       RData::A{..} => rdata::a::emit(encoder, self),
-      RData::AAAA{..} => rdata::aaaa::emit(encoder, self),RData::CNAME{..} => rdata::cname::emit(encoder, self),
+      RData::AAAA{..} => rdata::aaaa::emit(encoder, self),
+      RData::CNAME{..} => rdata::cname::emit(encoder, self),
+      RData::DS{..} => rdata::ds::emit(encoder, self),
+      RData::DNSKEY{..} => rdata::dnskey::emit(encoder, self),
       RData::MX{..} => rdata::mx::emit(encoder, self),
       RData::NULL{..} => rdata::null::emit(encoder, self),
       RData::NS{..} => rdata::ns::emit(encoder, self),
+      RData::NSEC3{..} => rdata::nsec3::emit(encoder, self),
+      RData::NSEC3PARAM{..} => rdata::nsec3param::emit(encoder, self),
       RData::OPT{..} => rdata::opt::emit(encoder, self),
       RData::PTR{..} => rdata::ptr::emit(encoder, self),
       RData::SIG{..} => rdata::sig::emit(encoder, self),
@@ -432,14 +675,20 @@ impl BinSerializable<RData> for RData {
   }
 }
 
+// TODO: this is kinda broken right now since it can't cover all types.
+#[cfg(test)]
 impl<'a> From<&'a RData> for RecordType {
   fn from(rdata: &'a RData) -> Self {
     match *rdata {
       RData::A{..} => RecordType::A,
       RData::AAAA{..} => RecordType::AAAA,
       RData::CNAME{..} => RecordType::CNAME,
+      RData::DS{..} => RecordType::DS,
+      RData::DNSKEY{..} => RecordType::DNSKEY,
       RData::MX{..} => RecordType::MX,
       RData::NS{..} => RecordType::NS,
+      RData::NSEC3{..} => RecordType::NSEC3,
+      RData::NSEC3PARAM{..} => RecordType::NSEC3PARAM,
       RData::NULL{..} => RecordType::NULL,
       RData::OPT{..} => RecordType::OPT,
       RData::PTR{..} => RecordType::PTR,
@@ -561,10 +810,7 @@ mod tests {
       let length = binary.len() as u16; // pre exclusive borrow
       let mut decoder = BinDecoder::new(&binary);
 
-      decoder.set_rdata_length(length);
-      decoder.set_record_type(::rr::record_type::RecordType::from(&expect));
-
-      assert_eq!(RData::read(&mut decoder).unwrap(), expect);
+      assert_eq!(RData::read(&mut decoder, ::rr::record_type::RecordType::from(&expect), length).unwrap(), expect);
     }
   }
 

@@ -31,6 +31,8 @@ pub enum DecodeError {
   EOF,
   Sig0NotLast,
   EdnsNameNotRoot,
+  DnsKeyProtocolNot3(u8),
+  UnrecognizedNsec3Flags(u8),
 }
 
 impl fmt::Display for DecodeError {
@@ -47,6 +49,8 @@ impl fmt::Display for DecodeError {
       DecodeError::EOF => write!(f, "End of input reached before next read could complete"),
       DecodeError::Sig0NotLast => write!(f, "SIG0 must be final resource record"),
       DecodeError::EdnsNameNotRoot => write!(f, "EDNS resource record label must be the root label (.)"),
+      DecodeError::DnsKeyProtocolNot3(ref val) => write!(f, "DnsKey value unknown, must be 3: {}", val),
+      DecodeError::UnrecognizedNsec3Flags(ref val) => write!(f, "Nsec3 flags should be 0b0000000*: {:b}", val),
     }
   }
 }
@@ -65,6 +69,8 @@ impl Error for DecodeError {
       DecodeError::EOF => "End of input",
       DecodeError::Sig0NotLast => "SIG0 must be final resource record",
       DecodeError::EdnsNameNotRoot => "EDNS resource record label must be the root label (.)",
+      DecodeError::DnsKeyProtocolNot3(..) => "DnsKey value unknown, must be 3",
+      DecodeError::UnrecognizedNsec3Flags(..) => "Nsec3 flags should be 0b0000000*",
     }
   }
 

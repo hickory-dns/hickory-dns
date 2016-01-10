@@ -35,10 +35,9 @@ use ::rr::record_data::RData;
 // NULL { anything: Vec<u8> },
 // TODO: length should be stored in the decoder, and guaranteed everywhere, right?
 // TODO: use this for unknown record types in caching...
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
-  let length = try!(decoder.rdata_length().ok_or(DecodeError::NoRecordDataLength));
-  let mut anything: Vec<u8> = Vec::with_capacity(length as usize);
-  for _ in 0..length {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
+  let mut anything: Vec<u8> = Vec::with_capacity(rdata_length as usize);
+  for _ in 0..rdata_length {
     if let Ok(byte) = decoder.pop() {
       anything.push(byte);
     } else {
@@ -64,4 +63,21 @@ pub fn emit(encoder: &mut BinEncoder, nil: &RData) -> EncodeResult {
 #[allow(unused)]
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
   unimplemented!()
+}
+
+#[test]
+pub fn test() {
+  let rdata = RData::NULL{ anything: vec![0,1,2,3,4,5,6,7] };
+
+  let mut bytes = Vec::new();
+  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+  assert!(emit(&mut encoder, &rdata).is_ok());
+  let bytes = encoder.as_bytes();
+
+  println!("bytes: {:?}", bytes);
+
+  let mut decoder: BinDecoder = BinDecoder::new(bytes);
+  let read_rdata = read(&mut decoder, bytes.len() as u16);
+  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
+  assert_eq!(rdata, read_rdata.unwrap());
 }

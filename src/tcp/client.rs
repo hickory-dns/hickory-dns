@@ -147,13 +147,12 @@ impl<'a> Handler for Response<'a> {
             if self.error.is_some() { return }
           }
 
-          debug!("writing to");
           let len: [u8; 2] = [(bytes.len() >> 8 & 0xFF) as u8, (bytes.len() & 0xFF) as u8];
           self.error = self.stream.write_all(&len).and_then(|_|self.stream.write_all(&bytes)).err().map(|o|o.into());
           if self.error.is_some() { return }
 
           self.error = self.stream.flush().err().map(|o|o.into());
-          debug!("wrote to");
+          debug!("wrote {} bytes to {:?}", bytes.len(), self.stream.peer_addr());
         } else if events.is_readable() {
           // assuming we will always be able to read two bytes.
           let mut len_bytes: [u8;2] = [0u8;2];

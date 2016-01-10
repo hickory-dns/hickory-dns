@@ -342,3 +342,31 @@ pub fn emit(encoder: &mut BinEncoder, sig: &RData) -> EncodeResult {
     panic!("wrong type here {:?}", sig);
   }
 }
+
+#[test]
+fn test() {
+  let rdata = RData::SIG {
+    type_covered:   0,
+    algorithm:      Algorithm::RSASHA256,
+    num_labels:     0,
+    original_ttl:   0,
+    sig_expiration: 2,
+    sig_inception:  1,
+    key_tag:        5,
+    signer_name:    Name::new().label("www").label("example").label("com"),
+    sig:            vec![ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15
+                        ,16,17,18,19,20,21,22,23,24,25,26,27,28,29,29,31], // 32 bytes for SHA256
+  };
+
+  let mut bytes = Vec::new();
+  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+  assert!(emit(&mut encoder, &rdata).is_ok());
+  let bytes = encoder.as_bytes();
+
+  println!("bytes: {:?}", bytes);
+
+  let mut decoder: BinDecoder = BinDecoder::new(bytes);
+  let read_rdata = read(&mut decoder);
+  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
+  assert_eq!(rdata, read_rdata.unwrap());
+}

@@ -14,9 +14,13 @@
  * limitations under the License.
  */
 mod algorithm;
+mod digest_type;
+mod nsec3;
 mod signer;
 mod supported_algorithm;
 
 pub use self::algorithm::Algorithm;
+pub use self::digest_type::DigestType;
+pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::signer::Signer;
 pub use self::supported_algorithm::SupportedAlgorithms;

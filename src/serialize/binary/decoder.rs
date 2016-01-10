@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 use ::error::{DecodeError, DecodeResult};
-use ::rr::record_type::RecordType;
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -26,20 +25,12 @@ use ::rr::record_type::RecordType;
 pub struct BinDecoder<'a> {
   buffer: &'a [u8],
   index: usize,
-  record_type: Option<RecordType>,
-  rdata_length: Option<u16>,
 }
 
 impl<'a> BinDecoder<'a> {
   pub fn new(buffer: &'a [u8]) -> Self {
-    BinDecoder { buffer: buffer, index: 0, record_type: None, rdata_length: None }
+    BinDecoder { buffer: buffer, index: 0, }
   }
-
-  pub fn set_record_type(&mut self, record_type: RecordType) { self.record_type = Some(record_type); }
-  pub fn set_rdata_length(&mut self, rdata_length: u16) { self.rdata_length = Some(rdata_length); }
-
-  pub fn record_type(&self) -> Option<RecordType> { self.record_type }
-  pub fn rdata_length(&self) -> Option<u16> { self.rdata_length }
 
   pub fn pop(&mut self) -> DecodeResult<u8> {
     if self.index < self.buffer.len() {
@@ -69,8 +60,6 @@ impl<'a> BinDecoder<'a> {
     BinDecoder {
       buffer: self.buffer,
       index: index_at as usize,
-      record_type: self.record_type,
-      rdata_length: self.rdata_length,
     }
   }
 

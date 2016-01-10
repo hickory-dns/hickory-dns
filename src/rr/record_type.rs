@@ -52,7 +52,7 @@ pub enum RecordType {
     NULL,         //	0	RFC 1035[1]	Null server record, for testing
     //  NSEC,       //	47	RFC 4034	Next-Secure record
     NSEC3,      //	50	RFC 5155	NSEC record version 3
-    //  NSEC3PARAM, //	51	RFC 5155	NSEC3 parameters
+    NSEC3PARAM, //	51	RFC 5155	NSEC3 parameters
     OPT,        //	41	RFC 6891	Option
     PTR,        //	12	RFC 1035[1]	Pointer record
     RRSIG,      //	46	RFC 4034	DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
@@ -107,18 +107,24 @@ impl RecordType {
     match value {
       1 => Ok(RecordType::A),
       28 => Ok(RecordType::AAAA),
+      255 => Ok(RecordType::ANY),
+      252 => Ok(RecordType::AXFR),
       5 => Ok(RecordType::CNAME),
-      0 => Ok(RecordType::NULL),
+      48 => Ok(RecordType::DNSKEY),
+      43 => Ok(RecordType::DS),
       15 => Ok(RecordType::MX),
       2 => Ok(RecordType::NS),
+      50 => Ok(RecordType::NSEC3),
+      51 => Ok(RecordType::NSEC3PARAM),
+      0 => Ok(RecordType::NULL),
       41 => Ok(RecordType::OPT),
       12 => Ok(RecordType::PTR),
+      46 => Ok(RecordType::RRSIG),
       24 => Ok(RecordType::SIG),
       6 => Ok(RecordType::SOA),
       33 => Ok(RecordType::SRV),
       16 => Ok(RecordType::TXT),
-      255 => Ok(RecordType::ANY),
-      252 => Ok(RecordType::AXFR),
+      // TODO: this should probably return a generic value wrapper.
       _ => Err(DecodeError::UnknownRecordTypeValue(value)),
     }
   }
@@ -155,19 +161,24 @@ impl From<RecordType> for &'static str {
     match rt {
       RecordType::A => "A",
       RecordType::AAAA => "AAAA",
+      RecordType::ANY => "ANY",
+      RecordType::AXFR => "AXFR",
       RecordType::CNAME => "CNAME",
-      RecordType::NULL => "NULL",
+      RecordType::DNSKEY => "DNSKEY",
+      RecordType::DS => "DS",
+      RecordType::IXFR => "IXFR",
       RecordType::MX => "MX",
+      RecordType::NULL => "NULL",
       RecordType::NS => "NS",
+      RecordType::NSEC3 => "NSEC3",
+      RecordType::NSEC3PARAM => "NSEC3PARAM",
       RecordType::OPT => "OPT",
       RecordType::PTR => "PTR",
+      RecordType::RRSIG => "RRSIG",
       RecordType::SIG => "SIG",
       RecordType::SOA => "SOA",
       RecordType::SRV => "SRV",
       RecordType::TXT => "TXT",
-      RecordType::ANY => "ANY",
-      RecordType::AXFR => "AXFR",
-      _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned
     }
   }
 }
@@ -186,19 +197,24 @@ impl From<RecordType> for u16 {
     match rt {
       RecordType::A => 1,
       RecordType::AAAA => 28,
+      RecordType::ANY => 255,
+      RecordType::AXFR => 252,
       RecordType::CNAME => 5,
-      RecordType::NULL => 0,
+      RecordType::DNSKEY => 48,
+      RecordType::DS => 43,
+      RecordType::IXFR => 251,
       RecordType::MX => 15,
       RecordType::NS => 2,
+      RecordType::NULL => 0,
+      RecordType::NSEC3 => 50,
+      RecordType::NSEC3PARAM => 51,
       RecordType::OPT => 41,
       RecordType::PTR => 12,
+      RecordType::RRSIG => 46,
       RecordType::SIG => 24,
       RecordType::SOA => 6,
       RecordType::SRV => 33,
       RecordType::TXT => 16,
-      RecordType::ANY => 255,
-      RecordType::AXFR => 252,
-      _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned...
     }
   }
 }

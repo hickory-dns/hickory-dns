@@ -146,10 +146,11 @@ use ::rr::record_data::RData;
 //    Z
 //       Set to zero by senders and ignored by receivers, unless modified
 //       in a subsequent specification.
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
-  let length = try!(decoder.rdata_length().ok_or(DecodeError::NoRecordDataLength));
-  let mut data: Vec<u8> = Vec::with_capacity(length as usize);
-  for _ in 0..length {
+//
+// OPT { option_rdata: Vec<u8> }
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
+  let mut data: Vec<u8> = Vec::with_capacity(rdata_length as usize);
+  for _ in 0..rdata_length {
     if let Ok(byte) = decoder.pop() {
       data.push(byte);
     } else {
@@ -171,4 +172,21 @@ pub fn emit(encoder: &mut BinEncoder, nil: &RData) -> EncodeResult {
   } else {
     panic!("wrong type here {:?}", nil);
   }
+}
+
+#[test]
+pub fn test() {
+  let rdata = RData::OPT{ option_rdata: vec![0,1,2,3,4,5,6,7] };
+
+  let mut bytes = Vec::new();
+  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+  assert!(emit(&mut encoder, &rdata).is_ok());
+  let bytes = encoder.as_bytes();
+
+  println!("bytes: {:?}", bytes);
+
+  let mut decoder: BinDecoder = BinDecoder::new(bytes);
+  let read_rdata = read(&mut decoder, bytes.len() as u16);
+  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
+  assert_eq!(rdata, read_rdata.unwrap());
 }
