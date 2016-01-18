@@ -280,7 +280,7 @@ impl UpdateMessage for Message {
     sig0.rdata(
       RData::SIG {
         // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-        type_covered: 0,
+        type_covered: RecordType::NULL,
         algorithm: signer.get_algorithm(),
         num_labels: num_labels,
         // see above, original_ttl is meaningless, The TTL fields SHOULD be zero

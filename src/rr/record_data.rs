@@ -474,7 +474,7 @@ pub enum RData {
   //    /                            Signature                          /
   //    /                                                               /
   //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  SIG { type_covered: u16, algorithm: Algorithm, num_labels: u8, original_ttl: u32,
+  SIG { type_covered: RecordType, algorithm: Algorithm, num_labels: u8, original_ttl: u32,
         sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name, sig: Vec<u8> },
 
   // 3.3.13. SOA RDATA format

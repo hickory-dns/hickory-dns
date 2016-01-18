@@ -23,6 +23,7 @@ use ::rr::*;
 #[derive(Debug)]
 pub struct Authority {
   origin: Name,
+  // TODO create a RRSet that is HashSet, but also embeds the RRSig record.
   records: HashMap<Name, HashSet<Record>>,
   zone_type: ZoneType,
   allow_update: bool,
@@ -458,8 +459,11 @@ impl Authority {
         },
         // never delete SOA
         RecordType::SOA => continue,
+        // TODO: skip deletes on all DNSSec records?
         _ => (), // move on to the delete
       }
+
+      // TODO collect NSEC3 and RRSIG records that should be removed and delete those as well.
 
       let rrset: Option<&mut HashSet<Record>> = self.records.get_mut(name);
 

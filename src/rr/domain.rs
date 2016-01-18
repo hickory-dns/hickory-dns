@@ -106,6 +106,12 @@ impl Name {
     self.labels.len() as u8
   }
 
+  /// returns the length in bytes of the labels. '.' counts as 1
+  pub fn len(&self) -> usize {
+    let dots = if self.labels.len() > 0 { self.labels.len() } else { 1 };
+    self.labels.iter().fold(dots, |acc, item| acc + item.len())
+  }
+
   pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {
     let mut name = Name::new();
     let mut label = String::new();
@@ -166,10 +172,50 @@ impl Name {
     Ok(name)
   }
 
-  /// returns the length in bytes of the labels. '.' counts as 1
-  pub fn len(&self) -> usize {
-    let dots = if self.labels.len() > 0 { self.labels.len() } else { 1 };
-    self.labels.iter().fold(dots, |acc, item| acc + item.len())
+  pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> EncodeResult {
+    let buf_len = encoder.len(); // lazily assert the size is less than 255...
+    // lookup the label in the BinEncoder
+    // if it exists, write the Pointer
+    let mut labels: &[Rc<String>] = &self.labels;
+
+    if canonical {
+      for label in labels {
+        try!(encoder.emit_character_data(label));
+      }
+    } else {
+      while let Some(label) = labels.first() {
+        // before we write the label, let's look for the current set of labels.
+        if let Some(loc) = encoder.get_label_pointer(labels) {
+          // write out the pointer marker
+          //  or'd with the location with shouldn't be larger than this 2^14 or 16k
+          try!(encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16)));
+
+          // we found a pointer don't write more, break
+          return Ok(())
+        } else {
+          if label.len() > 63 { return Err(EncodeError::LabelBytesTooLong(label.len())); }
+
+          // to_owned is cloning the the vector, but the Rc's at least don't clone the strings.
+          encoder.store_label_pointer(labels.to_owned());
+          try!(encoder.emit_character_data(label));
+
+          // return the next parts of the labels
+          //  this should be safe, the labels.first() wouldn't have let us here if there wasn't
+          //  at least one item.
+          labels = &labels[1..];
+        }
+      }
+    }
+
+    // if we're getting here, then we didn't write out a pointer and are ending the name
+    // the end of the list of names
+    try!(encoder.emit(0));
+
+     // the entire name needs to be less than 256.
+    let length = encoder.len() - buf_len;
+    if length > 255 { return Err(EncodeError::DomainNameTooLong(length)); }
+
+    Ok(())
   }
 }
 
@@ -256,43 +302,8 @@ impl BinSerializable<Name> for Name {
   }
 
   fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-
-    let buf_len = encoder.len(); // lazily assert the size is less than 255...
-    // lookup the label in the BinEncoder
-    // if it exists, write the Pointer
-    let mut labels: &[Rc<String>] = &self.labels;
-    while let Some(label) = labels.first() {
-      // before we write the label, let's look for the current set of labels.
-      if let Some(loc) = encoder.get_label_pointer(labels) {
-        // write out the pointer marker
-        //  or'd with the location with shouldn't be larger than this 2^14 or 16k
-        try!(encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16)));
-
-        // we found a pointer don't write more, break
-        return Ok(())
-      } else {
-        if label.len() > 63 { return Err(EncodeError::LabelBytesTooLong(label.len())); }
-
-        // to_owned is cloning the the vector, but the Rc's at least don't clone the strings.
-        encoder.store_label_pointer(labels.to_owned());
-        try!(encoder.emit_character_data(label));
-
-        // return the next parts of the labels
-        //  this should be safe, the labels.first() wouldn't have let us here if there wasn't
-        //  at least one item.
-        labels = &labels[1..];
-      }
-    }
-
-    // if we're getting here, then we didn't write out a pointer and are ending the name
-    // the end of the list of names
-    try!(encoder.emit(0));
-
-     // the entire name needs to be less than 256.
-    let length = encoder.len() - buf_len;
-    if length > 255 { return Err(EncodeError::DomainNameTooLong(length)); }
-
-    Ok(())
+    let is_canonical_names = encoder.is_canonical_names();
+    self.emit_as_canonical(encoder, is_canonical_names)
   }
 }
 

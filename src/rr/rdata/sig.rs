@@ -15,8 +15,7 @@
  */
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
-use ::rr::domain::Name;
+use ::rr::{Name, RecordType, RData};
 use ::rr::dnssec::Algorithm;
 
 // RFC 2535 & 2931   DNS Security Extensions               March 1999
@@ -303,7 +302,7 @@ use ::rr::dnssec::Algorithm;
 //       sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name, sig: Vec<u8> }
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
   // TODO should we verify here? or elsewhere...
-  let type_covered = try!(decoder.read_u16());
+  let type_covered = try!(RecordType::read(decoder));
   let algorithm = try!(Algorithm::read(decoder));
   let num_labels = try!(decoder.read_u8());
   let original_ttl = try!(decoder.read_u32());
@@ -328,7 +327,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
 
 pub fn emit(encoder: &mut BinEncoder, sig: &RData) -> EncodeResult {
   if let RData::SIG { type_covered, algorithm, num_labels, original_ttl, sig_expiration, sig_inception, key_tag, ref signer_name, ref sig } = *sig {
-    try!(encoder.emit_u16(type_covered));
+    try!(type_covered.emit(encoder));
     try!(algorithm.emit(encoder));
     try!(encoder.emit(num_labels));
     try!(encoder.emit_u32(original_ttl));
@@ -343,10 +342,27 @@ pub fn emit(encoder: &mut BinEncoder, sig: &RData) -> EncodeResult {
   }
 }
 
+/// specifically for outputing the RData for an RRSIG, with signer_name in canonical form
+pub fn emit_pre_sig(encoder: &mut BinEncoder, sig: &RData) -> EncodeResult {
+  if let RData::SIG { type_covered, algorithm, num_labels, original_ttl, sig_expiration, sig_inception, key_tag, ref signer_name, .. } = *sig {
+    try!(type_covered.emit(encoder));
+    try!(algorithm.emit(encoder));
+    try!(encoder.emit(num_labels));
+    try!(encoder.emit_u32(original_ttl));
+    try!(encoder.emit_u32(sig_expiration));
+    try!(encoder.emit_u32(sig_inception));
+    try!(encoder.emit_u16(key_tag));
+    try!(signer_name.emit_as_canonical(encoder, true));
+    Ok(())
+  } else {
+    panic!("wrong type here {:?}", sig);
+  }
+}
+
 #[test]
 fn test() {
   let rdata = RData::SIG {
-    type_covered:   0,
+    type_covered:   RecordType::NULL,
     algorithm:      Algorithm::RSASHA256,
     num_labels:     0,
     original_ttl:   0,

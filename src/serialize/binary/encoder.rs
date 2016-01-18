@@ -26,6 +26,7 @@ pub struct BinEncoder<'a> {
   //  than the callee of store_pointer which isn't obvious right now.
   name_pointers: HashMap<Vec<Rc<String>>, u16>, // array of string, label, location in stream
   mode: EncodeMode,
+  canonical_names: bool,
 }
 
 impl<'a> BinEncoder<'a> {
@@ -41,7 +42,7 @@ impl<'a> BinEncoder<'a> {
   ///  the sequence of bytes, for the proper offset of the pointer, the offset accounts for that
   ///  by using the offset to add to the pointer location being written.
   pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32, mode: EncodeMode) -> Self {
-    BinEncoder { offset: offset, buffer: buf, name_pointers: HashMap::new(), mode: mode }
+    BinEncoder { offset: offset, buffer: buf, name_pointers: HashMap::new(), mode: mode, canonical_names: false }
   }
 
   pub fn as_bytes(self) -> &'a Vec<u8> {
@@ -58,6 +59,14 @@ impl<'a> BinEncoder<'a> {
 
   pub fn mode(&self) -> EncodeMode {
     self.mode
+  }
+
+  pub fn set_canonical_names(&mut self, canonical_names: bool) {
+    self.canonical_names = canonical_names;
+  }
+
+  pub fn is_canonical_names(&self) -> bool {
+    self.canonical_names
   }
 
   pub fn reserve(&mut self, extra: usize) {
