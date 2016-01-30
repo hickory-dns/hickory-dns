@@ -33,6 +33,8 @@ pub enum DecodeError {
   EdnsNameNotRoot,
   DnsKeyProtocolNot3(u8),
   UnrecognizedNsec3Flags(u8),
+  UnrecognizedLabelCode(u8),
+  IncorrectRDataLengthRead(usize, usize)
 }
 
 impl fmt::Display for DecodeError {
@@ -51,6 +53,8 @@ impl fmt::Display for DecodeError {
       DecodeError::EdnsNameNotRoot => write!(f, "EDNS resource record label must be the root label (.)"),
       DecodeError::DnsKeyProtocolNot3(ref val) => write!(f, "DnsKey value unknown, must be 3: {}", val),
       DecodeError::UnrecognizedNsec3Flags(ref val) => write!(f, "Nsec3 flags should be 0b0000000*: {:b}", val),
+      DecodeError::UnrecognizedLabelCode(ref val) => write!(f, "Unrecognized Label Code: {:b}", val),
+      DecodeError::IncorrectRDataLengthRead(ref read, ref rdata_length) => write!(f, "IncorrectRDataLengthRead read: {}, expected: {}", read, rdata_length),
     }
   }
 }
@@ -71,6 +75,8 @@ impl Error for DecodeError {
       DecodeError::EdnsNameNotRoot => "EDNS resource record label must be the root label (.)",
       DecodeError::DnsKeyProtocolNot3(..) => "DnsKey value unknown, must be 3",
       DecodeError::UnrecognizedNsec3Flags(..) => "Nsec3 flags should be 0b0000000*",
+      DecodeError::UnrecognizedLabelCode(..) => "Unrecognized label code",
+      DecodeError::IncorrectRDataLengthRead(..) => "IncorrectRDataLengthRead",
     }
   }
 

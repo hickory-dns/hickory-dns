@@ -21,10 +21,9 @@ use mio::udp::UdpSocket;
 use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want confusion with std::net
 
 use ::error::*;
-use ::rr::dns_class::DNSClass;
-use ::rr::record_type::RecordType;
+use ::rr::{DNSClass, RecordType, Record};
 use ::rr::domain;
-use ::op::{ Message, MessageType, OpCode, Query, Edns };
+use ::op::{ Message, MessageType, OpCode, Query, Edns, ResponseCode };
 use ::serialize::binary::*;
 
 const RESPONSE: Token = Token(0);
@@ -51,6 +50,59 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
 
     let socket = try!(UdpSocket::bound(&zero_addr));
     Ok(Client { socket: socket, name_server: addr, next_id: Cell::new(1024) } )
+  }
+
+  /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
+  ///  make sure that the answer is correct. Then starts
+  ///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
+  ///  records for the top level domain found at the root, e.g. 'com', to verify the DNSKEY
+  ///  records in the 'com' zone. From there see if there is a DS record for the
+  ///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
+  ///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
+  ///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
+  pub fn secure_query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
+    // TODO: if we knew we were talking with a DNS server that supported multiple queries, these
+    //  could be a single multiple query request...
+
+    // with the secure setting, we should get the RRSIG as well as the answer
+    //  the RRSIG is signed by the DNSKEY, the DNSKEY is signed by the DS record in the Parent
+    //  zone. The key_tag is the DS record is assigned to the DNSKEY.
+    println!("querying: {}", name);
+    let record_response = try!(self.inner_query(name, query_class, query_type, true));
+
+    if !record_response.get_answers().iter().any(|rr| rr.get_rr_type() == RecordType::RRSIG) {
+      return Err(ClientError::NoRRSIG);
+    }
+
+    println!("querying SOA: {}", name);
+    // get the SOA for name
+    let soa_response = try!(self.inner_query(name, query_class, RecordType::SOA, true));
+
+    let soa_record_opt: Option<&Record> = soa_response.get_answers().iter().
+      chain(soa_response.get_name_servers().iter()).find(|rr| rr.get_rr_type() == RecordType::SOA);
+
+    if soa_record_opt.is_none() { return Err(ClientError::NoSOARecord(name.clone())); }
+    let mut child: domain::Name = soa_record_opt.unwrap().get_name().clone();
+    let mut parent: domain::Name = child.base_name();
+
+    loop {
+      // if both are the root, then this
+      if child.is_root() && parent.is_root() { break; }
+
+      println!("querying child: {} parent: {}", child, parent);
+
+      // TODO: performance can be improved here to send all the queries at the same time, and then
+      //  await the response.
+      // TODO: all root certs should be stored locally and validated? approved?
+      self.inner_query(&parent, query_class, RecordType::DS, true);
+      self.inner_query(&child, query_class, RecordType::DNSKEY, true);
+
+      child = parent;
+      parent = child.base_name();
+    }
+
+    // verify each RRSIG...
+    unimplemented!()
   }
 
   // send a DNS query to the name_server specified in Clint.
@@ -80,7 +132,11 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
   // }
   //
   // ```
-  pub fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
+  pub fn query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
+    self.inner_query(name, query_class, query_type, false)
+  }
+
+  fn inner_query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType, secure: bool) -> ClientResult<Message> {
     // TODO: this isn't DRY, duplicate code with the TCP client
 
     // build the message
@@ -91,7 +147,7 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
 
     // Extended dns
     let mut edns: Edns = Edns::new();
-    edns.set_dnssec_ok(false);
+    edns.set_dnssec_ok(secure);
     edns.set_max_payload(1400);
     edns.set_version(0);
 
@@ -99,7 +155,7 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
 
     // add the query
     let mut query: Query = Query::new();
-    query.name(name).query_class(query_class).query_type(query_type);
+    query.name(name.clone()).query_class(query_class).query_type(query_type);
     message.add_query(query);
 
     // get the message bytes and send the query
@@ -155,6 +211,7 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
     let response = try!(Message::read(&mut decoder));
 
     if response.get_id() != id { return Err(ClientError::IncorrectMessageId{ got: response.get_id(), expect: id }); }
+    if response.get_response_code() != ResponseCode::NoError { return Err(ClientError::ErrorResponse(response.get_response_code())); }
 
     Ok(response)
   }
@@ -248,7 +305,40 @@ fn test_query() {
   let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
   let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
 
-  let response = client.query(name.clone(), DNSClass::IN, RecordType::A);
+  let response = client.query(&name, DNSClass::IN, RecordType::A);
+  assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+
+  let response = response.unwrap();
+
+  println!("response records: {:?}", response);
+
+  let record = &response.get_answers()[0];
+  assert_eq!(record.get_name(), &name);
+  assert_eq!(record.get_rr_type(), RecordType::A);
+  assert_eq!(record.get_dns_class(), DNSClass::IN);
+
+  if let &RData::A{ ref address } = record.get_rdata() {
+    assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+  } else {
+    assert!(false);
+  }
+}
+
+#[test]
+#[cfg(feature = "ftest")]
+fn test_secure_query() {
+  use std::net::*;
+
+  use ::rr::dns_class::DNSClass;
+  use ::rr::record_type::RecordType;
+  use ::rr::domain;
+  use ::rr::record_data::RData;
+  use ::udp::Client;
+
+  let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
+  let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
+
+  let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
   let response = response.unwrap();

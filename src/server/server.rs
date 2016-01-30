@@ -301,7 +301,7 @@ mod server_tests {
     let client = Client::with_addr(server_addr).unwrap();
 
     println!("about to query server: {:?}", server_addr);
-    let response = client.query(name.clone(), DNSClass::IN, RecordType::A).unwrap();
+    let response = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
 
     assert!(response.get_response_code() == ResponseCode::NoError, "got an error: {:?}", response.get_response_code());
 

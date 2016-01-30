@@ -54,6 +54,10 @@ impl<'a> BinDecoder<'a> {
     }
   }
 
+  pub fn index(&self) -> usize {
+    return self.index
+  }
+
   /// This is a pretty efficient clone, as the buffer is never cloned, and only the index is set
   ///  to the value passed in
   pub fn clone(&self, index_at: u16) -> BinDecoder {

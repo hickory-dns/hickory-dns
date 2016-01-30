@@ -291,8 +291,11 @@ impl Catalog {
   fn find_auth_recurse(&self, name: &Name) -> Option<&RwLock<Authority>> {
     let authority = self.authorities.get(name);
     if authority.is_some() { return authority; }
-    else if let Some(name) = name.base_name() {
-      return self.find_auth_recurse(&name);
+    else {
+      let name = name.base_name();
+      if !name.is_root() {
+        return self.find_auth_recurse(&name);
+      }
     }
 
     None

@@ -78,11 +78,11 @@ impl Name {
   }
 
   /// Trims off the first part of the name, to help with searching for the domain piece
-  pub fn base_name(&self) -> Option<Name> {
+  pub fn base_name(&self) -> Name {
     if self.labels.len() >= 1 {
-      Some(Name { labels: Rc::new(self.labels[1..].to_vec()) } )
+      Name { labels: Rc::new(self.labels[1..].to_vec()) }
     } else {
-      None
+      Self::root()
     }
   }
 
@@ -246,9 +246,9 @@ impl BinSerializable<Name> for Name {
           // determine what the next label is
           match decoder.peek() {
             Some(0) | None => LabelParseState::Root,
-            Some(byte) if byte & 0xC0 == 0xC0 => LabelParseState::Pointer,
-            Some(byte) if byte <= 0x3F        => LabelParseState::Label,
-            _ => unreachable!(),
+            Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
+            Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
+            Some(byte) => return Err(DecodeError::UnrecognizedLabelCode(byte)),
           }
         },
         LabelParseState::Label => {
@@ -312,6 +312,7 @@ impl fmt::Display for Name {
     for label in &*self.labels {
       write!(f, "{}.", label).unwrap();
     }
+    if self.is_root() { write!(f, "."); }
     Ok(())
   }
 }
@@ -456,6 +457,15 @@ mod tests {
 
     let r_test = Name::read(&mut d).unwrap();
     assert_eq!(fourth, r_test);
+  }
+
+  #[test]
+  fn test_base_name() {
+    let zone = Name::new().label("example").label("com");
+
+    assert_eq!(zone.base_name(), Name::new().label("com"));
+    assert!(zone.base_name().base_name().is_root());
+    assert!(zone.base_name().base_name().base_name().is_root());
   }
 
   #[test]

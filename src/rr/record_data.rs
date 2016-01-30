@@ -629,28 +629,37 @@ impl RData {
   // }
 
   pub fn read(decoder: &mut BinDecoder, record_type: RecordType, rdata_length: u16) -> DecodeResult<Self> {
-    match record_type {
-      RecordType::A => rdata::a::read(decoder),
-      RecordType::AAAA => rdata::aaaa::read(decoder),
+    let start_idx = decoder.index();
+
+    let result = try!(match record_type {
+      RecordType::A => {debug!("reading A");rdata::a::read(decoder)},
+      RecordType::AAAA => {debug!("reading AAAA"); rdata::aaaa::read(decoder)},
       rt @ RecordType::ANY => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       rt @ RecordType::AXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
-      RecordType::CNAME => rdata::cname::read(decoder),
-      RecordType::DNSKEY => rdata::dnskey::read(decoder, rdata_length),
-      RecordType::DS => rdata::ds::read(decoder, rdata_length),
+      RecordType::CNAME => {debug!("reading CNAME");rdata::cname::read(decoder)},
+      RecordType::DNSKEY => {debug!("reading DNSKEY");rdata::dnskey::read(decoder, rdata_length)},
+      RecordType::DS => {debug!("reading DS");rdata::ds::read(decoder, rdata_length)},
       rt @ RecordType::IXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
-      RecordType::MX => rdata::mx::read(decoder),
-      RecordType::NULL => rdata::null::read(decoder, rdata_length),
-      RecordType::NS => rdata::ns::read(decoder),
-      RecordType::NSEC3 => rdata::nsec3::read(decoder, rdata_length),
-      RecordType::NSEC3PARAM => rdata::nsec3param::read(decoder),
-      RecordType::OPT => rdata::opt::read(decoder, rdata_length),
-      RecordType::PTR => rdata::ptr::read(decoder),
-      RecordType::RRSIG => rdata::sig::read(decoder),
-      RecordType::SIG => rdata::sig::read(decoder),
-      RecordType::SOA => rdata::soa::read(decoder),
-      RecordType::SRV => rdata::srv::read(decoder),
-      RecordType::TXT => rdata::txt::read(decoder, rdata_length),
+      RecordType::MX => {debug!("reading MX"); rdata::mx::read(decoder)},
+      RecordType::NULL => {debug!("reading NULL"); rdata::null::read(decoder, rdata_length)},
+      RecordType::NS => {debug!("reading NS"); rdata::ns::read(decoder)},
+      RecordType::NSEC3 => {debug!("reading NSEC3");rdata::nsec3::read(decoder, rdata_length)},
+      RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM");rdata::nsec3param::read(decoder)},
+      RecordType::OPT => {debug!("reading OPT"); rdata::opt::read(decoder, rdata_length)},
+      RecordType::PTR => {debug!("reading PTR"); rdata::ptr::read(decoder)},
+      RecordType::RRSIG => {debug!("reading RRSIG"); rdata::sig::read(decoder, rdata_length)},
+      RecordType::SIG => {debug!("reading SIG"); rdata::sig::read(decoder, rdata_length)},
+      RecordType::SOA => {debug!("reading SOA"); rdata::soa::read(decoder)},
+      RecordType::SRV => {debug!("reading SRV"); rdata::srv::read(decoder)},
+      RecordType::TXT => {debug!("reading TXT"); rdata::txt::read(decoder, rdata_length)},
+    });
+
+    // we should have read rdata_length, but we did not
+    let read = decoder.index() - start_idx;
+    if read != rdata_length as usize {
+      return Err(DecodeError::IncorrectRDataLengthRead(read, rdata_length as usize))
     }
+    Ok(result)
   }
 
   pub fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {

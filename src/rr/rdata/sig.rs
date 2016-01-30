@@ -300,7 +300,9 @@ use ::rr::dnssec::Algorithm;
 
 // SIG { type_covered: u16, algorithm: SecAlgorithm, num_labels: u8, original_ttl: u32,
 //       sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name, sig: Vec<u8> }
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
+  let start_idx = decoder.index();
+
   // TODO should we verify here? or elsewhere...
   let type_covered = try!(RecordType::read(decoder));
   let algorithm = try!(Algorithm::read(decoder));
@@ -310,7 +312,10 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
   let sig_inception = try!(decoder.read_u32());
   let key_tag = try!(decoder.read_u16());
   let signer_name = try!(Name::read(decoder));
-  let sig = try!(decoder.read_vec(algorithm.get_hash_type().md_len()));
+
+  // read the signature, this will vary buy key size
+  let bytes_read = decoder.index() - start_idx;
+  let sig = try!(decoder.read_vec(rdata_length as usize - bytes_read));
 
   Ok(RData::SIG {
     type_covered:   type_covered,
@@ -382,7 +387,7 @@ fn test() {
   println!("bytes: {:?}", bytes);
 
   let mut decoder: BinDecoder = BinDecoder::new(bytes);
-  let read_rdata = read(&mut decoder);
+  let read_rdata = read(&mut decoder, bytes.len() as u16);
   assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
   assert_eq!(rdata, read_rdata.unwrap());
 }

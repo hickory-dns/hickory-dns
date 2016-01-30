@@ -409,7 +409,7 @@ impl Authority {
       let class = rr.get_dns_class();
       if class == try!(self.get_soa().ok_or(ResponseCode::NXDomain)).get_dns_class() {
         // zone     rrset    rr       Add to an RRset
-        println!("inserting record: {:?}", rr);
+        info!("inserting record: {:?}", rr);
         self.upsert(rr.get_name().clone(), rr.clone());
       } else {
         let records_to_delete: Vec<Record> = {
@@ -422,11 +422,11 @@ impl Authority {
               // TODO, had to clone b/c of borrow rules, it would be nice if there was a deletable
               //  maybe switch to Rc...
               // ANY      rrset    empty    Delete an RRset
-              println!("deleting set of records: {:?}", rr);
+              info!("deleting set of records: {:?}", rr);
               rrset.iter().filter(|r| Self::matches_record_type_and_class(r, rr.get_rr_type(), DNSClass::ANY) && r.get_rr_type() != RecordType::SOA && r.get_rr_type() != RecordType::NS ).cloned().collect()
             },
             DNSClass::NONE => {
-              println!("deleting specific record: {:?}", rr);
+              info!("deleting specific record: {:?}", rr);
               // NONE     rrset    rr       Delete an RR from an RRset
               rrset.iter().filter(|r| Self::matches_record_type_and_class(r, rr.get_rr_type(), DNSClass::ANY) && r.get_rdata() == rr.get_rdata() ).cloned().collect()
             },
@@ -590,6 +590,8 @@ impl Authority {
   }
 
   pub fn lookup(&self, name: &Name, rtype: RecordType, class: DNSClass) -> Option<Vec<Record>> {
+    // on an SOA request always return the SOA, regardless of the name
+    let name: &Name = if rtype == RecordType::SOA { &self.origin } else { name };
 
     // TODO this should be an unnecessary clone... need to create a key type, and then use that for
     //  all queries
