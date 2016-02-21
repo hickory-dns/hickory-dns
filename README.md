@@ -1,7 +1,10 @@
-# trust-dns
 [![Build Status](https://travis-ci.org/bluejekyll/trust-dns.svg?branch=master)](https://travis-ci.org/bluejekyll/trust-dns)
 [![Coverage Status](https://coveralls.io/repos/bluejekyll/trust-dns/badge.svg?branch=master&service=github)](https://coveralls.io/github/bluejekyll/trust-dns?branch=master)
 [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns)
+
+
+# trust-dns
+
 A Rust based DNS client and server, built to be safe and secure from the
 ground up.
 
