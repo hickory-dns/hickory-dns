@@ -20,8 +20,9 @@ use openssl::crypto::pkey::{PKey, Role};
 
 use ::op::Message;
 use ::rr::dnssec::Algorithm;
-use ::rr::{DNSClass, Name, Record, RData, RecordType};
+use ::rr::{DNSClass, Name, Record, RData};
 use ::serialize::binary::{BinEncoder, BinSerializable};
+use ::rr::rdata::sig;
 
 pub struct Signer {
   algorithm: Algorithm,
@@ -368,16 +369,16 @@ impl Signer {
   pub fn hash_rrset(&self, rrsig: &Record, records: &[Record]) -> Vec<u8> {
     let name: &Name = rrsig.get_name();
     let dns_class: DNSClass = rrsig.get_dns_class();
-    let rr_type: RecordType = rrsig.get_rr_type();
     let rrsig_rdata: &RData = rrsig.get_rdata();
 
-    if let &RData::SIG { num_labels, .. } = rrsig_rdata {
+    if let &RData::SIG { num_labels, type_covered, original_ttl, .. } = rrsig_rdata {
+      // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
       let mut rrset: Vec<&Record> = Vec::new();
 
       // collect only the records for this rrset
       for record in records {
         if dns_class == record.get_dns_class() &&
-           rr_type == record.get_rr_type() &&
+           type_covered == record.get_rr_type() &&
            name == record.get_name() {
              rrset.push(record);
         }
@@ -399,6 +400,15 @@ impl Signer {
         let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
         encoder.set_canonical_names(true);
 
+        //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
+        //
+        //             "|" denotes concatenation
+        //
+        //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
+        //                with the Signature field excluded and the Signer's Name
+        //                in canonical form.
+        assert!(sig::emit_pre_sig(&mut encoder, rrsig_rdata).is_ok());
+
         // construct the rrset signing data
         for record in rrset {
           //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
@@ -406,17 +416,27 @@ impl Signer {
           //                name is calculated according to the function in the RFC 4035
           assert!(name.emit_as_canonical(&mut encoder, true).is_ok());
           //
+          //                type is the RRset type and all RRs in the class
+          assert!(type_covered.emit(&mut encoder).is_ok());
+          //
           //                class is the RRset's class
           assert!(dns_class.emit(&mut encoder).is_ok());
           //
-          //                type is the RRset type and all RRs in the class
-          assert!(rr_type.emit(&mut encoder).is_ok());
-          //
           //                OrigTTL is the value from the RRSIG Original TTL field
-          assert!(encoder.emit_u32(record.get_ttl()).is_ok());
+          assert!(encoder.emit_u32(original_ttl).is_ok());
+          //
+          //                RDATA length
+          // TODO: add support to the encoder to set a marker to go back and write the length
+          let mut rdata_buf = Vec::new();
+          {
+            let mut rdata_encoder = BinEncoder::new(&mut rdata_buf);
+            rdata_encoder.set_canonical_names(true);
+            assert!(record.get_rdata().emit(&mut rdata_encoder).is_ok());
+          }
+          assert!(encoder.emit_u16(rdata_buf.len() as u16).is_ok());
           //
           //                All names in the RDATA field are in canonical form (set above)
-          assert!(record.get_rdata().emit(&mut encoder).is_ok());
+          assert!(encoder.emit_vec(&rdata_buf).is_ok());
         }
       }
 
@@ -474,7 +494,7 @@ impl Signer {
   }
 
   /// verifies the hash matches the signature with the current key.
-  fn verify(&self, hash: &[u8], signature: &[u8]) -> bool {
+  pub fn verify(&self, hash: &[u8], signature: &[u8]) -> bool {
     if !self.pkey.can(Role::Verify) {
       // this doesn't panic b/c the public key might just have been bad, and so this would fail
       //  in a bad data situation, therefore false instead of panic
@@ -483,23 +503,12 @@ impl Signer {
     }
     self.pkey.verify_with_hash(hash, signature, self.algorithm.get_hash_type())
   }
-
-  /// returns the length in bytes that the signer based on the current algorithm will produce
-  pub fn len(&self) -> usize() {
-    // TODO: duplicate code in record_data.rs
-    let mut length: usize = 2 /* type_covered: u16 */ + 1 /* algorithm u8 */ + 1 /* num_labels: u8 */ +
-    4 /* original_ttl: u32 */ + 4 /* sig_expiration: u32 */ + 4 /* sig_inception: u32 */ +
-    2 /* key_tag: u16 */;
-
-    length += self.algorithm.hash_len();
-    length += self.signer_name.len();
-
-    length
-  }
 }
 
 #[test]
 fn test_hash_rrset() {
+  use ::rr::RecordType;
+
   let mut pkey = PKey::new();
   pkey.gen(512);
   let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root());
@@ -526,6 +535,8 @@ fn test_hash_rrset() {
 
 #[test]
 fn test_sign_and_verify_rrset() {
+  use ::rr::RecordType;
+
   let mut pkey = PKey::new();
   pkey.gen(512);
   let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root());

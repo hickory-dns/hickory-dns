@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use openssl::crypto::pkey;
+use openssl::crypto::pkey::{PKey, Role};
+use openssl::crypto::rsa::RSA;
 use openssl::crypto::hash;
+use openssl::bn::BigNum;
 
 use ::serialize::binary::*;
 use ::error::*;
@@ -119,8 +121,8 @@ impl Algorithm {
     hash::hash(self.get_hash_type(), data)
   }
 
-  pub fn sign(&self, private_key: &pkey::PKey, data: &[u8]) -> Vec<u8> {
-    if !private_key.can(pkey::Role::Sign) { panic!("This key cannot be used for signing") }
+  pub fn sign(&self, private_key: &PKey, data: &[u8]) -> Vec<u8> {
+    if !private_key.can(Role::Sign) { panic!("This key cannot be used for signing") }
 
     // calculate the hash...
     let hash = self.hash(data);
@@ -129,8 +131,8 @@ impl Algorithm {
     private_key.sign(&hash)
   }
 
-  pub fn verify(&self, public_key: &pkey::PKey, data: &[u8], signature: &[u8]) -> bool {
-    if !public_key.can(pkey::Role::Verify) { panic!("This key cannot be used to verify signature") }
+  pub fn verify(&self, public_key: &PKey, data: &[u8], signature: &[u8]) -> bool {
+    if !public_key.can(Role::Verify) { panic!("This key cannot be used to verify signature") }
 
     // calculate the hash on the local data
     let hash = self.hash(data);
@@ -158,6 +160,93 @@ impl Algorithm {
       Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
       Algorithm::RSASHA256 => 32, // 256 bits
       Algorithm::RSASHA512 => 64, // 512 bites
+    }
+  }
+
+  pub fn public_key_from_vec(&self, public_key: &[u8]) -> DecodeResult<PKey> {
+    match *self {
+      Algorithm::RSASHA1 |
+      Algorithm::RSASHA1NSEC3SHA1 |
+      Algorithm::RSASHA256 |
+      Algorithm::RSASHA512 => {
+        // RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
+        //
+        //       2. RSA Public KEY Resource Records
+        //
+        //  RSA public keys are stored in the DNS as KEY RRs using algorithm
+        //  number 5 [RFC2535].  The structure of the algorithm specific portion
+        //  of the RDATA part of such RRs is as shown below.
+        //
+        //        Field             Size
+        //        -----             ----
+        //        exponent length   1 or 3 octets (see text)
+        //        exponent          as specified by length field
+        //        modulus           remaining space
+        //
+        //  For interoperability, the exponent and modulus are each limited to
+        //  4096 bits in length.  The public key exponent is a variable length
+        //  unsigned integer.  Its length in octets is represented as one octet
+        //  if it is in the range of 1 to 255 and by a zero octet followed by a
+        //  two octet unsigned length if it is longer than 255 bytes.  The public
+        //  key modulus field is a multiprecision unsigned integer.  The length
+        //  of the modulus can be determined from the RDLENGTH and the preceding
+        //  RDATA fields including the exponent.  Leading zero octets are
+        //  prohibited in the exponent and modulus.
+        //
+        //  Note: KEY RRs for use with RSA/SHA1 DNS signatures MUST use this
+        //  algorithm number (rather than the algorithm number specified in the
+        //  obsoleted RFC 2537).
+        //
+        //  Note: This changes the algorithm number for RSA KEY RRs to be the
+        //  same as the new algorithm number for RSA/SHA1 SIGs.
+        if public_key.len() < 3 || public_key.len() > (4096 + 3) { return Err(DecodeError::BadPublicKey) }
+        let mut num_exp_len_octs = 1;
+        let mut len: u16 = public_key[0] as u16;
+        if len == 0 {
+          num_exp_len_octs = 3;
+          len = ((public_key[1] as u16) << 8) | (public_key[2] as u16)
+        }
+        let len = len; // demut
+
+        let mut pkey = PKey::new();
+        let e = try!(BigNum::new_from_slice(&public_key[(num_exp_len_octs as usize)..(len as usize + num_exp_len_octs)]));
+        let n = try!(BigNum::new_from_slice(&public_key[(len as usize +num_exp_len_octs)..]));
+
+        let mut rsa = try!(RSA::new());
+        rsa.set_e(e);
+        rsa.set_n(n);
+        pkey.set_rsa(rsa);
+        Ok(pkey)
+      }
+    }
+  }
+
+  pub fn public_key_to_vec(&self, public_key: &PKey) -> Vec<u8> {
+    match *self {
+      Algorithm::RSASHA1 |
+      Algorithm::RSASHA1NSEC3SHA1 |
+      Algorithm::RSASHA256 |
+      Algorithm::RSASHA512 => {
+        let mut bytes: Vec<u8> = Vec::new();
+
+        // this is to get us access to the exponent and the modulus
+        let rsa: RSA = public_key.get_rsa();
+        let e: Vec<u8> = rsa.e().expect("PKey should have been initialized").to_vec();
+        let n: Vec<u8> = rsa.n().expect("PKey should have been initialized").to_vec();
+
+        if e.len() > 255 {
+          bytes.push(0);
+          bytes.push((e.len() >> 8) as u8);
+          bytes.push(e.len() as u8);
+        } else {
+          bytes.push(e.len() as u8);
+        }
+
+        bytes.extend_from_slice(&e);
+        bytes.extend_from_slice(&n);
+
+        bytes
+      }
     }
   }
 }
@@ -218,6 +307,8 @@ impl From<Algorithm> for u8 {
 mod test {
   use super::Algorithm;
   use openssl::crypto::pkey;
+  use openssl::crypto::pkey::EncryptionPadding;
+  use openssl::crypto::pkey::{PKey, Parts, Role};
 
   #[test]
   fn test_hashing() {
@@ -232,5 +323,34 @@ mod test {
       let sig = algorithm.sign(&pkey, bytes);
       assert!(algorithm.verify(&pkey, bytes, &sig));
     }
+  }
+
+  #[test]
+  fn test_binary_public_key() {
+    let bytes = b"www.example.com".to_vec();
+    let mut pkey = pkey::PKey::new();
+    pkey.gen(2048);
+
+    let crypt = pkey.encrypt(&bytes);
+    let decrypt = pkey.decrypt(&crypt);
+
+    assert_eq!(bytes, decrypt);
+    println!("pkey: {:?}", pkey.save_pub());
+
+    let algorithm = Algorithm::RSASHA256;
+
+    let bin_key = algorithm.public_key_to_vec(&pkey);
+    let new_key = algorithm.public_key_from_vec(&bin_key).expect("couldn't read bin_key");
+
+    assert!(new_key.can(Role::Encrypt));
+    assert!(new_key.can(Role::Verify));
+    assert!(!new_key.can(Role::Decrypt));
+    assert!(!new_key.can(Role::Sign));
+
+
+    let crypt = new_key.encrypt(&bytes);
+    let decrypt = pkey.decrypt(&crypt);
+
+    assert_eq!(bytes, decrypt);
   }
 }

@@ -99,6 +99,8 @@ impl Message {
   pub fn truncated(&mut self, truncated: bool) -> &mut Self { self.header.truncated(truncated); self }
   pub fn recursion_desired(&mut self, recursion_desired: bool) -> &mut Self { self.header.recursion_desired(recursion_desired); self }
   pub fn recursion_available(&mut self, recursion_available: bool) -> &mut Self {self.header.recursion_available(recursion_available); self }
+  pub fn authentic_data(&mut self, authentic_data: bool) -> &mut Self {self.header.authentic_data(authentic_data); self}
+  pub fn checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {self.header.checking_disabled(checking_disabled); self}
   pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.header.response_code(response_code); self }
   pub fn add_query(&mut self, query: Query) -> &mut Self { self.queries.push(query); self }
   pub fn add_answer(&mut self, record: Record) -> &mut Self { self.answers.push(record); self }
@@ -137,6 +139,8 @@ impl Message {
   pub fn is_truncated(&self) -> bool { self.header.is_truncated() }
   pub fn is_recursion_desired(&self) -> bool { self.header.is_recursion_desired() }
   pub fn is_recursion_available(&self) -> bool { self.header.is_recursion_available() }
+  pub fn is_authentic_data(&self) -> bool { self.header.is_authentic_data() }
+  pub fn is_checking_disabled(&self) -> bool { self.header.is_checking_disabled() }
   pub fn get_response_code(&self) -> ResponseCode { ResponseCode::from(self.edns.as_ref().map_or(0, |e|e.get_rcode_high()), self.header.get_response_code()) }
   pub fn get_queries(&self) -> &[Query] { &self.queries }
   pub fn get_answers(&self) -> &[Record] { &self.answers }
@@ -421,6 +425,7 @@ fn test_emit_and_read_records() {
   let mut message = Message::new();
   message.id(10).message_type(MessageType::Response).op_code(OpCode::Update).
     authoritative(true).truncated(true).recursion_desired(true).recursion_available(true).
+    authentic_data(true).checking_disabled(true).
     response_code(ResponseCode::ServFail);
 
   message.add_answer(Record::new());

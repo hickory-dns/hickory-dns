@@ -17,6 +17,7 @@ extern crate chrono;
 #[macro_use] extern crate log;
 extern crate mio;
 extern crate openssl;
+extern crate openssl_sys;
 extern crate toml;
 extern crate rustc_serialize;
 
