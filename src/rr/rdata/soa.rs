@@ -148,3 +148,28 @@ pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
     minimum: minimum,
   })
 }
+
+#[test]
+fn test() {
+  let rdata = RData::SOA{
+    mname:   Name::new().label("m").label("example").label("com"),
+    rname:   Name::new().label("r").label("example").label("com"),
+    serial:  1,
+    refresh: 2,
+    retry:   3,
+    expire:  4,
+    minimum: 5,
+  };
+
+  let mut bytes = Vec::new();
+  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+  assert!(emit(&mut encoder, &rdata).is_ok());
+  let bytes = encoder.as_bytes();
+
+  println!("bytes: {:?}", bytes);
+
+  let mut decoder: BinDecoder = BinDecoder::new(bytes);
+  let read_rdata = read(&mut decoder);
+  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
+  assert_eq!(rdata, read_rdata.unwrap());
+}

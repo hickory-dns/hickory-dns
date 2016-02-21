@@ -58,4 +58,19 @@ pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
 }
 
 
-// #[test] is performed at the record_data module, the inner name in domain::Name
+#[test]
+pub fn test() {
+  let rdata = RData::CNAME{ cname: Name::new().label("www").label("example").label("com") };
+
+  let mut bytes = Vec::new();
+  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+  assert!(emit(&mut encoder, &rdata).is_ok());
+  let bytes = encoder.as_bytes();
+
+  println!("bytes: {:?}", bytes);
+
+  let mut decoder: BinDecoder = BinDecoder::new(bytes);
+  let read_rdata = read(&mut decoder);
+  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
+  assert_eq!(rdata, read_rdata.unwrap());
+}

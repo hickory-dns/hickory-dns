@@ -13,58 +13,59 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
- use std::convert::From;
+use std::convert::From;
+use std::cmp::Ordering;
 
 use ::serialize::binary::*;
 use ::error::*;
 
 type FromResult = Result<RecordType, DecodeError>;
 
-#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {
     A,          //	1	RFC 1035[1]	IPv4 Address record
     AAAA,       //	28	RFC 3596[2]	IPv6 address record
-  //  AFSDB,      //	18	RFC 1183	AFS database record
-  //  APL,        //	42	RFC 3123	Address Prefix List
-  //  CAA,        //	257	RFC 6844	Certification Authority Authorization
-  //  CDNSKEY,    //	60	RFC 7344	Child DNSKEY
-  //  CDS,        //	59	RFC 7344	Child DS
-  //  CERT,       //	37	RFC 4398	Certificate record
+    //  AFSDB,      //	18	RFC 1183	AFS database record
+    ANY,        //  *	255	RFC 1035[1]	All cached records, aka ANY
+    //  APL,        //	42	RFC 3123	Address Prefix List
+    AXFR,       //	252	RFC 1035[1]	Authoritative Zone Transfer
+    //  CAA,        //	257	RFC 6844	Certification Authority Authorization
+    //  CDNSKEY,    //	60	RFC 7344	Child DNSKEY
+    //  CDS,        //	59	RFC 7344	Child DS
+    //  CERT,       //	37	RFC 4398	Certificate record
     CNAME,      //	5	RFC 1035[1]	Canonical name record
-  //  DHCID,      //	49	RFC 4701	DHCP identifier
-  //  DLV,        //	32769	RFC 4431	DNSSEC Lookaside Validation record
-  //  DNAME,      //	39	RFC 2672	Delegation Name
-  //  DNSKEY,     //	48	RFC 4034	DNS Key record
-  //  DS,         //	43	RFC 4034	Delegation signer
-  //  HIP,        //	55	RFC 5205	Host Identity Protocol
-  //  IPSECKEY,   //	45	RFC 4025	IPsec Key
-  //  KEY,        //	25	RFC 2535[3] and RFC 2930[4]	Key record
-  //  KX,         //	36	RFC 2230	Key eXchanger record
-  //  LOC,        //	29	RFC 1876	Location record
+    //  DHCID,      //	49	RFC 4701	DHCP identifier
+    //  DLV,        //	32769	RFC 4431	DNSSEC Lookaside Validation record
+    //  DNAME,      //	39	RFC 2672	Delegation Name
+    DNSKEY,     //	48	RFC 4034	DNS Key record: RSASHA256 and RSASHA512, RFC5702
+    DS,         //	43	RFC 4034	Delegation signer: RSASHA256 and RSASHA512, RFC5702
+    //  HIP,        //	55	RFC 5205	Host Identity Protocol
+    //  IPSECKEY,   //	45	RFC 4025	IPsec Key
+    IXFR,       //	251	RFC 1996	Incremental Zone Transfer
+    //  KEY,        //	25	RFC 2535[3] and RFC 2930[4]	Key record
+    //  KX,         //	36	RFC 2230	Key eXchanger record
+    //  LOC,        //	29	RFC 1876	Location record
     MX,         //	15	RFC 1035[1]	Mail exchange record
-  //  NAPTR,      //	35	RFC 3403	Naming Authority Pointer
+    //  NAPTR,      //	35	RFC 3403	Naming Authority Pointer
     NS,         //	2	RFC 1035[1]	Name server record
     NULL,         //	0	RFC 1035[1]	Null server record, for testing
-  //  NSEC,       //	47	RFC 4034	Next-Secure record
-  //  NSEC3,      //	50	RFC 5155	NSEC record version 3
-  //  NSEC3PARAM, //	51	RFC 5155	NSEC3 parameters
+    //  NSEC,       //	47	RFC 4034	Next-Secure record
+    NSEC3,      //	50	RFC 5155	NSEC record version 3
+    NSEC3PARAM, //	51	RFC 5155	NSEC3 parameters
+    OPT,        //	41	RFC 6891	Option
     PTR,        //	12	RFC 1035[1]	Pointer record
-  //  RRSIG,      //	46	RFC 4034	DNSSEC signature
-  //  RP,         //	17	RFC 1183	Responsible person
-  //  SIG,        //	24	RFC 2535	Signature
+    RRSIG,      //	46	RFC 4034	DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
+    //  RP,         //	17	RFC 1183	Responsible person
+    SIG,        //	24	RFC 2535 (2931)	Signature, to support 2137 Update
     SOA,        //	6	RFC 1035[1] and RFC 2308[9]	Start of [a zone of] authority record
     SRV,        //	33	RFC 2782	Service locator
-  //  SSHFP,      //	44	RFC 4255	SSH Public Key Fingerprint
-  //  TA,         //	32768	N/A	DNSSEC Trust Authorities
-  //  TKEY,       //	249	RFC 2930	Secret key record
-  //  TLSA,       //	52	RFC 6698	TLSA certificate association
-  //  TSIG,       //	250	RFC 2845	Transaction Signature
+    //  SSHFP,      //	44	RFC 4255	SSH Public Key Fingerprint
+    //  TA,         //	32768	N/A	DNSSEC Trust Authorities
+    //  TKEY,       //	249	RFC 2930	Secret key record
+    //  TLSA,       //	52	RFC 6698	TLSA certificate association
+    //  TSIG,       //	250	RFC 2845	Transaction Signature
     TXT,        //	16	RFC 1035[1]	Text record
-    ANY,        //  *	255	RFC 1035[1]	All cached records, aka ANY
-    AXFR,       //	252	RFC 1035[1]	Authoritative Zone Transfer
-    IXFR,       //	251	RFC 1996	Incremental Zone Transfer
-    OPT,        //	41	RFC 6891	Option
 }
 
 impl RecordType {
@@ -106,16 +107,24 @@ impl RecordType {
     match value {
       1 => Ok(RecordType::A),
       28 => Ok(RecordType::AAAA),
+      255 => Ok(RecordType::ANY),
+      252 => Ok(RecordType::AXFR),
       5 => Ok(RecordType::CNAME),
-      0 => Ok(RecordType::NULL),
+      48 => Ok(RecordType::DNSKEY),
+      43 => Ok(RecordType::DS),
       15 => Ok(RecordType::MX),
       2 => Ok(RecordType::NS),
+      50 => Ok(RecordType::NSEC3),
+      51 => Ok(RecordType::NSEC3PARAM),
+      0 => Ok(RecordType::NULL),
+      41 => Ok(RecordType::OPT),
       12 => Ok(RecordType::PTR),
+      46 => Ok(RecordType::RRSIG),
+      24 => Ok(RecordType::SIG),
       6 => Ok(RecordType::SOA),
       33 => Ok(RecordType::SRV),
       16 => Ok(RecordType::TXT),
-      255 => Ok(RecordType::ANY),
-      252 => Ok(RecordType::AXFR),
+      // TODO: this should probably return a generic value wrapper.
       _ => Err(DecodeError::UnknownRecordTypeValue(value)),
     }
   }
@@ -152,17 +161,24 @@ impl From<RecordType> for &'static str {
     match rt {
       RecordType::A => "A",
       RecordType::AAAA => "AAAA",
+      RecordType::ANY => "ANY",
+      RecordType::AXFR => "AXFR",
       RecordType::CNAME => "CNAME",
-      RecordType::NULL => "NULL",
+      RecordType::DNSKEY => "DNSKEY",
+      RecordType::DS => "DS",
+      RecordType::IXFR => "IXFR",
       RecordType::MX => "MX",
+      RecordType::NULL => "NULL",
       RecordType::NS => "NS",
+      RecordType::NSEC3 => "NSEC3",
+      RecordType::NSEC3PARAM => "NSEC3PARAM",
+      RecordType::OPT => "OPT",
       RecordType::PTR => "PTR",
+      RecordType::RRSIG => "RRSIG",
+      RecordType::SIG => "SIG",
       RecordType::SOA => "SOA",
       RecordType::SRV => "SRV",
       RecordType::TXT => "TXT",
-      RecordType::ANY => "ANY",
-      RecordType::AXFR => "AXFR",
-      _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned
     }
   }
 }
@@ -181,17 +197,79 @@ impl From<RecordType> for u16 {
     match rt {
       RecordType::A => 1,
       RecordType::AAAA => 28,
+      RecordType::ANY => 255,
+      RecordType::AXFR => 252,
       RecordType::CNAME => 5,
-      RecordType::NULL => 0,
+      RecordType::DNSKEY => 48,
+      RecordType::DS => 43,
+      RecordType::IXFR => 251,
       RecordType::MX => 15,
       RecordType::NS => 2,
+      RecordType::NULL => 0,
+      RecordType::NSEC3 => 50,
+      RecordType::NSEC3PARAM => 51,
+      RecordType::OPT => 41,
       RecordType::PTR => 12,
+      RecordType::RRSIG => 46,
+      RecordType::SIG => 24,
       RecordType::SOA => 6,
       RecordType::SRV => 33,
       RecordType::TXT => 16,
-      RecordType::ANY => 255,
-      RecordType::AXFR => 252,
-      _ => panic!("unsupported RecordType: {:?}", rt), // other types are planned...
     }
   }
+}
+
+impl PartialOrd<RecordType> for RecordType {
+  fn partial_cmp(&self, other: &RecordType) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for RecordType {
+  fn cmp(&self, other: &Self) -> Ordering {
+    u16::from(*self).cmp(&u16::from(*other))
+  }
+}
+
+#[test]
+fn test_order() {
+  let ordered = vec![
+    RecordType::NULL,
+    RecordType::A,
+    RecordType::NS,
+    RecordType::CNAME,
+    RecordType::SOA,
+    RecordType::PTR,
+    RecordType::MX,
+    RecordType::TXT,
+    RecordType::AAAA,
+    RecordType::SRV,
+    RecordType::AXFR,
+    RecordType::ANY,
+  ];
+
+  let mut unordered = vec![
+    RecordType::ANY,
+    RecordType::NULL,
+    RecordType::AXFR,
+    RecordType::A,
+    RecordType::NS,
+    RecordType::SOA,
+    RecordType::SRV,
+    RecordType::PTR,
+    RecordType::MX,
+    RecordType::CNAME,
+    RecordType::TXT,
+    RecordType::AAAA,
+  ];
+
+  unordered.sort();
+
+  for rtype in unordered.clone() {
+    println!("u16 for {:?}: {}", rtype, u16::from(rtype));
+  }
+
+  assert_eq!(5.partial_cmp(&28), Some(Ordering::Less));
+
+  assert_eq!(ordered, unordered);
 }

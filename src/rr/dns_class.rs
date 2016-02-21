@@ -14,10 +14,12 @@
  * limitations under the License.
  */
 use std::convert::From;
+use std::cmp::Ordering;
+
 use ::serialize::binary::*;
 use ::error::*;
 
-#[derive(Debug, PartialEq, Eq, Hash, PartialOrd, Ord, Copy, Clone)]
+#[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum DNSClass {
   IN,          //	1	RFC 1035	Internet (IN)
@@ -25,6 +27,7 @@ pub enum DNSClass {
   HS,          // 4 Hesiod (HS)
   NONE,        // 254 QCLASS NONE
   ANY,         // 255 QCLASS * (ANY)
+  OPT(u16),    // Special class for OPT Version, it was overloaded for EDNS - RFC 6891
 }
 
 impl DNSClass {
@@ -62,9 +65,13 @@ impl DNSClass {
       3 => Ok(DNSClass::CH),
       4 => Ok(DNSClass::HS),
       254 => Ok(DNSClass::NONE),
-      //      255 => DNSClass::ANY,
+      255 => Ok(DNSClass::ANY),
       _ => Err(DecodeError::UnknownDnsClassValue(value)),
     }
+  }
+
+  pub fn for_opt(value: u16) -> Self {
+    DNSClass::OPT(value)
   }
 }
 
@@ -96,11 +103,10 @@ impl From<DNSClass> for &'static str {
       DNSClass::HS => "HS",
       DNSClass::NONE => "NONE",
       DNSClass::ANY => "ANY",
+      DNSClass::OPT(_) => "OPT"
     }
   }
 }
-
-
 
 /// Convert from DNSClass to u16
 ///
@@ -118,6 +124,30 @@ impl From<DNSClass> for u16 {
       DNSClass::HS => 4,
       DNSClass::NONE => 254,
       DNSClass::ANY => 255,
+      DNSClass::OPT(version) => version,
     }
   }
+}
+
+impl PartialOrd<DNSClass> for DNSClass {
+  fn partial_cmp(&self, other: &DNSClass) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for DNSClass {
+  fn cmp(&self, other: &Self) -> Ordering {
+    u16::from(*self).cmp(&u16::from(*other))
+  }
+}
+
+
+#[test]
+fn test_order() {
+  let ordered = vec![DNSClass::IN, DNSClass::CH, DNSClass::HS, DNSClass::NONE, DNSClass::ANY];
+  let mut unordered = vec![DNSClass::NONE, DNSClass::HS, DNSClass::CH, DNSClass::IN, DNSClass::ANY];
+
+  unordered.sort();
+
+  assert_eq!(unordered, ordered);
 }

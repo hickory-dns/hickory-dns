@@ -18,6 +18,9 @@ use std::error::Error;
 use std::io;
 use std::fmt;
 
+use ::op::ResponseCode;
+use ::rr::Name;
+
 #[derive(Debug)]
 pub enum ClientError {
   DecodeError(super::DecodeError),
@@ -31,6 +34,9 @@ pub enum ClientError {
   NoNameServer,
   TimerError,
   NoDataReceived,
+  ErrorResponse(ResponseCode),
+  NoRRSIG,
+  NoSOARecord(Name),
 }
 
 impl fmt::Display for ClientError {
@@ -47,6 +53,9 @@ impl fmt::Display for ClientError {
       ClientError::NoNameServer => write!(f, "No name server address available"),
       ClientError::TimerError => write!(f, "Error setting timer"),
       ClientError::NoDataReceived => write!(f, "No data was received from the remote"),
+      ClientError::ErrorResponse(response_code) => write!(f, "Response was an error: {}", response_code.to_str()),
+      ClientError::NoRRSIG => write!(f, "No RRSIG was recieved"),
+      ClientError::NoSOARecord(ref name) => write!(f, "No SOA record found for {}", name)
     }
   }
 }
@@ -65,6 +74,9 @@ impl Error for ClientError {
       ClientError::NoNameServer => "No name server address available",
       ClientError::TimerError => "Error setting timer",
       ClientError::NoDataReceived => "No data was received from the remote",
+      ClientError::ErrorResponse(..) => "Response was an error",
+      ClientError::NoRRSIG => "No RRSIG was recieved",
+      ClientError::NoSOARecord(..) => "No SOA record found",
     }
   }
 

@@ -33,12 +33,42 @@ impl Catalog {
     Catalog{ authorities: HashMap::new() }
   }
 
-  pub fn handle_request(&self, request: Message) -> Message {
+  pub fn handle_request(&self, request: &Message) -> Message {
     info!("id: {} type: {:?} op_code: {:?}", request.get_id(), request.get_message_type(), request.get_op_code());
+    debug!("request: {:?}", request);
 
-    let id = request.get_id();
+    let mut resp_edns_opt: Option<Edns> = None;
 
-    match request.get_message_type() {
+    // check if it's edns
+    if let Some(req_edns) = request.get_edns() {
+      let mut response = Message::new();
+      response.id(request.get_id());
+
+      let mut resp_edns: Edns = Edns::new();
+
+      // check our version against the request
+      // TODO: what version are we?
+      let our_version = 0;
+      resp_edns.set_dnssec_ok(true);
+      resp_edns.set_max_payload( if req_edns.get_max_payload() < 512 { 512 } else { req_edns.get_max_payload() } );
+      resp_edns.set_version(our_version);
+
+      if req_edns.get_version() > our_version {
+        warn!("request edns version greater than {}: {}", our_version, req_edns.get_version());
+        response.response_code(ResponseCode::BADVERS);
+        response.set_edns(resp_edns);
+        return response
+      }
+
+      // TODO: inform of supported DNSSec protocols...
+      // TODO: add padding for private key hashing, need better knowledge of the length of the
+      //   response.
+      // resp_edns.set_option()
+
+      resp_edns_opt = Some(resp_edns);
+    }
+
+    let mut response: Message = match request.get_message_type() {
       // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
       //  especially for recursive lookups
       MessageType::Query => {
@@ -46,26 +76,36 @@ impl Catalog {
           OpCode::Query => {
             let response = self.lookup(&request);
             debug!("query response: {:?}", response);
-            return response;
+            response
             // TODO, handle recursion here or in the catalog?
             // recursive queries should be cached.
           },
           OpCode::Update => {
             let response = self.update(&request);
             debug!("update response: {:?}", response);
-            return response;
+            response
           }
           c @ _ => {
             error!("unimplemented op_code: {:?}", c);
-            return Self::error_msg(request.get_id(), request.get_op_code(), ResponseCode::NotImp);
+            Self::error_msg(request.get_id(), request.get_op_code(), ResponseCode::NotImp)
           },
         }
       },
       MessageType::Response => {
-        warn!("got a response as a request from id: {}", id);
-        return Self::error_msg(id, request.get_op_code(), ResponseCode::NotImp);
+        warn!("got a response as a request from id: {}", request.get_id());
+        Self::error_msg(request.get_id(), request.get_op_code(), ResponseCode::NotImp)
       },
+    };
+
+    if let Some(resp_edns) = resp_edns_opt {
+      response.set_edns(resp_edns);
+
+      // TODO: if DNSSec supported, sign the package with SIG0
+      // get this servers private key ideally use pkcs11
+      // sign response and then add SIG0 or TSIG to response
     }
+
+    response
   }
 
   pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Message {
@@ -188,7 +228,7 @@ impl Catalog {
             response.add_all_name_servers(&ns.unwrap());
           }
         } else {
-          // in the nx section it's standard to return the SOA in the authority section
+          // in the not found case it's standard to return the SOA in the authority section
           response.response_code(ResponseCode::NXDomain);
 
           let soa = authority.get_soa();
@@ -213,18 +253,36 @@ impl Catalog {
       let authority = ref_authority.read().unwrap(); // poison errors should panic
       debug!("found authority: {:?}", authority.get_origin());
 
+      let record_type: RecordType = query.get_query_type();
+
       // if this is an AXFR zone transfer, verify that this is either the slave or master
-      let record_type = if let RecordType::AXFR = query.get_query_type() {
+      //  for AXFR the first and last record must be the SOA
+      if RecordType::AXFR == record_type {
         match authority.get_zone_type() {
-          ZoneType::Master | ZoneType::Slave => RecordType::ANY,
+          ZoneType::Master | ZoneType::Slave => (),
           // TODO Forward?
           _ => return None, // TODO this sould be an error.
         }
-      } else {
-        query.get_query_type()
-      };
+      }
 
-      Some((&ref_authority, authority.lookup(query.get_name(), record_type, query.get_query_class())))
+      // it would be better to stream this back, rather than packaging everything up in an array
+      //  though for UDP it would still need to be bundled
+      let mut query_result: Option<Vec<_>> = authority.lookup(query.get_name(), record_type, query.get_query_class());
+
+      if RecordType::AXFR == record_type {
+        if let Some(soa) = authority.get_soa() {
+          let mut xfr: Vec<Record> = query_result.unwrap_or(Vec::with_capacity(2));
+          // TODO: probably make Records Rc or Arc, to remove the clone
+          xfr.insert(0, soa.clone());
+          xfr.push(soa);
+
+          query_result = Some(xfr);
+        } else {
+          return None; // TODO is this an error?
+        }
+      }
+
+      Some((&ref_authority, query_result))
     } else {
       None
     }
@@ -233,8 +291,11 @@ impl Catalog {
   fn find_auth_recurse(&self, name: &Name) -> Option<&RwLock<Authority>> {
     let authority = self.authorities.get(name);
     if authority.is_some() { return authority; }
-    else if let Some(name) = name.base_name() {
-      return self.find_auth_recurse(&name);
+    else {
+      let name = name.base_name();
+      if !name.is_root() {
+        return self.find_auth_recurse(&name);
+      }
     }
 
     None
@@ -399,6 +460,7 @@ mod catalog_tests {
   fn test_axfr() {
     let test = create_test();
     let origin = test.get_origin().clone();
+    let soa = Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), test);
@@ -412,6 +474,10 @@ mod catalog_tests {
 
     let result: Message = catalog.lookup(&question);
     let mut answers: Vec<Record> = result.get_answers().to_vec();
+
+    assert_eq!(answers.first().unwrap(), &soa);
+    assert_eq!(answers.last().unwrap(), &soa);
+
     answers.sort();
 
     let www_name: Name = Name::parse("www.test.com.", None).unwrap();
@@ -423,6 +489,7 @@ mod catalog_tests {
       Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(),
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(94,184,216,34) }).clone(),
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(),
+      Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone(),
     ];
 
     expected_set.sort();

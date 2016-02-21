@@ -17,13 +17,19 @@
 // TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
 //  and also a little more ergonomic when accessing.
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
+pub mod a;
+pub mod aaaa;
 pub mod cname;
+pub mod ds;
+pub mod dnskey;
 pub mod mx;
 pub mod null;
 pub mod ns;
+pub mod nsec3;
+pub mod nsec3param;
+pub mod opt;
 pub mod ptr;
+pub mod sig;
 pub mod soa;
 pub mod srv;
 pub mod txt;
-pub mod a;
-pub mod aaaa;

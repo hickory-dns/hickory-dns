@@ -16,6 +16,8 @@
 use std::ops::Index;
 use std::sync::Arc as Rc;
 use std::fmt;
+use std::cmp::Ordering;
+use std::char;
 
 use ::serialize::binary::*;
 use ::error::*;
@@ -23,7 +25,7 @@ use ::error::*;
 /// TODO: all Names should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 /// TODO: Currently this probably doesn't support binary names, it would be nice to do that.
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Clone, Hash)]
+#[derive(Debug, PartialEq, Eq, Clone, Hash)]
 pub struct Name {
   labels: Rc<Vec<Rc<String>>>
 }
@@ -33,17 +35,28 @@ impl Name {
     Name { labels: Rc::new(Vec::new()) }
   }
 
+  // this is the root label, i.e. no labels, can probably make this better in the future.
+  pub fn root() -> Self {
+    Self::new()
+  }
+
+  pub fn is_root(&self) -> bool {
+    self.labels.is_empty()
+  }
+
   // inline builder
   pub fn label(mut self, label: &'static str) -> Self {
     // TODO get_mut() on Arc was unstable when this was written
     let mut new_labels: Vec<Rc<String>> = (*self.labels).clone();
     new_labels.push(Rc::new(label.into()));
     self.labels = Rc::new(new_labels);
+    assert!(self.labels.len() < 256);
     self
   }
 
   // for mutating over time
   pub fn with_labels(labels: Vec<String>) -> Self {
+    assert!(labels.len() < 256);
     Name { labels: Rc::new(labels.into_iter().map(|s|Rc::new(s)).collect()) }
   }
 
@@ -52,6 +65,7 @@ impl Name {
     let mut new_labels: Vec<Rc<String>> = (*self.labels).clone();
     new_labels.push(label);
     self.labels = Rc::new(new_labels);
+    assert!(self.labels.len() < 256);
     self
   }
 
@@ -64,11 +78,11 @@ impl Name {
   }
 
   /// Trims off the first part of the name, to help with searching for the domain piece
-  pub fn base_name(&self) -> Option<Name> {
+  pub fn base_name(&self) -> Name {
     if self.labels.len() >= 1 {
-      Some(Name { labels: Rc::new(self.labels[1..].to_vec()) } )
+      Name { labels: Rc::new(self.labels[1..].to_vec()) }
     } else {
-      None
+      Self::root()
     }
   }
 
@@ -87,24 +101,129 @@ impl Name {
     return true;
   }
 
-  // TODO: I think this does the wrong thing for escaped data
+  pub fn num_labels(&self) -> u8 {
+    // it is illegal to have more than 256 labels.
+    self.labels.len() as u8
+  }
+
+  /// returns the length in bytes of the labels. '.' counts as 1
+  pub fn len(&self) -> usize {
+    let dots = if self.labels.len() > 0 { self.labels.len() } else { 1 };
+    self.labels.iter().fold(dots, |acc, item| acc + item.len())
+  }
+
   pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {
-    let mut build = Name::new();
+    let mut name = Name::new();
+    let mut label = String::new();
     // split the local part
 
-    // TODO: this should be a real lexer, to varify all data is legal name...
-    for s in local.split('.') {
-      if s.len() > 0 {
-        build.add_label(Rc::new(s.to_string().to_lowercase())); // all names stored in lowercase
+    let mut state = ParseState::Label;
+
+    for ch in local.chars() {
+      match state {
+        ParseState::Label => {
+          match ch {
+            '.' => {
+              name.add_label(Rc::new(label.clone()));
+              label.clear();
+            },
+            '\\' => state = ParseState::Escape1,
+            ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch.to_lowercase().next().unwrap_or(ch)),
+            _ => return Err(ParseError::LexerError(LexerError::UnrecognizedChar(ch))),
+          }
+        },
+        ParseState::Escape1 => {
+          if ch.is_numeric() { state = ParseState::Escape2(try!(ch.to_digit(10).ok_or(LexerError::IllegalCharacter(ch)))) }
+          else {
+            // it's a single escaped char
+            label.push(ch);
+            state = ParseState::Label;
+          }
+        },
+        ParseState::Escape2(i) => {
+          if ch.is_numeric() {
+            state = ParseState::Escape3(i, try!(ch.to_digit(10).ok_or(LexerError::IllegalCharacter(ch))));
+          } else { return Err(ParseError::LexerError(LexerError::UnrecognizedChar(ch))) }
+        },
+        ParseState::Escape3(i, ii) => {
+          if ch.is_numeric() {
+            let val: u32 = (i << 16) + (ii << 8) + try!(ch.to_digit(10).ok_or(LexerError::IllegalCharacter(ch)));
+            let new: char = try!(char::from_u32(val).ok_or(ParseError::LexerError(LexerError::UnrecognizedOctet(val))));
+            label.push(new.to_lowercase().next().unwrap_or(new));
+            state = ParseState::Label;
+          } else { return Err(ParseError::LexerError(LexerError::UnrecognizedChar(ch))) }
+        },
       }
     }
 
+    if !label.is_empty() { name.add_label(Rc::new(label)); }
+
+    // TODO: this should be a real lexer, to varify all data is legal name...
+    // for s in local.split('.') {
+    //   if s.len() > 0 {
+    //     build.add_label(Rc::new(s.to_string().to_lowercase())); // all names stored in lowercase
+    //   }
+    // }
+
     if !local.ends_with('.') {
-      build.append(try!(origin.ok_or(ParseError::OriginIsUndefined)));
+      name.append(try!(origin.ok_or(ParseError::OriginIsUndefined)));
     }
 
-    Ok(build)
+    Ok(name)
   }
+
+  pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> EncodeResult {
+    let buf_len = encoder.len(); // lazily assert the size is less than 255...
+    // lookup the label in the BinEncoder
+    // if it exists, write the Pointer
+    let mut labels: &[Rc<String>] = &self.labels;
+
+    if canonical {
+      for label in labels {
+        try!(encoder.emit_character_data(label));
+      }
+    } else {
+      while let Some(label) = labels.first() {
+        // before we write the label, let's look for the current set of labels.
+        if let Some(loc) = encoder.get_label_pointer(labels) {
+          // write out the pointer marker
+          //  or'd with the location with shouldn't be larger than this 2^14 or 16k
+          try!(encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16)));
+
+          // we found a pointer don't write more, break
+          return Ok(())
+        } else {
+          if label.len() > 63 { return Err(EncodeError::LabelBytesTooLong(label.len())); }
+
+          // to_owned is cloning the the vector, but the Rc's at least don't clone the strings.
+          encoder.store_label_pointer(labels.to_owned());
+          try!(encoder.emit_character_data(label));
+
+          // return the next parts of the labels
+          //  this should be safe, the labels.first() wouldn't have let us here if there wasn't
+          //  at least one item.
+          labels = &labels[1..];
+        }
+      }
+    }
+
+    // if we're getting here, then we didn't write out a pointer and are ending the name
+    // the end of the list of names
+    try!(encoder.emit(0));
+
+     // the entire name needs to be less than 256.
+    let length = encoder.len() - buf_len;
+    if length > 255 { return Err(EncodeError::DomainNameTooLong(length)); }
+
+    Ok(())
+  }
+}
+
+enum ParseState {
+  Label,
+  Escape1,
+  Escape2(u32),
+  Escape3(u32,u32),
 }
 
 impl BinSerializable<Name> for Name {
@@ -127,9 +246,9 @@ impl BinSerializable<Name> for Name {
           // determine what the next label is
           match decoder.peek() {
             Some(0) | None => LabelParseState::Root,
-            Some(byte) if byte & 0xC0 == 0xC0 => LabelParseState::Pointer,
-            Some(byte) if byte <= 0x3F        => LabelParseState::Label,
-            _ => unreachable!(),
+            Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
+            Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
+            Some(byte) => return Err(DecodeError::UnrecognizedLabelCode(byte)),
           }
         },
         LabelParseState::Label => {
@@ -183,51 +302,17 @@ impl BinSerializable<Name> for Name {
   }
 
   fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-
-    let buf_len = encoder.len(); // lazily assert the size is less than 255...
-    // lookup the label in the BinEncoder
-    // if it exists, write the Pointer
-    let mut labels: &[Rc<String>] = &self.labels;
-    while let Some(label) = labels.first() {
-      // before we write the label, let's look for the current set of labels.
-      if let Some(loc) = encoder.get_label_pointer(labels) {
-        // write out the pointer marker
-        //  or'd with the location with shouldn't be larger than this 2^14 or 16k
-        try!(encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16)));
-
-        // we found a pointer don't write more, break
-        return Ok(())
-      } else {
-        if label.len() > 63 { return Err(EncodeError::LabelBytesTooLong(label.len())); }
-
-        // to_owned is cloning the the vector, but the Rc's at least don't clone the strings.
-        encoder.store_label_pointer(labels.to_owned());
-        try!(encoder.emit_character_data(label));
-
-        // return the next parts of the labels
-        //  this should be safe, the labels.first() wouldn't have let us here if there wasn't
-        //  at least one item.
-        labels = &labels[1..];
-      }
-    }
-
-    // if we're getting here, then we didn't write out a pointer and are ending the name
-    // the end of the list of names
-    try!(encoder.emit(0));
-
-     // the entire name needs to be less than 256.
-    let length = encoder.len() - buf_len;
-    if length > 255 { return Err(EncodeError::DomainNameTooLong(length)); }
-
-    Ok(())
+    let is_canonical_names = encoder.is_canonical_names();
+    self.emit_as_canonical(encoder, is_canonical_names)
   }
 }
 
 impl fmt::Display for Name {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     for label in &*self.labels {
-      write!(f, "{}.", label);
+      write!(f, "{}.", label).unwrap();
     }
+    if self.is_root() { write!(f, "."); }
     Ok(())
   }
 }
@@ -238,6 +323,64 @@ impl Index<usize> for Name {
     fn index<'a>(&'a self, _index: usize) -> &'a String {
         &*(self.labels[_index])
     }
+}
+
+impl PartialOrd<Name> for Name {
+  fn partial_cmp(&self, other: &Name) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for Name {
+  // RFC 4034                DNSSEC Resource Records               March 2005
+  //
+  // 6.1.  Canonical DNS Name Order
+  //
+  //  For the purposes of DNS security, owner names are ordered by treating
+  //  individual labels as unsigned left-justified octet strings.  The
+  //  absence of a octet sorts before a zero value octet, and uppercase
+  //  US-ASCII letters are treated as if they were lowercase US-ASCII
+  //  letters.
+  //
+  //  To compute the canonical ordering of a set of DNS names, start by
+  //  sorting the names according to their most significant (rightmost)
+  //  labels.  For names in which the most significant label is identical,
+  //  continue sorting according to their next most significant label, and
+  //  so forth.
+  //
+  //  For example, the following names are sorted in canonical DNS name
+  //  order.  The most significant label is "example".  At this level,
+  //  "example" sorts first, followed by names ending in "a.example", then
+  //  by names ending "z.example".  The names within each level are sorted
+  //  in the same way.
+  //
+  //            example
+  //            a.example
+  //            yljkjljk.a.example
+  //            Z.a.example
+  //            zABC.a.EXAMPLE
+  //            z.example
+  //            \001.z.example
+  //            *.z.example
+  //            \200.z.example
+  fn cmp(&self, other: &Self) -> Ordering {
+    if self.labels.is_empty() && other.labels.is_empty() { return Ordering::Equal }
+
+    let mut self_labels: Vec<_> = (*self.labels).clone();
+    let mut other_labels: Vec<_> = (*other.labels).clone();
+
+    self_labels.reverse();
+    other_labels.reverse();
+
+    for (l, r) in self_labels.iter().zip(other_labels.iter()) {
+      match l.cmp(r) {
+        o @ Ordering::Less | o @ Ordering::Greater => return o,
+        Ordering::Equal => continue,
+      }
+    }
+
+    self.labels.len().cmp(&other.labels.len())
+  }
 }
 
 /// This is the list of states for the label parsing state machine
@@ -253,6 +396,7 @@ mod tests {
   use super::*;
   use ::serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
   use ::serialize::binary::*;
+  use std::cmp::Ordering;
 
   fn get_data() -> Vec<(Name, Vec<u8>)> {
     vec![
@@ -316,6 +460,15 @@ mod tests {
   }
 
   #[test]
+  fn test_base_name() {
+    let zone = Name::new().label("example").label("com");
+
+    assert_eq!(zone.base_name(), Name::new().label("com"));
+    assert!(zone.base_name().base_name().is_root());
+    assert!(zone.base_name().base_name().base_name().is_root());
+  }
+
+  #[test]
   fn test_zone_of() {
     let zone = Name::new().label("example").label("com");
     let www = Name::new().label("www").label("example").label("com");
@@ -324,5 +477,38 @@ mod tests {
     assert!(zone.zone_of(&zone));
     assert!(zone.zone_of(&www));
     assert!(!zone.zone_of(&none))
+  }
+
+  #[test]
+  fn test_partial_cmp_eq() {
+    let root = Some(Name::with_labels(vec![]));
+    let comparisons:Vec<(Name, Name)> = vec![
+     (root.clone().unwrap(), root.clone().unwrap()),
+     (Name::parse("example", root.as_ref()).unwrap(), Name::parse("example", root.as_ref()).unwrap()),
+     ];
+
+    for (left, right) in comparisons {
+      println!("left: {}, right: {}", left, right);
+      assert_eq!(left.partial_cmp(&right), Some(Ordering::Equal));
+     }
+  }
+
+  #[test]
+  fn test_partial_cmp() {
+    let root = Some(Name::with_labels(vec![]));
+    let comparisons:Vec<(Name, Name)> = vec![
+     (Name::parse("example", root.as_ref()).unwrap(), Name::parse("a.example", root.as_ref()).unwrap()),
+     (Name::parse("a.example", root.as_ref()).unwrap(), Name::parse("yljkjljk.a.example", root.as_ref()).unwrap()),
+     (Name::parse("yljkjljk.a.example", root.as_ref()).unwrap(), Name::parse("Z.a.example", root.as_ref()).unwrap()),
+     (Name::parse("Z.a.example", root.as_ref()).unwrap(), Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap()),
+     (Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap(), Name::parse("z.example", root.as_ref()).unwrap()),
+     (Name::parse("z.example", root.as_ref()).unwrap(), Name::parse("\\001.z.example", root.as_ref()).unwrap()),
+     (Name::parse("\\001.z.example", root.as_ref()).unwrap(), Name::parse("*.z.example", root.as_ref()).unwrap()),
+     (Name::parse("*.z.example", root.as_ref()).unwrap(), Name::parse("\\200.z.example", root.as_ref()).unwrap())];
+
+    for (left, right) in comparisons {
+      println!("left: {}, right: {}", left, right);
+      assert_eq!(left.partial_cmp(&right), Some(Ordering::Less));
+     }
   }
 }

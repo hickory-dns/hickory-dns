@@ -56,15 +56,26 @@ impl UdpHandler {
         };
 
         let response = match request {
-          Err(decode_error) => {
+          Err(ref decode_error) => {
             warn!("unable to decode request from client: {:?}: {}", addr, decode_error);
             Catalog::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr)
           },
-          Ok(req) => catalog.handle_request(req), // this is a buf if the unwrap() fails
+          Ok(ref req) => catalog.handle_request(req), // this is a buf if the unwrap() fails
         };
 
+        // serialize the data for the response
         let buf = Self::serialize_msg(buf, &response);
-        Some(UdpHandler{ state: UdpState::Writing, addr: addr, message: response, buffer: buf})
+
+        // TODO: this is the easiest spot to do this, but is least useful to shorten
+        //  also, it's not clear how useful a truncated response is for secure operations
+        if buf.len() > request.unwrap().get_max_payload() as usize {
+          // we must truncate the response
+          let truncated_response = response.truncate();
+          let buf = Self::serialize_msg(buf, &truncated_response);
+          Some(UdpHandler{ state: UdpState::Writing, addr: addr, message: response, buffer: buf})
+        } else {
+          Some(UdpHandler{ state: UdpState::Writing, addr: addr, message: response, buffer: buf})
+        }
       },
       Err(e) => {
         warn!("error recieving on socket {:?}: {}", socket, e);

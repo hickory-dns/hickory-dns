@@ -38,7 +38,10 @@ SHORT 70 A      26.3.0.104
 VENERA  A       10.1.0.52
       A       128.9.0.32");
 
-  let authority = Parser::new().parse(lexer, Some(Name::new().label("isi").label("edu")), ZoneType::Master, false).unwrap();
+  let authority = Parser::new().parse(lexer, Some(Name::new().label("isi").label("edu")), ZoneType::Master, false);
+  if authority.is_err() { panic!("failed to parse: {:?}", authority) }
+
+  let authority = authority.unwrap();
 
   // not validating everything, just one of each...
 
@@ -51,9 +54,7 @@ VENERA  A       10.1.0.52
   if let RData::SOA { ref mname, ref rname, serial, refresh, retry, expire, minimum } = *soa_record.get_rdata() {
     // this should all be lowercased
     assert_eq!(&Name::new().label("venera").label("isi").label("edu"), mname);
-    // TODO: this is broken, need to build names directly into the lexer I think.
-    // assert_eq!(&Name::new().label("action.domains").label("isi").label("edu"), rname);
-    assert_eq!(&Name::new().label("action").label("domains").label("isi").label("edu"), rname);
+    assert_eq!(&Name::new().label("action.domains").label("isi").label("edu"), rname);
     assert_eq!(20, serial);
     assert_eq!(7200, refresh);
     assert_eq!(600, retry);
@@ -145,16 +146,20 @@ VENERA  A       10.1.0.52
 
   // TXT
   let mut txt_records: Vec<Record> = authority.lookup(&Name::new().label("a").label("isi").label("edu"), RecordType::TXT, DNSClass::IN).unwrap();
-  let mut compare = vec![
+  let compare = vec![
     vec!["I".to_string(), "am".to_string(), "a".to_string(), "txt".to_string(), "record".to_string()],
     vec!["I".to_string(), "am".to_string(), "another".to_string(), "txt".to_string(), "record".to_string()],
-    vec!["I am a different".to_string(), "txt record".to_string()],
     vec!["key=val".to_string()],
+    vec!["I am a different".to_string(), "txt record".to_string()],
     ];
 
-  compare.sort();
   txt_records.sort();
+
+  println!("compare: {:?}", compare);
+  println!("txt_records: {:?}", txt_records);
+
   let compare = txt_records.iter().zip(compare);
+
 
   for (record, ref vector) in compare {
     if let RData::TXT{ ref txt_data } = *record.get_rdata() {

@@ -23,6 +23,7 @@ use ::rr::*;
 #[derive(Debug)]
 pub struct Authority {
   origin: Name,
+  // TODO create a RRSet that is HashSet, but also embeds the RRSig record.
   records: HashMap<Name, HashSet<Record>>,
   zone_type: ZoneType,
   allow_update: bool,
@@ -248,13 +249,24 @@ impl Authority {
    *                if (local option)
    *                     return (REFUSED)
    */
-  fn authorize(&self) -> UpdateResult<()> {
+  fn authorize(&self, update_message: &UpdateMessage) -> UpdateResult<()> {
+    // does this authority allow_updates?
     if !self.allow_update {
       warn!("update attempted on non-updatable Authority: {}", self.origin);
-      Err(ResponseCode::Refused)
-    } else {
-      Ok(())
+      return Err(ResponseCode::Refused)
     }
+
+    // verify sig0, currently the only authorization that is accepted.
+    let sig0: &[Record] = update_message.get_sig0();
+    if !sig0.is_empty() {
+      info!("attempted update rejected due to missing SIG0: {:?}", update_message);
+      return Err(ResponseCode::Refused);
+    }
+
+
+    // getting here, we will always default to rejecting the request
+    //  the code will only ever explcitly return authrorized actions.
+    Err(ResponseCode::Refused)
   }
 
   /*
@@ -397,7 +409,7 @@ impl Authority {
       let class = rr.get_dns_class();
       if class == try!(self.get_soa().ok_or(ResponseCode::NXDomain)).get_dns_class() {
         // zone     rrset    rr       Add to an RRset
-        println!("inserting record: {:?}", rr);
+        info!("inserting record: {:?}", rr);
         self.upsert(rr.get_name().clone(), rr.clone());
       } else {
         let records_to_delete: Vec<Record> = {
@@ -410,11 +422,11 @@ impl Authority {
               // TODO, had to clone b/c of borrow rules, it would be nice if there was a deletable
               //  maybe switch to Rc...
               // ANY      rrset    empty    Delete an RRset
-              println!("deleting set of records: {:?}", rr);
+              info!("deleting set of records: {:?}", rr);
               rrset.iter().filter(|r| Self::matches_record_type_and_class(r, rr.get_rr_type(), DNSClass::ANY) && r.get_rr_type() != RecordType::SOA && r.get_rr_type() != RecordType::NS ).cloned().collect()
             },
             DNSClass::NONE => {
-              println!("deleting specific record: {:?}", rr);
+              info!("deleting specific record: {:?}", rr);
               // NONE     rrset    rr       Delete an RR from an RRset
               rrset.iter().filter(|r| Self::matches_record_type_and_class(r, rr.get_rr_type(), DNSClass::ANY) && r.get_rdata() == rr.get_rdata() ).cloned().collect()
             },
@@ -447,8 +459,11 @@ impl Authority {
         },
         // never delete SOA
         RecordType::SOA => continue,
+        // TODO: skip deletes on all DNSSec records?
         _ => (), // move on to the delete
       }
+
+      // TODO collect NSEC3 and RRSIG records that should be removed and delete those as well.
 
       let rrset: Option<&mut HashSet<Record>> = self.records.get_mut(name);
 
@@ -504,7 +519,7 @@ impl Authority {
    */
   pub fn update(&mut self, update: &UpdateMessage) -> UpdateResult<()> {
     // the spec says to authorize after prereqs, seems better to auth first.
-    try!(self.authorize());
+    try!(self.authorize(update));
     try!(self.verify_prerequisites(update.get_pre_requisites()));
     try!(self.pre_scan(update.get_updates()));
 
@@ -566,12 +581,17 @@ impl Authority {
     }
   }
 
+  /// returns any records matching the specified query.
+  ///  for AXFR records, all records will be returned, with the exception of the SOA record.
   fn matches_record_type_and_class(record: &Record, rtype: RecordType, class: DNSClass) -> bool {
+    (rtype == RecordType::AXFR && record.get_rr_type() != RecordType::SOA) ||
     (rtype == RecordType::ANY || record.get_rr_type() == rtype) &&
     (class == DNSClass::ANY || record.get_dns_class() == class)
   }
 
   pub fn lookup(&self, name: &Name, rtype: RecordType, class: DNSClass) -> Option<Vec<Record>> {
+    // on an SOA request always return the SOA, regardless of the name
+    let name: &Name = if rtype == RecordType::SOA { &self.origin } else { name };
 
     // TODO this should be an unnecessary clone... need to create a key type, and then use that for
     //  all queries
@@ -681,12 +701,16 @@ pub mod authority_tests {
 
   #[test]
   fn test_authorize() {
-    let mut authority: Authority = create_example();
-    assert_eq!(authority.authorize(), Err(ResponseCode::Refused));
+    let authority: Authority = create_example();
+
+    let mut message = Message::new();
+    message.id(10).message_type(MessageType::Query).op_code(OpCode::Update);
+
+    assert_eq!(authority.authorize(&message), Err(ResponseCode::Refused));
 
     // TODO: this will nee to be more complex as additional policies are added
-    authority.set_allow_update(true);
-    assert!(authority.authorize().is_ok());
+    // authority.set_allow_update(true);
+    // assert!(authority.authorize(&message).is_ok());
   }
 
   #[test]

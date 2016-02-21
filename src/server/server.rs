@@ -259,7 +259,6 @@ enum RemoveFrom {
 #[cfg(test)]
 mod server_tests {
   use std::thread;
-  use mio::tcp::TcpListener;
   use mio::udp::UdpSocket;
   use std::net::{SocketAddr, SocketAddrV4, Ipv4Addr};
   use ::authority::Catalog;
@@ -302,7 +301,7 @@ mod server_tests {
     let client = Client::with_addr(server_addr).unwrap();
 
     println!("about to query server: {:?}", server_addr);
-    let response = client.query(name.clone(), DNSClass::IN, RecordType::A).unwrap();
+    let response = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
 
     assert!(response.get_response_code() == ResponseCode::NoError, "got an error: {:?}", response.get_response_code());
 
@@ -330,6 +329,8 @@ mod server_tests {
   #[test]
   #[cfg(feature = "ftest")]
   fn test_server_www_tcp() {
+    use mio::tcp::TcpListener;
+
     let example = create_example();
     let origin = example.get_origin().clone();
 
@@ -355,7 +356,7 @@ mod server_tests {
     //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
   }
 
-
+  #[allow(dead_code)]
   fn client_thread_www_tcp(server_addr: SocketAddr) {
     use ::tcp::Client;
 

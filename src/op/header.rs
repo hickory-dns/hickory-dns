@@ -33,7 +33,7 @@ use super::response_code::ResponseCode;
  *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  *     |                      ID                       |
  *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *     |QR|   Opcode  |AA|TC|RD|RA|   Z    |   RCODE   |
+ *     |QR|   Opcode  |AA|TC|RD|RA|ZZ|AD|CD|   RCODE   |  // AD and CD from RFC4035
  *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
  *     |                    QDCOUNT / ZCOUNT           |
  *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -99,12 +99,41 @@ use super::response_code::ResponseCode;
  *
  * ARCOUNT         an unsigned 16 bit integer specifying the number of
  *                 resource records in the additional records section.
+ *
+ * RFC 4035             DNSSEC Protocol Modifications            March 2005
+ *
+ * 3.1.6.  The AD and CD Bits in an Authoritative Response
+ *
+ *   The CD and AD bits are designed for use in communication between
+ *   security-aware resolvers and security-aware recursive name servers.
+ *   These bits are for the most part not relevant to query processing by
+ *   security-aware authoritative name servers.
+ *
+ *   A security-aware name server does not perform signature validation
+ *   for authoritative data during query processing, even when the CD bit
+ *   is clear.  A security-aware name server SHOULD clear the CD bit when
+ *   composing an authoritative response.
+ *
+ *   A security-aware name server MUST NOT set the AD bit in a response
+ *   unless the name server considers all RRsets in the Answer and
+ *   Authority sections of the response to be authentic.  A security-aware
+ *   name server's local policy MAY consider data from an authoritative
+ *   zone to be authentic without further validation.  However, the name
+ *   server MUST NOT do so unless the name server obtained the
+ *   authoritative zone via secure means (such as a secure zone transfer
+ *   mechanism) and MUST NOT do so unless this behavior has been
+ *   configured explicitly.
+ *
+ *   A security-aware name server that supports recursion MUST follow the
+ *   rules for the CD and AD bits given in Section 3.2 when generating a
+ *   response that involves data obtained via recursion.
  */
 #[derive(Debug, PartialEq, PartialOrd)]
 pub struct Header {
   id: u16, message_type: MessageType, op_code: OpCode,
   authoritative: bool, truncation: bool, recursion_desired: bool, recursion_available: bool,
-  response_code: ResponseCode,
+  authentic_data: bool, checking_disabled: bool,
+  response_code: u8 /* ideally u4 */,
   query_count: u16, answer_count: u16, name_server_count: u16, additional_count: u16,
 }
 
@@ -125,13 +154,18 @@ impl Header {
       truncation: false,
       recursion_desired: false,
       recursion_available: false,
-      response_code: ResponseCode::NoError,
+      authentic_data: false,
+      checking_disabled: false,
+      response_code: 0,
       query_count: 0,
       answer_count: 0,
       name_server_count: 0,
       additional_count: 0,
     }
   }
+
+  #[inline(always)]
+  pub fn len() -> usize { 12 /* this is always 12 bytes */ }
 
   pub fn id(&mut self, id: u16) -> &mut Self { self.id = id; self }
   pub fn message_type(&mut self, message_type: MessageType) -> &mut Self { self.message_type = message_type; self }
@@ -140,7 +174,9 @@ impl Header {
   pub fn truncated(&mut self, truncated: bool) -> &mut Self { self.truncation = truncated; self }
   pub fn recursion_desired(&mut self, recursion_desired: bool) -> &mut Self { self.recursion_desired = recursion_desired; self }
   pub fn recursion_available(&mut self, recursion_available: bool) -> &mut Self {self.recursion_available = recursion_available; self }
-  pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.response_code = response_code; self }
+  pub fn authentic_data(&mut self, authentic_data: bool) -> &mut Self {self.authentic_data = authentic_data; self}
+  pub fn checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {self.checking_disabled = checking_disabled; self}
+  pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.response_code = response_code.low(); self }
   pub fn query_count(&mut self, query_count: u16) -> &mut Self { self.query_count = query_count; self }
   pub fn answer_count(&mut self, answer_count: u16) -> &mut Self { self.answer_count = answer_count; self }
   pub fn name_server_count(&mut self, name_server_count: u16) -> &mut Self { self.name_server_count = name_server_count; self }
@@ -153,7 +189,9 @@ impl Header {
   pub fn is_truncated(&self) -> bool { self.truncation }
   pub fn is_recursion_desired(&self) -> bool { self.recursion_desired }
   pub fn is_recursion_available(&self) -> bool {self.recursion_available }
-  pub fn get_response_code(&self) -> ResponseCode { self.response_code }
+  pub fn is_authentic_data(&self) -> bool {self.authentic_data}
+  pub fn is_checking_disabled(&self) -> bool {self.checking_disabled}
+  pub fn get_response_code(&self) -> u8 { self.response_code }
 
   /// for query this is the count of query records
   /// for updates this is the zone count (only 1 allowed)
@@ -193,10 +231,11 @@ impl BinSerializable<Header> for Header {
     let truncation = (0x2 & q_opcd_a_t_r) == 0x2;
     let recursion_desired = (0x1 & q_opcd_a_t_r) == 0x1;
 
-    let r_zzz_rcod = try!(decoder.pop()); // fail fast...
-    let recursion_available = (0x80 & r_zzz_rcod) == 0x80;
-    // TODO the > 16 codes in ResponseCode come from somewhere, (zzz?) need to better understand RFC
-    let response_code: ResponseCode = (0x7 & r_zzz_rcod).into();
+    let r_z_ad_cd_rcod = try!(decoder.pop()); // fail fast...
+    let recursion_available = (0b1000_0000 & r_z_ad_cd_rcod) == 0b1000_0000;
+    let authentic_data = (0b0010_0000 & r_z_ad_cd_rcod) == 0b0010_0000;
+    let checking_disabled = (0b0001_0000 & r_z_ad_cd_rcod) == 0b0001_0000;
+    let response_code: u8 = 0x0F & r_z_ad_cd_rcod;
 
     let query_count = try!(decoder.read_u16());
     let answer_count = try!(decoder.read_u16());
@@ -207,7 +246,9 @@ impl BinSerializable<Header> for Header {
     //  this guarantees that the Header is fully instantiated with all values...
     Ok(Header { id: id, message_type: message_type, op_code: op_code, authoritative: authoritative,
              truncation: truncation, recursion_desired: recursion_desired,
-             recursion_available: recursion_available, response_code: response_code,
+             recursion_available: recursion_available,
+             authentic_data: authentic_data, checking_disabled: checking_disabled,
+             response_code: response_code,
              query_count: query_count, answer_count: answer_count,
              name_server_count: name_server_count, additional_count: additional_count })
   }
@@ -227,9 +268,11 @@ impl BinSerializable<Header> for Header {
     try!(encoder.emit(q_opcd_a_t_r));
 
     // IsRecursionAvailable, Triple 0's, ResponseCode
-    let mut r_zzz_rcod: u8 = if self.recursion_available { 0x80 } else { 0x00 };
-    r_zzz_rcod |= u8::from(self.response_code);
-    try!(encoder.emit(r_zzz_rcod));
+    let mut r_z_ad_cd_rcod: u8 = if self.recursion_available { 0b1000_0000 } else { 0b0000_0000 };
+    r_z_ad_cd_rcod |= if self.authentic_data { 0b0010_0000 } else { 0b0000_0000 };
+    r_z_ad_cd_rcod |= if self.checking_disabled { 0b0001_0000 } else { 0b0000_0000 };
+    r_z_ad_cd_rcod |= u8::from(self.response_code);
+    try!(encoder.emit(r_z_ad_cd_rcod));
 
     try!(encoder.emit_u16(self.query_count));
     try!(encoder.emit_u16(self.answer_count));
@@ -254,7 +297,7 @@ fn test_parse() {
 
   let expect = Header { id: 0x0110, message_type: MessageType::Response, op_code: OpCode::Update,
     authoritative: false, truncation: true, recursion_desired: false,
-    recursion_available: true, response_code: ResponseCode::NXDomain,
+    recursion_available: true, authentic_data: false, checking_disabled: false, response_code: ResponseCode::NXDomain.low(),
     query_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
 
   let got = Header::read(&mut decoder).unwrap();
@@ -266,7 +309,7 @@ fn test_parse() {
 fn test_write() {
   let header = Header { id: 0x0110, message_type: MessageType::Response, op_code: OpCode::Update,
     authoritative: false, truncation: true, recursion_desired: false,
-    recursion_available: true, response_code: ResponseCode::NXDomain,
+    recursion_available: true, authentic_data: false, checking_disabled: false, response_code: ResponseCode::NXDomain.low(),
     query_count: 0x8877, answer_count: 0x6655, name_server_count: 0x4433, additional_count: 0x2211};
 
   let expect: Vec<u8> = vec![0x01, 0x10,

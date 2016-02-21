@@ -120,7 +120,8 @@ impl<'a> Lexer<'a> {
                   return opt;
                 }
               },
-              Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
+              // TODO: this next one can be removed, but will keep unescaping for quoted strings
+              //Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
               Some(ch) if !ch.is_control() && !ch.is_whitespace() => { self.txt.next(); try!(Self::push_to_str(&mut char_data, ch)); },
               Some(ch) => return Err(LexerError::UnrecognizedChar(ch)),
               None => { self.state = State::EOF; return char_data.take().ok_or(LexerError::IllegalState("char_data is None")).map(|s|Some(Token::CharData(s))) },
@@ -163,18 +164,12 @@ impl<'a> Lexer<'a> {
     if !ch.is_control() {
       if ch.is_numeric() {
         // in this case it's an excaped octal: \DDD
-        let d1 = try!(self.txt.next().ok_or(LexerError::EOF)); // gobble
-        let d2 = try!(self.txt.next().ok_or(LexerError::EOF)); // gobble
-        let d3 = try!(self.txt.next().ok_or(LexerError::EOF)); // gobble
+        let d1: u32 = try!(try!(self.txt.next().ok_or(LexerError::EOF).map(|c|c.to_digit(10).ok_or(LexerError::IllegalCharacter(ch))))); // gobble
+        let d2: u32 = try!(try!(self.txt.next().ok_or(LexerError::EOF).map(|c|c.to_digit(10).ok_or(LexerError::IllegalCharacter(ch))))); // gobble
+        let d3: u32 = try!(try!(self.txt.next().ok_or(LexerError::EOF).map(|c|c.to_digit(10).ok_or(LexerError::IllegalCharacter(ch))))); // gobble
 
-        // let ddd: [u8; 3] = [d1.unwrap() as u8, d2.unwrap() as u8, *d3.unwrap() as u8];
-        // let ch: char = try!(u32::from_str_radix(&ddd.into(), 8)
-
-        let ddd: String = try!(String::from_utf8(vec![d1 as u8, d2 as u8, d3 as u8]));
-        let ch: char = try!(u32::from_str_radix(&ddd, 8)
-        .or(Err(LexerError::BadEscapedData(ddd)))
-        .and_then(|o|char::from_u32(o).ok_or(LexerError::UnrecognizedOctet(o))));
-        //let ch: char = try!(char::from_digit(try!(u32::from_str_radix(&ddd as &str, 8)), 8).ok_or(Err(LexerError::BadEscapedData(ddd)))); // octal parsing
+        let val: u32 = (d1 << 16) + (d2 << 8) + d3;
+        let ch: char = try!(char::from_u32(val).ok_or(LexerError::UnrecognizedOctet(val)));
 
         return Ok(ch);
       } else {
@@ -265,12 +260,9 @@ mod lex_test {
 
   #[test]
   fn escape() {
-    assert_eq!(Lexer::new("a\\Aa").next_token().unwrap().unwrap(), Token::CharData("aAa".to_string()));
-    assert_eq!(Lexer::new("a\\$").next_token().unwrap().unwrap(), Token::CharData("a$".to_string()));
-    assert_eq!(Lexer::new("a\\077").next_token().unwrap().unwrap(), Token::CharData("a?".to_string()));
-    assert!(Lexer::new("a\\").next_token().is_err());
-    assert!(Lexer::new("a\\0").next_token().is_err());
-    assert!(Lexer::new("a\\07").next_token().is_err());
+    assert_eq!(Lexer::new("a\\Aa").next_token().unwrap().unwrap(), Token::CharData("a\\Aa".to_string()));
+    assert_eq!(Lexer::new("a\\$").next_token().unwrap().unwrap(), Token::CharData("a\\$".to_string()));
+    assert_eq!(Lexer::new("a\\077").next_token().unwrap().unwrap(), Token::CharData("a\\077".to_string()));
   }
 
   #[test]
@@ -278,6 +270,13 @@ mod lex_test {
     assert_eq!(Lexer::new("\"Quoted\"").next_token().unwrap().unwrap(), Token::CharData("Quoted".to_string()));
     assert_eq!(Lexer::new("\";@$\"").next_token().unwrap().unwrap(), Token::CharData(";@$".to_string()));
     assert_eq!(Lexer::new("\"some \\A\"").next_token().unwrap().unwrap(), Token::CharData("some A".to_string()));
+    assert_eq!(Lexer::new("\"a\\Aa\"").next_token().unwrap().unwrap(), Token::CharData("aAa".to_string()));
+    assert_eq!(Lexer::new("\"a\\$\"").next_token().unwrap().unwrap(), Token::CharData("a$".to_string()));
+    assert_eq!(Lexer::new("\"a\\077\"").next_token().unwrap().unwrap(), Token::CharData("a\u{707}".to_string()));
+
+    assert!(Lexer::new("\"a\\\"").next_token().is_err());
+    assert!(Lexer::new("\"a\\0\"").next_token().is_err());
+    assert!(Lexer::new("\"a\\07\"").next_token().is_err());
 
     let mut lexer = Lexer::new("\"multi\nline\ntext\"");
 
@@ -370,7 +369,7 @@ $INCLUDE <SUBSYS>ISI-MAILBOXES.TXT");
     assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("IN".to_string()));
     assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("SOA".to_string()));
     assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("VENERA".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("Action.domains".to_string()));
+    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("Action\\.domains".to_string()));
     assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec!["20".to_string(),
                                                                  "7200".to_string(),
                                                                  "600".to_string(),

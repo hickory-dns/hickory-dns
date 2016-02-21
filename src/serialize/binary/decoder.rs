@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 use ::error::{DecodeError, DecodeResult};
-use ::rr::record_type::RecordType;
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -26,20 +25,12 @@ use ::rr::record_type::RecordType;
 pub struct BinDecoder<'a> {
   buffer: &'a [u8],
   index: usize,
-  record_type: Option<RecordType>,
-  rdata_length: Option<u16>,
 }
 
 impl<'a> BinDecoder<'a> {
   pub fn new(buffer: &'a [u8]) -> Self {
-    BinDecoder { buffer: buffer, index: 0, record_type: None, rdata_length: None }
+    BinDecoder { buffer: buffer, index: 0, }
   }
-
-  pub fn set_record_type(&mut self, record_type: RecordType) { self.record_type = Some(record_type); }
-  pub fn set_rdata_length(&mut self, rdata_length: u16) { self.rdata_length = Some(rdata_length); }
-
-  pub fn record_type(&self) -> Option<RecordType> { self.record_type }
-  pub fn rdata_length(&self) -> Option<u16> { self.rdata_length }
 
   pub fn pop(&mut self) -> DecodeResult<u8> {
     if self.index < self.buffer.len() {
@@ -63,14 +54,16 @@ impl<'a> BinDecoder<'a> {
     }
   }
 
+  pub fn index(&self) -> usize {
+    return self.index
+  }
+
   /// This is a pretty efficient clone, as the buffer is never cloned, and only the index is set
   ///  to the value passed in
   pub fn clone(&self, index_at: u16) -> BinDecoder {
     BinDecoder {
       buffer: self.buffer,
       index: index_at as usize,
-      record_type: self.record_type,
-      rdata_length: self.rdata_length,
     }
   }
 
@@ -84,13 +77,24 @@ impl<'a> BinDecoder<'a> {
     let length: u8 = try!(self.pop());
 
     // TODO once Drain stabalizes on Vec, this should be replaced...
-    let mut label_vec: Vec<u8> = Vec::with_capacity(length as usize);
-    for _ in 0..length as usize {
-      label_vec.push(try!(self.pop()))
-    }
+    let label_vec: Vec<u8> = try!(self.read_vec(length as usize));
 
     // translate bytes to string, then lowercase...
     Ok(try!(String::from_utf8(label_vec)).to_lowercase())
+  }
+
+  pub fn read_vec(&mut self, len: usize) -> DecodeResult<Vec<u8>> {
+    // TODO once Drain stabalizes on Vec, this should be replaced...
+    let mut vec: Vec<u8> = Vec::with_capacity(len);
+    for _ in 0..len as usize {
+      vec.push(try!(self.pop()))
+    }
+
+    Ok(vec)
+  }
+
+  pub fn read_u8(&mut self) -> DecodeResult<u8> {
+    self.pop()
   }
 
   /// parses the next 2 bytes into u16. This performs a byte-by-byte manipulation, there

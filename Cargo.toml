@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns"
-version = "0.4.0"
+version = "0.4.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -65,6 +65,12 @@ codegen-units = 1
 rustc-serialize = "^0.3.16"
 log = "^0.3.1"
 docopt = "^0.6.72"
-mio = "^0.4.3"
+mio = "^0.4.4"
 toml = "^0.1.22"
 chrono = "^0.2.16"
+#openssl = { path = "../rust-openssl/openssl" }
+#openssl-sys = { path = "../rust-openssl/openssl-sys" }
+openssl = { git = "https://github.com/bluejekyll/rust-openssl.git" }
+openssl-sys = { git = "https://github.com/bluejekyll/rust-openssl.git" }
+#openssl = "^0.7.6"
+#openssl-sys = "^0.7.6"

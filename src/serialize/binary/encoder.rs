@@ -25,18 +25,24 @@ pub struct BinEncoder<'a> {
   // TODO, it would be cool to make this slices, but then the stored slice needs to live longer
   //  than the callee of store_pointer which isn't obvious right now.
   name_pointers: HashMap<Vec<Rc<String>>, u16>, // array of string, label, location in stream
+  mode: EncodeMode,
+  canonical_names: bool,
 }
 
 impl<'a> BinEncoder<'a> {
   pub fn new(buf: &'a mut Vec<u8>) -> Self {
-    Self::with_offset(buf, 0)
+    Self::with_offset(buf, 0, EncodeMode::Normal)
+  }
+
+  pub fn with_mode(buf: &'a mut Vec<u8>, mode: EncodeMode) -> Self {
+    Self::with_offset(buf, 0, mode)
   }
 
   /// offset is used mainly for pointers. If this encoder is starting at some point further in
   ///  the sequence of bytes, for the proper offset of the pointer, the offset accounts for that
   ///  by using the offset to add to the pointer location being written.
-  pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32) -> Self {
-    BinEncoder { offset: offset, buffer: buf, name_pointers: HashMap::new() }
+  pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32, mode: EncodeMode) -> Self {
+    BinEncoder { offset: offset, buffer: buf, name_pointers: HashMap::new(), mode: mode, canonical_names: false }
   }
 
   pub fn as_bytes(self) -> &'a Vec<u8> {
@@ -49,6 +55,18 @@ impl<'a> BinEncoder<'a> {
 
   pub fn offset(&self) -> u32 {
     self.offset
+  }
+
+  pub fn mode(&self) -> EncodeMode {
+    self.mode
+  }
+
+  pub fn set_canonical_names(&mut self, canonical_names: bool) {
+    self.canonical_names = canonical_names;
+  }
+
+  pub fn is_canonical_names(&self) -> bool {
+    self.canonical_names
   }
 
   pub fn reserve(&mut self, extra: usize) {
@@ -147,4 +165,19 @@ impl<'a> BinEncoder<'a> {
 
     Ok(())
   }
+
+  pub fn emit_vec(&mut self, data: &[u8]) -> EncodeResult {
+    self.buffer.reserve(data.len());
+
+    for i in data {
+      try!(self.emit(*i));
+    }
+
+    Ok(())
+  }
 }
+
+/// In the Verify mode there maybe some things which are encoded differently, e.g. SIG0 records
+///  should not be included in the additional count and not in the encoded data when in Verify
+#[derive(Copy, Clone, Eq, PartialEq)]
+pub enum EncodeMode { Verify, Normal }

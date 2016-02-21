@@ -14,32 +14,67 @@
  * limitations under the License.
  */
 use std::net::{Ipv4Addr, Ipv6Addr};
+#[cfg(test)]
 use std::convert::From;
+use std::cmp::Ordering;
 
 use ::error::*;
 use ::serialize::binary::*;
 use ::serialize::txt::*;
+use ::rr::dnssec::{Algorithm, DigestType, Nsec3HashAlgorithm};
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
 
-// 3.3. Standard RRs
-//
-// The following RR definitions are expected to occur, at least
-// potentially, in all classes.  In particular, NS, SOA, CNAME, and PTR
-// will be used in all classes, and have the same format in all classes.
-// Because their RDATA format is known, all domain names in the RDATA
-// section of these RRs may be compressed.
-//
-// <domain-name> is a domain name represented as a series of labels, and
-// terminated by a label with zero length.  <character-string> is a single
-// length octet followed by that number of characters.  <character-string>
-// is treated as binary information, and can be up to 256 characters in
-// length (including the length octet).
-//
-#[derive(Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
+/// 3.3. Standard RRs
+///
+/// The following RR definitions are expected to occur, at least
+/// potentially, in all classes.  In particular, NS, SOA, CNAME, and PTR
+/// will be used in all classes, and have the same format in all classes.
+/// Because their RDATA format is known, all domain names in the RDATA
+/// section of these RRs may be compressed.
+///
+/// <domain-name> is a domain name represented as a series of labels, and
+/// terminated by a label with zero length.  <character-string> is a single
+/// length octet followed by that number of characters.  <character-string>
+/// is treated as binary information, and can be up to 256 characters in
+/// length (including the length octet).
+///
+/// TODO: clean this up, see this: https://www.reddit.com/r/rust/comments/2rdoxx/enum_variants_as_types/
+///  and this: https://play.rust-lang.org/?code=%23!%5Bfeature(associated_types)%5D%0A%0Aenum%20ColorV%20%7B%20Red%2C%20Blue%2C%20Green%20%7D%0A%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Red%3B%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Blue%3B%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Green%3B%0A%0Atrait%20Color%20%7B%0A%20%20%20%20type%20Variant%3B%0A%20%20%20%20%2F%2F%20fn%20repr()%20-%3E%20Variant%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%3B%0A%7D%0A%0Aimpl%20Color%20for%20Red%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Red%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3ARed%20%7D%0A%7D%0A%0Aimpl%20Color%20for%20Blue%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Blue%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3ABlue%20%7D%0A%7D%0A%0Aimpl%20Color%20for%20Green%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Green%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3AGreen%20%7D%0A%7D%0A%0Atrait%20TypeEq%3CA%3E%20%7B%7D%0Aimpl%3CA%3E%20TypeEq%3CA%3E%20for%20A%20%7B%7D%0A%0Afn%20openminded_function%3CC%3A%20Color%3E(c%3A%20C)%20%7B%20%0A%20%20%20%20panic!(%22Types%20are%20for%20humans%22)%20%20%0A%7D%0A%0A%2F%2F%20Eventually%20this%20should%20just%20be%20C%3A%20Color%3CVariant%3DBlue%3E%0Afn%20closeminded_function%3CC%3A%20Color%3E(c%3A%20C)%20where%20C%3A%3AVariant%3A%20TypeEq%3CBlue%3E%20%7B%20%0A%20%20%20%20panic!(%22Types%20are%20for%20compilers%22)%20%0A%7D%0A%0Afn%20i_want_pattern_matching%3CC%3A%20Color%3E(c%3A%20C)%20%7B%0A%20%20%20%20match%20c.value()%20%7B%0A%20%20%20%20%20%20%20%20ColorV%3A%3ARed%20%3D%3E%20println!(%22red%22)%2C%0A%20%20%20%20%20%20%20%20ColorV%3A%3ABlue%20%3D%3E%20println!(%22blue%22)%2C%0A%20%20%20%20%20%20%20%20ColorV%3A%3AGreen%20%3D%3E%20println!(%22green%22)%0A%20%20%20%20%7D%0A%7D%0A%0A%2F%2F%20This%20is%20a%20type%20level%20function%20between%20Colors%20that%20encodes%0A%2F%2F%20that%20the%20variant's%20info%20statically%20allowing%20%0A%2F%2F%20to%20track%20which%20variant%20we%20have%20and%20disallow%20rule%20violations.%0Atrait%20Invert%20%7B%0A%20%20%20%20type%20Result%3A%20Color%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Self%3A%3AResult%3B%0A%7D%0A%0Aimpl%20Invert%20for%20Red%20%7B%0A%20%20%20%20type%20Result%20%3D%20Blue%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Blue%20%7B%20Blue%20%7D%0A%7D%0A%0Aimpl%20Invert%20for%20Blue%20%7B%0A%20%20%20%20type%20Result%20%3D%20Green%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Green%20%7B%20Green%20%7D%0A%7D%0A%0Aimpl%20Invert%20for%20Green%20%7B%0A%20%20%20%20type%20Result%20%3D%20Red%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Red%20%7B%20Red%20%7D%0A%7D%0A%0A%2F%2F%20Example%20use%20right%20now%0Afn%20main()%20%7B%0A%20%20%20%20let%20color%20%3D%20Red%3B%0A%20%20%20%20%2F%2F%20works%20fine%20openminded_function(color)%3B%0A%20%20%20%20%2F%2F%20fails%20closeminded_function(color)%3B%20error%20messages%20would%20be%20better%20with%20real%20equality%20constraints%0A%20%20%20%20closeminded_function(Blue)%3B%0A%20%20%20%20assert_eq!(Green%2C%20Red.inversion().inversion())%0A%7D
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum RData {
   //-- RFC 1035 -- Domain Implementation and Specification    November 1987
+  //
+  // 3.4. Internet specific RRs
+  //
+  // 3.4.1. A RDATA format
+  //
+  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+  //     |                    ADDRESS                    |
+  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+  //
+  // where:
+  //
+  // ADDRESS         A 32 bit Internet address.
+  //
+  // Hosts that have multiple Internet addresses will have multiple A
+  // records.
+  //
+  // A records cause no additional section processing.  The RDATA section of
+  // an A line in a master file is an Internet address expressed as four
+  // decimal numbers separated by dots without any imbedded spaces (e.g.,
+  // "10.2.0.52" or "192.0.5.6").
+  A { address: Ipv4Addr },
+
+  //-- RFC 1886 -- IPv6 DNS Extensions              December 1995
+  //
+  // 2.2 AAAA data format
+  //
+  //    A 128 bit IPv6 address is encoded in the data portion of an AAAA
+  //    resource record in network byte order (high-order byte first).
+  AAAA { address: Ipv6Addr },
+
 
   //   3.3. Standard RRs
   //
@@ -72,27 +107,107 @@ pub enum RData {
   // the description of name server logic in [RFC-1034] for details.
   CNAME { cname: Name },
 
-  // 3.3.2. HINFO RDATA format
+  // RFC 4034                DNSSEC Resource Records               March 2005
   //
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     /                      CPU                      /
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     /                       OS                      /
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+  // 2.1.  DNSKEY RDATA Wire Format
   //
-  // where:
+  //    The RDATA for a DNSKEY RR consists of a 2 octet Flags Field, a 1
+  //    octet Protocol Field, a 1 octet Algorithm Field, and the Public Key
+  //    Field.
   //
-  // CPU             A <character-string> which specifies the CPU type.
+  //                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |              Flags            |    Protocol   |   Algorithm   |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    /                                                               /
+  //    /                            Public Key                         /
+  //    /                                                               /
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   //
-  // OS              A <character-string> which specifies the operating
-  //                 system type.
+  // 2.1.1.  The Flags Field
   //
-  // Standard values for CPU and OS can be found in [RFC-1010].
+  //    Bit 7 of the Flags field is the Zone Key flag.  If bit 7 has value 1,
+  //    then the DNSKEY record holds a DNS zone key, and the DNSKEY RR's
+  //    owner name MUST be the name of a zone.  If bit 7 has value 0, then
+  //    the DNSKEY record holds some other type of DNS public key and MUST
+  //    NOT be used to verify RRSIGs that cover RRsets.
   //
-  // HINFO records are used to acquire general information about a host.  The
-  // main use is for protocols such as FTP that can use special procedures
-  // when talking between machines or operating systems of the same type.
-  HINFO { cpu: String, os: String},
+  //    Bit 15 of the Flags field is the Secure Entry Point flag, described
+  //    in [RFC3757].  If bit 15 has value 1, then the DNSKEY record holds a
+  //    key intended for use as a secure entry point.  This flag is only
+  //    intended to be a hint to zone signing or debugging software as to the
+  //    intended use of this DNSKEY record; validators MUST NOT alter their
+  //    behavior during the signature validation process in any way based on
+  //    the setting of this bit.  This also means that a DNSKEY RR with the
+  //    SEP bit set would also need the Zone Key flag set in order to be able
+  //    to generate signatures legally.  A DNSKEY RR with the SEP set and the
+  //    Zone Key flag not set MUST NOT be used to verify RRSIGs that cover
+  //    RRsets.
+  //
+  //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
+  //    creation of the DNSKEY RR and MUST be ignored upon receipt.
+  DNSKEY { zone_key: bool, secure_entry_point:bool, algorithm: Algorithm,
+           public_key: Vec<u8> /* TODO, probably make this an enum variant */},
+
+
+  // 5.1.  DS RDATA Wire Format
+  //
+  // The RDATA for a DS RR consists of a 2 octet Key Tag field, a 1 octet
+  //           Algorithm field, a 1 octet Digest Type field, and a Digest field.
+  //
+  //                          1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //      0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //     |           Key Tag             |  Algorithm    |  Digest Type  |
+  //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //     /                                                               /
+  //     /                            Digest                             /
+  //     /                                                               /
+  //     +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //
+  // 5.1.1.  The Key Tag Field
+  //
+  //    The Key Tag field lists the key tag of the DNSKEY RR referred to by
+  //    the DS record, in network byte order.
+  //
+  //    The Key Tag used by the DS RR is identical to the Key Tag used by
+  //    RRSIG RRs.  Appendix B describes how to compute a Key Tag.
+  //
+  // 5.1.2.  The Algorithm Field
+  //
+  //    The Algorithm field lists the algorithm number of the DNSKEY RR
+  //    referred to by the DS record.
+  //
+  //    The algorithm number used by the DS RR is identical to the algorithm
+  //    number used by RRSIG and DNSKEY RRs.  Appendix A.1 lists the
+  //    algorithm number types.
+  //
+  // 5.1.3.  The Digest Type Field
+  //
+  //    The DS RR refers to a DNSKEY RR by including a digest of that DNSKEY
+  //    RR.  The Digest Type field identifies the algorithm used to construct
+  //    the digest.  Appendix A.2 lists the possible digest algorithm types.
+  //
+  // 5.1.4.  The Digest Field
+  //
+  //    The DS record refers to a DNSKEY RR by including a digest of that
+  //    DNSKEY RR.
+  //
+  //    The digest is calculated by concatenating the canonical form of the
+  //    fully qualified owner name of the DNSKEY RR with the DNSKEY RDATA,
+  //    and then applying the digest algorithm.
+  //
+  //      digest = digest_algorithm( DNSKEY owner name | DNSKEY RDATA);
+  //
+  //       "|" denotes concatenation
+  //
+  //      DNSKEY RDATA = Flags | Protocol | Algorithm | Public Key.
+  //
+  //    The size of the digest may vary depending on the digest algorithm and
+  //    DNSKEY RR size.  As of the time of this writing, the only defined
+  //    digest algorithm is SHA-1, which produces a 20 octet digest.
+  DS { key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8> },
 
   // 3.3.9. MX RDATA format
   //
@@ -156,6 +271,161 @@ pub enum RData {
   // class information are normally queried using IN class protocols.
   NS { nsdname: Name },
 
+  // RFC 5155                         NSEC3                        March 2008
+  //
+  // 3.2.  NSEC3 RDATA Wire Format
+  //
+  //  The RDATA of the NSEC3 RR is as shown below:
+  //
+  //                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |   Hash Alg.   |     Flags     |          Iterations           |
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |  Salt Length  |                     Salt                      /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |  Hash Length  |             Next Hashed Owner Name            /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  /                         Type Bit Maps                         /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //
+  //  Hash Algorithm is a single octet.
+  //
+  //  Flags field is a single octet, the Opt-Out flag is the least
+  //  significant bit, as shown below:
+  //
+  //   0 1 2 3 4 5 6 7
+  //  +-+-+-+-+-+-+-+-+
+  //  |             |O|
+  //  +-+-+-+-+-+-+-+-+
+  //
+  //  Iterations is represented as a 16-bit unsigned integer, with the most
+  //  significant bit first.
+  //
+  //  Salt Length is represented as an unsigned octet.  Salt Length
+  //  represents the length of the Salt field in octets.  If the value is
+  //  zero, the following Salt field is omitted.
+  //
+  //  Salt, if present, is encoded as a sequence of binary octets.  The
+  //  length of this field is determined by the preceding Salt Length
+  //  field.
+  //
+  //  Hash Length is represented as an unsigned octet.  Hash Length
+  //  represents the length of the Next Hashed Owner Name field in octets.
+  //
+  //  The next hashed owner name is not base32 encoded, unlike the owner
+  //  name of the NSEC3 RR.  It is the unmodified binary hash value.  It
+  //  does not include the name of the containing zone.  The length of this
+  //  field is determined by the preceding Hash Length field.
+  //
+  // 3.2.1.  Type Bit Maps Encoding
+  //
+  //  The encoding of the Type Bit Maps field is the same as that used by
+  //  the NSEC RR, described in [RFC4034].  It is explained and clarified
+  //  here for clarity.
+  //
+  //  The RR type space is split into 256 window blocks, each representing
+  //  the low-order 8 bits of the 16-bit RR type space.  Each block that
+  //  has at least one active RR type is encoded using a single octet
+  //  window number (from 0 to 255), a single octet bitmap length (from 1
+  //  to 32) indicating the number of octets used for the bitmap of the
+  //  window block, and up to 32 octets (256 bits) of bitmap.
+  //
+  //  Blocks are present in the NSEC3 RR RDATA in increasing numerical
+  //  order.
+  //
+  //     Type Bit Maps Field = ( Window Block # | Bitmap Length | Bitmap )+
+  //
+  //     where "|" denotes concatenation.
+  //
+  //  Each bitmap encodes the low-order 8 bits of RR types within the
+  //  window block, in network bit order.  The first bit is bit 0.  For
+  //  window block 0, bit 1 corresponds to RR type 1 (A), bit 2 corresponds
+  //  to RR type 2 (NS), and so forth.  For window block 1, bit 1
+  //  corresponds to RR type 257, bit 2 to RR type 258.  If a bit is set to
+  //  1, it indicates that an RRSet of that type is present for the
+  //  original owner name of the NSEC3 RR.  If a bit is set to 0, it
+  //  indicates that no RRSet of that type is present for the original
+  //  owner name of the NSEC3 RR.
+  //
+  //  Since bit 0 in window block 0 refers to the non-existing RR type 0,
+  //  it MUST be set to 0.  After verification, the validator MUST ignore
+  //  the value of bit 0 in window block 0.
+  //
+  //  Bits representing Meta-TYPEs or QTYPEs as specified in Section 3.1 of
+  //  [RFC2929] or within the range reserved for assignment only to QTYPEs
+  //  and Meta-TYPEs MUST be set to 0, since they do not appear in zone
+  //  data.  If encountered, they must be ignored upon reading.
+  //
+  //  Blocks with no types present MUST NOT be included.  Trailing zero
+  //  octets in the bitmap MUST be omitted.  The length of the bitmap of
+  //  each block is determined by the type code with the largest numerical
+  //  value, within that block, among the set of RR types present at the
+  //  original owner name of the NSEC3 RR.  Trailing octets not specified
+  //  MUST be interpreted as zero octets.
+  NSEC3{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>,
+    next_hashed_owner_name: Vec<u8>, type_bit_maps: Vec<RecordType>},
+
+  // RFC 5155                         NSEC3                        March 2008
+  //
+  // 4.2.  NSEC3PARAM RDATA Wire Format
+  //
+  //  The RDATA of the NSEC3PARAM RR is as shown below:
+  //
+  //                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |   Hash Alg.   |     Flags     |          Iterations           |
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |  Salt Length  |                     Salt                      /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //
+  //  Hash Algorithm is a single octet.
+  //
+  //  Flags field is a single octet.
+  //
+  //  Iterations is represented as a 16-bit unsigned integer, with the most
+  //  significant bit first.
+  //
+  //  Salt Length is represented as an unsigned octet.  Salt Length
+  //  represents the length of the following Salt field in octets.  If the
+  //  value is zero, the Salt field is omitted.
+  //
+  //  Salt, if present, is encoded as a sequence of binary octets.  The
+  //  length of this field is determined by the preceding Salt Length
+  //  field.
+  NSEC3PARAM{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8> },
+
+  // RFC 6891                   EDNS(0) Extensions                 April 2013
+  // 6.1.2.  Wire Format
+  //
+  //        +------------+--------------+------------------------------+
+  //        | Field Name | Field Type   | Description                  |
+  //        +------------+--------------+------------------------------+
+  //        | NAME       | domain name  | MUST be 0 (root domain)      |
+  //        | TYPE       | u_int16_t    | OPT (41)                     |
+  //        | CLASS      | u_int16_t    | requestor's UDP payload size |
+  //        | TTL        | u_int32_t    | extended RCODE and flags     |
+  //        | RDLEN      | u_int16_t    | length of all RDATA          |
+  //        | RDATA      | octet stream | {attribute,value} pairs      |
+  //        +------------+--------------+------------------------------+
+  //
+  // The variable part of an OPT RR may contain zero or more options in
+  //    the RDATA.  Each option MUST be treated as a bit field.  Each option
+  //    is encoded as:
+  //
+  //                   +0 (MSB)                            +1 (LSB)
+  //        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+  //     0: |                          OPTION-CODE                          |
+  //        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+  //     2: |                         OPTION-LENGTH                         |
+  //        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+  //     4: |                                                               |
+  //        /                          OPTION-DATA                          /
+  //        /                                                               /
+  //        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+  OPT { option_rdata: Vec<u8> },
+
   // 3.3.12. PTR RDATA format
   //
   //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -173,6 +443,39 @@ pub enum RData {
   // similar to that performed by CNAME, which identifies aliases.  See the
   // description of the IN-ADDR.ARPA domain for an example.
   PTR { ptrdname: Name },
+
+  // RFC 2535 & 2931   DNS Security Extensions               March 1999
+  // RFC 4034                DNSSEC Resource Records               March 2005
+  //
+  // 3.1.  RRSIG RDATA Wire Format
+  //
+  //    The RDATA for an RRSIG RR consists of a 2 octet Type Covered field, a
+  //    1 octet Algorithm field, a 1 octet Labels field, a 4 octet Original
+  //    TTL field, a 4 octet Signature Expiration field, a 4 octet Signature
+  //    Inception field, a 2 octet Key tag, the Signer's Name field, and the
+  //    Signature field.
+  //
+  //                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |        Type Covered           |  Algorithm    |     Labels    |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |                         Original TTL                          |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |                      Signature Expiration                     |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |                      Signature Inception                      |
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    |            Key Tag            |                               /
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+         Signer's Name         /
+  //    /                                                               /
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //    /                                                               /
+  //    /                            Signature                          /
+  //    /                                                               /
+  //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  SIG { type_covered: RecordType, algorithm: Algorithm, num_labels: u8, original_ttl: u32,
+        sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name, sig: Vec<u8> },
 
   // 3.3.13. SOA RDATA format
   //
@@ -261,146 +564,180 @@ pub enum RData {
   // depends on the domain where it is found.
   TXT { txt_data: Vec<String> },
 
-  // 3.4. Internet specific RRs
-  //
-  // 3.4.1. A RDATA format
-  //
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     |                    ADDRESS                    |
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //
-  // where:
-  //
-  // ADDRESS         A 32 bit Internet address.
-  //
-  // Hosts that have multiple Internet addresses will have multiple A
-  // records.
-  //
-  // A records cause no additional section processing.  The RDATA section of
-  // an A line in a master file is an Internet address expressed as four
-  // decimal numbers separated by dots without any imbedded spaces (e.g.,
-  // "10.2.0.52" or "192.0.5.6").
-  A { address: Ipv4Addr },
 
-  // 3.4.2. WKS RDATA format
-  //
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     |                    ADDRESS                    |
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //     |       PROTOCOL        |                       |
-  //     +--+--+--+--+--+--+--+--+                       |
-  //     |                                               |
-  //     /                   <BIT MAP>                   /
-  //     /                                               /
-  //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-  //
-  // where:
-  //
-  // ADDRESS         An 32 bit Internet address
-  //
-  // PROTOCOL        An 8 bit IP protocol number
-  //
-  // <BIT MAP>       A variable length bit map.  The bit map must be a
-  //                 multiple of 8 bits long.
-  //
-  // The WKS record is used to describe the well known services supported by
-  // a particular protocol on a particular internet address.  The PROTOCOL
-  // field specifies an IP protocol number, and the bit map has one bit per
-  // port of the specified protocol.  The first bit corresponds to port 0,
-  // the second to port 1, etc.  If the bit map does not include a bit for a
-  // protocol of interest, that bit is assumed zero.  The appropriate values
-  // and mnemonics for ports and protocols are specified in [RFC-1010].
-  //
-  // For example, if PROTOCOL=TCP (6), the 26th bit corresponds to TCP port
-  // 25 (SMTP).  If this bit is set, a SMTP server should be listening on TCP
-  // port 25; if zero, SMTP service is not supported on the specified
-  // address.
-  //
-  // The purpose of WKS RRs is to provide availability information for
-  // servers for TCP and UDP.  If a server supports both TCP and UDP, or has
-  // multiple Internet addresses, then multiple WKS RRs are used.
-  //
-  // WKS RRs cause no additional section processing.
-  //
-  // In master files, both ports and protocols are expressed using mnemonics
-  // or decimal numbers.
-  WKS { address: Ipv4Addr, protocol: u8, bitmap: Vec<u8> },
-
-  //-- RFC 1886 -- IPv6 DNS Extensions              December 1995
-
-  // 2.2 AAAA data format
-  //
-  //    A 128 bit IPv6 address is encoded in the data portion of an AAAA
-  //    resource record in network byte order (high-order byte first).
-  AAAA { address: Ipv6Addr },
 }
 
 impl RData {
   pub fn parse(record_type: RecordType, tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Self> {
     match record_type {
+      RecordType::A => rdata::a::parse(tokens),
+      RecordType::AAAA => rdata::aaaa::parse(tokens),
+      RecordType::ANY => panic!("parsing ANY doesn't make sense"),
+      RecordType::AXFR => panic!("parsing AXFR doesn't make sense"),
       RecordType::CNAME => rdata::cname::parse(tokens, origin),
+      RecordType::DNSKEY => panic!("DNSKEY should be dynamically generated"),
+      RecordType::DS => panic!("DS should be dynamically generated"),
+      RecordType::IXFR => panic!("parsing IXFR doesn't make sense"),
       RecordType::MX => rdata::mx::parse(tokens, origin),
       RecordType::NULL => rdata::null::parse(tokens),
       RecordType::NS => rdata::ns::parse(tokens, origin),
+      RecordType::NSEC3 => panic!("NSEC3 should be dynamically generated"),
+      RecordType::NSEC3PARAM => panic!("NSEC3PARAM should be dynamically generated"),
+      RecordType::OPT => panic!("parsing OPT doesn't make sense"),
       RecordType::PTR => rdata::ptr::parse(tokens, origin),
+      RecordType::RRSIG => panic!("RRSIG should be dynamically generated"),
+      RecordType::SIG => panic!("parsing SIG doesn't make sense"),
       RecordType::SOA => rdata::soa::parse(tokens, origin),
       RecordType::SRV => rdata::srv::parse(tokens, origin),
       RecordType::TXT => rdata::txt::parse(tokens),
-      RecordType::A => rdata::a::parse(tokens),
-      RecordType::AAAA => rdata::aaaa::parse(tokens),
-      _ => panic!("unsupported RecordType: {:?}", record_type)
-    }
-  }
-}
-
-impl BinSerializable<RData> for RData {
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
-    match try!(decoder.record_type().ok_or(DecodeError::NoRecordDataType)) {
-      RecordType::CNAME => rdata::cname::read(decoder),
-      RecordType::MX => rdata::mx::read(decoder),
-      RecordType::NULL => rdata::null::read(decoder),
-      RecordType::NS => rdata::ns::read(decoder),
-      RecordType::PTR => rdata::ptr::read(decoder),
-      RecordType::SOA => rdata::soa::read(decoder),
-      RecordType::SRV => rdata::srv::read(decoder),
-      RecordType::TXT => rdata::txt::read(decoder),
-      RecordType::A => rdata::a::read(decoder),
-      RecordType::AAAA => rdata::aaaa::read(decoder),
-      _ => panic!("unsupported RecordType: {:?}", decoder.record_type().unwrap()) // safe unwrap
     }
   }
 
-  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+  fn to_bytes(&self) -> Vec<u8> {
+    let mut buf: Vec<u8> = Vec::new();
+    {
+      let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+      self.emit(&mut encoder).unwrap_or_else(|_| { warn!("could not encode RDATA: {:?}", self); ()});
+    }
+    buf
+  }
+
+  // pub fn len(&self) -> usize {
+  //   match *self {
+  //     RData::A{..} => 4 /* IPv4 u32 */,
+  //     RData::AAAA{..} => 16 /* IPv6 u128 */,
+  //     RData::CNAME{ref cname} => cname.len(),
+  //     RData::DNSKEY{ref public_key, ..} => 2 /* flags u16 */ +
+  //                            1 /* protocol u8 */ + 1 /* algorithm u8*/ +
+  //                            public_key.len(),
+  //     RData::MX{ref exchange, .. } => 2 /* preference u16 */ + exchange.len(),
+  //     RData::NS{ref nsdname} => nsdname.len(),
+  //     RData::NULL{ref anything} => anything.len(),
+  //     RData::OPT{ref option_rdata} => option_rdata.len(),
+  //     RData::PTR{ref ptrdname} => ptrdname.len(),
+  //     RData::SIG{ref signer_name, ref sig, ..} =>
+  //           2 /* type_covered: u16 */ + 1 /* algorithm u8 */ + 1 /* num_labels: u8 */ +
+  //           4 /* original_ttl: u32 */ + 4 /* sig_expiration: u32 */ + 4 /* sig_inception: u32 */ +
+  //           2 /* key_tag: u16 */ + signer_name.len() + sig.len(),
+  //     RData::SOA{ref mname, ref rname, ..} =>
+  //           mname.len() + rname.len() + 4 /* serial: u32 */ + 4 /* refresh: i32 */ +
+  //           4 /* retry: i32 */ + 4 /* expire: i32 */ + 4 /* minimum: u32 */,
+  //     RData::SRV{ref target, ..} => 2 /* priority: u16 */ + 2 /* weight: u16 */ +
+  //           2 /* port: u16 */ + target.len(),
+  //     RData::TXT{ref txt_data} => txt_data.iter().fold(0, |acc, item| acc + item.len()),
+  //   }
+  // }
+
+  pub fn read(decoder: &mut BinDecoder, record_type: RecordType, rdata_length: u16) -> DecodeResult<Self> {
+    let start_idx = decoder.index();
+
+    let result = try!(match record_type {
+      RecordType::A => {debug!("reading A");rdata::a::read(decoder)},
+      RecordType::AAAA => {debug!("reading AAAA"); rdata::aaaa::read(decoder)},
+      rt @ RecordType::ANY => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
+      rt @ RecordType::AXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
+      RecordType::CNAME => {debug!("reading CNAME");rdata::cname::read(decoder)},
+      RecordType::DNSKEY => {debug!("reading DNSKEY");rdata::dnskey::read(decoder, rdata_length)},
+      RecordType::DS => {debug!("reading DS");rdata::ds::read(decoder, rdata_length)},
+      rt @ RecordType::IXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
+      RecordType::MX => {debug!("reading MX"); rdata::mx::read(decoder)},
+      RecordType::NULL => {debug!("reading NULL"); rdata::null::read(decoder, rdata_length)},
+      RecordType::NS => {debug!("reading NS"); rdata::ns::read(decoder)},
+      RecordType::NSEC3 => {debug!("reading NSEC3");rdata::nsec3::read(decoder, rdata_length)},
+      RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM");rdata::nsec3param::read(decoder)},
+      RecordType::OPT => {debug!("reading OPT"); rdata::opt::read(decoder, rdata_length)},
+      RecordType::PTR => {debug!("reading PTR"); rdata::ptr::read(decoder)},
+      RecordType::RRSIG => {debug!("reading RRSIG"); rdata::sig::read(decoder, rdata_length)},
+      RecordType::SIG => {debug!("reading SIG"); rdata::sig::read(decoder, rdata_length)},
+      RecordType::SOA => {debug!("reading SOA"); rdata::soa::read(decoder)},
+      RecordType::SRV => {debug!("reading SRV"); rdata::srv::read(decoder)},
+      RecordType::TXT => {debug!("reading TXT"); rdata::txt::read(decoder, rdata_length)},
+    });
+
+    // we should have read rdata_length, but we did not
+    let read = decoder.index() - start_idx;
+    if read != rdata_length as usize {
+      return Err(DecodeError::IncorrectRDataLengthRead(read, rdata_length as usize))
+    }
+    Ok(result)
+  }
+
+  pub fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     match *self {
+      RData::A{..} => rdata::a::emit(encoder, self),
+      RData::AAAA{..} => rdata::aaaa::emit(encoder, self),
       RData::CNAME{..} => rdata::cname::emit(encoder, self),
+      RData::DS{..} => rdata::ds::emit(encoder, self),
+      RData::DNSKEY{..} => rdata::dnskey::emit(encoder, self),
       RData::MX{..} => rdata::mx::emit(encoder, self),
       RData::NULL{..} => rdata::null::emit(encoder, self),
       RData::NS{..} => rdata::ns::emit(encoder, self),
+      RData::NSEC3{..} => rdata::nsec3::emit(encoder, self),
+      RData::NSEC3PARAM{..} => rdata::nsec3param::emit(encoder, self),
+      RData::OPT{..} => rdata::opt::emit(encoder, self),
       RData::PTR{..} => rdata::ptr::emit(encoder, self),
+      RData::SIG{..} => rdata::sig::emit(encoder, self),
       RData::SOA{..} => rdata::soa::emit(encoder, self),
       RData::SRV{..} => rdata::srv::emit(encoder, self),
       RData::TXT{..} => rdata::txt::emit(encoder, self),
-      RData::A{..} => rdata::a::emit(encoder, self),
-      RData::AAAA{..} => rdata::aaaa::emit(encoder, self),
-      _ => panic!("unsupported RecordType: {:?}", self)
     }
   }
 }
 
+// TODO: this is kinda broken right now since it can't cover all types.
+#[cfg(test)]
 impl<'a> From<&'a RData> for RecordType {
   fn from(rdata: &'a RData) -> Self {
     match *rdata {
+      RData::A{..} => RecordType::A,
+      RData::AAAA{..} => RecordType::AAAA,
       RData::CNAME{..} => RecordType::CNAME,
+      RData::DS{..} => RecordType::DS,
+      RData::DNSKEY{..} => RecordType::DNSKEY,
       RData::MX{..} => RecordType::MX,
       RData::NS{..} => RecordType::NS,
+      RData::NSEC3{..} => RecordType::NSEC3,
+      RData::NSEC3PARAM{..} => RecordType::NSEC3PARAM,
+      RData::NULL{..} => RecordType::NULL,
+      RData::OPT{..} => RecordType::OPT,
       RData::PTR{..} => RecordType::PTR,
+      RData::SIG{..} => RecordType::SIG,
       RData::SOA{..} => RecordType::SOA,
       RData::SRV{..} => RecordType::SRV,
       RData::TXT{..} => RecordType::TXT,
-      RData::A{..} => RecordType::A,
-      RData::AAAA{..} => RecordType::AAAA,
-      _ => panic!("unsupported RecordType: {:?}", rdata)
     }
+  }
+}
+
+impl PartialOrd<RData> for RData {
+  fn partial_cmp(&self, other: &RData) -> Option<Ordering> {
+    Some(self.cmp(&other))
+  }
+}
+
+impl Ord for RData {
+  // RFC 4034                DNSSEC Resource Records               March 2005
+  //
+  // 6.3.  Canonical RR Ordering within an RRset
+  //
+  //    For the purposes of DNS security, RRs with the same owner name,
+  //    class, and type are sorted by treating the RDATA portion of the
+  //    canonical form of each RR as a left-justified unsigned octet sequence
+  //    in which the absence of an octet sorts before a zero octet.
+  //
+  //    [RFC2181] specifies that an RRset is not allowed to contain duplicate
+  //    records (multiple RRs with the same owner name, class, type, and
+  //    RDATA).  Therefore, if an implementation detects duplicate RRs when
+  //    putting the RRset in canonical form, it MUST treat this as a protocol
+  //    error.  If the implementation chooses to handle this protocol error
+  //    in the spirit of the robustness principle (being liberal in what it
+  //    accepts), it MUST remove all but one of the duplicate RR(s) for the
+  //    purposes of calculating the canonical form of the RRset.
+  fn cmp(&self, other: &Self) -> Ordering {
+    // TODO: how about we just store the bytes with the decoded data?
+    //  the decoded data is useful for queries, the encoded data is needed for transfers, signing
+    //  and ordering.
+    self.to_bytes().cmp(&other.to_bytes())
   }
 }
 
@@ -439,6 +776,40 @@ mod tests {
     ]
   }
 
+  // TODO this test kinda sucks, shows the problem with not storing the binary parts
+  #[test]
+  fn test_order() {
+    let ordered: Vec<RData> = vec![
+      RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()},
+      RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()},
+      RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),},
+      RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])},
+      RData::CNAME{cname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::PTR{ptrdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::NS{nsdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::SOA{mname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+                 rname: Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
+                 serial: u32::max_value(), refresh: -1 as i32, retry: -1 as i32, expire: -1 as i32, minimum: u32::max_value()},
+      RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
+    ];
+    let mut unordered = vec![
+      RData::CNAME{cname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])},
+      RData::PTR{ptrdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::NS{nsdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
+      RData::SOA{mname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+                 rname: Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
+                 serial: u32::max_value(), refresh: -1 as i32, retry: -1 as i32, expire: -1 as i32, minimum: u32::max_value()},
+      RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
+      RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()},
+      RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()},
+      RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),},
+    ];
+
+    unordered.sort();
+    assert_eq!(ordered, unordered);
+  }
+
   #[test]
   fn test_read() {
     let mut test_pass = 0;
@@ -448,10 +819,7 @@ mod tests {
       let length = binary.len() as u16; // pre exclusive borrow
       let mut decoder = BinDecoder::new(&binary);
 
-      decoder.set_rdata_length(length);
-      decoder.set_record_type(::rr::record_type::RecordType::from(&expect));
-
-      assert_eq!(RData::read(&mut decoder).unwrap(), expect);
+      assert_eq!(RData::read(&mut decoder, ::rr::record_type::RecordType::from(&expect), length).unwrap(), expect);
     }
   }
 

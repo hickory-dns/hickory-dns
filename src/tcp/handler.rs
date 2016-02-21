@@ -110,11 +110,11 @@ impl TcpHandler {
                 let request = Message::read(&mut decoder);
 
                 match request {
-                  Err(decode_error) => {
+                  Err(ref decode_error) => {
                     warn!("unable to decode request from client: {:?}: {}", self.stream, decode_error);
                     Catalog::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr)
                   },
-                  Ok(r) => self.catalog.handle_request(r),
+                  Ok(ref req) => self.catalog.handle_request(req),
                 }
               };
 
