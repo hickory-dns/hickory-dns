@@ -104,14 +104,14 @@ use ::rr::dnssec::{Algorithm, DigestType};
 //
 // DS { key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8> }
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
+  let start_idx = decoder.index();
+
   let key_tag: u16 = try!(decoder.read_u16());
   let algorithm: Algorithm = try!(Algorithm::read(decoder));
   let digest_type: DigestType = try!(DigestType::from_u8(try!(decoder.read_u8())));
 
-  let left = rdata_length - 2 /* tag */ - 1 /* alg */ - 1 /* digest_type */;
-  let digest = try!(decoder.read_vec(left as usize));
-
-  // TODO assert digest is of correct length
+  let left: usize = rdata_length as usize - (decoder.index() - start_idx);;
+  let digest = try!(decoder.read_vec(left));
 
   Ok(RData::DS { key_tag: key_tag, algorithm: algorithm, digest_type: digest_type, digest: digest })
 }

@@ -19,7 +19,7 @@ use openssl::crypto::hash::Hasher;
 use openssl::crypto::pkey::{PKey, Role};
 
 use ::op::Message;
-use ::rr::dnssec::Algorithm;
+use ::rr::dnssec::{Algorithm, DigestType};
 use ::rr::{DNSClass, Name, Record, RData};
 use ::serialize::binary::{BinEncoder, BinSerializable};
 use ::rr::rdata::sig;
@@ -101,8 +101,6 @@ impl Signer {
   }
 
   fn hash_message(&self, message: &Message) -> Vec<u8> {
-    let mut hasher = Hasher::new(self.algorithm.get_hash_type());
-
     // TODO: should perform the serialization and sign block by block to reduce the max memory
     //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
     //  more important
@@ -113,9 +111,7 @@ impl Signer {
       message.emit(&mut encoder).unwrap(); // coding error if this panics (i think?)
     }
 
-    // this is not IO backed, it should always succeed
-    assert!(hasher.write_all(&buf).is_ok());
-    hasher.finish()
+    DigestType::from(self.algorithm).hash(&buf)
   }
 
   /// 4.1.8.1 Calculating Transaction and Request SIGs
@@ -166,7 +162,7 @@ impl Signer {
   pub fn sign_message(&self, message: &Message) -> Vec<u8> {
     assert!(self.pkey.can(Role::Sign)); // this is bad code, not expected in regular runtime
     let hash = self.hash_message(message);
-    self.pkey.sign_with_hash(&hash, self.algorithm.get_hash_type())
+    self.pkey.sign_with_hash(&hash, DigestType::from(self.algorithm).to_hash())
   }
 
   // RFC 4035             DNSSEC Protocol Modifications            March 2005
@@ -440,10 +436,7 @@ impl Signer {
         }
       }
 
-      // hash and sign the message
-      let mut hasher = Hasher::new(self.algorithm.get_hash_type());
-      assert!(hasher.write_all(&buf).is_ok());
-      hasher.finish()
+      DigestType::from(self.algorithm).hash(&buf)
     } else {
       // TODO: this should be an error
       vec![]
@@ -490,7 +483,7 @@ impl Signer {
   /// this will panic if the key is not a private key and can be used for signing.
   fn sign(&self, hash: &[u8]) -> Vec<u8> {
     assert!(self.pkey.can(Role::Sign)); // this is bad code, not expected in regular runtime
-    self.pkey.sign_with_hash(&hash, self.algorithm.get_hash_type())
+    self.pkey.sign_with_hash(&hash, DigestType::from(self.algorithm).to_hash())
   }
 
   /// verifies the hash matches the signature with the current key.
@@ -501,7 +494,7 @@ impl Signer {
       debug!("pkey can not be used to verify");
       return false;
     }
-    self.pkey.verify_with_hash(hash, signature, self.algorithm.get_hash_type())
+    self.pkey.verify_with_hash(hash, signature, DigestType::from(self.algorithm).to_hash())
   }
 }
 

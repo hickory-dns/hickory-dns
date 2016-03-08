@@ -80,6 +80,17 @@ use ::rr::dnssec::Algorithm;
 //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
 //    creation of the DNSKEY RR and MUST be ignored upon receipt.
 //
+// ------------
+// RFC 5011                  Trust Anchor Update             September 2007
+//
+// 7.  IANA Considerations
+//
+//   The IANA has assigned a bit in the DNSKEY flags field (see Section 7
+//   of [RFC4034]) for the REVOKE bit (8).
+//
+// END RFC 5011
+// ------------
+//
 // 2.1.2.  The Protocol Field
 //
 //    The Protocol Field MUST have value 3, and the DNSKEY RR MUST be
@@ -145,8 +156,10 @@ use ::rr::dnssec::Algorithm;
 //          public_key: Vec<u8> /* TODO, probably make this an enum variant */}
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
   let flags: u16 = try!(decoder.read_u16());
-  let zone_key: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
-  let secure_entry_point: bool = flags & 0b1000_0000_0000_0000 == 0b1000_0000_0000_0000;
+
+  let zone_key: bool = flags & 0b0000_0001_0000_0000 == 0b0000_0001_0000_0000;
+  let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_00001;
+  let revoke: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
   let protocol: u8 = try!(decoder.read_u8());
 
   // protocol is defined to only be '3' right now
@@ -159,16 +172,17 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> 
   let public_key: Vec<u8> = try!(decoder.read_vec((rdata_length - 4) as usize));
 
   Ok(RData::DNSKEY {
-    zone_key: zone_key, secure_entry_point: secure_entry_point, algorithm: algorithm,
+    zone_key: zone_key, secure_entry_point: secure_entry_point, revoke: revoke, algorithm: algorithm,
     public_key: public_key
   })
 }
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &RData) -> EncodeResult {
-  if let RData::DNSKEY { zone_key, secure_entry_point, algorithm, ref public_key } = *rdata {
+  if let RData::DNSKEY { zone_key, secure_entry_point, revoke, algorithm, ref public_key } = *rdata {
     let mut flags: u16 = 0;
-    if zone_key { flags |= 0b0000_0000_1000_0000 }
-    if secure_entry_point { flags |= 0b1000_0000_0000_0000 }
+    if zone_key { flags |= 0b0000_0001_0000_0000 }
+    if secure_entry_point { flags |= 0b0000_0000_0000_0001 }
+    if revoke { flags |= 0b0000_0000_1000_0000 }
     try!(encoder.emit_u16(flags));
     try!(encoder.emit(3)); // always 3 for now
     try!(algorithm.emit(encoder));
@@ -182,7 +196,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &RData) -> EncodeResult {
 
 #[test]
 pub fn test() {
-  let rdata = RData::DNSKEY{ zone_key: true, secure_entry_point: true,
+  let rdata = RData::DNSKEY{ zone_key: true, secure_entry_point: true, revoke: false,
                              algorithm: Algorithm::RSASHA256, public_key: vec![0,1,2,3,4,5,6,7] };
 
   let mut bytes = Vec::new();

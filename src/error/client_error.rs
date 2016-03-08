@@ -36,6 +36,7 @@ pub enum ClientError {
   NoDataReceived,
   ErrorResponse(ResponseCode),
   NoRRSIG,
+  NoDS,
   NoSOARecord(Name),
 }
 
@@ -55,6 +56,7 @@ impl fmt::Display for ClientError {
       ClientError::NoDataReceived => write!(f, "No data was received from the remote"),
       ClientError::ErrorResponse(response_code) => write!(f, "Response was an error: {}", response_code.to_str()),
       ClientError::NoRRSIG => write!(f, "No RRSIG was recieved"),
+      ClientError::NoDS => write!(f, "No DS was recieved"),
       ClientError::NoSOARecord(ref name) => write!(f, "No SOA record found for {}", name)
     }
   }
@@ -76,6 +78,7 @@ impl Error for ClientError {
       ClientError::NoDataReceived => "No data was received from the remote",
       ClientError::ErrorResponse(..) => "Response was an error",
       ClientError::NoRRSIG => "No RRSIG was recieved",
+      ClientError::NoDS => "No DS was recieved",
       ClientError::NoSOARecord(..) => "No SOA record found",
     }
   }

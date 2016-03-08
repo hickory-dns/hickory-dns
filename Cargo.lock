@@ -2,7 +2,7 @@
 name = "trust-dns"
 version = "0.4.1"
 dependencies = [
- "chrono 0.2.19 (registry+https://github.com/rust-lang/crates.io-index)",
+ "chrono 0.2.20 (registry+https://github.com/rust-lang/crates.io-index)",
  "docopt 0.6.78 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio 0.4.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -37,7 +37,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "chrono"
-version = "0.2.19"
+version = "0.2.20"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "num 0.1.31 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -49,14 +49,14 @@ name = "docopt"
 version = "0.6.78"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
- "regex 0.1.54 (registry+https://github.com/rust-lang/crates.io-index)",
+ "regex 0.1.55 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.18 (registry+https://github.com/rust-lang/crates.io-index)",
  "strsim 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "gcc"
-version = "0.3.24"
+version = "0.3.25"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
@@ -146,10 +146,10 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "openssl"
 version = "0.7.5"
-source = "git+https://github.com/bluejekyll/rust-openssl.git#6ebe581308af861b440557be5baba2edb354f7b8"
+source = "git+https://github.com/bluejekyll/rust-openssl.git#3e5b65b7fafe9328e843bf3d52d0060ce7ac6aa9"
 dependencies = [
  "bitflags 0.3.3 (registry+https://github.com/rust-lang/crates.io-index)",
- "gcc 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gcc 0.3.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl-sys 0.7.5 (git+https://github.com/bluejekyll/rust-openssl.git)",
@@ -159,7 +159,7 @@ dependencies = [
 [[package]]
 name = "openssl-sys"
 version = "0.7.5"
-source = "git+https://github.com/bluejekyll/rust-openssl.git#6ebe581308af861b440557be5baba2edb354f7b8"
+source = "git+https://github.com/bluejekyll/rust-openssl.git#3e5b65b7fafe9328e843bf3d52d0060ce7ac6aa9"
 dependencies = [
  "gdi32-sys 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -171,9 +171,9 @@ dependencies = [
 [[package]]
 name = "openssl-sys-extras"
 version = "0.7.5"
-source = "git+https://github.com/bluejekyll/rust-openssl.git#6ebe581308af861b440557be5baba2edb354f7b8"
+source = "git+https://github.com/bluejekyll/rust-openssl.git#3e5b65b7fafe9328e843bf3d52d0060ce7ac6aa9"
 dependencies = [
- "gcc 0.3.24 (registry+https://github.com/rust-lang/crates.io-index)",
+ "gcc 0.3.25 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl-sys 0.7.5 (git+https://github.com/bluejekyll/rust-openssl.git)",
 ]
@@ -201,7 +201,7 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "0.1.54"
+version = "0.1.55"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "aho-corasick 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",

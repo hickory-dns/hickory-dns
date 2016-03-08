@@ -147,8 +147,15 @@ pub enum RData {
   //
   //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
   //    creation of the DNSKEY RR and MUST be ignored upon receipt.
-  DNSKEY { zone_key: bool, secure_entry_point:bool, algorithm: Algorithm,
-           public_key: Vec<u8> /* TODO, probably make this an enum variant */},
+  //
+  // RFC 5011                  Trust Anchor Update             September 2007
+  //
+  // 7.  IANA Considerations
+  //
+  //   The IANA has assigned a bit in the DNSKEY flags field (see Section 7
+  //   of [RFC4034]) for the REVOKE bit (8).
+  DNSKEY { zone_key: bool, secure_entry_point: bool, revoke: bool, algorithm: Algorithm,
+           public_key: Vec<u8> },
 
 
   // 5.1.  DS RDATA Wire Format

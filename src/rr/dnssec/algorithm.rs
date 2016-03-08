@@ -18,6 +18,7 @@ use openssl::crypto::rsa::RSA;
 use openssl::crypto::hash;
 use openssl::bn::BigNum;
 
+use ::rr::dnssec::DigestType;
 use ::serialize::binary::*;
 use ::error::*;
 
@@ -107,25 +108,11 @@ pub enum Algorithm {
 }
 
 impl Algorithm {
-  pub fn get_hash_type(self) -> hash::Type {
-    match self {
-      Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => hash::Type::SHA1,
-      Algorithm::RSASHA256 => hash::Type::SHA256,
-      Algorithm::RSASHA512 => hash::Type::SHA512,
-//      Algorithm::ECDSAP256SHA256 => hash::Type::SHA256,
-//      Algorithm::ECDSAP384SHA384 => hash::Type::SHA384,
-    }
-  }
-
-  fn hash(&self, data: &[u8]) -> Vec<u8> {
-    hash::hash(self.get_hash_type(), data)
-  }
-
   pub fn sign(&self, private_key: &PKey, data: &[u8]) -> Vec<u8> {
     if !private_key.can(Role::Sign) { panic!("This key cannot be used for signing") }
 
     // calculate the hash...
-    let hash = self.hash(data);
+    let hash = DigestType::from(*self).hash(data);
 
     // then sign and return
     private_key.sign(&hash)
@@ -135,7 +122,7 @@ impl Algorithm {
     if !public_key.can(Role::Verify) { panic!("This key cannot be used to verify signature") }
 
     // calculate the hash on the local data
-    let hash = self.hash(data);
+    let hash = DigestType::from(*self).hash(data);
 
     // verify the remotely sent signature
     public_key.verify(&hash, signature)
@@ -212,10 +199,8 @@ impl Algorithm {
         let e = try!(BigNum::new_from_slice(&public_key[(num_exp_len_octs as usize)..(len as usize + num_exp_len_octs)]));
         let n = try!(BigNum::new_from_slice(&public_key[(len as usize +num_exp_len_octs)..]));
 
-        let mut rsa = try!(RSA::new());
-        rsa.set_e(e);
-        rsa.set_n(n);
-        pkey.set_rsa(rsa);
+        let rsa = try!(RSA::from_public_components(n, e));
+        pkey.set_rsa(&rsa);
         Ok(pkey)
       }
     }
