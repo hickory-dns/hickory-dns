@@ -20,16 +20,28 @@ ground up.
 
 # Status:
 
-WARNING!!! Under active development!
-
-The client now supports timeouts (thanks mio!). Currently hardcoded to 5 seconds,
- I'll make this configurable if people ask for that, but this allows me to move on.
+Using the client should be safe. The client is currently hardcoded to a 5 second,
+timeout. I'll make this configurable if people ask for that, but this allows me
+to move on. Please send feedback! It currently does not cache responses, if
+this is a feature you'd like earlier rather than later, post a request. The
+validation of DNSSec is complete, but negative responses are not yet.
+The plan is to support NSEC3 primarily, but allow NSEC records to be validated.
 
 The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
 There currently is no way to limit TCP and AXFR operations, so it is still not
 recommended to put into production as TCP can be used to DOS the service.
 Master file parsing is complete and supported. There is currently no forking
-option, and the server is not yet threaded.
+option, and the server is not yet threaded. There is still a lot of work to do
+before a server can be trusted with this externally. Running it behind a firewall
+on a private network would be safe.
+
+## DNSSec status
+
+Currently the root key is hardcoded into the system. This gives validation of
+DNSKEY and DS records back to the root. NSEC and NSEC3 are not yet implemented.
+Because caching is not yet enabled, it has been noticed that some DNS servers
+appear to rate limit the connections, validating RRSIG records back to the root
+can require a significant number of additional queries for those records.
 
 ## RFC's implemented
 
@@ -41,6 +53,15 @@ option, and the server is not yet threaded.
 
 ### Update operations
 - [RFC 2136](https://tools.ietf.org/html/rfc2136): Dynamic Update
+
+### Secure DNS operations
+- [RFC 3007](https://tools.ietf.org/html/rfc3007): Secure Dynamic Update
+- [RFC 4034](https://tools.ietf.org/html/rfc4034): DNSSEC Resource Records
+- [RFC 4035](https://tools.ietf.org/html/rfc4035): Protocol Modifications for DNSSEC
+- [RFC 4509](https://tools.ietf.org/html/rfc4509): SHA-256 in DNSSEC Delegation Signer
+- [RFC 5702](https://tools.ietf.org/html/rfc5702): SHA-2 Algorithms with RSA in DNSKEY and RRSIG for DNSSEC
+- [RFC 6840](https://tools.ietf.org/html/rfc6840): Clarifications and Implementation Notes for DNSSEC
+- [RFC 6944](https://tools.ietf.org/html/rfc6944): DNSKEY Algorithm Implementation Status
 
 ## RFC's in progress or not yet implemented
 
@@ -55,14 +76,7 @@ option, and the server is not yet threaded.
 - [Long-Lived Queries](http://tools.ietf.org/html/draft-sekar-dns-llq-01): Notify with bells
 
 ### Secure DNS operations
-- [RFC 3007](https://tools.ietf.org/html/rfc3007): Secure Dynamic Update
-- [RFC 4034](https://tools.ietf.org/html/rfc4034): DNSSEC Resource Records
-- [RFC 4035](https://tools.ietf.org/html/rfc4035): Protocol Modifications for DNSSEC
-- [RFC 4509](https://tools.ietf.org/html/rfc4509): SHA-256 in DNSSEC Delegation Signer
 - [RFC 5155](https://tools.ietf.org/html/rfc5155): DNSSEC Hashed Authenticated Denial of Existence
-- [RFC 5702](https://tools.ietf.org/html/rfc5702): SHA-2 Algorithms with RSA in DNSKEY and RRSIG for DNSSEC
-- [RFC 6840](https://tools.ietf.org/html/rfc6840): Clarifications and Implementation Notes for DNSSEC
-- [RFC 6944](https://tools.ietf.org/html/rfc6944): DNSKEY Algorithm Implementation Status
 - [RFC 6975](https://tools.ietf.org/html/rfc6975): Signaling Cryptographic Algorithm Understanding
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
 - [S/MIME](https://tools.ietf.org/html/draft-ietf-dane-smime-09): Domain Names For S/MIME

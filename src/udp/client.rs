@@ -26,7 +26,7 @@ use openssl::crypto::pkey::Role;
 use ::error::*;
 use ::rr::{DNSClass, RecordType, Record, RData};
 use ::rr::domain;
-use ::rr::dnssec::Signer;
+use ::rr::dnssec::{Signer, TrustAnchor};
 use ::op::{ Message, MessageType, OpCode, Query, Edns, ResponseCode };
 use ::serialize::binary::*;
 
@@ -72,41 +72,44 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
     //  the RRSIG is signed by the DNSKEY, the DNSKEY is signed by the DS record in the Parent
     //  zone. The key_tag is the DS record is assigned to the DNSKEY.
     let record_response = try!(self.inner_query(name, query_class, query_type, true));
-    let rrsigs: Vec<&Record> = record_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
+    {
+      let rrsigs: Vec<&Record> = record_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
-    if rrsigs.is_empty() {
-      return Err(ClientError::NoRRSIG);
+      if rrsigs.is_empty() {
+        return Err(ClientError::NoRRSIG);
+      }
+
+      // group the record sets by name and type
+      let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
+      for rrset in record_response.get_answers().iter()
+                                  .filter(|rr| rr.get_rr_type() != RecordType::RRSIG)
+                                  .map(|rr| (rr.get_name().clone(), rr.get_rr_type())) {
+        rrset_types.insert(rrset);
+      }
+
+      // verify all returned rrsets
+      for (name, rrset_type) in rrset_types {
+        let rrset: Vec<&Record> = record_response.get_answers().iter().filter(|rr| rr.get_rr_type() == rrset_type && rr.get_name() == &name).collect();
+
+        // '. DNSKEY' -> 'com. DS' -> 'com. DNSKEY' -> 'examle.com. DS' -> 'example.com. DNSKEY'
+        // 'com. DS' is signed by '. DNSKEY' which produces 'com. RRSIG', all are in the same zone, '.'
+        //  the '.' DNSKEY is signed by the well known root certificate.
+        // TODO fix rrsigs clone()
+        let proof = try!(self.recursive_query_verify(&name, rrset, rrsigs.clone(), query_type, query_class));
+
+        // TODO return this, also make a prettier print
+        debug!("proved existance through: {:?}", proof);
+      }
     }
 
-    // group the record sets by name and type
-    let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
-    for rrset in record_response.get_answers().iter()
-                                .filter(|rr| rr.get_rr_type() != RecordType::RRSIG)
-                                .map(|rr| (rr.get_name().clone(), rr.get_rr_type())) {
-      rrset_types.insert(rrset);
-    }
-
-    // verify all returned rrsets
-    for (name, rrset_type) in rrset_types {
-      let rrset: Vec<&Record> = record_response.get_answers().iter().filter(|rr| rr.get_rr_type() == rrset_type && rr.get_name() == &name).collect();
-
-      // '. DNSKEY' -> 'com. DS' -> 'com. DNSKEY' -> 'examle.com. DS' -> 'example.com. DNSKEY'
-      // 'com. DS' is signed by '. DNSKEY' which produces 'com. RRSIG', all are in the same zone, '.'
-      //  the '.' DNSKEY is signed by the well known root certificate.
-      // TODO fix rrsigs clone()
-      let proof = try!(self.recursive_query_verify(&name, rrset, rrsigs.clone(), query_type, query_class));
-      debug!("proved existance through: {:?}", proof);
-    }
-
-    // verify each RRSIG...
-    unimplemented!()
+    // getting here means that we looped through all records with validation
+    Ok(record_response)
   }
 
   /// Verifies a record set against the supplied signatures, looking up the DNSKey chain.
   /// returns the chain of proof or an error if there is none.
   fn recursive_query_verify(&self, name: &domain::Name, rrset: Vec<&Record>, rrsigs: Vec<&Record>,
     query_type: RecordType, query_class: DNSClass) -> ClientResult<Vec<Record>> {
-    debug!("verifying: {} type: {:?}", name, query_type);
 
     // TODO: this is ugly, what reference do I want?
     let rrset: Vec<Record> = rrset.iter().map(|rr|rr.clone()).cloned().collect();
@@ -119,6 +122,7 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
           //  but how do you know which needs to be validated with the DS in the parent zone?
           if zone_key && secure_entry_point {
             let mut proof = try!(self.verify_dnskey(record));
+            // TODO: this is verified, it can be cached
             proof.push(record.clone());
             return Ok(proof);
           }
@@ -138,26 +142,26 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
 
         for dnskey in key_rrset.iter() {
           if let &RData::DNSKEY{zone_key, algorithm, revoke, ref public_key, ..} = dnskey.get_rdata() {
-            if revoke { debug!("revoked"); continue } // TODO: does this need to be validated? RFC 5011
-            if !zone_key { debug!("not a zone_key, can't use"); continue }
-            if algorithm != sig_alg { debug!("algorithms don't match"); continue }
+            if revoke { debug!("revoked: {}", dnskey.get_name()); continue } // TODO: does this need to be validated? RFC 5011
+            if !zone_key { continue }
+            if algorithm != sig_alg { continue }
 
             let pkey = try!(algorithm.public_key_from_vec(public_key));
-            if !pkey.can(Role::Verify) { debug!("pkey can't verify"); continue }
+            if !pkey.can(Role::Verify) { debug!("pkey can't verify, {:?}", dnskey.get_name()); continue }
 
             let signer: Signer = Signer::new(algorithm, pkey, signer_name.clone());
             let rrset_hash: Vec<u8> = signer.hash_rrset(rrsig, &rrset);
 
             if signer.verify(&rrset_hash, sig) {
-              debug!("verified: {} with: {}", name, dnskey.get_name());
-
               if signer_name == name && query_type == RecordType::DNSKEY {
                 // this is self signed... let's skip to DS validation
                 let mut proof: Vec<Record> = try!(self.verify_dnskey(dnskey));
+                // TODO: this is verified, cache it
                 proof.push((*dnskey).clone());
                 return Ok(proof);
               } else {
                 let mut proof = try!(self.recursive_query_verify(&signer_name, key_rrset.clone(), key_rrsigs, RecordType::DNSKEY, query_class));
+                // TODO: this is verified, cache it
                 proof.push((*dnskey).clone());
                 return Ok(proof);
               }
@@ -179,8 +183,15 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
   /// attempts to verify the DNSKey against the DS of the parent.
   /// returns the chain of proof or an error if there is none.
   fn verify_dnskey(&self, dnskey: &Record) -> ClientResult<Vec<Record>> {
-    debug!("verifying dnskey");
     let name: &domain::Name = dnskey.get_name();
+
+    if dnskey.get_name().is_root() {
+      if let &RData::DNSKEY{ ref public_key, .. } = dnskey.get_rdata() {
+        if TrustAnchor::new().contains(public_key) {
+          return Ok(vec![dnskey.clone()])
+        }
+      }
+    }
 
     let ds_response = try!(self.inner_query(&name, dnskey.get_dns_class(), RecordType::DS, true));
     let ds_rrset: Vec<&Record> = ds_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::DS).collect();
@@ -217,7 +228,9 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
         let hash: Vec<u8> = digest_type.hash(&buf);
         if &hash == digest {
           // continue to verify the chain...
-          return self.recursive_query_verify(&name, ds_rrset.clone(), ds_rrsigs, RecordType::DNSKEY, dnskey.get_dns_class());
+          let mut proof: Vec<Record> = try!(self.recursive_query_verify(&name, ds_rrset.clone(), ds_rrsigs, RecordType::DNSKEY, dnskey.get_dns_class()));
+          proof.push(dnskey.clone());
+          return Ok(proof)
         }
       } else {
         panic!("expected DS: {:?}", ds.get_rr_type());
@@ -488,36 +501,36 @@ fn test_secure_query_example() {
   }
 }
 
-// TODO: use this site for verifying nsec3
-#[test]
-#[cfg(feature = "ftest")]
-fn test_secure_query_sdsmt() {
-  use std::net::*;
-
-  use ::rr::dns_class::DNSClass;
-  use ::rr::record_type::RecordType;
-  use ::rr::domain;
-  use ::rr::record_data::RData;
-  use ::udp::Client;
-
-  let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
-  let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
-
-  let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
-  assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-
-  let response = response.unwrap();
-
-  println!("response records: {:?}", response);
-
-  let record = &response.get_answers()[0];
-  assert_eq!(record.get_name(), &name);
-  assert_eq!(record.get_rr_type(), RecordType::A);
-  assert_eq!(record.get_dns_class(), DNSClass::IN);
-
-  if let &RData::A{ ref address } = record.get_rdata() {
-    assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-  } else {
-    assert!(false);
-  }
-}
+// // TODO: use this site for verifying nsec3
+// #[test]
+// #[cfg(feature = "ftest")]
+// fn test_secure_query_sdsmt() {
+//   use std::net::*;
+//
+//   use ::rr::dns_class::DNSClass;
+//   use ::rr::record_type::RecordType;
+//   use ::rr::domain;
+//   use ::rr::record_data::RData;
+//   use ::udp::Client;
+//
+//   let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
+//   let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
+//
+//   let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
+//   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+//
+//   let response = response.unwrap();
+//
+//   println!("response records: {:?}", response);
+//
+//   let record = &response.get_answers()[0];
+//   assert_eq!(record.get_name(), &name);
+//   assert_eq!(record.get_rr_type(), RecordType::A);
+//   assert_eq!(record.get_dns_class(), DNSClass::IN);
+//
+//   if let &RData::A{ ref address } = record.get_rdata() {
+//     assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+//   } else {
+//     assert!(false);
+//   }
+// }

@@ -15,7 +15,6 @@
  */
 use openssl::crypto::pkey::{PKey, Role};
 use openssl::crypto::rsa::RSA;
-use openssl::crypto::hash;
 use openssl::bn::BigNum;
 
 use ::rr::dnssec::DigestType;

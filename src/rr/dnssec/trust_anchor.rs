@@ -13,16 +13,28 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod algorithm;
-mod digest_type;
-mod nsec3;
-mod signer;
-mod supported_algorithm;
-mod trust_anchor;
+use std::io::Cursor;
 
-pub use self::algorithm::Algorithm;
-pub use self::digest_type::DigestType;
-pub use self::nsec3::Nsec3HashAlgorithm;
-pub use self::signer::Signer;
-pub use self::supported_algorithm::SupportedAlgorithms;
-pub use self::trust_anchor::TrustAnchor;
+use openssl::crypto::pkey::{PKey, Role};
+
+use ::rr::dnssec::Algorithm;
+
+const ROOT_ANCHOR: &'static str = include_str!("Kjqmt7v.pem");
+
+pub struct TrustAnchor {
+  pkey: Vec<u8>
+}
+
+impl TrustAnchor {
+  pub fn new() -> TrustAnchor {
+    let mut cursor = Cursor::new(ROOT_ANCHOR);
+    let pkey = PKey::public_key_from_pem(&mut cursor).expect("Error parsing Kjqmt7v.pem");
+    let alg = Algorithm::RSASHA256;
+
+    TrustAnchor{ pkey: alg.public_key_to_vec(&pkey) }
+  }
+
+  pub fn contains(&self, other_key: &[u8]) -> bool {
+    self.pkey == other_key
+  }
+}
