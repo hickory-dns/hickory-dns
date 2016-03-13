@@ -1,25 +1,19 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
-use std::net::{SocketAddr, ToSocketAddrs, Ipv4Addr};
-use std::io::Cursor;
-use std::cell::Cell;
-use std::collections::HashSet;
+// Copyright (C) 2015 - 2016 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
-use mio::udp::UdpSocket;
-use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want confusion with std::net
+use std::cell::{Cell, RefCell};
+use std::collections::HashSet;
 
 use openssl::crypto::pkey::Role;
 
@@ -29,31 +23,20 @@ use ::rr::domain;
 use ::rr::dnssec::{Signer, TrustAnchor};
 use ::op::{ Message, MessageType, OpCode, Query, Edns, ResponseCode };
 use ::serialize::binary::*;
+use ::client::ClientConnection;
 
-const RESPONSE: Token = Token(0);
-
-pub struct Client<A: ToSocketAddrs + Copy> {
-  socket: UdpSocket,
-  name_server: A,
+/// The Client is abstracted over either trust_dns::tcp::TcpClientConnection or
+///  trust_dns::udp::UdpClientConnection, usage of TCP or UDP is up to the user. Some DNS servers
+///  disallow TCP in some cases, so if TCP double check if UDP works.
+pub struct Client<C: ClientConnection> {
+  client_connection: RefCell<C>,
   next_id: Cell<u16>,
 }
 
-impl Client<(Ipv4Addr,u16)> {
+impl<C: ClientConnection> Client<C> {
   /// name_server to connect to with default port 53
-  pub fn new(name_server: Ipv4Addr) -> ClientResult<Client<(Ipv4Addr,u16)>> {
-    Self::with_addr((name_server, 53))
-  }
-}
-
-impl<A: ToSocketAddrs + Copy> Client<A> {
-  pub fn with_addr(addr: A) -> ClientResult<Client<A>> {
-    // client binds to all addresses...
-    // this shouldn't ever fail
-    // TODO switch to use expect once that stabalizes
-    let zero_addr = ("0.0.0.0", 0).to_socket_addrs().unwrap().next().unwrap();
-
-    let socket = try!(UdpSocket::bound(&zero_addr));
-    Ok(Client { socket: socket, name_server: addr, next_id: Cell::new(1024) } )
+  pub fn new(client_connection: C) -> Client<C> {
+    Client{ client_connection: RefCell::new(client_connection), next_id: Cell::new(1037) }
   }
 
   /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
@@ -117,7 +100,7 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
     // verify the DNSKey via a DS key if it's the secure_entry_point
     if let Some(record) = rrset.first() {
       if record.get_rr_type() == RecordType::DNSKEY {
-        if let &RData::DNSKEY{zone_key, secure_entry_point, revoke, algorithm, ref public_key} = record.get_rdata() {
+        if let &RData::DNSKEY{zone_key, secure_entry_point, ..} = record.get_rdata() {
           // the spec says that the secure_entry_point isn't reliable for the main DNSKey...
           //  but how do you know which needs to be validated with the DS in the parent zone?
           if zone_key && secure_entry_point {
@@ -134,7 +117,7 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
 
     // standard rrsig verification
     for rrsig in rrsigs.iter().filter(|rr| rr.get_name() == name) {
-      if let &RData::SIG{ref sig, ref signer_name, key_tag, algorithm: sig_alg, ..} = rrsig.get_rdata() {
+      if let &RData::SIG{ref sig, ref signer_name, algorithm: sig_alg, ..} = rrsig.get_rdata() {
         // get DNSKEY from signer_name
         let key_response = try!(self.inner_query(&signer_name, query_class, RecordType::DNSKEY, true));
         let key_rrset: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::DNSKEY).collect();
@@ -198,7 +181,7 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
     let ds_rrsigs: Vec<&Record> = ds_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
     for ds in ds_rrset.iter() {
-      if let &RData::DS{key_tag, algorithm, digest_type, ref digest } = ds.get_rdata() {
+      if let &RData::DS{digest_type, ref digest, ..} = ds.get_rdata() {
         // 5.1.4.  The Digest Field
         //
         //    The DS record refers to a DNSKEY RR by including a digest of that
@@ -309,49 +292,10 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
       try!(message.emit(&mut encoder));
     }
 
-    let addr = try!(try!(self.name_server.to_socket_addrs()).next().ok_or(ClientError::NoNameServer));
+    // send the message and get the response from the connection.
+    let resp_buffer = try!(self.client_connection.borrow_mut().send(&buffer));
 
-    // -- net2 client
-    // let sent = try!(self.socket.send_to(&buffer, &addr));
-    // println!("sent {} bytes to {:?}", sent, addr);
-    // debug!("sent {} bytes to {:?}", sent, addr);
-    //
-    // buffer.clear();
-    // let (_, addr) = try!(self.socket.recv_from(&mut buffer));
-    // println!("bytes: {:?} from: {:?}", buffer.len(), addr);
-    // debug!("bytes: {:?} from: {:?}", buffer.len(), addr);
-
-    // -- end net2 client
-
-    // --- MIO client, not really necessary unless we want parallel ---
-
-    let mut bytes = Cursor::new(buffer);
-    try!(self.socket.send_to(&mut bytes, &addr));
-
-    //----------------------------
-    // now listen for the response
-    //----------------------------
-    // setup the polling and timeout, before sending the message
-    // Create an event loop
-
-    let mut event_loop: EventLoop<Response> = try!(EventLoop::new());
-    // TODO make the timeout configurable, 5 seconds is the dig default
-    // TODO the error is private to mio, which makes this awkward...
-    if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientError::TimerError) };
-    try!(event_loop.register_opt(&self.socket, RESPONSE, EventSet::readable(), PollOpt::all()));
-
-    let mut response: Response = Response::new(&self.socket);
-
-    // run_once should be enough, if something else nepharious hits the socket, what?
-    try!(event_loop.run(&mut response));
-
-    if response.error.is_some() { return Err(response.error.unwrap()) }
-    if response.buf.is_none() { return Err(ClientError::NoDataReceived) }
-    let buffer = response.buf.unwrap();
-
-    // -- end MIO client
-
-    let mut decoder = BinDecoder::new(&buffer);
+    let mut decoder = BinDecoder::new(&resp_buffer);
     let response = try!(Message::read(&mut decoder));
 
     if response.get_id() != id { return Err(ClientError::IncorrectMessageId{ got: response.get_id(), expect: id }); }
@@ -367,170 +311,132 @@ impl<A: ToSocketAddrs + Copy> Client<A> {
   }
 }
 
-struct Response<'a> {
-  pub buf: Option<Vec<u8>>,
-  pub addr: Option<SocketAddr>,
-  pub error: Option<ClientError>,
-  pub socket: &'a UdpSocket,
-}
+#[cfg(test)]
+mod test {
+  use std::net::*;
 
-impl<'a> Response<'a> {
-  pub fn new(socket: &'a UdpSocket) -> Self {
-    Response{ buf: None, addr: None, error: None, socket: socket }
+  use ::rr::dns_class::DNSClass;
+  use ::rr::record_type::RecordType;
+  use ::rr::domain;
+  use ::rr::record_data::RData;
+  use ::udp::UdpClientConnection;
+  use ::tcp::TcpClientConnection;
+  use super::Client;
+  use super::super::ClientConnection;
+
+  #[test]
+  #[cfg(feature = "ftest")]
+  fn test_query_udp() {
+    let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = UdpClientConnection::new(addr).unwrap();
+    test_query(conn);
   }
-}
 
-impl<'a> Handler for Response<'a> {
-  type Timeout = ();
-  type Message = ();
+  #[test]
+  #[cfg(feature = "ftest")]
+  fn test_query_tcp() {
+    let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = TcpClientConnection::new(addr).unwrap();
+    test_query(conn);
+  }
 
-  fn ready(&mut self, event_loop: &mut EventLoop<Self>, token: Token, events: EventSet) {
-    match token {
-      RESPONSE => {
-        if !events.is_readable() {
-          debug!("got woken up, but not readable: {:?}", token);
-          return
-        }
 
-        let mut buf = Vec::with_capacity(4096);
+  // TODO: this should be flagged with cfg as a functional test.
+  #[cfg(test)]
+  fn test_query<C: ClientConnection>(conn: C) {
+    let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+    let client = Client::new(conn);
 
-        let recv_result = self.socket.recv_from(&mut buf);
-        if recv_result.is_err() {
-          // debug b/c we're returning the error explicitly
-          debug!("could not recv_from on {:?}: {:?}", self.socket, recv_result);
-          self.error = Some(recv_result.unwrap_err().into());
-          return
-        }
+    let response = client.query(&name, DNSClass::IN, RecordType::A);
+    assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
-        if recv_result.as_ref().unwrap().is_none() {
-          // debug b/c we're returning the error explicitly
-          debug!("no return address on recv_from: {:?}", self.socket);
-          self.error = Some(ClientError::NoAddress);
-          return
-        }
+    let response = response.unwrap();
 
-        self.addr = Some(recv_result.unwrap().unwrap());
-        debug!("bytes: {:?} from: {:?}", buf.len(), self.addr);
+    println!("response records: {:?}", response);
 
-        // we got our response, shutdown.
-        event_loop.shutdown();
+    let record = &response.get_answers()[0];
+    assert_eq!(record.get_name(), &name);
+    assert_eq!(record.get_rr_type(), RecordType::A);
+    assert_eq!(record.get_dns_class(), DNSClass::IN);
 
-        // set our data
-        self.buf = Some(buf);
-
-        // TODO, perhaps parse the response in here, so that the client could ignore messages with the
-        //  wrong serial number.
-      },
-      _ => {
-        error!("unrecognized token: {:?}", token);
-        self.error = Some(ClientError::NoDataReceived);
-      },
+    if let &RData::A{ ref address } = record.get_rdata() {
+      assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+    } else {
+      assert!(false);
     }
   }
 
-  fn timeout(&mut self, event_loop: &mut EventLoop<Self>, _: ()) {
-    self.error = Some(ClientError::TimedOut);
-    event_loop.shutdown();
+  #[test]
+  #[cfg(feature = "ftest")]
+  fn test_secure_query_example_udp() {
+    let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = UdpClientConnection::new(addr).unwrap();
+    test_secure_query_example(conn);
   }
-}
 
-// TODO: this should be flagged with cfg as a functional test.
-#[test]
-#[cfg(feature = "ftest")]
-fn test_query() {
-  use std::net::*;
-
-  use ::rr::dns_class::DNSClass;
-  use ::rr::record_type::RecordType;
-  use ::rr::domain;
-  use ::rr::record_data::RData;
-  use ::udp::Client;
-
-  let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-  let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
-
-  let response = client.query(&name, DNSClass::IN, RecordType::A);
-  assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-
-  let response = response.unwrap();
-
-  println!("response records: {:?}", response);
-
-  let record = &response.get_answers()[0];
-  assert_eq!(record.get_name(), &name);
-  assert_eq!(record.get_rr_type(), RecordType::A);
-  assert_eq!(record.get_dns_class(), DNSClass::IN);
-
-  if let &RData::A{ ref address } = record.get_rdata() {
-    assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-  } else {
-    assert!(false);
+  #[test]
+  #[cfg(feature = "ftest")]
+  fn test_secure_query_example_tcp() {
+    let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = TcpClientConnection::new(addr).unwrap();
+    test_secure_query_example(conn);
   }
-}
 
-#[test]
-#[cfg(feature = "ftest")]
-fn test_secure_query_example() {
-  use std::net::*;
+  #[cfg(test)]
+  fn test_secure_query_example<C: ClientConnection>(conn: C) {
+    let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+    let client = Client::new(conn);
 
-  use ::rr::dns_class::DNSClass;
-  use ::rr::record_type::RecordType;
-  use ::rr::domain;
-  use ::rr::record_data::RData;
-  use ::udp::Client;
+    let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
+    assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
-  let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-  let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
+    let response = response.unwrap();
 
-  let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
-  assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+    println!("response records: {:?}", response);
 
-  let response = response.unwrap();
+    let record = &response.get_answers()[0];
+    assert_eq!(record.get_name(), &name);
+    assert_eq!(record.get_rr_type(), RecordType::A);
+    assert_eq!(record.get_dns_class(), DNSClass::IN);
 
-  println!("response records: {:?}", response);
-
-  let record = &response.get_answers()[0];
-  assert_eq!(record.get_name(), &name);
-  assert_eq!(record.get_rr_type(), RecordType::A);
-  assert_eq!(record.get_dns_class(), DNSClass::IN);
-
-  if let &RData::A{ ref address } = record.get_rdata() {
-    assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-  } else {
-    assert!(false);
+    if let &RData::A{ ref address } = record.get_rdata() {
+      assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+    } else {
+      assert!(false);
+    }
   }
-}
 
-// // TODO: use this site for verifying nsec3
-// #[test]
-// #[cfg(feature = "ftest")]
-// fn test_secure_query_sdsmt() {
-//   use std::net::*;
-//
-//   use ::rr::dns_class::DNSClass;
-//   use ::rr::record_type::RecordType;
-//   use ::rr::domain;
-//   use ::rr::record_data::RData;
-//   use ::udp::Client;
-//
-//   let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
-//   let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
-//
-//   let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
-//   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-//
-//   let response = response.unwrap();
-//
-//   println!("response records: {:?}", response);
-//
-//   let record = &response.get_answers()[0];
-//   assert_eq!(record.get_name(), &name);
-//   assert_eq!(record.get_rr_type(), RecordType::A);
-//   assert_eq!(record.get_dns_class(), DNSClass::IN);
-//
-//   if let &RData::A{ ref address } = record.get_rdata() {
-//     assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-//   } else {
-//     assert!(false);
-//   }
-// }
+  // // TODO: use this site for verifying nsec3
+  // #[test]
+  // #[cfg(feature = "ftest")]
+  // fn test_secure_query_sdsmt() {
+  //   use std::net::*;
+  //
+  //   use ::rr::dns_class::DNSClass;
+  //   use ::rr::record_type::RecordType;
+  //   use ::rr::domain;
+  //   use ::rr::record_data::RData;
+  //   use ::udp::Client;
+  //
+  //   let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
+  //   let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
+  //
+  //   let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
+  //   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+  //
+  //   let response = response.unwrap();
+  //
+  //   println!("response records: {:?}", response);
+  //
+  //   let record = &response.get_answers()[0];
+  //   assert_eq!(record.get_name(), &name);
+  //   assert_eq!(record.get_rr_type(), RecordType::A);
+  //   assert_eq!(record.get_dns_class(), DNSClass::IN);
+  //
+  //   if let &RData::A{ ref address } = record.get_rdata() {
+  //     assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+  //   } else {
+  //     assert!(false);
+  //   }
+  // }
+}

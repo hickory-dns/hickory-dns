@@ -291,8 +291,7 @@ impl From<Algorithm> for u8 {
 mod test {
   use super::Algorithm;
   use openssl::crypto::pkey;
-  use openssl::crypto::pkey::EncryptionPadding;
-  use openssl::crypto::pkey::{PKey, Parts, Role};
+  use openssl::crypto::pkey::Role;
 
   #[test]
   fn test_hashing() {

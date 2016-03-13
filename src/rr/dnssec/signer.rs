@@ -13,9 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::io::Write;
-
-use openssl::crypto::hash::Hasher;
 use openssl::crypto::pkey::{PKey, Role};
 
 use ::op::Message;
@@ -481,6 +478,7 @@ impl Signer {
 
   /// sign a series of bytes
   /// this will panic if the key is not a private key and can be used for signing.
+  #[allow(dead_code)]
   fn sign(&self, hash: &[u8]) -> Vec<u8> {
     assert!(self.pkey.can(Role::Sign)); // this is bad code, not expected in regular runtime
     self.pkey.sign_with_hash(&hash, DigestType::from(self.algorithm).to_hash())

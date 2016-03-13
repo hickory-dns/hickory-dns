@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod client;
 mod handler;
+mod tcp_client_connection;
 
 pub use self::handler::TcpHandler;
 pub use self::handler::TcpState;
-pub use self::client::Client;
+pub use self::tcp_client_connection::TcpClientConnection;

@@ -266,6 +266,9 @@ mod server_tests {
   use ::rr::*;
   use super::Server;
   use ::op::*;
+  use ::client::{Client, ClientConnection};
+  use ::udp::UdpClientConnection;
+  use ::tcp::TcpClientConnection;
 
   #[test]
   fn test_server_www_udp() {
@@ -285,45 +288,15 @@ mod server_tests {
     server.register_socket(udp_socket);
 
     /*let server_thread = */thread::Builder::new().name("test_server:udp:server".to_string()).spawn(move || server_thread(server)).unwrap();
-    let client_thread = thread::Builder::new().name("test_server:udp:client".to_string()).spawn(move || client_thread_www_udp(ipaddr)).unwrap();
+
+    let client_conn = UdpClientConnection::new(ipaddr).unwrap();
+    let client_thread = thread::Builder::new().name("test_server:udp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
 
     let client_result = client_thread.join();
     //    let server_result = server_thread.join();
 
     assert!(client_result.is_ok(), "client failed: {:?}", client_result);
     //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
-  }
-
-  fn client_thread_www_udp(server_addr: SocketAddr) {
-    use ::udp::Client;
-
-    let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-    let client = Client::with_addr(server_addr).unwrap();
-
-    println!("about to query server: {:?}", server_addr);
-    let response = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
-
-    assert!(response.get_response_code() == ResponseCode::NoError, "got an error: {:?}", response.get_response_code());
-
-    let record = &response.get_answers()[0];
-    assert_eq!(record.get_name(), &name);
-    assert_eq!(record.get_rr_type(), RecordType::A);
-    assert_eq!(record.get_dns_class(), DNSClass::IN);
-
-    if let &RData::A{ ref address } = record.get_rdata() {
-      assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-    } else {
-      assert!(false);
-    }
-
-    let mut ns: Vec<_> = response.get_name_servers().to_vec();
-    ns.sort();
-
-    assert_eq!(ns.len(), 2);
-    assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
-    assert_eq!(ns.first().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() });
-    assert_eq!(ns.last().unwrap().get_rr_type(), RecordType::NS);
-    assert_eq!(ns.last().unwrap().get_rdata(), &RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() });
   }
 
   #[test]
@@ -347,7 +320,9 @@ mod server_tests {
     server.register_listener(tcp_listener);
 
     /*let server_thread = */thread::Builder::new().name("test_server:tcp:server".to_string()).spawn(move || server_thread(server)).unwrap();
-    let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www_tcp(ipaddr)).unwrap();
+
+    let client_conn = TcpClientConnection::new(ipaddr).unwrap();
+    let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
 
     let client_result = client_thread.join();
     //    let server_result = server_thread.join();
@@ -357,14 +332,12 @@ mod server_tests {
   }
 
   #[allow(dead_code)]
-  fn client_thread_www_tcp(server_addr: SocketAddr) {
-    use ::tcp::Client;
-
+  fn client_thread_www<C: ClientConnection>(conn: C) {
     let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-    let client = Client::with_addr(server_addr).unwrap();
+    println!("about to query server: {:?}", conn);
+    let client = Client::new(conn);
 
-    println!("about to query server: {:?}", server_addr);
-    let response = client.query(name.clone(), DNSClass::IN, RecordType::A).unwrap();
+    let response = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
 
     assert!(response.get_response_code() == ResponseCode::NoError, "got an error: {:?}", response.get_response_code());
 

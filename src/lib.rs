@@ -27,6 +27,7 @@ pub mod authority;
 pub mod op;
 pub mod udp;
 pub mod tcp;
+pub mod client;
 pub mod server;
 pub mod error;
 pub mod serialize;

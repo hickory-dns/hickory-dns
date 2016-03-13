@@ -29,6 +29,9 @@ impl TrustAnchor {
   pub fn new() -> TrustAnchor {
     let mut cursor = Cursor::new(ROOT_ANCHOR);
     let pkey = PKey::public_key_from_pem(&mut cursor).expect("Error parsing Kjqmt7v.pem");
+    assert!(pkey.can(Role::Verify));
+    assert!(pkey.can(Role::Encrypt));
+
     let alg = Algorithm::RSASHA256;
 
     TrustAnchor{ pkey: alg.public_key_to_vec(&pkey) }

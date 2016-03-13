@@ -13,9 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-mod client;
 mod handler;
+mod udp_client_connection;
 
-pub use self::client::Client;
 pub use self::handler::UdpHandler;
 pub use self::handler::UdpState;
+pub use self::udp_client_connection::UdpClientConnection;
