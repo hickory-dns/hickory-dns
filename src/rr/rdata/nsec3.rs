@@ -67,7 +67,6 @@ use ::rr::dnssec::Nsec3HashAlgorithm;
 //  does not include the name of the containing zone.  The length of this
 //  field is determined by the preceding Hash Length field.
 //
-
 //
 // NSEC3{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>,
 //   next_hashed_owner_name: Vec<u8>, type_bit_maps: Vec<RecordType>},
@@ -85,6 +84,15 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> 
   let hash_len: u8 = try!(decoder.read_u8());
   let next_hashed_owner_name: Vec<u8> = try!(decoder.read_vec(hash_len as usize));
 
+  let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
+  let record_types = try!(decode_type_bit_maps(decoder, bit_map_len));
+
+  Ok(RData::NSEC3{ hash_algorithm: hash_algorithm, opt_out: opt_out, iterations: iterations,
+                   salt: salt, next_hashed_owner_name: next_hashed_owner_name,
+                   type_bit_maps: record_types })
+}
+
+pub fn decode_type_bit_maps(decoder: &mut BinDecoder, bit_map_len: usize) -> DecodeResult<Vec<RecordType>> {
   // 3.2.1.  Type Bit Maps Encoding
   //
   //  The encoding of the Type Bit Maps field is the same as that used by
@@ -130,7 +138,6 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> 
   //  value, within that block, among the set of RR types present at the
   //  original owner name of the NSEC3 RR.  Trailing octets not specified
   //  MUST be interpreted as zero octets.
-  let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
   let mut record_types: Vec<RecordType> = Vec::new();
   let mut state: BitMapState = BitMapState::ReadWindow;
 
@@ -173,9 +180,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> 
     };
   }
 
-  Ok(RData::NSEC3{ hash_algorithm: hash_algorithm, opt_out: opt_out, iterations: iterations,
-                   salt: salt, next_hashed_owner_name: next_hashed_owner_name,
-                   type_bit_maps: record_types })
+  Ok(record_types)
 }
 
 enum BitMapState {
@@ -197,41 +202,46 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &RData) -> EncodeResult {
     try!(encoder.emit_vec(salt));
     try!(encoder.emit(next_hashed_owner_name.len() as u8));
     try!(encoder.emit_vec(next_hashed_owner_name));
-
-    let mut hash: HashMap<u8, Vec<u8>> = HashMap::new();
-
-    // collect the bitmaps
-    for rr_type in type_bit_maps {
-      let code: u16 = (*rr_type).into();
-      let window: u8 = (code >> 8) as u8;
-      let low: u8 = (code & 0x00FF) as u8;
-
-      let bit_map: &mut Vec<u8> = hash.entry(window).or_insert(Vec::new());
-      // len + left is the block in the bitmap, divided by 8 for the bits, + the bit in the current_byte
-      let index: u8 = low / 8;
-      let bit: u8 = 0b1000_0000 >> (low % 8);
-
-      for _ in 0..((index as usize + 1) - bit_map.len()) {
-        bit_map.push(0);
-      }
-
-      bit_map[index as usize] |= bit;
-    }
-
-    // output bitmaps
-    for (window, bitmap) in hash {
-      try!(encoder.emit(window));
-      // the hashset should never be larger that 255 based on above logic.
-      try!(encoder.emit(bitmap.len() as u8));
-      for bits in bitmap {
-        try!(encoder.emit(bits));
-      }
-    }
+    try!(encode_bit_maps(encoder, type_bit_maps));
 
     Ok(())
   } else {
     panic!("wrong type here {:?}", rdata);
   }
+}
+
+pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> EncodeResult {
+  let mut hash: HashMap<u8, Vec<u8>> = HashMap::new();
+
+  // collect the bitmaps
+  for rr_type in type_bit_maps {
+    let code: u16 = (*rr_type).into();
+    let window: u8 = (code >> 8) as u8;
+    let low: u8 = (code & 0x00FF) as u8;
+
+    let bit_map: &mut Vec<u8> = hash.entry(window).or_insert(Vec::new());
+    // len + left is the block in the bitmap, divided by 8 for the bits, + the bit in the current_byte
+    let index: u8 = low / 8;
+    let bit: u8 = 0b1000_0000 >> (low % 8);
+
+    for _ in 0..((index as usize + 1) - bit_map.len()) {
+      bit_map.push(0);
+    }
+
+    bit_map[index as usize] |= bit;
+  }
+
+  // output bitmaps
+  for (window, bitmap) in hash {
+    try!(encoder.emit(window));
+    // the hashset should never be larger that 255 based on above logic.
+    try!(encoder.emit(bitmap.len() as u8));
+    for bits in bitmap {
+      try!(encoder.emit(bits));
+    }
+  }
+
+  Ok(())
 }
 
 #[test]

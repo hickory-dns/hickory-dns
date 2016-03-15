@@ -49,8 +49,8 @@ pub enum RecordType {
     MX,         //	15	RFC 1035[1]	Mail exchange record
     //  NAPTR,      //	35	RFC 3403	Naming Authority Pointer
     NS,         //	2	RFC 1035[1]	Name server record
-    NULL,         //	0	RFC 1035[1]	Null server record, for testing
-    //  NSEC,       //	47	RFC 4034	Next-Secure record
+    NULL,       //	0	RFC 1035[1]	Null server record, for testing
+    NSEC,       //	47	RFC 4034	Next-Secure record
     NSEC3,      //	50	RFC 5155	NSEC record version 3
     NSEC3PARAM, //	51	RFC 5155	NSEC3 parameters
     OPT,        //	41	RFC 6891	Option
@@ -170,6 +170,7 @@ impl From<RecordType> for &'static str {
       RecordType::MX => "MX",
       RecordType::NULL => "NULL",
       RecordType::NS => "NS",
+      RecordType::NSEC => "NSEC",
       RecordType::NSEC3 => "NSEC3",
       RecordType::NSEC3PARAM => "NSEC3PARAM",
       RecordType::OPT => "OPT",
@@ -206,6 +207,7 @@ impl From<RecordType> for u16 {
       RecordType::MX => 15,
       RecordType::NS => 2,
       RecordType::NULL => 0,
+      RecordType::NSEC => 47,
       RecordType::NSEC3 => 50,
       RecordType::NSEC3PARAM => 51,
       RecordType::OPT => 41,

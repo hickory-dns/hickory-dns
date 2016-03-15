@@ -278,6 +278,21 @@ pub enum RData {
   // class information are normally queried using IN class protocols.
   NS { nsdname: Name },
 
+  // RFC 4034                DNSSEC Resource Records               March 2005
+  //
+  // 4.1.  NSEC RDATA Wire Format
+  //
+  //  The RDATA of the NSEC RR is as shown below:
+  //
+  //                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  /                      Next Domain Name                         /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  /                       Type Bit Maps                           /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  NSEC { next_domain_name: Name, type_bit_maps: Vec<RecordType> },
+
   // RFC 5155                         NSEC3                        March 2008
   //
   // 3.2.  NSEC3 RDATA Wire Format
@@ -588,6 +603,7 @@ impl RData {
       RecordType::MX => rdata::mx::parse(tokens, origin),
       RecordType::NULL => rdata::null::parse(tokens),
       RecordType::NS => rdata::ns::parse(tokens, origin),
+      RecordType::NSEC => panic!("NSEC should be dynamically generated"),
       RecordType::NSEC3 => panic!("NSEC3 should be dynamically generated"),
       RecordType::NSEC3PARAM => panic!("NSEC3PARAM should be dynamically generated"),
       RecordType::OPT => panic!("parsing OPT doesn't make sense"),
@@ -650,6 +666,7 @@ impl RData {
       RecordType::MX => {debug!("reading MX"); rdata::mx::read(decoder)},
       RecordType::NULL => {debug!("reading NULL"); rdata::null::read(decoder, rdata_length)},
       RecordType::NS => {debug!("reading NS"); rdata::ns::read(decoder)},
+      RecordType::NSEC => {debug!("reading NSEC");rdata::nsec::read(decoder, rdata_length)},
       RecordType::NSEC3 => {debug!("reading NSEC3");rdata::nsec3::read(decoder, rdata_length)},
       RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM");rdata::nsec3param::read(decoder)},
       RecordType::OPT => {debug!("reading OPT"); rdata::opt::read(decoder, rdata_length)},
@@ -679,6 +696,7 @@ impl RData {
       RData::MX{..} => rdata::mx::emit(encoder, self),
       RData::NULL{..} => rdata::null::emit(encoder, self),
       RData::NS{..} => rdata::ns::emit(encoder, self),
+      RData::NSEC{..} => rdata::nsec::emit(encoder, self),
       RData::NSEC3{..} => rdata::nsec3::emit(encoder, self),
       RData::NSEC3PARAM{..} => rdata::nsec3param::emit(encoder, self),
       RData::OPT{..} => rdata::opt::emit(encoder, self),
@@ -703,6 +721,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::DNSKEY{..} => RecordType::DNSKEY,
       RData::MX{..} => RecordType::MX,
       RData::NS{..} => RecordType::NS,
+      RData::NSEC{..} => RecordType::NSEC,
       RData::NSEC3{..} => RecordType::NSEC3,
       RData::NSEC3PARAM{..} => RecordType::NSEC3PARAM,
       RData::NULL{..} => RecordType::NULL,

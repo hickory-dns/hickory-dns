@@ -4,10 +4,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [Unreleased]
 ### Added
-- EDNS support
-- Binary serialization and deserialization of all DNSSec record types
+- NSEC3 parsing support
 - DNSSec validation of RRSIG and DNSKEY records back to root cert
 - Integration with OpenSSL (depends on fork until rust-openssl 0.7.6+ is cut)
+- Binary serialization and deserialization of all DNSSec RFC4034 record types
+- EDNS support
 - Coveralls support added
 - Partial implementation of SIG0 support for dynamic update
 - SRV record support
@@ -22,7 +23,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Travis build failing
 
 ### Deprecated
-- See updated Client API
+- See updated trust_dns::client::Client API
 
 ## 0.4.0 2015-10-17
 ### Added
@@ -35,7 +36,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## 0.3.1 2015-10-04
 ### Fixed
 - Removed buffer clone during label pointer decoding (speed/memory)
-- Removed a lot of superfluos clones, heavier use of Rc
+- Removed a lot of unnecessary clones, heavier use of Rc
 - Binary server bugs (fully functional)
 
 ## 0.3.0 2015-09-27

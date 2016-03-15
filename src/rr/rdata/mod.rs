@@ -25,6 +25,7 @@ pub mod dnskey;
 pub mod mx;
 pub mod null;
 pub mod ns;
+pub mod nsec;
 pub mod nsec3;
 pub mod nsec3param;
 pub mod opt;
