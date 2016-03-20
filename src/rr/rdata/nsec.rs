@@ -120,8 +120,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> 
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &RData) -> EncodeResult {
   if let RData::NSEC{ ref next_domain_name, ref type_bit_maps } = *rdata {
+    let is_canonical_names = encoder.is_canonical_names();
+    encoder.set_canonical_names(true);
     try!(next_domain_name.emit(encoder));
     try!(nsec3::encode_bit_maps(encoder, type_bit_maps));
+    encoder.set_canonical_names(is_canonical_names);
 
     Ok(())
   } else {

@@ -19,7 +19,7 @@ use std::io;
 use std::fmt;
 
 use ::op::ResponseCode;
-use ::rr::Name;
+use ::rr::{Name, Record};
 
 #[derive(Debug)]
 pub enum ClientError {
@@ -38,6 +38,10 @@ pub enum ClientError {
   NoRRSIG,
   NoDS,
   NoSOARecord(Name),
+  SecNxDomain{proof: Vec<Record>},
+  InvalidNsec,
+  InvalidNsec3,
+  NoNsec,
 }
 
 impl fmt::Display for ClientError {
@@ -57,7 +61,11 @@ impl fmt::Display for ClientError {
       ClientError::ErrorResponse(response_code) => write!(f, "Response was an error: {}", response_code.to_str()),
       ClientError::NoRRSIG => write!(f, "No RRSIG was recieved"),
       ClientError::NoDS => write!(f, "No DS was recieved"),
-      ClientError::NoSOARecord(ref name) => write!(f, "No SOA record found for {}", name)
+      ClientError::NoSOARecord(ref name) => write!(f, "No SOA record found for {}", name),
+      ClientError::SecNxDomain{..} => write!(f, "Verified secure non-existence"),
+      ClientError::InvalidNsec => write!(f, "Can not validate NSEC records"),
+      ClientError::InvalidNsec3 => write!(f, "Can not validate NSEC3 records"),
+      ClientError::NoNsec => write!(f, "No NSEC(3) records to validate NXDOMAIN"),
     }
   }
 }
@@ -80,6 +88,10 @@ impl Error for ClientError {
       ClientError::NoRRSIG => "No RRSIG was recieved",
       ClientError::NoDS => "No DS was recieved",
       ClientError::NoSOARecord(..) => "No SOA record found",
+      ClientError::SecNxDomain{ .. } => "Verified secure non-existence",
+      ClientError::InvalidNsec => "Can not validate NSEC records",
+      ClientError::InvalidNsec3 => "Can not validate NSEC3 records",
+      ClientError::NoNsec => "No NSEC(3) records to validate NXDOMAIN",
     }
   }
 

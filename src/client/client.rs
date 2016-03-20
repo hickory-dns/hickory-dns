@@ -47,16 +47,19 @@ impl<C: ClientConnection> Client<C> {
   ///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
   ///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
   ///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
-  pub fn secure_query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
+  pub fn secure_query(&self, query_name: &domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
     // TODO: if we knew we were talking with a DNS server that supported multiple queries, these
     //  could be a single multiple query request...
 
     // with the secure setting, we should get the RRSIG as well as the answer
     //  the RRSIG is signed by the DNSKEY, the DNSKEY is signed by the DS record in the Parent
     //  zone. The key_tag is the DS record is assigned to the DNSKEY.
-    let record_response = try!(self.inner_query(name, query_class, query_type, true));
+    let record_response = try!(self.inner_query(query_name, query_class, query_type, true));
     {
-      let rrsigs: Vec<&Record> = record_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
+      // TODO, would iterators be more efficient to pass around?
+      let rrsigs: Vec<&Record> = record_response.get_answers().iter()
+                                                .chain(record_response.get_name_servers())
+                                                .filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
       if rrsigs.is_empty() {
         return Err(ClientError::NoRRSIG);
@@ -65,14 +68,17 @@ impl<C: ClientConnection> Client<C> {
       // group the record sets by name and type
       let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
       for rrset in record_response.get_answers().iter()
+                                  .chain(record_response.get_name_servers())
                                   .filter(|rr| rr.get_rr_type() != RecordType::RRSIG)
                                   .map(|rr| (rr.get_name().clone(), rr.get_rr_type())) {
         rrset_types.insert(rrset);
       }
 
       // verify all returned rrsets
-      for (name, rrset_type) in rrset_types {
-        let rrset: Vec<&Record> = record_response.get_answers().iter().filter(|rr| rr.get_rr_type() == rrset_type && rr.get_name() == &name).collect();
+      for &(ref name, rrset_type) in rrset_types.iter() {
+        let rrset: Vec<&Record> = record_response.get_answers().iter()
+                                                 .chain(record_response.get_name_servers())
+                                                 .filter(|rr| rr.get_rr_type() == rrset_type && rr.get_name() == name).collect();
 
         // '. DNSKEY' -> 'com. DS' -> 'com. DNSKEY' -> 'examle.com. DS' -> 'example.com. DNSKEY'
         // 'com. DS' is signed by '. DNSKEY' which produces 'com. RRSIG', all are in the same zone, '.'
@@ -82,6 +88,29 @@ impl<C: ClientConnection> Client<C> {
 
         // TODO return this, also make a prettier print
         debug!("proved existance through: {:?}", proof);
+      }
+
+      // at this point all records are validated, but if there are NSEC records present,
+      //  then it's a negative confirmation...
+      if record_response.get_response_code() == ResponseCode::NXDomain {
+        let mut validated_nx = false;
+        for &(_, rrset_type) in rrset_types.iter() {
+          match rrset_type {
+            rt @ RecordType::NSEC => {
+              try!(self.verify_nsec(query_name, query_type, query_class,
+                 record_response.get_name_servers().iter().filter(|rr| rr.get_rr_type() == rt).collect()));
+              validated_nx = true;
+            },
+            rt @ RecordType::NSEC3 => {
+              try!(self.verify_nsec3(query_name, query_type, query_class,
+                record_response.get_name_servers().iter().filter(|rr| rr.get_rr_type() == rt).collect()));
+              validated_nx = true;
+            },
+            _ => (),
+          }
+        }
+
+        if !validated_nx { return Err(ClientError::NoNsec) }
       }
     }
 
@@ -99,18 +128,14 @@ impl<C: ClientConnection> Client<C> {
 
     // verify the DNSKey via a DS key if it's the secure_entry_point
     if let Some(record) = rrset.first() {
-      if record.get_rr_type() == RecordType::DNSKEY {
-        if let &RData::DNSKEY{zone_key, secure_entry_point, ..} = record.get_rdata() {
-          // the spec says that the secure_entry_point isn't reliable for the main DNSKey...
-          //  but how do you know which needs to be validated with the DS in the parent zone?
-          if zone_key && secure_entry_point {
-            let mut proof = try!(self.verify_dnskey(record));
-            // TODO: this is verified, it can be cached
-            proof.push(record.clone());
-            return Ok(proof);
-          }
-        } else {
-          panic!("expected DNSKEY");
+      if let &RData::DNSKEY{zone_key, secure_entry_point, ..} = record.get_rdata() {
+        // the spec says that the secure_entry_point isn't reliable for the main DNSKey...
+        //  but how do you know which needs to be validated with the DS in the parent zone?
+        if zone_key && secure_entry_point {
+          let mut proof = try!(self.verify_dnskey(record));
+          // TODO: this is verified, it can be cached
+          proof.push(record.clone());
+          return Ok(proof);
         }
       }
     }
@@ -223,8 +248,91 @@ impl<C: ClientConnection> Client<C> {
     Err(ClientError::NoDS)
   }
 
+  // RFC 4035             DNSSEC Protocol Modifications            March 2005
+  //
+  // 5.4.  Authenticated Denial of Existence
+  //
+  //  A resolver can use authenticated NSEC RRs to prove that an RRset is
+  //  not present in a signed zone.  Security-aware name servers should
+  //  automatically include any necessary NSEC RRs for signed zones in
+  //  their responses to security-aware resolvers.
+  //
+  //  Denial of existence is determined by the following rules:
+  //
+  //  o  If the requested RR name matches the owner name of an
+  //     authenticated NSEC RR, then the NSEC RR's type bit map field lists
+  //     all RR types present at that owner name, and a resolver can prove
+  //     that the requested RR type does not exist by checking for the RR
+  //     type in the bit map.  If the number of labels in an authenticated
+  //     NSEC RR's owner name equals the Labels field of the covering RRSIG
+  //     RR, then the existence of the NSEC RR proves that wildcard
+  //     expansion could not have been used to match the request.
+  //
+  //  o  If the requested RR name would appear after an authenticated NSEC
+  //     RR's owner name and before the name listed in that NSEC RR's Next
+  //     Domain Name field according to the canonical DNS name order
+  //     defined in [RFC4034], then no RRsets with the requested name exist
+  //     in the zone.  However, it is possible that a wildcard could be
+  //     used to match the requested RR owner name and type, so proving
+  //     that the requested RRset does not exist also requires proving that
+  //     no possible wildcard RRset exists that could have been used to
+  //     generate a positive response.
+  //
+  //  In addition, security-aware resolvers MUST authenticate the NSEC
+  //  RRsets that comprise the non-existence proof as described in Section
+  //  5.3.
+  //
+  //  To prove the non-existence of an RRset, the resolver must be able to
+  //  verify both that the queried RRset does not exist and that no
+  //  relevant wildcard RRset exists.  Proving this may require more than
+  //  one NSEC RRset from the zone.  If the complete set of necessary NSEC
+  //  RRsets is not present in a response (perhaps due to message
+  //  truncation), then a security-aware resolver MUST resend the query in
+  //  order to attempt to obtain the full collection of NSEC RRs necessary
+  //  to verify the non-existence of the requested RRset.  As with all DNS
+  //  operations, however, the resolver MUST bound the work it puts into
+  //  answering any particular query.
+  //
+  //  Since a validated NSEC RR proves the existence of both itself and its
+  //  corresponding RRSIG RR, a validator MUST ignore the settings of the
+  //  NSEC and RRSIG bits in an NSEC RR.
+  fn verify_nsec(&self, query_name: &domain::Name, query_type: RecordType,
+                 query_class: DNSClass, nsecs: Vec<&Record>) -> ClientResult<()> {
+    // first look for a record with the same name
+    //  if they are, then the query_type should not exist in the NSEC record.
+    //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
+    //    WTF? is that bad server, bad record
+    if nsecs.iter().any(|r| query_name == r.get_name() && {
+      if let &RData::NSEC { ref type_bit_maps, .. } = r.get_rdata() {
+        !type_bit_maps.contains(&query_type)
+      } else {
+        panic!("expected NSEC was {:?}", r.get_rr_type())
+      }
+    }) { return Ok(()) }
 
-  // send a DNS query to the name_server specified in Clint.
+    // based on the WTF? above, we will ignore any NSEC records of the same name
+    if nsecs.iter().filter(|r| query_name != r.get_name()).any(|r| query_name > r.get_name() && {
+      if let &RData::NSEC { ref next_domain_name, ..} = r.get_rdata() {
+        query_name < next_domain_name
+      } else {
+        panic!("expected NSEC was {:?}", r.get_rr_type())
+      }
+    }) { return Ok(()) }
+
+    // TODO: need to validate ANY or *.domain record existance, which doesn't make sense since
+    //  that would have been returned in the request
+    // if we got here, then there are no matching NSEC records, no validation
+    Err(ClientError::InvalidNsec)
+  }
+
+
+  fn verify_nsec3(&self, query_name: &domain::Name, query_type: RecordType,
+                  query_class: DNSClass, nsec3: Vec<&Record>) -> ClientResult<()> {
+
+    unimplemented!();
+  }
+
+  // send a DNS query to the name_server specified in Client.
   //
   // ```
   // use std::net::*;
@@ -299,7 +407,6 @@ impl<C: ClientConnection> Client<C> {
     let response = try!(Message::read(&mut decoder));
 
     if response.get_id() != id { return Err(ClientError::IncorrectMessageId{ got: response.get_id(), expect: id }); }
-    if response.get_response_code() != ResponseCode::NoError { return Err(ClientError::ErrorResponse(response.get_response_code())); }
 
     Ok(response)
   }
@@ -315,10 +422,8 @@ impl<C: ClientConnection> Client<C> {
 mod test {
   use std::net::*;
 
-  use ::rr::dns_class::DNSClass;
-  use ::rr::record_type::RecordType;
-  use ::rr::domain;
-  use ::rr::record_data::RData;
+  use ::rr::{DNSClass, RecordType, domain, RData};
+  use ::op::ResponseCode;
   use ::udp::UdpClientConnection;
   use ::tcp::TcpClientConnection;
   use super::Client;
@@ -404,6 +509,35 @@ mod test {
     } else {
       assert!(false);
     }
+  }
+
+  #[test]
+  #[cfg(feature = "ftest")]
+  fn test_nsec_query_example_udp() {
+    let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = UdpClientConnection::new(addr).unwrap();
+    test_nsec_query_example(conn);
+  }
+
+  #[test]
+  #[cfg(feature = "ftest")]
+  fn test_nsec_query_example_tcp() {
+    let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = TcpClientConnection::new(addr).unwrap();
+    test_nsec_query_example(conn);
+  }
+
+
+  #[cfg(test)]
+  fn test_nsec_query_example<C: ClientConnection>(conn: C) {
+    let name = domain::Name::with_labels(vec!["none".to_string(), "example".to_string(), "com".to_string()]);
+    let client = Client::new(conn);
+
+    let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
+    assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+
+    let response = response.unwrap();
+    assert!(response.get_response_code() == ResponseCode::NXDomain);
   }
 
   // // TODO: use this site for verifying nsec3

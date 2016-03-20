@@ -114,6 +114,7 @@ impl RecordType {
       43 => Ok(RecordType::DS),
       15 => Ok(RecordType::MX),
       2 => Ok(RecordType::NS),
+      47 => Ok(RecordType::NSEC),
       50 => Ok(RecordType::NSEC3),
       51 => Ok(RecordType::NSEC3PARAM),
       0 => Ok(RecordType::NULL),
