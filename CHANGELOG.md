@@ -2,8 +2,13 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [Unreleased]
+## [unreleased]
 ### Added
+- NSEC3 resolver validation
+
+## 0.5.0 2016-03-22
+### Added
+- NSEC resolver validation
 - NSEC3 parsing support
 - DNSSec validation of RRSIG and DNSKEY records back to root cert
 - Integration with OpenSSL (depends on fork until rust-openssl 0.7.6+ is cut)
