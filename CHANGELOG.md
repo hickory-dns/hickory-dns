@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.5.0 2016-03-22
 ### Added
+- Updated rust-openssl to 0.7.8 which include new RSA creation bindings
 - NSEC resolver validation
 - NSEC3 parsing support
 - DNSSec validation of RRSIG and DNSKEY records back to root cert
