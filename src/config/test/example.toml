@@ -51,7 +51,7 @@ file = "default/127.0.0.1.zone"
 [[zones]]
 zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
 zsone_type = "Master"
-file = "default/::1.zone"
+file = "default/ipv6_1.zone"
 
 [[zones]]
 zone = "255.in-addr.arpa"
