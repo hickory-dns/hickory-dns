@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [unreleased]
+### Changed
+- updated chrono to 0.2.21
+- updated docopt to 0.6.78
+- updated log to 0.3.5
+- updated openssl to 0.7.8
+- updated openssl-sys to 0.7.8
+- updated rustc-serialize to 0.3.18
+- updated toml to 0.1.28
 
 ## 0.5.1 2016-03-30
 ### Added
