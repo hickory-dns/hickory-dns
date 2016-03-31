@@ -94,7 +94,8 @@ impl<C: ClientConnection> Client<C> {
 
       // at this point all records are validated, but if there are NSEC records present,
       //  then it's a negative confirmation...
-      if record_response.get_response_code() == ResponseCode::NXDomain {
+      if record_response.get_response_code() == ResponseCode::NXDomain ||
+         record_response.get_answers().is_empty() {
         let mut validated_nx = false;
         for &(_, rrset_type) in rrset_types.iter() {
           match rrset_type {
@@ -188,7 +189,7 @@ impl<C: ClientConnection> Client<C> {
       }
     }
 
-    Err(ClientError::NoRRSIG)
+    Err(ClientError::NoDNSKEY)
   }
 
   /// attempts to verify the DNSKey against the DS of the parent.
@@ -301,6 +302,8 @@ impl<C: ClientConnection> Client<C> {
   //  NSEC and RRSIG bits in an NSEC RR.
   fn verify_nsec(&self, query_name: &domain::Name, query_type: RecordType,
                  query_class: DNSClass, nsecs: Vec<&Record>) -> ClientResult<()> {
+    debug!("verifying nsec");
+
     // first look for a record with the same name
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
@@ -403,8 +406,7 @@ impl<C: ClientConnection> Client<C> {
                   nsec3s: Vec<&Record>) -> ClientResult<()> {
     // the search name is the one to look for
     let zone_name = try!(soa.ok_or(ClientError::NoSOARecord(query_name.clone()))).get_name();
-
-    println!("nsec3s: {:?}", nsec3s);
+    debug!("nsec3s: {:?}", nsec3s);
 
     for nsec3 in nsec3s {
       // for each nsec3 we search for matching hashed names
@@ -412,8 +414,6 @@ impl<C: ClientConnection> Client<C> {
 
       // hash the search name
       if let &RData::NSEC3{hash_algorithm, opt_out, iterations, ref salt, ref type_bit_maps, ..} = nsec3.get_rdata() {
-        println!("nsec3_name: {}", nsec3.get_name());
-
         // search all the name options
         while search_name.num_labels() >= zone_name.num_labels() {
 
@@ -421,8 +421,6 @@ impl<C: ClientConnection> Client<C> {
           let hash = hash_algorithm.hash(salt, &search_name, iterations);
           let hash_label = base32hex::encode(&hash).to_lowercase();
           let hash_name = zone_name.prepend_label(Rc::new(hash_label));
-
-          println!("hash_name: {}", hash_name);
 
           if &hash_name == nsec3.get_name() {
             // like nsec, if there is a name that matches, then we have proof that the name does
@@ -559,6 +557,7 @@ mod test {
 
   // TODO: this should be flagged with cfg as a functional test.
   #[cfg(test)]
+  #[cfg(feature = "ftest")]
   fn test_query<C: ClientConnection>(conn: C) {
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
     let client = Client::new(conn);
@@ -599,6 +598,7 @@ mod test {
   }
 
   #[cfg(test)]
+  #[cfg(feature = "ftest")]
   fn test_secure_query_example<C: ClientConnection>(conn: C) {
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
     let client = Client::new(conn);
@@ -640,6 +640,7 @@ mod test {
 
 
   #[cfg(test)]
+  #[cfg(feature = "ftest")]
   fn test_nsec_query_example<C: ClientConnection>(conn: C) {
     let name = domain::Name::with_labels(vec!["none".to_string(), "example".to_string(), "com".to_string()]);
     let client = Client::new(conn);
@@ -648,13 +649,47 @@ mod test {
     assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
     let response = response.unwrap();
-    assert!(response.get_response_code() == ResponseCode::NXDomain);
+    assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
   }
 
-  // TODO: use this site for verifying nsec3
+
   #[test]
   #[cfg(feature = "ftest")]
-  fn test_secure_query_sdsmt() {
+  fn test_nsec_query_type() {
+    let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+
+    let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = TcpClientConnection::new(addr).unwrap();
+    let client = Client::new(conn);
+
+    let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
+    assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+
+    let response = response.unwrap();
+    // TODO: it would be nice to verify that the NSEC records were validated...
+    assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    assert!(response.get_answers().is_empty());
+  }
+
+  // TODO these NSEC3 tests don't work, it seems that the zone is not signed properly.
+  #[test]
+  #[cfg(feature = "ftest")]
+  fn test_nsec3_sdsmt() {
+    let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = TcpClientConnection::new(addr).unwrap();
+    let name = domain::Name::with_labels(vec!["none".to_string(), "sdsmt".to_string(), "edu".to_string()]);
+    let client = Client::new(conn);
+
+    let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
+    assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+
+    let response = response.unwrap();
+    assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
+  }
+
+  #[test]
+  #[cfg(feature = "ftest")]
+  fn test_nsec3_sdsmt_type() {
     let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
     let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
@@ -664,6 +699,6 @@ mod test {
     assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
     let response = response.unwrap();
-    assert!(response.get_response_code() == ResponseCode::NXDomain);
+    assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
   }
 }
