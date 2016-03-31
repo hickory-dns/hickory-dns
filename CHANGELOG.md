@@ -3,6 +3,8 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## [unreleased]
+
+## 0.5.1 2016-03-30
 ### Added
 - NSEC3 resolver validation
 - data-ecoding as a dependency (base32hex)

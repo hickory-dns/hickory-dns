@@ -1,6 +1,6 @@
 [root]
 name = "trust-dns"
-version = "0.5.0"
+version = "0.5.1"
 dependencies = [
  "chrono 0.2.20 (registry+https://github.com/rust-lang/crates.io-index)",
  "data-encoding 1.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
