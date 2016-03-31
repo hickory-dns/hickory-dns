@@ -130,9 +130,9 @@ pub fn main() {
   for tcp_listener in tcp_listeners {
     info!("listening for TCP on {:?}", tcp_listener);
     server.register_listener(tcp_listener);
-
   }
 
+  banner();
   if let Err(e) = server.listen() {
     error!("failed to listen: {}", e);
   }
@@ -142,4 +142,13 @@ pub fn main() {
 
   // we're exiting for some reason...
   info!("Trust-DNS {} stopping", trust_dns::version());
+}
+
+fn banner() {
+  println!("   o                    o           o             ");
+  println!("   |                    |           |             ");
+  println!("  -o-  o-o  o  o  o-o  -o-  o-o   o-O  o-o   o-o  ");
+  println!("   |   |    |  |   \\    |        |  |  |  |   \\   ");
+  println!("   o   o    o--o  o-o   o         o-o  o  o  o-o  ");
+  println!("                                                  ");
 }

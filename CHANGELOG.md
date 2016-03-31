@@ -5,6 +5,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## [unreleased]
 ### Added
 - NSEC3 resolver validation
+- data-ecoding as a dependency (base32hex)
+- trust-dns banner on boot of server
+
+### Changed
+- Changed the bin.rs to named.rs, more accurate, allow for other binaries
 
 ## 0.5.0 2016-03-22
 ### Added

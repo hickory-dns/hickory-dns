@@ -44,31 +44,46 @@ impl Name {
     self.labels.is_empty()
   }
 
-  // inline builder
+  /// inline builder
   pub fn label(mut self, label: &'static str) -> Self {
     // TODO get_mut() on Arc was unstable when this was written
     let mut new_labels: Vec<Rc<String>> = (*self.labels).clone();
     new_labels.push(Rc::new(label.into()));
     self.labels = Rc::new(new_labels);
-    assert!(self.labels.len() < 256);
+    assert!(self.labels.len() < 256); // this should be an error
     self
   }
 
-  // for mutating over time
+  /// for mutating over time
   pub fn with_labels(labels: Vec<String>) -> Self {
-    assert!(labels.len() < 256);
+    assert!(labels.len() < 256); // this should be an error
     Name { labels: Rc::new(labels.into_iter().map(|s|Rc::new(s)).collect()) }
   }
 
+  /// prepend the String to the label
+  pub fn prepend_label(&self, label: Rc<String>) -> Self {
+    let mut new_labels: Vec<Rc<String>> = Vec::with_capacity(self.labels.len() + 1);
+    new_labels.push(label);
+
+    for label in &*self.labels {
+      new_labels.push(label.clone());
+    }
+
+    assert!(new_labels.len() < 256); // this should be an error
+    Name{ labels: Rc::new(new_labels) }
+  }
+
+  /// appends the String to this label at the end
   pub fn add_label(&mut self, label: Rc<String>) -> &mut Self {
     // TODO get_mut() on Arc was unstable when this was written
     let mut new_labels: Vec<Rc<String>> = (*self.labels).clone();
     new_labels.push(label);
     self.labels = Rc::new(new_labels);
-    assert!(self.labels.len() < 256);
+    assert!(self.labels.len() < 256); // this should be an error
     self
   }
 
+  /// appends the other to this name
   pub fn append(&mut self, other: &Self) -> &mut Self {
     for rcs in &*other.labels {
       self.add_label(rcs.clone());
@@ -394,9 +409,11 @@ enum LabelParseState {
 #[cfg(test)]
 mod tests {
   use super::*;
+  use std::sync::Arc as Rc;
+  use std::cmp::Ordering;
+
   use ::serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
   use ::serialize::binary::*;
-  use std::cmp::Ordering;
 
   fn get_data() -> Vec<(Name, Vec<u8>)> {
     vec![
@@ -466,6 +483,14 @@ mod tests {
     assert_eq!(zone.base_name(), Name::new().label("com"));
     assert!(zone.base_name().base_name().is_root());
     assert!(zone.base_name().base_name().base_name().is_root());
+  }
+
+  #[test]
+  fn test_prepend() {
+    let zone = Name::new().label("example").label("com");
+    let www = zone.prepend_label(Rc::new("www".to_string()));
+
+    assert_eq!(www, Name::new().label("www").label("example").label("com"));
   }
 
   #[test]

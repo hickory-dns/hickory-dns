@@ -14,12 +14,14 @@
  * limitations under the License.
  */
 extern crate chrono;
+extern crate data_encoding;
 #[macro_use] extern crate log;
 extern crate mio;
 extern crate openssl;
 extern crate openssl_sys;
-extern crate toml;
 extern crate rustc_serialize;
+extern crate toml;
+
 
 pub mod logger;
 pub mod rr;

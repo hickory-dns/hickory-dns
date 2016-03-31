@@ -14,7 +14,9 @@
 
 use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
+use std::sync::Arc as Rc;
 
+use data_encoding::base32hex;
 use openssl::crypto::pkey::Role;
 
 use ::error::*;
@@ -103,6 +105,7 @@ impl<C: ClientConnection> Client<C> {
             },
             rt @ RecordType::NSEC3 => {
               try!(self.verify_nsec3(query_name, query_type, query_class,
+                record_response.get_name_servers().iter().filter(|rr| rr.get_rr_type() == RecordType::SOA).next(),
                 record_response.get_name_servers().iter().filter(|rr| rr.get_rr_type() == rt).collect()));
               validated_nx = true;
             },
@@ -325,11 +328,119 @@ impl<C: ClientConnection> Client<C> {
     Err(ClientError::InvalidNsec)
   }
 
-
+  // Laurie, et al.              Standards Track                    [Page 22]
+  //
+  // RFC 5155                         NSEC3                        March 2008
+  //
+  //
+  // 8.  Validator Considerations
+  //
+  // 8.1.  Responses with Unknown Hash Types
+  //
+  //    A validator MUST ignore NSEC3 RRs with unknown hash types.  The
+  //    practical result of this is that responses containing only such NSEC3
+  //    RRs will generally be considered bogus.
+  //
+  // 8.2.  Verifying NSEC3 RRs
+  //
+  //    A validator MUST ignore NSEC3 RRs with a Flag fields value other than
+  //    zero or one.
+  //
+  //    A validator MAY treat a response as bogus if the response contains
+  //    NSEC3 RRs that contain different values for hash algorithm,
+  //    iterations, or salt from each other for that zone.
+  //
+  // 8.3.  Closest Encloser Proof
+  //
+  //    In order to verify a closest encloser proof, the validator MUST find
+  //    the longest name, X, such that
+  //
+  //    o  X is an ancestor of QNAME that is matched by an NSEC3 RR present
+  //       in the response.  This is a candidate for the closest encloser,
+  //       and
+  //
+  //    o  The name one label longer than X (but still an ancestor of -- or
+  //       equal to -- QNAME) is covered by an NSEC3 RR present in the
+  //       response.
+  //
+  //    One possible algorithm for verifying this proof is as follows:
+  //
+  //    1.  Set SNAME=QNAME.  Clear the flag.
+  //
+  //    2.  Check whether SNAME exists:
+  //
+  //        *  If there is no NSEC3 RR in the response that matches SNAME
+  //           (i.e., an NSEC3 RR whose owner name is the same as the hash of
+  //           SNAME, prepended as a single label to the zone name), clear
+  //           the flag.
+  //
+  //        *  If there is an NSEC3 RR in the response that covers SNAME, set
+  //           the flag.
+  //
+  //        *  If there is a matching NSEC3 RR in the response and the flag
+  //           was set, then the proof is complete, and SNAME is the closest
+  //           encloser.
+  //
+  //        *  If there is a matching NSEC3 RR in the response, but the flag
+  //           is not set, then the response is bogus.
+  //
+  //    3.  Truncate SNAME by one label from the left, go to step 2.
+  //
+  //    Once the closest encloser has been discovered, the validator MUST
+  //    check that the NSEC3 RR that has the closest encloser as the original
+  //    owner name is from the proper zone.  The DNAME type bit must not be
+  //    set and the NS type bit may only be set if the SOA type bit is set.
+  //    If this is not the case, it would be an indication that an attacker
+  //    is using them to falsely deny the existence of RRs for which the
+  //    server is not authoritative.
+  //
+  //    In the following descriptions, the phrase "a closest (provable)
+  //    encloser proof for X" means that the algorithm above (or an
+  //    equivalent algorithm) proves that X does not exist by proving that an
+  //    ancestor of X is its closest encloser.
   fn verify_nsec3(&self, query_name: &domain::Name, query_type: RecordType,
-                  query_class: DNSClass, nsec3: Vec<&Record>) -> ClientResult<()> {
+                  query_class: DNSClass, soa: Option<&Record>,
+                  nsec3s: Vec<&Record>) -> ClientResult<()> {
+    // the search name is the one to look for
+    let zone_name = try!(soa.ok_or(ClientError::NoSOARecord(query_name.clone()))).get_name();
 
-    unimplemented!();
+    println!("nsec3s: {:?}", nsec3s);
+
+    for nsec3 in nsec3s {
+      // for each nsec3 we search for matching hashed names
+      let mut search_name: domain::Name = query_name.clone();
+
+      // hash the search name
+      if let &RData::NSEC3{hash_algorithm, opt_out, iterations, ref salt, ref type_bit_maps, ..} = nsec3.get_rdata() {
+        println!("nsec3_name: {}", nsec3.get_name());
+
+        // search all the name options
+        while search_name.num_labels() >= zone_name.num_labels() {
+
+          // TODO: cache hashes across nsec3 validations
+          let hash = hash_algorithm.hash(salt, &search_name, iterations);
+          let hash_label = base32hex::encode(&hash).to_lowercase();
+          let hash_name = zone_name.prepend_label(Rc::new(hash_label));
+
+          println!("hash_name: {}", hash_name);
+
+          if &hash_name == nsec3.get_name() {
+            // like nsec, if there is a name that matches, then we have proof that the name does
+            //  not exist
+            if &search_name == query_name {
+              if !type_bit_maps.contains(&query_type) { return Ok(()) }
+            }
+
+            return Ok(())
+          }
+
+          // need to continue up the chain
+          search_name = search_name.base_name();
+        }
+      }
+    }
+
+    Err(ClientError::InvalidNsec3)
   }
 
   // send a DNS query to the name_server specified in Client.
@@ -540,37 +651,19 @@ mod test {
     assert!(response.get_response_code() == ResponseCode::NXDomain);
   }
 
-  // // TODO: use this site for verifying nsec3
-  // #[test]
-  // #[cfg(feature = "ftest")]
-  // fn test_secure_query_sdsmt() {
-  //   use std::net::*;
-  //
-  //   use ::rr::dns_class::DNSClass;
-  //   use ::rr::record_type::RecordType;
-  //   use ::rr::domain;
-  //   use ::rr::record_data::RData;
-  //   use ::udp::Client;
-  //
-  //   let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
-  //   let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
-  //
-  //   let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
-  //   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-  //
-  //   let response = response.unwrap();
-  //
-  //   println!("response records: {:?}", response);
-  //
-  //   let record = &response.get_answers()[0];
-  //   assert_eq!(record.get_name(), &name);
-  //   assert_eq!(record.get_rr_type(), RecordType::A);
-  //   assert_eq!(record.get_dns_class(), DNSClass::IN);
-  //
-  //   if let &RData::A{ ref address } = record.get_rdata() {
-  //     assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-  //   } else {
-  //     assert!(false);
-  //   }
-  // }
+  // TODO: use this site for verifying nsec3
+  #[test]
+  #[cfg(feature = "ftest")]
+  fn test_secure_query_sdsmt() {
+    let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
+    let conn = TcpClientConnection::new(addr).unwrap();
+    let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
+    let client = Client::new(conn);
+
+    let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
+    assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+
+    let response = response.unwrap();
+    assert!(response.get_response_code() == ResponseCode::NXDomain);
+  }
 }
