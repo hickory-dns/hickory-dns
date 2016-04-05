@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## [unreleased]
+## 0.5.2 2016-04-04
 ### Changed
 - updated chrono to 0.2.21
 - updated docopt to 0.6.78
