@@ -15,7 +15,6 @@
  */
 use std::net::SocketAddr;
 use std::io;
-use std::io::Cursor;
 use std::sync::Arc;
 
 use mio::udp::UdpSocket;
@@ -44,12 +43,13 @@ impl UdpHandler {
   }
 
   pub fn new_server(socket: &UdpSocket, catalog: Arc<Catalog>) -> Option<Self> {
-    let mut buf: Vec<u8> = Vec::with_capacity(512);
+    //let mut buf: Vec<u8> = Vec::with_capacity(512);
+    let mut buf: [u8; 4096] = [0u8; 4096];
     let recv_result = socket.recv_from(&mut buf);
 
     match recv_result {
-      Ok(Some(addr)) => {
-        debug!("revieved {} bytes from {:?}", buf.len(), addr);
+      Ok(Some((length, addr))) => {
+        debug!("revieved {} bytes from {:?}", length, addr);
         let request = {
           let mut decoder = BinDecoder::new(&buf);
           Message::read(&mut decoder)
@@ -64,7 +64,7 @@ impl UdpHandler {
         };
 
         // serialize the data for the response
-        let buf = Self::serialize_msg(buf, &response);
+        let buf = Self::serialize_msg(buf.iter().take(length).cloned().collect(), &response);
 
         // TODO: this is the easiest spot to do this, but is least useful to shorten
         //  also, it's not clear how useful a truncated response is for secure operations
@@ -115,10 +115,7 @@ impl UdpHandler {
       UdpState::Writing => {
         if events.is_writable() {
           info!("sending message to: {} id: {} rcode: {:?}", self.addr, self.message.get_id(), self.message.get_response_code());
-
-          // TODO when the next version of MIO is released, this clone and unsafe will be unnecessary
-          let mut bytes = Cursor::new(self.buffer.clone());
-          match socket.send_to(&mut bytes, &self.addr) {
+          match socket.send_to(&self.buffer, &self.addr) {
             Ok(..) => {
               Ok(UdpState::Done)
             },

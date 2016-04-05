@@ -13,6 +13,8 @@
 // limitations under the License.
 use std::net::SocketAddr;
 use std::io::{Write, Read};
+use std::mem;
+use std::fmt;
 
 use mio::tcp::TcpStream;
 use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want confusion with std::net
@@ -23,9 +25,9 @@ use client::ClientConnection;
 
 const RESPONSE: Token = Token(0);
 
-#[derive(Debug)]
 pub struct TcpClientConnection {
-  socket: TcpStream,
+  socket: Option<TcpStream>,
+  event_loop: EventLoop<Response>,
 }
 
 impl TcpClientConnection {
@@ -33,40 +35,43 @@ impl TcpClientConnection {
     debug!("connecting to {:?}", name_server);
     let stream = try!(TcpStream::connect(&name_server));
 
-    Ok(TcpClientConnection{ socket: stream })
-  }
-}
-
-impl ClientConnection for TcpClientConnection {
-  fn send(&mut self, buffer: &[u8]) -> ClientResult<Vec<u8>> {
-    //----------------------------
-    // now listen for the response
-    //----------------------------
-    // setup the polling and timeout, before sending the message
-    // Create an event loop
-
     let mut event_loop: EventLoop<Response> = try!(EventLoop::new());
     // TODO make the timeout configurable, 5 seconds is the dig default
     // TODO the error is private to mio, which makes this awkward...
     if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientError::TimerError) };
-    try!(event_loop.register_opt(&self.socket, RESPONSE, EventSet::all(), PollOpt::all()));
 
-    let mut response: Response = Response::new(buffer, &mut self.socket);
-
-    try!(event_loop.run(&mut response));
-
-    if response.error.is_some() { return Err(response.error.unwrap()) }
-    if response.buf.is_none() { return Err(ClientError::NoDataReceived) }
-    Ok(response.buf.unwrap())
+    Ok(TcpClientConnection{ socket: Some(stream), event_loop: event_loop })
   }
 }
 
-struct Response<'a> {
+impl ClientConnection for TcpClientConnection {
+  fn send(&mut self, buffer: Vec<u8> ) -> ClientResult<Vec<u8>> {
+
+    try!(self.event_loop.reregister(self.socket.as_ref().expect("never none"), RESPONSE, EventSet::all(), PollOpt::all()));
+    let mut response: Response = Response::new(buffer, mem::replace(&mut self.socket, None).expect("Only one user at a time"));
+    try!(self.event_loop.run(&mut response));
+
+
+    if response.error.is_some() { return Err(response.error.unwrap()) }
+    if response.buf.is_none() { return Err(ClientError::NoDataReceived) }
+    let result = Ok(response.buf.unwrap());
+    self.socket = Some(response.stream);
+    result
+  }
+}
+
+impl fmt::Debug for TcpClientConnection {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "TcpClientConnection: {:?}", self.socket)
+  }
+}
+
+struct Response {
   pub state: ClientState,
-  pub message: &'a [u8],
+  pub message: Vec<u8>,
   pub buf: Option<Vec<u8>>,
   pub error: Option<ClientError>,
-  pub stream: &'a mut TcpStream,
+  pub stream: TcpStream,
 }
 
 enum ClientState {
@@ -74,14 +79,14 @@ enum ClientState {
   //WillRead,
 }
 
-impl<'a> Response<'a> {
-  pub fn new(message: &'a [u8], stream: &'a mut TcpStream) -> Self {
+impl Response {
+  pub fn new(message: Vec<u8>, stream: TcpStream) -> Self {
     Response{ state: ClientState::WillWrite, message: message, buf: None, error: None, stream: stream }
   }
 }
 
 // TODO: this should be merged with the server handler
-impl<'a> Handler for Response<'a> {
+impl Handler for Response {
   type Timeout = ();
   type Message = ();
 
@@ -90,7 +95,7 @@ impl<'a> Handler for Response<'a> {
       RESPONSE => {
         if events.is_writable() {
           let len: [u8; 2] = [(self.message.len() >> 8 & 0xFF) as u8, (self.message.len() & 0xFF) as u8];
-          self.error = self.stream.write_all(&len).and_then(|_|self.stream.write_all(self.message)).err().map(|o|o.into());
+          self.error = self.stream.write_all(&len).and_then(|_|self.stream.write_all(&self.message)).err().map(|o|o.into());
           if self.error.is_some() { return }
 
           self.error = self.stream.flush().err().map(|o|o.into());
@@ -99,17 +104,20 @@ impl<'a> Handler for Response<'a> {
           // assuming we will always be able to read two bytes.
           let mut len_bytes: [u8;2] = [0u8;2];
 
-          match self.stream.take(2).read(&mut len_bytes) {
-            Ok(len) if len != 2 => {
-              debug!("did not read all len_bytes expected: 2 got: {:?} bytes from: {:?}", len_bytes, self.stream);
-              self.error = Some(ClientError::NotAllBytesReceived{received: len, expect: 2});
-              return
-            },
-            Err(e) => {
-              self.error = Some(e.into());
-              return
-            },
-            Ok(_) => (),
+          {
+            let stream: &mut TcpStream = &mut self.stream;
+            match stream.take(2).read(&mut len_bytes) {
+              Ok(len) if len != 2 => {
+                debug!("did not read all len_bytes expected: 2 got: {:?} bytes from: {:?}", len_bytes, stream);
+                self.error = Some(ClientError::NotAllBytesReceived{received: len, expect: 2});
+                return
+              },
+              Err(e) => {
+                self.error = Some(e.into());
+                return
+              },
+              Ok(_) => (),
+            }
           }
 
           let len: u16 = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
@@ -117,17 +125,20 @@ impl<'a> Handler for Response<'a> {
           debug!("reading {:?} bytes from: {:?}", len, self.stream.peer_addr());
           // use a cursor here, and seek to the write spot on each read...
           let mut buf = Vec::with_capacity(len as usize);
-          match self.stream.take(len as u64).read_to_end(&mut buf) {
-            Ok(got) if got != len as usize => {
-              debug!("did not read all bytes got: {} expected: {} bytes from: {:?}", got, len, self.stream.peer_addr());
-              self.error = Some(ClientError::NotAllBytesReceived{received: got, expect: len as usize});
-              return
-            },
-            Err(e) => {
-              self.error = Some(e.into());
-              return
-            },
-            Ok(_) => (),
+          {
+            let stream: &mut TcpStream = &mut self.stream;
+            match stream.take(len as u64).read_to_end(&mut buf) {
+              Ok(got) if got != len as usize => {
+                debug!("did not read all bytes got: {} expected: {} bytes from: {:?}", got, len, stream.peer_addr());
+                self.error = Some(ClientError::NotAllBytesReceived{received: got, expect: len as usize});
+                return
+              },
+              Err(e) => {
+                self.error = Some(e.into());
+                return
+              },
+              Ok(_) => (),
+            }
           }
 
           // we got our response, shutdown.

@@ -88,8 +88,8 @@ impl Server {
     let mut event_loop: EventLoop<Self> = try!(EventLoop::new());
 
     // registering these on non-writable events, since these are the listeners.
-    for (ref token, ref socket) in &self.udp_sockets { try!(event_loop.register_opt(*socket, **token, !EventSet::writable(), PollOpt::level())); }
-    for (ref token, ref socket) in &self.tcp_sockets { try!(event_loop.register_opt(*socket, **token, !EventSet::writable(), PollOpt::level())); }
+    for (ref token, ref socket) in &self.udp_sockets { try!(event_loop.register(*socket, **token, !EventSet::writable(), PollOpt::level())); }
+    for (ref token, ref socket) in &self.tcp_sockets { try!(event_loop.register(*socket, **token, !EventSet::writable(), PollOpt::level())); }
 
     try!(event_loop.run(self));
 
@@ -181,14 +181,14 @@ impl Handler for Server {
         // give it a new token and insert the stream on the eventlistener
         // then store in the map for reference when dealing with new streams
         match socket.accept() {
-          Ok(Some(stream)) => {
+          Ok(Some((stream, addr))) => {
             let token = self.next_token();
 
             // initially we want readable sockets...
-            match event_loop.register_opt(&stream, token, !EventSet::writable(), PollOpt::level()) {
+            match event_loop.register(&stream, token, !EventSet::writable(), PollOpt::level()) {
               Err(e) => error!("could not register stream: {:?} cause: {}", stream, e),
               Ok(()) => {
-                info!("accepted tcp connection from: {:?} on {:?}", stream.peer_addr(), stream.local_addr().ok());
+                info!("accepted tcp connection from: {:?} on {:?}", addr, stream.local_addr().ok());
                 self.tcp_handlers.insert(token, TcpHandler::new_server_handler(stream, self.catalog.clone()));
               }
             }

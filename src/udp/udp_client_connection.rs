@@ -11,8 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+use std::mem;
 use std::net::{SocketAddr, ToSocketAddrs};
-use std::io::Cursor;
+use std::fmt;
 
 use mio::udp::UdpSocket;
 use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want confusion with std::net
@@ -22,10 +23,10 @@ use client::ClientConnection;
 
 const RESPONSE: Token = Token(0);
 
-#[derive(Debug)]
 pub struct UdpClientConnection {
   name_server: SocketAddr,
-  socket: UdpSocket,
+  socket: Option<UdpSocket>,
+  event_loop: EventLoop<Response>,
 }
 
 impl UdpClientConnection {
@@ -35,53 +36,54 @@ impl UdpClientConnection {
                                    next().expect("no addresses parsed from 0.0.0.0");
 
     let socket = try!(UdpSocket::bound(&zero_addr));
-    Ok(UdpClientConnection{name_server: name_server, socket: socket})
-  }
-}
-
-impl ClientConnection for UdpClientConnection {
-  fn send(&mut self, buffer: &[u8]) -> ClientResult<Vec<u8>> {
-    let mut bytes = Cursor::new(buffer);
-    try!(self.socket.send_to(&mut bytes, &self.name_server));
-
-    //----------------------------
-    // now listen for the response
-    //----------------------------
-    // setup the polling and timeout, before sending the message
-    // Create an event loop
-
     let mut event_loop: EventLoop<Response> = try!(EventLoop::new());
     // TODO make the timeout configurable, 5 seconds is the dig default
     // TODO the error is private to mio, which makes this awkward...
     if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientError::TimerError) };
-    try!(event_loop.register_opt(&self.socket, RESPONSE, EventSet::readable(), PollOpt::all()));
 
-    let mut response: Response = Response::new(&self.socket);
-
-    // run_once should be enough, if something else nepharious hits the socket, what?
-    try!(event_loop.run(&mut response));
-
-    if response.error.is_some() { return Err(response.error.unwrap()) }
-    if response.buf.is_none() { return Err(ClientError::NoDataReceived) }
-    Ok(response.buf.unwrap())
+    Ok(UdpClientConnection{name_server: name_server, socket: Some(socket), event_loop: event_loop})
   }
 }
 
-struct Response<'a> {
+impl ClientConnection for UdpClientConnection {
+  fn send(&mut self, buffer: Vec<u8>) -> ClientResult<Vec<u8>> {
+    try!(self.event_loop.reregister(self.socket.as_ref().expect("never none"), RESPONSE, EventSet::readable(), PollOpt::all()));
+    try!(self.socket.as_ref().expect("never none").send_to(&buffer, &self.name_server));
+
+    let mut response: Response = Response::new(mem::replace(&mut self.socket, None).expect("never none"));
+
+    // run_once should be enough, if something else nepharious hits the socket, what?
+    try!(self.event_loop.run(&mut response));
+
+    if response.error.is_some() { return Err(response.error.unwrap()) }
+    if response.buf.is_none() { return Err(ClientError::NoDataReceived) }
+    let result = Ok(response.buf.unwrap());
+    self.socket = Some(response.socket);
+    result
+  }
+}
+
+impl fmt::Debug for UdpClientConnection {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    write!(f, "UdpClientConnection ns: {:?} socket: {:?}", self.name_server, self.socket)
+  }
+}
+
+struct Response {
   pub buf: Option<Vec<u8>>,
   pub addr: Option<SocketAddr>,
   pub error: Option<ClientError>,
-  pub socket: &'a UdpSocket,
+  pub socket: UdpSocket,
 }
 
-impl<'a> Response<'a> {
-  pub fn new(socket: &'a UdpSocket) -> Self {
+impl Response {
+  pub fn new(socket: UdpSocket) -> Self {
     Response{ buf: None, addr: None, error: None, socket: socket }
   }
 }
 
 // TODO: this should be merged with the server handler
-impl<'a> Handler for Response<'a> {
+impl Handler for Response {
   type Timeout = ();
   type Message = ();
 
@@ -93,7 +95,7 @@ impl<'a> Handler for Response<'a> {
           return
         }
 
-        let mut buf = Vec::with_capacity(4096);
+        let mut buf: [u8; 4096] = [0u8; 4096];
 
         let recv_result = self.socket.recv_from(&mut buf);
         if recv_result.is_err() {
@@ -110,17 +112,21 @@ impl<'a> Handler for Response<'a> {
           return
         }
 
-        self.addr = Some(recv_result.unwrap().unwrap());
-        debug!("bytes: {:?} from: {:?}", buf.len(), self.addr);
+        // TODO: ignore if not from the IP that we requested
+        let (length, addr) = recv_result.unwrap().unwrap();
+        debug!("bytes: {:?} from: {:?}", length, addr);
+        self.addr = Some(addr);
+
+        if length == 0 {
+          debug!("0 bytes recieved from: {}", addr);
+          return
+        }
 
         // we got our response, shutdown.
         event_loop.shutdown();
 
         // set our data
-        self.buf = Some(buf);
-
-        // TODO, perhaps parse the response in here, so that the client could ignore messages with the
-        //  wrong serial number.
+        self.buf = Some(buf.iter().take(length).cloned().collect());
       },
       _ => {
         error!("unrecognized token: {:?}", token);

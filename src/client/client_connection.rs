@@ -17,6 +17,6 @@ use ::error::*;
 
 pub trait ClientConnection: Sized+Debug {
   /// send the message to the specified address
-  fn send(&mut self, bytes: &[u8]) -> ClientResult<Vec<u8>>;
+  fn send(&mut self, bytes: Vec<u8>) -> ClientResult<Vec<u8>>;
   // TODO: split send and read...
 }

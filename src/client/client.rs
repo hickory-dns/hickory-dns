@@ -510,7 +510,7 @@ impl<C: ClientConnection> Client<C> {
     }
 
     // send the message and get the response from the connection.
-    let resp_buffer = try!(self.client_connection.borrow_mut().send(&buffer));
+    let resp_buffer = try!(self.client_connection.borrow_mut().send(buffer));
 
     let mut decoder = BinDecoder::new(&resp_buffer);
     let response = try!(Message::read(&mut decoder));
