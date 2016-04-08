@@ -20,12 +20,14 @@ use std::sync::Arc;
 use std::cell::Cell;
 
 use mio::{Token, EventLoop, Handler, EventSet, PollOpt, TryAccept};
-use mio::tcp::{TcpListener};
+use mio::tcp::{TcpListener, TcpStream};
 use mio::udp::UdpSocket;
 
-use ::udp::{UdpHandler, UdpState};
-use ::tcp::{TcpHandler, TcpState};
 use ::authority::Catalog;
+use ::op::{Message, OpCode, ResponseCode};
+use ::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
+use ::tcp::{TcpHandler, TcpState};
+use ::udp::{UdpHandler, UdpState};
 
 // TODO, might be cool to store buffers for later usage...
 pub struct Server {
@@ -88,12 +90,53 @@ impl Server {
     let mut event_loop: EventLoop<Self> = try!(EventLoop::new());
 
     // registering these on non-writable events, since these are the listeners.
-    for (ref token, ref socket) in &self.udp_sockets { try!(event_loop.register(*socket, **token, !EventSet::writable(), PollOpt::level())); }
-    for (ref token, ref socket) in &self.tcp_sockets { try!(event_loop.register(*socket, **token, !EventSet::writable(), PollOpt::level())); }
+    for (ref token, ref socket) in &self.udp_sockets { try!(event_loop.register(*socket, **token, !EventSet::writable(), PollOpt::all())); }
+    for (ref token, ref socket) in &self.tcp_sockets { try!(event_loop.register(*socket, **token, !EventSet::writable(), PollOpt::all())); }
 
     try!(event_loop.run(self));
 
     Err(io::Error::new(io::ErrorKind::Interrupted, "Server stopping due to interruption"))
+  }
+
+  /// given a set of bytes, decode and process the request, producing a response to send
+  fn process_request(bytes: &[u8], stream: &TcpStream, catalog: &Catalog) -> Message {
+    let mut decoder = BinDecoder::new(bytes);
+    let request = Message::read(&mut decoder);
+
+    match request {
+      Err(ref decode_error) => {
+        warn!("unable to decode request from client: {:?}: {}", stream, decode_error);
+        Catalog::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr)
+      },
+      Ok(ref req) => catalog.handle_request(req),
+    }
+  }
+
+  /// encodes a message to the specified buffer
+  fn encode_message(response: Message, buffer: &mut Vec<u8>) -> io::Result<()> {
+    // all responses need these fields set:
+    buffer.clear();
+    let encode_result = {
+      let mut encoder: BinEncoder = BinEncoder::new(buffer);
+      response.emit(&mut encoder)
+    };
+
+    if let Err(encode_error) = encode_result {
+      error!("error encoding response to client: {}", encode_error);
+      let err_msg = Catalog::error_msg(response.get_id(), response.get_op_code(), ResponseCode::ServFail);
+
+      buffer.clear();
+      let mut encoder: BinEncoder = BinEncoder::new(buffer);
+      err_msg.emit(&mut encoder).unwrap(); // this is a coding error if it fails
+    }
+
+    // ready to write to the other side, double check that our buffer is legit first.
+    if buffer.len() > u16::max_value() as usize() {
+      error!("too many bytes to write for u16, {}", buffer.len());
+      return Err(io::Error::new(io::ErrorKind::InvalidData, "did not write the length"));
+    }
+
+    Ok(())
   }
 }
 
@@ -148,7 +191,7 @@ impl Handler for Server {
 
             if reqs.is_empty() {
               // theres nothing left you write, go back to just reading...
-              if let Err(e) = event_loop.reregister(socket, token, !EventSet::writable(), PollOpt::level()) {
+              if let Err(e) = event_loop.reregister(socket, token, !EventSet::writable(), PollOpt::all()) {
                 error!("could not reregister socket: {:?} error: {}", socket, e);
               }
             }
@@ -164,7 +207,7 @@ impl Handler for Server {
             self.udp_requests.entry(token).or_insert(VecDeque::new()).push_back(handler);
 
             // reregeister the UDP socket for writes
-            if let Err(e) = event_loop.reregister(socket, token, EventSet::all(), PollOpt::level()) {
+            if let Err(e) = event_loop.reregister(socket, token, EventSet::all(), PollOpt::all()) {
               error!("could not reregister socket: {:?} error: {}", socket, e);
             }
           } else {
@@ -207,19 +250,28 @@ impl Handler for Server {
         // TODO: do we need to shutdown the stream?
         remove = Some(RemoveFrom::TcpHandlers(token));
       } else if events.is_readable() || events.is_writable() {
+        let mut process_resquest = false;
         // the handler will deal with the rest of the connection, we need to check the return value
         //  for an error with wouldblock, this means that the handler couldn't complete the request.
         match handler.handle_message(events) {
           Ok(TcpState::Done) => {
             // reset, the client will close the connection according to the spec
             handler.reset();
+            debug!("TcpState::Done");
           },
+          Ok(TcpState::WillWriteLength) => {
+            // this means that we have gotten through recieving a packet
+            process_resquest = true;
+            debug!("TcpState::WillWriteLength");
+          }
           Ok(..) => {
             // registering the event to only wake up on the correct event
             //  this reduces looping on states like writable that can remain set for a long time
-            if let Err(e) = event_loop.reregister(handler.get_stream(), token, handler.get_events(), PollOpt::level()) {
-              error!("could not reregister stream: {:?} cause: {}", handler.get_stream(), e);
-              remove = Some(RemoveFrom::TcpHandlers(token));
+            //if let Err(e) = event_loop.reregister(handler.get_stream(), token, handler.get_events(), PollOpt::level()) {
+            debug!("reregistering for next call: {:?}", handler.get_events());
+            if let Err(e) = event_loop.reregister(handler.get_stream(), token, handler.get_events(), PollOpt::all()) {
+                error!("could not reregister stream: {:?} cause: {}", handler.get_stream(), e);
+                remove = Some(RemoveFrom::TcpHandlers(token));
             }
           },
           Err(ref e) if io::ErrorKind::WouldBlock == e.kind() => {
@@ -231,6 +283,21 @@ impl Handler for Server {
             warn!("connection: {:?} shutdown on error: {}", handler, e);
             // TODO: do we need to shutdown the stream?
             remove = Some(RemoveFrom::TcpHandlers(token));
+          }
+        }
+
+        // need to process the response
+        if process_resquest {
+          let response = Self::process_request(handler.get_buffer(), handler.get_stream(), self.catalog.as_ref());
+          if Self::encode_message(response, handler.get_buffer_mut()).is_err() {
+            warn!("could not encode message to: {:?}", handler.get_stream());
+            remove = Some(RemoveFrom::TcpHandlers(token))
+          }
+
+          debug!("reregistering for next call: {:?}", handler.get_events());
+          if let Err(e) = event_loop.reregister(handler.get_stream(), token, handler.get_events(), PollOpt::all()) {
+              error!("could not reregister stream: {:?} cause: {}", handler.get_stream(), e);
+              remove = Some(RemoveFrom::TcpHandlers(token));
           }
         }
       }
@@ -272,6 +339,10 @@ mod server_tests {
 
   #[test]
   fn test_server_www_udp() {
+    // use log::LogLevel;
+    // use ::logger;
+    // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
+
     let example = create_example();
     let origin = example.get_origin().clone();
 
@@ -303,6 +374,10 @@ mod server_tests {
   #[cfg(feature = "ftest")]
   fn test_server_www_tcp() {
     use mio::tcp::TcpListener;
+
+    // use log::LogLevel;
+    // use ::logger;
+    // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 
     let example = create_example();
     let origin = example.get_origin().clone();
@@ -337,7 +412,7 @@ mod server_tests {
     println!("about to query server: {:?}", conn);
     let client = Client::new(conn);
 
-    let response = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
+    let response = client.query(&name, DNSClass::IN, RecordType::A).expect("error querying");
 
     assert!(response.get_response_code() == ResponseCode::NoError, "got an error: {:?}", response.get_response_code());
 

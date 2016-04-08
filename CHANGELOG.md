@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.5.3 2016-04-07
+### Fixed
+- [Linux TCP server mio issues](https://github.com/bluejekyll/trust-dns/issues/9)
+
+### Changed
+- combined the TCP client and server handlers
+- reusing buffer in TCP handler between send and receive (performance)
+
 ## 0.5.2 2016-04-04
 ### Changed
 - updated chrono to 0.2.21

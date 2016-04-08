@@ -15,6 +15,7 @@
  */
 use std::io;
 use std::io::{Write, Read};
+use std::mem;
 use std::sync::Arc;
 
 use mio::tcp::TcpStream;
@@ -30,27 +31,21 @@ pub struct TcpHandler {
   state: TcpState,   // current state of the handler and stream, i.e. are we reading from the client? or writing back to it?
   buffer: Vec<u8>, // current location and buffer we are reading into or writing from
   stream: TcpStream,
-  catalog: Arc<Catalog>,
+  catalog: Option<Arc<Catalog>>,
 }
 
 impl TcpHandler {
   /// initializes this handler with the intention to write first
-  pub fn new_client_handler(message: Message, stream: TcpStream, catalog: Arc<Catalog>) -> Self {
-    let mut bytes: Vec<u8> = Vec::with_capacity(512);
-    {
-      let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-      message.emit(&mut encoder).unwrap(); // coding error if this panics (i think?)
-    }
-
-    Self::new(TcpType::Client, TcpState::WillWriteLength, bytes, stream, catalog)
+  pub fn new_client_handler(stream: TcpStream, catalog: Option<Arc<Catalog>>) -> Self {
+    Self::new(TcpType::Client, TcpState::WillWriteLength, vec![], stream, catalog)
   }
 
   /// initializes this handler with the intention to read first
   pub fn new_server_handler(stream: TcpStream, catalog: Arc<Catalog>) -> Self {
-    Self::new(TcpType::Server, TcpState::WillReadLength, Vec::with_capacity(512), stream, catalog)
+    Self::new(TcpType::Server, TcpState::WillReadLength, Vec::with_capacity(512), stream, Some(catalog))
   }
 
-  fn new(tcp_type: TcpType, state: TcpState, buffer: Vec<u8>, stream: TcpStream, catalog: Arc<Catalog>) -> Self {
+  fn new(tcp_type: TcpType, state: TcpState, buffer: Vec<u8>, stream: TcpStream, catalog: Option<Arc<Catalog>>) -> Self {
     TcpHandler{ tcp_type: tcp_type, state: state, buffer: buffer, stream: stream, catalog: catalog }
   }
 
@@ -60,6 +55,25 @@ impl TcpHandler {
 
   pub fn get_events(&self) -> EventSet {
     Self::get_events_recurse(self.state, self.tcp_type)
+  }
+
+  pub fn set_buffer(&mut self, buffer: Vec<u8>) {
+    self.buffer = buffer;
+  }
+
+  pub fn remove_buffer(&mut self) -> Vec<u8> {
+    debug!("buffer: {}", self.buffer.len());
+    let buf = mem::replace(&mut self.buffer, vec![]);
+    debug!("buf: {}", buf.len());
+    return buf;
+  }
+
+  pub fn get_buffer(&self) -> &[u8] {
+    &self.buffer
+  }
+
+  pub fn get_buffer_mut(&mut self) -> &mut Vec<u8> {
+    &mut self.buffer
   }
 
   #[inline(always)]
@@ -90,8 +104,8 @@ impl TcpHandler {
             }
 
             let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
-
-            self.buffer = Vec::with_capacity(length as usize);
+            self.buffer.reserve(length as usize);
+            self.buffer.clear();
             TcpState::WillRead{ length: length } // TODO clean up state change with param...
           } else {
             return Ok(self.state); // wrong socket state...
@@ -105,41 +119,6 @@ impl TcpHandler {
 
             // if we got all the bits...
             if self.buffer.len() == length as usize {
-              let response: Message = {
-                let mut decoder = BinDecoder::new(&self.buffer);
-                let request = Message::read(&mut decoder);
-
-                match request {
-                  Err(ref decode_error) => {
-                    warn!("unable to decode request from client: {:?}: {}", self.stream, decode_error);
-                    Catalog::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr)
-                  },
-                  Ok(ref req) => self.catalog.handle_request(req),
-                }
-              };
-
-              // all responses need these fields set:
-              self.buffer.clear();
-              let encode_result = {
-                let mut encoder: BinEncoder = BinEncoder::new(&mut self.buffer);
-                response.emit(&mut encoder)
-              };
-
-              if let Err(encode_error) = encode_result {
-                error!("error encoding response to client: {}", encode_error);
-                let err_msg = Catalog::error_msg(response.get_id(), response.get_op_code(), ResponseCode::ServFail);
-
-                self.buffer.clear();
-                let mut encoder: BinEncoder = BinEncoder::new(&mut self.buffer);
-                err_msg.emit(&mut encoder).unwrap(); // this is a coding error if it fails
-              }
-
-              // ready to write to the other side, double check that our buffer is legit first.
-              if self.buffer.len() > u16::max_value() as usize() {
-                error!("too many bytes to write for u16, {}", self.buffer.len());
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "did not write the length"));
-              }
-
               self.state.next_state(self.tcp_type)
             } else {
               // still waiting on some more
@@ -155,7 +134,6 @@ impl TcpHandler {
             let wrote: usize = try!(self.stream.write(&len));
 
             if wrote != 2 {
-              debug!("did not write all len_bytes expected: 2 got: {:?} bytes from: {:?}", wrote, self.stream);
               return Err(io::Error::new(io::ErrorKind::InvalidData, "did not write the length"));
             }
 
@@ -184,16 +162,15 @@ impl TcpHandler {
   /// resets the state of the handler to perform more requests if desired.
   ///  clears the buffers and sets the state back to the initial state
   pub fn reset(&mut self) {
-    self.buffer.clear();
     self.state = TcpState::initial_state(self.tcp_type);
   }
 }
 
 #[derive(PartialEq, Eq, Clone, Copy, Debug)]
 pub enum TcpState {
-  WillReadLength,
+  WillReadLength, // waiting to recieve data
   WillRead{ length: u16 },  // length of the message to read
-  WillWriteLength,
+  WillWriteLength, // beginning of a response to the other side
   WillWrite, // length of the message to write
   Done,
 }

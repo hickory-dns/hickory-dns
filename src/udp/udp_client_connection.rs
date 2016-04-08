@@ -40,6 +40,11 @@ impl UdpClientConnection {
     // TODO make the timeout configurable, 5 seconds is the dig default
     // TODO the error is private to mio, which makes this awkward...
     if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientError::TimerError) };
+    // TODO: Linux requires a register before a reregister, reregister is needed b/c of OSX later
+    //  ideally this would not be added to the event loop until the client connection request.
+    try!(event_loop.register(&socket, RESPONSE, EventSet::readable(), PollOpt::all()));
+
+    debug!("client event_loop created");
 
     Ok(UdpClientConnection{name_server: name_server, socket: Some(socket), event_loop: event_loop})
   }
@@ -47,17 +52,26 @@ impl UdpClientConnection {
 
 impl ClientConnection for UdpClientConnection {
   fn send(&mut self, buffer: Vec<u8>) -> ClientResult<Vec<u8>> {
+    debug!("client reregistering");
+    // TODO: b/c of OSX this needs to be a reregister (since deregister is not working)
     try!(self.event_loop.reregister(self.socket.as_ref().expect("never none"), RESPONSE, EventSet::readable(), PollOpt::all()));
+    debug!("client sending");
     try!(self.socket.as_ref().expect("never none").send_to(&buffer, &self.name_server));
+    debug!("client sent data");
 
     let mut response: Response = Response::new(mem::replace(&mut self.socket, None).expect("never none"));
 
     // run_once should be enough, if something else nepharious hits the socket, what?
     try!(self.event_loop.run(&mut response));
+    debug!("client event_loop running");
+
 
     if response.error.is_some() { return Err(response.error.unwrap()) }
     if response.buf.is_none() { return Err(ClientError::NoDataReceived) }
     let result = Ok(response.buf.unwrap());
+    //debug!("client deregistering");
+    // TODO: when this line is added OSX starts failing, but we should have it...
+    // try!(self.event_loop.deregister(&response.socket));
     self.socket = Some(response.socket);
     result
   }

@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 use std::net::SocketAddr;
+use std::io;
 use std::io::{Write, Read};
 use std::mem;
 use std::fmt;
@@ -21,13 +22,15 @@ use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want
 
 use ::error::*;
 use ::serialize::binary::*;
-use client::ClientConnection;
+use ::client::ClientConnection;
+use ::tcp::{TcpHandler, TcpState};
 
 const RESPONSE: Token = Token(0);
 
 pub struct TcpClientConnection {
-  socket: Option<TcpStream>,
-  event_loop: EventLoop<Response>,
+  handler: Option<TcpHandler>,
+  event_loop: EventLoop<ClientHandler>,
+  error: Option<ClientError>,
 }
 
 impl TcpClientConnection {
@@ -35,129 +38,104 @@ impl TcpClientConnection {
     debug!("connecting to {:?}", name_server);
     let stream = try!(TcpStream::connect(&name_server));
 
-    let mut event_loop: EventLoop<Response> = try!(EventLoop::new());
+    let mut event_loop: EventLoop<ClientHandler> = try!(EventLoop::new());
     // TODO make the timeout configurable, 5 seconds is the dig default
     // TODO the error is private to mio, which makes this awkward...
     if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientError::TimerError) };
+    // TODO: Linux requires a register before a reregister, reregister is needed b/c of OSX later
+    //  ideally this would not be added to the event loop until the client connection request.
+    try!(event_loop.register(&stream, RESPONSE, EventSet::all(), PollOpt::all()));
 
-    Ok(TcpClientConnection{ socket: Some(stream), event_loop: event_loop })
+    Ok(TcpClientConnection{ handler: Some(TcpHandler::new_client_handler(stream, None)), event_loop: event_loop, error: None })
   }
 }
 
 impl ClientConnection for TcpClientConnection {
   fn send(&mut self, buffer: Vec<u8> ) -> ClientResult<Vec<u8>> {
+    self.error = None;
+    // TODO: b/c of OSX this needs to be a reregister (since deregister is not working)
+    // ideally it should be a register with the later deregister...
+    try!(self.event_loop.reregister(self.handler.as_ref().expect("never none").get_stream(), RESPONSE, EventSet::all(), PollOpt::all()));
+    // this is the request message, needs to be set each time
+    // TODO: it would be cool to reuse this buffer.
+    let mut handler = mem::replace(&mut self.handler, None).expect("never none");
+    handler.set_buffer(buffer);
+    let mut client_handler = ClientHandler{ handler: handler, error: None };
+    let result = self.event_loop.run(&mut client_handler);
+    self.handler = Some(client_handler.handler);
 
-    try!(self.event_loop.reregister(self.socket.as_ref().expect("never none"), RESPONSE, EventSet::all(), PollOpt::all()));
-    let mut response: Response = Response::new(buffer, mem::replace(&mut self.socket, None).expect("Only one user at a time"));
-    try!(self.event_loop.run(&mut response));
+    try!(result);
 
-
-    if response.error.is_some() { return Err(response.error.unwrap()) }
-    if response.buf.is_none() { return Err(ClientError::NoDataReceived) }
-    let result = Ok(response.buf.unwrap());
-    self.socket = Some(response.stream);
-    result
+    if self.error.is_some() { return Err(mem::replace(&mut self.error, None).unwrap()) }
+    Ok(self.handler.as_mut().expect("never none").remove_buffer())
+    //debug!("client deregistering");
+    // TODO: when this line is added OSX starts failing, but we should have it...
+//    try!(self.event_loop.deregister(&response.stream));
   }
 }
 
 impl fmt::Debug for TcpClientConnection {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "TcpClientConnection: {:?}", self.socket)
+    write!(f, "TcpClientConnection: {:?}", self.handler.as_ref().expect("never none").get_stream())
   }
 }
 
-struct Response {
-  pub state: ClientState,
-  pub message: Vec<u8>,
-  pub buf: Option<Vec<u8>>,
+struct ClientHandler {
+  pub handler: TcpHandler,
   pub error: Option<ClientError>,
-  pub stream: TcpStream,
-}
-
-enum ClientState {
-  WillWrite,
-  //WillRead,
-}
-
-impl Response {
-  pub fn new(message: Vec<u8>, stream: TcpStream) -> Self {
-    Response{ state: ClientState::WillWrite, message: message, buf: None, error: None, stream: stream }
-  }
 }
 
 // TODO: this should be merged with the server handler
-impl Handler for Response {
+impl Handler for ClientHandler {
   type Timeout = ();
   type Message = ();
 
   fn ready(&mut self, event_loop: &mut EventLoop<Self>, token: Token, events: EventSet) {
     match token {
       RESPONSE => {
-        if events.is_writable() {
-          let len: [u8; 2] = [(self.message.len() >> 8 & 0xFF) as u8, (self.message.len() & 0xFF) as u8];
-          self.error = self.stream.write_all(&len).and_then(|_|self.stream.write_all(&self.message)).err().map(|o|o.into());
-          if self.error.is_some() { return }
-
-          self.error = self.stream.flush().err().map(|o|o.into());
-          debug!("wrote {} bytes to {:?}", self.message.len(), self.stream.peer_addr());
-        } else if events.is_readable() {
-          // assuming we will always be able to read two bytes.
-          let mut len_bytes: [u8;2] = [0u8;2];
-
-          {
-            let stream: &mut TcpStream = &mut self.stream;
-            match stream.take(2).read(&mut len_bytes) {
-              Ok(len) if len != 2 => {
-                debug!("did not read all len_bytes expected: 2 got: {:?} bytes from: {:?}", len_bytes, stream);
-                self.error = Some(ClientError::NotAllBytesReceived{received: len, expect: 2});
-                return
-              },
-              Err(e) => {
-                self.error = Some(e.into());
-                return
-              },
-              Ok(_) => (),
+        if events.is_error() {
+          warn!("closing, error from: {:?}", self.handler);
+          // TODO: do we need to shutdown the stream?
+          event_loop.shutdown();
+        } else if events.is_hup() {
+          info!("client hungup: {:?}", self.handler);
+          // TODO: do we need to shutdown the stream?
+          //remove = Some(RemoveFrom::TcpHandlers(token));
+          event_loop.shutdown();
+        } else if events.is_readable() || events.is_writable() {
+          // the handler will deal with the rest of the connection, we need to check the return value
+          //  for an error with wouldblock, this means that the handler couldn't complete the request.
+          match self.handler.handle_message(events) {
+            Ok(TcpState::Done) => {
+              // the shutdown will stop the event_loop run to return the requester
+              self.handler.reset();
+              event_loop.shutdown();
+            },
+            Ok(..) => {
+              // registering the event to only wake up on the correct event
+              //  this reduces looping on states like writable that can remain set for a long time
+              //if let Err(e) = event_loop.reregister(handler.get_stream(), token, handler.get_events(), PollOpt::level()) {
+              debug!("reregistering for next call: {:?}", self.handler.get_events());
+              if let Err(e) = event_loop.reregister(self.handler.get_stream(), token, self.handler.get_events(), PollOpt::all()) {
+                  error!("could not reregister stream: {:?} cause: {}", self.handler.get_stream(), e);
+                  // TODO: need to return an error here
+                  //remove = Some(RemoveFrom::TcpHandlers(token));
+              }
+            },
+            Err(ref e) if io::ErrorKind::WouldBlock == e.kind() => {
+              // this is expected with the connection would block
+              // noop
+            },
+            Err(e) => {
+              // shutdown the connection, remove it.
+              warn!("connection: {:?} shutdown on error: {}", self.handler, e);
+              // TODO: do we need to shutdown the stream?
+              //remove = Some(RemoveFrom::TcpHandlers(token));
+              // TODO: need to return an error here
+              //self.error = Some(e);
+              event_loop.shutdown();
             }
           }
-
-          let len: u16 = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
-
-          debug!("reading {:?} bytes from: {:?}", len, self.stream.peer_addr());
-          // use a cursor here, and seek to the write spot on each read...
-          let mut buf = Vec::with_capacity(len as usize);
-          {
-            let stream: &mut TcpStream = &mut self.stream;
-            match stream.take(len as u64).read_to_end(&mut buf) {
-              Ok(got) if got != len as usize => {
-                debug!("did not read all bytes got: {} expected: {} bytes from: {:?}", got, len, stream.peer_addr());
-                self.error = Some(ClientError::NotAllBytesReceived{received: got, expect: len as usize});
-                return
-              },
-              Err(e) => {
-                self.error = Some(e.into());
-                return
-              },
-              Ok(_) => (),
-            }
-          }
-
-          // we got our response, shutdown.
-          event_loop.shutdown();
-
-          debug!("read {:?} bytes from: {:?}", buf.len(), self.stream);
-
-          // set our data
-          self.buf = Some(buf);
-
-          // TODO, perhaps parse the response in here, so that the client could ignore messages with the
-          //  wrong serial number.
-        } else if events.is_error() || events.is_hup() {
-          debug!("an error occured, connection shutdown early: {:?}", token);
-          self.error = Some(ClientError::NoDataReceived);
-          event_loop.shutdown();
-        } else {
-          debug!("got woken up, but not readable or writable: {:?}", token);
-          return
         }
       },
       _ => {
