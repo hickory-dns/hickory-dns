@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Complex","A complex number in Cartesian form."]],"type":[["Complex32",""],["Complex64",""]]});

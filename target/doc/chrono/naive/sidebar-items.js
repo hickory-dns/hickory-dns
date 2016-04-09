@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["date","ISO 8601 calendar date without timezone."],["datetime","ISO 8601 date and time without timezone."],["time","ISO 8601 time without timezone."]]});

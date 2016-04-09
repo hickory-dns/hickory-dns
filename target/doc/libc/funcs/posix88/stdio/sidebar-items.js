@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["fdopen",""],["fileno",""],["pclose",""],["popen",""]]});

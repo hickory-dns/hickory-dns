@@ -1,1 +1,0 @@
-initSidebarItems({"type":[["c_longlong",""],["c_ulonglong",""],["intmax_t",""],["intptr_t",""],["uintmax_t",""],["uintptr_t",""]]});

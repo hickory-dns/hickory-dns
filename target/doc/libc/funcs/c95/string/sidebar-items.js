@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["memchr",""],["memcmp",""],["strcat",""],["strchr",""],["strcmp",""],["strcoll",""],["strcpy",""],["strcspn",""],["strerror",""],["strlen",""],["strncat",""],["strncmp",""],["strncpy",""],["strpbrk",""],["strrchr",""],["strspn",""],["strstr",""],["strtok",""],["strxfrm",""],["wcslen",""]]});

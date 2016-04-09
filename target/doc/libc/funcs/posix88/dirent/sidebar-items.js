@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["closedir",""],["opendir",""],["readdir_r",""],["rewinddir",""],["seekdir",""],["telldir",""]]});

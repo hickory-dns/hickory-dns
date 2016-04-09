@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["strptime","Parses the time from the string according to the format string."]]});

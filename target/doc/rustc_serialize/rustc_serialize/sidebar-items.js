@@ -1,1 +1,0 @@
-initSidebarItems({"trait":[["Decodable",""],["Decoder",""],["DecoderHelpers",""],["Encodable",""],["Encoder",""],["EncoderHelpers",""]]});

@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Bytes","A specialized `ByteStr` box."]]});

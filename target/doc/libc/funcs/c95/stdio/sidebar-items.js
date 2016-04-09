@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["fclose",""],["feof",""],["ferror",""],["fflush",""],["fgetc",""],["fgetpos",""],["fgets",""],["fopen",""],["fputc",""],["fputs",""],["fread",""],["freopen",""],["fseek",""],["fsetpos",""],["ftell",""],["fwrite",""],["perror",""],["puts",""],["remove",""],["rename",""],["rewind",""],["setbuf",""],["setvbuf",""],["tmpfile",""],["ungetc",""]]});

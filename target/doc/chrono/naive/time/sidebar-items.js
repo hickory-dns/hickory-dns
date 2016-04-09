@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["NaiveTime","ISO 8601 time without timezone. Allows for the nanosecond precision and optional leap second representation."]]});

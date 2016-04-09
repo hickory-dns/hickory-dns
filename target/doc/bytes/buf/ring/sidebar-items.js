@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["RingBuf","Buf backed by a continous chunk of memory. Maintains a read cursor and a write cursor. When reads and writes reach the end of the allocated buffer, wraps around to the start."]]});

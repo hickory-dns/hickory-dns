@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["ctype",""],["stdio",""],["stdlib",""],["string",""]]});

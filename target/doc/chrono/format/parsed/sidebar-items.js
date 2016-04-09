@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Parsed","Parsed parts of date and time. There are two classes of methods:"]]});

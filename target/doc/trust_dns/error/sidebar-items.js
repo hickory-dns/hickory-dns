@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["ClientError",""],["DecodeError",""],["EncodeError",""],["LexerError",""],["ParseError",""]],"type":[["ClientResult",""],["DecodeResult",""],["EncodeResult",""],["LexerResult",""],["ParseResult",""]]});

@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["bsd44",""],["c95",""],["extra",""],["posix01",""],["posix88",""],["sysconf",""]]});

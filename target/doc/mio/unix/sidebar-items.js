@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["pipe",""]],"struct":[["PipeReader",""],["PipeWriter",""],["UnixListener",""],["UnixSocket",""],["UnixStream",""]]});

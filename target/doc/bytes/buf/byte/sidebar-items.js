@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["ByteBuf","A `Buf` backed by a contiguous region of memory."],["MutByteBuf",""],["ROByteBuf","Same as `ByteBuf` but cannot be flipped to a `MutByteBuf`."]]});

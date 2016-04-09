@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["DIR",""],["dirent_t",""]]});
