@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Authority` struct in crate `trust_dns`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Authority">
+
+    <title>trust_dns::authority::Authority - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>authority</a></p><script>window.sidebarCurrent = {name: 'Authority', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>authority</a>::<wbr><a class='struct' href=''>Authority</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-2716' class='srclink' href='../../src/trust_dns/authority/authority.rs.html#24-30' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Authority {
+    // some fields omitted
+}</pre><div class='docblock'><p>Authority is the storage method for all resource records</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../trust_dns/authority/struct.Authority.html' title='trust_dns::authority::Authority'>Authority</a></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(origin: <a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>, records: <a class='struct' href='https://doc.rust-lang.org/nightly/std/collections/hash/map/struct.HashMap.html' title='std::collections::hash::map::HashMap'>HashMap</a>&lt;<a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>, <a class='struct' href='https://doc.rust-lang.org/nightly/std/collections/hash/set/struct.HashSet.html' title='std::collections::hash::set::HashSet'>HashSet</a>&lt;<a class='struct' href='../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>&gt;&gt;, zone_type: <a class='enum' href='../../trust_dns/authority/enum.ZoneType.html' title='trust_dns::authority::ZoneType'>ZoneType</a>, allow_update: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>) -&gt; <a class='struct' href='../../trust_dns/authority/struct.Authority.html' title='trust_dns::authority::Authority'>Authority</a></code></h4>
+<h4 id='method.get_origin' class='method'><code>fn <a href='#method.get_origin' class='fnname'>get_origin</a>(&amp;self) -&gt; &amp;<a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a></code></h4>
+<h4 id='method.get_zone_type' class='method'><code>fn <a href='#method.get_zone_type' class='fnname'>get_zone_type</a>(&amp;self) -&gt; <a class='enum' href='../../trust_dns/authority/enum.ZoneType.html' title='trust_dns::authority::ZoneType'>ZoneType</a></code></h4>
+<h4 id='method.get_soa' class='method'><code>fn <a href='#method.get_soa' class='fnname'>get_soa</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>&gt;</code></h4>
+<h4 id='method.get_ns' class='method'><code>fn <a href='#method.get_ns' class='fnname'>get_ns</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>&gt;&gt;</code></h4>
+<h4 id='method.update' class='method'><code>fn <a href='#method.update' class='fnname'>update</a>(&amp;mut self, update: &amp;<a class='trait' href='../../trust_dns/op/message/trait.UpdateMessage.html' title='trust_dns::op::message::UpdateMessage'>UpdateMessage</a>) -&gt; <a class='type' href='../../trust_dns/authority/type.UpdateResult.html' title='trust_dns::authority::UpdateResult'>UpdateResult</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a>&gt;</code></h4>
+<h4 id='method.upsert' class='method'><code>fn <a href='#method.upsert' class='fnname'>upsert</a>(&amp;mut self, name: <a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>, record: <a class='struct' href='../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>)</code></h4>
+<div class='docblock'><p>upserts into the resource vector
+Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist</p>
+</div><h4 id='method.lookup' class='method'><code>fn <a href='#method.lookup' class='fnname'>lookup</a>(&amp;self, name: &amp;<a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>, rtype: <a class='enum' href='../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>, class: <a class='enum' href='../../trust_dns/rr/dns_class/enum.DNSClass.html' title='trust_dns::rr::dns_class::DNSClass'>DNSClass</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>&gt;&gt;</code></h4>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../trust_dns/authority/struct.Authority.html' title='trust_dns::authority::Authority'>Authority</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

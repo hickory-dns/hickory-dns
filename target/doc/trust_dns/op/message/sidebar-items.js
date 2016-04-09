@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Message","By default Message is a Query. Use the Message::as_update() to create and update, or Message::new_update()"]],"trait":[["UpdateMessage","to reduce errors in using the Message struct as an Update, this will do the call throughs to properly do that."]]});

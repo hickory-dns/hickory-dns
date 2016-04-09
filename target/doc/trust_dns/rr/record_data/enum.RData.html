@@ -1,0 +1,264 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `RData` enum in crate `trust_dns`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, RData">
+
+    <title>trust_dns::rr::record_data::RData - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>trust_dns</a>::<wbr><a href='../index.html'>rr</a>::<wbr><a href='index.html'>record_data</a></p><script>window.sidebarCurrent = {name: 'RData', ty: 'enum', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content enum">
+<h1 class='fqn'><span class='in-band'>Enum <a href='../../index.html'>trust_dns</a>::<wbr><a href='../index.html'>rr</a>::<wbr><a href='index.html'>record_data</a>::<wbr><a class='enum' href=''>RData</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-420' class='srclink' href='../../../src/trust_dns/rr/record_data.rs.html#46-590' title='goto source code'>[src]</a></span></h1>
+<pre class='rust enum'>pub enum RData {
+    A {
+        address: <a class='struct' href='https://doc.rust-lang.org/nightly/std/net/ip/struct.Ipv4Addr.html' title='std::net::ip::Ipv4Addr'>Ipv4Addr</a>,
+    },
+    AAAA {
+        address: <a class='struct' href='https://doc.rust-lang.org/nightly/std/net/ip/struct.Ipv6Addr.html' title='std::net::ip::Ipv6Addr'>Ipv6Addr</a>,
+    },
+    CNAME {
+        cname: <a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>,
+    },
+    DNSKEY {
+        zone_key: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>,
+        secure_entry_point: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>,
+        revoke: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>,
+        algorithm: <a class='enum' href='../../../trust_dns/rr/dnssec/enum.Algorithm.html' title='trust_dns::rr::dnssec::Algorithm'>Algorithm</a>,
+        public_key: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
+    },
+    DS {
+        key_tag: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
+        algorithm: <a class='enum' href='../../../trust_dns/rr/dnssec/enum.Algorithm.html' title='trust_dns::rr::dnssec::Algorithm'>Algorithm</a>,
+        digest_type: <a class='enum' href='../../../trust_dns/rr/dnssec/enum.DigestType.html' title='trust_dns::rr::dnssec::DigestType'>DigestType</a>,
+        digest: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
+    },
+    MX {
+        preference: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
+        exchange: <a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>,
+    },
+    NULL {
+        anything: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
+    },
+    NS {
+        nsdname: <a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>,
+    },
+    NSEC {
+        next_domain_name: <a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>,
+        type_bit_maps: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='enum' href='../../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>&gt;,
+    },
+    NSEC3 {
+        hash_algorithm: <a class='enum' href='../../../trust_dns/rr/dnssec/enum.Nsec3HashAlgorithm.html' title='trust_dns::rr::dnssec::Nsec3HashAlgorithm'>Nsec3HashAlgorithm</a>,
+        opt_out: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>,
+        iterations: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
+        salt: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
+        next_hashed_owner_name: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
+        type_bit_maps: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='enum' href='../../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>&gt;,
+    },
+    NSEC3PARAM {
+        hash_algorithm: <a class='enum' href='../../../trust_dns/rr/dnssec/enum.Nsec3HashAlgorithm.html' title='trust_dns::rr::dnssec::Nsec3HashAlgorithm'>Nsec3HashAlgorithm</a>,
+        opt_out: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>,
+        iterations: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
+        salt: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
+    },
+    OPT {
+        option_rdata: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
+    },
+    PTR {
+        ptrdname: <a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>,
+    },
+    SIG {
+        type_covered: <a class='enum' href='../../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>,
+        algorithm: <a class='enum' href='../../../trust_dns/rr/dnssec/enum.Algorithm.html' title='trust_dns::rr::dnssec::Algorithm'>Algorithm</a>,
+        num_labels: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>,
+        original_ttl: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
+        sig_expiration: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
+        sig_inception: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
+        key_tag: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
+        signer_name: <a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>,
+        sig: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;,
+    },
+    SOA {
+        mname: <a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>,
+        rname: <a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>,
+        serial: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
+        refresh: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>,
+        retry: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>,
+        expire: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.i32.html'>i32</a>,
+        minimum: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>,
+    },
+    SRV {
+        priority: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
+        weight: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
+        port: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
+        target: <a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>,
+    },
+    TXT {
+        txt_data: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>&gt;,
+    },
+}</pre><div class='docblock'><p>3.3. Standard RRs</p>
+
+<p>The following RR definitions are expected to occur, at least
+potentially, in all classes.  In particular, NS, SOA, CNAME, and PTR
+will be used in all classes, and have the same format in all classes.
+Because their RDATA format is known, all domain names in the RDATA
+section of these RRs may be compressed.</p>
+
+<p><domain-name> is a domain name represented as a series of labels, and
+terminated by a label with zero length.  <character-string> is a single
+length octet followed by that number of characters.  <character-string>
+is treated as binary information, and can be up to 256 characters in
+length (including the length octet).</p>
+
+<p>TODO: clean this up, see this: <a href="https://www.reddit.com/r/rust/comments/2rdoxx/enum_variants_as_types/">https://www.reddit.com/r/rust/comments/2rdoxx/enum_variants_as_types/</a>
+ and this: <a href="https://play.rust-lang.org/?code=%23!%5Bfeature(associated_types)%5D%0A%0Aenum%20ColorV%20%7B%20Red%2C%20Blue%2C%20Green%20%7D%0A%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Red%3B%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Blue%3B%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Green%3B%0A%0Atrait%20Color%20%7B%0A%20%20%20%20type%20Variant%3B%0A%20%20%20%20%2F%2F%20fn%20repr()%20-%3E%20Variant%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%3B%0A%7D%0A%0Aimpl%20Color%20for%20Red%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Red%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3ARed%20%7D%0A%7D%0A%0Aimpl%20Color%20for%20Blue%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Blue%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3ABlue%20%7D%0A%7D%0A%0Aimpl%20Color%20for%20Green%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Green%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3AGreen%20%7D%0A%7D%0A%0Atrait%20TypeEq%3CA%3E%20%7B%7D%0Aimpl%3CA%3E%20TypeEq%3CA%3E%20for%20A%20%7B%7D%0A%0Afn%20openminded_function%3CC%3A%20Color%3E(c%3A%20C)%20%7B%20%0A%20%20%20%20panic!(%22Types%20are%20for%20humans%22)%20%20%0A%7D%0A%0A%2F%2F%20Eventually%20this%20should%20just%20be%20C%3A%20Color%3CVariant%3DBlue%3E%0Afn%20closeminded_function%3CC%3A%20Color%3E(c%3A%20C)%20where%20C%3A%3AVariant%3A%20TypeEq%3CBlue%3E%20%7B%20%0A%20%20%20%20panic!(%22Types%20are%20for%20compilers%22)%20%0A%7D%0A%0Afn%20i_want_pattern_matching%3CC%3A%20Color%3E(c%3A%20C)%20%7B%0A%20%20%20%20match%20c.value()%20%7B%0A%20%20%20%20%20%20%20%20ColorV%3A%3ARed%20%3D%3E%20println!(%22red%22)%2C%0A%20%20%20%20%20%20%20%20ColorV%3A%3ABlue%20%3D%3E%20println!(%22blue%22)%2C%0A%20%20%20%20%20%20%20%20ColorV%3A%3AGreen%20%3D%3E%20println!(%22green%22)%0A%20%20%20%20%7D%0A%7D%0A%0A%2F%2F%20This%20is%20a%20type%20level%20function%20between%20Colors%20that%20encodes%0A%2F%2F%20that%20the%20variant&#x27;s%20info%20statically%20allowing%20%0A%2F%2F%20to%20track%20which%20variant%20we%20have%20and%20disallow%20rule%20violations.%0Atrait%20Invert%20%7B%0A%20%20%20%20type%20Result%3A%20Color%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Self%3A%3AResult%3B%0A%7D%0A%0Aimpl%20Invert%20for%20Red%20%7B%0A%20%20%20%20type%20Result%20%3D%20Blue%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Blue%20%7B%20Blue%20%7D%0A%7D%0A%0Aimpl%20Invert%20for%20Blue%20%7B%0A%20%20%20%20type%20Result%20%3D%20Green%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Green%20%7B%20Green%20%7D%0A%7D%0A%0Aimpl%20Invert%20for%20Green%20%7B%0A%20%20%20%20type%20Result%20%3D%20Red%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Red%20%7B%20Red%20%7D%0A%7D%0A%0A%2F%2F%20Example%20use%20right%20now%0Afn%20main()%20%7B%0A%20%20%20%20let%20color%20%3D%20Red%3B%0A%20%20%20%20%2F%2F%20works%20fine%20openminded_function(color)%3B%0A%20%20%20%20%2F%2F%20fails%20closeminded_function(color)%3B%20error%20messages%20would%20be%20better%20with%20real%20equality%20constraints%0A%20%20%20%20closeminded_function(Blue)%3B%0A%20%20%20%20assert_eq!(Green%2C%20Red.inversion().inversion())%0A%7D">https://play.rust-lang.org/?code=%23!%5Bfeature(associated_types)%5D%0A%0Aenum%20ColorV%20%7B%20Red%2C%20Blue%2C%20Green%20%7D%0A%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Red%3B%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Blue%3B%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Green%3B%0A%0Atrait%20Color%20%7B%0A%20%20%20%20type%20Variant%3B%0A%20%20%20%20%2F%2F%20fn%20repr()%20-%3E%20Variant%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%3B%0A%7D%0A%0Aimpl%20Color%20for%20Red%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Red%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3ARed%20%7D%0A%7D%0A%0Aimpl%20Color%20for%20Blue%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Blue%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3ABlue%20%7D%0A%7D%0A%0Aimpl%20Color%20for%20Green%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Green%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3AGreen%20%7D%0A%7D%0A%0Atrait%20TypeEq%3CA%3E%20%7B%7D%0Aimpl%3CA%3E%20TypeEq%3CA%3E%20for%20A%20%7B%7D%0A%0Afn%20openminded_function%3CC%3A%20Color%3E(c%3A%20C)%20%7B%20%0A%20%20%20%20panic!(%22Types%20are%20for%20humans%22)%20%20%0A%7D%0A%0A%2F%2F%20Eventually%20this%20should%20just%20be%20C%3A%20Color%3CVariant%3DBlue%3E%0Afn%20closeminded_function%3CC%3A%20Color%3E(c%3A%20C)%20where%20C%3A%3AVariant%3A%20TypeEq%3CBlue%3E%20%7B%20%0A%20%20%20%20panic!(%22Types%20are%20for%20compilers%22)%20%0A%7D%0A%0Afn%20i_want_pattern_matching%3CC%3A%20Color%3E(c%3A%20C)%20%7B%0A%20%20%20%20match%20c.value()%20%7B%0A%20%20%20%20%20%20%20%20ColorV%3A%3ARed%20%3D%3E%20println!(%22red%22)%2C%0A%20%20%20%20%20%20%20%20ColorV%3A%3ABlue%20%3D%3E%20println!(%22blue%22)%2C%0A%20%20%20%20%20%20%20%20ColorV%3A%3AGreen%20%3D%3E%20println!(%22green%22)%0A%20%20%20%20%7D%0A%7D%0A%0A%2F%2F%20This%20is%20a%20type%20level%20function%20between%20Colors%20that%20encodes%0A%2F%2F%20that%20the%20variant&#39;s%20info%20statically%20allowing%20%0A%2F%2F%20to%20track%20which%20variant%20we%20have%20and%20disallow%20rule%20violations.%0Atrait%20Invert%20%7B%0A%20%20%20%20type%20Result%3A%20Color%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Self%3A%3AResult%3B%0A%7D%0A%0Aimpl%20Invert%20for%20Red%20%7B%0A%20%20%20%20type%20Result%20%3D%20Blue%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Blue%20%7B%20Blue%20%7D%0A%7D%0A%0Aimpl%20Invert%20for%20Blue%20%7B%0A%20%20%20%20type%20Result%20%3D%20Green%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Green%20%7B%20Green%20%7D%0A%7D%0A%0Aimpl%20Invert%20for%20Green%20%7B%0A%20%20%20%20type%20Result%20%3D%20Red%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Red%20%7B%20Red%20%7D%0A%7D%0A%0A%2F%2F%20Example%20use%20right%20now%0Afn%20main()%20%7B%0A%20%20%20%20let%20color%20%3D%20Red%3B%0A%20%20%20%20%2F%2F%20works%20fine%20openminded_function(color)%3B%0A%20%20%20%20%2F%2F%20fails%20closeminded_function(color)%3B%20error%20messages%20would%20be%20better%20with%20real%20equality%20constraints%0A%20%20%20%20closeminded_function(Blue)%3B%0A%20%20%20%20assert_eq!(Green%2C%20Red.inversion().inversion())%0A%7D</a></p>
+</div><h2 class='variants'>Variants</h2>
+<table><tr><td id='variant.A'><code>A</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.A.field.address'><code>address</code></td><td></td></tr></table></td></tr><tr><td id='variant.AAAA'><code>AAAA</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.AAAA.field.address'><code>address</code></td><td></td></tr></table></td></tr><tr><td id='variant.CNAME'><code>CNAME</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.CNAME.field.cname'><code>cname</code></td><td></td></tr></table></td></tr><tr><td id='variant.DNSKEY'><code>DNSKEY</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.DNSKEY.field.zone_key'><code>zone_key</code></td><td></td></tr><tr><td id='variant.DNSKEY.field.secure_entry_point'><code>secure_entry_point</code></td><td></td></tr><tr><td id='variant.DNSKEY.field.revoke'><code>revoke</code></td><td></td></tr><tr><td id='variant.DNSKEY.field.algorithm'><code>algorithm</code></td><td></td></tr><tr><td id='variant.DNSKEY.field.public_key'><code>public_key</code></td><td></td></tr></table></td></tr><tr><td id='variant.DS'><code>DS</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.DS.field.key_tag'><code>key_tag</code></td><td></td></tr><tr><td id='variant.DS.field.algorithm'><code>algorithm</code></td><td></td></tr><tr><td id='variant.DS.field.digest_type'><code>digest_type</code></td><td></td></tr><tr><td id='variant.DS.field.digest'><code>digest</code></td><td></td></tr></table></td></tr><tr><td id='variant.MX'><code>MX</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.MX.field.preference'><code>preference</code></td><td></td></tr><tr><td id='variant.MX.field.exchange'><code>exchange</code></td><td></td></tr></table></td></tr><tr><td id='variant.NULL'><code>NULL</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.NULL.field.anything'><code>anything</code></td><td></td></tr></table></td></tr><tr><td id='variant.NS'><code>NS</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.NS.field.nsdname'><code>nsdname</code></td><td></td></tr></table></td></tr><tr><td id='variant.NSEC'><code>NSEC</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.NSEC.field.next_domain_name'><code>next_domain_name</code></td><td></td></tr><tr><td id='variant.NSEC.field.type_bit_maps'><code>type_bit_maps</code></td><td></td></tr></table></td></tr><tr><td id='variant.NSEC3'><code>NSEC3</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.NSEC3.field.hash_algorithm'><code>hash_algorithm</code></td><td></td></tr><tr><td id='variant.NSEC3.field.opt_out'><code>opt_out</code></td><td></td></tr><tr><td id='variant.NSEC3.field.iterations'><code>iterations</code></td><td></td></tr><tr><td id='variant.NSEC3.field.salt'><code>salt</code></td><td></td></tr><tr><td id='variant.NSEC3.field.next_hashed_owner_name'><code>next_hashed_owner_name</code></td><td></td></tr><tr><td id='variant.NSEC3.field.type_bit_maps'><code>type_bit_maps</code></td><td></td></tr></table></td></tr><tr><td id='variant.NSEC3PARAM'><code>NSEC3PARAM</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.NSEC3PARAM.field.hash_algorithm'><code>hash_algorithm</code></td><td></td></tr><tr><td id='variant.NSEC3PARAM.field.opt_out'><code>opt_out</code></td><td></td></tr><tr><td id='variant.NSEC3PARAM.field.iterations'><code>iterations</code></td><td></td></tr><tr><td id='variant.NSEC3PARAM.field.salt'><code>salt</code></td><td></td></tr></table></td></tr><tr><td id='variant.OPT'><code>OPT</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.OPT.field.option_rdata'><code>option_rdata</code></td><td></td></tr></table></td></tr><tr><td id='variant.PTR'><code>PTR</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.PTR.field.ptrdname'><code>ptrdname</code></td><td></td></tr></table></td></tr><tr><td id='variant.SIG'><code>SIG</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.SIG.field.type_covered'><code>type_covered</code></td><td></td></tr><tr><td id='variant.SIG.field.algorithm'><code>algorithm</code></td><td></td></tr><tr><td id='variant.SIG.field.num_labels'><code>num_labels</code></td><td></td></tr><tr><td id='variant.SIG.field.original_ttl'><code>original_ttl</code></td><td></td></tr><tr><td id='variant.SIG.field.sig_expiration'><code>sig_expiration</code></td><td></td></tr><tr><td id='variant.SIG.field.sig_inception'><code>sig_inception</code></td><td></td></tr><tr><td id='variant.SIG.field.key_tag'><code>key_tag</code></td><td></td></tr><tr><td id='variant.SIG.field.signer_name'><code>signer_name</code></td><td></td></tr><tr><td id='variant.SIG.field.sig'><code>sig</code></td><td></td></tr></table></td></tr><tr><td id='variant.SOA'><code>SOA</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.SOA.field.mname'><code>mname</code></td><td></td></tr><tr><td id='variant.SOA.field.rname'><code>rname</code></td><td></td></tr><tr><td id='variant.SOA.field.serial'><code>serial</code></td><td></td></tr><tr><td id='variant.SOA.field.refresh'><code>refresh</code></td><td></td></tr><tr><td id='variant.SOA.field.retry'><code>retry</code></td><td></td></tr><tr><td id='variant.SOA.field.expire'><code>expire</code></td><td></td></tr><tr><td id='variant.SOA.field.minimum'><code>minimum</code></td><td></td></tr></table></td></tr><tr><td id='variant.SRV'><code>SRV</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.SRV.field.priority'><code>priority</code></td><td></td></tr><tr><td id='variant.SRV.field.weight'><code>weight</code></td><td></td></tr><tr><td id='variant.SRV.field.port'><code>port</code></td><td></td></tr><tr><td id='variant.SRV.field.target'><code>target</code></td><td></td></tr></table></td></tr><tr><td id='variant.TXT'><code>TXT</code></td><td><h3 class='fields'>Fields</h3>
+
+                                              <table><tr><td id='variant.TXT.field.txt_data'><code>txt_data</code></td><td></td></tr></table></td></tr></table><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a></code></h3><div class='impl-items'><h4 id='method.parse' class='method'><code>fn <a href='#method.parse' class='fnname'>parse</a>(record_type: <a class='enum' href='../../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>, tokens: &amp;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='enum' href='../../../trust_dns/serialize/txt/enum.Token.html' title='trust_dns::serialize::txt::Token'>Token</a>&gt;, origin: <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;<a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>&gt;) -&gt; <a class='type' href='../../../trust_dns/error/type.ParseResult.html' title='trust_dns::error::ParseResult'>ParseResult</a>&lt;Self&gt;</code></h4>
+<h4 id='method.read' class='method'><code>fn <a href='#method.read' class='fnname'>read</a>(decoder: &amp;mut <a class='struct' href='../../../trust_dns/serialize/binary/struct.BinDecoder.html' title='trust_dns::serialize::binary::BinDecoder'>BinDecoder</a>, record_type: <a class='enum' href='../../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>, rdata_length: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>) -&gt; <a class='type' href='../../../trust_dns/error/type.DecodeResult.html' title='trust_dns::error::DecodeResult'>DecodeResult</a>&lt;Self&gt;</code></h4>
+<h4 id='method.emit' class='method'><code>fn <a href='#method.emit' class='fnname'>emit</a>(&amp;self, encoder: &amp;mut <a class='struct' href='../../../trust_dns/serialize/binary/struct.BinEncoder.html' title='trust_dns::serialize::binary::BinEncoder'>BinEncoder</a>) -&gt; <a class='type' href='../../../trust_dns/error/type.EncodeResult.html' title='trust_dns::error::EncodeResult'>EncodeResult</a></code></h4>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html' title='core::cmp::PartialOrd'>PartialOrd</a>&lt;<a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a>&gt; for <a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a></code></h3><div class='impl-items'><h4 id='method.partial_cmp' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.partial_cmp' class='fnname'>partial_cmp</a>(&amp;self, other: &amp;<a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='enum' href='https://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a>&gt;</code></h4>
+<h4 id='method.lt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt' class='fnname'>lt</a>(&amp;self, other: &amp;Rhs) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.le' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le' class='fnname'>le</a>(&amp;self, other: &amp;Rhs) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.gt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt' class='fnname'>gt</a>(&amp;self, other: &amp;Rhs) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ge' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge' class='fnname'>ge</a>(&amp;self, other: &amp;Rhs) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html' title='core::cmp::Ord'>Ord</a> for <a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a></code></h3><div class='impl-items'><h4 id='method.cmp' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.Ord.html#method.cmp' class='fnname'>cmp</a>(&amp;self, other: &amp;Self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a></code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a></code></h4>
+<h4 id='method.clone_from' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html' title='core::hash::Hash'>Hash</a> for <a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a></code></h3><div class='impl-items'><h4 id='method.hash' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash' class='fnname'>hash</a>&lt;__H: <a class='trait' href='https://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a>&gt;(&amp;self, __arg_0: &amp;mut __H)</code></h4>
+<h4 id='method.hash_slice' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/hash/trait.Hash.html#method.hash_slice' class='fnname'>hash_slice</a>&lt;H&gt;(data: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[Self]</a>, state: &amp;mut H) <span class='where'>where H: <a class='trait' href='https://doc.rust-lang.org/nightly/core/hash/trait.Hasher.html' title='core::hash::Hasher'>Hasher</a></span></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='enum' href='../../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script defer src="../../../search-index.js"></script>
+</body>
+</html>
