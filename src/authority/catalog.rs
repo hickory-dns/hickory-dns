@@ -214,12 +214,14 @@ impl Catalog {
     // TODO: the spec is very unclear on what to do with multiple queries
     //  we will search for each, in the future, maybe make this threaded to respond even faster.
     for query in request.get_queries() {
-      if let Some((authority, records)) = self.search(query) {
-        let authority = authority.read().unwrap(); // poison errors should panic
-        if records.is_some() {
+      if let Some(ref_authority) = self.find_auth_recurse(query.get_name()) {
+        let authority = &ref_authority.read().unwrap(); // poison errors should panic
+        debug!("found authority: {:?}", authority.get_origin());
+
+        if let Some(records) = Self::search(&*authority, query) {
           response.response_code(ResponseCode::NoError);
           response.authoritative(true);
-          response.add_all_answers(&records.unwrap());
+          response.add_all_answers(&records);
 
           // get the NS records
           let ns = authority.get_ns();
@@ -234,7 +236,7 @@ impl Catalog {
           let soa = authority.get_soa();
           if soa.is_none() { warn!("there is no SOA record for: {:?}", authority.get_origin()); }
           else {
-            response.add_name_server(soa.unwrap());
+            response.add_name_server(soa.unwrap().clone());
           }
         }
       } else {
@@ -248,44 +250,38 @@ impl Catalog {
     response
   }
 
-  pub fn search(&self, query: &Query) -> Option<(&RwLock<Authority>, Option<Vec<Record>>)> {
-    if let Some(ref_authority) = self.find_auth_recurse(query.get_name()) {
-      let authority = ref_authority.read().unwrap(); // poison errors should panic
-      debug!("found authority: {:?}", authority.get_origin());
+  // TODO: move this to Authority
+  pub fn search<'a>(authority: &'a Authority, query: &Query) -> Option<Vec<&'a Record>> {
+    let record_type: RecordType = query.get_query_type();
 
-      let record_type: RecordType = query.get_query_type();
-
-      // if this is an AXFR zone transfer, verify that this is either the slave or master
-      //  for AXFR the first and last record must be the SOA
-      if RecordType::AXFR == record_type {
-        match authority.get_zone_type() {
-          ZoneType::Master | ZoneType::Slave => (),
-          // TODO Forward?
-          _ => return None, // TODO this sould be an error.
-        }
+    // if this is an AXFR zone transfer, verify that this is either the slave or master
+    //  for AXFR the first and last record must be the SOA
+    if RecordType::AXFR == record_type {
+      match authority.get_zone_type() {
+        ZoneType::Master | ZoneType::Slave => (),
+        // TODO Forward?
+        _ => return None, // TODO this sould be an error.
       }
-
-      // it would be better to stream this back, rather than packaging everything up in an array
-      //  though for UDP it would still need to be bundled
-      let mut query_result: Option<Vec<_>> = authority.lookup(query.get_name(), record_type, query.get_query_class());
-
-      if RecordType::AXFR == record_type {
-        if let Some(soa) = authority.get_soa() {
-          let mut xfr: Vec<Record> = query_result.unwrap_or(Vec::with_capacity(2));
-          // TODO: probably make Records Rc or Arc, to remove the clone
-          xfr.insert(0, soa.clone());
-          xfr.push(soa);
-
-          query_result = Some(xfr);
-        } else {
-          return None; // TODO is this an error?
-        }
-      }
-
-      Some((&ref_authority, query_result))
-    } else {
-      None
     }
+
+    // it would be better to stream this back, rather than packaging everything up in an array
+    //  though for UDP it would still need to be bundled
+    let mut query_result: Option<Vec<_>> = authority.lookup(query.get_name(), record_type);
+
+    if RecordType::AXFR == record_type {
+      if let Some(soa) = authority.get_soa() {
+        let mut xfr: Vec<&Record> = query_result.unwrap_or(Vec::with_capacity(2));
+        // TODO: probably make Records Rc or Arc, to remove the clone
+        xfr.insert(0, soa);
+        xfr.push(soa);
+
+        query_result = Some(xfr);
+      } else {
+        return None; // TODO is this an error?
+      }
+    }
+
+    query_result
   }
 
   fn find_auth_recurse(&self, name: &Name) -> Option<&RwLock<Authority>> {
@@ -317,17 +313,13 @@ mod catalog_tests {
     let example = create_example();
     let origin = example.get_origin().clone();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), example);
-
     let mut query: Query = Query::new();
     query.name(origin.clone());
 
-    if let Some((_, result)) = catalog.search(&query) {
-      assert!(result.is_some());
-      assert_eq!(result.as_ref().unwrap().first().unwrap().get_rr_type(), RecordType::A);
-      assert_eq!(result.as_ref().unwrap().first().unwrap().get_dns_class(), DNSClass::IN);
-      assert_eq!(result.as_ref().unwrap().first().unwrap().get_rdata(), &RData::A{ address: Ipv4Addr::new(93,184,216,34) });
+    if let Some(result) = Catalog::search(&example, &query) {
+      assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
+      assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
+      assert_eq!(result.first().unwrap().get_rdata(), &RData::A{ address: Ipv4Addr::new(93,184,216,34) });
     } else {
       panic!("expected a result");
     }
@@ -339,17 +331,13 @@ mod catalog_tests {
     let example = create_example();
     let www_name = Name::parse("www.example.com.", None).unwrap();
 
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(example.get_origin().clone(), example);
-
     let mut query: Query = Query::new();
     query.name(www_name.clone());
 
-    if let Some((_, result)) = catalog.search(&query) {
-      assert!(result.is_some());
-      assert_eq!(result.as_ref().unwrap().first().unwrap().get_rr_type(), RecordType::A);
-      assert_eq!(result.as_ref().unwrap().first().unwrap().get_dns_class(), DNSClass::IN);
-      assert_eq!(result.as_ref().unwrap().first().unwrap().get_rdata(), &RData::A{ address: Ipv4Addr::new(93,184,216,34) });
+    if let Some(result) = Catalog::search(&example, &query) {
+      assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
+      assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
+      assert_eq!(result.first().unwrap().get_rdata(), &RData::A{ address: Ipv4Addr::new(93,184,216,34) });
     } else {
       panic!("expected a result");
     }
@@ -358,17 +346,17 @@ mod catalog_tests {
   pub fn create_test() -> Authority {
     let origin: Name = Name::parse("test.com.", None).unwrap();
     let mut records: Authority = Authority::new(origin.clone(), HashMap::new(), ZoneType::Master, false);
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone());
 
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone());
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone());
 
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(94,184,216,34) }).clone());
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(94,184,216,34) }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
 
     let www_name: Name = Name::parse("www.test.com.", None).unwrap();
-    records.upsert(origin.clone(), Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(94,184,216,34) }).clone());
-    records.upsert(origin.clone(), Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(94,184,216,34) }).clone());
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
 
     records
   }

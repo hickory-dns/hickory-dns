@@ -13,7 +13,7 @@
 // limitations under the License.
 use std::net::SocketAddr;
 use std::io;
-use std::io::{Write, Read};
+use std::io::Write;
 use std::mem;
 use std::fmt;
 
@@ -21,7 +21,6 @@ use mio::tcp::TcpStream;
 use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want confusion with std::net
 
 use ::error::*;
-use ::serialize::binary::*;
 use ::client::ClientConnection;
 use ::tcp::{TcpHandler, TcpState};
 

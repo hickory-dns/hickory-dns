@@ -335,6 +335,7 @@ mod server_tests {
   use ::op::*;
   use ::client::{Client, ClientConnection};
   use ::udp::UdpClientConnection;
+  #[cfg(feature = "ftest")]
   use ::tcp::TcpClientConnection;
 
   #[test]

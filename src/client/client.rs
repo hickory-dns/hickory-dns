@@ -413,7 +413,7 @@ impl<C: ClientConnection> Client<C> {
       let mut search_name: domain::Name = query_name.clone();
 
       // hash the search name
-      if let &RData::NSEC3{hash_algorithm, opt_out, iterations, ref salt, ref type_bit_maps, ..} = nsec3.get_rdata() {
+      if let &RData::NSEC3{hash_algorithm, iterations, ref salt, ref type_bit_maps, ..} = nsec3.get_rdata() {
         // search all the name options
         while search_name.num_labels() >= zone_name.num_labels() {
 
@@ -528,6 +528,7 @@ impl<C: ClientConnection> Client<C> {
 }
 
 #[cfg(test)]
+#[cfg(feature = "ftest")]
 mod test {
   use std::net::*;
 

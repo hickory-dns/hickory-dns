@@ -13,17 +13,13 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io::Read;
 use std::fs::File;
 
 use ::error::*;
-use ::rr::Name;
-use ::rr::RecordType;
-use ::rr::Record;
-use ::rr::DNSClass;
-use ::rr::RData;
-use ::authority::{Authority, ZoneType};
+use ::rr::{ Name, RecordType, Record, DNSClass, RData};
+use ::authority::{Authority, RrKey, ZoneType, RRSet};
 
 use super::master_lex::{Lexer, Token};
 
@@ -145,7 +141,7 @@ impl Parser {
 
   pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>, zone_type: ZoneType, allow_update: bool) -> ParseResult<Authority> {
     let mut lexer = lexer;
-    let mut records: HashMap<Name, HashSet<Record>> = HashMap::new();
+    let mut records: HashMap<RrKey, RRSet> = HashMap::new();
 
     let mut origin: Option<Name> = origin;
     let mut current_name: Option<Name> = None;
@@ -279,11 +275,11 @@ impl Parser {
               record.rdata(rdata);
 
               // add to the map
-              let key = record.get_name().clone();
+              let key = RrKey::new(record.get_name(), record.get_rr_type());
 
               match rtype.unwrap() {
                 RecordType::SOA => {
-                  let mut set: HashSet<Record, _> = HashSet::new();
+                  let mut set = RRSet::new(record.get_name(), record.get_rr_type());
                   set.insert(record);
                   if records.insert(key, set).is_some() {
                     return Err(ParseError::SoaAlreadySpecified);
@@ -291,7 +287,7 @@ impl Parser {
                 },
                 _ => {
                   // add a Vec if it's not there, then add the record to the list
-                  let mut set = records.entry(key).or_insert(HashSet::new());
+                  let mut set = records.entry(key).or_insert(RRSet::new(record.get_name(), record.get_rr_type()));
                   set.insert(record);
                 },
               }

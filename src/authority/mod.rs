@@ -26,9 +26,12 @@ pub enum ZoneType { Master, Slave, Hint, Forward }
 
 mod authority;
 mod catalog;
+mod rr_set;
 
 pub use self::authority::Authority;
+pub use self::authority::RrKey;
 pub use self::catalog::Catalog;
+pub use self::rr_set::RRSet;
 
 #[cfg(test)]
 pub use self::authority::authority_tests;

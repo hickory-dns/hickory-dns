@@ -22,8 +22,6 @@ use mio::tcp::TcpStream;
 use mio::EventSet; // not * b/c don't want confusion with std::net
 
 use ::authority::Catalog;
-use ::op::*;
-use ::serialize::binary::*;
 
 #[derive(Debug)]
 pub struct TcpHandler {

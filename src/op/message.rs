@@ -104,8 +104,8 @@ impl Message {
   pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.header.response_code(response_code); self }
   pub fn add_query(&mut self, query: Query) -> &mut Self { self.queries.push(query); self }
   pub fn add_answer(&mut self, record: Record) -> &mut Self { self.answers.push(record); self }
-  pub fn add_all_answers(&mut self, vector: &[Record]) -> &mut Self {
-    for r in vector {
+  pub fn add_all_answers(&mut self, vector: &[&Record]) -> &mut Self {
+    for &r in vector {
       // TODO: in order to get rid of this clone, we need an owned Message for decoding, and a
       //  reference Message for encoding.
       self.add_answer(r.clone());
@@ -113,8 +113,8 @@ impl Message {
     self
   }
   pub fn add_name_server(&mut self, record: Record) -> &mut Self { self.name_servers.push(record); self }
-  pub fn add_all_name_servers(&mut self, vector: &[Record]) -> &mut Self {
-    for r in vector {
+  pub fn add_all_name_servers(&mut self, vector: &[&Record]) -> &mut Self {
+    for &r in vector {
       // TODO: in order to get rid of this clone, we need an owned Message for decoding, and a
       //  reference Message for encoding.
       self.add_name_server(r.clone());
@@ -214,9 +214,9 @@ impl Message {
 pub trait UpdateMessage: Debug {
   fn add_zone(&mut self, query: Query);
   fn add_pre_requisite(&mut self, record: Record);
-  fn add_all_pre_requisites(&mut self, vector: &[Record]);
+  fn add_all_pre_requisites(&mut self, vector: &[&Record]);
   fn add_update(&mut self, record: Record);
-  fn add_all_updates(&mut self, vector: &[Record]);
+  fn add_all_updates(&mut self, vector: &[&Record]);
   fn add_additional(&mut self, record: Record);
 
   fn get_zones(&self) -> &[Query];
@@ -246,9 +246,9 @@ pub trait UpdateMessage: Debug {
 impl UpdateMessage for Message {
   fn add_zone(&mut self, query: Query) { self.add_query(query); }
   fn add_pre_requisite(&mut self, record: Record) { self.add_answer(record); }
-  fn add_all_pre_requisites(&mut self, vector: &[Record]) { self.add_all_answers(vector); }
+  fn add_all_pre_requisites(&mut self, vector: &[&Record]) { self.add_all_answers(vector); }
   fn add_update(&mut self, record: Record) { self.add_name_server(record); }
-  fn add_all_updates(&mut self, vector: &[Record]) { self.add_all_name_servers(vector); }
+  fn add_all_updates(&mut self, vector: &[&Record]) { self.add_all_name_servers(vector); }
   fn add_additional(&mut self, record: Record) { self.add_additional(record); }
 
   fn get_zones(&self) -> &[Query] { self.get_queries() }

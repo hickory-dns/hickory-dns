@@ -13,25 +13,34 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
-use ::authority::{UpdateResult, ZoneType};
+use ::authority::{UpdateResult, ZoneType, RRSet};
 use ::op::{UpdateMessage, ResponseCode};
 use ::rr::*;
+
+#[derive(Eq, PartialEq, Debug, Hash, Clone)]
+pub struct RrKey { name: Name, record_type: RecordType }
+
+impl RrKey {
+  pub fn new(name: &Name, record_type: RecordType) -> RrKey {
+    RrKey{ name: name.clone(), record_type: record_type }
+  }
+}
 
 /// Authority is the storage method for all resource records
 #[derive(Debug)]
 pub struct Authority {
   origin: Name,
-  // TODO create a RRSet that is HashSet, but also embeds the RRSig record.
-  records: HashMap<Name, HashSet<Record>>,
+  class: DNSClass,
+  records: HashMap<RrKey, RRSet>,
   zone_type: ZoneType,
   allow_update: bool,
 }
 
 impl Authority {
-  pub fn new(origin: Name, records: HashMap<Name, HashSet<Record>>, zone_type: ZoneType, allow_update: bool) -> Authority {
-    Authority{ origin: origin, records: records, zone_type: zone_type, allow_update: allow_update}
+  pub fn new(origin: Name, records: HashMap<RrKey, RRSet>, zone_type: ZoneType, allow_update: bool) -> Authority {
+    Authority{ origin: origin, class: DNSClass::IN, records: records, zone_type: zone_type, allow_update: allow_update}
   }
 
   #[cfg(test)]
@@ -47,13 +56,13 @@ impl Authority {
     self.zone_type
   }
 
-  pub fn get_soa(&self) -> Option<Record> {
+  pub fn get_soa(&self) -> Option<&Record> {
     // SOA should be origin|SOA
-    self.lookup(&self.origin, RecordType::SOA, DNSClass::IN).and_then(|v|v.first().cloned())
+    self.lookup(&self.origin, RecordType::SOA).and_then(|v|v.first().map(|v| *v))
   }
 
-  pub fn get_ns(&self) -> Option<Vec<Record>> {
-    self.lookup(&self.origin, RecordType::NS, DNSClass::IN)
+  pub fn get_ns(&self) -> Option<Vec<&Record>> {
+    self.lookup(&self.origin, RecordType::NS)
   }
 
  /*
@@ -156,7 +165,7 @@ impl Authority {
             match require.get_rr_type() {
               // ANY      ANY      empty    Name is in use
               RecordType::ANY => {
-                if let None = self.lookup(require.get_name(), RecordType::ANY, DNSClass::ANY) {
+                if let None = self.lookup(require.get_name(), RecordType::ANY) {
                   return Err(ResponseCode::NXDomain);
                 } else {
                   continue;
@@ -164,7 +173,7 @@ impl Authority {
               },
               // ANY      rrset    empty    RRset exists (value independent)
               rrset @ _ => {
-                if let None = self.lookup(require.get_name(), rrset, DNSClass::ANY) {
+                if let None = self.lookup(require.get_name(), rrset) {
                   return Err(ResponseCode::NXRRSet);
                 } else {
                   continue;
@@ -180,7 +189,7 @@ impl Authority {
             match require.get_rr_type() {
               // NONE     ANY      empty    Name is not in use
               RecordType::ANY => {
-                if let Some(..) = self.lookup(require.get_name(), RecordType::ANY, DNSClass::ANY) {
+                if let Some(..) = self.lookup(require.get_name(), RecordType::ANY) {
                   return Err(ResponseCode::YXDomain);
                 } else {
                   continue;
@@ -188,7 +197,7 @@ impl Authority {
               },
               // NONE     rrset    empty    RRset does not exist
               rrset @ _ => {
-                if let Some(..) = self.lookup(require.get_name(), rrset, DNSClass::ANY) {
+                if let Some(..) = self.lookup(require.get_name(), rrset) {
                   return Err(ResponseCode::YXRRSet);
                 } else {
                   continue;
@@ -199,10 +208,10 @@ impl Authority {
             return Err(ResponseCode::FormErr);
           }
         ,
-        class @ _ if class == try!(self.get_soa().ok_or(ResponseCode::ServFail)).get_dns_class() =>
+        class @ _ if class == self.class =>
           // zone     rrset    rr       RRset exists (value dependent)
-          if let Some(rrset) = self.lookup(require.get_name(), require.get_rr_type(), class) {
-            if rrset.iter().filter(|rr| *rr == require).next().is_none() {
+          if let Some(rrset) = self.lookup(require.get_name(), require.get_rr_type()) {
+            if rrset.iter().filter(|rr| *rr == &require).next().is_none() {
               return Err(ResponseCode::NXRRSet);
             } else {
               continue;
@@ -319,7 +328,7 @@ impl Authority {
       }
 
       let class: DNSClass = rr.get_dns_class();
-      if class == try!(self.get_soa().ok_or(ResponseCode::NXDomain)).get_dns_class() {
+      if class == self.class {
         match rr.get_rr_type() {
           RecordType::ANY | RecordType::AXFR | RecordType::IXFR => return Err(ResponseCode::FormErr),
           _ => (),
@@ -406,70 +415,86 @@ impl Authority {
   ///  section 3.4.2.6
   fn update_records(&mut self, records: &[Record]) -> UpdateResult<()> {
     for rr in records {
-      let class = rr.get_dns_class();
-      if class == try!(self.get_soa().ok_or(ResponseCode::NXDomain)).get_dns_class() {
-        // zone     rrset    rr       Add to an RRset
-        info!("inserting record: {:?}", rr);
-        self.upsert(rr.get_name().clone(), rr.clone());
-      } else {
-        let records_to_delete: Vec<Record> = {
-          let rrset: Option<&HashSet<Record>> = self.records.get(rr.get_name());
-          if rrset.is_none() { continue }
-          let rrset: &HashSet<Record> = rrset.unwrap();
+      let rr_key = RrKey::new(rr.get_name(), rr.get_rr_type());
 
-          match class {
-            DNSClass::ANY => {
-              // TODO, had to clone b/c of borrow rules, it would be nice if there was a deletable
-              //  maybe switch to Rc...
+      match rr.get_dns_class() {
+        class @ _ if class == self.class => {
+          // RFC 2136 - 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to
+          //  the zone.  In case of duplicate RDATAs (which for SOA RRs is always
+          //  the case, and for WKS RRs is the case if the ADDRESS and PROTOCOL
+          //  fields both match), the Zone RR is replaced by Update RR.  If the
+          //  TYPE is SOA and there is no Zone SOA RR, or the new SOA.SERIAL is
+          //  lower (according to [RFC1982]) than or equal to the current Zone SOA
+          //  RR's SOA.SERIAL, the Update RR is ignored.  In the case of a CNAME
+          //  Update RR and a non-CNAME Zone RRset or vice versa, ignore the CNAME
+          //  Update RR, otherwise replace the CNAME Zone RR with the CNAME Update
+          //  RR.
+
+          // zone     rrset    rr       Add to an RRset
+          info!("upserting record: {:?}", rr);
+          self.upsert(rr.clone());
+        },
+        DNSClass::ANY => {
+          // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
+          match rr.get_rr_type() {
+            t @ RecordType::SOA | t @ RecordType::NS if rr.get_name() == &self.origin => {
+              // SOA and NS records are not to be deleted if they are the origin records
+              info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", t);
+              continue;
+            },
+            RecordType::ANY => {
+              // RFC 2136 - 3.4.2.3. For any Update RR whose CLASS is ANY and whose TYPE is ANY,
+              //   all Zone RRs with the same NAME are deleted, unless the NAME is the
+              //   same as ZNAME in which case only those RRs whose TYPE is other than
+              //   SOA or NS are deleted.
+
+              // ANY      ANY      empty    Delete all RRsets from a name
+              info!("deleting all records at name (not SOA or NS at origin): {:?}", rr.get_name());
+              let to_delete = self.records.keys().filter(|k| !((k.record_type == RecordType::SOA ||
+                                                                k.record_type == RecordType::NS) &&
+                                                               k.name != self.origin))
+                                                 .filter(|k| &k.name == rr.get_name())
+                                                 .cloned()
+                                                 .collect::<Vec<RrKey>>();
+              for delete in to_delete {
+                self.records.remove(&delete);
+              }
+            },
+            _ => {
+              // RFC 2136 - 3.4.2.3. For any Update RR whose CLASS is ANY and
+              //   whose TYPE is not ANY all Zone RRs with the same NAME and TYPE are
+              //   deleted, unless the NAME is the same as ZNAME in which case neither
+              //   SOA or NS RRs will be deleted.
+
               // ANY      rrset    empty    Delete an RRset
-              info!("deleting set of records: {:?}", rr);
-              rrset.iter().filter(|r| Self::matches_record_type_and_class(r, rr.get_rr_type(), DNSClass::ANY) && r.get_rr_type() != RecordType::SOA && r.get_rr_type() != RecordType::NS ).cloned().collect()
-            },
-            DNSClass::NONE => {
-              info!("deleting specific record: {:?}", rr);
-              // NONE     rrset    rr       Delete an RR from an RRset
-              rrset.iter().filter(|r| Self::matches_record_type_and_class(r, rr.get_rr_type(), DNSClass::ANY) && r.get_rdata() == rr.get_rdata() ).cloned().collect()
-            },
-            _ => return Err(ResponseCode::FormErr)
+              if let &RData::NULL { .. } = rr.get_rdata() {
+                let deleted = self.records.remove(&rr_key);
+                info!("deleted rrset: {:?}", deleted);
+              } else {
+                info!("expected empty rdata: {:?}", rr);
+                return Err(ResponseCode::FormErr)
+              }
+            }
           }
-        };
-
-        // now delete
-        self.delete_records(rr.get_name(), records_to_delete);
+        },
+        DNSClass::NONE => {
+          info!("deleting specific record: {:?}", rr);
+          println!("deleting specific record: {:?}", rr);
+          // NONE     rrset    rr       Delete an RR from an RRset
+          if let Some(rrset) = self.records.get_mut(&rr_key) {
+            let deleted = rrset.remove(rr);
+            info!("deleted ({}) specific record: {:?}", deleted, rr);
+            println!("deleted ({}) specific record: {:?}", deleted, rr);
+          }
+        },
+        class @ _ => {
+          info!("unexpected DNS Class: {:?}", class);
+          return Err(ResponseCode::FormErr)
+        }
       }
     }
 
     Ok(())
-  }
-
-  fn delete_records(&mut self, name: &Name, records: Vec<Record>) {
-    // delete the collected records
-    for delete_r in records {
-      match delete_r.get_rr_type() {
-        // never delete the last NS record
-        RecordType::NS => {
-          if let Some(nsr) = self.get_ns() {
-            if nsr.len() <= 1 {
-              continue;
-            }
-          } else {
-            // there are no NS records...
-            continue;
-          }
-        },
-        // never delete SOA
-        RecordType::SOA => continue,
-        // TODO: skip deletes on all DNSSec records?
-        _ => (), // move on to the delete
-      }
-
-      // TODO collect NSEC3 and RRSIG records that should be removed and delete those as well.
-
-      let rrset: Option<&mut HashSet<Record>> = self.records.get_mut(name);
-
-      debug!("delete: {:?}", delete_r);
-      rrset.and_then(|rrs| Some(rrs.remove(&delete_r)));
-    }
   }
 
   /*
@@ -531,78 +556,36 @@ impl Authority {
 
   /// upserts into the resource vector
   /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist
-  pub fn upsert(&mut self, name: Name, record: Record) {
-    let records: &mut HashSet<Record, _> = self.records.entry(name).or_insert(HashSet::new());
+  pub fn upsert(&mut self, record: Record) {
+    assert_eq!(self.class, record.get_dns_class());
+    let rr_key = RrKey::new(record.get_name(), record.get_rr_type());
+    let records: &mut RRSet = self.records.entry(rr_key).or_insert(RRSet::new(record.get_name(), record.get_rr_type()));
 
-    // RFC 2136                       DNS Update                     April 1997
-    //
-    // 1.1.5. The following RR types cannot be appended to an RRset.  If the
-    //  following comparison rules are met, then an attempt to add the new RR
-    //  will result in the replacement of the previous RR:
-    //
-    // SOA    compare only NAME, CLASS and TYPE -- it is not possible to
-    //         have more than one SOA per zone, even if any of the data
-    //         fields differ.
-    //
-    // CNAME  compare only NAME, CLASS, and TYPE -- it is not possible
-    //         to have more than one CNAME RR, even if their data fields
-    //         differ.
-    let mut insert_rr: Option<Record> = None;
-    match record.get_rr_type() {
-      t @ RecordType::SOA | t @ RecordType::CNAME => {
-        // TODO, had to clone b/c of borrow rules, it would be nice if there was a deletable
-        //  maybe switch to Rc...
-        let existing_rr = records.iter().find(|r| Self::matches_record_type_and_class(r, t, record.get_dns_class())).cloned();
-        if let Some(e_rr) = existing_rr {
-          match e_rr.get_rdata() {
-            &RData::SOA{ serial: e_serial, .. } => {
-              if let &RData::SOA{serial: r_serial, ..} = record.get_rdata() {
-                if r_serial > e_serial {
-                  records.remove(&e_rr);
-                  insert_rr = Some(record);
-                }
-              } // otherwise we'll ignore the update
-            },
-            _ => {
-              records.remove(&e_rr);
-              insert_rr = Some(record);
-            },
-          }
-        } else {
-          insert_rr = Some(record);
-        }
-      },
-      _ => { insert_rr = Some(record); },
-    }
-
-    if let Some(rr) = insert_rr {
-      debug!("insert: {:?}", rr);
-      records.insert(rr);
-    }
+    records.insert(record);
   }
 
-  /// returns any records matching the specified query.
-  ///  for AXFR records, all records will be returned, with the exception of the SOA record.
-  fn matches_record_type_and_class(record: &Record, rtype: RecordType, class: DNSClass) -> bool {
-    (rtype == RecordType::AXFR && record.get_rr_type() != RecordType::SOA) ||
-    (rtype == RecordType::ANY || record.get_rr_type() == rtype) &&
-    (class == DNSClass::ANY || record.get_dns_class() == class)
-  }
-
-  pub fn lookup(&self, name: &Name, rtype: RecordType, class: DNSClass) -> Option<Vec<Record>> {
+  pub fn lookup(&self, name: &Name, rtype: RecordType) -> Option<Vec<&Record>> {
     // on an SOA request always return the SOA, regardless of the name
     let name: &Name = if rtype == RecordType::SOA { &self.origin } else { name };
+    let rr_key = RrKey::new(name, rtype);
 
-    // TODO this should be an unnecessary clone... need to create a key type, and then use that for
-    //  all queries
-    let result: Option<Vec<Record>> = self.records.get(name).map(|v|v.iter().filter(|r| Self::matches_record_type_and_class(r, rtype, class)).cloned().collect());
-    if let Some(ref v) = result {
-      if v.is_empty() {
-        return None;
+    // Collect the records from each rr_set
+    let result: Vec<&Record> = match rtype {
+      RecordType::ANY | RecordType::AXFR => {
+        self.records.values().filter(|rr_set| rtype == RecordType::ANY || rr_set.get_record_type() != RecordType::SOA)
+                             .filter(|rr_set| rtype == RecordType::AXFR || rr_set.get_name() == name)
+                             .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
+                               vec.append(&mut rr_set.get_records().into_iter().collect());
+                               vec
+                             })
+      },
+      _ => {
+        self.records.get(&rr_key).map_or(vec![], |rr_set| rr_set.get_records().into_iter().collect())
       }
-    }
+    };
 
-    result
+    // TODO: change function signature to be non-optional
+    if result.is_empty() { None } else { Some(result) }
   }
 }
 
@@ -620,23 +603,21 @@ pub mod authority_tests {
     let origin: Name = Name::parse("example.com.", None,).unwrap();
     let mut records: Authority = Authority::new(origin.clone(), HashMap::new(), ZoneType::Master, false);
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone());
 
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone());
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone());
 
-    // test a different class from IN
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::TXT).dns_class(DNSClass::HS).rdata(RData::TXT{ txt_data: vec!["foo=bar".to_string()] }).clone());
     // example.com.		60	IN	TXT	"v=spf1 -all"
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
+    //records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
     // example.com.		60	IN	TXT	"$Id: example.com 4415 2015-08-24 20:12:23Z davids $"
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::HS).rdata(RData::TXT{ txt_data: vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()] }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()] }).clone());
 
     // example.com.		86400	IN	A	93.184.216.34
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
 
     // example.com.		86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
 
     // TODO support these later...
 
@@ -656,13 +637,13 @@ pub mod authority_tests {
     let www_name: Name = Name::parse("www.example.com.", None).unwrap();
 
     // www.example.com.	86400	IN	TXT	"v=spf1 -all"
-    records.upsert(www_name.clone(), Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
 
     // www.example.com.	86400	IN	A	93.184.216.34
-    records.upsert(www_name.clone(), Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
 
     // www.example.com.	86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert(www_name.clone(), Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
 
     // www.example.com.	3600	IN	RRSIG	NSEC 8 3 3600 20150925215757 20150905040848 54108 example.com. ZKIVt1IN3O1FWZPSfrQAH7nHt7RUFDjcbh7NxnEqd/uTGCnZ6SrAEgrY E9GMmBwvRjoucphGtjkYOpPJPe5MlnTHoYCjxL4qmG3LsD2KD0bfPufa ibtlQZRrPglxZ92hBKK3ZiPnPRe7I9yni2UQSQA7XDi7CQySYyo490It AxdXjAo=
     // www.example.com.	3600	IN	NSEC	example.com. A TXT AAAA RRSIG NSEC
@@ -680,23 +661,22 @@ pub mod authority_tests {
     assert!(authority.get_soa().is_some());
     assert_eq!(authority.get_soa().unwrap().get_dns_class(), DNSClass::IN);
 
-    assert!(authority.lookup(authority.get_origin(), RecordType::NS, DNSClass::HS).is_none());
-    assert!(authority.lookup(authority.get_origin(), RecordType::NS, DNSClass::IN).is_some());
+    assert!(authority.lookup(authority.get_origin(), RecordType::NS).is_some());
 
     let mut lookup: Vec<_> = authority.get_ns().unwrap();
     lookup.sort();
 
-    assert_eq!(*lookup.first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone());
-    assert_eq!(*lookup.last().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone());
+    assert_eq!(**lookup.first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone());
+    assert_eq!(**lookup.last().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone());
 
-    assert!(authority.lookup(authority.get_origin(), RecordType::TXT, DNSClass::HS).is_some());
+    assert!(authority.lookup(authority.get_origin(), RecordType::TXT).is_some());
 
-    let mut lookup: Vec<_> = authority.lookup(authority.get_origin(), RecordType::TXT, DNSClass::HS).unwrap();
+    let mut lookup: Vec<_> = authority.lookup(authority.get_origin(), RecordType::TXT).unwrap();
     lookup.sort();
 
-    assert_eq!(*lookup.first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::HS).rdata(RData::TXT{ txt_data: vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()] }).clone());
+    assert_eq!(**lookup.first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()] }).clone());
 
-    assert_eq!(*authority.lookup(authority.get_origin(), RecordType::A, DNSClass::IN).unwrap().first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
+    assert_eq!(**authority.lookup(authority.get_origin(), RecordType::A).unwrap().first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
   }
 
   #[test]
@@ -753,7 +733,7 @@ pub mod authority_tests {
 
   #[test]
   fn test_pre_scan() {
-    let up_name = Name::new().label("update").label("example").label("com");
+    let up_name = Name::new().label("www").label("example").label("com");
     let not_zone = Name::new().label("not").label("zone").label("com");
 
     let authority: Authority = create_example();
@@ -790,7 +770,7 @@ pub mod authority_tests {
     let mut authority: Authority = create_example();
     authority.set_allow_update(true);
 
-    let mut original_vec: Vec<_> = vec![
+    let mut original_vec: Vec<Record> = vec![
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone(),
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone(),
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(),
@@ -798,45 +778,54 @@ pub mod authority_tests {
 
     original_vec.sort();
 
-    // assert that the correct set of records is there.
-    let mut www_rrset = authority.lookup(&www_name, RecordType::ANY, DNSClass::ANY).unwrap();
-    www_rrset.sort();
+    {
+      // assert that the correct set of records is there.
+      let mut www_rrset: Vec<&Record> = authority.lookup(&www_name, RecordType::ANY).unwrap();
+      www_rrset.sort();
 
-    assert_eq!(www_rrset, original_vec);
+      assert_eq!(www_rrset, original_vec.iter().collect::<Vec<&Record>>());
 
-    // assert new record doesn't exist
-    assert!(authority.lookup(&new_name, RecordType::ANY, DNSClass::ANY).is_none());
+      // assert new record doesn't exist
+      assert!(authority.lookup(&new_name, RecordType::ANY).is_none());
+    }
 
     //
     //  zone     rrset    rr       Add to an RRset
     let add_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()];
     assert!(authority.update_records(add_record).is_ok());
-    assert_eq!(&authority.lookup(&new_name, RecordType::ANY, DNSClass::ANY).unwrap_or(vec![]), add_record);
+    assert_eq!(authority.lookup(&new_name, RecordType::ANY).unwrap_or(vec![]), add_record.iter().collect::<Vec<&Record>>());
 
     let add_www_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(10,0,0,1) }).clone()];
     assert!(authority.update_records(add_www_record).is_ok());
 
-    let mut www_rrset = authority.lookup(&www_name, RecordType::ANY, DNSClass::ANY).unwrap_or(vec![]);
-    www_rrset.sort();
+    {
+      let mut www_rrset = authority.lookup(&www_name, RecordType::ANY).unwrap_or(vec![]);
+      www_rrset.sort();
 
-    let mut plus_10 = original_vec.clone();
-    plus_10.push(add_www_record[0].clone());
-    plus_10.sort();
-    assert_eq!(www_rrset, plus_10);
+      let mut plus_10 = original_vec.clone();
+      plus_10.push(add_www_record[0].clone());
+      plus_10.sort();
+      assert_eq!(www_rrset, plus_10.iter().collect::<Vec<&Record>>());
+    }
 
     //
     //  NONE     rrset    rr       Delete an RR from an RRset
     let del_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()];
     assert!(authority.update_records(del_record).is_ok());
-    assert!(authority.lookup(&new_name, RecordType::ANY, DNSClass::ANY).is_none());
+    {
+      println!("after delete of specific record: {:?}", authority.lookup(&new_name, RecordType::ANY));
+      assert!(authority.lookup(&new_name, RecordType::ANY).is_none());
+    }
 
     // remove one from www
     let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A{ address: Ipv4Addr::new(10,0,0,1) }).clone()];
     assert!(authority.update_records(del_record).is_ok());
-    let mut www_rrset = authority.lookup(&www_name, RecordType::ANY, DNSClass::IN).unwrap_or(vec![]);
-    www_rrset.sort();
+    {
+      let mut www_rrset = authority.lookup(&www_name, RecordType::ANY).unwrap_or(vec![]);
+      www_rrset.sort();
 
-    assert_eq!(www_rrset, original_vec);
+      assert_eq!(www_rrset, original_vec.iter().collect::<Vec<&Record>>());
+    }
 
     //
     //  ANY      rrset    empty    Delete an RRset
@@ -848,15 +837,18 @@ pub mod authority_tests {
     ];
     removed_a_vec.sort();
 
-    let mut www_rrset = authority.lookup(&www_name, RecordType::ANY, DNSClass::IN).unwrap_or(vec![]);
-    www_rrset.sort();
+    {
+      let mut www_rrset = authority.lookup(&www_name, RecordType::ANY).unwrap_or(vec![]);
+      www_rrset.sort();
 
-    assert_eq!(www_rrset, removed_a_vec);
+      assert_eq!(www_rrset, removed_a_vec.iter().collect::<Vec<&Record>>());
+    }
 
     //
     //  ANY      ANY      empty    Delete all RRsets from a name
+    println!("deleting all records");
     let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::ANY).dns_class(DNSClass::ANY).rdata(RData::NULL{ anything: vec![] }).clone()];
     assert!(authority.update_records(del_record).is_ok());
-    assert!(authority.lookup(&www_name, RecordType::ANY, DNSClass::IN).is_none());
+    assert_eq!(authority.lookup(&www_name, RecordType::ANY), None);
   }
 }

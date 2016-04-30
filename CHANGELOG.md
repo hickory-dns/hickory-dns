@@ -2,6 +2,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## unreleased
+### Changed
+- Internal representation of record sets now a full data structure
+- Better rrset keys for fewer clones
+- Removed many excessive clones (should make requests even faster)
+- Cleaned up authority upsert and lookup interfaces
+- All authorities default to IN DNSCLASS now (none others currently supported)
+
 ## 0.5.3 2016-04-07
 ### Fixed
 - [Linux TCP server mio issues](https://github.com/bluejekyll/trust-dns/issues/9)
@@ -12,6 +20,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.5.2 2016-04-04
 ### Changed
+- updated mio to 0.5.0
 - updated chrono to 0.2.21
 - updated docopt to 0.6.78
 - updated log to 0.3.5
