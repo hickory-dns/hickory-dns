@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 - Added loop on TCP accept requests
 - Added loop on UDP reads
+- Upgraded to mio 0.5.1 for some bug fixes
 
 ### Changed
 - Internal representation of record sets now a full data structure
