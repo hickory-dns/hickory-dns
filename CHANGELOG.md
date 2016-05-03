@@ -3,6 +3,10 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## unreleased
+### Fixed
+- Added loop on TCP accept requests
+- Added loop on UDP reads
+
 ### Changed
 - Internal representation of record sets now a full data structure
 - Better rrset keys for fewer clones

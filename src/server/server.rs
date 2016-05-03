@@ -201,7 +201,8 @@ impl Handler for Server {
         // now process the incoming requests
         if events.is_readable() {
           // collect new requests
-          if let Some(handler) = UdpHandler::new_server(socket, self.catalog.clone()) {
+          // TODO: could a ton of inbound requests starve the server
+          while let Some(handler) = UdpHandler::new_server(socket, self.catalog.clone()) {
             // this is a new request for a UDP transaction
             // let the handler read, etc.
             self.udp_requests.entry(token).or_insert(VecDeque::new()).push_back(handler);
@@ -210,8 +211,6 @@ impl Handler for Server {
             if let Err(e) = event_loop.reregister(socket, token, EventSet::all(), PollOpt::all()) {
               error!("could not reregister socket: {:?} error: {}", socket, e);
             }
-          } else {
-            debug!("request was ignored");
           }
         }
 
@@ -223,21 +222,23 @@ impl Handler for Server {
         // there's a new connection coming in
         // give it a new token and insert the stream on the eventlistener
         // then store in the map for reference when dealing with new streams
-        match socket.accept() {
-          Ok(Some((stream, addr))) => {
-            let token = self.next_token();
+        loop {
+          match socket.accept() {
+            Ok(Some((stream, addr))) => {
+              let token = self.next_token();
 
-            // initially we want readable sockets...
-            match event_loop.register(&stream, token, !EventSet::writable(), PollOpt::level()) {
-              Err(e) => error!("could not register stream: {:?} cause: {}", stream, e),
-              Ok(()) => {
-                info!("accepted tcp connection from: {:?} on {:?}", addr, stream.local_addr().ok());
-                self.tcp_handlers.insert(token, TcpHandler::new_server_handler(stream, self.catalog.clone()));
+              // initially we want readable sockets...
+              match event_loop.register(&stream, token, !EventSet::writable(), PollOpt::level()) {
+                Err(e) => error!("could not register stream: {:?} cause: {}", stream, e),
+                Ok(()) => {
+                  info!("accepted tcp connection from: {:?} on {:?}", addr, stream.local_addr().ok());
+                  self.tcp_handlers.insert(token, TcpHandler::new_server_handler(stream, self.catalog.clone()));
+                }
               }
-            }
-          },
-          Ok(None) => return,
-          Err(e) => panic!("unexpected error accepting: {}", e),
+            },
+            Ok(None) => return,
+            Err(e) => panic!("unexpected error accepting: {}", e),
+          }
         }
       }
     } else if let Some(ref mut handler) = self.tcp_handlers.get_mut(&token) {
