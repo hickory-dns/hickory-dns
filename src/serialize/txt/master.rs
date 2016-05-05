@@ -279,16 +279,16 @@ impl Parser {
 
               match rtype.unwrap() {
                 RecordType::SOA => {
-                  let mut set = RRSet::new(record.get_name(), record.get_rr_type());
-                  set.insert(record);
+                  let mut set = RRSet::new(record.get_name(), record.get_rr_type(), 0);
+                  set.insert(record, 0);
                   if records.insert(key, set).is_some() {
                     return Err(ParseError::SoaAlreadySpecified);
                   }
                 },
                 _ => {
                   // add a Vec if it's not there, then add the record to the list
-                  let mut set = records.entry(key).or_insert(RRSet::new(record.get_name(), record.get_rr_type()));
-                  set.insert(record);
+                  let mut set = records.entry(key).or_insert(RRSet::new(record.get_name(), record.get_rr_type(), 0));
+                  set.insert(record, 0);
                 },
               }
 

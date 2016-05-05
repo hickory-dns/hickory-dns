@@ -93,11 +93,11 @@ impl Handler for ClientHandler {
     match token {
       RESPONSE => {
         if events.is_error() {
-          warn!("closing, error from: {:?}", self.handler);
+          warn!("closing, error from: {:?}", self.handler.get_stream());
           // TODO: do we need to shutdown the stream?
           event_loop.shutdown();
         } else if events.is_hup() {
-          info!("client hungup: {:?}", self.handler);
+          info!("client hungup: {:?}", self.handler.get_stream());
           // TODO: do we need to shutdown the stream?
           //remove = Some(RemoveFrom::TcpHandlers(token));
           event_loop.shutdown();
@@ -127,7 +127,7 @@ impl Handler for ClientHandler {
             },
             Err(e) => {
               // shutdown the connection, remove it.
-              warn!("connection: {:?} shutdown on error: {}", self.handler, e);
+              warn!("connection: {:?} shutdown on error: {}", self.handler.get_stream(), e);
               // TODO: do we need to shutdown the stream?
               //remove = Some(RemoveFrom::TcpHandlers(token));
               // TODO: need to return an error here

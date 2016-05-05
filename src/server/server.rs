@@ -243,11 +243,11 @@ impl Handler for Server {
       }
     } else if let Some(ref mut handler) = self.tcp_handlers.get_mut(&token) {
       if events.is_error() {
-        warn!("closing, error from: {:?}", handler);
+        warn!("closing, error from: {:?}", handler.get_stream());
         // TODO: do we need to shutdown the stream?
         remove = Some(RemoveFrom::TcpHandlers(token));
       } else if events.is_hup() {
-        info!("client hungup: {:?}", handler);
+        info!("client hungup: {:?}", handler.get_stream());
         // TODO: do we need to shutdown the stream?
         remove = Some(RemoveFrom::TcpHandlers(token));
       } else if events.is_readable() || events.is_writable() {
@@ -281,7 +281,7 @@ impl Handler for Server {
           },
           Err(e) => {
             // shutdown the connection, remove it.
-            warn!("connection: {:?} shutdown on error: {}", handler, e);
+            warn!("connection: {:?} shutdown on error: {}", handler.get_stream(), e);
             // TODO: do we need to shutdown the stream?
             remove = Some(RemoveFrom::TcpHandlers(token));
           }

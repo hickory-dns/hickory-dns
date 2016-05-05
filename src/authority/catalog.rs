@@ -23,7 +23,6 @@ use ::rr::{Record, Name, RecordType};
 use ::authority::{Authority, ZoneType};
 use ::op::*;
 
-#[derive(Debug)]
 pub struct Catalog {
   authorities: HashMap<Name, RwLock<Authority>>,
 }

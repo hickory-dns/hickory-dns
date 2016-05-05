@@ -23,7 +23,6 @@ use mio::EventSet; // not * b/c don't want confusion with std::net
 
 use ::authority::Catalog;
 
-#[derive(Debug)]
 pub struct TcpHandler {
   tcp_type: TcpType,
   state: TcpState,   // current state of the handler and stream, i.e. are we reading from the client? or writing back to it?

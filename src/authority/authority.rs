@@ -15,6 +15,8 @@
  */
 use std::collections::HashMap;
 
+use openssl::crypto::pkey::{PKey, Role};
+
 use ::authority::{UpdateResult, ZoneType, RRSet};
 use ::op::{UpdateMessage, ResponseCode};
 use ::rr::*;
@@ -29,18 +31,41 @@ impl RrKey {
 }
 
 /// Authority is the storage method for all resource records
-#[derive(Debug)]
 pub struct Authority {
   origin: Name,
   class: DNSClass,
   records: HashMap<RrKey, RRSet>,
   zone_type: ZoneType,
   allow_update: bool,
+  // Private key mapped to the Record of the DNSKey
+  //  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per
+  //   server instance, but that requires requesting updates from the parent zone, which may or
+  //   may not support dynamic updates to register the new key... Trust-DNS will provide support
+  //   for this, in some form, perhaps alternate root zones...
+  secure_keys: Vec<PKey>,
 }
 
+/// Authority is responsible for storing the resource records for a particular zone.
+///
+/// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
+/// start of authority for the zone, is a slave, or a cached zone.
 impl Authority {
+  /// Creates a new Authority.
+  ///
+  /// # Arguments
+  ///
+  /// * `origin` - The zone `Name` being created, this should match that of the `RecordType::SOA`
+  ///              record.
+  /// * `records` - The `HashMap` of the initial set of records in the zone.
+  /// * `zone_type` - The type of zone, i.e. is this authoritative?
+  /// * `allow_update` - If true, then this zone accepts dynamic updates.
+  ///
+  /// # Return value
+  ///
+  /// The new `Authority`.
   pub fn new(origin: Name, records: HashMap<RrKey, RRSet>, zone_type: ZoneType, allow_update: bool) -> Authority {
-    Authority{ origin: origin, class: DNSClass::IN, records: records, zone_type: zone_type, allow_update: allow_update}
+    Authority{ origin: origin, class: DNSClass::IN, records: records, zone_type: zone_type,
+      allow_update: allow_update, secure_keys: Vec::new() }
   }
 
   #[cfg(test)]
@@ -65,89 +90,88 @@ impl Authority {
     self.lookup(&self.origin, RecordType::NS)
   }
 
- /*
-  * RFC 2136                       DNS Update                     April 1997
-  *
-  * 3.2 - Process Prerequisite Section
-  *
-  *   Next, the Prerequisite Section is checked to see that all
-  *   prerequisites are satisfied by the current state of the zone.  Using
-  *   the definitions expressed in Section 1.2, if any RR's NAME is not
-  *   within the zone specified in the Zone Section, signal NOTZONE to the
-  *   requestor.
-  *
-  *   3.2.1. For RRs in this section whose CLASS is ANY, test to see that
-  *   TTL and RDLENGTH are both zero (0), else signal FORMERR to the
-  *   requestor.  If TYPE is ANY, test to see that there is at least one RR
-  *   in the zone whose NAME is the same as that of the Prerequisite RR,
-  *   else signal NXDOMAIN to the requestor.  If TYPE is not ANY, test to
-  *   see that there is at least one RR in the zone whose NAME and TYPE are
-  *   the same as that of the Prerequisite RR, else signal NXRRSET to the
-  *   requestor.
-  *
-  *   3.2.2. For RRs in this section whose CLASS is NONE, test to see that
-  *   the TTL and RDLENGTH are both zero (0), else signal FORMERR to the
-  *   requestor.  If the TYPE is ANY, test to see that there are no RRs in
-  *   the zone whose NAME is the same as that of the Prerequisite RR, else
-  *   signal YXDOMAIN to the requestor.  If the TYPE is not ANY, test to
-  *   see that there are no RRs in the zone whose NAME and TYPE are the
-  *   same as that of the Prerequisite RR, else signal YXRRSET to the
-  *   requestor.
-  *
-  *   3.2.3. For RRs in this section whose CLASS is the same as the ZCLASS,
-  *   test to see that the TTL is zero (0), else signal FORMERR to the
-  *   requestor.  Then, build an RRset for each unique <NAME,TYPE> and
-  *   compare each resulting RRset for set equality (same members, no more,
-  *   no less) with RRsets in the zone.  If any Prerequisite RRset is not
-  *   entirely and exactly matched by a zone RRset, signal NXRRSET to the
-  *   requestor.  If any RR in this section has a CLASS other than ZCLASS
-  *   or NONE or ANY, signal FORMERR to the requestor.
-  *
-  *   3.2.4 - Table Of Metavalues Used In Prerequisite Section
-  *
-  *   CLASS    TYPE     RDATA    Meaning
-  *   ------------------------------------------------------------
-  *   ANY      ANY      empty    Name is in use
-  *   ANY      rrset    empty    RRset exists (value independent)
-  *   NONE     ANY      empty    Name is not in use
-  *   NONE     rrset    empty    RRset does not exist
-  *   zone     rrset    rr       RRset exists (value dependent)
-  *
-  *   3.2.5 - Pseudocode for Prerequisite Section Processing
-  *
-  *      for rr in prerequisites
-  *           if (rr.ttl != 0)
-  *                return (FORMERR)
-  *           if (zone_of(rr.name) != ZNAME)
-  *                return (NOTZONE);
-  *           if (rr.class == ANY)
-  *                if (rr.rdlength != 0)
-  *                     return (FORMERR)
-  *                if (rr.type == ANY)
-  *                     if (!zone_name<rr.name>)
-  *                          return (NXDOMAIN)
-  *                else
-  *                     if (!zone_rrset<rr.name, rr.type>)
-  *                          return (NXRRSET)
-  *           if (rr.class == NONE)
-  *                if (rr.rdlength != 0)
-  *                     return (FORMERR)
-  *                if (rr.type == ANY)
-  *                     if (zone_name<rr.name>)
-  *                          return (YXDOMAIN)
-  *                else
-  *                     if (zone_rrset<rr.name, rr.type>)
-  *                          return (YXRRSET)
-  *           if (rr.class == zclass)
-  *                temp<rr.name, rr.type> += rr
-  *           else
-  *                return (FORMERR)
-  *
-  *      for rrset in temp
-  *           if (zone_rrset<rrset.name, rrset.type> != rrset)
-  *                return (NXRRSET)
-  */
+  /// ```text
+  /// RFC 2136                       DNS Update                     April 1997
+  ///
+  /// 3.2 - Process Prerequisite Section
+  ///
+  ///   Next, the Prerequisite Section is checked to see that all
+  ///   prerequisites are satisfied by the current state of the zone.  Using
+  ///   the definitions expressed in Section 1.2, if any RR's NAME is not
+  ///   within the zone specified in the Zone Section, signal NOTZONE to the
+  ///   requestor.
+  ///
+  /// 3.2.1. For RRs in this section whose CLASS is ANY, test to see that
+  ///   TTL and RDLENGTH are both zero (0), else signal FORMERR to the
+  ///   requestor.  If TYPE is ANY, test to see that there is at least one RR
+  ///   in the zone whose NAME is the same as that of the Prerequisite RR,
+  ///   else signal NXDOMAIN to the requestor.  If TYPE is not ANY, test to
+  ///   see that there is at least one RR in the zone whose NAME and TYPE are
+  ///   the same as that of the Prerequisite RR, else signal NXRRSET to the
+  ///   requestor.
+  ///
+  /// 3.2.2. For RRs in this section whose CLASS is NONE, test to see that
+  ///   the TTL and RDLENGTH are both zero (0), else signal FORMERR to the
+  ///   requestor.  If the TYPE is ANY, test to see that there are no RRs in
+  ///   the zone whose NAME is the same as that of the Prerequisite RR, else
+  ///   signal YXDOMAIN to the requestor.  If the TYPE is not ANY, test to
+  ///   see that there are no RRs in the zone whose NAME and TYPE are the
+  ///   same as that of the Prerequisite RR, else signal YXRRSET to the
+  ///   requestor.
+  ///
+  /// 3.2.3. For RRs in this section whose CLASS is the same as the ZCLASS,
+  ///   test to see that the TTL is zero (0), else signal FORMERR to the
+  ///   requestor.  Then, build an RRset for each unique <NAME,TYPE> and
+  ///   compare each resulting RRset for set equality (same members, no more,
+  ///   no less) with RRsets in the zone.  If any Prerequisite RRset is not
+  ///   entirely and exactly matched by a zone RRset, signal NXRRSET to the
+  ///   requestor.  If any RR in this section has a CLASS other than ZCLASS
+  ///   or NONE or ANY, signal FORMERR to the requestor.
+  ///
+  /// 3.2.4 - Table Of Metavalues Used In Prerequisite Section
+  ///
+  ///   CLASS    TYPE     RDATA    Meaning
+  ///   ------------------------------------------------------------
+  ///   ANY      ANY      empty    Name is in use
+  ///   ANY      rrset    empty    RRset exists (value independent)
+  ///   NONE     ANY      empty    Name is not in use
+  ///   NONE     rrset    empty    RRset does not exist
+  ///   zone     rrset    rr       RRset exists (value dependent)
+  /// ```
   fn verify_prerequisites(&self, pre_requisites: &[Record]) -> UpdateResult<()> {
+    //   3.2.5 - Pseudocode for Prerequisite Section Processing
+    //
+    //      for rr in prerequisites
+    //           if (rr.ttl != 0)
+    //                return (FORMERR)
+    //           if (zone_of(rr.name) != ZNAME)
+    //                return (NOTZONE);
+    //           if (rr.class == ANY)
+    //                if (rr.rdlength != 0)
+    //                     return (FORMERR)
+    //                if (rr.type == ANY)
+    //                     if (!zone_name<rr.name>)
+    //                          return (NXDOMAIN)
+    //                else
+    //                     if (!zone_rrset<rr.name, rr.type>)
+    //                          return (NXRRSET)
+    //           if (rr.class == NONE)
+    //                if (rr.rdlength != 0)
+    //                     return (FORMERR)
+    //                if (rr.type == ANY)
+    //                     if (zone_name<rr.name>)
+    //                          return (YXDOMAIN)
+    //                else
+    //                     if (zone_rrset<rr.name, rr.type>)
+    //                          return (YXRRSET)
+    //           if (rr.class == zclass)
+    //                temp<rr.name, rr.type> += rr
+    //           else
+    //                return (FORMERR)
+    //
+    //      for rrset in temp
+    //           if (zone_rrset<rrset.name, rrset.type> != rrset)
+    //                return (NXRRSET)
     for require in pre_requisites {
       if require.get_ttl() != 0 {
         debug!("ttl must be 0 for: {:?}", require);
@@ -228,37 +252,37 @@ impl Authority {
     Ok(())
   }
 
-  /*
-   * RFC 2136                       DNS Update                     April 1997
-   *
-   * 3.3 - Check Requestor's Permissions
-   *
-   *   3.3.1. Next, the requestor's permission to update the RRs named in
-   *   the Update Section may be tested in an implementation dependent
-   *   fashion or using mechanisms specified in a subsequent Secure DNS
-   *   Update protocol.  If the requestor does not have permission to
-   *   perform these updates, the server may write a warning message in its
-   *   operations log, and may either signal REFUSED to the requestor, or
-   *   ignore the permission problem and proceed with the update.
-   *
-   *   3.3.2. While the exact processing is implementation defined, if these
-   *   verification activities are to be performed, this is the point in the
-   *   server's processing where such performance should take place, since
-   *   if a REFUSED condition is encountered after an update has been
-   *   partially applied, it will be necessary to undo the partial update
-   *   and restore the zone to its original state before answering the
-   *   requestor.
-   *
-   *   3.3.3 - Pseudocode for Permission Checking
-   *
-   *      if (security policy exists)
-   *           if (this update is not permitted)
-   *                if (local option)
-   *                     log a message about permission problem
-   *                if (local option)
-   *                     return (REFUSED)
-   */
+  /// ```text
+  /// RFC 2136                       DNS Update                     April 1997
+  ///
+  /// 3.3 - Check Requestor's Permissions
+  ///
+  /// 3.3.1. Next, the requestor's permission to update the RRs named in
+  ///   the Update Section may be tested in an implementation dependent
+  ///   fashion or using mechanisms specified in a subsequent Secure DNS
+  ///   Update protocol.  If the requestor does not have permission to
+  ///   perform these updates, the server may write a warning message in its
+  ///   operations log, and may either signal REFUSED to the requestor, or
+  ///   ignore the permission problem and proceed with the update.
+  ///
+  /// 3.3.2. While the exact processing is implementation defined, if these
+  ///   verification activities are to be performed, this is the point in the
+  ///   server's processing where such performance should take place, since
+  ///   if a REFUSED condition is encountered after an update has been
+  ///   partially applied, it will be necessary to undo the partial update
+  ///   and restore the zone to its original state before answering the
+  ///   requestor.
+  /// ```
   fn authorize(&self, update_message: &UpdateMessage) -> UpdateResult<()> {
+    // 3.3.3 - Pseudocode for Permission Checking
+    //
+    //      if (security policy exists)
+    //           if (this update is not permitted)
+    //                if (local option)
+    //                     log a message about permission problem
+    //                if (local option)
+    //                     return (REFUSED)
+
     // does this authority allow_updates?
     if !self.allow_update {
       warn!("update attempted on non-updatable Authority: {}", self.origin);
@@ -278,50 +302,49 @@ impl Authority {
     Err(ResponseCode::Refused)
   }
 
-  /*
-   * RFC 2136                       DNS Update                     April 1997
-   *
-   *   3.4 - Process Update Section
-   *
-   *   Next, the Update Section is processed as follows.
-   *
-   *   3.4.1 - Prescan
-   *
-   *   The Update Section is parsed into RRs and each RR's CLASS is checked
-   *   to see if it is ANY, NONE, or the same as the Zone Class, else signal
-   *   a FORMERR to the requestor.  Using the definitions in Section 1.2,
-   *   each RR's NAME must be in the zone specified by the Zone Section,
-   *   else signal NOTZONE to the requestor.
-   *
-   *   3.4.1.2. For RRs whose CLASS is not ANY, check the TYPE and if it is
-   *   ANY, AXFR, MAILA, MAILB, or any other QUERY metatype, or any
-   *   unrecognized type, then signal FORMERR to the requestor.  For RRs
-   *   whose CLASS is ANY or NONE, check the TTL to see that it is zero (0),
-   *   else signal a FORMERR to the requestor.  For any RR whose CLASS is
-   *   ANY, check the RDLENGTH to make sure that it is zero (0) (that is,
-   *   the RDATA field is empty), and that the TYPE is not AXFR, MAILA,
-   *   MAILB, or any other QUERY metatype besides ANY, or any unrecognized
-   *   type, else signal FORMERR to the requestor.
-   *
-   *   3.4.1.3 - Pseudocode For Update Section Prescan
-   *
-   *      [rr] for rr in updates
-   *           if (zone_of(rr.name) != ZNAME)
-   *                return (NOTZONE);
-   *           if (rr.class == zclass)
-   *                if (rr.type & ANY|AXFR|MAILA|MAILB)
-   *                     return (FORMERR)
-   *           elsif (rr.class == ANY)
-   *                if (rr.ttl != 0 || rr.rdlength != 0
-   *                    || rr.type & AXFR|MAILA|MAILB)
-   *                     return (FORMERR)
-   *           elsif (rr.class == NONE)
-   *                if (rr.ttl != 0 || rr.type & ANY|AXFR|MAILA|MAILB)
-   *                     return (FORMERR)
-   *           else
-   *                return (FORMERR)
-   */
+  /// ```text
+  /// RFC 2136                       DNS Update                     April 1997
+  ///
+  /// 3.4 - Process Update Section
+  ///
+  ///   Next, the Update Section is processed as follows.
+  ///
+  /// 3.4.1 - Prescan
+  ///
+  ///   The Update Section is parsed into RRs and each RR's CLASS is checked
+  ///   to see if it is ANY, NONE, or the same as the Zone Class, else signal
+  ///   a FORMERR to the requestor.  Using the definitions in Section 1.2,
+  ///   each RR's NAME must be in the zone specified by the Zone Section,
+  ///   else signal NOTZONE to the requestor.
+  ///
+  /// 3.4.1.2. For RRs whose CLASS is not ANY, check the TYPE and if it is
+  ///   ANY, AXFR, MAILA, MAILB, or any other QUERY metatype, or any
+  ///   unrecognized type, then signal FORMERR to the requestor.  For RRs
+  ///   whose CLASS is ANY or NONE, check the TTL to see that it is zero (0),
+  ///   else signal a FORMERR to the requestor.  For any RR whose CLASS is
+  ///   ANY, check the RDLENGTH to make sure that it is zero (0) (that is,
+  ///   the RDATA field is empty), and that the TYPE is not AXFR, MAILA,
+  ///   MAILB, or any other QUERY metatype besides ANY, or any unrecognized
+  ///   type, else signal FORMERR to the requestor.
+  /// ```
   fn pre_scan(&self, records: &[Record]) -> UpdateResult<()> {
+    // 3.4.1.3 - Pseudocode For Update Section Prescan
+    //
+    //      [rr] for rr in updates
+    //           if (zone_of(rr.name) != ZNAME)
+    //                return (NOTZONE);
+    //           if (rr.class == zclass)
+    //                if (rr.type & ANY|AXFR|MAILA|MAILB)
+    //                     return (FORMERR)
+    //           elsif (rr.class == ANY)
+    //                if (rr.ttl != 0 || rr.rdlength != 0
+    //                    || rr.type & AXFR|MAILA|MAILB)
+    //                     return (FORMERR)
+    //           elsif (rr.class == NONE)
+    //                if (rr.ttl != 0 || rr.type & ANY|AXFR|MAILA|MAILB)
+    //                     return (FORMERR)
+    //           else
+    //                return (FORMERR)
     for rr in records {
       if !self.get_origin().zone_of(rr.get_name()) {
         return Err(ResponseCode::NotZone);
@@ -359,61 +382,60 @@ impl Authority {
     return Ok(());
   }
 
-  /*
-   * RFC 2136                       DNS Update                     April 1997
-   *
-   *   3.4.2.6 - Table Of Metavalues Used In Update Section
-   *
-   *   CLASS    TYPE     RDATA    Meaning
-   *   ---------------------------------------------------------
-   *   ANY      ANY      empty    Delete all RRsets from a name
-   *   ANY      rrset    empty    Delete an RRset
-   *   NONE     rrset    rr       Delete an RR from an RRset
-   *   zone     rrset    rr       Add to an RRset
-   *
-   *   3.4.2.7 - Pseudocode For Update Section Processing
-   *
-   *      [rr] for rr in updates
-   *           if (rr.class == zclass)
-   *                if (rr.type == CNAME)
-   *                     if (zone_rrset<rr.name, ~CNAME>)
-   *                          next [rr]
-   *                elsif (zone_rrset<rr.name, CNAME>)
-   *                     next [rr]
-   *                if (rr.type == SOA)
-   *                     if (!zone_rrset<rr.name, SOA> ||
-   *                         zone_rr<rr.name, SOA>.serial > rr.soa.serial)
-   *                          next [rr]
-   *                for zrr in zone_rrset<rr.name, rr.type>
-   *                     if (rr.type == CNAME || rr.type == SOA ||
-   *                         (rr.type == WKS && rr.proto == zrr.proto &&
-   *                          rr.address == zrr.address) ||
-   *                         rr.rdata == zrr.rdata)
-   *                          zrr = rr
-   *                          next [rr]
-   *                zone_rrset<rr.name, rr.type> += rr
-   *           elsif (rr.class == ANY)
-   *                if (rr.type == ANY)
-   *                     if (rr.name == zname)
-   *                          zone_rrset<rr.name, ~(SOA|NS)> = Nil
-   *                     else
-   *                          zone_rrset<rr.name, *> = Nil
-   *                elsif (rr.name == zname &&
-   *                       (rr.type == SOA || rr.type == NS))
-   *                     next [rr]
-   *                else
-   *                     zone_rrset<rr.name, rr.type> = Nil
-   *           elsif (rr.class == NONE)
-   *                if (rr.type == SOA)
-   *                     next [rr]
-   *                if (rr.type == NS && zone_rrset<rr.name, NS> == rr)
-   *                     next [rr]
-   *                zone_rr<rr.name, rr.type, rr.data> = Nil
-   *      return (NOERROR)
-   */
-  /// this function will update the given records by the rules laid out in RFC 2136
-  ///  section 3.4.2.6
+  /// Updates the specified records according to the update section.
+  ///
+  /// ```text
+  /// RFC 2136                       DNS Update                     April 1997
+  ///
+  /// 3.4.2.6 - Table Of Metavalues Used In Update Section
+  ///
+  ///   CLASS    TYPE     RDATA    Meaning
+  ///   ---------------------------------------------------------
+  ///   ANY      ANY      empty    Delete all RRsets from a name
+  ///   ANY      rrset    empty    Delete an RRset
+  ///   NONE     rrset    rr       Delete an RR from an RRset
+  ///   zone     rrset    rr       Add to an RRset
+  ///
   fn update_records(&mut self, records: &[Record]) -> UpdateResult<()> {
+    // 3.4.2.7 - Pseudocode For Update Section Processing
+    //
+    //      [rr] for rr in updates
+    //           if (rr.class == zclass)
+    //                if (rr.type == CNAME)
+    //                     if (zone_rrset<rr.name, ~CNAME>)
+    //                          next [rr]
+    //                elsif (zone_rrset<rr.name, CNAME>)
+    //                     next [rr]
+    //                if (rr.type == SOA)
+    //                     if (!zone_rrset<rr.name, SOA> ||
+    //                         zone_rr<rr.name, SOA>.serial > rr.soa.serial)
+    //                          next [rr]
+    //                for zrr in zone_rrset<rr.name, rr.type>
+    //                     if (rr.type == CNAME || rr.type == SOA ||
+    //                         (rr.type == WKS && rr.proto == zrr.proto &&
+    //                          rr.address == zrr.address) ||
+    //                         rr.rdata == zrr.rdata)
+    //                          zrr = rr
+    //                          next [rr]
+    //                zone_rrset<rr.name, rr.type> += rr
+    //           elsif (rr.class == ANY)
+    //                if (rr.type == ANY)
+    //                     if (rr.name == zname)
+    //                          zone_rrset<rr.name, ~(SOA|NS)> = Nil
+    //                     else
+    //                          zone_rrset<rr.name, *> = Nil
+    //                elsif (rr.name == zname &&
+    //                       (rr.type == SOA || rr.type == NS))
+    //                     next [rr]
+    //                else
+    //                     zone_rrset<rr.name, rr.type> = Nil
+    //           elsif (rr.class == NONE)
+    //                if (rr.type == SOA)
+    //                     next [rr]
+    //                if (rr.type == NS && zone_rrset<rr.name, NS> == rr)
+    //                     next [rr]
+    //                zone_rr<rr.name, rr.type, rr.data> = Nil
+    //      return (NOERROR)
     for rr in records {
       let rr_key = RrKey::new(rr.get_name(), rr.get_rr_type());
 
@@ -497,51 +519,61 @@ impl Authority {
     Ok(())
   }
 
-  /*
-   * RFC 2136                       DNS Update                     April 1997
-   *
-   *   3.4 - Process Update Section
-   *
-   *   Next, the Update Section is processed as follows.
-   *
-   *   3.4.2 - Update
-   *
-   *   The Update Section is parsed into RRs and these RRs are processed in
-   *   order.
-   *
-   *   3.4.2.1. If any system failure (such as an out of memory condition,
-   *   or a hardware error in persistent storage) occurs during the
-   *   processing of this section, signal SERVFAIL to the requestor and undo
-   *   all updates applied to the zone during this transaction.
-   *
-   *   3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to
-   *   the zone.  In case of duplicate RDATAs (which for SOA RRs is always
-   *   the case, and for WKS RRs is the case if the ADDRESS and PROTOCOL
-   *   fields both match), the Zone RR is replaced by Update RR.  If the
-   *   TYPE is SOA and there is no Zone SOA RR, or the new SOA.SERIAL is
-   *   lower (according to [RFC1982]) than or equal to the current Zone SOA
-   *   RR's SOA.SERIAL, the Update RR is ignored.  In the case of a CNAME
-   *   Update RR and a non-CNAME Zone RRset or vice versa, ignore the CNAME
-   *   Update RR, otherwise replace the CNAME Zone RR with the CNAME Update
-   *   RR.
-   *
-   *   3.4.2.3. For any Update RR whose CLASS is ANY and whose TYPE is ANY,
-   *   all Zone RRs with the same NAME are deleted, unless the NAME is the
-   *   same as ZNAME in which case only those RRs whose TYPE is other than
-   *   SOA or NS are deleted.  For any Update RR whose CLASS is ANY and
-   *   whose TYPE is not ANY all Zone RRs with the same NAME and TYPE are
-   *   deleted, unless the NAME is the same as ZNAME in which case neither
-   *   SOA or NS RRs will be deleted.
-   *
-   *   3.4.2.4. For any Update RR whose class is NONE, any Zone RR whose
-   *   NAME, TYPE, RDATA and RDLENGTH are equal to the Update RR is deleted,
-   *   unless the NAME is the same as ZNAME and either the TYPE is SOA or
-   *   the TYPE is NS and the matching Zone RR is the only NS remaining in
-   *   the RRset, in which case this Update RR is ignored.
-   *
-   *   3.4.2.5. Signal NOERROR to the requestor.
-   *
-   */
+  /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
+  ///
+  /// ```text
+  /// RFC 2136                       DNS Update                     April 1997
+  ///
+  /// 3.4 - Process Update Section
+  ///
+  ///   Next, the Update Section is processed as follows.
+  ///
+  /// 3.4.2 - Update
+  ///
+  ///   The Update Section is parsed into RRs and these RRs are processed in
+  ///   order.
+  ///
+  /// 3.4.2.1. If any system failure (such as an out of memory condition,
+  ///   or a hardware error in persistent storage) occurs during the
+  ///   processing of this section, signal SERVFAIL to the requestor and undo
+  ///   all updates applied to the zone during this transaction.
+  ///
+  /// 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to
+  ///   the zone.  In case of duplicate RDATAs (which for SOA RRs is always
+  ///   the case, and for WKS RRs is the case if the ADDRESS and PROTOCOL
+  ///   fields both match), the Zone RR is replaced by Update RR.  If the
+  ///   TYPE is SOA and there is no Zone SOA RR, or the new SOA.SERIAL is
+  ///   lower (according to [RFC1982]) than or equal to the current Zone SOA
+  ///   RR's SOA.SERIAL, the Update RR is ignored.  In the case of a CNAME
+  ///   Update RR and a non-CNAME Zone RRset or vice versa, ignore the CNAME
+  ///   Update RR, otherwise replace the CNAME Zone RR with the CNAME Update
+  ///   RR.
+  ///
+  /// 3.4.2.3. For any Update RR whose CLASS is ANY and whose TYPE is ANY,
+  ///   all Zone RRs with the same NAME are deleted, unless the NAME is the
+  ///   same as ZNAME in which case only those RRs whose TYPE is other than
+  ///   SOA or NS are deleted.  For any Update RR whose CLASS is ANY and
+  ///   whose TYPE is not ANY all Zone RRs with the same NAME and TYPE are
+  ///   deleted, unless the NAME is the same as ZNAME in which case neither
+  ///   SOA or NS RRs will be deleted.
+  ///
+  /// 3.4.2.4. For any Update RR whose class is NONE, any Zone RR whose
+  ///   NAME, TYPE, RDATA and RDLENGTH are equal to the Update RR is deleted,
+  ///   unless the NAME is the same as ZNAME and either the TYPE is SOA or
+  ///   the TYPE is NS and the matching Zone RR is the only NS remaining in
+  ///   the RRset, in which case this Update RR is ignored.
+  ///
+  /// 3.4.2.5. Signal NOERROR to the requestor.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `update` - The `UpdateMessage` records will be extracted and used to perform the update
+  ///              actions as specified in the above RFC.
+  ///
+  /// # Return value
+  ///
+  /// Ok() on success or Err() with the `ResponseCode` associated with the error.
   pub fn update(&mut self, update: &UpdateMessage) -> UpdateResult<()> {
     // the spec says to authorize after prereqs, seems better to auth first.
     try!(self.authorize(update));
@@ -554,16 +586,40 @@ impl Authority {
     Ok(())
   }
 
-  /// upserts into the resource vector
-  /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist
+  /// Inserts or updates a `Record` depending on it's existence in the authority.
+  ///
+  /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
+  ///
+  /// # Arguments
+  ///
+  /// * `record` - The `Record` to be inserted or updated.
+  ///
+  /// # Return value
+  ///
+  /// Ok() on success or Err() with the `ResponseCode` associated with the error.
   pub fn upsert(&mut self, record: Record) {
     assert_eq!(self.class, record.get_dns_class());
-    let rr_key = RrKey::new(record.get_name(), record.get_rr_type());
-    let records: &mut RRSet = self.records.entry(rr_key).or_insert(RRSet::new(record.get_name(), record.get_rr_type()));
+    let serial: u32 = self.get_soa().map_or(0, |r| if let &RData::SOA { serial, .. } = r.get_rdata() { serial } else { 0 });
 
-    records.insert(record);
+    let rr_key = RrKey::new(record.get_name(), record.get_rr_type());
+    let records: &mut RRSet = self.records.entry(rr_key).or_insert(RRSet::new(record.get_name(), record.get_rr_type(), serial));
+
+    records.insert(record, serial);
   }
 
+  /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - The `Name`, label, to lookup.
+  /// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching
+  ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
+  ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
+  ///             preceed and follow all other records.
+  ///
+  /// # Return value
+  ///
+  /// None if there are no matching records, otherwise a `Vec` containing the found records.
   pub fn lookup(&self, name: &Name, rtype: RecordType) -> Option<Vec<&Record>> {
     // on an SOA request always return the SOA, regardless of the name
     let name: &Name = if rtype == RecordType::SOA { &self.origin } else { name };

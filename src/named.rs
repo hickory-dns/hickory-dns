@@ -99,11 +99,10 @@ pub fn main() {
 
     let zone_file = File::open(zone_path).unwrap();
     let authority: Authority = Parser::parse_file(zone_file, Some(zone_name.clone()), zone.get_zone_type(), zone.get_allow_udpate()).unwrap();
+    info!("loaded zone: {}", zone_name);
 
     catalog.upsert(zone_name, authority);
   }
-
-  debug!("catalog: {:?}", catalog);
 
   // TODO support all the IPs asked to listen on...
   let listen_addr_v4: Ipv4Addr = *config.get_listen_addrs_ipv4().first().unwrap_or(&Ipv4Addr::new(0,0,0,0));

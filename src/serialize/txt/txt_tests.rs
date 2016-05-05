@@ -39,7 +39,7 @@ VENERA  A       10.1.0.52
       A       128.9.0.32");
 
   let authority = Parser::new().parse(lexer, Some(Name::new().label("isi").label("edu")), ZoneType::Master, false);
-  if authority.is_err() { panic!("failed to parse: {:?}", authority) }
+  if authority.is_err() { panic!("failed to parse: {:?}", authority.err()) }
 
   let authority = authority.unwrap();
 

@@ -21,30 +21,84 @@ pub struct RRSet {
   record_type: RecordType,
   records: Vec<Record>,
   rrsig: Option<Record>,
+  serial: u32, // serial number at which this record was modified
 }
 
 impl RRSet {
-  pub fn new(name: &Name, record_type: RecordType) -> RRSet {
-    RRSet{name: name.clone(), record_type: record_type, records: Vec::new(), rrsig: None}
+  /// Creates a new Resource Record Set.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - The label for the `RRSet`
+  /// * `record_type` - `RecordType` of this `RRSet`, all records in the `RRSet` must be of the
+  ///                   specified `RecordType`.
+  /// * `serial` - current serial number of the `SOA` record, this is to be used for `IXFR` and
+  ///              signing for DNSSec after updates.
+  ///
+  /// # Return value
+  ///
+  /// The newly created Resource Record Set
+  pub fn new(name: &Name, record_type: RecordType, serial: u32) -> RRSet {
+    RRSet{name: name.clone(), record_type: record_type, records: Vec::new(), rrsig: None, serial: serial}
   }
 
+  /// # Return value
+  ///
+  /// Label of the Resource Record Set
   pub fn get_name(&self) -> &Name {
     &self.name
   }
 
+  /// # Return value
+  ///
+  /// `RecordType` of the Resource Record Set
   pub fn get_record_type(&self) -> RecordType {
     self.record_type
   }
 
+  /// # Return value
+  ///
+  /// Slice of all records in the set
   pub fn get_records(&self) -> &[Record] {
     &self.records
   }
 
+  /// # Return value
+  ///
+  /// True if there are no records in this set
   pub fn is_empty(&self) -> bool {
     self.records.is_empty()
   }
 
-  pub fn insert(&mut self, record: Record) -> bool {
+  /// Inserts a new Resource Record into the Set.
+  ///
+  /// This abides by the following restrictions in RFC 2136, April 1997:
+  ///
+  /// ```text
+  /// 1.1.5. The following RR types cannot be appended to an RRset.  If the
+  ///  following comparison rules are met, then an attempt to add the new RR
+  ///  will result in the replacement of the previous RR:
+  ///
+  /// SOA    compare only NAME, CLASS and TYPE -- it is not possible to
+  ///         have more than one SOA per zone, even if any of the data
+  ///         fields differ.
+  ///
+  /// CNAME  compare only NAME, CLASS, and TYPE -- it is not possible
+  ///         to have more than one CNAME RR, even if their data fields
+  ///         differ.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `record` - `Record` asserts that the `name` and `record_type` match the `RRSet`.
+  /// * `serial` - current serial number of the `SOA` record, this is to be used for `IXFR` and
+  ///              signing for DNSSec after updates. The serial will only be updated if the
+  ///              record was added.
+  ///
+  /// # Return value
+  ///
+  /// True if the record was inserted.
+  pub fn insert(&mut self, record: Record, serial: u32) -> bool {
     assert_eq!(record.get_name(), &self.name);
     assert_eq!(record.get_rr_type(), self.record_type);
 
@@ -53,15 +107,10 @@ impl RRSet {
     // 1.1.5. The following RR types cannot be appended to an RRset.  If the
     //  following comparison rules are met, then an attempt to add the new RR
     //  will result in the replacement of the previous RR:
-    //
-    // SOA    compare only NAME, CLASS and TYPE -- it is not possible to
-    //         have more than one SOA per zone, even if any of the data
-    //         fields differ.
-    //
-    // CNAME  compare only NAME, CLASS, and TYPE -- it is not possible
-    //         to have more than one CNAME RR, even if their data fields
-    //         differ.
     match record.get_rr_type() {
+      // SOA    compare only NAME, CLASS and TYPE -- it is not possible to
+      //         have more than one SOA per zone, even if any of the data
+      //         fields differ.
       RecordType::SOA => {
         assert!(self.records.len() <= 1);
 
@@ -86,7 +135,10 @@ impl RRSet {
         // if we got here, we're updating...
         self.records.clear();
       },
-      RecordType::CNAME => {
+      // CNAME  compare only NAME, CLASS, and TYPE -- it is not possible
+      //         to have more than one CNAME RR, even if their data fields
+      //         differ.
+        RecordType::CNAME => {
         assert!(self.records.len() <= 1);
         self.records.clear();
       },
@@ -166,22 +218,22 @@ mod test {
   fn test_insert() {
     let name = Name::new().label("www").label("example").label("com");
     let record_type = RecordType::A;
-    let mut rr_set = RRSet::new(&name, record_type);
+    let mut rr_set = RRSet::new(&name, record_type, 0);
 
     let insert = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone();
 
-    assert!(rr_set.insert(insert.clone()));
+    assert!(rr_set.insert(insert.clone(), 0));
     assert_eq!(rr_set.get_records().len(), 1);
     assert!(rr_set.get_records().contains(&insert));
 
     // dups ignored
-    assert!(!rr_set.insert(insert.clone()));
+    assert!(!rr_set.insert(insert.clone(), 0));
     assert_eq!(rr_set.get_records().len(), 1);
     assert!(rr_set.get_records().contains(&insert));
 
     // add one
     let insert1 = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,25) }).clone();
-    assert!(rr_set.insert(insert1.clone()));
+    assert!(rr_set.insert(insert1.clone(), 0));
     assert_eq!(rr_set.get_records().len(), 2);
     assert!(rr_set.get_records().contains(&insert));
     assert!(rr_set.get_records().contains(&insert1));
@@ -191,22 +243,22 @@ mod test {
   fn test_insert_soa() {
     let name = Name::new().label("example").label("com");
     let record_type = RecordType::SOA;
-    let mut rr_set = RRSet::new(&name, record_type);
+    let mut rr_set = RRSet::new(&name, record_type, 0);
 
     let insert = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone();
     let same_serial = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.net.", None).unwrap(), rname: Name::parse("noc.dns.icann.net.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone();
     let new_serial = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.net.", None).unwrap(), rname: Name::parse("noc.dns.icann.net.", None).unwrap(), serial: 2015082404, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone();
 
-    assert!(rr_set.insert(insert.clone()));
+    assert!(rr_set.insert(insert.clone(), 0));
     assert!(rr_set.get_records().contains(&insert));
     // same serial number
-    assert!(!rr_set.insert(same_serial.clone()));
+    assert!(!rr_set.insert(same_serial.clone(), 0));
     assert!(rr_set.get_records().contains(&insert));
     assert!(!rr_set.get_records().contains(&same_serial));
 
-    assert!(rr_set.insert(new_serial.clone()));
-    assert!(!rr_set.insert(same_serial.clone()));
-    assert!(!rr_set.insert(insert.clone()));
+    assert!(rr_set.insert(new_serial.clone(), 0));
+    assert!(!rr_set.insert(same_serial.clone(), 0));
+    assert!(!rr_set.insert(insert.clone(), 0));
 
     assert!(rr_set.get_records().contains(&new_serial));
     assert!(!rr_set.get_records().contains(&insert));
@@ -220,16 +272,16 @@ mod test {
     let new_cname = Name::new().label("w2").label("example").label("com");
 
     let record_type = RecordType::CNAME;
-    let mut rr_set = RRSet::new(&name, record_type);
+    let mut rr_set = RRSet::new(&name, record_type, 0);
 
     let insert = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME{ cname: cname.clone() }).clone();
     let new_record = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME{ cname: new_cname.clone() }).clone();
 
-    assert!(rr_set.insert(insert.clone()));
+    assert!(rr_set.insert(insert.clone(), 0));
     assert!(rr_set.get_records().contains(&insert));
 
     // update the record
-    assert!(rr_set.insert(new_record.clone()));
+    assert!(rr_set.insert(new_record.clone(), 0));
     assert!(!rr_set.get_records().contains(&insert));
     assert!(rr_set.get_records().contains(&new_record));
   }
@@ -238,13 +290,13 @@ mod test {
   fn test_remove() {
     let name = Name::new().label("www").label("example").label("com");
     let record_type = RecordType::A;
-    let mut rr_set = RRSet::new(&name, record_type);
+    let mut rr_set = RRSet::new(&name, record_type, 0);
 
     let insert = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone();
     let insert1 = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,25) }).clone();
 
-    assert!(rr_set.insert(insert.clone()));
-    assert!(rr_set.insert(insert1.clone()));
+    assert!(rr_set.insert(insert.clone(), 0));
+    assert!(rr_set.insert(insert1.clone(), 0));
 
     assert!(rr_set.remove(&insert));
     assert!(!rr_set.remove(&insert));
@@ -256,11 +308,11 @@ mod test {
   fn test_remove_soa() {
     let name = Name::new().label("example").label("com");
     let record_type = RecordType::SOA;
-    let mut rr_set = RRSet::new(&name, record_type);
+    let mut rr_set = RRSet::new(&name, record_type, 0);
 
     let insert = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone();
 
-    assert!(rr_set.insert(insert.clone()));
+    assert!(rr_set.insert(insert.clone(), 0));
     assert!(!rr_set.remove(&insert));
     assert!(rr_set.get_records().contains(&insert));
   }
@@ -269,20 +321,20 @@ mod test {
   fn test_remove_ns() {
     let name = Name::new().label("example").label("com");
     let record_type = RecordType::NS;
-    let mut rr_set = RRSet::new(&name, record_type);
+    let mut rr_set = RRSet::new(&name, record_type, 0);
 
     let ns1 = Record::new().name(name.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone();
     let ns2 = Record::new().name(name.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone();
 
-    assert!(rr_set.insert(ns1.clone()));
-    assert!(rr_set.insert(ns2.clone()));
+    assert!(rr_set.insert(ns1.clone(), 0));
+    assert!(rr_set.insert(ns2.clone(), 0));
 
     // ok to remove one, but not two...
     assert!(rr_set.remove(&ns1));
     assert!(!rr_set.remove(&ns2));
 
     // check that we can swap which ones are removed
-    assert!(rr_set.insert(ns1.clone()));
+    assert!(rr_set.insert(ns1.clone(), 0));
 
     assert!(rr_set.remove(&ns2));
     assert!(!rr_set.remove(&ns1));
