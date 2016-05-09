@@ -45,7 +45,7 @@ impl TcpClientConnection {
     //  ideally this would not be added to the event loop until the client connection request.
     try!(event_loop.register(&stream, RESPONSE, EventSet::all(), PollOpt::all()));
 
-    Ok(TcpClientConnection{ handler: Some(TcpHandler::new_client_handler(stream, None)), event_loop: event_loop, error: None })
+    Ok(TcpClientConnection{ handler: Some(TcpHandler::new_client_handler(stream)), event_loop: event_loop, error: None })
   }
 }
 

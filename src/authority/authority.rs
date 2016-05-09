@@ -15,11 +15,13 @@
  */
 use std::collections::HashMap;
 
-use openssl::crypto::pkey::{PKey, Role};
+use chrono::offset::utc::UTC;
 
 use ::authority::{UpdateResult, ZoneType, RRSet};
 use ::op::{UpdateMessage, ResponseCode};
-use ::rr::*;
+use ::rr::{DNSClass, Name, RData, Record, RecordType};
+use ::rr::rdata::SIG;
+use ::rr::dnssec::Signer;
 
 #[derive(Eq, PartialEq, Debug, Hash, Clone)]
 pub struct RrKey { name: Name, record_type: RecordType }
@@ -42,7 +44,7 @@ pub struct Authority {
   //   server instance, but that requires requesting updates from the parent zone, which may or
   //   may not support dynamic updates to register the new key... Trust-DNS will provide support
   //   for this, in some form, perhaps alternate root zones...
-  secure_keys: Vec<PKey>,
+  secure_keys: Vec<Signer>,
 }
 
 /// Authority is responsible for storing the resource records for a particular zone.
@@ -84,6 +86,25 @@ impl Authority {
   pub fn get_soa(&self) -> Option<&Record> {
     // SOA should be origin|SOA
     self.lookup(&self.origin, RecordType::SOA).and_then(|v|v.first().map(|v| *v))
+  }
+
+  fn increment_soa_serial(&mut self) -> u32 {
+    let mut soa = if let Some(ref mut soa_record) = self.get_soa() {
+      soa_record.clone()
+    } else {
+      warn!("no soa record found for zone: {}", self.origin);
+      return 0;
+    };
+
+    let serial = if let &mut RData::SOA(ref mut soa_rdata) = soa.get_rdata_mut() {
+      soa_rdata.increment_serial();
+      soa_rdata.get_serial()
+    } else {
+      panic!("This was not an SOA record");
+    };
+
+    self.upsert(soa, serial);
+    return serial;
   }
 
   pub fn get_ns(&self) -> Option<Vec<&Record>> {
@@ -185,7 +206,7 @@ impl Authority {
 
       match require.get_dns_class() {
         DNSClass::ANY =>
-          if let &RData::NULL{ .. } = require.get_rdata() {
+          if let &RData::NULL( .. ) = require.get_rdata() {
             match require.get_rr_type() {
               // ANY      ANY      empty    Name is in use
               RecordType::ANY => {
@@ -209,7 +230,7 @@ impl Authority {
           }
         ,
         DNSClass::NONE =>
-          if let &RData::NULL{ .. } = require.get_rdata() {
+          if let &RData::NULL( .. ) = require.get_rdata() {
             match require.get_rr_type() {
               // NONE     ANY      empty    Name is not in use
               RecordType::ANY => {
@@ -360,7 +381,7 @@ impl Authority {
         match class {
           DNSClass::ANY => {
             if rr.get_ttl() != 0 { return Err(ResponseCode::FormErr) }
-            if let &RData::NULL {..} = rr.get_rdata() { () }
+            if let &RData::NULL(..) = rr.get_rdata() { () }
             else { return Err(ResponseCode::FormErr) }
             match rr.get_rr_type() {
               RecordType::AXFR | RecordType::IXFR => return Err(ResponseCode::FormErr),
@@ -395,8 +416,10 @@ impl Authority {
   ///   ANY      rrset    empty    Delete an RRset
   ///   NONE     rrset    rr       Delete an RR from an RRset
   ///   zone     rrset    rr       Add to an RRset
-  ///
-  fn update_records(&mut self, records: &[Record]) -> UpdateResult<()> {
+  /// ```
+  fn update_records(&mut self, records: &[Record], serial: u32) -> UpdateResult<bool> {
+    let mut updated = false;
+
     // 3.4.2.7 - Pseudocode For Update Section Processing
     //
     //      [rr] for rr in updates
@@ -454,7 +477,7 @@ impl Authority {
 
           // zone     rrset    rr       Add to an RRset
           info!("upserting record: {:?}", rr);
-          self.upsert(rr.clone());
+          updated = self.upsert(rr.clone(), serial) || updated;
         },
         DNSClass::ANY => {
           // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
@@ -480,6 +503,7 @@ impl Authority {
                                                  .collect::<Vec<RrKey>>();
               for delete in to_delete {
                 self.records.remove(&delete);
+                updated = true;
               }
             },
             _ => {
@@ -489,7 +513,7 @@ impl Authority {
               //   SOA or NS RRs will be deleted.
 
               // ANY      rrset    empty    Delete an RRset
-              if let &RData::NULL { .. } = rr.get_rdata() {
+              if let &RData::NULL( .. ) = rr.get_rdata() {
                 let deleted = self.records.remove(&rr_key);
                 info!("deleted rrset: {:?}", deleted);
               } else {
@@ -504,9 +528,10 @@ impl Authority {
           println!("deleting specific record: {:?}", rr);
           // NONE     rrset    rr       Delete an RR from an RRset
           if let Some(rrset) = self.records.get_mut(&rr_key) {
-            let deleted = rrset.remove(rr);
+            let deleted = rrset.remove(rr, serial);
             info!("deleted ({}) specific record: {:?}", deleted, rr);
             println!("deleted ({}) specific record: {:?}", deleted, rr);
+            updated = updated || deleted;
           }
         },
         class @ _ => {
@@ -516,7 +541,28 @@ impl Authority {
       }
     }
 
-    Ok(())
+    Ok(updated)
+  }
+
+  /// Inserts or updates a `Record` depending on it's existence in the authority.
+  ///
+  /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
+  ///
+  /// # Arguments
+  ///
+  /// * `record` - The `Record` to be inserted or updated.
+  /// * `serial` - Current serial number to be recorded against updates.
+  ///
+  /// # Return value
+  ///
+  /// Ok() on success or Err() with the `ResponseCode` associated with the error.
+  pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
+    assert_eq!(self.class, record.get_dns_class());
+
+    let rr_key = RrKey::new(record.get_name(), record.get_rr_type());
+    let records: &mut RRSet = self.records.entry(rr_key).or_insert(RRSet::new(record.get_name(), record.get_rr_type(), serial));
+
+    records.insert(record, serial)
   }
 
   /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
@@ -580,31 +626,17 @@ impl Authority {
     try!(self.verify_prerequisites(update.get_pre_requisites()));
     try!(self.pre_scan(update.get_updates()));
 
+    let serial: u32 = self.get_soa().map_or(0, |r| if let &RData::SOA (ref soa) = r.get_rdata() { soa.get_serial() } else { 0 });
+
     // TODO at this point, we've accepted the updates, we should write
     //  to a write-ahead-log (journal) and then commit to memory.
-    try!(self.update_records(update.get_updates()));
+    if try!(self.update_records(update.get_updates(), serial)) {
+      // need to resign any records at the current serial number and bump the number.
+      // first bump the serial number on the SOA, so that it is resigned with the new serial.
+      self.increment_soa_serial();
+      self.sign_zone();
+    }
     Ok(())
-  }
-
-  /// Inserts or updates a `Record` depending on it's existence in the authority.
-  ///
-  /// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.
-  ///
-  /// # Arguments
-  ///
-  /// * `record` - The `Record` to be inserted or updated.
-  ///
-  /// # Return value
-  ///
-  /// Ok() on success or Err() with the `ResponseCode` associated with the error.
-  pub fn upsert(&mut self, record: Record) {
-    assert_eq!(self.class, record.get_dns_class());
-    let serial: u32 = self.get_soa().map_or(0, |r| if let &RData::SOA { serial, .. } = r.get_rdata() { serial } else { 0 });
-
-    let rr_key = RrKey::new(record.get_name(), record.get_rr_type());
-    let records: &mut RRSet = self.records.entry(rr_key).or_insert(RRSet::new(record.get_name(), record.get_rr_type(), serial));
-
-    records.insert(record, serial);
   }
 
   /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
@@ -643,6 +675,61 @@ impl Authority {
     // TODO: change function signature to be non-optional
     if result.is_empty() { None } else { Some(result) }
   }
+
+  /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
+  ///
+  /// # Arguments
+  ///
+  /// * `serial` - The serial to which the serial number of an `RRSet` should be compared. If the
+  ///              record set serial is greater than or equal to the `serial`, then it will be
+  ///              resigned.
+  pub fn sign_zone(&mut self) {
+    let now = UTC::now().timestamp() as u32;
+    let zone_ttl = self.get_soa()
+                       .map_or(0, |soa_rec| if let &RData::SOA(ref soa) = soa_rec.get_rdata() { soa.get_minimum() }
+                                            else { panic!("SOA has no RDATA: {}", self.origin) } );
+
+    for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| { rr_set.get_rrsigs().is_empty();
+                                                                     Some(rr_set) } ) {
+      let rrsig_temp = Record::with(rr_set.get_name().clone(), RecordType::RRSIG, zone_ttl);
+
+      for signer in self.secure_keys.iter() {
+        let hash = signer.hash_rrset(rr_set.get_name(),
+                                     self.class,
+                                     rr_set.get_name().num_labels(),
+                                     rr_set.get_record_type(),
+                                     signer.get_algorithm(),
+                                     rr_set.get_ttl(),
+                                     signer.get_expiration(),
+                                     now,
+                                     signer.calculate_key_tag(),
+                                     signer.get_signer_name(),
+                                     rr_set.get_records());
+        let signature = signer.sign(&hash);
+        let mut rrsig = rrsig_temp.clone();
+        rrsig.rdata(RData::SIG(SIG::new(
+          // type_covered: RecordType,
+          rr_set.get_record_type(),
+          // algorithm: Algorithm,
+          signer.get_algorithm(),
+          // num_labels: u8,
+          rr_set.get_name().num_labels(),
+          // original_ttl: u32,
+          rr_set.get_ttl(),
+          // sig_expiration: u32,
+          signer.get_expiration(),
+          // sig_inception: u32,
+          now,
+          // key_tag: u16,
+          signer.calculate_key_tag(),
+          // signer_name: Name,
+          signer.get_signer_name().clone(),
+          // sig: Vec<u8>
+          signature,
+        )));
+      }
+    }
+  }
 }
 
 #[cfg(test)]
@@ -652,6 +739,8 @@ pub mod authority_tests {
 
   use ::authority::ZoneType;
   use ::rr::*;
+  use ::rr::rdata::NULL;
+  use ::rr::rdata::SOA;
   use ::op::*;
   use super::*;
 
@@ -659,21 +748,21 @@ pub mod authority_tests {
     let origin: Name = Name::parse("example.com.", None,).unwrap();
     let mut records: Authority = Authority::new(origin.clone(), HashMap::new(), ZoneType::Master, false);
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
-    records.upsert(Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None).unwrap(), Name::parse("noc.dns.icann.org.", None).unwrap(), 2015082403, 7200, 3600, 1209600, 3600 ))).clone(), 0);
 
-    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone());
-    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(), 0);
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone(), 0);
 
     // example.com.		60	IN	TXT	"v=spf1 -all"
     //records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
     // example.com.		60	IN	TXT	"$Id: example.com 4415 2015-08-24 20:12:23Z davids $"
-    records.upsert(Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()] }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()] }).clone(), 0);
 
     // example.com.		86400	IN	A	93.184.216.34
-    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone(), 0);
 
     // example.com.		86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(), 0);
 
     // TODO support these later...
 
@@ -693,13 +782,13 @@ pub mod authority_tests {
     let www_name: Name = Name::parse("www.example.com.", None).unwrap();
 
     // www.example.com.	86400	IN	TXT	"v=spf1 -all"
-    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone(), 0);
 
     // www.example.com.	86400	IN	A	93.184.216.34
-    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone(), 0);
 
     // www.example.com.	86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone());
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(), 0);
 
     // www.example.com.	3600	IN	RRSIG	NSEC 8 3 3600 20150925215757 20150905040848 54108 example.com. ZKIVt1IN3O1FWZPSfrQAH7nHt7RUFDjcbh7NxnEqd/uTGCnZ6SrAEgrY E9GMmBwvRjoucphGtjkYOpPJPe5MlnTHoYCjxL4qmG3LsD2KD0bfPufa ibtlQZRrPglxZ92hBKK3ZiPnPRe7I9yni2UQSQA7XDi7CQySYyo490It AxdXjAo=
     // www.example.com.	3600	IN	NSEC	example.com. A TXT AAAA RRSIG NSEC
@@ -758,24 +847,24 @@ pub mod authority_tests {
     authority.set_allow_update(true);
 
     // first check the initial negatives, ttl = 0, and the zone is the same
-    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::NULL{ anything: vec![] }).clone()]), Err(ResponseCode::FormErr));
-    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_zone.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::NULL{ anything: vec![] }).clone()]), Err(ResponseCode::NotZone));
+    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_zone.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::NotZone));
 
     // *   ANY      ANY      empty    Name is in use
-    assert!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::ANY).rr_type(RecordType::ANY).rdata(RData::NULL{ anything: vec![] }).clone()]).is_ok());
-    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::ANY).rr_type(RecordType::ANY).rdata(RData::NULL{ anything: vec![] }).clone()]), Err(ResponseCode::NXDomain));
+    assert!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::ANY).rr_type(RecordType::ANY).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
+    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::ANY).rr_type(RecordType::ANY).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::NXDomain));
 
     // *   ANY      rrset    empty    RRset exists (value independent)
-    assert!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::ANY).rr_type(RecordType::A).rdata(RData::NULL{ anything: vec![] } ).clone()]).is_ok());
-    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::ANY).rr_type(RecordType::A).rdata(RData::NULL{ anything: vec![] }).clone()]), Err(ResponseCode::NXRRSet));
+    assert!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::ANY).rr_type(RecordType::A).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
+    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::ANY).rr_type(RecordType::A).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::NXRRSet));
 
     // *   NONE     ANY      empty    Name is not in use
-    assert!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::NONE).rr_type(RecordType::ANY).rdata(RData::NULL{ anything: vec![] }).clone()]).is_ok());
-    assert_eq!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::NONE).rr_type(RecordType::ANY).rdata(RData::NULL{ anything: vec![] }).clone()]), Err(ResponseCode::YXDomain));
+    assert!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::NONE).rr_type(RecordType::ANY).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
+    assert_eq!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::NONE).rr_type(RecordType::ANY).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::YXDomain));
 
     // *   NONE     rrset    empty    RRset does not exist
-    assert!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::NONE).rr_type(RecordType::A).rdata(RData::NULL{ anything: vec![] }).clone()]).is_ok());
-    assert_eq!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::NONE).rr_type(RecordType::A).rdata(RData::NULL{ anything: vec![] }).clone()]), Err(ResponseCode::YXRRSet));
+    assert!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::NONE).rr_type(RecordType::A).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
+    assert_eq!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::NONE).rr_type(RecordType::A).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::YXRRSet));
 
     // *   zone     rrset    rr       RRset exists (value dependent)
     assert!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::IN).rr_type(RecordType::A).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone()]).is_ok());
@@ -796,27 +885,27 @@ pub mod authority_tests {
 
     assert_eq!(authority.pre_scan(&[Record::new().name(not_zone.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]), Err(ResponseCode::NotZone));
 
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::ANY).dns_class(DNSClass::IN).rdata(RData::NULL{ anything: vec![]} ).clone()]), Err(ResponseCode::FormErr));
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::AXFR).dns_class(DNSClass::IN).rdata(RData::NULL{ anything: vec![]} ).clone()]), Err(ResponseCode::FormErr));
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::IXFR).dns_class(DNSClass::IN).rdata(RData::NULL{ anything: vec![]} ).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::ANY).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new()) ).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::AXFR).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new()) ).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::IXFR).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new()) ).clone()]), Err(ResponseCode::FormErr));
     assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]).is_ok());
-    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::NULL{ anything: vec![] }).clone()]).is_ok());
+    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
 
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]), Err(ResponseCode::FormErr));
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]), Err(ResponseCode::FormErr));
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::AXFR).dns_class(DNSClass::ANY).rdata(RData::NULL{ anything: vec![]}).clone()]), Err(ResponseCode::FormErr));
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::IXFR).dns_class(DNSClass::ANY).rdata(RData::NULL{ anything: vec![]}).clone()]), Err(ResponseCode::FormErr));
-    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::ANY).dns_class(DNSClass::ANY).rdata(RData::NULL{ anything: vec![]}).clone()]).is_ok());
-    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::NULL{ anything: vec![]}).clone()]).is_ok());
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::AXFR).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::IXFR).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
+    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::ANY).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
+    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
 
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::NULL{ anything: vec![]}).clone()]), Err(ResponseCode::FormErr));
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::ANY).dns_class(DNSClass::NONE).rdata(RData::NULL{ anything: vec![]}).clone()]), Err(ResponseCode::FormErr));
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::AXFR).dns_class(DNSClass::NONE).rdata(RData::NULL{ anything: vec![]}).clone()]), Err(ResponseCode::FormErr));
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::IXFR).dns_class(DNSClass::NONE).rdata(RData::NULL{ anything: vec![]}).clone()]), Err(ResponseCode::FormErr));
-    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::NULL{ anything: vec![]}).clone()]).is_ok());
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::ANY).dns_class(DNSClass::NONE).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::AXFR).dns_class(DNSClass::NONE).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::IXFR).dns_class(DNSClass::NONE).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
+    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
     assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]).is_ok());
 
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::CH).rdata(RData::NULL{ anything: vec![]}).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::CH).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
   }
 
   #[test]
@@ -848,11 +937,11 @@ pub mod authority_tests {
     //
     //  zone     rrset    rr       Add to an RRset
     let add_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()];
-    assert!(authority.update_records(add_record).is_ok());
+    assert!(authority.update_records(add_record, 0).is_ok());
     assert_eq!(authority.lookup(&new_name, RecordType::ANY).unwrap_or(vec![]), add_record.iter().collect::<Vec<&Record>>());
 
     let add_www_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(10,0,0,1) }).clone()];
-    assert!(authority.update_records(add_www_record).is_ok());
+    assert!(authority.update_records(add_www_record, 0).is_ok());
 
     {
       let mut www_rrset = authority.lookup(&www_name, RecordType::ANY).unwrap_or(vec![]);
@@ -867,7 +956,7 @@ pub mod authority_tests {
     //
     //  NONE     rrset    rr       Delete an RR from an RRset
     let del_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()];
-    assert!(authority.update_records(del_record).is_ok());
+    assert!(authority.update_records(del_record, 0).is_ok());
     {
       println!("after delete of specific record: {:?}", authority.lookup(&new_name, RecordType::ANY));
       assert!(authority.lookup(&new_name, RecordType::ANY).is_none());
@@ -875,7 +964,7 @@ pub mod authority_tests {
 
     // remove one from www
     let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A{ address: Ipv4Addr::new(10,0,0,1) }).clone()];
-    assert!(authority.update_records(del_record).is_ok());
+    assert!(authority.update_records(del_record, 0).is_ok());
     {
       let mut www_rrset = authority.lookup(&www_name, RecordType::ANY).unwrap_or(vec![]);
       www_rrset.sort();
@@ -885,8 +974,8 @@ pub mod authority_tests {
 
     //
     //  ANY      rrset    empty    Delete an RRset
-    let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::NULL{ anything: vec![] }).clone()];
-    assert!(authority.update_records(del_record).is_ok());
+    let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()];
+    assert!(authority.update_records(del_record, 0).is_ok());
     let mut removed_a_vec: Vec<_> = vec![
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone(),
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(),
@@ -903,8 +992,8 @@ pub mod authority_tests {
     //
     //  ANY      ANY      empty    Delete all RRsets from a name
     println!("deleting all records");
-    let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::ANY).dns_class(DNSClass::ANY).rdata(RData::NULL{ anything: vec![] }).clone()];
-    assert!(authority.update_records(del_record).is_ok());
+    let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::ANY).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()];
+    assert!(authority.update_records(del_record, 0).is_ok());
     assert_eq!(authority.lookup(&www_name, RecordType::ANY), None);
   }
 }

@@ -16,34 +16,30 @@
 use std::io;
 use std::io::{Write, Read};
 use std::mem;
-use std::sync::Arc;
 
 use mio::tcp::TcpStream;
 use mio::EventSet; // not * b/c don't want confusion with std::net
-
-use ::authority::Catalog;
 
 pub struct TcpHandler {
   tcp_type: TcpType,
   state: TcpState,   // current state of the handler and stream, i.e. are we reading from the client? or writing back to it?
   buffer: Vec<u8>, // current location and buffer we are reading into or writing from
   stream: TcpStream,
-  catalog: Option<Arc<Catalog>>,
 }
 
 impl TcpHandler {
   /// initializes this handler with the intention to write first
-  pub fn new_client_handler(stream: TcpStream, catalog: Option<Arc<Catalog>>) -> Self {
-    Self::new(TcpType::Client, TcpState::WillWriteLength, vec![], stream, catalog)
+  pub fn new_client_handler(stream: TcpStream) -> Self {
+    Self::new(TcpType::Client, TcpState::WillWriteLength, vec![], stream)
   }
 
   /// initializes this handler with the intention to read first
-  pub fn new_server_handler(stream: TcpStream, catalog: Arc<Catalog>) -> Self {
-    Self::new(TcpType::Server, TcpState::WillReadLength, Vec::with_capacity(512), stream, Some(catalog))
+  pub fn new_server_handler(stream: TcpStream) -> Self {
+    Self::new(TcpType::Server, TcpState::WillReadLength, Vec::with_capacity(512), stream)
   }
 
-  fn new(tcp_type: TcpType, state: TcpState, buffer: Vec<u8>, stream: TcpStream, catalog: Option<Arc<Catalog>>) -> Self {
-    TcpHandler{ tcp_type: tcp_type, state: state, buffer: buffer, stream: stream, catalog: catalog }
+  fn new(tcp_type: TcpType, state: TcpState, buffer: Vec<u8>, stream: TcpStream) -> Self {
+    TcpHandler{ tcp_type: tcp_type, state: state, buffer: buffer, stream: stream }
   }
 
   pub fn get_stream(&self) -> &TcpStream {

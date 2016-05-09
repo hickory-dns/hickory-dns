@@ -84,9 +84,70 @@ use ::rr::domain::Name;
 // reason for this provison is to allow future dynamic update facilities to
 // change the SOA RR with known semantics.
 //
+
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct SOA { mname: Name, rname: Name, serial: u32,
+                 refresh: i32, retry: i32, expire: i32,
+                 minimum: u32, }
+
+impl SOA {
+  pub fn new(mname: Name, rname: Name, serial: u32,
+             refresh: i32, retry: i32, expire: i32,
+             minimum: u32) -> Self {
+    SOA { mname: mname, rname: rname, serial: serial,
+          refresh: refresh, retry: retry, expire: expire,
+          minimum: minimum, }
+  }
+
+  /// Increments the serial number by one
+  pub fn increment_serial(&mut self) {
+    self.serial += 1;
+  }
+
+  /// # Return value
+  ///
+  /// The `domain-name` of the name server that was the original or primary source of data for
+  /// this zone, i.e. the master name server.
+  pub fn get_mname(&self) -> &Name { &self.mname }
+
+  /// # Return value
+  ///
+  /// A `domain-name` which specifies the mailbox of the person responsible for this zone, i.e.
+  /// the responsible name.
+  pub fn get_rname(&self) -> &Name { &self.rname }
+
+  /// # Return value
+  ///
+  /// The unsigned 32 bit version number of the original copy of the zone. Zone transfers
+  /// preserve this value. This value wraps and should be compared using sequence space arithmetic.
+  pub fn get_serial(&self) -> u32 { self.serial }
+
+  /// # Return value
+  ///
+  /// A 32 bit time interval before the zone should be refreshed, in seconds.
+  pub fn get_refresh(&self) -> i32 { self.refresh }
+
+  /// # Return value
+  ///
+  /// A 32 bit time interval that should elapse before a failed refresh should be retried,
+  /// in seconds.
+  pub fn get_retry(&self) -> i32 { self.retry }
+
+  /// # Return value
+  ///
+  /// A 32 bit time value that specifies the upper limit on the time interval that can elapse
+  /// before the zone is no longer authoritative, in seconds
+  pub fn get_expire(&self) -> i32 { self.expire }
+
+  /// # Return value
+  ///
+  /// The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone.
+  pub fn get_minimum(&self) -> u32 { self.minimum }
+}
+
 // SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
-  Ok(RData::SOA{
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SOA> {
+  Ok(SOA{
     mname:   try!(Name::read(decoder)),
     rname:   try!(Name::read(decoder)),
     serial:  try!(decoder.read_u32()),
@@ -97,19 +158,15 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
   })
 }
 
-pub fn emit(encoder: &mut BinEncoder, soa: &RData) -> EncodeResult {
-  if let RData::SOA { ref mname, ref rname, ref serial, ref refresh, ref retry, ref expire, ref minimum } = *soa {
-    try!(mname.emit(encoder));
-    try!(rname.emit(encoder));
-    try!(encoder.emit_u32(*serial));
-    try!(encoder.emit_i32(*refresh));
-    try!(encoder.emit_i32(*retry));
-    try!(encoder.emit_i32(*expire));
-    try!(encoder.emit_u32(*minimum));
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", soa);
-  }
+pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> EncodeResult {
+  try!(soa.mname.emit(encoder));
+  try!(soa.rname.emit(encoder));
+  try!(encoder.emit_u32(soa.serial));
+  try!(encoder.emit_i32(soa.refresh));
+  try!(encoder.emit_i32(soa.retry));
+  try!(encoder.emit_i32(soa.expire));
+  try!(encoder.emit_u32(soa.minimum));
+  Ok(())
 }
 
 // VENERA      Action\.domains (
@@ -138,7 +195,7 @@ pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
   // let expire: i32 = try!(token.next().ok_or(ParseError::MissingToken("expire".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
   // let minimum: u32 = try!(token.next().ok_or(ParseError::MissingToken("minimum".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
 
-  Ok(RData::SOA{
+  Ok(RData::SOA(SOA{
     mname:   mname,
     rname:   rname,
     serial:  serial,
@@ -146,12 +203,12 @@ pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
     retry:   retry,
     expire:  expire,
     minimum: minimum,
-  })
+  }))
 }
 
 #[test]
 fn test() {
-  let rdata = RData::SOA{
+  let rdata = SOA{
     mname:   Name::new().label("m").label("example").label("com"),
     rname:   Name::new().label("r").label("example").label("com"),
     serial:  1,

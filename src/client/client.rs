@@ -146,9 +146,10 @@ impl<C: ClientConnection> Client<C> {
 
     // standard rrsig verification
     for rrsig in rrsigs.iter().filter(|rr| rr.get_name() == name) {
-      if let &RData::SIG{ref sig, ref signer_name, algorithm: sig_alg, ..} = rrsig.get_rdata() {
+      // TODO: need to verify inception and experation...
+      if let &RData::SIG(ref sig) = rrsig.get_rdata() {
         // get DNSKEY from signer_name
-        let key_response = try!(self.inner_query(&signer_name, query_class, RecordType::DNSKEY, true));
+        let key_response = try!(self.inner_query(sig.get_signer_name(), query_class, RecordType::DNSKEY, true));
         let key_rrset: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::DNSKEY).collect();
         let key_rrsigs: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
@@ -156,23 +157,23 @@ impl<C: ClientConnection> Client<C> {
           if let &RData::DNSKEY{zone_key, algorithm, revoke, ref public_key, ..} = dnskey.get_rdata() {
             if revoke { debug!("revoked: {}", dnskey.get_name()); continue } // TODO: does this need to be validated? RFC 5011
             if !zone_key { continue }
-            if algorithm != sig_alg { continue }
+            if algorithm != sig.get_algorithm() { continue }
 
             let pkey = try!(algorithm.public_key_from_vec(public_key));
             if !pkey.can(Role::Verify) { debug!("pkey can't verify, {:?}", dnskey.get_name()); continue }
 
-            let signer: Signer = Signer::new(algorithm, pkey, signer_name.clone());
-            let rrset_hash: Vec<u8> = signer.hash_rrset(rrsig, &rrset);
+            let signer: Signer = Signer::new_verifier(algorithm, pkey, sig.get_signer_name().clone());
+            let rrset_hash: Vec<u8> = signer.hash_rrset_with_rrsig(rrsig, &rrset);
 
-            if signer.verify(&rrset_hash, sig) {
-              if signer_name == name && query_type == RecordType::DNSKEY {
+            if signer.verify(&rrset_hash, sig.get_sig()) {
+              if sig.get_signer_name() == name && query_type == RecordType::DNSKEY {
                 // this is self signed... let's skip to DS validation
                 let mut proof: Vec<Record> = try!(self.verify_dnskey(dnskey));
                 // TODO: this is verified, cache it
                 proof.push((*dnskey).clone());
                 return Ok(proof);
               } else {
-                let mut proof = try!(self.recursive_query_verify(&signer_name, key_rrset.clone(), key_rrsigs, RecordType::DNSKEY, query_class));
+                let mut proof = try!(self.recursive_query_verify(sig.get_signer_name(), key_rrset.clone(), key_rrsigs, RecordType::DNSKEY, query_class));
                 // TODO: this is verified, cache it
                 proof.push((*dnskey).clone());
                 return Ok(proof);

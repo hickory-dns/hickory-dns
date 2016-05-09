@@ -118,7 +118,12 @@ impl Name {
 
   pub fn num_labels(&self) -> u8 {
     // it is illegal to have more than 256 labels.
-    self.labels.len() as u8
+    let num = self.labels.len() as u8;
+    if num > 0 && self[0] == "*" {
+      return num - 1
+    }
+
+    num
   }
 
   /// returns the length in bytes of the labels. '.' counts as 1
@@ -422,6 +427,16 @@ mod tests {
       (Name::new().label("a").label("bc"), vec![1,b'a',2,b'b',b'c',0]), // two labels, 'a.bc'
       (Name::new().label("a").label("♥"), vec![1,b'a',3,0xE2,0x99,0xA5,0]), // two labels utf8, 'a.♥'
     ]
+  }
+
+  #[test]
+  fn num_labels() {
+    assert_eq!(Name::new().label("*").num_labels(), 0);
+    assert_eq!(Name::new().label("a").num_labels(), 1);
+    assert_eq!(Name::new().label("*").label("b").num_labels(), 1);
+    assert_eq!(Name::new().label("a").label("b").num_labels(), 2);
+    assert_eq!(Name::new().label("*").label("b").label("c").num_labels(), 2);
+    assert_eq!(Name::new().label("a").label("b").label("c").num_labels(), 3);
   }
 
   #[test]

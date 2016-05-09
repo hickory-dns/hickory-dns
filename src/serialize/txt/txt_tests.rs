@@ -51,15 +51,15 @@ VENERA  A       10.1.0.52
   assert_eq!(&Name::new().label("isi").label("edu"), soa_record.get_name()); // i.e. the origin or domain
   assert_eq!(3600000, soa_record.get_ttl());
   assert_eq!(DNSClass::IN, soa_record.get_dns_class());
-  if let RData::SOA { ref mname, ref rname, serial, refresh, retry, expire, minimum } = *soa_record.get_rdata() {
+  if let RData::SOA(ref soa) = *soa_record.get_rdata() {
     // this should all be lowercased
-    assert_eq!(&Name::new().label("venera").label("isi").label("edu"), mname);
-    assert_eq!(&Name::new().label("action.domains").label("isi").label("edu"), rname);
-    assert_eq!(20, serial);
-    assert_eq!(7200, refresh);
-    assert_eq!(600, retry);
-    assert_eq!(3600000, expire);
-    assert_eq!(60, minimum);
+    assert_eq!(&Name::new().label("venera").label("isi").label("edu"), soa.get_mname());
+    assert_eq!(&Name::new().label("action.domains").label("isi").label("edu"), soa.get_rname());
+    assert_eq!(20, soa.get_serial());
+    assert_eq!(7200, soa.get_refresh());
+    assert_eq!(600, soa.get_retry());
+    assert_eq!(3600000, soa.get_expire());
+    assert_eq!(60, soa.get_minimum());
   } else {
     panic!("Not an SOA record!!!")
   }

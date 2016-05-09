@@ -25,6 +25,9 @@ use ::rr::dnssec::{Algorithm, DigestType, Nsec3HashAlgorithm};
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
+use super::rdata::NULL;
+use super::rdata::SIG;
+use super::rdata::SOA;
 
 /// 3.3. Standard RRs
 ///
@@ -252,7 +255,7 @@ pub enum RData {
   // NULL records cause no additional section processing.  NULL RRs are not
   // allowed in master files.  NULLs are used as placeholders in some
   // experimental extensions of the DNS.
-  NULL { anything: Vec<u8> },
+  NULL(NULL),
 
   // 3.3.11. NS RDATA format
   //
@@ -467,7 +470,7 @@ pub enum RData {
   PTR { ptrdname: Name },
 
   // RFC 2535 & 2931   DNS Security Extensions               March 1999
-  // RFC 4034                DNSSEC Resource Records               March 2005
+  // RFC 4034          DNSSEC Resource Records               March 2005
   //
   // 3.1.  RRSIG RDATA Wire Format
   //
@@ -496,8 +499,7 @@ pub enum RData {
   //    /                            Signature                          /
   //    /                                                               /
   //    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  SIG { type_covered: RecordType, algorithm: Algorithm, num_labels: u8, original_ttl: u32,
-        sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name, sig: Vec<u8> },
+  SIG (SIG),
 
   // 3.3.13. SOA RDATA format
   //
@@ -563,7 +565,8 @@ pub enum RData {
   // when the zone is loaded from a master file or via a zone transfer.  The
   // reason for this provison is to allow future dynamic update facilities to
   // change the SOA RR with known semantics.
-  SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
+  //SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
+  SOA (SOA),
 
   // RFC 2782                       DNS SRV RR                  February 2000
   //
@@ -664,16 +667,17 @@ impl RData {
       RecordType::DS => {debug!("reading DS");rdata::ds::read(decoder, rdata_length)},
       rt @ RecordType::IXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::MX => {debug!("reading MX"); rdata::mx::read(decoder)},
-      RecordType::NULL => {debug!("reading NULL"); rdata::null::read(decoder, rdata_length)},
+      RecordType::NULL => {debug!("reading NULL"); Ok(RData::NULL(try!(rdata::null::read(decoder, rdata_length)))) },
       RecordType::NS => {debug!("reading NS"); rdata::ns::read(decoder)},
       RecordType::NSEC => {debug!("reading NSEC");rdata::nsec::read(decoder, rdata_length)},
       RecordType::NSEC3 => {debug!("reading NSEC3");rdata::nsec3::read(decoder, rdata_length)},
       RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM");rdata::nsec3param::read(decoder)},
       RecordType::OPT => {debug!("reading OPT"); rdata::opt::read(decoder, rdata_length)},
       RecordType::PTR => {debug!("reading PTR"); rdata::ptr::read(decoder)},
-      RecordType::RRSIG => {debug!("reading RRSIG"); rdata::sig::read(decoder, rdata_length)},
-      RecordType::SIG => {debug!("reading SIG"); rdata::sig::read(decoder, rdata_length)},
-      RecordType::SOA => {debug!("reading SOA"); rdata::soa::read(decoder)},
+      RecordType::RRSIG => {debug!("reading RRSIG"); Ok(RData::SIG(try!(rdata::sig::read(decoder, rdata_length)))) },
+      RecordType::SIG => {debug!("reading SIG"); Ok(RData::SIG(try!(rdata::sig::read(decoder, rdata_length)))) },
+      // TODO: this wrap in Ok() should go away when all RData types are converted to strong types
+      RecordType::SOA => {debug!("reading SOA"); Ok(RData::SOA(try!(rdata::soa::read(decoder)))) },
       RecordType::SRV => {debug!("reading SRV"); rdata::srv::read(decoder)},
       RecordType::TXT => {debug!("reading TXT"); rdata::txt::read(decoder, rdata_length)},
     });
@@ -694,15 +698,15 @@ impl RData {
       RData::DS{..} => rdata::ds::emit(encoder, self),
       RData::DNSKEY{..} => rdata::dnskey::emit(encoder, self),
       RData::MX{..} => rdata::mx::emit(encoder, self),
-      RData::NULL{..} => rdata::null::emit(encoder, self),
+      RData::NULL(ref null) => rdata::null::emit(encoder, null),
       RData::NS{..} => rdata::ns::emit(encoder, self),
       RData::NSEC{..} => rdata::nsec::emit(encoder, self),
       RData::NSEC3{..} => rdata::nsec3::emit(encoder, self),
       RData::NSEC3PARAM{..} => rdata::nsec3param::emit(encoder, self),
       RData::OPT{..} => rdata::opt::emit(encoder, self),
       RData::PTR{..} => rdata::ptr::emit(encoder, self),
-      RData::SIG{..} => rdata::sig::emit(encoder, self),
-      RData::SOA{..} => rdata::soa::emit(encoder, self),
+      RData::SIG(ref sig) => rdata::sig::emit(encoder, sig),
+      RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
       RData::SRV{..} => rdata::srv::emit(encoder, self),
       RData::TXT{..} => rdata::txt::emit(encoder, self),
     }
@@ -724,11 +728,11 @@ impl<'a> From<&'a RData> for RecordType {
       RData::NSEC{..} => RecordType::NSEC,
       RData::NSEC3{..} => RecordType::NSEC3,
       RData::NSEC3PARAM{..} => RecordType::NSEC3PARAM,
-      RData::NULL{..} => RecordType::NULL,
+      RData::NULL(..) => RecordType::NULL,
       RData::OPT{..} => RecordType::OPT,
       RData::PTR{..} => RecordType::PTR,
-      RData::SIG{..} => RecordType::SIG,
-      RData::SOA{..} => RecordType::SOA,
+      RData::SIG(..) => RecordType::SIG,
+      RData::SOA(..) => RecordType::SOA,
       RData::SRV{..} => RecordType::SRV,
       RData::TXT{..} => RecordType::TXT,
     }
@@ -777,6 +781,7 @@ mod tests {
   use ::serialize::binary::*;
   use ::serialize::binary::bin_tests::test_emit_data_set;
   use ::rr::domain::Name;
+  use ::rr::rdata::SOA;
 
   fn get_data() -> Vec<(RData, Vec<u8>)> {
     vec![
@@ -784,9 +789,9 @@ mod tests {
     (RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])}, vec![1,0,1,b'n',0]),
     (RData::NS{nsdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])}, vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
     (RData::PTR{ptrdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])}, vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
-    (RData::SOA{mname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
-    rname: Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
-    serial: u32::max_value(), refresh: -1 as i32, retry: -1 as i32, expire: -1 as i32, minimum: u32::max_value()},
+    (RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+                         Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
+                         u32::max_value(), -1 as i32, -1 as i32, -1 as i32, u32::max_value())),
     vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0,
     3,b'x',b'x',b'x',0xC0, 0x04,
     0xFF,0xFF,0xFF,0xFF,
@@ -813,9 +818,9 @@ mod tests {
       RData::CNAME{cname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
       RData::PTR{ptrdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
       RData::NS{nsdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
-      RData::SOA{mname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
-                 rname: Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
-                 serial: u32::max_value(), refresh: -1 as i32, retry: -1 as i32, expire: -1 as i32, minimum: u32::max_value()},
+      RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+                          Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
+                          u32::max_value(), -1 as i32, -1 as i32, -1 as i32, u32::max_value())),
       RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
     ];
     let mut unordered = vec![
@@ -823,9 +828,9 @@ mod tests {
       RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])},
       RData::PTR{ptrdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
       RData::NS{nsdname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])},
-      RData::SOA{mname: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
-                 rname: Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
-                 serial: u32::max_value(), refresh: -1 as i32, retry: -1 as i32, expire: -1 as i32, minimum: u32::max_value()},
+      RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+                          Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
+                          u32::max_value(), -1 as i32, -1 as i32, -1 as i32, u32::max_value())),
       RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
       RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()},
       RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()},

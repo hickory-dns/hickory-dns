@@ -33,31 +33,50 @@ use ::rr::record_data::RData;
 // experimental extensions of the DNS.
 //
 // NULL { anything: Vec<u8> },
-// TODO: length should be stored in the decoder, and guaranteed everywhere, right?
-// TODO: use this for unknown record types in caching...
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
-  let mut anything: Vec<u8> = Vec::with_capacity(rdata_length as usize);
-  for _ in 0..rdata_length {
-    if let Ok(byte) = decoder.pop() {
-      anything.push(byte);
-    } else {
-      return Err(DecodeError::EOF);
-    }
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct NULL { anything: Option<Vec<u8>> }
+
+impl NULL {
+  pub fn new() -> NULL {
+    NULL { anything: None }
   }
 
-  Ok(RData::NULL{ anything: anything })
+  pub fn with(anything: Vec<u8>) -> NULL {
+    NULL { anything: Some(anything) }
+  }
+
+  pub fn get_anything(&self) -> Option<&Vec<u8>> {
+    self.anything.as_ref()
+  }
 }
 
-pub fn emit(encoder: &mut BinEncoder, nil: &RData) -> EncodeResult {
-  if let RData::NULL{ref anything} = *nil {
-    for b in anything {
-      try!(encoder.emit(*b));
+// TODO: length should be stored in the decoder, and guaranteed everywhere, right?
+// TODO: use this for unknown record types in caching...
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NULL> {
+  if rdata_length > 0 {
+    let mut anything: Vec<u8> = Vec::with_capacity(rdata_length as usize);
+    for _ in 0..rdata_length {
+      if let Ok(byte) = decoder.pop() {
+        anything.push(byte);
+      } else {
+        return Err(DecodeError::EOF);
+      }
     }
 
-    Ok(())
+    Ok(NULL::with(anything))
   } else {
-    panic!("wrong type here {:?}", nil);
+    Ok(NULL::new())
   }
+}
+
+pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> EncodeResult {
+  if let Some(ref anything) = nil.get_anything() {
+    for b in anything.iter() {
+      try!(encoder.emit(*b));
+    }
+  }
+
+  Ok(())
 }
 
 #[allow(unused)]
@@ -67,7 +86,7 @@ pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
 
 #[test]
 pub fn test() {
-  let rdata = RData::NULL{ anything: vec![0,1,2,3,4,5,6,7] };
+  let rdata = NULL::with(vec![0,1,2,3,4,5,6,7]);
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

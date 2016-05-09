@@ -64,7 +64,7 @@ impl<'a> From<&'a Record> for Edns {
 
 // change to this match
     match value.get_rdata() {
-      &RData::NULL{ .. } => {
+      &RData::NULL( .. ) => {
         // NULL, there was no data in the OPT
       },
       &RData::OPT{ ref option_rdata } => {

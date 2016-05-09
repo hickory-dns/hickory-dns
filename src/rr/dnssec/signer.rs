@@ -17,7 +17,7 @@ use openssl::crypto::pkey::{PKey, Role};
 
 use ::op::Message;
 use ::rr::dnssec::{Algorithm, DigestType};
-use ::rr::{DNSClass, Name, Record, RData};
+use ::rr::{DNSClass, Name, Record, RecordType, RData};
 use ::serialize::binary::{BinEncoder, BinSerializable};
 use ::rr::rdata::sig;
 
@@ -25,15 +25,23 @@ pub struct Signer {
   algorithm: Algorithm,
   pkey: PKey,
   signer_name: Name,
+  expiration: u32,
+  inception: u32,
 }
 
 impl Signer {
-  pub fn new(algorithm: Algorithm, pkey: PKey, signer_name: Name) -> Self {
-    Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name }
+  pub fn new_verifier(algorithm: Algorithm, pkey: PKey, signer_name: Name) -> Self {
+    Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, expiration: 0, inception: 0 }
+  }
+
+  pub fn new(algorithm: Algorithm, pkey: PKey, signer_name: Name, expiration: u32, inception: u32) -> Self {
+    Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, expiration: expiration, inception: inception }
   }
 
   pub fn get_algorithm(&self) -> Algorithm { self.algorithm }
   pub fn get_signer_name(&self) -> &Name { &self.signer_name }
+  pub fn get_expiration(&self) -> u32 { self.expiration }
+  pub fn get_inception(&self) -> u32 { self.inception }
 
   // RFC 2535                DNS Security Extensions               March 1999
   //
@@ -359,83 +367,92 @@ impl Signer {
   //    NSEC RRs needed to authenticate the response (see Section 3.1.3).
   //
   /// name is the the name of the records in the rrset
-  pub fn hash_rrset(&self, rrsig: &Record, records: &[Record]) -> Vec<u8> {
-    let name: &Name = rrsig.get_name();
-    let dns_class: DNSClass = rrsig.get_dns_class();
-    let rrsig_rdata: &RData = rrsig.get_rdata();
+  pub fn hash_rrset(&self, name: &Name, dns_class: DNSClass, num_labels: u8,
+                    type_covered: RecordType, algorithm: Algorithm, original_ttl: u32,
+                    sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: &Name,
+                    records: &[Record]) -> Vec<u8> {
+    // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
+    let mut rrset: Vec<&Record> = Vec::new();
 
-    if let &RData::SIG { num_labels, type_covered, original_ttl, .. } = rrsig_rdata {
-      // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
-      let mut rrset: Vec<&Record> = Vec::new();
-
-      // collect only the records for this rrset
-      for record in records {
-        if dns_class == record.get_dns_class() &&
-           type_covered == record.get_rr_type() &&
-           name == record.get_name() {
-             rrset.push(record);
-        }
+    // collect only the records for this rrset
+    for record in records {
+      if dns_class == record.get_dns_class() &&
+      type_covered == record.get_rr_type() &&
+      name == record.get_name() {
+        rrset.push(record);
       }
+    }
 
-      // put records in canonical order
-      rrset.sort();
+    // put records in canonical order
+    rrset.sort();
 
-      let name: Name = if let Some(name) = Self::determine_name(name, num_labels) {
-        name
-      } else {
-        // TODO: this should be an error
-        return vec![]
-      };
-
-      let mut buf: Vec<u8> = Vec::new();
-
-      {
-        let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
-        encoder.set_canonical_names(true);
-
-        //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
-        //
-        //             "|" denotes concatenation
-        //
-        //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
-        //                with the Signature field excluded and the Signer's Name
-        //                in canonical form.
-        assert!(sig::emit_pre_sig(&mut encoder, rrsig_rdata).is_ok());
-
-        // construct the rrset signing data
-        for record in rrset {
-          //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
-          //
-          //                name is calculated according to the function in the RFC 4035
-          assert!(name.emit_as_canonical(&mut encoder, true).is_ok());
-          //
-          //                type is the RRset type and all RRs in the class
-          assert!(type_covered.emit(&mut encoder).is_ok());
-          //
-          //                class is the RRset's class
-          assert!(dns_class.emit(&mut encoder).is_ok());
-          //
-          //                OrigTTL is the value from the RRSIG Original TTL field
-          assert!(encoder.emit_u32(original_ttl).is_ok());
-          //
-          //                RDATA length
-          // TODO: add support to the encoder to set a marker to go back and write the length
-          let mut rdata_buf = Vec::new();
-          {
-            let mut rdata_encoder = BinEncoder::new(&mut rdata_buf);
-            rdata_encoder.set_canonical_names(true);
-            assert!(record.get_rdata().emit(&mut rdata_encoder).is_ok());
-          }
-          assert!(encoder.emit_u16(rdata_buf.len() as u16).is_ok());
-          //
-          //                All names in the RDATA field are in canonical form (set above)
-          assert!(encoder.emit_vec(&rdata_buf).is_ok());
-        }
-      }
-
-      DigestType::from(self.algorithm).hash(&buf)
+    let name: Name = if let Some(name) = Self::determine_name(name, num_labels) {
+      name
     } else {
       // TODO: this should be an error
+      warn!("could not determine name from {}", name);
+      return vec![]
+    };
+
+    let mut buf: Vec<u8> = Vec::new();
+
+    {
+      let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+      encoder.set_canonical_names(true);
+
+      //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
+      //
+      //             "|" denotes concatenation
+      //
+      //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
+      //                with the Signature field excluded and the Signer's Name
+      //                in canonical form.
+      assert!(sig::emit_pre_sig(&mut encoder, type_covered, algorithm,
+                          name.num_labels(), original_ttl, sig_expiration,
+                          sig_inception, key_tag, signer_name).is_ok());
+
+      // construct the rrset signing data
+      for record in rrset {
+        //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
+        //
+        //                name is calculated according to the function in the RFC 4035
+        assert!(name.emit_as_canonical(&mut encoder, true).is_ok());
+        //
+        //                type is the RRset type and all RRs in the class
+        assert!(type_covered.emit(&mut encoder).is_ok());
+        //
+        //                class is the RRset's class
+        assert!(dns_class.emit(&mut encoder).is_ok());
+        //
+        //                OrigTTL is the value from the RRSIG Original TTL field
+        assert!(encoder.emit_u32(original_ttl).is_ok());
+        //
+        //                RDATA length
+        // TODO: add support to the encoder to set a marker to go back and write the length
+        let mut rdata_buf = Vec::new();
+        {
+          let mut rdata_encoder = BinEncoder::new(&mut rdata_buf);
+          rdata_encoder.set_canonical_names(true);
+          assert!(record.get_rdata().emit(&mut rdata_encoder).is_ok());
+        }
+        assert!(encoder.emit_u16(rdata_buf.len() as u16).is_ok());
+        //
+        //                All names in the RDATA field are in canonical form (set above)
+        assert!(encoder.emit_vec(&rdata_buf).is_ok());
+      }
+    }
+
+    DigestType::from(self.algorithm).hash(&buf)
+  }
+
+  pub fn hash_rrset_with_rrsig(&self, rrsig: &Record, records: &[Record]) -> Vec<u8> {
+    if let &RData::SIG(ref sig) = rrsig.get_rdata() {
+      self.hash_rrset(rrsig.get_name(), rrsig.get_dns_class(),
+                      sig.get_num_labels(), sig.get_type_covered(), sig.get_algorithm(),
+                      sig.get_original_ttl(), sig.get_sig_expiration(), sig.get_sig_inception(),
+                      sig.get_key_tag(), sig.get_signer_name(), records)
+    } else {
+      error!("rdata is not of type SIG: {:?}", rrsig.get_rdata());
       vec![]
     }
   }
@@ -476,15 +493,34 @@ impl Signer {
     None
   }
 
-  /// sign a series of bytes
-  /// this will panic if the key is not a private key and can be used for signing.
-  #[allow(dead_code)]
-  fn sign(&self, hash: &[u8]) -> Vec<u8> {
+  /// Signs a hash.
+  ///
+  /// This will panic if the `key` is not a private key and can be used for signing.
+  ///
+  /// # Arguments
+  ///
+  /// * `hash` - the hashed resource record set, see `hash_rrset`.
+  ///
+  /// # Return value
+  ///
+  /// The signature, ready to be stored in an `RData::RRSIG`.
+  pub fn sign(&self, hash: &[u8]) -> Vec<u8> {
     assert!(self.pkey.can(Role::Sign)); // this is bad code, not expected in regular runtime
     self.pkey.sign_with_hash(&hash, DigestType::from(self.algorithm).to_hash())
   }
 
-  /// verifies the hash matches the signature with the current key.
+  /// Verifies the hash matches the signature with the current `key`.
+  ///
+  /// # Arguments
+  ///
+  /// * `hash` - the hash to be validated, see `hash_rrset`
+  /// * `signature` - the signature to use to verify the hash, extracted from an `RData::RRSIG`
+  ///                 for example.
+  ///
+  /// # Return value
+  ///
+  /// True if and only if the signature is valid for the hash. This will always return
+  /// false if the `key`.
   pub fn verify(&self, hash: &[u8], signature: &[u8]) -> bool {
     if !self.pkey.can(Role::Verify) {
       // this doesn't panic b/c the public key might just have been bad, and so this would fail
@@ -499,18 +535,19 @@ impl Signer {
 #[test]
 fn test_hash_rrset() {
   use ::rr::RecordType;
+  use ::rr::rdata::SIG;
 
   let mut pkey = PKey::new();
   pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root());
+  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
-  let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG{type_covered: RecordType::NS, algorithm: Algorithm::RSASHA256, num_labels: origin.num_labels(), original_ttl: 86400,
-        sig_expiration: 5, sig_inception: 0, key_tag: signer.calculate_key_tag(), signer_name: origin.clone(), sig: vec![]}).clone();
+  let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
+        5, 0, signer.calculate_key_tag(), origin.clone(), vec![]))).clone();
   let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(),
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone()];
 
-  let hash = signer.hash_rrset(&rrsig, &rrset);
+  let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset);
   assert!(!hash.is_empty());
 
   let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME{ cname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(), // different type
@@ -519,7 +556,7 @@ fn test_hash_rrset() {
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(),
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone()];
 
-  let filtered_hash = signer.hash_rrset(&rrsig, &rrset);
+  let filtered_hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset);
   assert!(!filtered_hash.is_empty());
   assert_eq!(hash, filtered_hash);
 }
@@ -527,18 +564,19 @@ fn test_hash_rrset() {
 #[test]
 fn test_sign_and_verify_rrset() {
   use ::rr::RecordType;
+  use ::rr::rdata::SIG;
 
   let mut pkey = PKey::new();
   pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root());
+  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
-  let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG{type_covered: RecordType::NS, algorithm: Algorithm::RSASHA256, num_labels: origin.num_labels(), original_ttl: 86400,
-        sig_expiration: 5, sig_inception: 0, key_tag: signer.calculate_key_tag(), signer_name: origin.clone(), sig: vec![]}).clone();
+  let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
+        5, 0, signer.calculate_key_tag(), origin.clone(), vec![]))).clone();
   let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(),
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone()];
 
-  let hash = signer.hash_rrset(&rrsig, &rrset);
+  let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset);
   let sig = signer.sign(&hash);
 
   assert!(signer.verify(&hash, &sig));
@@ -549,7 +587,7 @@ fn test_calculate_key_tag() {
   let mut pkey = PKey::new();
   pkey.gen(512);
   println!("pkey: {:?}", pkey.save_pub());
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root());
+  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
   let key_tag = signer.calculate_key_tag();
 
   println!("key_tag: {}", key_tag);

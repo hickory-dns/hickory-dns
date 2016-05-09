@@ -15,7 +15,7 @@
  */
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::{Name, RecordType, RData};
+use ::rr::{Name, RecordType};
 use ::rr::dnssec::Algorithm;
 
 // RFC 2535 & 2931   DNS Security Extensions               March 1999
@@ -300,7 +300,33 @@ use ::rr::dnssec::Algorithm;
 
 // SIG { type_covered: u16, algorithm: SecAlgorithm, num_labels: u8, original_ttl: u32,
 //       sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name, sig: Vec<u8> }
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct SIG { type_covered: RecordType, algorithm: Algorithm, num_labels: u8, original_ttl: u32,
+                 sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name,
+                 sig: Vec<u8> }
+
+impl SIG {
+  pub fn new(type_covered: RecordType, algorithm: Algorithm, num_labels: u8, original_ttl: u32,
+             sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name,
+             sig: Vec<u8>) -> SIG {
+    SIG { type_covered: type_covered, algorithm: algorithm, num_labels: num_labels,
+          original_ttl: original_ttl, sig_expiration: sig_expiration,
+          sig_inception: sig_inception, key_tag: key_tag, signer_name: signer_name,
+          sig: sig }
+  }
+
+  pub fn get_type_covered(&self) -> RecordType { self.type_covered }
+  pub fn get_algorithm(&self) -> Algorithm { self.algorithm }
+  pub fn get_num_labels(&self) -> u8 { self.num_labels }
+  pub fn get_original_ttl(&self) -> u32 { self.original_ttl }
+  pub fn get_sig_expiration(&self) -> u32 { self.sig_expiration }
+  pub fn get_sig_inception(&self) -> u32 { self.sig_inception }
+  pub fn get_key_tag(&self) -> u16 { self.key_tag }
+  pub fn get_signer_name(&self) -> &Name { &self.signer_name }
+  pub fn get_sig(&self) -> &[u8] { &self.sig }
+}
+
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<SIG> {
   let start_idx = decoder.index();
 
   // TODO should we verify here? or elsewhere...
@@ -317,67 +343,45 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> 
   let bytes_read = decoder.index() - start_idx;
   let sig = try!(decoder.read_vec(rdata_length as usize - bytes_read));
 
-  Ok(RData::SIG {
-    type_covered:   type_covered,
-    algorithm:      algorithm,
-    num_labels:     num_labels,
-    original_ttl:   original_ttl,
-    sig_expiration: sig_expiration,
-    sig_inception:  sig_inception,
-    key_tag:        key_tag,
-    signer_name:    signer_name,
-    sig:            sig,
-  })
+  Ok(SIG::new(type_covered, algorithm, num_labels, original_ttl, sig_expiration,
+              sig_inception, key_tag, signer_name, sig))
 }
 
-pub fn emit(encoder: &mut BinEncoder, sig: &RData) -> EncodeResult {
-  if let RData::SIG { type_covered, algorithm, num_labels, original_ttl, sig_expiration, sig_inception, key_tag, ref signer_name, ref sig } = *sig {
-    try!(type_covered.emit(encoder));
-    try!(algorithm.emit(encoder));
-    try!(encoder.emit(num_labels));
-    try!(encoder.emit_u32(original_ttl));
-    try!(encoder.emit_u32(sig_expiration));
-    try!(encoder.emit_u32(sig_inception));
-    try!(encoder.emit_u16(key_tag));
-    try!(signer_name.emit(encoder));
-    try!(encoder.emit_vec(sig));
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", sig);
-  }
+pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> EncodeResult {
+  try!(sig.get_type_covered().emit(encoder));
+  try!(sig.get_algorithm().emit(encoder));
+  try!(encoder.emit(sig.get_num_labels()));
+  try!(encoder.emit_u32(sig.get_original_ttl()));
+  try!(encoder.emit_u32(sig.get_sig_expiration()));
+  try!(encoder.emit_u32(sig.get_sig_inception()));
+  try!(encoder.emit_u16(sig.get_key_tag()));
+  try!(sig.get_signer_name().emit(encoder));
+  try!(encoder.emit_vec(sig.get_sig()));
+  Ok(())
 }
 
 /// specifically for outputing the RData for an RRSIG, with signer_name in canonical form
-pub fn emit_pre_sig(encoder: &mut BinEncoder, sig: &RData) -> EncodeResult {
-  if let RData::SIG { type_covered, algorithm, num_labels, original_ttl, sig_expiration, sig_inception, key_tag, ref signer_name, .. } = *sig {
-    try!(type_covered.emit(encoder));
-    try!(algorithm.emit(encoder));
-    try!(encoder.emit(num_labels));
-    try!(encoder.emit_u32(original_ttl));
-    try!(encoder.emit_u32(sig_expiration));
-    try!(encoder.emit_u32(sig_inception));
-    try!(encoder.emit_u16(key_tag));
-    try!(signer_name.emit_as_canonical(encoder, true));
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", sig);
-  }
+pub fn emit_pre_sig(encoder: &mut BinEncoder, type_covered: RecordType, algorithm: Algorithm,
+                    num_labels: u8, original_ttl: u32, sig_expiration: u32, sig_inception: u32,
+                    key_tag: u16, signer_name: &Name) -> EncodeResult {
+  try!(type_covered.emit(encoder));
+  try!(algorithm.emit(encoder));
+  try!(encoder.emit(num_labels));
+  try!(encoder.emit_u32(original_ttl));
+  try!(encoder.emit_u32(sig_expiration));
+  try!(encoder.emit_u32(sig_inception));
+  try!(encoder.emit_u16(key_tag));
+  try!(signer_name.emit_as_canonical(encoder, true));
+  Ok(())
 }
 
 #[test]
 fn test() {
-  let rdata = RData::SIG {
-    type_covered:   RecordType::NULL,
-    algorithm:      Algorithm::RSASHA256,
-    num_labels:     0,
-    original_ttl:   0,
-    sig_expiration: 2,
-    sig_inception:  1,
-    key_tag:        5,
-    signer_name:    Name::new().label("www").label("example").label("com"),
-    sig:            vec![ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15
-                        ,16,17,18,19,20,21,22,23,24,25,26,27,28,29,29,31], // 32 bytes for SHA256
-  };
+  let rdata = SIG::new(RecordType::NULL, Algorithm::RSASHA256, 0, 0, 2, 1, 5,
+                       Name::new().label("www").label("example").label("com"),
+                       vec![ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15
+                           ,16,17,18,19,20,21,22,23,24,25,26,27,28,29,29,31], // 32 bytes for SHA256
+  );
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

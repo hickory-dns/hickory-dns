@@ -232,7 +232,7 @@ impl Handler for Server {
                 Err(e) => error!("could not register stream: {:?} cause: {}", stream, e),
                 Ok(()) => {
                   info!("accepted tcp connection from: {:?} on {:?}", addr, stream.local_addr().ok());
-                  self.tcp_handlers.insert(token, TcpHandler::new_server_handler(stream, self.catalog.clone()));
+                  self.tcp_handlers.insert(token, TcpHandler::new_server_handler(stream));
                 }
               }
             },

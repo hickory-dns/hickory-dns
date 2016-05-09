@@ -19,8 +19,9 @@ use ::rr::{Name, Record, RecordType, RData};
 pub struct RRSet {
   name: Name,
   record_type: RecordType,
+  ttl: u32,
   records: Vec<Record>,
-  rrsig: Option<Record>,
+  rrsigs: Vec<Record>,
   serial: u32, // serial number at which this record was modified
 }
 
@@ -39,7 +40,7 @@ impl RRSet {
   ///
   /// The newly created Resource Record Set
   pub fn new(name: &Name, record_type: RecordType, serial: u32) -> RRSet {
-    RRSet{name: name.clone(), record_type: record_type, records: Vec::new(), rrsig: None, serial: serial}
+    RRSet{name: name.clone(), record_type: record_type, ttl: 0, records: Vec::new(), rrsigs: Vec::new(), serial: serial}
   }
 
   /// # Return value
@@ -58,6 +59,14 @@ impl RRSet {
 
   /// # Return value
   ///
+  /// TTL, time-to-live, of the Resource Record Set, this is the maximum length of time that an
+  /// RRSet should be cached.
+  pub fn get_ttl(&self) -> u32 {
+    self.ttl
+  }
+
+  /// # Return value
+  ///
   /// Slice of all records in the set
   pub fn get_records(&self) -> &[Record] {
     &self.records
@@ -70,7 +79,30 @@ impl RRSet {
     self.records.is_empty()
   }
 
+  /// # Return value
+  ///
+  /// The serial number at which the record was updated.
+  pub fn get_serial(&self) -> u32 {
+    self.serial
+  }
+
+  pub fn get_rrsigs(&self) -> &[Record] {
+    &self.rrsigs
+  }
+
+  pub fn insert_rrsig(&mut self, rrsig: Record) {
+    self.rrsigs.push(rrsig)
+  }
+
+  fn updated(&mut self, serial: u32) {
+    self.serial = serial;
+    self.rrsigs.clear(); // on updates, the rrsigs are invalid
+  }
+
   /// Inserts a new Resource Record into the Set.
+  ///
+  /// If the record is inserted, the ttl for the most recent record will be used for the ttl of
+  /// the entire resource record set.
   ///
   /// This abides by the following restrictions in RFC 2136, April 1997:
   ///
@@ -116,10 +148,10 @@ impl RRSet {
 
         if let Some(soa_record) = self.records.iter().next() {
           match soa_record.get_rdata() {
-            &RData::SOA{ serial: existing_serial, .. } => {
-              if let &RData::SOA{ serial: new_serial, ..} = record.get_rdata() {
-                if new_serial <= existing_serial {
-                  info!("update ignored serial out of data: {} <= {}", new_serial, existing_serial);
+            &RData::SOA(ref existing_soa) => {
+              if let &RData::SOA(ref new_soa) = record.get_rdata() {
+                if new_soa.get_serial() <= existing_soa.get_serial() {
+                  info!("update ignored serial out of data: {:?} <= {:?}", new_soa, existing_soa);
                   return false;
                 }
               } else {
@@ -161,10 +193,14 @@ impl RRSet {
       // TODO: this shouldn't really need a clone since there should only be one...
       self.records.push(record.clone());
       self.records.swap_remove(i);
+      self.ttl = record.get_ttl();
+      self.updated(serial);
       replaced = true;
     }
 
     if !replaced {
+      self.ttl = record.get_ttl();
+      self.updated(serial);
       self.records.push(record);
       true
     } else {
@@ -172,7 +208,20 @@ impl RRSet {
     }
   }
 
-  pub fn remove(&mut self, record: &Record) -> bool {
+  /// Removes the Resource Record if it exists.
+  ///
+  /// # Arguments
+  ///
+  /// * `record` - `Record` asserts that the `name` and `record_type` match the `RRSet`. Removes
+  ///              any `record` if the record data, `RData`, match.
+  /// * `serial` - current serial number of the `SOA` record, this is to be used for `IXFR` and
+  ///              signing for DNSSec after updates. The serial will only be updated if the
+  ///              record was added.
+  ///
+  /// # Return value
+  ///
+  /// True if a record was removed.
+  pub fn remove(&mut self, record: &Record, serial: u32) -> bool {
     assert_eq!(record.get_name(), &self.name);
     assert!(record.get_rr_type() == self.record_type || record.get_rr_type() == RecordType::ANY);
 
@@ -202,6 +251,7 @@ impl RRSet {
     for i in to_remove {
       self.records.remove(i);
       removed = true;
+      self.updated(serial);
     }
 
     removed
@@ -212,6 +262,7 @@ impl RRSet {
 mod test {
   use std::net::Ipv4Addr;
   use ::rr::*;
+  use ::rr::rdata::SOA;
   use super::RRSet;
 
   #[test]
@@ -245,9 +296,9 @@ mod test {
     let record_type = RecordType::SOA;
     let mut rr_set = RRSet::new(&name, record_type, 0);
 
-    let insert = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone();
-    let same_serial = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.net.", None).unwrap(), rname: Name::parse("noc.dns.icann.net.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone();
-    let new_serial = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.net.", None).unwrap(), rname: Name::parse("noc.dns.icann.net.", None).unwrap(), serial: 2015082404, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone();
+    let insert = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None).unwrap(), Name::parse("noc.dns.icann.org.", None).unwrap(), 2015082403, 7200, 3600, 1209600, 3600 ))).clone();
+    let same_serial = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.net.", None).unwrap(), Name::parse("noc.dns.icann.net.", None).unwrap(), 2015082403, 7200, 3600, 1209600, 3600 ))).clone();
+    let new_serial = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.net.", None).unwrap(), Name::parse("noc.dns.icann.net.", None).unwrap(), 2015082404, 7200, 3600, 1209600, 3600 ))).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
     assert!(rr_set.get_records().contains(&insert));
@@ -298,10 +349,10 @@ mod test {
     assert!(rr_set.insert(insert.clone(), 0));
     assert!(rr_set.insert(insert1.clone(), 0));
 
-    assert!(rr_set.remove(&insert));
-    assert!(!rr_set.remove(&insert));
-    assert!(rr_set.remove(&insert1));
-    assert!(!rr_set.remove(&insert1));
+    assert!(rr_set.remove(&insert, 0));
+    assert!(!rr_set.remove(&insert, 0));
+    assert!(rr_set.remove(&insert1, 0));
+    assert!(!rr_set.remove(&insert1, 0));
   }
 
   #[test]
@@ -310,10 +361,10 @@ mod test {
     let record_type = RecordType::SOA;
     let mut rr_set = RRSet::new(&name, record_type, 0);
 
-    let insert = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA{ mname: Name::parse("sns.dns.icann.org.", None).unwrap(), rname: Name::parse("noc.dns.icann.org.", None).unwrap(), serial: 2015082403, refresh: 7200, retry: 3600, expire: 1209600, minimum: 3600 }).clone();
+    let insert = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None).unwrap(), Name::parse("noc.dns.icann.org.", None).unwrap(), 2015082403, 7200, 3600, 1209600, 3600 ))).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
-    assert!(!rr_set.remove(&insert));
+    assert!(!rr_set.remove(&insert, 0));
     assert!(rr_set.get_records().contains(&insert));
   }
 
@@ -330,13 +381,13 @@ mod test {
     assert!(rr_set.insert(ns2.clone(), 0));
 
     // ok to remove one, but not two...
-    assert!(rr_set.remove(&ns1));
-    assert!(!rr_set.remove(&ns2));
+    assert!(rr_set.remove(&ns1, 0));
+    assert!(!rr_set.remove(&ns2, 0));
 
     // check that we can swap which ones are removed
     assert!(rr_set.insert(ns1.clone(), 0));
 
-    assert!(rr_set.remove(&ns2));
-    assert!(!rr_set.remove(&ns1));
+    assert!(rr_set.remove(&ns2, 0));
+    assert!(!rr_set.remove(&ns1, 0));
   }
 }

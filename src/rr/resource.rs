@@ -19,6 +19,7 @@ use std::cmp::Ordering;
 
 use ::serialize::binary::*;
 use ::error::*;
+use ::rr::rdata::NULL;
 use super::record_data::RData;
 use super::record_type::RecordType;
 use super::dns_class::DNSClass;
@@ -106,6 +107,16 @@ impl Record {
     }
   }
 
+  pub fn with(name: domain::Name, rr_type: RecordType, ttl: u32) -> Record {
+    Record {
+      name_labels: name,
+      rr_type: rr_type,
+      dns_class: DNSClass::IN,
+      ttl: ttl,
+      rdata: RData::NULL(NULL::new()),
+    }
+  }
+
   pub fn name(&mut self, name: domain::Name) -> &mut Self { self.name_labels = name; self }
   pub fn add_name(&mut self, label: String) -> &mut Self { self.name_labels.add_label(Rc::new(label)); self }
   pub fn rr_type(&mut self, rr_type: RecordType) -> &mut Self { self.rr_type = rr_type; self }
@@ -118,6 +129,7 @@ impl Record {
   pub fn get_dns_class(&self) -> DNSClass { self.dns_class }
   pub fn get_ttl(&self) -> u32 { self.ttl }
   pub fn get_rdata(&self) -> &RData { &self.rdata }
+  pub fn get_rdata_mut(&mut self) -> &mut RData { &mut self.rdata }
 
   // returns the len of this record in bytes
   // pub fn len(&self) -> usize {
@@ -174,7 +186,7 @@ impl BinSerializable<Record> for Record {
     // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of
     //  pre-requisites
     let rdata: RData = if rd_length == 0 {
-      RData::NULL{ anything: vec![] }
+      RData::NULL(NULL::new())
     } else {
       // RDATA           a variable length string of octets that describes the
       //                resource.  The format of this information varies

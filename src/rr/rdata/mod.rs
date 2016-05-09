@@ -34,3 +34,7 @@ pub mod sig;
 pub mod soa;
 pub mod srv;
 pub mod txt;
+
+pub use self::null::NULL;
+pub use self::sig::SIG;
+pub use self::soa::SOA;

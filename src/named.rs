@@ -70,7 +70,7 @@ struct Args {
 pub fn main() {
   // read any command line options
   let args: Args = Docopt::new(USAGE)
-                        .and_then(|d| d.help(true).version(Some(trust_dns::version().into())).decode())
+                        .and_then(|d| d.help(true).version(Some(version().into())).decode())
                         .unwrap_or_else(|e| e.exit());
 
   // TODO, this should be set after loading config, but it's necessary for initial log lines, no?
