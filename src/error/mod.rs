@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+//! All defined errors for Trust-DNS
+
 mod decode_error;
 mod encode_error;
 mod client_error;

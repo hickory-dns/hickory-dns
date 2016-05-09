@@ -14,9 +14,8 @@
  * limitations under the License.
  */
 
-/*!
-  The catalog module has the types necessary for storing and caching authoritative records.
- */
+//! Module for `Catalog` of `Authority` zones which are responsible for storing `RRSet` records.
+
 use ::op::ResponseCode;
 
 pub type UpdateResult<T> = Result<T, ResponseCode>;

@@ -13,6 +13,18 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! Trust-DNS is intended to be a fully compliant domain name server and client library.
+//!
+//! # Goals
+//!
+//! * Only safe Rust
+//! * All errors handled
+//! * Simple to manage servers
+//! * High level abstraction for clients
+//! * Secure dynamic update
+//! * New features for securing public information
+
 extern crate chrono;
 extern crate data_encoding;
 #[macro_use] extern crate log;

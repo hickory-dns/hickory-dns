@@ -13,5 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! Contains serialization libraries for `binary` and text, `txt`.
+
 pub mod binary;
 pub mod txt;

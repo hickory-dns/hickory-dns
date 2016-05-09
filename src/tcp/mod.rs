@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! TCP protocol related components for DNS.
+
 mod handler;
 mod tcp_client_connection;
 

@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! `Server` component for hosting a domain name servers operations.
+ 
 mod server;
 
 pub use self::server::Server;

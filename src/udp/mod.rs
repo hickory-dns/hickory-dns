@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! UDP protocol related components for DNS.
+
 mod handler;
 mod udp_client_connection;
 

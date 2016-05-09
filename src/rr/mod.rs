@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! Resource record related components, e.g. `Name` aka label, `Record`, `RData`.
+
 pub mod record_type;
 pub mod dns_class;
 pub mod resource;
