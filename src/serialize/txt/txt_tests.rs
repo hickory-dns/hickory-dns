@@ -81,7 +81,7 @@ VENERA  A       10.1.0.52
     assert_eq!(60, record.get_ttl()); // TODO: should this be minimum or expire?
     assert_eq!(DNSClass::IN, record.get_dns_class());
     assert_eq!(RecordType::NS, record.get_rr_type());
-    if let RData::NS{ ref nsdname } = *record.get_rdata() {
+    if let RData::NS( ref nsdname ) = *record.get_rdata() {
       assert_eq!(name, nsdname);
     } else {
       panic!("Not an NS record!!!")
@@ -171,7 +171,7 @@ VENERA  A       10.1.0.52
 
   // PTR
   let ptr_record: &Record = authority.lookup(&Name::new().label("103").label("0").label("3").label("26").label("in-addr").label("arpa"), RecordType::PTR).unwrap().first().cloned().unwrap();
-  if let RData::PTR{ ref ptrdname } = *ptr_record.get_rdata() {
+  if let RData::PTR( ref ptrdname ) = *ptr_record.get_rdata() {
     assert_eq!(&Name::new().label("a").label("isi").label("edu"), ptrdname);
   } else {
     panic!("Not a PTR record!!!")

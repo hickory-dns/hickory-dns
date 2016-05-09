@@ -535,7 +535,7 @@ impl Signer {
 #[test]
 fn test_hash_rrset() {
   use ::rr::RecordType;
-  use ::rr::rdata::SIG;
+  use ::rr::rdata::{Name, SIG};
 
   let mut pkey = PKey::new();
   pkey.gen(512);
@@ -544,17 +544,17 @@ fn test_hash_rrset() {
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
         5, 0, signer.calculate_key_tag(), origin.clone(), vec![]))).clone();
-  let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(),
-                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone()];
+  let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(),
+                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone()];
 
   let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset);
   assert!(!hash.is_empty());
 
-  let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME{ cname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(), // different type
-                   Record::new().name(Name::parse("www.example.com.", None).unwrap()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(), // different name
-                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::CH).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(), // different class
-                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(),
-                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone()];
+  let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(), // different type
+                   Record::new().name(Name::parse("www.example.com.", None).unwrap()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(), // different name
+                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::CH).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(), // different class
+                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(),
+                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone()];
 
   let filtered_hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset);
   assert!(!filtered_hash.is_empty());
@@ -564,7 +564,7 @@ fn test_hash_rrset() {
 #[test]
 fn test_sign_and_verify_rrset() {
   use ::rr::RecordType;
-  use ::rr::rdata::SIG;
+  use ::rr::rdata::{Name, SIG};
 
   let mut pkey = PKey::new();
   pkey.gen(512);
@@ -573,8 +573,8 @@ fn test_sign_and_verify_rrset() {
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
         5, 0, signer.calculate_key_tag(), origin.clone(), vec![]))).clone();
-  let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone(),
-                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone()];
+  let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(),
+                   Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone()];
 
   let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset);
   let sig = signer.sign(&hash);

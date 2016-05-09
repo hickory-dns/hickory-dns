@@ -325,8 +325,8 @@ mod test {
     let record_type = RecordType::CNAME;
     let mut rr_set = RRSet::new(&name, record_type, 0);
 
-    let insert = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME{ cname: cname.clone() }).clone();
-    let new_record = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME{ cname: new_cname.clone() }).clone();
+    let insert = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME(cname.clone()) ).clone();
+    let new_record = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME(new_cname.clone()) ).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
     assert!(rr_set.get_records().contains(&insert));
@@ -374,8 +374,8 @@ mod test {
     let record_type = RecordType::NS;
     let mut rr_set = RRSet::new(&name, record_type, 0);
 
-    let ns1 = Record::new().name(name.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("a.iana-servers.net.", None).unwrap() }).clone();
-    let ns2 = Record::new().name(name.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS{ nsdname: Name::parse("b.iana-servers.net.", None).unwrap() }).clone();
+    let ns1 = Record::new().name(name.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone();
+    let ns2 = Record::new().name(name.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone();
 
     assert!(rr_set.insert(ns1.clone(), 0));
     assert!(rr_set.insert(ns2.clone(), 0));
