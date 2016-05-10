@@ -24,7 +24,7 @@ use ::serialize::txt::*;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, SIG, SOA };
+use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, SIG, SOA, SRV };
 
 /// 3.3. Standard RRs
 ///
@@ -561,14 +561,14 @@ pub enum RData {
   // reason for this provison is to allow future dynamic update facilities to
   // change the SOA RR with known semantics.
   //SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
-  SOA (SOA),
+  SOA(SOA),
 
   // RFC 2782                       DNS SRV RR                  February 2000
   //
   // The format of the SRV RR
   //
   //  _Service._Proto.Name TTL Class SRV Priority Weight Port Target
-  SRV { priority: u16, weight: u16, port: u16, target: Name, },
+  SRV(SRV),
 
   // 3.3.14. TXT RDATA format
   //
@@ -608,8 +608,8 @@ impl RData {
       RecordType::PTR => Ok(RData::PTR(try!(rdata::name::parse(tokens, origin)))),
       RecordType::RRSIG => panic!("RRSIG should be dynamically generated"),
       RecordType::SIG => panic!("parsing SIG doesn't make sense"),
-      RecordType::SOA => rdata::soa::parse(tokens, origin),
-      RecordType::SRV => rdata::srv::parse(tokens, origin),
+      RecordType::SOA => Ok(RData::SOA(try!(rdata::soa::parse(tokens, origin)))),
+      RecordType::SRV => Ok(RData::SRV(try!(rdata::srv::parse(tokens, origin)))),
       RecordType::TXT => rdata::txt::parse(tokens),
     }
   }
@@ -673,7 +673,7 @@ impl RData {
       RecordType::SIG => {debug!("reading SIG"); Ok(RData::SIG(try!(rdata::sig::read(decoder, rdata_length)))) },
       // TODO: this wrap in Ok() should go away when all RData types are converted to strong types
       RecordType::SOA => {debug!("reading SOA"); Ok(RData::SOA(try!(rdata::soa::read(decoder)))) },
-      RecordType::SRV => {debug!("reading SRV"); rdata::srv::read(decoder)},
+      RecordType::SRV => {debug!("reading SRV"); Ok(RData::SRV(try!(rdata::srv::read(decoder)))) },
       RecordType::TXT => {debug!("reading TXT"); rdata::txt::read(decoder, rdata_length)},
     });
 
@@ -702,7 +702,7 @@ impl RData {
       RData::PTR(ref name) => rdata::name::emit(encoder, name),
       RData::SIG(ref sig) => rdata::sig::emit(encoder, sig),
       RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
-      RData::SRV{..} => rdata::srv::emit(encoder, self),
+      RData::SRV(ref srv) => rdata::srv::emit(encoder, srv),
       RData::TXT{..} => rdata::txt::emit(encoder, self),
     }
   }
@@ -728,7 +728,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::PTR(..) => RecordType::PTR,
       RData::SIG(..) => RecordType::SIG,
       RData::SOA(..) => RecordType::SOA,
-      RData::SRV{..} => RecordType::SRV,
+      RData::SRV(..) => RecordType::SRV,
       RData::TXT{..} => RecordType::TXT,
     }
   }
@@ -776,7 +776,7 @@ mod tests {
   use ::serialize::binary::*;
   use ::serialize::binary::bin_tests::test_emit_data_set;
   use ::rr::domain::Name;
-  use ::rr::rdata::{MX, SOA};
+  use ::rr::rdata::{MX, SOA, SRV};
 
   fn get_data() -> Vec<(RData, Vec<u8>)> {
     vec![
@@ -798,7 +798,7 @@ mod tests {
     vec![6,b'a',b'b',b'c',b'd',b'e',b'f', 3,b'g',b'h',b'i', 0, 1,b'j']),
     (RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()), vec![0,0,0,0]),
     (RData::AAAA(Ipv6Addr::from_str("::").unwrap()), vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]),
-    (RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),}, vec![0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
+    (RData::SRV(SRV::new(1, 2, 3, Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]))), vec![0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
     ]
   }
 
@@ -808,7 +808,7 @@ mod tests {
     let ordered: Vec<RData> = vec![
       RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
       RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
-      RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),},
+      RData::SRV(SRV::new(1, 2, 3, Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]))),
       RData::MX(MX::new(256, Name::with_labels(vec!["n".to_string()]))),
       RData::CNAME(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
       RData::PTR(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
@@ -829,7 +829,7 @@ mod tests {
       RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
       RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
       RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
-      RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),},
+      RData::SRV(SRV::new(1, 2, 3, Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]))),
     ];
 
     unordered.sort();

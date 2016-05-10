@@ -179,11 +179,11 @@ VENERA  A       10.1.0.52
 
   // SRV
   let srv_record: &Record = authority.lookup(&Name::new().label("_ldap").label("_tcp").label("service").label("isi").label("edu"), RecordType::SRV).unwrap().first().cloned().unwrap();
-  if let RData::SRV{ priority, weight, port, ref target } = *srv_record.get_rdata() {
-    assert_eq!(priority, 1);
-    assert_eq!(weight, 2);
-    assert_eq!(port, 3);
-    assert_eq!(&Name::new().label("short").label("isi").label("edu"), target);
+  if let RData::SRV(ref rdata) = *srv_record.get_rdata() {
+    assert_eq!(rdata.get_priority(), 1);
+    assert_eq!(rdata.get_weight(), 2);
+    assert_eq!(rdata.get_port(), 3);
+    assert_eq!(rdata.get_target(), &Name::new().label("short").label("isi").label("edu"));
   } else {
     panic!("Not an SRV record!!!")
   }

@@ -16,7 +16,6 @@
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
 use ::rr::domain::Name;
 
 // 3.3.13. SOA RDATA format
@@ -175,7 +174,7 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> EncodeResult {
 //                                 600    ; RETRY
 //                                 3600000; EXPIRE
 //                                 60)    ; MINIMUM
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SOA> {
   let mut token = tokens.iter();
 
   let mname: Name = try!(token.next().ok_or(ParseError::MissingToken("mname".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
@@ -195,28 +194,14 @@ pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
   // let expire: i32 = try!(token.next().ok_or(ParseError::MissingToken("expire".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
   // let minimum: u32 = try!(token.next().ok_or(ParseError::MissingToken("minimum".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
 
-  Ok(RData::SOA(SOA{
-    mname:   mname,
-    rname:   rname,
-    serial:  serial,
-    refresh: refresh,
-    retry:   retry,
-    expire:  expire,
-    minimum: minimum,
-  }))
+  Ok(SOA::new(mname, rname, serial, refresh, retry, expire, minimum))
 }
 
 #[test]
 fn test() {
-  let rdata = SOA{
-    mname:   Name::new().label("m").label("example").label("com"),
-    rname:   Name::new().label("r").label("example").label("com"),
-    serial:  1,
-    refresh: 2,
-    retry:   3,
-    expire:  4,
-    minimum: 5,
-  };
+  let rdata = SOA::new(Name::new().label("m").label("example").label("com"),
+                       Name::new().label("r").label("example").label("com"),
+                       1, 2, 3, 4, 5);
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

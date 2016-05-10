@@ -16,7 +16,6 @@
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
 use ::rr::domain::Name;
 
 // RFC 2782                       DNS SRV RR                  February 2000
@@ -135,53 +134,52 @@ use ::rr::domain::Name;
 //
 // A Target of "." means that the service is decidedly not
 // available at this domain.
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
-  // SRV { priority: u16, weight: u16, port: u16, target: Name, },
-  Ok(RData::SRV{
-    priority: try!(decoder.read_u16()),
-    weight: try!(decoder.read_u16()),
-    port: try!(decoder.read_u16()),
-    target: try!(Name::read(decoder)),
-  })
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct SRV { priority: u16, weight: u16, port: u16, target: Name }
+
+impl SRV {
+  pub fn new(priority: u16, weight: u16, port: u16, target: Name) -> SRV {
+    SRV { priority: priority, weight: weight, port: port, target: target }
+  }
+
+  pub fn get_priority(&self) -> u16 { self.priority }
+  pub fn get_weight(&self) -> u16 { self.weight }
+  pub fn get_port(&self) -> u16 { self.port }
+  pub fn get_target(&self) -> &Name { &self.target }
 }
 
-pub fn emit(encoder: &mut BinEncoder, soa: &RData) -> EncodeResult {
-  if let RData::SRV { priority, weight, port, ref target } = *soa {
-    try!(encoder.emit_u16(priority));
-    try!(encoder.emit_u16(weight));
-    try!(encoder.emit_u16(port));
-    try!(target.emit(encoder));
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", soa);
-  }
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SRV> {
+  // SRV { priority: u16, weight: u16, port: u16, target: Name, },
+  Ok(SRV::new(try!(decoder.read_u16()),
+              try!(decoder.read_u16()),
+              try!(decoder.read_u16()),
+              try!(Name::read(decoder)),
+  ))
+}
+
+pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> EncodeResult {
+  try!(encoder.emit_u16(srv.get_priority()));
+  try!(encoder.emit_u16(srv.get_weight()));
+  try!(encoder.emit_u16(srv.get_port()));
+  try!(srv.get_target().emit(encoder));
+  Ok(())
 }
 
 // _foobar._tcp    SRV 0 1 9 old-slow-box.example.com.
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SRV> {
   let mut token = tokens.iter();
 
   let priority: u16 = try!(token.next().ok_or(ParseError::MissingToken("priority".to_string())).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseError::UnexpectedToken(t.clone()))} ));
   let weight: u16 = try!(token.next().ok_or(ParseError::MissingToken("weight".to_string())).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  let port: u16 = try!(token.next().ok_or(ParseError::MissingToken("weight".to_string())).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let port: u16 = try!(token.next().ok_or(ParseError::MissingToken("port".to_string())).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseError::UnexpectedToken(t.clone()))} ));
   let target: Name = try!(token.next().ok_or(ParseError::MissingToken("target".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
 
-  Ok(RData::SRV{
-    priority: priority,
-    weight: weight,
-    port: port,
-    target: target,
-  })
+  Ok(SRV::new(priority, weight, port, target))
 }
 
 #[test]
 fn test() {
-  let rdata = RData::SRV{
-    priority: 1,
-    weight: 2,
-    port: 3,
-    target: Name::new().label("_dns_tcp").label("example").label("com"),
-  };
+  let rdata = SRV::new(1, 2, 3, Name::new().label("_dns_tcp").label("example").label("com"));
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
