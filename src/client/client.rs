@@ -414,12 +414,12 @@ impl<C: ClientConnection> Client<C> {
       let mut search_name: domain::Name = query_name.clone();
 
       // hash the search name
-      if let &RData::NSEC3{hash_algorithm, iterations, ref salt, ref type_bit_maps, ..} = nsec3.get_rdata() {
+      if let &RData::NSEC3(ref rdata) = nsec3.get_rdata() {
         // search all the name options
         while search_name.num_labels() >= zone_name.num_labels() {
 
           // TODO: cache hashes across nsec3 validations
-          let hash = hash_algorithm.hash(salt, &search_name, iterations);
+          let hash = rdata.get_hash_algorithm().hash(rdata.get_salt(), &search_name, rdata.get_iterations());
           let hash_label = base32hex::encode(&hash).to_lowercase();
           let hash_name = zone_name.prepend_label(Rc::new(hash_label));
 
@@ -427,7 +427,7 @@ impl<C: ClientConnection> Client<C> {
             // like nsec, if there is a name that matches, then we have proof that the name does
             //  not exist
             if &search_name == query_name {
-              if !type_bit_maps.contains(&query_type) { return Ok(()) }
+              if !rdata.get_type_bit_maps().contains(&query_type) { return Ok(()) }
             }
 
             return Ok(())

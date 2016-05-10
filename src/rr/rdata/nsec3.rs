@@ -17,7 +17,7 @@ use std::collections::{HashMap};
 
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::{RecordType, RData};
+use ::rr::RecordType;
 use ::rr::dnssec::Nsec3HashAlgorithm;
 
 // RFC 5155                         NSEC3                        March 2008
@@ -70,7 +70,26 @@ use ::rr::dnssec::Nsec3HashAlgorithm;
 //
 // NSEC3{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>,
 //   next_hashed_owner_name: Vec<u8>, type_bit_maps: Vec<RecordType>},
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct NSEC3{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>,
+  next_hashed_owner_name: Vec<u8>, type_bit_maps: Vec<RecordType>}
+
+impl NSEC3 {
+  pub fn new(hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>,
+    next_hashed_owner_name: Vec<u8>, type_bit_maps: Vec<RecordType>) -> NSEC3 {
+      NSEC3{ hash_algorithm: hash_algorithm, opt_out: opt_out, iterations: iterations, salt: salt,
+        next_hashed_owner_name: next_hashed_owner_name, type_bit_maps: type_bit_maps }
+  }
+
+  pub fn get_hash_algorithm(&self) -> Nsec3HashAlgorithm { self.hash_algorithm }
+  pub fn get_opt_out(&self) -> bool { self.opt_out }
+  pub fn get_iterations(&self) -> u16 { self.iterations }
+  pub fn get_salt(&self) -> &[u8] { &self.salt }
+  pub fn get_next_hashed_owner_name(&self) -> &[u8] { &self.next_hashed_owner_name }
+  pub fn get_type_bit_maps(&self) -> &[RecordType] { &self.type_bit_maps }
+}
+
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC3> {
   let start_idx = decoder.index();
 
   let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
@@ -87,9 +106,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> 
   let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
   let record_types = try!(decode_type_bit_maps(decoder, bit_map_len));
 
-  Ok(RData::NSEC3{ hash_algorithm: hash_algorithm, opt_out: opt_out, iterations: iterations,
-                   salt: salt, next_hashed_owner_name: next_hashed_owner_name,
-                   type_bit_maps: record_types })
+  Ok(NSEC3::new(hash_algorithm, opt_out, iterations, salt, next_hashed_owner_name, record_types))
 }
 
 pub fn decode_type_bit_maps(decoder: &mut BinDecoder, bit_map_len: usize) -> DecodeResult<Vec<RecordType>> {
@@ -189,25 +206,19 @@ enum BitMapState {
   ReadType{ window: u8, len: u8, left: u8 },
 }
 
-pub fn emit(encoder: &mut BinEncoder, rdata: &RData) -> EncodeResult {
-  if let RData::NSEC3{ hash_algorithm, opt_out, iterations,
-                   ref salt, ref next_hashed_owner_name,
-                   ref type_bit_maps } = *rdata {
-    try!(encoder.emit(hash_algorithm.into()));
-    let mut flags: u8 = 0;
-    if opt_out { flags |= 0b0000_0001 };
-    try!(encoder.emit(flags));
-    try!(encoder.emit_u16(iterations));
-    try!(encoder.emit(salt.len() as u8));
-    try!(encoder.emit_vec(salt));
-    try!(encoder.emit(next_hashed_owner_name.len() as u8));
-    try!(encoder.emit_vec(next_hashed_owner_name));
-    try!(encode_bit_maps(encoder, type_bit_maps));
+pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> EncodeResult {
+  try!(encoder.emit(rdata.get_hash_algorithm().into()));
+  let mut flags: u8 = 0;
+  if rdata.get_opt_out() { flags |= 0b0000_0001 };
+  try!(encoder.emit(flags));
+  try!(encoder.emit_u16(rdata.get_iterations()));
+  try!(encoder.emit(rdata.get_salt().len() as u8));
+  try!(encoder.emit_vec(rdata.get_salt()));
+  try!(encoder.emit(rdata.get_next_hashed_owner_name().len() as u8));
+  try!(encoder.emit_vec(rdata.get_next_hashed_owner_name()));
+  try!(encode_bit_maps(encoder, rdata.get_type_bit_maps()));
 
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", rdata);
-  }
+  Ok(())
 }
 
 pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> EncodeResult {
@@ -246,9 +257,8 @@ pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -
 
 #[test]
 pub fn test() {
-  let rdata = RData::NSEC3{ hash_algorithm: Nsec3HashAlgorithm::SHA1, opt_out: true, iterations: 2,
-                   salt: vec![1,2,3,4,5], next_hashed_owner_name: vec![6,7,8,9,0],
-                   type_bit_maps: vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::RRSIG] };
+  let rdata = NSEC3::new(Nsec3HashAlgorithm::SHA1, true, 2, vec![1,2,3,4,5], vec![6,7,8,9,0],
+                   vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::RRSIG]);
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
