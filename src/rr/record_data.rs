@@ -21,11 +21,10 @@ use std::cmp::Ordering;
 use ::error::*;
 use ::serialize::binary::*;
 use ::serialize::txt::*;
-use ::rr::dnssec::Nsec3HashAlgorithm;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NULL, SIG, SOA };
+use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, SIG, SOA };
 
 /// 3.3. Standard RRs
 ///
@@ -415,7 +414,7 @@ pub enum RData {
   //  Salt, if present, is encoded as a sequence of binary octets.  The
   //  length of this field is determined by the preceding Salt Length
   //  field.
-  NSEC3PARAM{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8> },
+  NSEC3PARAM(NSEC3PARAM),
 
   // RFC 6891                   EDNS(0) Extensions                 April 2013
   // 6.1.2.  Wire Format
@@ -667,7 +666,7 @@ impl RData {
       RecordType::NS => {debug!("reading NS"); Ok(RData::NS(try!(rdata::name::read(decoder)))) },
       RecordType::NSEC => {debug!("reading NSEC"); Ok(RData::NSEC(try!(rdata::nsec::read(decoder, rdata_length)))) },
       RecordType::NSEC3 => {debug!("reading NSEC3"); Ok(RData::NSEC3(try!(rdata::nsec3::read(decoder, rdata_length)))) },
-      RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM");rdata::nsec3param::read(decoder)},
+      RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM"); Ok(RData::NSEC3PARAM(try!(rdata::nsec3param::read(decoder)))) },
       RecordType::OPT => {debug!("reading OPT"); rdata::opt::read(decoder, rdata_length)},
       RecordType::PTR => {debug!("reading PTR"); Ok(RData::PTR(try!(rdata::name::read(decoder)))) },
       RecordType::RRSIG => {debug!("reading RRSIG"); Ok(RData::SIG(try!(rdata::sig::read(decoder, rdata_length)))) },
@@ -698,7 +697,7 @@ impl RData {
       RData::NS(ref name) => rdata::name::emit(encoder, name),
       RData::NSEC(ref nsec) => rdata::nsec::emit(encoder, nsec),
       RData::NSEC3(ref nsec3) => rdata::nsec3::emit(encoder, nsec3),
-      RData::NSEC3PARAM{..} => rdata::nsec3param::emit(encoder, self),
+      RData::NSEC3PARAM(ref nsec3param) => rdata::nsec3param::emit(encoder, nsec3param),
       RData::OPT{..} => rdata::opt::emit(encoder, self),
       RData::PTR(ref name) => rdata::name::emit(encoder, name),
       RData::SIG(ref sig) => rdata::sig::emit(encoder, sig),
@@ -723,7 +722,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::NS(..) => RecordType::NS,
       RData::NSEC(..) => RecordType::NSEC,
       RData::NSEC3(..) => RecordType::NSEC3,
-      RData::NSEC3PARAM{..} => RecordType::NSEC3PARAM,
+      RData::NSEC3PARAM(..) => RecordType::NSEC3PARAM,
       RData::NULL(..) => RecordType::NULL,
       RData::OPT{..} => RecordType::OPT,
       RData::PTR(..) => RecordType::PTR,

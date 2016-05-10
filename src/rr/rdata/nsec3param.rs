@@ -16,7 +16,6 @@
 
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
 use ::rr::dnssec::Nsec3HashAlgorithm;
 
 // RFC 5155                         NSEC3                        March 2008
@@ -49,7 +48,21 @@ use ::rr::dnssec::Nsec3HashAlgorithm;
 //  field.
 //
 // NSEC3PARAM{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8> },
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct NSEC3PARAM{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8> }
+
+impl NSEC3PARAM {
+  pub fn new(hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>) -> NSEC3PARAM {
+    NSEC3PARAM{ hash_algorithm: hash_algorithm, opt_out: opt_out, iterations: iterations, salt: salt }
+  }
+
+  pub fn get_hash_algorithm(&self) -> Nsec3HashAlgorithm { self.hash_algorithm }
+  pub fn get_opt_out(&self) -> bool { self.opt_out }
+  pub fn get_iterations(&self) -> u16 { self.iterations }
+  pub fn get_salt(&self) -> &[u8] { &self.salt }
+}
+
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<NSEC3PARAM> {
   let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
   let flags: u8 = try!(decoder.read_u8());
 
@@ -59,30 +72,24 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
   let salt_len: u8 = try!(decoder.read_u8());
   let salt: Vec<u8> = try!(decoder.read_vec(salt_len as usize));
 
-  Ok(RData::NSEC3PARAM{ hash_algorithm: hash_algorithm, opt_out: opt_out, iterations: iterations,
-                   salt: salt })
+  Ok(NSEC3PARAM::new(hash_algorithm, opt_out, iterations, salt))
 }
 
-pub fn emit(encoder: &mut BinEncoder, rdata: &RData) -> EncodeResult {
-  if let RData::NSEC3PARAM{ hash_algorithm, opt_out, iterations, ref salt } = *rdata {
-    try!(encoder.emit(hash_algorithm.into()));
-    let mut flags: u8 = 0;
-    if opt_out { flags |= 0b0000_0001 };
-    try!(encoder.emit(flags));
-    try!(encoder.emit_u16(iterations));
-    try!(encoder.emit(salt.len() as u8));
-    try!(encoder.emit_vec(&salt));
+pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> EncodeResult {
+  try!(encoder.emit(rdata.get_hash_algorithm().into()));
+  let mut flags: u8 = 0;
+  if rdata.get_opt_out() { flags |= 0b0000_0001 };
+  try!(encoder.emit(flags));
+  try!(encoder.emit_u16(rdata.get_iterations()));
+  try!(encoder.emit(rdata.get_salt().len() as u8));
+  try!(encoder.emit_vec(&rdata.get_salt()));
 
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", rdata);
-  }
+  Ok(())
 }
 
 #[test]
 pub fn test() {
-  let rdata = RData::NSEC3PARAM{ hash_algorithm: Nsec3HashAlgorithm::SHA1, opt_out: true,
-     iterations: 2, salt: vec![1,2,3,4,5] };
+  let rdata = NSEC3PARAM::new(Nsec3HashAlgorithm::SHA1, true, 2, vec![1,2,3,4,5]);
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
