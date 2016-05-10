@@ -15,7 +15,7 @@
  */
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::{RData, Name};
+use ::rr::{Name, RecordType};
 use ::rr::rdata::nsec3;
 
 // RFC 4034                DNSSEC Resource Records               March 2005
@@ -107,7 +107,19 @@ use ::rr::rdata::nsec3;
 //    authenticated denial of existence.
 //
 //   NSEC { next_domain_name: Name, type_bit_maps: Vec<RecordType> },
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct NSEC { next_domain_name: Name, type_bit_maps: Vec<RecordType> }
+
+impl NSEC {
+  pub fn new(next_domain_name: Name, type_bit_maps: Vec<RecordType>) -> NSEC {
+    NSEC { next_domain_name: next_domain_name, type_bit_maps: type_bit_maps }
+  }
+
+  pub fn get_next_domain_name(&self) -> &Name { &self.next_domain_name }
+  pub fn get_type_bit_maps(&self) -> &[RecordType] { &self.type_bit_maps }
+}
+
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC> {
   let start_idx = decoder.index();
 
   let next_domain_name = try!(Name::read(decoder));
@@ -115,29 +127,25 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> 
   let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
   let record_types = try!(nsec3::decode_type_bit_maps(decoder, bit_map_len));
 
-  Ok(RData::NSEC{ next_domain_name: next_domain_name, type_bit_maps: record_types })
+  Ok(NSEC::new(next_domain_name, record_types))
 }
 
-pub fn emit(encoder: &mut BinEncoder, rdata: &RData) -> EncodeResult {
-  if let RData::NSEC{ ref next_domain_name, ref type_bit_maps } = *rdata {
-    let is_canonical_names = encoder.is_canonical_names();
-    encoder.set_canonical_names(true);
-    try!(next_domain_name.emit(encoder));
-    try!(nsec3::encode_bit_maps(encoder, type_bit_maps));
-    encoder.set_canonical_names(is_canonical_names);
+pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> EncodeResult {
+  let is_canonical_names = encoder.is_canonical_names();
+  encoder.set_canonical_names(true);
+  try!(rdata.get_next_domain_name().emit(encoder));
+  try!(nsec3::encode_bit_maps(encoder, rdata.get_type_bit_maps()));
+  encoder.set_canonical_names(is_canonical_names);
 
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", rdata);
-  }
+  Ok(())
 }
 
 #[test]
 pub fn test() {
   use ::rr::RecordType;
 
-  let rdata = RData::NSEC{ next_domain_name: Name::new().label("www").label("example").label("com"),
-                           type_bit_maps: vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::RRSIG] };
+  let rdata = NSEC::new(Name::new().label("www").label("example").label("com"),
+                        vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::RRSIG]);
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

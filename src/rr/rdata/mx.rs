@@ -17,7 +17,6 @@
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
 use ::rr::domain::Name;
 
 // 3.3.9. MX RDATA format

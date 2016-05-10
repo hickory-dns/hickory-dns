@@ -25,7 +25,7 @@ use ::rr::dnssec::Nsec3HashAlgorithm;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{ DNSKEY, DS, MX, NULL, SIG, SOA };
+use super::rdata::{ DNSKEY, DS, MX, NSEC, NULL, SIG, SOA };
 
 /// 3.3. Standard RRs
 ///
@@ -291,7 +291,7 @@ pub enum RData {
   //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
   //  /                       Type Bit Maps                           /
   //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
-  NSEC { next_domain_name: Name, type_bit_maps: Vec<RecordType> },
+  NSEC(NSEC),
 
   // RFC 5155                         NSEC3                        March 2008
   //
@@ -666,7 +666,7 @@ impl RData {
       RecordType::MX => {debug!("reading MX"); Ok(RData::MX(try!(rdata::mx::read(decoder)))) },
       RecordType::NULL => {debug!("reading NULL"); Ok(RData::NULL(try!(rdata::null::read(decoder, rdata_length)))) },
       RecordType::NS => {debug!("reading NS"); Ok(RData::NS(try!(rdata::name::read(decoder)))) },
-      RecordType::NSEC => {debug!("reading NSEC");rdata::nsec::read(decoder, rdata_length)},
+      RecordType::NSEC => {debug!("reading NSEC"); Ok(RData::NSEC(try!(rdata::nsec::read(decoder, rdata_length)))) },
       RecordType::NSEC3 => {debug!("reading NSEC3");rdata::nsec3::read(decoder, rdata_length)},
       RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM");rdata::nsec3param::read(decoder)},
       RecordType::OPT => {debug!("reading OPT"); rdata::opt::read(decoder, rdata_length)},
@@ -697,7 +697,7 @@ impl RData {
       RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
       RData::NULL(ref null) => rdata::null::emit(encoder, null),
       RData::NS(ref name) => rdata::name::emit(encoder, name),
-      RData::NSEC{..} => rdata::nsec::emit(encoder, self),
+      RData::NSEC(ref nsec) => rdata::nsec::emit(encoder, nsec),
       RData::NSEC3{..} => rdata::nsec3::emit(encoder, self),
       RData::NSEC3PARAM{..} => rdata::nsec3param::emit(encoder, self),
       RData::OPT{..} => rdata::opt::emit(encoder, self),
@@ -722,7 +722,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::DNSKEY(..) => RecordType::DNSKEY,
       RData::MX(..) => RecordType::MX,
       RData::NS(..) => RecordType::NS,
-      RData::NSEC{..} => RecordType::NSEC,
+      RData::NSEC(..) => RecordType::NSEC,
       RData::NSEC3{..} => RecordType::NSEC3,
       RData::NSEC3PARAM{..} => RecordType::NSEC3PARAM,
       RData::NULL(..) => RecordType::NULL,

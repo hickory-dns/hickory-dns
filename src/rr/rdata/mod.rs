@@ -36,6 +36,7 @@ pub mod txt;
 pub use self::dnskey::DNSKEY;
 pub use self::ds::DS;
 pub use self::mx::MX;
+pub use self::nsec::NSEC;
 pub use self::null::NULL;
 pub use self::sig::SIG;
 pub use self::soa::SOA;

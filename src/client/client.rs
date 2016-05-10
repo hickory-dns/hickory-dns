@@ -310,8 +310,8 @@ impl<C: ClientConnection> Client<C> {
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
     if nsecs.iter().any(|r| query_name == r.get_name() && {
-      if let &RData::NSEC { ref type_bit_maps, .. } = r.get_rdata() {
-        !type_bit_maps.contains(&query_type)
+      if let &RData::NSEC(ref rdata) = r.get_rdata() {
+        !rdata.get_type_bit_maps().contains(&query_type)
       } else {
         panic!("expected NSEC was {:?}", r.get_rr_type())
       }
@@ -319,8 +319,8 @@ impl<C: ClientConnection> Client<C> {
 
     // based on the WTF? above, we will ignore any NSEC records of the same name
     if nsecs.iter().filter(|r| query_name != r.get_name()).any(|r| query_name > r.get_name() && {
-      if let &RData::NSEC { ref next_domain_name, ..} = r.get_rdata() {
-        query_name < next_domain_name
+      if let &RData::NSEC(ref rdata) = r.get_rdata() {
+        query_name < rdata.get_next_domain_name()
       } else {
         panic!("expected NSEC was {:?}", r.get_rr_type())
       }
