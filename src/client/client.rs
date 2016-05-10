@@ -132,10 +132,10 @@ impl<C: ClientConnection> Client<C> {
 
     // verify the DNSKey via a DS key if it's the secure_entry_point
     if let Some(record) = rrset.first() {
-      if let &RData::DNSKEY{zone_key, secure_entry_point, ..} = record.get_rdata() {
+      if let &RData::DNSKEY(ref dnskey) = record.get_rdata() {
         // the spec says that the secure_entry_point isn't reliable for the main DNSKey...
         //  but how do you know which needs to be validated with the DS in the parent zone?
-        if zone_key && secure_entry_point {
+        if dnskey.get_zone_key() && dnskey.get_secure_entry_point() {
           let mut proof = try!(self.verify_dnskey(record));
           // TODO: this is verified, it can be cached
           proof.push(record.clone());
@@ -154,15 +154,15 @@ impl<C: ClientConnection> Client<C> {
         let key_rrsigs: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
         for dnskey in key_rrset.iter() {
-          if let &RData::DNSKEY{zone_key, algorithm, revoke, ref public_key, ..} = dnskey.get_rdata() {
-            if revoke { debug!("revoked: {}", dnskey.get_name()); continue } // TODO: does this need to be validated? RFC 5011
-            if !zone_key { continue }
-            if algorithm != sig.get_algorithm() { continue }
+          if let &RData::DNSKEY(ref rdata) = dnskey.get_rdata() {
+            if rdata.get_revoke() { debug!("revoked: {}", dnskey.get_name()); continue } // TODO: does this need to be validated? RFC 5011
+            if !rdata.get_zone_key() { continue }
+            if *rdata.get_algorithm() != sig.get_algorithm() { continue }
 
-            let pkey = try!(algorithm.public_key_from_vec(public_key));
+            let pkey = try!(rdata.get_algorithm().public_key_from_vec(rdata.get_public_key()));
             if !pkey.can(Role::Verify) { debug!("pkey can't verify, {:?}", dnskey.get_name()); continue }
 
-            let signer: Signer = Signer::new_verifier(algorithm, pkey, sig.get_signer_name().clone());
+            let signer: Signer = Signer::new_verifier(*rdata.get_algorithm(), pkey, sig.get_signer_name().clone());
             let rrset_hash: Vec<u8> = signer.hash_rrset_with_rrsig(rrsig, &rrset);
 
             if signer.verify(&rrset_hash, sig.get_sig()) {
@@ -199,8 +199,8 @@ impl<C: ClientConnection> Client<C> {
     let name: &domain::Name = dnskey.get_name();
 
     if dnskey.get_name().is_root() {
-      if let &RData::DNSKEY{ ref public_key, .. } = dnskey.get_rdata() {
-        if TrustAnchor::new().contains(public_key) {
+      if let &RData::DNSKEY(ref rdata) = dnskey.get_rdata() {
+        if TrustAnchor::new().contains(rdata.get_public_key()) {
           return Ok(vec![dnskey.clone()])
         }
       }

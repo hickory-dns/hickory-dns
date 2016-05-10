@@ -25,7 +25,7 @@ use ::rr::dnssec::{Algorithm, DigestType, Nsec3HashAlgorithm};
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{ NULL, SIG, SOA };
+use super::rdata::{ DNSKEY, NULL, SIG, SOA };
 
 /// 3.3. Standard RRs
 ///
@@ -155,8 +155,7 @@ pub enum RData {
   //
   //   The IANA has assigned a bit in the DNSKEY flags field (see Section 7
   //   of [RFC4034]) for the REVOKE bit (8).
-  DNSKEY { zone_key: bool, secure_entry_point: bool, revoke: bool, algorithm: Algorithm,
-           public_key: Vec<u8> },
+  DNSKEY(DNSKEY),
 
 
   // 5.1.  DS RDATA Wire Format
@@ -661,7 +660,7 @@ impl RData {
       rt @ RecordType::ANY => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       rt @ RecordType::AXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::CNAME => {debug!("reading CNAME"); Ok(RData::CNAME(try!(rdata::name::read(decoder)))) },
-      RecordType::DNSKEY => {debug!("reading DNSKEY");rdata::dnskey::read(decoder, rdata_length)},
+      RecordType::DNSKEY => {debug!("reading DNSKEY"); Ok(RData::DNSKEY(try!(rdata::dnskey::read(decoder, rdata_length)))) },
       RecordType::DS => {debug!("reading DS"); rdata::ds::read(decoder, rdata_length)},
       rt @ RecordType::IXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::MX => {debug!("reading MX"); rdata::mx::read(decoder)},
@@ -694,7 +693,7 @@ impl RData {
       RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
       RData::CNAME(ref name) => rdata::name::emit(encoder, name),
       RData::DS{..} => rdata::ds::emit(encoder, self),
-      RData::DNSKEY{..} => rdata::dnskey::emit(encoder, self),
+      RData::DNSKEY(ref dnskey) => rdata::dnskey::emit(encoder, dnskey),
       RData::MX{..} => rdata::mx::emit(encoder, self),
       RData::NULL(ref null) => rdata::null::emit(encoder, null),
       RData::NS(ref name) => rdata::name::emit(encoder, name),
@@ -720,7 +719,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::AAAA(..) => RecordType::AAAA,
       RData::CNAME(..) => RecordType::CNAME,
       RData::DS{..} => RecordType::DS,
-      RData::DNSKEY{..} => RecordType::DNSKEY,
+      RData::DNSKEY(..) => RecordType::DNSKEY,
       RData::MX{..} => RecordType::MX,
       RData::NS(..) => RecordType::NS,
       RData::NSEC{..} => RecordType::NSEC,
