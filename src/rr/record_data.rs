@@ -24,7 +24,7 @@ use ::serialize::txt::*;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, SIG, SOA, SRV };
+use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, SIG, SOA, SRV, TXT };
 
 /// 3.3. Standard RRs
 ///
@@ -582,7 +582,7 @@ pub enum RData {
   //
   // TXT RRs are used to hold descriptive text.  The semantics of the text
   // depends on the domain where it is found.
-  TXT { txt_data: Vec<String> },
+  TXT(TXT),
 
 
 }
@@ -610,7 +610,7 @@ impl RData {
       RecordType::SIG => panic!("parsing SIG doesn't make sense"),
       RecordType::SOA => Ok(RData::SOA(try!(rdata::soa::parse(tokens, origin)))),
       RecordType::SRV => Ok(RData::SRV(try!(rdata::srv::parse(tokens, origin)))),
-      RecordType::TXT => rdata::txt::parse(tokens),
+      RecordType::TXT => Ok(RData::TXT(try!(rdata::txt::parse(tokens)))),
     }
   }
 
@@ -674,7 +674,7 @@ impl RData {
       // TODO: this wrap in Ok() should go away when all RData types are converted to strong types
       RecordType::SOA => {debug!("reading SOA"); Ok(RData::SOA(try!(rdata::soa::read(decoder)))) },
       RecordType::SRV => {debug!("reading SRV"); Ok(RData::SRV(try!(rdata::srv::read(decoder)))) },
-      RecordType::TXT => {debug!("reading TXT"); rdata::txt::read(decoder, rdata_length)},
+      RecordType::TXT => {debug!("reading TXT"); Ok(RData::TXT(try!(rdata::txt::read(decoder, rdata_length)))) },
     });
 
     // we should have read rdata_length, but we did not
@@ -703,7 +703,7 @@ impl RData {
       RData::SIG(ref sig) => rdata::sig::emit(encoder, sig),
       RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
       RData::SRV(ref srv) => rdata::srv::emit(encoder, srv),
-      RData::TXT{..} => rdata::txt::emit(encoder, self),
+      RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
     }
   }
 }
@@ -729,7 +729,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::SIG(..) => RecordType::SIG,
       RData::SOA(..) => RecordType::SOA,
       RData::SRV(..) => RecordType::SRV,
-      RData::TXT{..} => RecordType::TXT,
+      RData::TXT(..) => RecordType::TXT,
     }
   }
 }
@@ -776,7 +776,7 @@ mod tests {
   use ::serialize::binary::*;
   use ::serialize::binary::bin_tests::test_emit_data_set;
   use ::rr::domain::Name;
-  use ::rr::rdata::{MX, SOA, SRV};
+  use ::rr::rdata::{MX, SOA, SRV, TXT};
 
   fn get_data() -> Vec<(RData, Vec<u8>)> {
     vec![
@@ -794,7 +794,7 @@ mod tests {
     0xFF,0xFF,0xFF,0xFF,
     0xFF,0xFF,0xFF,0xFF,
     0xFF,0xFF,0xFF,0xFF]),
-    (RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
+    (RData::TXT(TXT::new(vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()])),
     vec![6,b'a',b'b',b'c',b'd',b'e',b'f', 3,b'g',b'h',b'i', 0, 1,b'j']),
     (RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()), vec![0,0,0,0]),
     (RData::AAAA(Ipv6Addr::from_str("::").unwrap()), vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]),
@@ -816,7 +816,7 @@ mod tests {
       RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
                           Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
                           u32::max_value(), -1 as i32, -1 as i32, -1 as i32, u32::max_value())),
-      RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
+      RData::TXT(TXT::new(vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()])),
     ];
     let mut unordered = vec![
       RData::CNAME(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
@@ -826,7 +826,7 @@ mod tests {
       RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
                           Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
                           u32::max_value(), -1 as i32, -1 as i32, -1 as i32, u32::max_value())),
-      RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
+      RData::TXT(TXT::new(vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()])),
       RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
       RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
       RData::SRV(SRV::new(1, 2, 3, Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]))),

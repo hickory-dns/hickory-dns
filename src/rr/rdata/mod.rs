@@ -43,3 +43,4 @@ pub use self::null::NULL;
 pub use self::sig::SIG;
 pub use self::srv::SRV;
 pub use self::soa::SOA;
+pub use self::txt::TXT;

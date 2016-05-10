@@ -162,8 +162,8 @@ VENERA  A       10.1.0.52
 
 
   for (record, ref vector) in compare {
-    if let RData::TXT{ ref txt_data } = *record.get_rdata() {
-      assert_eq!(vector, txt_data);
+    if let RData::TXT(ref rdata) = *record.get_rdata() {
+      assert_eq!(vector as &[String], rdata.get_txt_data());
     } else {
       panic!("Not a TXT record!!!")
     }

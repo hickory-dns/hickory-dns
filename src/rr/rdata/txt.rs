@@ -16,7 +16,6 @@
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
 
 // 3.3.14. TXT RDATA format
 //
@@ -32,28 +31,36 @@ use ::rr::record_data::RData;
 // depends on the domain where it is found.
 //
 // TXT { txt_data: Vec<String> }
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct TXT { txt_data: Vec<String> }
+
+impl TXT {
+  pub fn new(txt_data: Vec<String>) -> TXT {
+    TXT { txt_data: txt_data }
+  }
+
+  pub fn get_txt_data(&self) -> &[String] { &self.txt_data }
+}
+
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<TXT> {
   let data_len = decoder.len();
   let mut strings = Vec::with_capacity(1);
 
   while data_len - decoder.len() < rdata_length as usize {
     strings.push(try!(decoder.read_character_data()));
   }
-  Ok(RData::TXT{ txt_data: strings })
+  Ok(TXT::new(strings))
 }
 
-pub fn emit(encoder: &mut BinEncoder, txt: &RData) -> EncodeResult {
-  if let RData::TXT { ref txt_data } = *txt {
-    for s in txt_data {
-      try!(encoder.emit_character_data(s));
-    }
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", txt);
+pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> EncodeResult {
+  for s in txt.get_txt_data() {
+    try!(encoder.emit_character_data(s));
   }
+
+  Ok(())
 }
 
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
+pub fn parse(tokens: &Vec<Token>) -> ParseResult<TXT> {
   let mut txt_data: Vec<String> = Vec::with_capacity(tokens.len());
   for t in tokens {
     match *t {
@@ -62,12 +69,12 @@ pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
     }
   }
 
-  Ok(RData::TXT { txt_data: txt_data })
+  Ok(TXT::new(txt_data))
 }
 
 #[test]
 fn test() {
-  let rdata = RData::TXT { txt_data: vec!["test me some".to_string(), "more please".to_string()] };
+  let rdata = TXT::new(vec!["test me some".to_string(), "more please".to_string()]);
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
