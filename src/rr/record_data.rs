@@ -21,11 +21,11 @@ use std::cmp::Ordering;
 use ::error::*;
 use ::serialize::binary::*;
 use ::serialize::txt::*;
-use ::rr::dnssec::{Algorithm, DigestType, Nsec3HashAlgorithm};
+use ::rr::dnssec::Nsec3HashAlgorithm;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{ DNSKEY, NULL, SIG, SOA };
+use super::rdata::{ DNSKEY, DS, NULL, SIG, SOA };
 
 /// 3.3. Standard RRs
 ///
@@ -214,7 +214,7 @@ pub enum RData {
   //    The size of the digest may vary depending on the digest algorithm and
   //    DNSKEY RR size.  As of the time of this writing, the only defined
   //    digest algorithm is SHA-1, which produces a 20 octet digest.
-  DS { key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8> },
+  DS(DS),
 
   // 3.3.9. MX RDATA format
   //
@@ -661,7 +661,7 @@ impl RData {
       rt @ RecordType::AXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::CNAME => {debug!("reading CNAME"); Ok(RData::CNAME(try!(rdata::name::read(decoder)))) },
       RecordType::DNSKEY => {debug!("reading DNSKEY"); Ok(RData::DNSKEY(try!(rdata::dnskey::read(decoder, rdata_length)))) },
-      RecordType::DS => {debug!("reading DS"); rdata::ds::read(decoder, rdata_length)},
+      RecordType::DS => {debug!("reading DS"); Ok(RData::DS(try!(rdata::ds::read(decoder, rdata_length)))) },
       rt @ RecordType::IXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::MX => {debug!("reading MX"); rdata::mx::read(decoder)},
       RecordType::NULL => {debug!("reading NULL"); Ok(RData::NULL(try!(rdata::null::read(decoder, rdata_length)))) },
@@ -692,7 +692,7 @@ impl RData {
       RData::A(ref address) => rdata::a::emit(encoder, address),
       RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
       RData::CNAME(ref name) => rdata::name::emit(encoder, name),
-      RData::DS{..} => rdata::ds::emit(encoder, self),
+      RData::DS(ref ds) => rdata::ds::emit(encoder, ds),
       RData::DNSKEY(ref dnskey) => rdata::dnskey::emit(encoder, dnskey),
       RData::MX{..} => rdata::mx::emit(encoder, self),
       RData::NULL(ref null) => rdata::null::emit(encoder, null),
@@ -718,7 +718,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::A(..) => RecordType::A,
       RData::AAAA(..) => RecordType::AAAA,
       RData::CNAME(..) => RecordType::CNAME,
-      RData::DS{..} => RecordType::DS,
+      RData::DS(..) => RecordType::DS,
       RData::DNSKEY(..) => RecordType::DNSKEY,
       RData::MX{..} => RecordType::MX,
       RData::NS(..) => RecordType::NS,

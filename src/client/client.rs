@@ -211,7 +211,7 @@ impl<C: ClientConnection> Client<C> {
     let ds_rrsigs: Vec<&Record> = ds_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
     for ds in ds_rrset.iter() {
-      if let &RData::DS{digest_type, ref digest, ..} = ds.get_rdata() {
+      if let &RData::DS(ref ds_rdata) = ds.get_rdata() {
         // 5.1.4.  The Digest Field
         //
         //    The DS record refers to a DNSKEY RR by including a digest of that
@@ -238,8 +238,8 @@ impl<C: ClientConnection> Client<C> {
           try!(dnskey.get_rdata().emit(&mut encoder));
         }
 
-        let hash: Vec<u8> = digest_type.hash(&buf);
-        if &hash == digest {
+        let hash: Vec<u8> = ds_rdata.get_digest_type().hash(&buf);
+        if &hash as &[u8] == ds_rdata.get_digest() {
           // continue to verify the chain...
           let mut proof: Vec<Record> = try!(self.recursive_query_verify(&name, ds_rrset.clone(), ds_rrsigs, RecordType::DNSKEY, dnskey.get_dns_class()));
           proof.push(dnskey.clone());
@@ -673,34 +673,38 @@ mod test {
     assert!(response.get_answers().is_empty());
   }
 
+  // TODO: disabled until I decide what to do with NSEC3 see issue #10
+  //
   // TODO these NSEC3 tests don't work, it seems that the zone is not signed properly.
-  #[test]
-  #[cfg(feature = "ftest")]
-  fn test_nsec3_sdsmt() {
-    let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr).unwrap();
-    let name = domain::Name::with_labels(vec!["none".to_string(), "sdsmt".to_string(), "edu".to_string()]);
-    let client = Client::new(conn);
+  // #[test]
+  // #[cfg(feature = "ftest")]
+  // fn test_nsec3_sdsmt() {
+  //   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
+  //   let conn = TcpClientConnection::new(addr).unwrap();
+  //   let name = domain::Name::with_labels(vec!["none".to_string(), "sdsmt".to_string(), "edu".to_string()]);
+  //   let client = Client::new(conn);
+  //
+  //   let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
+  //   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+  //
+  //   let response = response.unwrap();
+  //   assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
+  // }
 
-    let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
-    assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-
-    let response = response.unwrap();
-    assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
-  }
-
-  #[test]
-  #[cfg(feature = "ftest")]
-  fn test_nsec3_sdsmt_type() {
-    let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
-    let conn = TcpClientConnection::new(addr).unwrap();
-    let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
-    let client = Client::new(conn);
-
-    let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
-    assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-
-    let response = response.unwrap();
-    assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
-  }
+  // TODO: disabled until I decide what to do with NSEC3 see issue #10
+  //
+  // #[test]
+  // #[cfg(feature = "ftest")]
+  // fn test_nsec3_sdsmt_type() {
+  //   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
+  //   let conn = TcpClientConnection::new(addr).unwrap();
+  //   let name = domain::Name::with_labels(vec!["www".to_string(), "sdsmt".to_string(), "edu".to_string()]);
+  //   let client = Client::new(conn);
+  //
+  //   let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
+  //   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+  //
+  //   let response = response.unwrap();
+  //   assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
+  // }
 }

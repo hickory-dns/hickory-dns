@@ -15,7 +15,6 @@
  */
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
 use ::rr::dnssec::Algorithm;
 
 // RFC 4034                DNSSEC Resource Records               March 2005

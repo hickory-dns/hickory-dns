@@ -15,7 +15,6 @@
  */
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
 use ::rr::dnssec::{Algorithm, DigestType};
 
 // RFC 4034                DNSSEC Resource Records               March 2005
@@ -103,7 +102,21 @@ use ::rr::dnssec::{Algorithm, DigestType};
 //    text.
 //
 // DS { key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8> }
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct DS { key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8> }
+
+impl DS {
+  pub fn new(key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8>) -> DS {
+    DS { key_tag: key_tag, algorithm: algorithm, digest_type: digest_type, digest: digest }
+  }
+
+  pub fn get_key_tag(&self) -> u16 { self.key_tag }
+  pub fn get_algorithm(&self) -> &Algorithm { &self.algorithm }
+  pub fn get_digest_type(&self) -> DigestType { self.digest_type }
+  pub fn get_digest(&self) -> &[u8] { &self.digest }
+}
+
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DS> {
   let start_idx = decoder.index();
 
   let key_tag: u16 = try!(decoder.read_u16());
@@ -113,26 +126,21 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> 
   let left: usize = rdata_length as usize - (decoder.index() - start_idx);;
   let digest = try!(decoder.read_vec(left));
 
-  Ok(RData::DS { key_tag: key_tag, algorithm: algorithm, digest_type: digest_type, digest: digest })
+  Ok(DS::new(key_tag, algorithm, digest_type, digest))
 }
 
-pub fn emit(encoder: &mut BinEncoder, rdata: &RData) -> EncodeResult {
-  if let RData::DS { key_tag, algorithm, digest_type, ref digest } = *rdata {
-    try!(encoder.emit_u16(key_tag));
-    try!(algorithm.emit(encoder)); // always 3 for now
-    try!(encoder.emit(digest_type.into()));
-    try!(encoder.emit_vec(&digest));
+pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> EncodeResult {
+  try!(encoder.emit_u16(rdata.get_key_tag()));
+  try!(rdata.get_algorithm().emit(encoder)); // always 3 for now
+  try!(encoder.emit(rdata.get_digest_type().into()));
+  try!(encoder.emit_vec(rdata.get_digest()));
 
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", rdata);
-  }
+  Ok(())
 }
 
 #[test]
 pub fn test() {
-  let rdata = RData::DS{ key_tag: 0xF00F, algorithm: Algorithm::RSASHA256,
-    digest_type: DigestType::SHA256, digest: vec![5,6,7,8] };
+  let rdata = DS::new(0xF00F, Algorithm::RSASHA256, DigestType::SHA256, vec![5,6,7,8]);
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
