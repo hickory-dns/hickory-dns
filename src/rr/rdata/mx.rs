@@ -43,33 +43,40 @@ use ::rr::domain::Name;
 // [RFC-974].
 //
 // MX { preference: u16, exchange: Name },
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
-  Ok(RData::MX { preference: try!(decoder.read_u16()), exchange: try!(Name::read(decoder)) })
-}
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct MX { preference: u16, exchange: Name }
 
-pub fn emit(encoder: &mut BinEncoder, mx: &RData) -> EncodeResult {
-  if let RData::MX { preference, ref exchange } = *mx {
-    try!(encoder.emit_u16(preference));
-    try!(exchange.emit(encoder));
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", mx);
+impl MX {
+  pub fn new(preference: u16, exchange: Name) -> MX {
+    MX { preference: preference, exchange: exchange }
   }
+
+  pub fn get_preference(&self) -> u16 { self.preference }
+  pub fn get_exchange(&self) -> &Name { &self.exchange }
 }
 
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<RData> {
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<MX> {
+  Ok(MX::new(try!(decoder.read_u16()), try!(Name::read(decoder))))
+}
+
+pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> EncodeResult {
+  try!(encoder.emit_u16(mx.get_preference()));
+  try!(mx.get_exchange().emit(encoder));
+  Ok(())
+}
+
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<MX> {
   let mut token = tokens.iter();
 
   let preference: u16 = try!(token.next().ok_or(ParseError::MissingToken("preference".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
   let exchange: Name = try!(token.next().ok_or(ParseError::MissingToken("exchange".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
 
-  Ok(RData::MX { preference: preference, exchange: exchange})
+  Ok(MX::new(preference, exchange))
 }
 
 #[test]
 pub fn test() {
-  let rdata = RData::MX{ preference: 16,
-    exchange: Name::new().label("mail").label("example").label("com") };
+  let rdata = MX::new(16, Name::new().label("mail").label("example").label("com"));
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

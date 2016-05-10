@@ -105,9 +105,9 @@ VENERA  A       10.1.0.52
     assert_eq!(60, record.get_ttl()); // TODO: should this be minimum or expire?
     assert_eq!(DNSClass::IN, record.get_dns_class());
     assert_eq!(RecordType::MX, record.get_rr_type());
-    if let RData::MX{ preference, ref exchange } = *record.get_rdata() {
-      assert_eq!(num, preference);
-      assert_eq!(name, exchange);
+    if let RData::MX(ref rdata) = *record.get_rdata() {
+      assert_eq!(num, rdata.get_preference());
+      assert_eq!(name, rdata.get_exchange());
     } else {
       panic!("Not an NS record!!!")
     }

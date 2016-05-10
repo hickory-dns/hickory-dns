@@ -25,7 +25,7 @@ use ::rr::dnssec::Nsec3HashAlgorithm;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{ DNSKEY, DS, NULL, SIG, SOA };
+use super::rdata::{ DNSKEY, DS, MX, NULL, SIG, SOA };
 
 /// 3.3. Standard RRs
 ///
@@ -237,7 +237,7 @@ pub enum RData {
   // MX records cause type A additional section processing for the host
   // specified by EXCHANGE.  The use of MX RRs is explained in detail in
   // [RFC-974].
-  MX { preference: u16, exchange: Name },
+  MX(MX),
 
   // 3.3.10. NULL RDATA format (EXPERIMENTAL)
   //
@@ -600,7 +600,7 @@ impl RData {
       RecordType::DNSKEY => panic!("DNSKEY should be dynamically generated"),
       RecordType::DS => panic!("DS should be dynamically generated"),
       RecordType::IXFR => panic!("parsing IXFR doesn't make sense"),
-      RecordType::MX => rdata::mx::parse(tokens, origin),
+      RecordType::MX => Ok(RData::MX(try!(rdata::mx::parse(tokens, origin)))),
       RecordType::NULL => rdata::null::parse(tokens),
       RecordType::NS => Ok(RData::NS(try!(rdata::name::parse(tokens, origin)))),
       RecordType::NSEC => panic!("NSEC should be dynamically generated"),
@@ -663,7 +663,7 @@ impl RData {
       RecordType::DNSKEY => {debug!("reading DNSKEY"); Ok(RData::DNSKEY(try!(rdata::dnskey::read(decoder, rdata_length)))) },
       RecordType::DS => {debug!("reading DS"); Ok(RData::DS(try!(rdata::ds::read(decoder, rdata_length)))) },
       rt @ RecordType::IXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
-      RecordType::MX => {debug!("reading MX"); rdata::mx::read(decoder)},
+      RecordType::MX => {debug!("reading MX"); Ok(RData::MX(try!(rdata::mx::read(decoder)))) },
       RecordType::NULL => {debug!("reading NULL"); Ok(RData::NULL(try!(rdata::null::read(decoder, rdata_length)))) },
       RecordType::NS => {debug!("reading NS"); Ok(RData::NS(try!(rdata::name::read(decoder)))) },
       RecordType::NSEC => {debug!("reading NSEC");rdata::nsec::read(decoder, rdata_length)},
@@ -694,7 +694,7 @@ impl RData {
       RData::CNAME(ref name) => rdata::name::emit(encoder, name),
       RData::DS(ref ds) => rdata::ds::emit(encoder, ds),
       RData::DNSKEY(ref dnskey) => rdata::dnskey::emit(encoder, dnskey),
-      RData::MX{..} => rdata::mx::emit(encoder, self),
+      RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
       RData::NULL(ref null) => rdata::null::emit(encoder, null),
       RData::NS(ref name) => rdata::name::emit(encoder, name),
       RData::NSEC{..} => rdata::nsec::emit(encoder, self),
@@ -720,7 +720,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::CNAME(..) => RecordType::CNAME,
       RData::DS(..) => RecordType::DS,
       RData::DNSKEY(..) => RecordType::DNSKEY,
-      RData::MX{..} => RecordType::MX,
+      RData::MX(..) => RecordType::MX,
       RData::NS(..) => RecordType::NS,
       RData::NSEC{..} => RecordType::NSEC,
       RData::NSEC3{..} => RecordType::NSEC3,
@@ -778,12 +778,12 @@ mod tests {
   use ::serialize::binary::*;
   use ::serialize::binary::bin_tests::test_emit_data_set;
   use ::rr::domain::Name;
-  use ::rr::rdata::SOA;
+  use ::rr::rdata::{MX, SOA};
 
   fn get_data() -> Vec<(RData, Vec<u8>)> {
     vec![
     (RData::CNAME(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])), vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
-    (RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])}, vec![1,0,1,b'n',0]),
+    (RData::MX(MX::new(256, Name::with_labels(vec!["n".to_string()]))), vec![1,0,1,b'n',0]),
     (RData::NS(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])), vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
     (RData::PTR(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])), vec![3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
     (RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
@@ -811,7 +811,7 @@ mod tests {
       RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
       RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
       RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),},
-      RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])},
+      RData::MX(MX::new(256, Name::with_labels(vec!["n".to_string()]))),
       RData::CNAME(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
       RData::PTR(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
       RData::NS(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
@@ -822,7 +822,7 @@ mod tests {
     ];
     let mut unordered = vec![
       RData::CNAME(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
-      RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])},
+      RData::MX(MX::new(256, Name::with_labels(vec!["n".to_string()]))),
       RData::PTR(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
       RData::NS(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
       RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
