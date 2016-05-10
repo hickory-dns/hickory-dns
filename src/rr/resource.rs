@@ -103,7 +103,7 @@ impl Record {
       rr_type: RecordType::A,
       dns_class: DNSClass::IN,
       ttl: 0,
-      rdata: RData::A { address: Ipv4Addr::new(0,0,0,0) }
+      rdata: RData::A(Ipv4Addr::new(0,0,0,0))
     }
   }
 
@@ -322,7 +322,7 @@ mod tests {
     let mut record = Record::new();
     record.add_name("www".to_string()).add_name("example".to_string()).add_name("com".to_string())
     .rr_type(RecordType::A).dns_class(DNSClass::IN).ttl(5)
-    .rdata(RData::A { address: Ipv4Addr::new(192, 168, 0, 1)});
+    .rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
 
     let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
     {
@@ -342,7 +342,7 @@ mod tests {
     let mut record = Record::new();
     record.add_name("www".to_string()).add_name("example".to_string()).add_name("com".to_string())
     .rr_type(RecordType::A).dns_class(DNSClass::IN).ttl(5)
-    .rdata(RData::A { address: Ipv4Addr::new(192, 168, 0, 1)});
+    .rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
 
     let mut greater_name = record.clone();
     greater_name.name(Name::new().label("zzz").label("example").label("com"));
@@ -354,7 +354,7 @@ mod tests {
     greater_class.dns_class(DNSClass::NONE);
 
     let mut greater_rdata = record.clone();
-    greater_rdata.rdata(RData::A { address: Ipv4Addr::new(192, 168, 0, 255) });
+    greater_rdata.rdata(RData::A(Ipv4Addr::new(192, 168, 0, 255)));
 
     let compares = vec![(&record, &greater_name),
                         (&record, &greater_type),

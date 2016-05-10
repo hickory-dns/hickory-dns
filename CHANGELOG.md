@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## unreleased
+### Added
+- Documentation on all modules
+
 ### Fixed
 - Added loop on TCP accept requests
 - Added loop on UDP reads

@@ -119,7 +119,7 @@ VENERA  A       10.1.0.52
   assert_eq!(60, a_record.get_ttl()); // TODO: should this be minimum or expire?
   assert_eq!(DNSClass::IN, a_record.get_dns_class());
   assert_eq!(RecordType::A, a_record.get_rr_type());
-  if let RData::A{ ref address } = *a_record.get_rdata() {
+  if let RData::A(ref address) = *a_record.get_rdata() {
     assert_eq!(&Ipv4Addr::new(26u8,3u8,0u8,103u8), address);
   } else {
     panic!("Not an A record!!!")
@@ -128,7 +128,7 @@ VENERA  A       10.1.0.52
   // AAAA
   let aaaa_record: &Record = authority.lookup(&Name::new().label("aaaa").label("isi").label("edu"), RecordType::AAAA).unwrap().first().cloned().unwrap();
   assert_eq!(&Name::new().label("aaaa").label("isi").label("edu"), aaaa_record.get_name());
-  if let RData::AAAA{ ref address } = *aaaa_record.get_rdata() {
+  if let RData::AAAA(ref address) = *aaaa_record.get_rdata() {
     assert_eq!(&Ipv6Addr::from_str("4321:0:1:2:3:4:567:89ab").unwrap(), address);
   } else {
     panic!("Not a AAAA record!!!")
@@ -138,7 +138,7 @@ VENERA  A       10.1.0.52
   let short_record: &Record = authority.lookup(&Name::new().label("short").label("isi").label("edu"), RecordType::A).unwrap().first().cloned().unwrap();
   assert_eq!(&Name::new().label("short").label("isi").label("edu"), short_record.get_name());
   assert_eq!(70, short_record.get_ttl());
-  if let RData::A{ ref address } = *short_record.get_rdata() {
+  if let RData::A(ref address) = *short_record.get_rdata() {
     assert_eq!(&Ipv4Addr::new(26u8,3u8,0u8,104u8), address);
   } else {
     panic!("Not an A record!!!")

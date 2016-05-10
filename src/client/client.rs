@@ -576,7 +576,7 @@ mod test {
     assert_eq!(record.get_rr_type(), RecordType::A);
     assert_eq!(record.get_dns_class(), DNSClass::IN);
 
-    if let &RData::A{ ref address } = record.get_rdata() {
+    if let &RData::A(ref address) = record.get_rdata() {
       assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
     } else {
       assert!(false);
@@ -617,7 +617,7 @@ mod test {
     assert_eq!(record.get_rr_type(), RecordType::A);
     assert_eq!(record.get_dns_class(), DNSClass::IN);
 
-    if let &RData::A{ ref address } = record.get_rdata() {
+    if let &RData::A(ref address) = record.get_rdata() {
       assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
     } else {
       assert!(false);

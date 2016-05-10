@@ -18,7 +18,6 @@ use std::net::Ipv4Addr;
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
 
 // 3.4. Internet specific RRs
 //
@@ -41,34 +40,30 @@ use ::rr::record_data::RData;
 // "10.2.0.52" or "192.0.5.6").
 //
 // A { address: Ipv4Addr }
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<RData> {
-  Ok(RData::A{ address: Ipv4Addr::new(
+pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv4Addr> {
+  Ok(Ipv4Addr::new(
     try!(decoder.pop()),
     try!(decoder.pop()),
     try!(decoder.pop()),
     try!(decoder.pop()))
-    })
+  )
 }
 
-pub fn emit(encoder: &mut BinEncoder, a: &RData) -> EncodeResult {
-  if let RData::A { address } = *a {
-    let segments = address.octets();
+pub fn emit(encoder: &mut BinEncoder, address: &Ipv4Addr) -> EncodeResult {
+  let segments = address.octets();
 
-    try!(encoder.emit(segments[0]));
-    try!(encoder.emit(segments[1]));
-    try!(encoder.emit(segments[2]));
-    try!(encoder.emit(segments[3]));
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", a)
-  }
+  try!(encoder.emit(segments[0]));
+  try!(encoder.emit(segments[1]));
+  try!(encoder.emit(segments[2]));
+  try!(encoder.emit(segments[3]));
+  Ok(())
 }
 
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
+pub fn parse(tokens: &Vec<Token>) -> ParseResult<Ipv4Addr> {
   let mut token = tokens.iter();
 
   let address: Ipv4Addr = try!(token.next().ok_or(ParseError::MissingToken("ipv4 address".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  Ok(RData::A{ address: address })
+  Ok(address)
 }
 
 #[cfg(test)]
@@ -77,18 +72,17 @@ mod mytests {
   use std::str::FromStr;
 
   use super::*;
-  use ::rr::record_data::RData;
   use ::serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
 
-  fn get_data() -> Vec<(RData, Vec<u8>)> {
+  fn get_data() -> Vec<(Ipv4Addr, Vec<u8>)> {
     vec![
-    (RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()}, vec![0,0,0,0]), // base case
-    (RData::A{ address: Ipv4Addr::from_str("1.0.0.0").unwrap()}, vec![1,0,0,0]),
-    (RData::A{ address: Ipv4Addr::from_str("0.1.0.0").unwrap()}, vec![0,1,0,0]),
-    (RData::A{ address: Ipv4Addr::from_str("0.0.1.0").unwrap()}, vec![0,0,1,0]),
-    (RData::A{ address: Ipv4Addr::from_str("0.0.0.1").unwrap()}, vec![0,0,0,1]),
-    (RData::A{ address: Ipv4Addr::from_str("127.0.0.1").unwrap()}, vec![127,0,0,1]),
-    (RData::A{ address: Ipv4Addr::from_str("192.168.64.32").unwrap()}, vec![192,168,64,32]),
+    (Ipv4Addr::from_str("0.0.0.0").unwrap(), vec![0,0,0,0]), // base case
+    (Ipv4Addr::from_str("1.0.0.0").unwrap(), vec![1,0,0,0]),
+    (Ipv4Addr::from_str("0.1.0.0").unwrap(), vec![0,1,0,0]),
+    (Ipv4Addr::from_str("0.0.1.0").unwrap(), vec![0,0,1,0]),
+    (Ipv4Addr::from_str("0.0.0.1").unwrap(), vec![0,0,0,1]),
+    (Ipv4Addr::from_str("127.0.0.1").unwrap(), vec![127,0,0,1]),
+    (Ipv4Addr::from_str("192.168.64.32").unwrap(), vec![192,168,64,32]),
     ]
   }
 

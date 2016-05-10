@@ -534,8 +534,8 @@ impl Signer {
 
 #[test]
 fn test_hash_rrset() {
-  use ::rr::RecordType;
-  use ::rr::rdata::{Name, SIG};
+  use ::rr::{Name, RecordType};
+  use ::rr::rdata::SIG;
 
   let mut pkey = PKey::new();
   pkey.gen(512);
@@ -564,7 +564,8 @@ fn test_hash_rrset() {
 #[test]
 fn test_sign_and_verify_rrset() {
   use ::rr::RecordType;
-  use ::rr::rdata::{Name, SIG};
+  use ::rr::Name;
+  use ::rr::rdata::SIG;
 
   let mut pkey = PKey::new();
   pkey.gen(512);

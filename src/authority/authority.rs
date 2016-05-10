@@ -758,10 +758,10 @@ pub mod authority_tests {
     records.upsert(Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()] }).clone(), 0);
 
     // example.com.		86400	IN	A	93.184.216.34
-    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone(), 0);
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone(), 0);
 
     // example.com.		86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(), 0);
+    records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA(Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946))).clone(), 0);
 
     // TODO support these later...
 
@@ -784,10 +784,10 @@ pub mod authority_tests {
     records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone(), 0);
 
     // www.example.com.	86400	IN	A	93.184.216.34
-    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone(), 0);
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone(), 0);
 
     // www.example.com.	86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
-    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(), 0);
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA(Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946))).clone(), 0);
 
     // www.example.com.	3600	IN	RRSIG	NSEC 8 3 3600 20150925215757 20150905040848 54108 example.com. ZKIVt1IN3O1FWZPSfrQAH7nHt7RUFDjcbh7NxnEqd/uTGCnZ6SrAEgrY E9GMmBwvRjoucphGtjkYOpPJPe5MlnTHoYCjxL4qmG3LsD2KD0bfPufa ibtlQZRrPglxZ92hBKK3ZiPnPRe7I9yni2UQSQA7XDi7CQySYyo490It AxdXjAo=
     // www.example.com.	3600	IN	NSEC	example.com. A TXT AAAA RRSIG NSEC
@@ -820,7 +820,7 @@ pub mod authority_tests {
 
     assert_eq!(**lookup.first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()] }).clone());
 
-    assert_eq!(**authority.lookup(authority.get_origin(), RecordType::A).unwrap().first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone());
+    assert_eq!(**authority.lookup(authority.get_origin(), RecordType::A).unwrap().first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone());
   }
 
   #[test]
@@ -866,13 +866,13 @@ pub mod authority_tests {
     assert_eq!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::NONE).rr_type(RecordType::A).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::YXRRSet));
 
     // *   zone     rrset    rr       RRset exists (value dependent)
-    assert!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::IN).rr_type(RecordType::A).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone()]).is_ok());
+    assert!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::IN).rr_type(RecordType::A).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone()]).is_ok());
     // wrong class
-    assert_eq!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::CH).rr_type(RecordType::A).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::CH).rr_type(RecordType::A).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone()]), Err(ResponseCode::FormErr));
     // wrong Name
-    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::IN).rr_type(RecordType::A).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]), Err(ResponseCode::NXRRSet));
+    assert_eq!(authority.verify_prerequisites(&[Record::new().name(not_in_zone.clone()).ttl(0).dns_class(DNSClass::IN).rr_type(RecordType::A).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()]), Err(ResponseCode::NXRRSet));
     // wrong IP
-    assert_eq!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::IN).rr_type(RecordType::A).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]), Err(ResponseCode::NXRRSet));
+    assert_eq!(authority.verify_prerequisites(&[Record::new().name(authority.get_origin().clone()).ttl(0).dns_class(DNSClass::IN).rr_type(RecordType::A).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()]), Err(ResponseCode::NXRRSet));
   }
 
   #[test]
@@ -882,16 +882,16 @@ pub mod authority_tests {
 
     let authority: Authority = create_example();
 
-    assert_eq!(authority.pre_scan(&[Record::new().name(not_zone.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]), Err(ResponseCode::NotZone));
+    assert_eq!(authority.pre_scan(&[Record::new().name(not_zone.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()]), Err(ResponseCode::NotZone));
 
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::ANY).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new()) ).clone()]), Err(ResponseCode::FormErr));
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::AXFR).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new()) ).clone()]), Err(ResponseCode::FormErr));
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::IXFR).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new()) ).clone()]), Err(ResponseCode::FormErr));
-    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]).is_ok());
+    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()]).is_ok());
     assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
 
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]), Err(ResponseCode::FormErr));
-    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()]), Err(ResponseCode::FormErr));
+    assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()]), Err(ResponseCode::FormErr));
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::AXFR).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::IXFR).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
     assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::ANY).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
@@ -902,7 +902,7 @@ pub mod authority_tests {
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::AXFR).dns_class(DNSClass::NONE).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::IXFR).dns_class(DNSClass::NONE).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
     assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::NULL(NULL::new())).clone()]).is_ok());
-    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()]).is_ok());
+    assert!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(0).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()]).is_ok());
 
     assert_eq!(authority.pre_scan(&[Record::new().name(up_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::CH).rdata(RData::NULL(NULL::new())).clone()]), Err(ResponseCode::FormErr));
   }
@@ -916,8 +916,8 @@ pub mod authority_tests {
 
     let mut original_vec: Vec<Record> = vec![
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone(),
-      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,34) }).clone(),
-      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(),
+      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone(),
+      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA(Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946))).clone(),
     ];
 
     original_vec.sort();
@@ -935,11 +935,11 @@ pub mod authority_tests {
 
     //
     //  zone     rrset    rr       Add to an RRset
-    let add_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()];
+    let add_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()];
     assert!(authority.update_records(add_record, 0).is_ok());
     assert_eq!(authority.lookup(&new_name, RecordType::ANY).unwrap_or(vec![]), add_record.iter().collect::<Vec<&Record>>());
 
-    let add_www_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(10,0,0,1) }).clone()];
+    let add_www_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(10,0,0,1))).clone()];
     assert!(authority.update_records(add_www_record, 0).is_ok());
 
     {
@@ -954,7 +954,7 @@ pub mod authority_tests {
 
     //
     //  NONE     rrset    rr       Delete an RR from an RRset
-    let del_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone()];
+    let del_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()];
     assert!(authority.update_records(del_record, 0).is_ok());
     {
       println!("after delete of specific record: {:?}", authority.lookup(&new_name, RecordType::ANY));
@@ -962,7 +962,7 @@ pub mod authority_tests {
     }
 
     // remove one from www
-    let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A{ address: Ipv4Addr::new(10,0,0,1) }).clone()];
+    let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A(Ipv4Addr::new(10,0,0,1))).clone()];
     assert!(authority.update_records(del_record, 0).is_ok());
     {
       let mut www_rrset = authority.lookup(&www_name, RecordType::ANY).unwrap_or(vec![]);
@@ -977,7 +977,7 @@ pub mod authority_tests {
     assert!(authority.update_records(del_record, 0).is_ok());
     let mut removed_a_vec: Vec<_> = vec![
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone(),
-      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA{ address: Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946) }).clone(),
+      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA(Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946))).clone(),
     ];
     removed_a_vec.sort();
 

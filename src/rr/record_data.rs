@@ -66,7 +66,7 @@ pub enum RData {
   // an A line in a master file is an Internet address expressed as four
   // decimal numbers separated by dots without any imbedded spaces (e.g.,
   // "10.2.0.52" or "192.0.5.6").
-  A { address: Ipv4Addr },
+  A(Ipv4Addr),
 
   //-- RFC 1886 -- IPv6 DNS Extensions              December 1995
   //
@@ -74,7 +74,7 @@ pub enum RData {
   //
   //    A 128 bit IPv6 address is encoded in the data portion of an AAAA
   //    resource record in network byte order (high-order byte first).
-  AAAA { address: Ipv6Addr },
+  AAAA(Ipv6Addr),
 
 
   //   3.3. Standard RRs
@@ -593,8 +593,8 @@ pub enum RData {
 impl RData {
   pub fn parse(record_type: RecordType, tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Self> {
     match record_type {
-      RecordType::A => rdata::a::parse(tokens),
-      RecordType::AAAA => rdata::aaaa::parse(tokens),
+      RecordType::A => Ok(RData::A(try!(rdata::a::parse(tokens)))),
+      RecordType::AAAA => Ok(RData::AAAA(try!(rdata::aaaa::parse(tokens)))),
       RecordType::ANY => panic!("parsing ANY doesn't make sense"),
       RecordType::AXFR => panic!("parsing AXFR doesn't make sense"),
       RecordType::CNAME => Ok(RData::CNAME(try!(rdata::name::parse(tokens, origin)))),
@@ -656,8 +656,8 @@ impl RData {
     let start_idx = decoder.index();
 
     let result = try!(match record_type {
-      RecordType::A => {debug!("reading A");rdata::a::read(decoder)},
-      RecordType::AAAA => {debug!("reading AAAA"); rdata::aaaa::read(decoder)},
+      RecordType::A => {debug!("reading A"); Ok(RData::A(try!(rdata::a::read(decoder)))) },
+      RecordType::AAAA => {debug!("reading AAAA"); Ok(RData::AAAA(try!(rdata::aaaa::read(decoder)))) },
       rt @ RecordType::ANY => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       rt @ RecordType::AXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::CNAME => {debug!("reading CNAME"); Ok(RData::CNAME(try!(rdata::name::read(decoder)))) },
@@ -690,8 +690,8 @@ impl RData {
 
   pub fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     match *self {
-      RData::A{..} => rdata::a::emit(encoder, self),
-      RData::AAAA{..} => rdata::aaaa::emit(encoder, self),
+      RData::A(ref address) => rdata::a::emit(encoder, address),
+      RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
       RData::CNAME(ref name) => rdata::name::emit(encoder, name),
       RData::DS{..} => rdata::ds::emit(encoder, self),
       RData::DNSKEY{..} => rdata::dnskey::emit(encoder, self),
@@ -716,8 +716,8 @@ impl RData {
 impl<'a> From<&'a RData> for RecordType {
   fn from(rdata: &'a RData) -> Self {
     match *rdata {
-      RData::A{..} => RecordType::A,
-      RData::AAAA{..} => RecordType::AAAA,
+      RData::A(..) => RecordType::A,
+      RData::AAAA(..) => RecordType::AAAA,
       RData::CNAME(..) => RecordType::CNAME,
       RData::DS{..} => RecordType::DS,
       RData::DNSKEY{..} => RecordType::DNSKEY,
@@ -799,8 +799,8 @@ mod tests {
     0xFF,0xFF,0xFF,0xFF]),
     (RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
     vec![6,b'a',b'b',b'c',b'd',b'e',b'f', 3,b'g',b'h',b'i', 0, 1,b'j']),
-    (RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()}, vec![0,0,0,0]),
-    (RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()}, vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]),
+    (RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()), vec![0,0,0,0]),
+    (RData::AAAA(Ipv6Addr::from_str("::").unwrap()), vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]),
     (RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),}, vec![0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
     ]
   }
@@ -809,8 +809,8 @@ mod tests {
   #[test]
   fn test_order() {
     let ordered: Vec<RData> = vec![
-      RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()},
-      RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()},
+      RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
+      RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
       RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),},
       RData::MX{preference: 256, exchange: Name::with_labels(vec!["n".to_string()])},
       RData::CNAME(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
@@ -830,8 +830,8 @@ mod tests {
                           Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
                           u32::max_value(), -1 as i32, -1 as i32, -1 as i32, u32::max_value())),
       RData::TXT{txt_data: vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()]},
-      RData::A{ address: Ipv4Addr::from_str("0.0.0.0").unwrap()},
-      RData::AAAA{ address: Ipv6Addr::from_str("::").unwrap()},
+      RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
+      RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
       RData::SRV{ priority: 1, weight: 2, port: 3, target: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),},
     ];
 

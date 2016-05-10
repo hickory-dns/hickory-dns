@@ -271,7 +271,7 @@ mod test {
     let record_type = RecordType::A;
     let mut rr_set = RRSet::new(&name, record_type, 0);
 
-    let insert = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone();
+    let insert = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
     assert_eq!(rr_set.get_records().len(), 1);
@@ -283,7 +283,7 @@ mod test {
     assert!(rr_set.get_records().contains(&insert));
 
     // add one
-    let insert1 = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,25) }).clone();
+    let insert1 = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,25))).clone();
     assert!(rr_set.insert(insert1.clone(), 0));
     assert_eq!(rr_set.get_records().len(), 2);
     assert!(rr_set.get_records().contains(&insert));
@@ -343,8 +343,8 @@ mod test {
     let record_type = RecordType::A;
     let mut rr_set = RRSet::new(&name, record_type, 0);
 
-    let insert = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,24) }).clone();
-    let insert1 = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A{ address: Ipv4Addr::new(93,184,216,25) }).clone();
+    let insert = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone();
+    let insert1 = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,25))).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
     assert!(rr_set.insert(insert1.clone(), 0));
