@@ -24,7 +24,7 @@ use ::serialize::txt::*;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, SIG, SOA, SRV, TXT };
+use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, OPT, SIG, SOA, SRV, TXT };
 
 /// 3.3. Standard RRs
 ///
@@ -42,7 +42,7 @@ use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, SIG, SOA, SRV
 ///
 /// TODO: clean this up, see this: https://www.reddit.com/r/rust/comments/2rdoxx/enum_variants_as_types/
 ///  and this: https://play.rust-lang.org/?code=%23!%5Bfeature(associated_types)%5D%0A%0Aenum%20ColorV%20%7B%20Red%2C%20Blue%2C%20Green%20%7D%0A%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Red%3B%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Blue%3B%0A%23%5Bderive(Show%2C%20PartialEq)%5D%0Astruct%20Green%3B%0A%0Atrait%20Color%20%7B%0A%20%20%20%20type%20Variant%3B%0A%20%20%20%20%2F%2F%20fn%20repr()%20-%3E%20Variant%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%3B%0A%7D%0A%0Aimpl%20Color%20for%20Red%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Red%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3ARed%20%7D%0A%7D%0A%0Aimpl%20Color%20for%20Blue%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Blue%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3ABlue%20%7D%0A%7D%0A%0Aimpl%20Color%20for%20Green%20%7B%0A%20%20%20%20type%20Variant%20%3D%20Green%3B%0A%20%20%20%20fn%20value(%26self)%20-%3E%20ColorV%20%7B%20ColorV%3A%3AGreen%20%7D%0A%7D%0A%0Atrait%20TypeEq%3CA%3E%20%7B%7D%0Aimpl%3CA%3E%20TypeEq%3CA%3E%20for%20A%20%7B%7D%0A%0Afn%20openminded_function%3CC%3A%20Color%3E(c%3A%20C)%20%7B%20%0A%20%20%20%20panic!(%22Types%20are%20for%20humans%22)%20%20%0A%7D%0A%0A%2F%2F%20Eventually%20this%20should%20just%20be%20C%3A%20Color%3CVariant%3DBlue%3E%0Afn%20closeminded_function%3CC%3A%20Color%3E(c%3A%20C)%20where%20C%3A%3AVariant%3A%20TypeEq%3CBlue%3E%20%7B%20%0A%20%20%20%20panic!(%22Types%20are%20for%20compilers%22)%20%0A%7D%0A%0Afn%20i_want_pattern_matching%3CC%3A%20Color%3E(c%3A%20C)%20%7B%0A%20%20%20%20match%20c.value()%20%7B%0A%20%20%20%20%20%20%20%20ColorV%3A%3ARed%20%3D%3E%20println!(%22red%22)%2C%0A%20%20%20%20%20%20%20%20ColorV%3A%3ABlue%20%3D%3E%20println!(%22blue%22)%2C%0A%20%20%20%20%20%20%20%20ColorV%3A%3AGreen%20%3D%3E%20println!(%22green%22)%0A%20%20%20%20%7D%0A%7D%0A%0A%2F%2F%20This%20is%20a%20type%20level%20function%20between%20Colors%20that%20encodes%0A%2F%2F%20that%20the%20variant's%20info%20statically%20allowing%20%0A%2F%2F%20to%20track%20which%20variant%20we%20have%20and%20disallow%20rule%20violations.%0Atrait%20Invert%20%7B%0A%20%20%20%20type%20Result%3A%20Color%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Self%3A%3AResult%3B%0A%7D%0A%0Aimpl%20Invert%20for%20Red%20%7B%0A%20%20%20%20type%20Result%20%3D%20Blue%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Blue%20%7B%20Blue%20%7D%0A%7D%0A%0Aimpl%20Invert%20for%20Blue%20%7B%0A%20%20%20%20type%20Result%20%3D%20Green%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Green%20%7B%20Green%20%7D%0A%7D%0A%0Aimpl%20Invert%20for%20Green%20%7B%0A%20%20%20%20type%20Result%20%3D%20Red%3B%0A%20%20%20%20fn%20inversion(%26self)%20-%3E%20Red%20%7B%20Red%20%7D%0A%7D%0A%0A%2F%2F%20Example%20use%20right%20now%0Afn%20main()%20%7B%0A%20%20%20%20let%20color%20%3D%20Red%3B%0A%20%20%20%20%2F%2F%20works%20fine%20openminded_function(color)%3B%0A%20%20%20%20%2F%2F%20fails%20closeminded_function(color)%3B%20error%20messages%20would%20be%20better%20with%20real%20equality%20constraints%0A%20%20%20%20closeminded_function(Blue)%3B%0A%20%20%20%20assert_eq!(Green%2C%20Red.inversion().inversion())%0A%7D
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Debug, PartialEq, Clone, Eq)]
 pub enum RData {
   //-- RFC 1035 -- Domain Implementation and Specification    November 1987
   //
@@ -444,7 +444,7 @@ pub enum RData {
   //        /                          OPTION-DATA                          /
   //        /                                                               /
   //        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-  OPT { option_rdata: Vec<u8> },
+  OPT(OPT),
 
   // 3.3.12. PTR RDATA format
   //
@@ -667,7 +667,7 @@ impl RData {
       RecordType::NSEC => {debug!("reading NSEC"); Ok(RData::NSEC(try!(rdata::nsec::read(decoder, rdata_length)))) },
       RecordType::NSEC3 => {debug!("reading NSEC3"); Ok(RData::NSEC3(try!(rdata::nsec3::read(decoder, rdata_length)))) },
       RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM"); Ok(RData::NSEC3PARAM(try!(rdata::nsec3param::read(decoder)))) },
-      RecordType::OPT => {debug!("reading OPT"); rdata::opt::read(decoder, rdata_length)},
+      RecordType::OPT => {debug!("reading OPT"); Ok(RData::OPT(try!(rdata::opt::read(decoder, rdata_length)))) },
       RecordType::PTR => {debug!("reading PTR"); Ok(RData::PTR(try!(rdata::name::read(decoder)))) },
       RecordType::RRSIG => {debug!("reading RRSIG"); Ok(RData::SIG(try!(rdata::sig::read(decoder, rdata_length)))) },
       RecordType::SIG => {debug!("reading SIG"); Ok(RData::SIG(try!(rdata::sig::read(decoder, rdata_length)))) },
@@ -698,7 +698,7 @@ impl RData {
       RData::NSEC(ref nsec) => rdata::nsec::emit(encoder, nsec),
       RData::NSEC3(ref nsec3) => rdata::nsec3::emit(encoder, nsec3),
       RData::NSEC3PARAM(ref nsec3param) => rdata::nsec3param::emit(encoder, nsec3param),
-      RData::OPT{..} => rdata::opt::emit(encoder, self),
+      RData::OPT(ref opt) => rdata::opt::emit(encoder, opt),
       RData::PTR(ref name) => rdata::name::emit(encoder, name),
       RData::SIG(ref sig) => rdata::sig::emit(encoder, sig),
       RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
@@ -724,7 +724,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::NSEC3(..) => RecordType::NSEC3,
       RData::NSEC3PARAM(..) => RecordType::NSEC3PARAM,
       RData::NULL(..) => RecordType::NULL,
-      RData::OPT{..} => RecordType::OPT,
+      RData::OPT(..) => RecordType::OPT,
       RData::PTR(..) => RecordType::PTR,
       RData::SIG(..) => RecordType::SIG,
       RData::SOA(..) => RecordType::SOA,

@@ -17,7 +17,7 @@ use std::convert::From;
 
 use ::rr::dnssec::Algorithm;
 
-#[derive(Debug, PartialOrd, PartialEq, Clone, Copy)]
+#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct SupportedAlgorithms {
   // right now the number of Algorithms supported are fewer than 16..
   bit_map: u8

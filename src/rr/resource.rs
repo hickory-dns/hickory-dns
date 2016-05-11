@@ -81,7 +81,7 @@ use super::domain;
  *                 For example, the if the TYPE is A and the CLASS is IN,
  *                 the RDATA field is a 4 octet ARPA Internet address.
  */
-#[derive(Eq, Hash, Ord, Debug, Clone)]
+#[derive(Eq, Ord, Debug, Clone)]
 pub struct Record {
   name_labels: domain::Name,
   rr_type: RecordType,
@@ -130,17 +130,6 @@ impl Record {
   pub fn get_ttl(&self) -> u32 { self.ttl }
   pub fn get_rdata(&self) -> &RData { &self.rdata }
   pub fn get_rdata_mut(&mut self) -> &mut RData { &mut self.rdata }
-
-  // returns the len of this record in bytes
-  // pub fn len(&self) -> usize {
-  //   let mut length: usize = self.name_labels.len();
-  //   length += 2; // record_type u16
-  //   length += 2; // dns_class u16
-  //   length += 4; // ttl u32
-  //   length += self.rdata.len();
-  //
-  //   length
-  // }
 }
 
 impl BinSerializable<Record> for Record {

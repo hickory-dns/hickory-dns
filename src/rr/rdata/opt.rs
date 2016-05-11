@@ -13,9 +13,11 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::collections::HashMap;
+
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
+use ::rr::dnssec::SupportedAlgorithms;
 
 // RFC 6891                   EDNS(0) Extensions                 April 2013
 //
@@ -148,35 +150,297 @@ use ::rr::record_data::RData;
 //       in a subsequent specification.
 //
 // OPT { option_rdata: Vec<u8> }
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<RData> {
-  let mut data: Vec<u8> = Vec::with_capacity(rdata_length as usize);
-  for _ in 0..rdata_length {
-    if let Ok(byte) = decoder.pop() {
-      data.push(byte);
-    } else {
-      return Err(DecodeError::EOF);
-    }
+#[derive(Default, Debug, PartialEq, Eq, Clone)]
+pub struct OPT { options: HashMap<EdnsCode, EdnsOption> }
+
+impl OPT {
+  pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> OPT {
+    OPT { options: options }
+  }
+
+  pub fn get_options(&self) -> &HashMap<EdnsCode, EdnsOption> {
+    &self.options
+  }
+
+  pub fn get(&self, code: &EdnsCode) -> Option<&EdnsOption> {
+    self.options.get(code)
+  }
+
+  pub fn insert(&mut self, option: EdnsOption) {
+    self.options.insert((&option).into(), option);
+  }
+}
+
+
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<OPT> {
+  let mut state: OptReadState = OptReadState::ReadCode;
+  let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
+  let start_idx = decoder.index();
+
+  while rdata_length as usize > decoder.index() - start_idx {
+  //for _ in 0..rdata_length {
+    // if let Ok(byte) = decoder.pop() {
+      match state {
+        // TODO: can condense Code1/2 and Length1/2 into read_u16() calls.
+        OptReadState::ReadCode => {
+          state = OptReadState::Code{ code: (try!(decoder.read_u16())).into() };
+        },
+        OptReadState::Code{code} => {
+          let length: usize = try!(decoder.read_u16()) as usize;
+          state = OptReadState::Data{code:code, length: length, collected: Vec::<u8>::with_capacity(length) };
+        },
+        OptReadState::Data{code, length, mut collected } => {
+          collected.push(try!(decoder.pop()));
+          if length == collected.len() {
+            options.insert(code, (code, &collected as &[u8]).into());
+            state = OptReadState::ReadCode;
+          } else {
+            state = OptReadState::Data{code: code, length: length, collected: collected};
+          }
+        },
+      }
+
+      // match state {
+      //   // TODO: can condense Code1/2 and Length1/2 into read_u16() calls.
+      //   OptReadState::Code1 => {
+      //     state = OptReadState::Code2{ high: byte };
+      //   },
+      //   OptReadState::Code2{high} => {
+      //     state = OptReadState::Length1{ code: ((((high as u16) << 8) & 0xFF00u16) + (byte as u16 & 0x00FFu16)).into() };
+      //   },
+      //   OptReadState::Length1{code} => {
+      //     state = OptReadState::Length2{ code: code, high: byte };
+      //   },
+      //   OptReadState::Length2{code, high } => {
+      //     let length = (((high as usize) << 8) & 0xFF00usize) + (byte as usize & 0x00FFusize);
+      //     state = OptReadState::Data{code:code, length: length, collected: Vec::<u8>::with_capacity(length) };
+      //   },
+      //   OptReadState::Data{code, length, mut collected } => {
+      //     collected.push(byte);
+      //     if length == collected.len() {
+      //       options.insert(code, (code, &collected as &[u8]).into());
+      //       state = OptReadState::Code1;
+      //     } else {
+      //       state = OptReadState::Data{code: code, length: length, collected: collected};
+      //     }
+      //   },
+      // }
+    // } else {
+    //   return Err(DecodeError::EOF);
+    // }
+  }
+
+  if state != OptReadState::ReadCode {
+    // there was some problem parsing the data for the options, ignoring them
+    // TODO: should we ignore all of the EDNS data in this case?
+    warn!("incomplete or poorly formatted EDNS options: {:?}", state);
+    options.clear();
   }
 
   // the record data is stored as unstructured data, the expectation is that this will be processed after initial parsing.
-  Ok(RData::OPT{ option_rdata: data })
+  Ok(OPT::new(options))
 }
 
-pub fn emit(encoder: &mut BinEncoder, nil: &RData) -> EncodeResult {
-  if let RData::OPT{ref option_rdata } = *nil {
-    for b in option_rdata {
-      try!(encoder.emit(*b));
-    }
+pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> EncodeResult {
+  for (ref edns_code, ref edns_option) in opt.get_options().iter() {
+    try!(encoder.emit_u16(u16::from(**edns_code)));
+    try!(encoder.emit_u16(edns_option.len()));
 
-    Ok(())
-  } else {
-    panic!("wrong type here {:?}", nil);
+    let data: Vec<u8> = Vec::from(*edns_option);
+    try!(encoder.emit_vec(&data))
+  }
+  Ok(())
+}
+
+#[derive(Debug, PartialEq, Eq)]
+enum OptReadState {
+  ReadCode,
+  Code{ code: EdnsCode }, // expect LSB for the opt code, store the high byte
+  Data { code: EdnsCode, length: usize, collected: Vec<u8> }, // expect the data for the option
+}
+// enum OptReadState {
+//   Code1, // expect MSB for the code
+//   Code2{ high: u8 }, // expect LSB for the opt code, store the high byte
+//   Length1{ code: EdnsCode }, // expect MSB for the length, store the option code
+//   Length2{ code: EdnsCode, high: u8 },  // expect the LSB for the length, store the LSB and code
+//   Data { code: EdnsCode, length: usize, collected: Vec<u8> }, // expect the data for the option
+// }
+
+#[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
+pub enum EdnsCode {
+  // 0	Reserved		[RFC6891]
+  Zero,
+  // 1	LLQ	On-hold	[http://files.dns-sd.org/draft-sekar-dns-llq.txt]
+  LLQ,
+  // 2	UL	On-hold	[http://files.dns-sd.org/draft-sekar-dns-ul.txt]
+  UL,
+  // 3	NSID	Standard	[RFC5001]
+  NSID,
+  // 4	Reserved		[draft-cheshire-edns0-owner-option] (EXPIRED)
+  // 5	DAU	Standard	[RFC6975] - DNSSEC Algorithm Understood
+  DAU,
+  // 6	DHU	Standard	[RFC6975] - DS Hash Understood
+  DHU,
+  // 7	N3U	Standard	[RFC6975] - NSEC3 Hash Understood
+  N3U,
+  // 8	edns-client-subnet	Optional	[draft-vandergaast-edns-client-subnet][Wilmer_van_der_Gaast]
+  //    https://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-02
+  Subnet,
+  // 9	EDNS EXPIRE	Optional	[RFC7314]
+  Expire,
+  // 10	COOKIE	Standard	[draft-ietf-dnsop-cookies]
+  //  https://tools.ietf.org/html/draft-ietf-dnsop-cookies-07
+  Cookie,
+
+  // 11	edns-tcp-keepalive	Optional	[draft-ietf-dnsop-edns-tcp-keepalive]
+  //  https://tools.ietf.org/html/draft-ietf-dnsop-edns-tcp-keepalive-04
+  Keepalive,
+
+  // 12	Padding	Optional	[draft-mayrhofer-edns0-padding]
+  //  https://tools.ietf.org/html/draft-mayrhofer-edns0-padding-01
+  Padding,
+
+  // 13	CHAIN	Optional	[draft-ietf-dnsop-edns-chain-query]
+  Chain,
+
+  // Unknown, used to deal with unknown or unsupported codes
+  Unknown(u16)
+}
+
+// TODO: implement a macro to perform these inversions
+impl From<u16> for EdnsCode {
+  fn from(value: u16) -> EdnsCode {
+    match value {
+      0 => EdnsCode::Zero,
+      1 => EdnsCode::LLQ,
+      2 => EdnsCode::UL,
+      3 => EdnsCode::NSID,
+      5 => EdnsCode::DAU,
+      6 => EdnsCode::DHU,
+      7 => EdnsCode::N3U,
+      8 => EdnsCode::Subnet,
+      9 => EdnsCode::Expire,
+      10 => EdnsCode::Cookie,
+      11 => EdnsCode::Keepalive,
+      12 => EdnsCode::Padding,
+      13 => EdnsCode::Chain,
+      _ => EdnsCode::Unknown(value),
+    }
+  }
+}
+
+impl From<EdnsCode> for u16 {
+  fn from(value: EdnsCode) -> u16 {
+    match value {
+      EdnsCode::Zero => 0,
+      EdnsCode::LLQ => 1,
+      EdnsCode::UL => 2,
+      EdnsCode::NSID => 3,
+      EdnsCode::DAU => 5,
+      EdnsCode::DHU => 6,
+      EdnsCode::N3U => 7,
+      EdnsCode::Subnet => 8,
+      EdnsCode::Expire => 9,
+      EdnsCode::Cookie => 10,
+      EdnsCode::Keepalive => 11,
+      EdnsCode::Padding => 12,
+      EdnsCode::Chain => 13,
+      EdnsCode::Unknown(value) => value,
+    }
+  }
+}
+
+// http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13
+#[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
+pub enum EdnsOption {
+  /// 0	Reserved		[RFC6891]
+  // Zero,
+  /// 1	LLQ	On-hold	[http://files.dns-sd.org/draft-sekar-dns-llq.txt]
+  // LLQ,
+  /// 2	UL	On-hold	[http://files.dns-sd.org/draft-sekar-dns-ul.txt]
+  // UL,
+  /// 3	NSID	Standard	[RFC5001]
+  // NSID,
+  /// 4	Reserved		[draft-cheshire-edns0-owner-option] (EXPIRED)
+  /// 5	DAU	Standard	[RFC6975]
+  DAU(SupportedAlgorithms),
+  /// 6	DHU	Standard	[RFC6975]
+  DHU(SupportedAlgorithms),
+  /// 7	N3U	Standard	[RFC6975]
+  N3U(SupportedAlgorithms),
+  /// 8	edns-client-subnet	Optional	[draft-vandergaast-edns-client-subnet][Wilmer_van_der_Gaast]
+  ///    https://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-02
+  // Subnet
+  /// 9	EDNS EXPIRE	Optional	[RFC7314]
+  // Expire
+  /// 10	COOKIE	Standard	[draft-ietf-dnsop-cookies]
+  ///  https://tools.ietf.org/html/draft-ietf-dnsop-cookies-07
+  // Cookie,
+
+  /// 11	edns-tcp-keepalive	Optional	[draft-ietf-dnsop-edns-tcp-keepalive]
+  ///  https://tools.ietf.org/html/draft-ietf-dnsop-edns-tcp-keepalive-04
+  // Keepalive,
+
+  /// 12	Padding	Optional	[draft-mayrhofer-edns0-padding]
+  ///  https://tools.ietf.org/html/draft-mayrhofer-edns0-padding-01
+  // Padding,
+
+  /// 13	CHAIN	Optional	[draft-ietf-dnsop-edns-chain-query]
+  // Chain,
+
+  // Unknown, used to deal with unknown or unsupported codes
+  Unknown(u16, Vec<u8>)
+}
+
+impl EdnsOption {
+  pub fn len(&self) -> u16 {
+    match *self {
+      EdnsOption::DAU(ref algorithms) |
+      EdnsOption::DHU(ref algorithms) |
+      EdnsOption::N3U(ref algorithms) => algorithms.len(),
+      EdnsOption::Unknown(_, ref data) => data.len() as u16, // TODO: should we verify?
+    }
+  }
+}
+
+/// only the supported extensions are listed right now.
+impl<'a> From<(EdnsCode, &'a[u8])> for EdnsOption {
+  fn from(value: (EdnsCode, &'a[u8])) -> EdnsOption {
+    match value.0 {
+      EdnsCode::DAU => EdnsOption::DAU(value.1.into()),
+      EdnsCode::DHU => EdnsOption::DHU(value.1.into()),
+      EdnsCode::N3U => EdnsOption::N3U(value.1.into()),
+      _ => EdnsOption::Unknown(value.0.into(), value.1.to_vec()),
+    }
+  }
+}
+
+impl<'a> From<&'a EdnsOption> for Vec<u8> {
+  fn from(value: &'a EdnsOption) -> Vec<u8> {
+    match *value {
+      EdnsOption::DAU(ref algorithms) |
+      EdnsOption::DHU(ref algorithms) |
+      EdnsOption::N3U(ref algorithms) => algorithms.into(),
+      EdnsOption::Unknown(_, ref data) => data.clone(), // gah, clone needed or make a crazy api.
+    }
+  }
+}
+
+impl<'a> From<&'a EdnsOption> for EdnsCode {
+  fn from(value: &'a EdnsOption) -> EdnsCode {
+    match *value {
+      EdnsOption::DAU(..) => EdnsCode::DAU,
+      EdnsOption::DHU(..) => EdnsCode::DHU,
+      EdnsOption::N3U(..)=> EdnsCode::N3U,
+      EdnsOption::Unknown(code, _) => EdnsCode::Unknown(code),
+    }
   }
 }
 
 #[test]
 pub fn test() {
-  let rdata = RData::OPT{ option_rdata: vec![0,1,2,3,4,5,6,7] };
+  let mut rdata = OPT::default();
+  rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

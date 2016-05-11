@@ -40,6 +40,7 @@ pub use self::nsec::NSEC;
 pub use self::nsec3::NSEC3;
 pub use self::nsec3param::NSEC3PARAM;
 pub use self::null::NULL;
+pub use self::opt::OPT;
 pub use self::sig::SIG;
 pub use self::srv::SRV;
 pub use self::soa::SOA;
