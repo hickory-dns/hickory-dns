@@ -16,7 +16,6 @@
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::record_data::RData;
 
 // 3.3.10. NULL RDATA format (EXPERIMENTAL)
 //
@@ -80,7 +79,7 @@ pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> EncodeResult {
 }
 
 #[allow(unused)]
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<RData> {
+pub fn parse(tokens: &Vec<Token>) -> ParseResult<NULL> {
   unimplemented!()
 }
 

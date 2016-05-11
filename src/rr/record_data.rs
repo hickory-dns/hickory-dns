@@ -589,29 +589,31 @@ pub enum RData {
 
 impl RData {
   pub fn parse(record_type: RecordType, tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Self> {
-    match record_type {
-      RecordType::A => Ok(RData::A(try!(rdata::a::parse(tokens)))),
-      RecordType::AAAA => Ok(RData::AAAA(try!(rdata::aaaa::parse(tokens)))),
+    let rdata = match record_type {
+      RecordType::A => RData::A(try!(rdata::a::parse(tokens))),
+      RecordType::AAAA => RData::AAAA(try!(rdata::aaaa::parse(tokens))),
       RecordType::ANY => panic!("parsing ANY doesn't make sense"),
       RecordType::AXFR => panic!("parsing AXFR doesn't make sense"),
-      RecordType::CNAME => Ok(RData::CNAME(try!(rdata::name::parse(tokens, origin)))),
+      RecordType::CNAME => RData::CNAME(try!(rdata::name::parse(tokens, origin))),
       RecordType::DNSKEY => panic!("DNSKEY should be dynamically generated"),
       RecordType::DS => panic!("DS should be dynamically generated"),
       RecordType::IXFR => panic!("parsing IXFR doesn't make sense"),
-      RecordType::MX => Ok(RData::MX(try!(rdata::mx::parse(tokens, origin)))),
-      RecordType::NULL => rdata::null::parse(tokens),
-      RecordType::NS => Ok(RData::NS(try!(rdata::name::parse(tokens, origin)))),
+      RecordType::MX => RData::MX(try!(rdata::mx::parse(tokens, origin))),
+      RecordType::NULL =>  RData::NULL(try!(rdata::null::parse(tokens))),
+      RecordType::NS => RData::NS(try!(rdata::name::parse(tokens, origin))),
       RecordType::NSEC => panic!("NSEC should be dynamically generated"),
       RecordType::NSEC3 => panic!("NSEC3 should be dynamically generated"),
       RecordType::NSEC3PARAM => panic!("NSEC3PARAM should be dynamically generated"),
       RecordType::OPT => panic!("parsing OPT doesn't make sense"),
-      RecordType::PTR => Ok(RData::PTR(try!(rdata::name::parse(tokens, origin)))),
+      RecordType::PTR => RData::PTR(try!(rdata::name::parse(tokens, origin))),
       RecordType::RRSIG => panic!("RRSIG should be dynamically generated"),
       RecordType::SIG => panic!("parsing SIG doesn't make sense"),
-      RecordType::SOA => Ok(RData::SOA(try!(rdata::soa::parse(tokens, origin)))),
-      RecordType::SRV => Ok(RData::SRV(try!(rdata::srv::parse(tokens, origin)))),
-      RecordType::TXT => Ok(RData::TXT(try!(rdata::txt::parse(tokens)))),
-    }
+      RecordType::SOA => RData::SOA(try!(rdata::soa::parse(tokens, origin))),
+      RecordType::SRV => RData::SRV(try!(rdata::srv::parse(tokens, origin))),
+      RecordType::TXT => RData::TXT(try!(rdata::txt::parse(tokens))),
+    };
+
+    Ok(rdata)
   }
 
   fn to_bytes(&self) -> Vec<u8> {
@@ -623,59 +625,32 @@ impl RData {
     buf
   }
 
-  // pub fn len(&self) -> usize {
-  //   match *self {
-  //     RData::A{..} => 4 /* IPv4 u32 */,
-  //     RData::AAAA{..} => 16 /* IPv6 u128 */,
-  //     RData::CNAME{ref cname} => cname.len(),
-  //     RData::DNSKEY{ref public_key, ..} => 2 /* flags u16 */ +
-  //                            1 /* protocol u8 */ + 1 /* algorithm u8*/ +
-  //                            public_key.len(),
-  //     RData::MX{ref exchange, .. } => 2 /* preference u16 */ + exchange.len(),
-  //     RData::NS{ref nsdname} => nsdname.len(),
-  //     RData::NULL{ref anything} => anything.len(),
-  //     RData::OPT{ref option_rdata} => option_rdata.len(),
-  //     RData::PTR{ref ptrdname} => ptrdname.len(),
-  //     RData::SIG{ref signer_name, ref sig, ..} =>
-  //           2 /* type_covered: u16 */ + 1 /* algorithm u8 */ + 1 /* num_labels: u8 */ +
-  //           4 /* original_ttl: u32 */ + 4 /* sig_expiration: u32 */ + 4 /* sig_inception: u32 */ +
-  //           2 /* key_tag: u16 */ + signer_name.len() + sig.len(),
-  //     RData::SOA{ref mname, ref rname, ..} =>
-  //           mname.len() + rname.len() + 4 /* serial: u32 */ + 4 /* refresh: i32 */ +
-  //           4 /* retry: i32 */ + 4 /* expire: i32 */ + 4 /* minimum: u32 */,
-  //     RData::SRV{ref target, ..} => 2 /* priority: u16 */ + 2 /* weight: u16 */ +
-  //           2 /* port: u16 */ + target.len(),
-  //     RData::TXT{ref txt_data} => txt_data.iter().fold(0, |acc, item| acc + item.len()),
-  //   }
-  // }
-
   pub fn read(decoder: &mut BinDecoder, record_type: RecordType, rdata_length: u16) -> DecodeResult<Self> {
     let start_idx = decoder.index();
 
-    let result = try!(match record_type {
-      RecordType::A => {debug!("reading A"); Ok(RData::A(try!(rdata::a::read(decoder)))) },
-      RecordType::AAAA => {debug!("reading AAAA"); Ok(RData::AAAA(try!(rdata::aaaa::read(decoder)))) },
-      rt @ RecordType::ANY => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
-      rt @ RecordType::AXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
-      RecordType::CNAME => {debug!("reading CNAME"); Ok(RData::CNAME(try!(rdata::name::read(decoder)))) },
-      RecordType::DNSKEY => {debug!("reading DNSKEY"); Ok(RData::DNSKEY(try!(rdata::dnskey::read(decoder, rdata_length)))) },
-      RecordType::DS => {debug!("reading DS"); Ok(RData::DS(try!(rdata::ds::read(decoder, rdata_length)))) },
-      rt @ RecordType::IXFR => Err(DecodeError::UnknownRecordTypeValue(rt.into())),
-      RecordType::MX => {debug!("reading MX"); Ok(RData::MX(try!(rdata::mx::read(decoder)))) },
-      RecordType::NULL => {debug!("reading NULL"); Ok(RData::NULL(try!(rdata::null::read(decoder, rdata_length)))) },
-      RecordType::NS => {debug!("reading NS"); Ok(RData::NS(try!(rdata::name::read(decoder)))) },
-      RecordType::NSEC => {debug!("reading NSEC"); Ok(RData::NSEC(try!(rdata::nsec::read(decoder, rdata_length)))) },
-      RecordType::NSEC3 => {debug!("reading NSEC3"); Ok(RData::NSEC3(try!(rdata::nsec3::read(decoder, rdata_length)))) },
-      RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM"); Ok(RData::NSEC3PARAM(try!(rdata::nsec3param::read(decoder)))) },
-      RecordType::OPT => {debug!("reading OPT"); Ok(RData::OPT(try!(rdata::opt::read(decoder, rdata_length)))) },
-      RecordType::PTR => {debug!("reading PTR"); Ok(RData::PTR(try!(rdata::name::read(decoder)))) },
-      RecordType::RRSIG => {debug!("reading RRSIG"); Ok(RData::SIG(try!(rdata::sig::read(decoder, rdata_length)))) },
-      RecordType::SIG => {debug!("reading SIG"); Ok(RData::SIG(try!(rdata::sig::read(decoder, rdata_length)))) },
-      // TODO: this wrap in Ok() should go away when all RData types are converted to strong types
-      RecordType::SOA => {debug!("reading SOA"); Ok(RData::SOA(try!(rdata::soa::read(decoder)))) },
-      RecordType::SRV => {debug!("reading SRV"); Ok(RData::SRV(try!(rdata::srv::read(decoder)))) },
-      RecordType::TXT => {debug!("reading TXT"); Ok(RData::TXT(try!(rdata::txt::read(decoder, rdata_length)))) },
-    });
+    let result = match record_type {
+      RecordType::A => {debug!("reading A"); RData::A(try!(rdata::a::read(decoder))) },
+      RecordType::AAAA => {debug!("reading AAAA"); RData::AAAA(try!(rdata::aaaa::read(decoder))) },
+      rt @ RecordType::ANY => return Err(DecodeError::UnknownRecordTypeValue(rt.into())),
+      rt @ RecordType::AXFR => return Err(DecodeError::UnknownRecordTypeValue(rt.into())),
+      RecordType::CNAME => {debug!("reading CNAME"); RData::CNAME(try!(rdata::name::read(decoder))) },
+      RecordType::DNSKEY => {debug!("reading DNSKEY"); RData::DNSKEY(try!(rdata::dnskey::read(decoder, rdata_length))) },
+      RecordType::DS => {debug!("reading DS"); RData::DS(try!(rdata::ds::read(decoder, rdata_length))) },
+      rt @ RecordType::IXFR => return Err(DecodeError::UnknownRecordTypeValue(rt.into())),
+      RecordType::MX => {debug!("reading MX"); RData::MX(try!(rdata::mx::read(decoder))) },
+      RecordType::NULL => {debug!("reading NULL"); RData::NULL(try!(rdata::null::read(decoder, rdata_length))) },
+      RecordType::NS => {debug!("reading NS"); RData::NS(try!(rdata::name::read(decoder))) },
+      RecordType::NSEC => {debug!("reading NSEC"); RData::NSEC(try!(rdata::nsec::read(decoder, rdata_length))) },
+      RecordType::NSEC3 => {debug!("reading NSEC3"); RData::NSEC3(try!(rdata::nsec3::read(decoder, rdata_length))) },
+      RecordType::NSEC3PARAM => {debug!("reading NSEC3PARAM"); RData::NSEC3PARAM(try!(rdata::nsec3param::read(decoder))) },
+      RecordType::OPT => {debug!("reading OPT"); RData::OPT(try!(rdata::opt::read(decoder, rdata_length))) },
+      RecordType::PTR => {debug!("reading PTR"); RData::PTR(try!(rdata::name::read(decoder))) },
+      RecordType::RRSIG => {debug!("reading RRSIG"); RData::SIG(try!(rdata::sig::read(decoder, rdata_length))) },
+      RecordType::SIG => {debug!("reading SIG"); RData::SIG(try!(rdata::sig::read(decoder, rdata_length))) },
+      RecordType::SOA => {debug!("reading SOA"); RData::SOA(try!(rdata::soa::read(decoder))) },
+      RecordType::SRV => {debug!("reading SRV"); RData::SRV(try!(rdata::srv::read(decoder))) },
+      RecordType::TXT => {debug!("reading TXT"); RData::TXT(try!(rdata::txt::read(decoder, rdata_length))) },
+    };
 
     // we should have read rdata_length, but we did not
     let read = decoder.index() - start_idx;

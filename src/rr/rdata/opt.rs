@@ -178,56 +178,25 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<OPT> {
   let start_idx = decoder.index();
 
   while rdata_length as usize > decoder.index() - start_idx {
-  //for _ in 0..rdata_length {
-    // if let Ok(byte) = decoder.pop() {
-      match state {
-        // TODO: can condense Code1/2 and Length1/2 into read_u16() calls.
-        OptReadState::ReadCode => {
-          state = OptReadState::Code{ code: (try!(decoder.read_u16())).into() };
-        },
-        OptReadState::Code{code} => {
-          let length: usize = try!(decoder.read_u16()) as usize;
-          state = OptReadState::Data{code:code, length: length, collected: Vec::<u8>::with_capacity(length) };
-        },
-        OptReadState::Data{code, length, mut collected } => {
-          collected.push(try!(decoder.pop()));
-          if length == collected.len() {
-            options.insert(code, (code, &collected as &[u8]).into());
-            state = OptReadState::ReadCode;
-          } else {
-            state = OptReadState::Data{code: code, length: length, collected: collected};
-          }
-        },
-      }
-
-      // match state {
-      //   // TODO: can condense Code1/2 and Length1/2 into read_u16() calls.
-      //   OptReadState::Code1 => {
-      //     state = OptReadState::Code2{ high: byte };
-      //   },
-      //   OptReadState::Code2{high} => {
-      //     state = OptReadState::Length1{ code: ((((high as u16) << 8) & 0xFF00u16) + (byte as u16 & 0x00FFu16)).into() };
-      //   },
-      //   OptReadState::Length1{code} => {
-      //     state = OptReadState::Length2{ code: code, high: byte };
-      //   },
-      //   OptReadState::Length2{code, high } => {
-      //     let length = (((high as usize) << 8) & 0xFF00usize) + (byte as usize & 0x00FFusize);
-      //     state = OptReadState::Data{code:code, length: length, collected: Vec::<u8>::with_capacity(length) };
-      //   },
-      //   OptReadState::Data{code, length, mut collected } => {
-      //     collected.push(byte);
-      //     if length == collected.len() {
-      //       options.insert(code, (code, &collected as &[u8]).into());
-      //       state = OptReadState::Code1;
-      //     } else {
-      //       state = OptReadState::Data{code: code, length: length, collected: collected};
-      //     }
-      //   },
-      // }
-    // } else {
-    //   return Err(DecodeError::EOF);
-    // }
+    match state {
+      // TODO: can condense Code1/2 and Length1/2 into read_u16() calls.
+      OptReadState::ReadCode => {
+        state = OptReadState::Code{ code: (try!(decoder.read_u16())).into() };
+      },
+      OptReadState::Code{code} => {
+        let length: usize = try!(decoder.read_u16()) as usize;
+        state = OptReadState::Data{code:code, length: length, collected: Vec::<u8>::with_capacity(length) };
+      },
+      OptReadState::Data{code, length, mut collected } => {
+        collected.push(try!(decoder.pop()));
+        if length == collected.len() {
+          options.insert(code, (code, &collected as &[u8]).into());
+          state = OptReadState::ReadCode;
+        } else {
+          state = OptReadState::Data{code: code, length: length, collected: collected};
+        }
+      },
+    }
   }
 
   if state != OptReadState::ReadCode {
@@ -258,13 +227,6 @@ enum OptReadState {
   Code{ code: EdnsCode }, // expect LSB for the opt code, store the high byte
   Data { code: EdnsCode, length: usize, collected: Vec<u8> }, // expect the data for the option
 }
-// enum OptReadState {
-//   Code1, // expect MSB for the code
-//   Code2{ high: u8 }, // expect LSB for the opt code, store the high byte
-//   Length1{ code: EdnsCode }, // expect MSB for the length, store the option code
-//   Length2{ code: EdnsCode, high: u8 },  // expect the LSB for the length, store the LSB and code
-//   Data { code: EdnsCode, length: usize, collected: Vec<u8> }, // expect the data for the option
-// }
 
 #[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EdnsCode {

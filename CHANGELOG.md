@@ -18,6 +18,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Cleaned up authority upsert and lookup interfaces
 - All authorities default to IN DNSCLASS now (none others currently supported)
 - Cleaned up the Signer interface to support zone signing
+- Simplified RData variant implementations
 
 ## 0.5.3 2016-04-07
 ### Fixed
