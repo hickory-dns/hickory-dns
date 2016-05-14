@@ -13,24 +13,26 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! text records for storing arbitrary data
+
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 
-// 3.3.14. TXT RDATA format
-//
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     /                   TXT-DATA                    /
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//
-// where:
-//
-// TXT-DATA        One or more <character-string>s.
-//
-// TXT RRs are used to hold descriptive text.  The semantics of the text
-// depends on the domain where it is found.
-//
-// TXT { txt_data: Vec<String> }
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+///
+/// ```text
+/// 3.3.14. TXT RDATA format
+///
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     /                   TXT-DATA                    /
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
+///
+/// TXT RRs are used to hold descriptive text.  The semantics of the text
+/// depends on the domain where it is found.
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TXT { txt_data: Vec<String> }
 
@@ -39,6 +41,9 @@ impl TXT {
     TXT { txt_data: txt_data }
   }
 
+  /// ```text
+  /// TXT-DATA        One or more <character-string>s.
+  /// ```
   pub fn get_txt_data(&self) -> &[String] { &self.txt_data }
 }
 

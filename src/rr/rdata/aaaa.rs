@@ -14,18 +14,30 @@
  * limitations under the License.
  */
 
+//! IPv6 address record data
+//!
+//! [RFC 3596, DNS Extensions to Support IPv6, October 2003](https://tools.ietf.org/html/rfc3596)
+//!
+//! ```text
+//! 2.1 AAAA record type
+//!
+//!   The AAAA resource record type is a record specific to the Internet
+//!   class that stores a single IPv6 address.
+//!
+//!   The IANA assigned value of the type is 28 (decimal).
+//!
+//! 2.2 AAAA data format
+//!
+//!   A 128 bit IPv6 address is encoded in the data portion of an AAAA
+//!   resource record in network byte order (high-order byte first).
+//! ```
+
 use std::net::Ipv6Addr;
 
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 
-//-- RFC 1886 -- IPv6 DNS Extensions              December 1995
-
-// 2.2 AAAA data format
-//
-//    A 128 bit IPv6 address is encoded in the data portion of an AAAA
-//    resource record in network byte order (high-order byte first).
 //
 // AAAA { address: Ipv6Addr }
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv6Addr> {

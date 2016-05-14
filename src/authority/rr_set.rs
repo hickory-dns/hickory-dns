@@ -25,6 +25,7 @@ pub struct RRSet {
   serial: u32, // serial number at which this record was modified
 }
 
+/// Set of resource records associated to a name and type
 impl RRSet {
   /// Creates a new Resource Record Set.
   ///

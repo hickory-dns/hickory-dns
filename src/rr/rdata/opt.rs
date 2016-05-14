@@ -13,159 +13,174 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! option record for passing protocol options between the client and server
+
 use std::collections::HashMap;
 
 use ::serialize::binary::*;
 use ::error::*;
 use ::rr::dnssec::SupportedAlgorithms;
 
-// RFC 6891                   EDNS(0) Extensions                 April 2013
-//
-// 6.1.  OPT Record Definition
-//
-// 6.1.1.  Basic Elements
-//
-//    An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
-//    additional data section of a request.
-//
-//    The OPT RR has RR type 41.
-//
-//    If an OPT record is present in a received request, compliant
-//    responders MUST include an OPT record in their respective responses.
-//
-//    An OPT record does not carry any DNS data.  It is used only to
-//    contain control information pertaining to the question-and-answer
-//    sequence of a specific transaction.  OPT RRs MUST NOT be cached,
-//    forwarded, or stored in or loaded from master files.
-//
-//    The OPT RR MAY be placed anywhere within the additional data section.
-//    When an OPT RR is included within any DNS message, it MUST be the
-//    only OPT RR in that message.  If a query message with more than one
-//    OPT RR is received, a FORMERR (RCODE=1) MUST be returned.  The
-//    placement flexibility for the OPT RR does not override the need for
-//    the TSIG or SIG(0) RRs to be the last in the additional section
-//    whenever they are present.
-//
-// 6.1.2.  Wire Format
-//
-//    An OPT RR has a fixed part and a variable set of options expressed as
-//    {attribute, value} pairs.  The fixed part holds some DNS metadata,
-//    and also a small collection of basic extension elements that we
-//    expect to be so popular that it would be a waste of wire space to
-//    encode them as {attribute, value} pairs.
-//
-//    The fixed part of an OPT RR is structured as follows:
-//
-//        +------------+--------------+------------------------------+
-//        | Field Name | Field Type   | Description                  |
-//        +------------+--------------+------------------------------+
-//        | NAME       | domain name  | MUST be 0 (root domain)      |
-//        | TYPE       | u_int16_t    | OPT (41)                     |
-//        | CLASS      | u_int16_t    | requestor's UDP payload size |
-//        | TTL        | u_int32_t    | extended RCODE and flags     |
-//        | RDLEN      | u_int16_t    | length of all RDATA          |
-//        | RDATA      | octet stream | {attribute,value} pairs      |
-//        +------------+--------------+------------------------------+
-//
-//                                OPT RR Format
-//
-//    The variable part of an OPT RR may contain zero or more options in
-//    the RDATA.  Each option MUST be treated as a bit field.  Each option
-//    is encoded as:
-//
-//                   +0 (MSB)                            +1 (LSB)
-//        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//     0: |                          OPTION-CODE                          |
-//        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//     2: |                         OPTION-LENGTH                         |
-//        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//     4: |                                                               |
-//        /                          OPTION-DATA                          /
-//        /                                                               /
-//        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//
-//    OPTION-CODE
-//       Assigned by the Expert Review process as defined by the DNSEXT
-//       working group and the IESG.
-//
-//    OPTION-LENGTH
-//       Size (in octets) of OPTION-DATA.
-//
-//    OPTION-DATA
-//       Varies per OPTION-CODE.  MUST be treated as a bit field.
-//
-//    The order of appearance of option tuples is not defined.  If one
-//    option modifies the behaviour of another or multiple options are
-//    related to one another in some way, they have the same effect
-//    regardless of ordering in the RDATA wire encoding.
-//
-//    Any OPTION-CODE values not understood by a responder or requestor
-//    MUST be ignored.  Specifications of such options might wish to
-//    include some kind of signaled acknowledgement.  For example, an
-//    option specification might say that if a responder sees and supports
-//    option XYZ, it MUST include option XYZ in its response.
-//
-// 6.1.3.  OPT Record TTL Field Use
-//
-//    The extended RCODE and flags, which OPT stores in the RR Time to Live
-//    (TTL) field, are structured as follows:
-//
-//                   +0 (MSB)                            +1 (LSB)
-//        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//     0: |         EXTENDED-RCODE        |            VERSION            |
-//        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//     2: | DO|                           Z                               |
-//        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-//
-//    EXTENDED-RCODE
-//       Forms the upper 8 bits of extended 12-bit RCODE (together with the
-//       4 bits defined in [RFC1035].  Note that EXTENDED-RCODE value 0
-//       indicates that an unextended RCODE is in use (values 0 through
-//       15).
-//
-//    VERSION
-//       Indicates the implementation level of the setter.  Full
-//       conformance with this specification is indicated by version '0'.
-//       Requestors are encouraged to set this to the lowest implemented
-//       level capable of expressing a transaction, to minimise the
-//       responder and network load of discovering the greatest common
-//       implementation level between requestor and responder.  A
-//       requestor's version numbering strategy MAY ideally be a run-time
-//       configuration option.
-//       If a responder does not implement the VERSION level of the
-//       request, then it MUST respond with RCODE=BADVERS.  All responses
-//       MUST be limited in format to the VERSION level of the request, but
-//       the VERSION of each response SHOULD be the highest implementation
-//       level of the responder.  In this way, a requestor will learn the
-//       implementation level of a responder as a side effect of every
-//       response, including error responses and including RCODE=BADVERS.
-//
-// 6.1.4.  Flags
-//
-//    DO
-//       DNSSEC OK bit as defined by [RFC3225].
-//
-//    Z
-//       Set to zero by senders and ignored by receivers, unless modified
-//       in a subsequent specification.
-//
-// OPT { option_rdata: Vec<u8> }
+/// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6)
+///
+/// ```text
+/// 6.1.  OPT Record Definition
+///
+/// 6.1.1.  Basic Elements
+///
+///    An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
+///    additional data section of a request.
+///
+///    The OPT RR has RR type 41.
+///
+///    If an OPT record is present in a received request, compliant
+///    responders MUST include an OPT record in their respective responses.
+///
+///    An OPT record does not carry any DNS data.  It is used only to
+///    contain control information pertaining to the question-and-answer
+///    sequence of a specific transaction.  OPT RRs MUST NOT be cached,
+///    forwarded, or stored in or loaded from master files.
+///
+///    The OPT RR MAY be placed anywhere within the additional data section.
+///    When an OPT RR is included within any DNS message, it MUST be the
+///    only OPT RR in that message.  If a query message with more than one
+///    OPT RR is received, a FORMERR (RCODE=1) MUST be returned.  The
+///    placement flexibility for the OPT RR does not override the need for
+///    the TSIG or SIG(0) RRs to be the last in the additional section
+///    whenever they are present.
+///
+/// 6.1.2.  Wire Format
+///
+///    An OPT RR has a fixed part and a variable set of options expressed as
+///    {attribute, value} pairs.  The fixed part holds some DNS metadata,
+///    and also a small collection of basic extension elements that we
+///    expect to be so popular that it would be a waste of wire space to
+///    encode them as {attribute, value} pairs.
+///
+///    The fixed part of an OPT RR is structured as follows:
+///
+///        +------------+--------------+------------------------------+
+///        | Field Name | Field Type   | Description                  |
+///        +------------+--------------+------------------------------+
+///        | NAME       | domain name  | MUST be 0 (root domain)      |
+///        | TYPE       | u_int16_t    | OPT (41)                     |
+///        | CLASS      | u_int16_t    | requestor's UDP payload size |
+///        | TTL        | u_int32_t    | extended RCODE and flags     |
+///        | RDLEN      | u_int16_t    | length of all RDATA          |
+///        | RDATA      | octet stream | {attribute,value} pairs      |
+///        +------------+--------------+------------------------------+
+///
+///                                OPT RR Format
+///
+///    The variable part of an OPT RR may contain zero or more options in
+///    the RDATA.  Each option MUST be treated as a bit field.  Each option
+///    is encoded as:
+///
+///                   +0 (MSB)                            +1 (LSB)
+///        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///     0: |                          OPTION-CODE                          |
+///        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///     2: |                         OPTION-LENGTH                         |
+///        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///     4: |                                                               |
+///        /                          OPTION-DATA                          /
+///        /                                                               /
+///        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///
+///    OPTION-CODE
+///       Assigned by the Expert Review process as defined by the DNSEXT
+///       working group and the IESG.
+///
+///    OPTION-LENGTH
+///       Size (in octets) of OPTION-DATA.
+///
+///    OPTION-DATA
+///       Varies per OPTION-CODE.  MUST be treated as a bit field.
+///
+///    The order of appearance of option tuples is not defined.  If one
+///    option modifies the behaviour of another or multiple options are
+///    related to one another in some way, they have the same effect
+///    regardless of ordering in the RDATA wire encoding.
+///
+///    Any OPTION-CODE values not understood by a responder or requestor
+///    MUST be ignored.  Specifications of such options might wish to
+///    include some kind of signaled acknowledgement.  For example, an
+///    option specification might say that if a responder sees and supports
+///    option XYZ, it MUST include option XYZ in its response.
+///
+/// 6.1.3.  OPT Record TTL Field Use
+///
+///    The extended RCODE and flags, which OPT stores in the RR Time to Live
+///    (TTL) field, are structured as follows:
+///
+///                   +0 (MSB)                            +1 (LSB)
+///        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///     0: |         EXTENDED-RCODE        |            VERSION            |
+///        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///     2: | DO|                           Z                               |
+///        +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+///
+///    EXTENDED-RCODE
+///       Forms the upper 8 bits of extended 12-bit RCODE (together with the
+///       4 bits defined in [RFC1035].  Note that EXTENDED-RCODE value 0
+///       indicates that an unextended RCODE is in use (values 0 through
+///       15).
+///
+///    VERSION
+///       Indicates the implementation level of the setter.  Full
+///       conformance with this specification is indicated by version '0'.
+///       Requestors are encouraged to set this to the lowest implemented
+///       level capable of expressing a transaction, to minimise the
+///       responder and network load of discovering the greatest common
+///       implementation level between requestor and responder.  A
+///       requestor's version numbering strategy MAY ideally be a run-time
+///       configuration option.
+///       If a responder does not implement the VERSION level of the
+///       request, then it MUST respond with RCODE=BADVERS.  All responses
+///       MUST be limited in format to the VERSION level of the request, but
+///       the VERSION of each response SHOULD be the highest implementation
+///       level of the responder.  In this way, a requestor will learn the
+///       implementation level of a responder as a side effect of every
+///       response, including error responses and including RCODE=BADVERS.
+///
+/// 6.1.4.  Flags
+///
+///    DO
+///       DNSSEC OK bit as defined by [RFC3225].
+///
+///    Z
+///       Set to zero by senders and ignored by receivers, unless modified
+///       in a subsequent specification.
+/// ```
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
 pub struct OPT { options: HashMap<EdnsCode, EdnsOption> }
 
 impl OPT {
+  /// Creates a new OPT record data.
+  ///
+  /// # Arguments
+  ///
+  /// * `options` - A map of the codes and record types
+  ///
+  /// # Return value
+  ///
+  /// The newly created OPT data
   pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> OPT {
     OPT { options: options }
   }
 
+  /// The entire map of options
   pub fn get_options(&self) -> &HashMap<EdnsCode, EdnsOption> {
     &self.options
   }
 
+  /// Get a single option based on the code
   pub fn get(&self, code: &EdnsCode) -> Option<&EdnsOption> {
     self.options.get(code)
   }
 
+  /// Insert a new option, the key is derived from the `EdnsOption`
   pub fn insert(&mut self, option: EdnsOption) {
     self.options.insert((&option).into(), option);
   }
@@ -230,42 +245,47 @@ enum OptReadState {
 
 #[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EdnsCode {
-  // 0	Reserved		[RFC6891]
+  /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
   Zero,
-  // 1	LLQ	On-hold	[http://files.dns-sd.org/draft-sekar-dns-llq.txt]
+
+  /// [LLQ On-hold](http://files.dns-sd.org/draft-sekar-dns-llq.txt)
   LLQ,
-  // 2	UL	On-hold	[http://files.dns-sd.org/draft-sekar-dns-ul.txt]
+
+  /// [UL On-hold](http://files.dns-sd.org/draft-sekar-dns-ul.txt)
   UL,
-  // 3	NSID	Standard	[RFC5001]
+
+  /// [RFC 5001, NSID](https://tools.ietf.org/html/rfc5001)
   NSID,
-  // 4	Reserved		[draft-cheshire-edns0-owner-option] (EXPIRED)
-  // 5	DAU	Standard	[RFC6975] - DNSSEC Algorithm Understood
+  // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
+
+  /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
   DAU,
-  // 6	DHU	Standard	[RFC6975] - DS Hash Understood
+
+  /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
   DHU,
-  // 7	N3U	Standard	[RFC6975] - NSEC3 Hash Understood
+
+  /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
   N3U,
-  // 8	edns-client-subnet	Optional	[draft-vandergaast-edns-client-subnet][Wilmer_van_der_Gaast]
-  //    https://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-02
+
+  /// [edns-client-subnet, Optional](https://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-02)
   Subnet,
-  // 9	EDNS EXPIRE	Optional	[RFC7314]
+
+  /// [RFC 7314, EDNS EXPIRE, Optional](https://tools.ietf.org/html/rfc7314)
   Expire,
-  // 10	COOKIE	Standard	[draft-ietf-dnsop-cookies]
-  //  https://tools.ietf.org/html/draft-ietf-dnsop-cookies-07
+
+  /// [draft-ietf-dnsop-cookies](https://tools.ietf.org/html/draft-ietf-dnsop-cookies-07)
   Cookie,
 
-  // 11	edns-tcp-keepalive	Optional	[draft-ietf-dnsop-edns-tcp-keepalive]
-  //  https://tools.ietf.org/html/draft-ietf-dnsop-edns-tcp-keepalive-04
+  /// [draft-ietf-dnsop-edns-tcp-keepalive, Optional](https://tools.ietf.org/html/draft-ietf-dnsop-edns-tcp-keepalive-04)
   Keepalive,
 
-  // 12	Padding	Optional	[draft-mayrhofer-edns0-padding]
-  //  https://tools.ietf.org/html/draft-mayrhofer-edns0-padding-01
+  /// [draft-mayrhofer-edns0-padding, Optional](https://tools.ietf.org/html/draft-mayrhofer-edns0-padding-01)
   Padding,
 
-  // 13	CHAIN	Optional	[draft-ietf-dnsop-edns-chain-query]
+  /// [draft-ietf-dnsop-edns-chain-query](https://tools.ietf.org/html/draft-ietf-dnsop-edns-chain-query-07)
   Chain,
 
-  // Unknown, used to deal with unknown or unsupported codes
+  /// Unknown, used to deal with unknown or unsupported codes
   Unknown(u16)
 }
 
@@ -277,6 +297,7 @@ impl From<u16> for EdnsCode {
       1 => EdnsCode::LLQ,
       2 => EdnsCode::UL,
       3 => EdnsCode::NSID,
+      // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
       5 => EdnsCode::DAU,
       6 => EdnsCode::DHU,
       7 => EdnsCode::N3U,
@@ -298,6 +319,7 @@ impl From<EdnsCode> for u16 {
       EdnsCode::LLQ => 1,
       EdnsCode::UL => 2,
       EdnsCode::NSID => 3,
+      // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
       EdnsCode::DAU => 5,
       EdnsCode::DHU => 6,
       EdnsCode::N3U => 7,
@@ -312,45 +334,23 @@ impl From<EdnsCode> for u16 {
   }
 }
 
-// http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13
+/// options used to pass information about capabilities between client and server
+///
+/// `note: Not all EdnsOptions are supported at this time.`
+///
+/// http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
 pub enum EdnsOption {
-  /// 0	Reserved		[RFC6891]
-  // Zero,
-  /// 1	LLQ	On-hold	[http://files.dns-sd.org/draft-sekar-dns-llq.txt]
-  // LLQ,
-  /// 2	UL	On-hold	[http://files.dns-sd.org/draft-sekar-dns-ul.txt]
-  // UL,
-  /// 3	NSID	Standard	[RFC5001]
-  // NSID,
-  /// 4	Reserved		[draft-cheshire-edns0-owner-option] (EXPIRED)
-  /// 5	DAU	Standard	[RFC6975]
+  /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
   DAU(SupportedAlgorithms),
-  /// 6	DHU	Standard	[RFC6975]
+
+  /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
   DHU(SupportedAlgorithms),
-  /// 7	N3U	Standard	[RFC6975]
+
+  /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
   N3U(SupportedAlgorithms),
-  /// 8	edns-client-subnet	Optional	[draft-vandergaast-edns-client-subnet][Wilmer_van_der_Gaast]
-  ///    https://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-02
-  // Subnet
-  /// 9	EDNS EXPIRE	Optional	[RFC7314]
-  // Expire
-  /// 10	COOKIE	Standard	[draft-ietf-dnsop-cookies]
-  ///  https://tools.ietf.org/html/draft-ietf-dnsop-cookies-07
-  // Cookie,
 
-  /// 11	edns-tcp-keepalive	Optional	[draft-ietf-dnsop-edns-tcp-keepalive]
-  ///  https://tools.ietf.org/html/draft-ietf-dnsop-edns-tcp-keepalive-04
-  // Keepalive,
-
-  /// 12	Padding	Optional	[draft-mayrhofer-edns0-padding]
-  ///  https://tools.ietf.org/html/draft-mayrhofer-edns0-padding-01
-  // Padding,
-
-  /// 13	CHAIN	Optional	[draft-ietf-dnsop-edns-chain-query]
-  // Chain,
-
-  // Unknown, used to deal with unknown or unsupported codes
+  /// Unknown, used to deal with unknown or unsupported codes
   Unknown(u16, Vec<u8>)
 }
 

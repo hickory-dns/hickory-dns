@@ -13,77 +13,58 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! start of authority record defining ownership and defaults for the zone
+
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 use ::rr::domain::Name;
 
-// 3.3.13. SOA RDATA format
-//
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     /                     MNAME                     /
-//     /                                               /
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     /                     RNAME                     /
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     |                    SERIAL                     |
-//     |                                               |
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     |                    REFRESH                    |
-//     |                                               |
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     |                     RETRY                     |
-//     |                                               |
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     |                    EXPIRE                     |
-//     |                                               |
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     |                    MINIMUM                    |
-//     |                                               |
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//
-// where:
-//
-// MNAME           The <domain-name> of the name server that was the
-//                 original or primary source of data for this zone.
-//
-// RNAME           A <domain-name> which specifies the mailbox of the
-//                 person responsible for this zone.
-//
-// SERIAL          The unsigned 32 bit version number of the original copy
-//                 of the zone.  Zone transfers preserve this value.  This
-//                 value wraps and should be compared using sequence space
-//                 arithmetic.
-//
-// REFRESH         A 32 bit time interval before the zone should be
-//                 refreshed.
-//
-// RETRY           A 32 bit time interval that should elapse before a
-//                 failed refresh should be retried.
-//
-// EXPIRE          A 32 bit time value that specifies the upper limit on
-//                 the time interval that can elapse before the zone is no
-//                 longer authoritative.
-//
-// MINIMUM         The unsigned 32 bit minimum TTL field that should be
-//                 exported with any RR from this zone.
-//
-// SOA records cause no additional section processing.
-//
-// All times are in units of seconds.
-//
-// Most of these fields are pertinent only for name server maintenance
-// operations.  However, MINIMUM is used in all query operations that
-// retrieve RRs from a zone.  Whenever a RR is sent in a response to a
-// query, the TTL field is set to the maximum of the TTL field from the RR
-// and the MINIMUM field in the appropriate SOA.  Thus MINIMUM is a lower
-// bound on the TTL field for all RRs in a zone.  Note that this use of
-// MINIMUM should occur when the RRs are copied into the response and not
-// when the zone is loaded from a master file or via a zone transfer.  The
-// reason for this provison is to allow future dynamic update facilities to
-// change the SOA RR with known semantics.
-//
-
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+///
+/// ```text
+/// 3.3.13. SOA RDATA format
+///
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     /                     MNAME                     /
+///     /                                               /
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     /                     RNAME                     /
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    SERIAL                     |
+///     |                                               |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    REFRESH                    |
+///     |                                               |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                     RETRY                     |
+///     |                                               |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    EXPIRE                     |
+///     |                                               |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    MINIMUM                    |
+///     |                                               |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
+/// where:
+///
+/// SOA records cause no additional section processing.
+///
+/// All times are in units of seconds.
+///
+/// Most of these fields are pertinent only for name server maintenance
+/// operations.  However, MINIMUM is used in all query operations that
+/// retrieve RRs from a zone.  Whenever a RR is sent in a response to a
+/// query, the TTL field is set to the maximum of the TTL field from the RR
+/// and the MINIMUM field in the appropriate SOA.  Thus MINIMUM is a lower
+/// bound on the TTL field for all RRs in a zone.  Note that this use of
+/// MINIMUM should occur when the RRs are copied into the response and not
+/// when the zone is loaded from a master file or via a zone transfer.  The
+/// reason for this provison is to allow future dynamic update facilities to
+/// change the SOA RR with known semantics.
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct SOA { mname: Name, rname: Name, serial: u32,
                  refresh: i32, retry: i32, expire: i32,
@@ -103,41 +84,79 @@ impl SOA {
     self.serial += 1;
   }
 
+  /// ```text
+  /// MNAME           The <domain-name> of the name server that was the
+  ///                 original or primary source of data for this zone.
+  /// ```
+  ///
   /// # Return value
   ///
   /// The `domain-name` of the name server that was the original or primary source of data for
   /// this zone, i.e. the master name server.
   pub fn get_mname(&self) -> &Name { &self.mname }
 
+  /// ```text
+  /// RNAME           A <domain-name> which specifies the mailbox of the
+  ///                 person responsible for this zone.
+  /// ```
+  ///
   /// # Return value
   ///
   /// A `domain-name` which specifies the mailbox of the person responsible for this zone, i.e.
   /// the responsible name.
   pub fn get_rname(&self) -> &Name { &self.rname }
 
+  /// ```text
+  /// SERIAL          The unsigned 32 bit version number of the original copy
+  ///                 of the zone.  Zone transfers preserve this value.  This
+  ///                 value wraps and should be compared using sequence space
+  ///                 arithmetic.
+  /// ```
+  ///
   /// # Return value
   ///
   /// The unsigned 32 bit version number of the original copy of the zone. Zone transfers
   /// preserve this value. This value wraps and should be compared using sequence space arithmetic.
   pub fn get_serial(&self) -> u32 { self.serial }
 
+  /// ```text
+  /// REFRESH         A 32 bit time interval before the zone should be
+  ///                 refreshed.
+  /// ```
+  ///
   /// # Return value
   ///
   /// A 32 bit time interval before the zone should be refreshed, in seconds.
   pub fn get_refresh(&self) -> i32 { self.refresh }
 
+  /// ```text
+  /// RETRY           A 32 bit time interval that should elapse before a
+  ///                 failed refresh should be retried.
+  /// ```
+  ///
   /// # Return value
   ///
   /// A 32 bit time interval that should elapse before a failed refresh should be retried,
   /// in seconds.
   pub fn get_retry(&self) -> i32 { self.retry }
 
+  /// ```text
+  /// EXPIRE          A 32 bit time value that specifies the upper limit on
+  ///                 the time interval that can elapse before the zone is no
+  ///                 longer authoritative.
+  /// ```
+  ///
   /// # Return value
   ///
   /// A 32 bit time value that specifies the upper limit on the time interval that can elapse
   /// before the zone is no longer authoritative, in seconds
   pub fn get_expire(&self) -> i32 { self.expire }
 
+  /// ```text
+  /// MINIMUM         The unsigned 32 bit minimum TTL field that should be
+  ///                 exported with any RR from this zone.
+  /// ```
+  ///
   /// # Return value
   ///
   /// The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone.

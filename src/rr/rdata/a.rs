@@ -13,33 +13,39 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! IPv4 address record data
+//!
+//! [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+//!
+//! ```text
+//! 3.4. Internet specific RRs
+//!
+//! 3.4.1. A RDATA format
+//!
+//!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//!     |                    ADDRESS                    |
+//!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//!
+//! where:
+//!
+//! ADDRESS         A 32 bit Internet address.
+//!
+//! Hosts that have multiple Internet addresses will have multiple A
+//! records.
+//!
+//! A records cause no additional section processing.  The RDATA section of
+//! an A line in a master file is an Internet address expressed as four
+//! decimal numbers separated by dots without any imbedded spaces (e.g.,
+//! "10.2.0.52" or "192.0.5.6").
+//! ```
+
 use std::net::Ipv4Addr;
 
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 
-// 3.4. Internet specific RRs
-//
-// 3.4.1. A RDATA format
-//
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     |                    ADDRESS                    |
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//
-// where:
-//
-// ADDRESS         A 32 bit Internet address.
-//
-// Hosts that have multiple Internet addresses will have multiple A
-// records.
-//
-// A records cause no additional section processing.  The RDATA section of
-// an A line in a master file is an Internet address expressed as four
-// decimal numbers separated by dots without any imbedded spaces (e.g.,
-// "10.2.0.52" or "192.0.5.6").
-//
-// A { address: Ipv4Addr }
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv4Addr> {
   Ok(Ipv4Addr::new(
     try!(decoder.pop()),

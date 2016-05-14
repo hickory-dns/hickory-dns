@@ -13,25 +13,30 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! null record type, generally not used except as an internal tool for representing null data
+
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 
-// 3.3.10. NULL RDATA format (EXPERIMENTAL)
-//
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     /                  <anything>                   /
-//     /                                               /
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//
-// Anything at all may be in the RDATA field so long as it is 65535 octets
-// or less.
-//
-// NULL records cause no additional section processing.  NULL RRs are not
-// allowed in master files.  NULLs are used as placeholders in some
-// experimental extensions of the DNS.
-//
-// NULL { anything: Vec<u8> },
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+///
+/// ```text
+/// 3.3.10. NULL RDATA format (EXPERIMENTAL)
+///
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     /                  <anything>                   /
+///     /                                               /
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
+/// Anything at all may be in the RDATA field so long as it is 65535 octets
+/// or less.
+///
+/// NULL records cause no additional section processing.  NULL RRs are not
+/// allowed in master files.  NULLs are used as placeholders in some
+/// experimental extensions of the DNS.
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct NULL { anything: Option<Vec<u8>> }
 

@@ -23,6 +23,7 @@ use ::rr::{Record, Name, RecordType};
 use ::authority::{Authority, ZoneType};
 use ::op::*;
 
+/// Set of authorities, zones, available to this server.
 pub struct Catalog {
   authorities: HashMap<Name, RwLock<Authority>>,
 }

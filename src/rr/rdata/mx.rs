@@ -14,34 +14,30 @@
  * limitations under the License.
  */
 
+//! mail exchange, email, record
+
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 use ::rr::domain::Name;
 
-// 3.3.9. MX RDATA format
-//
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     |                  PREFERENCE                   |
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//     /                   EXCHANGE                    /
-//     /                                               /
-//     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
-//
-// where:
-//
-// PREFERENCE      A 16 bit integer which specifies the preference given to
-//                 this RR among others at the same owner.  Lower values
-//                 are preferred.
-//
-// EXCHANGE        A <domain-name> which specifies a host willing to act as
-//                 a mail exchange for the owner name.
-//
-// MX records cause type A additional section processing for the host
-// specified by EXCHANGE.  The use of MX RRs is explained in detail in
-// [RFC-974].
-//
-// MX { preference: u16, exchange: Name },
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+///
+/// ```text
+/// 3.3.9. MX RDATA format
+///
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                  PREFERENCE                   |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     /                   EXCHANGE                    /
+///     /                                               /
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
+/// MX records cause type A additional section processing for the host
+/// specified by EXCHANGE.  The use of MX RRs is explained in detail in
+/// [RFC-974].
+///
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct MX { preference: u16, exchange: Name }
 
@@ -50,7 +46,21 @@ impl MX {
     MX { preference: preference, exchange: exchange }
   }
 
+  /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+  ///
+  /// ```text
+  /// PREFERENCE      A 16 bit integer which specifies the preference given to
+  ///                 this RR among others at the same owner.  Lower values
+  ///                 are preferred.
+  /// ```
   pub fn get_preference(&self) -> u16 { self.preference }
+
+  /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+  ///
+  /// ```text
+  /// EXCHANGE        A <domain-name> which specifies a host willing to act as
+  ///                 a mail exchange for the owner name.
+  /// ```
   pub fn get_exchange(&self) -> &Name { &self.exchange }
 }
 
