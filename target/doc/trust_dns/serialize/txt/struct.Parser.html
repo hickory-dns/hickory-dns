@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Parser` struct in crate `trust_dns`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Parser">
+
+    <title>trust_dns::serialize::txt::Parser - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>trust_dns</a>::<wbr><a href='../index.html'>serialize</a>::<wbr><a href='index.html'>txt</a></p><script>window.sidebarCurrent = {name: 'Parser', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../../index.html'>trust_dns</a>::<wbr><a href='../index.html'>serialize</a>::<wbr><a href='index.html'>txt</a>::<wbr><a class='struct' href=''>Parser</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-7167' class='srclink' href='../../../src/trust_dns/src/serialize/txt/master.rs.html#124' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Parser;</pre><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../../trust_dns/serialize/txt/struct.Parser.html' title='trust_dns::serialize::txt::Parser'>Parser</a></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>() -&gt; Self</code></h4>
+<h4 id='method.parse_file' class='method'><code>fn <a href='#method.parse_file' class='fnname'>parse_file</a>(file: <a class='struct' href='https://doc.rust-lang.org/nightly/std/fs/struct.File.html' title='std::fs::File'>File</a>, origin: <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>&gt;, zone_type: <a class='enum' href='../../../trust_dns/authority/enum.ZoneType.html' title='trust_dns::authority::ZoneType'>ZoneType</a>, allow_update: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>) -&gt; <a class='type' href='../../../trust_dns/error/type.ParseResult.html' title='trust_dns::error::ParseResult'>ParseResult</a>&lt;<a class='struct' href='../../../trust_dns/authority/struct.Authority.html' title='trust_dns::authority::Authority'>Authority</a>&gt;</code></h4>
+<h4 id='method.parse' class='method'><code>fn <a href='#method.parse' class='fnname'>parse</a>(&amp;mut self, lexer: <a class='struct' href='../../../trust_dns/serialize/txt/struct.Lexer.html' title='trust_dns::serialize::txt::Lexer'>Lexer</a>, origin: <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>&gt;, zone_type: <a class='enum' href='../../../trust_dns/authority/enum.ZoneType.html' title='trust_dns::authority::ZoneType'>ZoneType</a>, allow_update: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>) -&gt; <a class='type' href='../../../trust_dns/error/type.ParseResult.html' title='trust_dns::error::ParseResult'>ParseResult</a>&lt;<a class='struct' href='../../../trust_dns/authority/struct.Authority.html' title='trust_dns::authority::Authority'>Authority</a>&gt;</code></h4>
+<h4 id='method.parse_time' class='method'><code>fn <a href='#method.parse_time' class='fnname'>parse_time</a>(ttl_str: &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a>) -&gt; <a class='type' href='../../../trust_dns/error/type.ParseResult.html' title='trust_dns::error::ParseResult'>ParseResult</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>&gt;</code></h4>
+<div class='docblock'><p>parses the string following the rules from:
+ <a href="https://tools.ietf.org/html/rfc2308">https://tools.ietf.org/html/rfc2308</a> (NXCaching RFC) and
+ <a href="http://www.zytrax.com/books/dns/apa/time.html">http://www.zytrax.com/books/dns/apa/time.html</a></p>
+
+<p>default is seconds</p>
+
+<h1 id='s--seconds---x-1-seconds-really' class='section-header'><a href='#s--seconds---x-1-seconds-really'>s = seconds = # x 1 seconds (really!)</a></h1>
+<h1 id='m--minutes---x-60-seconds' class='section-header'><a href='#m--minutes---x-60-seconds'>m = minutes = # x 60 seconds</a></h1>
+<h1 id='h--hours-----x-3600-seconds' class='section-header'><a href='#h--hours-----x-3600-seconds'>h = hours   = # x 3600 seconds</a></h1>
+<h1 id='d--day-------x-86400-seconds' class='section-header'><a href='#d--day-------x-86400-seconds'>d = day     = # x 86400 seconds</a></h1>
+<h1 id='w--week------x-604800-seconds' class='section-header'><a href='#w--week------x-604800-seconds'>w = week    = # x 604800 seconds</a></h1>
+<p>returns the result of the parsing or and error</p>
+
+<h1 id='example' class='section-header'><a href='#example'>Example</a></h1>
+<pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>trust_dns</span>::<span class='ident'>serialize</span>::<span class='ident'>txt</span>::<span class='ident'>Parser</span>;
+
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;0&quot;</span>).<span class='ident'>unwrap</span>(),  <span class='number'>0</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;s&quot;</span>).<span class='ident'>unwrap</span>(),  <span class='number'>0</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;0s&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>0</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1&quot;</span>).<span class='ident'>unwrap</span>(),  <span class='number'>1</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1S&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>1</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1s&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>1</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1M&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>60</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1m&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>60</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1H&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>3600</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1h&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>3600</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1D&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>86400</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1d&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>86400</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1W&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>604800</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1w&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>604800</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;1s2d3w4h2m&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>1</span><span class='op'>+</span><span class='number'>2</span><span class='op'>*</span><span class='number'>86400</span><span class='op'>+</span><span class='number'>3</span><span class='op'>*</span><span class='number'>604800</span><span class='op'>+</span><span class='number'>4</span><span class='op'>*</span><span class='number'>3600</span><span class='op'>+</span><span class='number'>2</span><span class='op'>*</span><span class='number'>60</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>Parser</span>::<span class='ident'>parse_time</span>(<span class='string'>&quot;3w3w&quot;</span>).<span class='ident'>unwrap</span>(), <span class='number'>3</span><span class='op'>*</span><span class='number'>604800</span><span class='op'>+</span><span class='number'>3</span><span class='op'>*</span><span class='number'>604800</span>);</pre>
+</div></div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script defer src="../../../search-index.js"></script>
+</body>
+</html>

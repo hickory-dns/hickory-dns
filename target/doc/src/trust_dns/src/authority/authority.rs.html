@@ -1,0 +1,2125 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="Source to the Rust file `src/authority/authority.rs`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang">
+
+    <title>authority.rs.html -- source</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content source"><pre class="line-numbers"><span id="1">   1</span>
+<span id="2">   2</span>
+<span id="3">   3</span>
+<span id="4">   4</span>
+<span id="5">   5</span>
+<span id="6">   6</span>
+<span id="7">   7</span>
+<span id="8">   8</span>
+<span id="9">   9</span>
+<span id="10">  10</span>
+<span id="11">  11</span>
+<span id="12">  12</span>
+<span id="13">  13</span>
+<span id="14">  14</span>
+<span id="15">  15</span>
+<span id="16">  16</span>
+<span id="17">  17</span>
+<span id="18">  18</span>
+<span id="19">  19</span>
+<span id="20">  20</span>
+<span id="21">  21</span>
+<span id="22">  22</span>
+<span id="23">  23</span>
+<span id="24">  24</span>
+<span id="25">  25</span>
+<span id="26">  26</span>
+<span id="27">  27</span>
+<span id="28">  28</span>
+<span id="29">  29</span>
+<span id="30">  30</span>
+<span id="31">  31</span>
+<span id="32">  32</span>
+<span id="33">  33</span>
+<span id="34">  34</span>
+<span id="35">  35</span>
+<span id="36">  36</span>
+<span id="37">  37</span>
+<span id="38">  38</span>
+<span id="39">  39</span>
+<span id="40">  40</span>
+<span id="41">  41</span>
+<span id="42">  42</span>
+<span id="43">  43</span>
+<span id="44">  44</span>
+<span id="45">  45</span>
+<span id="46">  46</span>
+<span id="47">  47</span>
+<span id="48">  48</span>
+<span id="49">  49</span>
+<span id="50">  50</span>
+<span id="51">  51</span>
+<span id="52">  52</span>
+<span id="53">  53</span>
+<span id="54">  54</span>
+<span id="55">  55</span>
+<span id="56">  56</span>
+<span id="57">  57</span>
+<span id="58">  58</span>
+<span id="59">  59</span>
+<span id="60">  60</span>
+<span id="61">  61</span>
+<span id="62">  62</span>
+<span id="63">  63</span>
+<span id="64">  64</span>
+<span id="65">  65</span>
+<span id="66">  66</span>
+<span id="67">  67</span>
+<span id="68">  68</span>
+<span id="69">  69</span>
+<span id="70">  70</span>
+<span id="71">  71</span>
+<span id="72">  72</span>
+<span id="73">  73</span>
+<span id="74">  74</span>
+<span id="75">  75</span>
+<span id="76">  76</span>
+<span id="77">  77</span>
+<span id="78">  78</span>
+<span id="79">  79</span>
+<span id="80">  80</span>
+<span id="81">  81</span>
+<span id="82">  82</span>
+<span id="83">  83</span>
+<span id="84">  84</span>
+<span id="85">  85</span>
+<span id="86">  86</span>
+<span id="87">  87</span>
+<span id="88">  88</span>
+<span id="89">  89</span>
+<span id="90">  90</span>
+<span id="91">  91</span>
+<span id="92">  92</span>
+<span id="93">  93</span>
+<span id="94">  94</span>
+<span id="95">  95</span>
+<span id="96">  96</span>
+<span id="97">  97</span>
+<span id="98">  98</span>
+<span id="99">  99</span>
+<span id="100"> 100</span>
+<span id="101"> 101</span>
+<span id="102"> 102</span>
+<span id="103"> 103</span>
+<span id="104"> 104</span>
+<span id="105"> 105</span>
+<span id="106"> 106</span>
+<span id="107"> 107</span>
+<span id="108"> 108</span>
+<span id="109"> 109</span>
+<span id="110"> 110</span>
+<span id="111"> 111</span>
+<span id="112"> 112</span>
+<span id="113"> 113</span>
+<span id="114"> 114</span>
+<span id="115"> 115</span>
+<span id="116"> 116</span>
+<span id="117"> 117</span>
+<span id="118"> 118</span>
+<span id="119"> 119</span>
+<span id="120"> 120</span>
+<span id="121"> 121</span>
+<span id="122"> 122</span>
+<span id="123"> 123</span>
+<span id="124"> 124</span>
+<span id="125"> 125</span>
+<span id="126"> 126</span>
+<span id="127"> 127</span>
+<span id="128"> 128</span>
+<span id="129"> 129</span>
+<span id="130"> 130</span>
+<span id="131"> 131</span>
+<span id="132"> 132</span>
+<span id="133"> 133</span>
+<span id="134"> 134</span>
+<span id="135"> 135</span>
+<span id="136"> 136</span>
+<span id="137"> 137</span>
+<span id="138"> 138</span>
+<span id="139"> 139</span>
+<span id="140"> 140</span>
+<span id="141"> 141</span>
+<span id="142"> 142</span>
+<span id="143"> 143</span>
+<span id="144"> 144</span>
+<span id="145"> 145</span>
+<span id="146"> 146</span>
+<span id="147"> 147</span>
+<span id="148"> 148</span>
+<span id="149"> 149</span>
+<span id="150"> 150</span>
+<span id="151"> 151</span>
+<span id="152"> 152</span>
+<span id="153"> 153</span>
+<span id="154"> 154</span>
+<span id="155"> 155</span>
+<span id="156"> 156</span>
+<span id="157"> 157</span>
+<span id="158"> 158</span>
+<span id="159"> 159</span>
+<span id="160"> 160</span>
+<span id="161"> 161</span>
+<span id="162"> 162</span>
+<span id="163"> 163</span>
+<span id="164"> 164</span>
+<span id="165"> 165</span>
+<span id="166"> 166</span>
+<span id="167"> 167</span>
+<span id="168"> 168</span>
+<span id="169"> 169</span>
+<span id="170"> 170</span>
+<span id="171"> 171</span>
+<span id="172"> 172</span>
+<span id="173"> 173</span>
+<span id="174"> 174</span>
+<span id="175"> 175</span>
+<span id="176"> 176</span>
+<span id="177"> 177</span>
+<span id="178"> 178</span>
+<span id="179"> 179</span>
+<span id="180"> 180</span>
+<span id="181"> 181</span>
+<span id="182"> 182</span>
+<span id="183"> 183</span>
+<span id="184"> 184</span>
+<span id="185"> 185</span>
+<span id="186"> 186</span>
+<span id="187"> 187</span>
+<span id="188"> 188</span>
+<span id="189"> 189</span>
+<span id="190"> 190</span>
+<span id="191"> 191</span>
+<span id="192"> 192</span>
+<span id="193"> 193</span>
+<span id="194"> 194</span>
+<span id="195"> 195</span>
+<span id="196"> 196</span>
+<span id="197"> 197</span>
+<span id="198"> 198</span>
+<span id="199"> 199</span>
+<span id="200"> 200</span>
+<span id="201"> 201</span>
+<span id="202"> 202</span>
+<span id="203"> 203</span>
+<span id="204"> 204</span>
+<span id="205"> 205</span>
+<span id="206"> 206</span>
+<span id="207"> 207</span>
+<span id="208"> 208</span>
+<span id="209"> 209</span>
+<span id="210"> 210</span>
+<span id="211"> 211</span>
+<span id="212"> 212</span>
+<span id="213"> 213</span>
+<span id="214"> 214</span>
+<span id="215"> 215</span>
+<span id="216"> 216</span>
+<span id="217"> 217</span>
+<span id="218"> 218</span>
+<span id="219"> 219</span>
+<span id="220"> 220</span>
+<span id="221"> 221</span>
+<span id="222"> 222</span>
+<span id="223"> 223</span>
+<span id="224"> 224</span>
+<span id="225"> 225</span>
+<span id="226"> 226</span>
+<span id="227"> 227</span>
+<span id="228"> 228</span>
+<span id="229"> 229</span>
+<span id="230"> 230</span>
+<span id="231"> 231</span>
+<span id="232"> 232</span>
+<span id="233"> 233</span>
+<span id="234"> 234</span>
+<span id="235"> 235</span>
+<span id="236"> 236</span>
+<span id="237"> 237</span>
+<span id="238"> 238</span>
+<span id="239"> 239</span>
+<span id="240"> 240</span>
+<span id="241"> 241</span>
+<span id="242"> 242</span>
+<span id="243"> 243</span>
+<span id="244"> 244</span>
+<span id="245"> 245</span>
+<span id="246"> 246</span>
+<span id="247"> 247</span>
+<span id="248"> 248</span>
+<span id="249"> 249</span>
+<span id="250"> 250</span>
+<span id="251"> 251</span>
+<span id="252"> 252</span>
+<span id="253"> 253</span>
+<span id="254"> 254</span>
+<span id="255"> 255</span>
+<span id="256"> 256</span>
+<span id="257"> 257</span>
+<span id="258"> 258</span>
+<span id="259"> 259</span>
+<span id="260"> 260</span>
+<span id="261"> 261</span>
+<span id="262"> 262</span>
+<span id="263"> 263</span>
+<span id="264"> 264</span>
+<span id="265"> 265</span>
+<span id="266"> 266</span>
+<span id="267"> 267</span>
+<span id="268"> 268</span>
+<span id="269"> 269</span>
+<span id="270"> 270</span>
+<span id="271"> 271</span>
+<span id="272"> 272</span>
+<span id="273"> 273</span>
+<span id="274"> 274</span>
+<span id="275"> 275</span>
+<span id="276"> 276</span>
+<span id="277"> 277</span>
+<span id="278"> 278</span>
+<span id="279"> 279</span>
+<span id="280"> 280</span>
+<span id="281"> 281</span>
+<span id="282"> 282</span>
+<span id="283"> 283</span>
+<span id="284"> 284</span>
+<span id="285"> 285</span>
+<span id="286"> 286</span>
+<span id="287"> 287</span>
+<span id="288"> 288</span>
+<span id="289"> 289</span>
+<span id="290"> 290</span>
+<span id="291"> 291</span>
+<span id="292"> 292</span>
+<span id="293"> 293</span>
+<span id="294"> 294</span>
+<span id="295"> 295</span>
+<span id="296"> 296</span>
+<span id="297"> 297</span>
+<span id="298"> 298</span>
+<span id="299"> 299</span>
+<span id="300"> 300</span>
+<span id="301"> 301</span>
+<span id="302"> 302</span>
+<span id="303"> 303</span>
+<span id="304"> 304</span>
+<span id="305"> 305</span>
+<span id="306"> 306</span>
+<span id="307"> 307</span>
+<span id="308"> 308</span>
+<span id="309"> 309</span>
+<span id="310"> 310</span>
+<span id="311"> 311</span>
+<span id="312"> 312</span>
+<span id="313"> 313</span>
+<span id="314"> 314</span>
+<span id="315"> 315</span>
+<span id="316"> 316</span>
+<span id="317"> 317</span>
+<span id="318"> 318</span>
+<span id="319"> 319</span>
+<span id="320"> 320</span>
+<span id="321"> 321</span>
+<span id="322"> 322</span>
+<span id="323"> 323</span>
+<span id="324"> 324</span>
+<span id="325"> 325</span>
+<span id="326"> 326</span>
+<span id="327"> 327</span>
+<span id="328"> 328</span>
+<span id="329"> 329</span>
+<span id="330"> 330</span>
+<span id="331"> 331</span>
+<span id="332"> 332</span>
+<span id="333"> 333</span>
+<span id="334"> 334</span>
+<span id="335"> 335</span>
+<span id="336"> 336</span>
+<span id="337"> 337</span>
+<span id="338"> 338</span>
+<span id="339"> 339</span>
+<span id="340"> 340</span>
+<span id="341"> 341</span>
+<span id="342"> 342</span>
+<span id="343"> 343</span>
+<span id="344"> 344</span>
+<span id="345"> 345</span>
+<span id="346"> 346</span>
+<span id="347"> 347</span>
+<span id="348"> 348</span>
+<span id="349"> 349</span>
+<span id="350"> 350</span>
+<span id="351"> 351</span>
+<span id="352"> 352</span>
+<span id="353"> 353</span>
+<span id="354"> 354</span>
+<span id="355"> 355</span>
+<span id="356"> 356</span>
+<span id="357"> 357</span>
+<span id="358"> 358</span>
+<span id="359"> 359</span>
+<span id="360"> 360</span>
+<span id="361"> 361</span>
+<span id="362"> 362</span>
+<span id="363"> 363</span>
+<span id="364"> 364</span>
+<span id="365"> 365</span>
+<span id="366"> 366</span>
+<span id="367"> 367</span>
+<span id="368"> 368</span>
+<span id="369"> 369</span>
+<span id="370"> 370</span>
+<span id="371"> 371</span>
+<span id="372"> 372</span>
+<span id="373"> 373</span>
+<span id="374"> 374</span>
+<span id="375"> 375</span>
+<span id="376"> 376</span>
+<span id="377"> 377</span>
+<span id="378"> 378</span>
+<span id="379"> 379</span>
+<span id="380"> 380</span>
+<span id="381"> 381</span>
+<span id="382"> 382</span>
+<span id="383"> 383</span>
+<span id="384"> 384</span>
+<span id="385"> 385</span>
+<span id="386"> 386</span>
+<span id="387"> 387</span>
+<span id="388"> 388</span>
+<span id="389"> 389</span>
+<span id="390"> 390</span>
+<span id="391"> 391</span>
+<span id="392"> 392</span>
+<span id="393"> 393</span>
+<span id="394"> 394</span>
+<span id="395"> 395</span>
+<span id="396"> 396</span>
+<span id="397"> 397</span>
+<span id="398"> 398</span>
+<span id="399"> 399</span>
+<span id="400"> 400</span>
+<span id="401"> 401</span>
+<span id="402"> 402</span>
+<span id="403"> 403</span>
+<span id="404"> 404</span>
+<span id="405"> 405</span>
+<span id="406"> 406</span>
+<span id="407"> 407</span>
+<span id="408"> 408</span>
+<span id="409"> 409</span>
+<span id="410"> 410</span>
+<span id="411"> 411</span>
+<span id="412"> 412</span>
+<span id="413"> 413</span>
+<span id="414"> 414</span>
+<span id="415"> 415</span>
+<span id="416"> 416</span>
+<span id="417"> 417</span>
+<span id="418"> 418</span>
+<span id="419"> 419</span>
+<span id="420"> 420</span>
+<span id="421"> 421</span>
+<span id="422"> 422</span>
+<span id="423"> 423</span>
+<span id="424"> 424</span>
+<span id="425"> 425</span>
+<span id="426"> 426</span>
+<span id="427"> 427</span>
+<span id="428"> 428</span>
+<span id="429"> 429</span>
+<span id="430"> 430</span>
+<span id="431"> 431</span>
+<span id="432"> 432</span>
+<span id="433"> 433</span>
+<span id="434"> 434</span>
+<span id="435"> 435</span>
+<span id="436"> 436</span>
+<span id="437"> 437</span>
+<span id="438"> 438</span>
+<span id="439"> 439</span>
+<span id="440"> 440</span>
+<span id="441"> 441</span>
+<span id="442"> 442</span>
+<span id="443"> 443</span>
+<span id="444"> 444</span>
+<span id="445"> 445</span>
+<span id="446"> 446</span>
+<span id="447"> 447</span>
+<span id="448"> 448</span>
+<span id="449"> 449</span>
+<span id="450"> 450</span>
+<span id="451"> 451</span>
+<span id="452"> 452</span>
+<span id="453"> 453</span>
+<span id="454"> 454</span>
+<span id="455"> 455</span>
+<span id="456"> 456</span>
+<span id="457"> 457</span>
+<span id="458"> 458</span>
+<span id="459"> 459</span>
+<span id="460"> 460</span>
+<span id="461"> 461</span>
+<span id="462"> 462</span>
+<span id="463"> 463</span>
+<span id="464"> 464</span>
+<span id="465"> 465</span>
+<span id="466"> 466</span>
+<span id="467"> 467</span>
+<span id="468"> 468</span>
+<span id="469"> 469</span>
+<span id="470"> 470</span>
+<span id="471"> 471</span>
+<span id="472"> 472</span>
+<span id="473"> 473</span>
+<span id="474"> 474</span>
+<span id="475"> 475</span>
+<span id="476"> 476</span>
+<span id="477"> 477</span>
+<span id="478"> 478</span>
+<span id="479"> 479</span>
+<span id="480"> 480</span>
+<span id="481"> 481</span>
+<span id="482"> 482</span>
+<span id="483"> 483</span>
+<span id="484"> 484</span>
+<span id="485"> 485</span>
+<span id="486"> 486</span>
+<span id="487"> 487</span>
+<span id="488"> 488</span>
+<span id="489"> 489</span>
+<span id="490"> 490</span>
+<span id="491"> 491</span>
+<span id="492"> 492</span>
+<span id="493"> 493</span>
+<span id="494"> 494</span>
+<span id="495"> 495</span>
+<span id="496"> 496</span>
+<span id="497"> 497</span>
+<span id="498"> 498</span>
+<span id="499"> 499</span>
+<span id="500"> 500</span>
+<span id="501"> 501</span>
+<span id="502"> 502</span>
+<span id="503"> 503</span>
+<span id="504"> 504</span>
+<span id="505"> 505</span>
+<span id="506"> 506</span>
+<span id="507"> 507</span>
+<span id="508"> 508</span>
+<span id="509"> 509</span>
+<span id="510"> 510</span>
+<span id="511"> 511</span>
+<span id="512"> 512</span>
+<span id="513"> 513</span>
+<span id="514"> 514</span>
+<span id="515"> 515</span>
+<span id="516"> 516</span>
+<span id="517"> 517</span>
+<span id="518"> 518</span>
+<span id="519"> 519</span>
+<span id="520"> 520</span>
+<span id="521"> 521</span>
+<span id="522"> 522</span>
+<span id="523"> 523</span>
+<span id="524"> 524</span>
+<span id="525"> 525</span>
+<span id="526"> 526</span>
+<span id="527"> 527</span>
+<span id="528"> 528</span>
+<span id="529"> 529</span>
+<span id="530"> 530</span>
+<span id="531"> 531</span>
+<span id="532"> 532</span>
+<span id="533"> 533</span>
+<span id="534"> 534</span>
+<span id="535"> 535</span>
+<span id="536"> 536</span>
+<span id="537"> 537</span>
+<span id="538"> 538</span>
+<span id="539"> 539</span>
+<span id="540"> 540</span>
+<span id="541"> 541</span>
+<span id="542"> 542</span>
+<span id="543"> 543</span>
+<span id="544"> 544</span>
+<span id="545"> 545</span>
+<span id="546"> 546</span>
+<span id="547"> 547</span>
+<span id="548"> 548</span>
+<span id="549"> 549</span>
+<span id="550"> 550</span>
+<span id="551"> 551</span>
+<span id="552"> 552</span>
+<span id="553"> 553</span>
+<span id="554"> 554</span>
+<span id="555"> 555</span>
+<span id="556"> 556</span>
+<span id="557"> 557</span>
+<span id="558"> 558</span>
+<span id="559"> 559</span>
+<span id="560"> 560</span>
+<span id="561"> 561</span>
+<span id="562"> 562</span>
+<span id="563"> 563</span>
+<span id="564"> 564</span>
+<span id="565"> 565</span>
+<span id="566"> 566</span>
+<span id="567"> 567</span>
+<span id="568"> 568</span>
+<span id="569"> 569</span>
+<span id="570"> 570</span>
+<span id="571"> 571</span>
+<span id="572"> 572</span>
+<span id="573"> 573</span>
+<span id="574"> 574</span>
+<span id="575"> 575</span>
+<span id="576"> 576</span>
+<span id="577"> 577</span>
+<span id="578"> 578</span>
+<span id="579"> 579</span>
+<span id="580"> 580</span>
+<span id="581"> 581</span>
+<span id="582"> 582</span>
+<span id="583"> 583</span>
+<span id="584"> 584</span>
+<span id="585"> 585</span>
+<span id="586"> 586</span>
+<span id="587"> 587</span>
+<span id="588"> 588</span>
+<span id="589"> 589</span>
+<span id="590"> 590</span>
+<span id="591"> 591</span>
+<span id="592"> 592</span>
+<span id="593"> 593</span>
+<span id="594"> 594</span>
+<span id="595"> 595</span>
+<span id="596"> 596</span>
+<span id="597"> 597</span>
+<span id="598"> 598</span>
+<span id="599"> 599</span>
+<span id="600"> 600</span>
+<span id="601"> 601</span>
+<span id="602"> 602</span>
+<span id="603"> 603</span>
+<span id="604"> 604</span>
+<span id="605"> 605</span>
+<span id="606"> 606</span>
+<span id="607"> 607</span>
+<span id="608"> 608</span>
+<span id="609"> 609</span>
+<span id="610"> 610</span>
+<span id="611"> 611</span>
+<span id="612"> 612</span>
+<span id="613"> 613</span>
+<span id="614"> 614</span>
+<span id="615"> 615</span>
+<span id="616"> 616</span>
+<span id="617"> 617</span>
+<span id="618"> 618</span>
+<span id="619"> 619</span>
+<span id="620"> 620</span>
+<span id="621"> 621</span>
+<span id="622"> 622</span>
+<span id="623"> 623</span>
+<span id="624"> 624</span>
+<span id="625"> 625</span>
+<span id="626"> 626</span>
+<span id="627"> 627</span>
+<span id="628"> 628</span>
+<span id="629"> 629</span>
+<span id="630"> 630</span>
+<span id="631"> 631</span>
+<span id="632"> 632</span>
+<span id="633"> 633</span>
+<span id="634"> 634</span>
+<span id="635"> 635</span>
+<span id="636"> 636</span>
+<span id="637"> 637</span>
+<span id="638"> 638</span>
+<span id="639"> 639</span>
+<span id="640"> 640</span>
+<span id="641"> 641</span>
+<span id="642"> 642</span>
+<span id="643"> 643</span>
+<span id="644"> 644</span>
+<span id="645"> 645</span>
+<span id="646"> 646</span>
+<span id="647"> 647</span>
+<span id="648"> 648</span>
+<span id="649"> 649</span>
+<span id="650"> 650</span>
+<span id="651"> 651</span>
+<span id="652"> 652</span>
+<span id="653"> 653</span>
+<span id="654"> 654</span>
+<span id="655"> 655</span>
+<span id="656"> 656</span>
+<span id="657"> 657</span>
+<span id="658"> 658</span>
+<span id="659"> 659</span>
+<span id="660"> 660</span>
+<span id="661"> 661</span>
+<span id="662"> 662</span>
+<span id="663"> 663</span>
+<span id="664"> 664</span>
+<span id="665"> 665</span>
+<span id="666"> 666</span>
+<span id="667"> 667</span>
+<span id="668"> 668</span>
+<span id="669"> 669</span>
+<span id="670"> 670</span>
+<span id="671"> 671</span>
+<span id="672"> 672</span>
+<span id="673"> 673</span>
+<span id="674"> 674</span>
+<span id="675"> 675</span>
+<span id="676"> 676</span>
+<span id="677"> 677</span>
+<span id="678"> 678</span>
+<span id="679"> 679</span>
+<span id="680"> 680</span>
+<span id="681"> 681</span>
+<span id="682"> 682</span>
+<span id="683"> 683</span>
+<span id="684"> 684</span>
+<span id="685"> 685</span>
+<span id="686"> 686</span>
+<span id="687"> 687</span>
+<span id="688"> 688</span>
+<span id="689"> 689</span>
+<span id="690"> 690</span>
+<span id="691"> 691</span>
+<span id="692"> 692</span>
+<span id="693"> 693</span>
+<span id="694"> 694</span>
+<span id="695"> 695</span>
+<span id="696"> 696</span>
+<span id="697"> 697</span>
+<span id="698"> 698</span>
+<span id="699"> 699</span>
+<span id="700"> 700</span>
+<span id="701"> 701</span>
+<span id="702"> 702</span>
+<span id="703"> 703</span>
+<span id="704"> 704</span>
+<span id="705"> 705</span>
+<span id="706"> 706</span>
+<span id="707"> 707</span>
+<span id="708"> 708</span>
+<span id="709"> 709</span>
+<span id="710"> 710</span>
+<span id="711"> 711</span>
+<span id="712"> 712</span>
+<span id="713"> 713</span>
+<span id="714"> 714</span>
+<span id="715"> 715</span>
+<span id="716"> 716</span>
+<span id="717"> 717</span>
+<span id="718"> 718</span>
+<span id="719"> 719</span>
+<span id="720"> 720</span>
+<span id="721"> 721</span>
+<span id="722"> 722</span>
+<span id="723"> 723</span>
+<span id="724"> 724</span>
+<span id="725"> 725</span>
+<span id="726"> 726</span>
+<span id="727"> 727</span>
+<span id="728"> 728</span>
+<span id="729"> 729</span>
+<span id="730"> 730</span>
+<span id="731"> 731</span>
+<span id="732"> 732</span>
+<span id="733"> 733</span>
+<span id="734"> 734</span>
+<span id="735"> 735</span>
+<span id="736"> 736</span>
+<span id="737"> 737</span>
+<span id="738"> 738</span>
+<span id="739"> 739</span>
+<span id="740"> 740</span>
+<span id="741"> 741</span>
+<span id="742"> 742</span>
+<span id="743"> 743</span>
+<span id="744"> 744</span>
+<span id="745"> 745</span>
+<span id="746"> 746</span>
+<span id="747"> 747</span>
+<span id="748"> 748</span>
+<span id="749"> 749</span>
+<span id="750"> 750</span>
+<span id="751"> 751</span>
+<span id="752"> 752</span>
+<span id="753"> 753</span>
+<span id="754"> 754</span>
+<span id="755"> 755</span>
+<span id="756"> 756</span>
+<span id="757"> 757</span>
+<span id="758"> 758</span>
+<span id="759"> 759</span>
+<span id="760"> 760</span>
+<span id="761"> 761</span>
+<span id="762"> 762</span>
+<span id="763"> 763</span>
+<span id="764"> 764</span>
+<span id="765"> 765</span>
+<span id="766"> 766</span>
+<span id="767"> 767</span>
+<span id="768"> 768</span>
+<span id="769"> 769</span>
+<span id="770"> 770</span>
+<span id="771"> 771</span>
+<span id="772"> 772</span>
+<span id="773"> 773</span>
+<span id="774"> 774</span>
+<span id="775"> 775</span>
+<span id="776"> 776</span>
+<span id="777"> 777</span>
+<span id="778"> 778</span>
+<span id="779"> 779</span>
+<span id="780"> 780</span>
+<span id="781"> 781</span>
+<span id="782"> 782</span>
+<span id="783"> 783</span>
+<span id="784"> 784</span>
+<span id="785"> 785</span>
+<span id="786"> 786</span>
+<span id="787"> 787</span>
+<span id="788"> 788</span>
+<span id="789"> 789</span>
+<span id="790"> 790</span>
+<span id="791"> 791</span>
+<span id="792"> 792</span>
+<span id="793"> 793</span>
+<span id="794"> 794</span>
+<span id="795"> 795</span>
+<span id="796"> 796</span>
+<span id="797"> 797</span>
+<span id="798"> 798</span>
+<span id="799"> 799</span>
+<span id="800"> 800</span>
+<span id="801"> 801</span>
+<span id="802"> 802</span>
+<span id="803"> 803</span>
+<span id="804"> 804</span>
+<span id="805"> 805</span>
+<span id="806"> 806</span>
+<span id="807"> 807</span>
+<span id="808"> 808</span>
+<span id="809"> 809</span>
+<span id="810"> 810</span>
+<span id="811"> 811</span>
+<span id="812"> 812</span>
+<span id="813"> 813</span>
+<span id="814"> 814</span>
+<span id="815"> 815</span>
+<span id="816"> 816</span>
+<span id="817"> 817</span>
+<span id="818"> 818</span>
+<span id="819"> 819</span>
+<span id="820"> 820</span>
+<span id="821"> 821</span>
+<span id="822"> 822</span>
+<span id="823"> 823</span>
+<span id="824"> 824</span>
+<span id="825"> 825</span>
+<span id="826"> 826</span>
+<span id="827"> 827</span>
+<span id="828"> 828</span>
+<span id="829"> 829</span>
+<span id="830"> 830</span>
+<span id="831"> 831</span>
+<span id="832"> 832</span>
+<span id="833"> 833</span>
+<span id="834"> 834</span>
+<span id="835"> 835</span>
+<span id="836"> 836</span>
+<span id="837"> 837</span>
+<span id="838"> 838</span>
+<span id="839"> 839</span>
+<span id="840"> 840</span>
+<span id="841"> 841</span>
+<span id="842"> 842</span>
+<span id="843"> 843</span>
+<span id="844"> 844</span>
+<span id="845"> 845</span>
+<span id="846"> 846</span>
+<span id="847"> 847</span>
+<span id="848"> 848</span>
+<span id="849"> 849</span>
+<span id="850"> 850</span>
+<span id="851"> 851</span>
+<span id="852"> 852</span>
+<span id="853"> 853</span>
+<span id="854"> 854</span>
+<span id="855"> 855</span>
+<span id="856"> 856</span>
+<span id="857"> 857</span>
+<span id="858"> 858</span>
+<span id="859"> 859</span>
+<span id="860"> 860</span>
+<span id="861"> 861</span>
+<span id="862"> 862</span>
+<span id="863"> 863</span>
+<span id="864"> 864</span>
+<span id="865"> 865</span>
+<span id="866"> 866</span>
+<span id="867"> 867</span>
+<span id="868"> 868</span>
+<span id="869"> 869</span>
+<span id="870"> 870</span>
+<span id="871"> 871</span>
+<span id="872"> 872</span>
+<span id="873"> 873</span>
+<span id="874"> 874</span>
+<span id="875"> 875</span>
+<span id="876"> 876</span>
+<span id="877"> 877</span>
+<span id="878"> 878</span>
+<span id="879"> 879</span>
+<span id="880"> 880</span>
+<span id="881"> 881</span>
+<span id="882"> 882</span>
+<span id="883"> 883</span>
+<span id="884"> 884</span>
+<span id="885"> 885</span>
+<span id="886"> 886</span>
+<span id="887"> 887</span>
+<span id="888"> 888</span>
+<span id="889"> 889</span>
+<span id="890"> 890</span>
+<span id="891"> 891</span>
+<span id="892"> 892</span>
+<span id="893"> 893</span>
+<span id="894"> 894</span>
+<span id="895"> 895</span>
+<span id="896"> 896</span>
+<span id="897"> 897</span>
+<span id="898"> 898</span>
+<span id="899"> 899</span>
+<span id="900"> 900</span>
+<span id="901"> 901</span>
+<span id="902"> 902</span>
+<span id="903"> 903</span>
+<span id="904"> 904</span>
+<span id="905"> 905</span>
+<span id="906"> 906</span>
+<span id="907"> 907</span>
+<span id="908"> 908</span>
+<span id="909"> 909</span>
+<span id="910"> 910</span>
+<span id="911"> 911</span>
+<span id="912"> 912</span>
+<span id="913"> 913</span>
+<span id="914"> 914</span>
+<span id="915"> 915</span>
+<span id="916"> 916</span>
+<span id="917"> 917</span>
+<span id="918"> 918</span>
+<span id="919"> 919</span>
+<span id="920"> 920</span>
+<span id="921"> 921</span>
+<span id="922"> 922</span>
+<span id="923"> 923</span>
+<span id="924"> 924</span>
+<span id="925"> 925</span>
+<span id="926"> 926</span>
+<span id="927"> 927</span>
+<span id="928"> 928</span>
+<span id="929"> 929</span>
+<span id="930"> 930</span>
+<span id="931"> 931</span>
+<span id="932"> 932</span>
+<span id="933"> 933</span>
+<span id="934"> 934</span>
+<span id="935"> 935</span>
+<span id="936"> 936</span>
+<span id="937"> 937</span>
+<span id="938"> 938</span>
+<span id="939"> 939</span>
+<span id="940"> 940</span>
+<span id="941"> 941</span>
+<span id="942"> 942</span>
+<span id="943"> 943</span>
+<span id="944"> 944</span>
+<span id="945"> 945</span>
+<span id="946"> 946</span>
+<span id="947"> 947</span>
+<span id="948"> 948</span>
+<span id="949"> 949</span>
+<span id="950"> 950</span>
+<span id="951"> 951</span>
+<span id="952"> 952</span>
+<span id="953"> 953</span>
+<span id="954"> 954</span>
+<span id="955"> 955</span>
+<span id="956"> 956</span>
+<span id="957"> 957</span>
+<span id="958"> 958</span>
+<span id="959"> 959</span>
+<span id="960"> 960</span>
+<span id="961"> 961</span>
+<span id="962"> 962</span>
+<span id="963"> 963</span>
+<span id="964"> 964</span>
+<span id="965"> 965</span>
+<span id="966"> 966</span>
+<span id="967"> 967</span>
+<span id="968"> 968</span>
+<span id="969"> 969</span>
+<span id="970"> 970</span>
+<span id="971"> 971</span>
+<span id="972"> 972</span>
+<span id="973"> 973</span>
+<span id="974"> 974</span>
+<span id="975"> 975</span>
+<span id="976"> 976</span>
+<span id="977"> 977</span>
+<span id="978"> 978</span>
+<span id="979"> 979</span>
+<span id="980"> 980</span>
+<span id="981"> 981</span>
+<span id="982"> 982</span>
+<span id="983"> 983</span>
+<span id="984"> 984</span>
+<span id="985"> 985</span>
+<span id="986"> 986</span>
+<span id="987"> 987</span>
+<span id="988"> 988</span>
+<span id="989"> 989</span>
+<span id="990"> 990</span>
+<span id="991"> 991</span>
+<span id="992"> 992</span>
+<span id="993"> 993</span>
+<span id="994"> 994</span>
+<span id="995"> 995</span>
+<span id="996"> 996</span>
+<span id="997"> 997</span>
+<span id="998"> 998</span>
+<span id="999"> 999</span>
+<span id="1000">1000</span>
+<span id="1001">1001</span>
+<span id="1002">1002</span>
+<span id="1003">1003</span>
+<span id="1004">1004</span>
+<span id="1005">1005</span>
+<span id="1006">1006</span>
+<span id="1007">1007</span>
+<span id="1008">1008</span>
+<span id="1009">1009</span>
+</pre><pre class='rust '>
+<span class='comment'>/*
+ * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */</span>
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>collections</span>::<span class='ident'>HashMap</span>;
+
+<span class='kw'>use</span> <span class='ident'>chrono</span>::<span class='ident'>offset</span>::<span class='ident'>utc</span>::<span class='ident'>UTC</span>;
+
+<span class='kw'>use</span> ::<span class='ident'>authority</span>::{<span class='ident'>UpdateResult</span>, <span class='ident'>ZoneType</span>, <span class='ident'>RRSet</span>};
+<span class='kw'>use</span> ::<span class='ident'>op</span>::{<span class='ident'>UpdateMessage</span>, <span class='ident'>ResponseCode</span>};
+<span class='kw'>use</span> ::<span class='ident'>rr</span>::{<span class='ident'>DNSClass</span>, <span class='ident'>Name</span>, <span class='ident'>RData</span>, <span class='ident'>Record</span>, <span class='ident'>RecordType</span>};
+<span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>rdata</span>::<span class='ident'>SIG</span>;
+<span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>dnssec</span>::<span class='ident'>Signer</span>;
+
+<span class='doccomment'>/// Accessor key for RRSets in the Authority.</span>
+<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Eq</span>, <span class='ident'>PartialEq</span>, <span class='ident'>Debug</span>, <span class='ident'>Hash</span>, <span class='ident'>Clone</span>)]</span>
+<span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>RrKey</span> { <span class='ident'>name</span>: <span class='ident'>Name</span>, <span class='ident'>record_type</span>: <span class='ident'>RecordType</span> }
+
+<span class='kw'>impl</span> <span class='ident'>RrKey</span> {
+  <span class='doccomment'>/// Creates a new key to access the Authority.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `name` - domain name to lookup.</span>
+  <span class='doccomment'>/// * `record_type` - the `RecordType` to lookup.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Return value</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// A new key to access the Authorities.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>(<span class='ident'>name</span>: <span class='kw-2'>&amp;</span><span class='ident'>Name</span>, <span class='ident'>record_type</span>: <span class='ident'>RecordType</span>) <span class='op'>-&gt;</span> <span class='ident'>RrKey</span> {
+    <span class='ident'>RrKey</span>{ <span class='ident'>name</span>: <span class='ident'>name</span>.<span class='ident'>clone</span>(), <span class='ident'>record_type</span>: <span class='ident'>record_type</span> }
+  }
+}
+
+<span class='doccomment'>/// Authority is the storage method for all resource records</span>
+<span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>Authority</span> {
+  <span class='ident'>origin</span>: <span class='ident'>Name</span>,
+  <span class='ident'>class</span>: <span class='ident'>DNSClass</span>,
+  <span class='ident'>records</span>: <span class='ident'>HashMap</span><span class='op'>&lt;</span><span class='ident'>RrKey</span>, <span class='ident'>RRSet</span><span class='op'>&gt;</span>,
+  <span class='ident'>zone_type</span>: <span class='ident'>ZoneType</span>,
+  <span class='ident'>allow_update</span>: <span class='ident'>bool</span>,
+  <span class='comment'>// Private key mapped to the Record of the DNSKey</span>
+  <span class='comment'>//  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per</span>
+  <span class='comment'>//   server instance, but that requires requesting updates from the parent zone, which may or</span>
+  <span class='comment'>//   may not support dynamic updates to register the new key... Trust-DNS will provide support</span>
+  <span class='comment'>//   for this, in some form, perhaps alternate root zones...</span>
+  <span class='ident'>secure_keys</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Signer</span><span class='op'>&gt;</span>,
+}
+
+<span class='doccomment'>/// Authority is responsible for storing the resource records for a particular zone.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the</span>
+<span class='doccomment'>/// start of authority for the zone, is a slave, or a cached zone.</span>
+<span class='kw'>impl</span> <span class='ident'>Authority</span> {
+  <span class='doccomment'>/// Creates a new Authority.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `origin` - The zone `Name` being created, this should match that of the `RecordType::SOA`</span>
+  <span class='doccomment'>///              record.</span>
+  <span class='doccomment'>/// * `records` - The `HashMap` of the initial set of records in the zone.</span>
+  <span class='doccomment'>/// * `zone_type` - The type of zone, i.e. is this authoritative?</span>
+  <span class='doccomment'>/// * `allow_update` - If true, then this zone accepts dynamic updates.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Return value</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// The new `Authority`.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>(<span class='ident'>origin</span>: <span class='ident'>Name</span>, <span class='ident'>records</span>: <span class='ident'>HashMap</span><span class='op'>&lt;</span><span class='ident'>RrKey</span>, <span class='ident'>RRSet</span><span class='op'>&gt;</span>, <span class='ident'>zone_type</span>: <span class='ident'>ZoneType</span>, <span class='ident'>allow_update</span>: <span class='ident'>bool</span>) <span class='op'>-&gt;</span> <span class='ident'>Authority</span> {
+    <span class='ident'>Authority</span>{ <span class='ident'>origin</span>: <span class='ident'>origin</span>, <span class='ident'>class</span>: <span class='ident'>DNSClass</span>::<span class='ident'>IN</span>, <span class='ident'>records</span>: <span class='ident'>records</span>, <span class='ident'>zone_type</span>: <span class='ident'>zone_type</span>,
+      <span class='ident'>allow_update</span>: <span class='ident'>allow_update</span>, <span class='ident'>secure_keys</span>: <span class='ident'>Vec</span>::<span class='ident'>new</span>() }
+  }
+
+  <span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>test</span>)]</span>
+  <span class='kw'>fn</span> <span class='ident'>set_allow_update</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>allow_update</span>: <span class='ident'>bool</span>) {
+    <span class='self'>self</span>.<span class='ident'>allow_update</span> <span class='op'>=</span> <span class='ident'>allow_update</span>;
+  }
+
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_origin</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='ident'>Name</span> {
+    <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>origin</span>
+  }
+
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_zone_type</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>ZoneType</span> {
+    <span class='self'>self</span>.<span class='ident'>zone_type</span>
+  }
+
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_soa</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;</span> {
+    <span class='comment'>// SOA should be origin|SOA</span>
+    <span class='self'>self</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>origin</span>, <span class='ident'>RecordType</span>::<span class='ident'>SOA</span>).<span class='ident'>and_then</span>(<span class='op'>|</span><span class='ident'>v</span><span class='op'>|</span><span class='ident'>v</span>.<span class='ident'>first</span>().<span class='ident'>map</span>(<span class='op'>|</span><span class='ident'>v</span><span class='op'>|</span> <span class='op'>*</span><span class='ident'>v</span>))
+  }
+
+  <span class='kw'>fn</span> <span class='ident'>increment_soa_serial</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>u32</span> {
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>soa</span> <span class='op'>=</span> <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='kw-2'>ref</span> <span class='kw-2'>mut</span> <span class='ident'>soa_record</span>) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_soa</span>() {
+      <span class='ident'>soa_record</span>.<span class='ident'>clone</span>()
+    } <span class='kw'>else</span> {
+      <span class='macro'>warn</span><span class='macro'>!</span>(<span class='string'>&quot;no soa record found for zone: {}&quot;</span>, <span class='self'>self</span>.<span class='ident'>origin</span>);
+      <span class='kw'>return</span> <span class='number'>0</span>;
+    };
+
+    <span class='kw'>let</span> <span class='ident'>serial</span> <span class='op'>=</span> <span class='kw'>if</span> <span class='kw'>let</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>RData</span>::<span class='ident'>SOA</span>(<span class='kw-2'>ref</span> <span class='kw-2'>mut</span> <span class='ident'>soa_rdata</span>) <span class='op'>=</span> <span class='ident'>soa</span>.<span class='ident'>get_rdata_mut</span>() {
+      <span class='ident'>soa_rdata</span>.<span class='ident'>increment_serial</span>();
+      <span class='ident'>soa_rdata</span>.<span class='ident'>get_serial</span>()
+    } <span class='kw'>else</span> {
+      <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;This was not an SOA record&quot;</span>);
+    };
+
+    <span class='self'>self</span>.<span class='ident'>upsert</span>(<span class='ident'>soa</span>, <span class='ident'>serial</span>);
+    <span class='kw'>return</span> <span class='ident'>serial</span>;
+  }
+
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_ns</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;&gt;</span> {
+    <span class='self'>self</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>origin</span>, <span class='ident'>RecordType</span>::<span class='ident'>NS</span>)
+  }
+
+  <span class='doccomment'>/// ```text</span>
+  <span class='doccomment'>/// RFC 2136                       DNS Update                     April 1997</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.2 - Process Prerequisite Section</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   Next, the Prerequisite Section is checked to see that all</span>
+  <span class='doccomment'>///   prerequisites are satisfied by the current state of the zone.  Using</span>
+  <span class='doccomment'>///   the definitions expressed in Section 1.2, if any RR&#39;s NAME is not</span>
+  <span class='doccomment'>///   within the zone specified in the Zone Section, signal NOTZONE to the</span>
+  <span class='doccomment'>///   requestor.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.2.1. For RRs in this section whose CLASS is ANY, test to see that</span>
+  <span class='doccomment'>///   TTL and RDLENGTH are both zero (0), else signal FORMERR to the</span>
+  <span class='doccomment'>///   requestor.  If TYPE is ANY, test to see that there is at least one RR</span>
+  <span class='doccomment'>///   in the zone whose NAME is the same as that of the Prerequisite RR,</span>
+  <span class='doccomment'>///   else signal NXDOMAIN to the requestor.  If TYPE is not ANY, test to</span>
+  <span class='doccomment'>///   see that there is at least one RR in the zone whose NAME and TYPE are</span>
+  <span class='doccomment'>///   the same as that of the Prerequisite RR, else signal NXRRSET to the</span>
+  <span class='doccomment'>///   requestor.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.2.2. For RRs in this section whose CLASS is NONE, test to see that</span>
+  <span class='doccomment'>///   the TTL and RDLENGTH are both zero (0), else signal FORMERR to the</span>
+  <span class='doccomment'>///   requestor.  If the TYPE is ANY, test to see that there are no RRs in</span>
+  <span class='doccomment'>///   the zone whose NAME is the same as that of the Prerequisite RR, else</span>
+  <span class='doccomment'>///   signal YXDOMAIN to the requestor.  If the TYPE is not ANY, test to</span>
+  <span class='doccomment'>///   see that there are no RRs in the zone whose NAME and TYPE are the</span>
+  <span class='doccomment'>///   same as that of the Prerequisite RR, else signal YXRRSET to the</span>
+  <span class='doccomment'>///   requestor.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.2.3. For RRs in this section whose CLASS is the same as the ZCLASS,</span>
+  <span class='doccomment'>///   test to see that the TTL is zero (0), else signal FORMERR to the</span>
+  <span class='doccomment'>///   requestor.  Then, build an RRset for each unique &lt;NAME,TYPE&gt; and</span>
+  <span class='doccomment'>///   compare each resulting RRset for set equality (same members, no more,</span>
+  <span class='doccomment'>///   no less) with RRsets in the zone.  If any Prerequisite RRset is not</span>
+  <span class='doccomment'>///   entirely and exactly matched by a zone RRset, signal NXRRSET to the</span>
+  <span class='doccomment'>///   requestor.  If any RR in this section has a CLASS other than ZCLASS</span>
+  <span class='doccomment'>///   or NONE or ANY, signal FORMERR to the requestor.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.2.4 - Table Of Metavalues Used In Prerequisite Section</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   CLASS    TYPE     RDATA    Meaning</span>
+  <span class='doccomment'>///   ------------------------------------------------------------</span>
+  <span class='doccomment'>///   ANY      ANY      empty    Name is in use</span>
+  <span class='doccomment'>///   ANY      rrset    empty    RRset exists (value independent)</span>
+  <span class='doccomment'>///   NONE     ANY      empty    Name is not in use</span>
+  <span class='doccomment'>///   NONE     rrset    empty    RRset does not exist</span>
+  <span class='doccomment'>///   zone     rrset    rr       RRset exists (value dependent)</span>
+  <span class='doccomment'>/// ```</span>
+  <span class='kw'>fn</span> <span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>pre_requisites</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>]) <span class='op'>-&gt;</span> <span class='ident'>UpdateResult</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='comment'>//   3.2.5 - Pseudocode for Prerequisite Section Processing</span>
+    <span class='comment'>//</span>
+    <span class='comment'>//      for rr in prerequisites</span>
+    <span class='comment'>//           if (rr.ttl != 0)</span>
+    <span class='comment'>//                return (FORMERR)</span>
+    <span class='comment'>//           if (zone_of(rr.name) != ZNAME)</span>
+    <span class='comment'>//                return (NOTZONE);</span>
+    <span class='comment'>//           if (rr.class == ANY)</span>
+    <span class='comment'>//                if (rr.rdlength != 0)</span>
+    <span class='comment'>//                     return (FORMERR)</span>
+    <span class='comment'>//                if (rr.type == ANY)</span>
+    <span class='comment'>//                     if (!zone_name&lt;rr.name&gt;)</span>
+    <span class='comment'>//                          return (NXDOMAIN)</span>
+    <span class='comment'>//                else</span>
+    <span class='comment'>//                     if (!zone_rrset&lt;rr.name, rr.type&gt;)</span>
+    <span class='comment'>//                          return (NXRRSET)</span>
+    <span class='comment'>//           if (rr.class == NONE)</span>
+    <span class='comment'>//                if (rr.rdlength != 0)</span>
+    <span class='comment'>//                     return (FORMERR)</span>
+    <span class='comment'>//                if (rr.type == ANY)</span>
+    <span class='comment'>//                     if (zone_name&lt;rr.name&gt;)</span>
+    <span class='comment'>//                          return (YXDOMAIN)</span>
+    <span class='comment'>//                else</span>
+    <span class='comment'>//                     if (zone_rrset&lt;rr.name, rr.type&gt;)</span>
+    <span class='comment'>//                          return (YXRRSET)</span>
+    <span class='comment'>//           if (rr.class == zclass)</span>
+    <span class='comment'>//                temp&lt;rr.name, rr.type&gt; += rr</span>
+    <span class='comment'>//           else</span>
+    <span class='comment'>//                return (FORMERR)</span>
+    <span class='comment'>//</span>
+    <span class='comment'>//      for rrset in temp</span>
+    <span class='comment'>//           if (zone_rrset&lt;rrset.name, rrset.type&gt; != rrset)</span>
+    <span class='comment'>//                return (NXRRSET)</span>
+    <span class='kw'>for</span> <span class='ident'>require</span> <span class='kw'>in</span> <span class='ident'>pre_requisites</span> {
+      <span class='kw'>if</span> <span class='ident'>require</span>.<span class='ident'>get_ttl</span>() <span class='op'>!=</span> <span class='number'>0</span> {
+        <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;ttl must be 0 for: {:?}&quot;</span>, <span class='ident'>require</span>);
+        <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>);
+      }
+
+      <span class='kw'>if</span> <span class='op'>!</span><span class='self'>self</span>.<span class='ident'>origin</span>.<span class='ident'>zone_of</span>(<span class='ident'>require</span>.<span class='ident'>get_name</span>()) {
+        <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;{} is not a zone_of {}&quot;</span>, <span class='ident'>require</span>.<span class='ident'>get_name</span>(), <span class='self'>self</span>.<span class='ident'>origin</span>);
+        <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NotZone</span>);
+      }
+
+      <span class='kw'>match</span> <span class='ident'>require</span>.<span class='ident'>get_dns_class</span>() {
+        <span class='ident'>DNSClass</span>::<span class='ident'>ANY</span> <span class='op'>=&gt;</span>
+          <span class='kw'>if</span> <span class='kw'>let</span> <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>NULL</span>( .. ) <span class='op'>=</span> <span class='ident'>require</span>.<span class='ident'>get_rdata</span>() {
+            <span class='kw'>match</span> <span class='ident'>require</span>.<span class='ident'>get_rr_type</span>() {
+              <span class='comment'>// ANY      ANY      empty    Name is in use</span>
+              <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>=&gt;</span> {
+                <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>None</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>lookup</span>(<span class='ident'>require</span>.<span class='ident'>get_name</span>(), <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>) {
+                  <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NXDomain</span>);
+                } <span class='kw'>else</span> {
+                  <span class='kw'>continue</span>;
+                }
+              },
+              <span class='comment'>// ANY      rrset    empty    RRset exists (value independent)</span>
+              <span class='ident'>rrset</span> <span class='kw-2'>@</span> _ <span class='op'>=&gt;</span> {
+                <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>None</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>lookup</span>(<span class='ident'>require</span>.<span class='ident'>get_name</span>(), <span class='ident'>rrset</span>) {
+                  <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NXRRSet</span>);
+                } <span class='kw'>else</span> {
+                  <span class='kw'>continue</span>;
+                }
+              },
+            }
+          } <span class='kw'>else</span> {
+            <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>);
+          }
+        ,
+        <span class='ident'>DNSClass</span>::<span class='ident'>NONE</span> <span class='op'>=&gt;</span>
+          <span class='kw'>if</span> <span class='kw'>let</span> <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>NULL</span>( .. ) <span class='op'>=</span> <span class='ident'>require</span>.<span class='ident'>get_rdata</span>() {
+            <span class='kw'>match</span> <span class='ident'>require</span>.<span class='ident'>get_rr_type</span>() {
+              <span class='comment'>// NONE     ANY      empty    Name is not in use</span>
+              <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>=&gt;</span> {
+                <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(..) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>lookup</span>(<span class='ident'>require</span>.<span class='ident'>get_name</span>(), <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>) {
+                  <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>YXDomain</span>);
+                } <span class='kw'>else</span> {
+                  <span class='kw'>continue</span>;
+                }
+              },
+              <span class='comment'>// NONE     rrset    empty    RRset does not exist</span>
+              <span class='ident'>rrset</span> <span class='kw-2'>@</span> _ <span class='op'>=&gt;</span> {
+                <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(..) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>lookup</span>(<span class='ident'>require</span>.<span class='ident'>get_name</span>(), <span class='ident'>rrset</span>) {
+                  <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>YXRRSet</span>);
+                } <span class='kw'>else</span> {
+                  <span class='kw'>continue</span>;
+                }
+              },
+            }
+          } <span class='kw'>else</span> {
+            <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>);
+          }
+        ,
+        <span class='ident'>class</span> <span class='kw-2'>@</span> _ <span class='kw'>if</span> <span class='ident'>class</span> <span class='op'>==</span> <span class='self'>self</span>.<span class='ident'>class</span> <span class='op'>=&gt;</span>
+          <span class='comment'>// zone     rrset    rr       RRset exists (value dependent)</span>
+          <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>rrset</span>) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>lookup</span>(<span class='ident'>require</span>.<span class='ident'>get_name</span>(), <span class='ident'>require</span>.<span class='ident'>get_rr_type</span>()) {
+            <span class='kw'>if</span> <span class='ident'>rrset</span>.<span class='ident'>iter</span>().<span class='ident'>filter</span>(<span class='op'>|</span><span class='ident'>rr</span><span class='op'>|</span> <span class='op'>*</span><span class='ident'>rr</span> <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='ident'>require</span>).<span class='ident'>next</span>().<span class='ident'>is_none</span>() {
+              <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NXRRSet</span>);
+            } <span class='kw'>else</span> {
+              <span class='kw'>continue</span>;
+            }
+          } <span class='kw'>else</span> {
+            <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NXRRSet</span>);
+          }
+          ,
+        _ <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>),
+      }
+    }
+
+    <span class='comment'>// if we didn&#39;t bail everything checked out...</span>
+    <span class='prelude-val'>Ok</span>(())
+  }
+
+  <span class='doccomment'>/// ```text</span>
+  <span class='doccomment'>/// RFC 2136                       DNS Update                     April 1997</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.3 - Check Requestor&#39;s Permissions</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.3.1. Next, the requestor&#39;s permission to update the RRs named in</span>
+  <span class='doccomment'>///   the Update Section may be tested in an implementation dependent</span>
+  <span class='doccomment'>///   fashion or using mechanisms specified in a subsequent Secure DNS</span>
+  <span class='doccomment'>///   Update protocol.  If the requestor does not have permission to</span>
+  <span class='doccomment'>///   perform these updates, the server may write a warning message in its</span>
+  <span class='doccomment'>///   operations log, and may either signal REFUSED to the requestor, or</span>
+  <span class='doccomment'>///   ignore the permission problem and proceed with the update.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.3.2. While the exact processing is implementation defined, if these</span>
+  <span class='doccomment'>///   verification activities are to be performed, this is the point in the</span>
+  <span class='doccomment'>///   server&#39;s processing where such performance should take place, since</span>
+  <span class='doccomment'>///   if a REFUSED condition is encountered after an update has been</span>
+  <span class='doccomment'>///   partially applied, it will be necessary to undo the partial update</span>
+  <span class='doccomment'>///   and restore the zone to its original state before answering the</span>
+  <span class='doccomment'>///   requestor.</span>
+  <span class='doccomment'>/// ```</span>
+  <span class='kw'>fn</span> <span class='ident'>authorize</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>update_message</span>: <span class='kw-2'>&amp;</span><span class='ident'>UpdateMessage</span>) <span class='op'>-&gt;</span> <span class='ident'>UpdateResult</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='comment'>// 3.3.3 - Pseudocode for Permission Checking</span>
+    <span class='comment'>//</span>
+    <span class='comment'>//      if (security policy exists)</span>
+    <span class='comment'>//           if (this update is not permitted)</span>
+    <span class='comment'>//                if (local option)</span>
+    <span class='comment'>//                     log a message about permission problem</span>
+    <span class='comment'>//                if (local option)</span>
+    <span class='comment'>//                     return (REFUSED)</span>
+
+    <span class='comment'>// does this authority allow_updates?</span>
+    <span class='kw'>if</span> <span class='op'>!</span><span class='self'>self</span>.<span class='ident'>allow_update</span> {
+      <span class='macro'>warn</span><span class='macro'>!</span>(<span class='string'>&quot;update attempted on non-updatable Authority: {}&quot;</span>, <span class='self'>self</span>.<span class='ident'>origin</span>);
+      <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>Refused</span>)
+    }
+
+    <span class='comment'>// verify sig0, currently the only authorization that is accepted.</span>
+    <span class='kw'>let</span> <span class='ident'>sig0</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>] <span class='op'>=</span> <span class='ident'>update_message</span>.<span class='ident'>get_sig0</span>();
+    <span class='kw'>if</span> <span class='op'>!</span><span class='ident'>sig0</span>.<span class='ident'>is_empty</span>() {
+      <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;attempted update rejected due to missing SIG0: {:?}&quot;</span>, <span class='ident'>update_message</span>);
+      <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>Refused</span>);
+    }
+
+
+    <span class='comment'>// getting here, we will always default to rejecting the request</span>
+    <span class='comment'>//  the code will only ever explcitly return authrorized actions.</span>
+    <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>Refused</span>)
+  }
+
+  <span class='doccomment'>/// ```text</span>
+  <span class='doccomment'>/// RFC 2136                       DNS Update                     April 1997</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4 - Process Update Section</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   Next, the Update Section is processed as follows.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4.1 - Prescan</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   The Update Section is parsed into RRs and each RR&#39;s CLASS is checked</span>
+  <span class='doccomment'>///   to see if it is ANY, NONE, or the same as the Zone Class, else signal</span>
+  <span class='doccomment'>///   a FORMERR to the requestor.  Using the definitions in Section 1.2,</span>
+  <span class='doccomment'>///   each RR&#39;s NAME must be in the zone specified by the Zone Section,</span>
+  <span class='doccomment'>///   else signal NOTZONE to the requestor.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4.1.2. For RRs whose CLASS is not ANY, check the TYPE and if it is</span>
+  <span class='doccomment'>///   ANY, AXFR, MAILA, MAILB, or any other QUERY metatype, or any</span>
+  <span class='doccomment'>///   unrecognized type, then signal FORMERR to the requestor.  For RRs</span>
+  <span class='doccomment'>///   whose CLASS is ANY or NONE, check the TTL to see that it is zero (0),</span>
+  <span class='doccomment'>///   else signal a FORMERR to the requestor.  For any RR whose CLASS is</span>
+  <span class='doccomment'>///   ANY, check the RDLENGTH to make sure that it is zero (0) (that is,</span>
+  <span class='doccomment'>///   the RDATA field is empty), and that the TYPE is not AXFR, MAILA,</span>
+  <span class='doccomment'>///   MAILB, or any other QUERY metatype besides ANY, or any unrecognized</span>
+  <span class='doccomment'>///   type, else signal FORMERR to the requestor.</span>
+  <span class='doccomment'>/// ```</span>
+  <span class='kw'>fn</span> <span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>records</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>]) <span class='op'>-&gt;</span> <span class='ident'>UpdateResult</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='comment'>// 3.4.1.3 - Pseudocode For Update Section Prescan</span>
+    <span class='comment'>//</span>
+    <span class='comment'>//      [rr] for rr in updates</span>
+    <span class='comment'>//           if (zone_of(rr.name) != ZNAME)</span>
+    <span class='comment'>//                return (NOTZONE);</span>
+    <span class='comment'>//           if (rr.class == zclass)</span>
+    <span class='comment'>//                if (rr.type &amp; ANY|AXFR|MAILA|MAILB)</span>
+    <span class='comment'>//                     return (FORMERR)</span>
+    <span class='comment'>//           elsif (rr.class == ANY)</span>
+    <span class='comment'>//                if (rr.ttl != 0 || rr.rdlength != 0</span>
+    <span class='comment'>//                    || rr.type &amp; AXFR|MAILA|MAILB)</span>
+    <span class='comment'>//                     return (FORMERR)</span>
+    <span class='comment'>//           elsif (rr.class == NONE)</span>
+    <span class='comment'>//                if (rr.ttl != 0 || rr.type &amp; ANY|AXFR|MAILA|MAILB)</span>
+    <span class='comment'>//                     return (FORMERR)</span>
+    <span class='comment'>//           else</span>
+    <span class='comment'>//                return (FORMERR)</span>
+    <span class='kw'>for</span> <span class='ident'>rr</span> <span class='kw'>in</span> <span class='ident'>records</span> {
+      <span class='kw'>if</span> <span class='op'>!</span><span class='self'>self</span>.<span class='ident'>get_origin</span>().<span class='ident'>zone_of</span>(<span class='ident'>rr</span>.<span class='ident'>get_name</span>()) {
+        <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NotZone</span>);
+      }
+
+      <span class='kw'>let</span> <span class='ident'>class</span>: <span class='ident'>DNSClass</span> <span class='op'>=</span> <span class='ident'>rr</span>.<span class='ident'>get_dns_class</span>();
+      <span class='kw'>if</span> <span class='ident'>class</span> <span class='op'>==</span> <span class='self'>self</span>.<span class='ident'>class</span> {
+        <span class='kw'>match</span> <span class='ident'>rr</span>.<span class='ident'>get_rr_type</span>() {
+          <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>|</span> <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>|</span> <span class='ident'>RecordType</span>::<span class='ident'>IXFR</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>),
+          _ <span class='op'>=&gt;</span> (),
+        }
+      } <span class='kw'>else</span> {
+        <span class='kw'>match</span> <span class='ident'>class</span> {
+          <span class='ident'>DNSClass</span>::<span class='ident'>ANY</span> <span class='op'>=&gt;</span> {
+            <span class='kw'>if</span> <span class='ident'>rr</span>.<span class='ident'>get_ttl</span>() <span class='op'>!=</span> <span class='number'>0</span> { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>) }
+            <span class='kw'>if</span> <span class='kw'>let</span> <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>NULL</span>(..) <span class='op'>=</span> <span class='ident'>rr</span>.<span class='ident'>get_rdata</span>() { () }
+            <span class='kw'>else</span> { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>) }
+            <span class='kw'>match</span> <span class='ident'>rr</span>.<span class='ident'>get_rr_type</span>() {
+              <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>|</span> <span class='ident'>RecordType</span>::<span class='ident'>IXFR</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>),
+              _ <span class='op'>=&gt;</span> (),
+            }
+          },
+          <span class='ident'>DNSClass</span>::<span class='ident'>NONE</span> <span class='op'>=&gt;</span> {
+            <span class='kw'>if</span> <span class='ident'>rr</span>.<span class='ident'>get_ttl</span>() <span class='op'>!=</span> <span class='number'>0</span> { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>) }
+            <span class='kw'>match</span> <span class='ident'>rr</span>.<span class='ident'>get_rr_type</span>() {
+              <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>|</span> <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>|</span> <span class='ident'>RecordType</span>::<span class='ident'>IXFR</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>),
+              _ <span class='op'>=&gt;</span> (),
+            }
+          },
+          _ <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>),
+        }
+      }
+    }
+
+    <span class='kw'>return</span> <span class='prelude-val'>Ok</span>(());
+  }
+
+  <span class='doccomment'>/// Updates the specified records according to the update section.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// ```text</span>
+  <span class='doccomment'>/// RFC 2136                       DNS Update                     April 1997</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4.2.6 - Table Of Metavalues Used In Update Section</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   CLASS    TYPE     RDATA    Meaning</span>
+  <span class='doccomment'>///   ---------------------------------------------------------</span>
+  <span class='doccomment'>///   ANY      ANY      empty    Delete all RRsets from a name</span>
+  <span class='doccomment'>///   ANY      rrset    empty    Delete an RRset</span>
+  <span class='doccomment'>///   NONE     rrset    rr       Delete an RR from an RRset</span>
+  <span class='doccomment'>///   zone     rrset    rr       Add to an RRset</span>
+  <span class='doccomment'>/// ```</span>
+  <span class='kw'>fn</span> <span class='ident'>update_records</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>records</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>], <span class='ident'>serial</span>: <span class='ident'>u32</span>) <span class='op'>-&gt;</span> <span class='ident'>UpdateResult</span><span class='op'>&lt;</span><span class='ident'>bool</span><span class='op'>&gt;</span> {
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>updated</span> <span class='op'>=</span> <span class='boolval'>false</span>;
+
+    <span class='comment'>// 3.4.2.7 - Pseudocode For Update Section Processing</span>
+    <span class='comment'>//</span>
+    <span class='comment'>//      [rr] for rr in updates</span>
+    <span class='comment'>//           if (rr.class == zclass)</span>
+    <span class='comment'>//                if (rr.type == CNAME)</span>
+    <span class='comment'>//                     if (zone_rrset&lt;rr.name, ~CNAME&gt;)</span>
+    <span class='comment'>//                          next [rr]</span>
+    <span class='comment'>//                elsif (zone_rrset&lt;rr.name, CNAME&gt;)</span>
+    <span class='comment'>//                     next [rr]</span>
+    <span class='comment'>//                if (rr.type == SOA)</span>
+    <span class='comment'>//                     if (!zone_rrset&lt;rr.name, SOA&gt; ||</span>
+    <span class='comment'>//                         zone_rr&lt;rr.name, SOA&gt;.serial &gt; rr.soa.serial)</span>
+    <span class='comment'>//                          next [rr]</span>
+    <span class='comment'>//                for zrr in zone_rrset&lt;rr.name, rr.type&gt;</span>
+    <span class='comment'>//                     if (rr.type == CNAME || rr.type == SOA ||</span>
+    <span class='comment'>//                         (rr.type == WKS &amp;&amp; rr.proto == zrr.proto &amp;&amp;</span>
+    <span class='comment'>//                          rr.address == zrr.address) ||</span>
+    <span class='comment'>//                         rr.rdata == zrr.rdata)</span>
+    <span class='comment'>//                          zrr = rr</span>
+    <span class='comment'>//                          next [rr]</span>
+    <span class='comment'>//                zone_rrset&lt;rr.name, rr.type&gt; += rr</span>
+    <span class='comment'>//           elsif (rr.class == ANY)</span>
+    <span class='comment'>//                if (rr.type == ANY)</span>
+    <span class='comment'>//                     if (rr.name == zname)</span>
+    <span class='comment'>//                          zone_rrset&lt;rr.name, ~(SOA|NS)&gt; = Nil</span>
+    <span class='comment'>//                     else</span>
+    <span class='comment'>//                          zone_rrset&lt;rr.name, *&gt; = Nil</span>
+    <span class='comment'>//                elsif (rr.name == zname &amp;&amp;</span>
+    <span class='comment'>//                       (rr.type == SOA || rr.type == NS))</span>
+    <span class='comment'>//                     next [rr]</span>
+    <span class='comment'>//                else</span>
+    <span class='comment'>//                     zone_rrset&lt;rr.name, rr.type&gt; = Nil</span>
+    <span class='comment'>//           elsif (rr.class == NONE)</span>
+    <span class='comment'>//                if (rr.type == SOA)</span>
+    <span class='comment'>//                     next [rr]</span>
+    <span class='comment'>//                if (rr.type == NS &amp;&amp; zone_rrset&lt;rr.name, NS&gt; == rr)</span>
+    <span class='comment'>//                     next [rr]</span>
+    <span class='comment'>//                zone_rr&lt;rr.name, rr.type, rr.data&gt; = Nil</span>
+    <span class='comment'>//      return (NOERROR)</span>
+    <span class='kw'>for</span> <span class='ident'>rr</span> <span class='kw'>in</span> <span class='ident'>records</span> {
+      <span class='kw'>let</span> <span class='ident'>rr_key</span> <span class='op'>=</span> <span class='ident'>RrKey</span>::<span class='ident'>new</span>(<span class='ident'>rr</span>.<span class='ident'>get_name</span>(), <span class='ident'>rr</span>.<span class='ident'>get_rr_type</span>());
+
+      <span class='kw'>match</span> <span class='ident'>rr</span>.<span class='ident'>get_dns_class</span>() {
+        <span class='ident'>class</span> <span class='kw-2'>@</span> _ <span class='kw'>if</span> <span class='ident'>class</span> <span class='op'>==</span> <span class='self'>self</span>.<span class='ident'>class</span> <span class='op'>=&gt;</span> {
+          <span class='comment'>// RFC 2136 - 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to</span>
+          <span class='comment'>//  the zone.  In case of duplicate RDATAs (which for SOA RRs is always</span>
+          <span class='comment'>//  the case, and for WKS RRs is the case if the ADDRESS and PROTOCOL</span>
+          <span class='comment'>//  fields both match), the Zone RR is replaced by Update RR.  If the</span>
+          <span class='comment'>//  TYPE is SOA and there is no Zone SOA RR, or the new SOA.SERIAL is</span>
+          <span class='comment'>//  lower (according to [RFC1982]) than or equal to the current Zone SOA</span>
+          <span class='comment'>//  RR&#39;s SOA.SERIAL, the Update RR is ignored.  In the case of a CNAME</span>
+          <span class='comment'>//  Update RR and a non-CNAME Zone RRset or vice versa, ignore the CNAME</span>
+          <span class='comment'>//  Update RR, otherwise replace the CNAME Zone RR with the CNAME Update</span>
+          <span class='comment'>//  RR.</span>
+
+          <span class='comment'>// zone     rrset    rr       Add to an RRset</span>
+          <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;upserting record: {:?}&quot;</span>, <span class='ident'>rr</span>);
+          <span class='ident'>updated</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>upsert</span>(<span class='ident'>rr</span>.<span class='ident'>clone</span>(), <span class='ident'>serial</span>) <span class='op'>||</span> <span class='ident'>updated</span>;
+        },
+        <span class='ident'>DNSClass</span>::<span class='ident'>ANY</span> <span class='op'>=&gt;</span> {
+          <span class='comment'>// This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:</span>
+          <span class='kw'>match</span> <span class='ident'>rr</span>.<span class='ident'>get_rr_type</span>() {
+            <span class='ident'>t</span> <span class='kw-2'>@</span> <span class='ident'>RecordType</span>::<span class='ident'>SOA</span> <span class='op'>|</span> <span class='ident'>t</span> <span class='kw-2'>@</span> <span class='ident'>RecordType</span>::<span class='ident'>NS</span> <span class='kw'>if</span> <span class='ident'>rr</span>.<span class='ident'>get_name</span>() <span class='op'>==</span> <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>origin</span> <span class='op'>=&gt;</span> {
+              <span class='comment'>// SOA and NS records are not to be deleted if they are the origin records</span>
+              <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;skipping delete of {:?} see RFC 2136 - 3.4.2.3&quot;</span>, <span class='ident'>t</span>);
+              <span class='kw'>continue</span>;
+            },
+            <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>=&gt;</span> {
+              <span class='comment'>// RFC 2136 - 3.4.2.3. For any Update RR whose CLASS is ANY and whose TYPE is ANY,</span>
+              <span class='comment'>//   all Zone RRs with the same NAME are deleted, unless the NAME is the</span>
+              <span class='comment'>//   same as ZNAME in which case only those RRs whose TYPE is other than</span>
+              <span class='comment'>//   SOA or NS are deleted.</span>
+
+              <span class='comment'>// ANY      ANY      empty    Delete all RRsets from a name</span>
+              <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;deleting all records at name (not SOA or NS at origin): {:?}&quot;</span>, <span class='ident'>rr</span>.<span class='ident'>get_name</span>());
+              <span class='kw'>let</span> <span class='ident'>to_delete</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>records</span>.<span class='ident'>keys</span>().<span class='ident'>filter</span>(<span class='op'>|</span><span class='ident'>k</span><span class='op'>|</span> <span class='op'>!</span>((<span class='ident'>k</span>.<span class='ident'>record_type</span> <span class='op'>==</span> <span class='ident'>RecordType</span>::<span class='ident'>SOA</span> <span class='op'>||</span>
+                                                                <span class='ident'>k</span>.<span class='ident'>record_type</span> <span class='op'>==</span> <span class='ident'>RecordType</span>::<span class='ident'>NS</span>) <span class='op'>&amp;&amp;</span>
+                                                               <span class='ident'>k</span>.<span class='ident'>name</span> <span class='op'>!=</span> <span class='self'>self</span>.<span class='ident'>origin</span>))
+                                                 .<span class='ident'>filter</span>(<span class='op'>|</span><span class='ident'>k</span><span class='op'>|</span> <span class='kw-2'>&amp;</span><span class='ident'>k</span>.<span class='ident'>name</span> <span class='op'>==</span> <span class='ident'>rr</span>.<span class='ident'>get_name</span>())
+                                                 .<span class='ident'>cloned</span>()
+                                                 .<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>RrKey</span><span class='op'>&gt;&gt;</span>();
+              <span class='kw'>for</span> <span class='ident'>delete</span> <span class='kw'>in</span> <span class='ident'>to_delete</span> {
+                <span class='self'>self</span>.<span class='ident'>records</span>.<span class='ident'>remove</span>(<span class='kw-2'>&amp;</span><span class='ident'>delete</span>);
+                <span class='ident'>updated</span> <span class='op'>=</span> <span class='boolval'>true</span>;
+              }
+            },
+            _ <span class='op'>=&gt;</span> {
+              <span class='comment'>// RFC 2136 - 3.4.2.3. For any Update RR whose CLASS is ANY and</span>
+              <span class='comment'>//   whose TYPE is not ANY all Zone RRs with the same NAME and TYPE are</span>
+              <span class='comment'>//   deleted, unless the NAME is the same as ZNAME in which case neither</span>
+              <span class='comment'>//   SOA or NS RRs will be deleted.</span>
+
+              <span class='comment'>// ANY      rrset    empty    Delete an RRset</span>
+              <span class='kw'>if</span> <span class='kw'>let</span> <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>NULL</span>( .. ) <span class='op'>=</span> <span class='ident'>rr</span>.<span class='ident'>get_rdata</span>() {
+                <span class='kw'>let</span> <span class='ident'>deleted</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>records</span>.<span class='ident'>remove</span>(<span class='kw-2'>&amp;</span><span class='ident'>rr_key</span>);
+                <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;deleted rrset: {:?}&quot;</span>, <span class='ident'>deleted</span>);
+              } <span class='kw'>else</span> {
+                <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;expected empty rdata: {:?}&quot;</span>, <span class='ident'>rr</span>);
+                <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>)
+              }
+            }
+          }
+        },
+        <span class='ident'>DNSClass</span>::<span class='ident'>NONE</span> <span class='op'>=&gt;</span> {
+          <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;deleting specific record: {:?}&quot;</span>, <span class='ident'>rr</span>);
+          <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;deleting specific record: {:?}&quot;</span>, <span class='ident'>rr</span>);
+          <span class='comment'>// NONE     rrset    rr       Delete an RR from an RRset</span>
+          <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>rrset</span>) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>records</span>.<span class='ident'>get_mut</span>(<span class='kw-2'>&amp;</span><span class='ident'>rr_key</span>) {
+            <span class='kw'>let</span> <span class='ident'>deleted</span> <span class='op'>=</span> <span class='ident'>rrset</span>.<span class='ident'>remove</span>(<span class='ident'>rr</span>, <span class='ident'>serial</span>);
+            <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;deleted ({}) specific record: {:?}&quot;</span>, <span class='ident'>deleted</span>, <span class='ident'>rr</span>);
+            <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;deleted ({}) specific record: {:?}&quot;</span>, <span class='ident'>deleted</span>, <span class='ident'>rr</span>);
+            <span class='ident'>updated</span> <span class='op'>=</span> <span class='ident'>updated</span> <span class='op'>||</span> <span class='ident'>deleted</span>;
+          }
+        },
+        <span class='ident'>class</span> <span class='kw-2'>@</span> _ <span class='op'>=&gt;</span> {
+          <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;unexpected DNS Class: {:?}&quot;</span>, <span class='ident'>class</span>);
+          <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>)
+        }
+      }
+    }
+
+    <span class='prelude-val'>Ok</span>(<span class='ident'>updated</span>)
+  }
+
+  <span class='doccomment'>/// Inserts or updates a `Record` depending on it&#39;s existence in the authority.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// Guarantees that SOA, CNAME only has one record, will implicitly update if they already exist.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `record` - The `Record` to be inserted or updated.</span>
+  <span class='doccomment'>/// * `serial` - Current serial number to be recorded against updates.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Return value</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// Ok() on success or Err() with the `ResponseCode` associated with the error.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>upsert</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>record</span>: <span class='ident'>Record</span>, <span class='ident'>serial</span>: <span class='ident'>u32</span>) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>class</span>, <span class='ident'>record</span>.<span class='ident'>get_dns_class</span>());
+
+    <span class='kw'>let</span> <span class='ident'>rr_key</span> <span class='op'>=</span> <span class='ident'>RrKey</span>::<span class='ident'>new</span>(<span class='ident'>record</span>.<span class='ident'>get_name</span>(), <span class='ident'>record</span>.<span class='ident'>get_rr_type</span>());
+    <span class='kw'>let</span> <span class='ident'>records</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>RRSet</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>records</span>.<span class='ident'>entry</span>(<span class='ident'>rr_key</span>).<span class='ident'>or_insert</span>(<span class='ident'>RRSet</span>::<span class='ident'>new</span>(<span class='ident'>record</span>.<span class='ident'>get_name</span>(), <span class='ident'>record</span>.<span class='ident'>get_rr_type</span>(), <span class='ident'>serial</span>));
+
+    <span class='ident'>records</span>.<span class='ident'>insert</span>(<span class='ident'>record</span>, <span class='ident'>serial</span>)
+  }
+
+  <span class='doccomment'>/// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// ```text</span>
+  <span class='doccomment'>/// RFC 2136                       DNS Update                     April 1997</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4 - Process Update Section</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   Next, the Update Section is processed as follows.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4.2 - Update</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   The Update Section is parsed into RRs and these RRs are processed in</span>
+  <span class='doccomment'>///   order.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4.2.1. If any system failure (such as an out of memory condition,</span>
+  <span class='doccomment'>///   or a hardware error in persistent storage) occurs during the</span>
+  <span class='doccomment'>///   processing of this section, signal SERVFAIL to the requestor and undo</span>
+  <span class='doccomment'>///   all updates applied to the zone during this transaction.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to</span>
+  <span class='doccomment'>///   the zone.  In case of duplicate RDATAs (which for SOA RRs is always</span>
+  <span class='doccomment'>///   the case, and for WKS RRs is the case if the ADDRESS and PROTOCOL</span>
+  <span class='doccomment'>///   fields both match), the Zone RR is replaced by Update RR.  If the</span>
+  <span class='doccomment'>///   TYPE is SOA and there is no Zone SOA RR, or the new SOA.SERIAL is</span>
+  <span class='doccomment'>///   lower (according to [RFC1982]) than or equal to the current Zone SOA</span>
+  <span class='doccomment'>///   RR&#39;s SOA.SERIAL, the Update RR is ignored.  In the case of a CNAME</span>
+  <span class='doccomment'>///   Update RR and a non-CNAME Zone RRset or vice versa, ignore the CNAME</span>
+  <span class='doccomment'>///   Update RR, otherwise replace the CNAME Zone RR with the CNAME Update</span>
+  <span class='doccomment'>///   RR.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4.2.3. For any Update RR whose CLASS is ANY and whose TYPE is ANY,</span>
+  <span class='doccomment'>///   all Zone RRs with the same NAME are deleted, unless the NAME is the</span>
+  <span class='doccomment'>///   same as ZNAME in which case only those RRs whose TYPE is other than</span>
+  <span class='doccomment'>///   SOA or NS are deleted.  For any Update RR whose CLASS is ANY and</span>
+  <span class='doccomment'>///   whose TYPE is not ANY all Zone RRs with the same NAME and TYPE are</span>
+  <span class='doccomment'>///   deleted, unless the NAME is the same as ZNAME in which case neither</span>
+  <span class='doccomment'>///   SOA or NS RRs will be deleted.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4.2.4. For any Update RR whose class is NONE, any Zone RR whose</span>
+  <span class='doccomment'>///   NAME, TYPE, RDATA and RDLENGTH are equal to the Update RR is deleted,</span>
+  <span class='doccomment'>///   unless the NAME is the same as ZNAME and either the TYPE is SOA or</span>
+  <span class='doccomment'>///   the TYPE is NS and the matching Zone RR is the only NS remaining in</span>
+  <span class='doccomment'>///   the RRset, in which case this Update RR is ignored.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.4.2.5. Signal NOERROR to the requestor.</span>
+  <span class='doccomment'>/// ```</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `update` - The `UpdateMessage` records will be extracted and used to perform the update</span>
+  <span class='doccomment'>///              actions as specified in the above RFC.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Return value</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// Ok() on success or Err() with the `ResponseCode` associated with the error.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>update</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>update</span>: <span class='kw-2'>&amp;</span><span class='ident'>UpdateMessage</span>) <span class='op'>-&gt;</span> <span class='ident'>UpdateResult</span><span class='op'>&lt;</span>()<span class='op'>&gt;</span> {
+    <span class='comment'>// the spec says to authorize after prereqs, seems better to auth first.</span>
+    <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>authorize</span>(<span class='ident'>update</span>));
+    <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>verify_prerequisites</span>(<span class='ident'>update</span>.<span class='ident'>get_pre_requisites</span>()));
+    <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>pre_scan</span>(<span class='ident'>update</span>.<span class='ident'>get_updates</span>()));
+
+    <span class='kw'>let</span> <span class='ident'>serial</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_soa</span>().<span class='ident'>map_or</span>(<span class='number'>0</span>, <span class='op'>|</span><span class='ident'>r</span><span class='op'>|</span> <span class='kw'>if</span> <span class='kw'>let</span> <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>SOA</span> (<span class='kw-2'>ref</span> <span class='ident'>soa</span>) <span class='op'>=</span> <span class='ident'>r</span>.<span class='ident'>get_rdata</span>() { <span class='ident'>soa</span>.<span class='ident'>get_serial</span>() } <span class='kw'>else</span> { <span class='number'>0</span> });
+
+    <span class='comment'>// TODO at this point, we&#39;ve accepted the updates, we should write</span>
+    <span class='comment'>//  to a write-ahead-log (journal) and then commit to memory.</span>
+    <span class='kw'>if</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>update_records</span>(<span class='ident'>update</span>.<span class='ident'>get_updates</span>(), <span class='ident'>serial</span>)) {
+      <span class='comment'>// need to resign any records at the current serial number and bump the number.</span>
+      <span class='comment'>// first bump the serial number on the SOA, so that it is resigned with the new serial.</span>
+      <span class='self'>self</span>.<span class='ident'>increment_soa_serial</span>();
+      <span class='self'>self</span>.<span class='ident'>sign_zone</span>();
+    }
+    <span class='prelude-val'>Ok</span>(())
+  }
+
+  <span class='doccomment'>/// Looks up all Resource Records matching the giving `Name` and `RecordType`.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `name` - The `Name`, label, to lookup.</span>
+  <span class='doccomment'>/// * `rtype` - The `RecordType`, to lookup. `RecordType::ANY` will return all records matching</span>
+  <span class='doccomment'>///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`</span>
+  <span class='doccomment'>///             due to the requirements that on zone transfers the `RecordType::SOA` must both</span>
+  <span class='doccomment'>///             preceed and follow all other records.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Return value</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// None if there are no matching records, otherwise a `Vec` containing the found records.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='kw-2'>&amp;</span><span class='ident'>Name</span>, <span class='ident'>rtype</span>: <span class='ident'>RecordType</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;&gt;</span> {
+    <span class='comment'>// on an SOA request always return the SOA, regardless of the name</span>
+    <span class='kw'>let</span> <span class='ident'>name</span>: <span class='kw-2'>&amp;</span><span class='ident'>Name</span> <span class='op'>=</span> <span class='kw'>if</span> <span class='ident'>rtype</span> <span class='op'>==</span> <span class='ident'>RecordType</span>::<span class='ident'>SOA</span> { <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>origin</span> } <span class='kw'>else</span> { <span class='ident'>name</span> };
+    <span class='kw'>let</span> <span class='ident'>rr_key</span> <span class='op'>=</span> <span class='ident'>RrKey</span>::<span class='ident'>new</span>(<span class='ident'>name</span>, <span class='ident'>rtype</span>);
+
+    <span class='comment'>// Collect the records from each rr_set</span>
+    <span class='kw'>let</span> <span class='ident'>result</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='kw'>match</span> <span class='ident'>rtype</span> {
+      <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>|</span> <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>=&gt;</span> {
+        <span class='self'>self</span>.<span class='ident'>records</span>.<span class='ident'>values</span>().<span class='ident'>filter</span>(<span class='op'>|</span><span class='ident'>rr_set</span><span class='op'>|</span> <span class='ident'>rtype</span> <span class='op'>==</span> <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>||</span> <span class='ident'>rr_set</span>.<span class='ident'>get_record_type</span>() <span class='op'>!=</span> <span class='ident'>RecordType</span>::<span class='ident'>SOA</span>)
+                             .<span class='ident'>filter</span>(<span class='op'>|</span><span class='ident'>rr_set</span><span class='op'>|</span> <span class='ident'>rtype</span> <span class='op'>==</span> <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>||</span> <span class='ident'>rr_set</span>.<span class='ident'>get_name</span>() <span class='op'>==</span> <span class='ident'>name</span>)
+                             .<span class='ident'>fold</span>(<span class='ident'>Vec</span>::<span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;</span>::<span class='ident'>new</span>(), <span class='op'>|</span><span class='kw-2'>mut</span> <span class='ident'>vec</span>, <span class='ident'>rr_set</span><span class='op'>|</span> {
+                               <span class='ident'>vec</span>.<span class='ident'>append</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>rr_set</span>.<span class='ident'>get_records</span>().<span class='ident'>into_iter</span>().<span class='ident'>collect</span>());
+                               <span class='ident'>vec</span>
+                             })
+      },
+      _ <span class='op'>=&gt;</span> {
+        <span class='self'>self</span>.<span class='ident'>records</span>.<span class='ident'>get</span>(<span class='kw-2'>&amp;</span><span class='ident'>rr_key</span>).<span class='ident'>map_or</span>(<span class='macro'>vec</span><span class='macro'>!</span>[], <span class='op'>|</span><span class='ident'>rr_set</span><span class='op'>|</span> <span class='ident'>rr_set</span>.<span class='ident'>get_records</span>().<span class='ident'>into_iter</span>().<span class='ident'>collect</span>())
+      }
+    };
+
+    <span class='comment'>// TODO: change function signature to be non-optional</span>
+    <span class='kw'>if</span> <span class='ident'>result</span>.<span class='ident'>is_empty</span>() { <span class='prelude-val'>None</span> } <span class='kw'>else</span> { <span class='prelude-val'>Some</span>(<span class='ident'>result</span>) }
+  }
+
+  <span class='doccomment'>/// Signs any records in the zone that have serial numbers greater than or equal to `serial`</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `serial` - The serial to which the serial number of an `RRSet` should be compared. If the</span>
+  <span class='doccomment'>///              record set serial is greater than or equal to the `serial`, then it will be</span>
+  <span class='doccomment'>///              resigned.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>sign_zone</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) {
+    <span class='kw'>let</span> <span class='ident'>now</span> <span class='op'>=</span> <span class='ident'>UTC</span>::<span class='ident'>now</span>().<span class='ident'>timestamp</span>() <span class='kw'>as</span> <span class='ident'>u32</span>;
+    <span class='kw'>let</span> <span class='ident'>zone_ttl</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_soa</span>()
+                       .<span class='ident'>map_or</span>(<span class='number'>0</span>, <span class='op'>|</span><span class='ident'>soa_rec</span><span class='op'>|</span> <span class='kw'>if</span> <span class='kw'>let</span> <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>SOA</span>(<span class='kw-2'>ref</span> <span class='ident'>soa</span>) <span class='op'>=</span> <span class='ident'>soa_rec</span>.<span class='ident'>get_rdata</span>() { <span class='ident'>soa</span>.<span class='ident'>get_minimum</span>() }
+                                            <span class='kw'>else</span> { <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;SOA has no RDATA: {}&quot;</span>, <span class='self'>self</span>.<span class='ident'>origin</span>) } );
+
+    <span class='kw'>for</span> <span class='ident'>rr_set</span> <span class='kw'>in</span> <span class='self'>self</span>.<span class='ident'>records</span>.<span class='ident'>iter_mut</span>().<span class='ident'>filter_map</span>(<span class='op'>|</span>(_, <span class='ident'>rr_set</span>)<span class='op'>|</span> { <span class='ident'>rr_set</span>.<span class='ident'>get_rrsigs</span>().<span class='ident'>is_empty</span>();
+                                                                     <span class='prelude-val'>Some</span>(<span class='ident'>rr_set</span>) } ) {
+      <span class='kw'>let</span> <span class='ident'>rrsig_temp</span> <span class='op'>=</span> <span class='ident'>Record</span>::<span class='ident'>with</span>(<span class='ident'>rr_set</span>.<span class='ident'>get_name</span>().<span class='ident'>clone</span>(), <span class='ident'>RecordType</span>::<span class='ident'>RRSIG</span>, <span class='ident'>zone_ttl</span>);
+
+      <span class='kw'>for</span> <span class='ident'>signer</span> <span class='kw'>in</span> <span class='self'>self</span>.<span class='ident'>secure_keys</span>.<span class='ident'>iter</span>() {
+        <span class='kw'>let</span> <span class='ident'>hash</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>hash_rrset</span>(<span class='ident'>rr_set</span>.<span class='ident'>get_name</span>(),
+                                     <span class='self'>self</span>.<span class='ident'>class</span>,
+                                     <span class='ident'>rr_set</span>.<span class='ident'>get_name</span>().<span class='ident'>num_labels</span>(),
+                                     <span class='ident'>rr_set</span>.<span class='ident'>get_record_type</span>(),
+                                     <span class='ident'>signer</span>.<span class='ident'>get_algorithm</span>(),
+                                     <span class='ident'>rr_set</span>.<span class='ident'>get_ttl</span>(),
+                                     <span class='ident'>signer</span>.<span class='ident'>get_expiration</span>(),
+                                     <span class='ident'>now</span>,
+                                     <span class='ident'>signer</span>.<span class='ident'>calculate_key_tag</span>(),
+                                     <span class='ident'>signer</span>.<span class='ident'>get_signer_name</span>(),
+                                     <span class='ident'>rr_set</span>.<span class='ident'>get_records</span>());
+        <span class='kw'>let</span> <span class='ident'>signature</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>sign</span>(<span class='kw-2'>&amp;</span><span class='ident'>hash</span>);
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>rrsig</span> <span class='op'>=</span> <span class='ident'>rrsig_temp</span>.<span class='ident'>clone</span>();
+        <span class='ident'>rrsig</span>.<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>SIG</span>(<span class='ident'>SIG</span>::<span class='ident'>new</span>(
+          <span class='comment'>// type_covered: RecordType,</span>
+          <span class='ident'>rr_set</span>.<span class='ident'>get_record_type</span>(),
+          <span class='comment'>// algorithm: Algorithm,</span>
+          <span class='ident'>signer</span>.<span class='ident'>get_algorithm</span>(),
+          <span class='comment'>// num_labels: u8,</span>
+          <span class='ident'>rr_set</span>.<span class='ident'>get_name</span>().<span class='ident'>num_labels</span>(),
+          <span class='comment'>// original_ttl: u32,</span>
+          <span class='ident'>rr_set</span>.<span class='ident'>get_ttl</span>(),
+          <span class='comment'>// sig_expiration: u32,</span>
+          <span class='ident'>signer</span>.<span class='ident'>get_expiration</span>(),
+          <span class='comment'>// sig_inception: u32,</span>
+          <span class='ident'>now</span>,
+          <span class='comment'>// key_tag: u16,</span>
+          <span class='ident'>signer</span>.<span class='ident'>calculate_key_tag</span>(),
+          <span class='comment'>// signer_name: Name,</span>
+          <span class='ident'>signer</span>.<span class='ident'>get_signer_name</span>().<span class='ident'>clone</span>(),
+          <span class='comment'>// sig: Vec&lt;u8&gt;</span>
+          <span class='ident'>signature</span>,
+        )));
+      }
+    }
+  }
+}
+
+<span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>test</span>)]</span>
+<span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>authority_tests</span> {
+  <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>collections</span>::<span class='ident'>HashMap</span>;
+  <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>net</span>::{<span class='ident'>Ipv4Addr</span>,<span class='ident'>Ipv6Addr</span>};
+
+  <span class='kw'>use</span> ::<span class='ident'>authority</span>::<span class='ident'>ZoneType</span>;
+  <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='op'>*</span>;
+  <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>rdata</span>::{ <span class='ident'>NULL</span>, <span class='ident'>SOA</span>, <span class='ident'>TXT</span> };
+  <span class='kw'>use</span> ::<span class='ident'>op</span>::<span class='op'>*</span>;
+  <span class='kw'>use</span> <span class='ident'>super</span>::<span class='op'>*</span>;
+
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>create_example</span>() <span class='op'>-&gt;</span> <span class='ident'>Authority</span> {
+    <span class='kw'>let</span> <span class='ident'>origin</span>: <span class='ident'>Name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;example.com.&quot;</span>, <span class='prelude-val'>None</span>,).<span class='ident'>unwrap</span>();
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>records</span>: <span class='ident'>Authority</span> <span class='op'>=</span> <span class='ident'>Authority</span>::<span class='ident'>new</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>(), <span class='ident'>HashMap</span>::<span class='ident'>new</span>(), <span class='ident'>ZoneType</span>::<span class='ident'>Master</span>, <span class='boolval'>false</span>);
+    <span class='comment'>// example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600</span>
+    <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>3600</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>SOA</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>SOA</span>(<span class='ident'>SOA</span>::<span class='ident'>new</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;sns.dns.icann.org.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>(), <span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;noc.dns.icann.org.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>(), <span class='number'>2015082403</span>, <span class='number'>7200</span>, <span class='number'>3600</span>, <span class='number'>1209600</span>, <span class='number'>3600</span> ))).<span class='ident'>clone</span>(), <span class='number'>0</span>);
+
+    <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;a.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>(), <span class='number'>0</span>);
+    <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;b.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>(), <span class='number'>0</span>);
+
+    <span class='comment'>// example.com.		60	IN	TXT	&quot;v=spf1 -all&quot;</span>
+    <span class='comment'>//records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec![&quot;v=spf1 -all&quot;.to_string()] }).clone());</span>
+    <span class='comment'>// example.com.		60	IN	TXT	&quot;$Id: example.com 4415 2015-08-24 20:12:23Z davids $&quot;</span>
+    <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>60</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>TXT</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>TXT</span>(<span class='ident'>TXT</span>::<span class='ident'>new</span>(<span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;$Id: example.com 4415 2015-08-24 20:12:23Z davids $&quot;</span>.<span class='ident'>to_string</span>()]))).<span class='ident'>clone</span>(), <span class='number'>0</span>);
+
+    <span class='comment'>// example.com.		86400	IN	A	93.184.216.34</span>
+    <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>34</span>))).<span class='ident'>clone</span>(), <span class='number'>0</span>);
+
+    <span class='comment'>// example.com.		86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946</span>
+    <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>AAAA</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>AAAA</span>(<span class='ident'>Ipv6Addr</span>::<span class='ident'>new</span>(<span class='number'>0x2606</span>,<span class='number'>0x2800</span>,<span class='number'>0x220</span>,<span class='number'>0x1</span>,<span class='number'>0x248</span>,<span class='number'>0x1893</span>,<span class='number'>0x25c8</span>,<span class='number'>0x1946</span>))).<span class='ident'>clone</span>(), <span class='number'>0</span>);
+
+    <span class='comment'>// TODO support these later...</span>
+
+    <span class='comment'>// example.com.		3600	IN	RRSIG	NSEC 8 2 3600 20150926015219 20150905040848 54108 example.com. d0AXd6QRITqLeiYbQUlJ5O0Og9tSjk7IlxQr9aJO+r+rc1g0dW9i9OCc XXQxdC1/zyubecjD6kSs3vwxzzEEupivaKHKtNPXdnDZ5UUiaIC1VU9l 9h/ik+AR4rCTY6dYPCI6lafD/TlqQLbpEnb34ywkRpl5G3pasPrwEY7b nrAndEY=</span>
+    <span class='comment'>// example.com.		3600	IN	NSEC	www.example.com. A NS SOA TXT AAAA RRSIG NSEC DNSKEY</span>
+    <span class='comment'>// example.com.		86400	IN	RRSIG	NS 8 2 86400 20150915033148 20150824191224 54108 example.com. O2TCB5/v/b1XGlTQEj0/oGKp7dTueQ7zRmCtADDEDWrzLdWrKcmDGF37 mgKejcAlSYVhWLxyLlet7KqJhLu+oQcDTNf/BT3vNX/Ivx3sKhUUMpfi 8Mn5zhRqM9gbzZVCS/toJIYqOBqvAkS7UpkmpLzl0Zt2h4j0Gp/8GwRb ZU67l6M=</span>
+    <span class='comment'>// example.com.		86400	IN	RRSIG	AAAA 8 2 86400 20150914212400 20150824191224 54108 example.com. AHd2BDNjtg4jPRQwyT4FHtlVTZDZ6IIusYVGCzWfnt5SZOoizyXnJhqX 44MeVTqi1/2cskpKvRkK3bkYnVUcjZiFgSaa9xJHmXrslaTr5mOmXt9s 6k95N1daYKhDKKcr0M4TXLUgdnBr+/pMFiLsyOoDb8GJDT8Llmpk52Ie ysJX8BY=</span>
+    <span class='comment'>// example.com.		86400	IN	RRSIG	A 8 2 86400 20150914083326 20150824191224 54108 example.com. La1p2R7GPMrXEm3kcznSJ70sOspmfSDsgOZ74GlzgaFfMRveA20IDUnZ /HI9M95/tBWbHdHBtm9aCK+4n7EluhNPTAT1+88V6xK7Lc7pcBfBXIHg DAdUoj26VIh7NRml/0QR0dFu4PriA/wLNe+d1Q961qf0JZP80TU4IMBC X/W6Ijk=</span>
+    <span class='comment'>// example.com.		60	IN	RRSIG	TXT 8 2 60 20150914201612 20150824191224 54108 example.com. Be/bPvaVVK/o66QOHJZMFBDCQVhP44jptS9sZe8Vpfmzd72/v+1gwn1z u2+xisePSpAMtDZsFJgqsCjpbLFvmhNdh8ktlq/kuCME5hZs7qY7DZIB VwkSTsJPIq8qhX22clfIbqzaypuIX9ajWr+5i0nGQLNekMB07t4/GCoJ q5QpQoE=</span>
+    <span class='comment'>// example.com.		3600	IN	RRSIG	DNSKEY 8 2 3600 20150914090528 20150824071818 31406 example.com. rZJRBwHhYzCDwkDEXqECHNWezTNj2A683I/yHHqD1j9ytGHGskGEEyJC i5fk70YCm64GqDYKu70kgv7hCFqc4OM3aD88QDe3L4Uv7ZXqouNbjTEO 3BEBI13GetRkK5qLndl30Y/urOBASQFELQUJsvQBR2gJMdQsb6G0mHIW rubY2SxAGa9rQW7yehRQNK4ME37FqINBDuIV9o7kULPhn9Ux1Qx62prd 9nikzamGxFL+9dFDOfnYVw2C/OgGJNIXh5QyKMG4qXmXb6sB/V3P+FE+ +vkt3RToE2xPN5bf1vVIlEJof6LtojrowwnZpiphTXFJF/BJrgiotGt3 Gsd8Cw==</span>
+    <span class='comment'>// example.com.		3600	IN	DNSKEY	256 3 8 AwEAAcZMEndf6/+kG6Dp7re/grJ9f5CP5bQplBGokyxbM4oPNeBfWMIC +xY+ICgTyJarVB4aPYNMV7znsHM4XwU8hfpZ3ZcmT+69KyGqs+tt2pc/ si30dnUpPo/AMnN7Kul2SgqT9g1bb5O0D/CH2txo6YXr/BbuNHLqAh/x mof1QYkl6GoP</span>
+    <span class='comment'>// example.com.		3600	IN	DNSKEY	256 3 8 AwEAAeZFCLkW/sztmJmpmZo/udvAyqshiLO34zHzzkVPrhuUBA/xb3wk YeCvMO6iBxCD+/Dk7fWEAT1NR21bDKHySVHE5cre+fqnXI+9NCjkMoBE 193j8G5HscIpWpG1qgkelBhmucfUPv+R4AIhpfjc352eh1q/SniYUGR4 fytlDZVXCLhL</span>
+    <span class='comment'>// example.com.		3600	IN	DNSKEY	257 3 8 AwEAAbOFAxl+Lkt0UMglZizKEC1AxUu8zlj65KYatR5wBWMrh18TYzK/ ig6Y1t5YTWCO68bynorpNu9fqNFALX7bVl9/gybA0v0EhF+dgXmoUfRX 7ksMGgBvtfa2/Y9a3klXNLqkTszIQ4PEMVCjtryl19Be9/PkFeC9ITjg MRQsQhmB39eyMYnal+f3bUxKk4fq7cuEU0dbRpue4H/N6jPucXWOwiMA kTJhghqgy+o9FfIp+tR/emKao94/wpVXDcPf5B18j7xz2SvTTxiuqCzC MtsxnikZHcoh1j4g+Y1B8zIMIvrEM+pZGhh/Yuf4RwCBgaYCi9hpiMWV vS4WBzx0/lU=</span>
+    <span class='comment'>// example.com.		3600	IN	RRSIG	SOA 8 2 3600 20150926132522 20150905040848 54108 example.com. q8psdDPaJVo9KPVgMNR2N1by3LMEci+3HyTmN/Xv3DgDFG5MqNlX9Dfj dUBIMbvYmkUUPQ9fIWYA+ldmDHiRBiHIcvvk/LYD8mODWL6RoF+GEsW0 zm43RNBnbE41wtNrch5WU/q1ko2svB98ooqePWWuFzmdyPpidtLCgSCz FCiCiVQ=</span>
+
+    <span class='comment'>// www</span>
+    <span class='kw'>let</span> <span class='ident'>www_name</span>: <span class='ident'>Name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;www.example.com.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>();
+
+    <span class='comment'>// www.example.com.	86400	IN	TXT	&quot;v=spf1 -all&quot;</span>
+    <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>TXT</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>TXT</span>(<span class='ident'>TXT</span>::<span class='ident'>new</span>(<span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;v=spf1 -all&quot;</span>.<span class='ident'>to_string</span>()]))).<span class='ident'>clone</span>(), <span class='number'>0</span>);
+
+    <span class='comment'>// www.example.com.	86400	IN	A	93.184.216.34</span>
+    <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>34</span>))).<span class='ident'>clone</span>(), <span class='number'>0</span>);
+
+    <span class='comment'>// www.example.com.	86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946</span>
+    <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>AAAA</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>AAAA</span>(<span class='ident'>Ipv6Addr</span>::<span class='ident'>new</span>(<span class='number'>0x2606</span>,<span class='number'>0x2800</span>,<span class='number'>0x220</span>,<span class='number'>0x1</span>,<span class='number'>0x248</span>,<span class='number'>0x1893</span>,<span class='number'>0x25c8</span>,<span class='number'>0x1946</span>))).<span class='ident'>clone</span>(), <span class='number'>0</span>);
+
+    <span class='comment'>// www.example.com.	3600	IN	RRSIG	NSEC 8 3 3600 20150925215757 20150905040848 54108 example.com. ZKIVt1IN3O1FWZPSfrQAH7nHt7RUFDjcbh7NxnEqd/uTGCnZ6SrAEgrY E9GMmBwvRjoucphGtjkYOpPJPe5MlnTHoYCjxL4qmG3LsD2KD0bfPufa ibtlQZRrPglxZ92hBKK3ZiPnPRe7I9yni2UQSQA7XDi7CQySYyo490It AxdXjAo=</span>
+    <span class='comment'>// www.example.com.	3600	IN	NSEC	example.com. A TXT AAAA RRSIG NSEC</span>
+    <span class='comment'>// www.example.com.	86400	IN	RRSIG	TXT 8 3 86400 20150914142952 20150824191224 54108 example.com. LvODnPb7NLDZfHPBOrr/qLnOKA670vVYKQSk5Qkz3MPNKDVAFJqsP2Y6 UYcypSJZfcSjfIk2mU9dUiansU2ZL80OZJUsUobqJt5De748ovITYDJ7 afbohQzPg+4E1GIWMkJZ/VQD3B2pmr7J5rPn+vejxSQSoI93AIQaTpCU L5O/Bac=</span>
+    <span class='comment'>// www.example.com.	86400	IN	RRSIG	AAAA 8 3 86400 20150914082216 20150824191224 54108 example.com. kje4FKE+7d/j4OzWQelcKkePq6DxCRY/5btAiUcZNf+zVNlHK+o57h1r Y76ZviWChQB8Np2TjA1DrXGi/kHr2KKE60H5822mFZ2b9O+sgW4q6o3G kO2E1CQxbYe+nI1Z8lVfjdCNm81zfvYqDjo2/tGqagehxG1V9MBZO6br 4KKdoa4=</span>
+    <span class='comment'>// www.example.com.	86400	IN	RRSIG	A 8 3 86400 20150915023456 20150824191224 54108 example.com. cWtw0nMvcXcYNnxejB3Le3KBfoPPQZLmbaJ8ybdmzBDefQOm1ZjZZMOP wHEIxzdjRhG9mLt1mpyo1H7OezKTGX+mDtskcECTl/+jB/YSZyvbwRxj e88Lrg4D+D2MiajQn3XSWf+6LQVe1J67gdbKTXezvux0tRxBNHHqWXRk pxCILes=</span>
+
+    <span class='kw'>return</span> <span class='ident'>records</span>;
+  }
+
+  <span class='attribute'>#[<span class='ident'>test</span>]</span>
+  <span class='kw'>fn</span> <span class='ident'>test_authority</span>() {
+    <span class='kw'>let</span> <span class='ident'>authority</span>: <span class='ident'>Authority</span> <span class='op'>=</span> <span class='ident'>create_example</span>();
+
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>get_soa</span>().<span class='ident'>is_some</span>());
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>get_soa</span>().<span class='ident'>unwrap</span>().<span class='ident'>get_dns_class</span>(), <span class='ident'>DNSClass</span>::<span class='ident'>IN</span>);
+
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>(), <span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>is_some</span>());
+
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>lookup</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span>_<span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>get_ns</span>().<span class='ident'>unwrap</span>();
+    <span class='ident'>lookup</span>.<span class='ident'>sort</span>();
+
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='op'>*</span><span class='op'>*</span><span class='ident'>lookup</span>.<span class='ident'>first</span>().<span class='ident'>unwrap</span>(), <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;a.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>());
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='op'>*</span><span class='op'>*</span><span class='ident'>lookup</span>.<span class='ident'>last</span>().<span class='ident'>unwrap</span>(), <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;b.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>());
+
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>(), <span class='ident'>RecordType</span>::<span class='ident'>TXT</span>).<span class='ident'>is_some</span>());
+
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>lookup</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span>_<span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>(), <span class='ident'>RecordType</span>::<span class='ident'>TXT</span>).<span class='ident'>unwrap</span>();
+    <span class='ident'>lookup</span>.<span class='ident'>sort</span>();
+
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='op'>*</span><span class='op'>*</span><span class='ident'>lookup</span>.<span class='ident'>first</span>().<span class='ident'>unwrap</span>(), <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>60</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>TXT</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>TXT</span>(<span class='ident'>TXT</span>::<span class='ident'>new</span>(<span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;$Id: example.com 4415 2015-08-24 20:12:23Z davids $&quot;</span>.<span class='ident'>to_string</span>()]))).<span class='ident'>clone</span>());
+
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='op'>*</span><span class='op'>*</span><span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>(), <span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>unwrap</span>().<span class='ident'>first</span>().<span class='ident'>unwrap</span>(), <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>34</span>))).<span class='ident'>clone</span>());
+  }
+
+  <span class='attribute'>#[<span class='ident'>test</span>]</span>
+  <span class='kw'>fn</span> <span class='ident'>test_authorize</span>() {
+    <span class='kw'>let</span> <span class='ident'>authority</span>: <span class='ident'>Authority</span> <span class='op'>=</span> <span class='ident'>create_example</span>();
+
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>message</span> <span class='op'>=</span> <span class='ident'>Message</span>::<span class='ident'>new</span>();
+    <span class='ident'>message</span>.<span class='ident'>id</span>(<span class='number'>10</span>).<span class='ident'>message_type</span>(<span class='ident'>MessageType</span>::<span class='ident'>Query</span>).<span class='ident'>op_code</span>(<span class='ident'>OpCode</span>::<span class='ident'>Update</span>);
+
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>authorize</span>(<span class='kw-2'>&amp;</span><span class='ident'>message</span>), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>Refused</span>));
+
+    <span class='comment'>// TODO: this will nee to be more complex as additional policies are added</span>
+    <span class='comment'>// authority.set_allow_update(true);</span>
+    <span class='comment'>// assert!(authority.authorize(&amp;message).is_ok());</span>
+  }
+
+  <span class='attribute'>#[<span class='ident'>test</span>]</span>
+  <span class='kw'>fn</span> <span class='ident'>test_prerequisites</span>() {
+    <span class='kw'>let</span> <span class='ident'>not_zone</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>new</span>().<span class='ident'>label</span>(<span class='string'>&quot;not&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;a&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;domain&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;com&quot;</span>);
+    <span class='kw'>let</span> <span class='ident'>not_in_zone</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>new</span>().<span class='ident'>label</span>(<span class='string'>&quot;not&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;example&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;com&quot;</span>);
+
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>authority</span>: <span class='ident'>Authority</span> <span class='op'>=</span> <span class='ident'>create_example</span>();
+    <span class='ident'>authority</span>.<span class='ident'>set_allow_update</span>(<span class='boolval'>true</span>);
+
+    <span class='comment'>// first check the initial negatives, ttl = 0, and the zone is the same</span>
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>not_in_zone</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>not_zone</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NotZone</span>));
+
+    <span class='comment'>// *   ANY      ANY      empty    Name is in use</span>
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>not_in_zone</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NXDomain</span>));
+
+    <span class='comment'>// *   ANY      rrset    empty    RRset exists (value independent)</span>
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>not_in_zone</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NXRRSet</span>));
+
+    <span class='comment'>// *   NONE     ANY      empty    Name is not in use</span>
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>not_in_zone</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>YXDomain</span>));
+
+    <span class='comment'>// *   NONE     rrset    empty    RRset does not exist</span>
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>not_in_zone</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>YXRRSet</span>));
+
+    <span class='comment'>// *   zone     rrset    rr       RRset exists (value dependent)</span>
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>34</span>))).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+    <span class='comment'>// wrong class</span>
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>CH</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>34</span>))).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='comment'>// wrong Name</span>
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>not_in_zone</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>24</span>))).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NXRRSet</span>));
+    <span class='comment'>// wrong IP</span>
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>verify_prerequisites</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>authority</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>24</span>))).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NXRRSet</span>));
+  }
+
+  <span class='attribute'>#[<span class='ident'>test</span>]</span>
+  <span class='kw'>fn</span> <span class='ident'>test_pre_scan</span>() {
+    <span class='kw'>let</span> <span class='ident'>up_name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>new</span>().<span class='ident'>label</span>(<span class='string'>&quot;www&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;example&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;com&quot;</span>);
+    <span class='kw'>let</span> <span class='ident'>not_zone</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>new</span>().<span class='ident'>label</span>(<span class='string'>&quot;not&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;zone&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;com&quot;</span>);
+
+    <span class='kw'>let</span> <span class='ident'>authority</span>: <span class='ident'>Authority</span> <span class='op'>=</span> <span class='ident'>create_example</span>();
+
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>not_zone</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>24</span>))).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NotZone</span>));
+
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>()) ).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>AXFR</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>()) ).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>IXFR</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>()) ).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>24</span>))).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>24</span>))).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>24</span>))).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>AXFR</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>IXFR</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>AXFR</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>IXFR</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>0</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>24</span>))).<span class='ident'>clone</span>()]).<span class='ident'>is_ok</span>());
+
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>pre_scan</span>(<span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>up_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>CH</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()]), <span class='prelude-val'>Err</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>));
+  }
+
+  <span class='attribute'>#[<span class='ident'>test</span>]</span>
+  <span class='kw'>fn</span> <span class='ident'>test_update</span>() {
+    <span class='kw'>let</span> <span class='ident'>new_name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>new</span>().<span class='ident'>label</span>(<span class='string'>&quot;new&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;example&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;com&quot;</span>);
+    <span class='kw'>let</span> <span class='ident'>www_name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>new</span>().<span class='ident'>label</span>(<span class='string'>&quot;www&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;example&quot;</span>).<span class='ident'>label</span>(<span class='string'>&quot;com&quot;</span>);
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>authority</span>: <span class='ident'>Authority</span> <span class='op'>=</span> <span class='ident'>create_example</span>();
+    <span class='ident'>authority</span>.<span class='ident'>set_allow_update</span>(<span class='boolval'>true</span>);
+
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>original_vec</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[
+      <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>TXT</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>TXT</span>(<span class='ident'>TXT</span>::<span class='ident'>new</span>(<span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;v=spf1 -all&quot;</span>.<span class='ident'>to_string</span>()]))).<span class='ident'>clone</span>(),
+      <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>34</span>))).<span class='ident'>clone</span>(),
+      <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>AAAA</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>AAAA</span>(<span class='ident'>Ipv6Addr</span>::<span class='ident'>new</span>(<span class='number'>0x2606</span>,<span class='number'>0x2800</span>,<span class='number'>0x220</span>,<span class='number'>0x1</span>,<span class='number'>0x248</span>,<span class='number'>0x1893</span>,<span class='number'>0x25c8</span>,<span class='number'>0x1946</span>))).<span class='ident'>clone</span>(),
+    ];
+
+    <span class='ident'>original_vec</span>.<span class='ident'>sort</span>();
+
+    {
+      <span class='comment'>// assert that the correct set of records is there.</span>
+      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>www_rrset</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='ident'>www_name</span>, <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>unwrap</span>();
+      <span class='ident'>www_rrset</span>.<span class='ident'>sort</span>();
+
+      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>www_rrset</span>, <span class='ident'>original_vec</span>.<span class='ident'>iter</span>().<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;&gt;</span>());
+
+      <span class='comment'>// assert new record doesn&#39;t exist</span>
+      <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='ident'>new_name</span>, <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>is_none</span>());
+    }
+
+    <span class='comment'>//</span>
+    <span class='comment'>//  zone     rrset    rr       Add to an RRset</span>
+    <span class='kw'>let</span> <span class='ident'>add_record</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>new_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>24</span>))).<span class='ident'>clone</span>()];
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>update_records</span>(<span class='ident'>add_record</span>, <span class='number'>0</span>).<span class='ident'>is_ok</span>());
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='ident'>new_name</span>, <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>unwrap_or</span>(<span class='macro'>vec</span><span class='macro'>!</span>[]), <span class='ident'>add_record</span>.<span class='ident'>iter</span>().<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;&gt;</span>());
+
+    <span class='kw'>let</span> <span class='ident'>add_www_record</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>10</span>,<span class='number'>0</span>,<span class='number'>0</span>,<span class='number'>1</span>))).<span class='ident'>clone</span>()];
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>update_records</span>(<span class='ident'>add_www_record</span>, <span class='number'>0</span>).<span class='ident'>is_ok</span>());
+
+    {
+      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>www_rrset</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='ident'>www_name</span>, <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>unwrap_or</span>(<span class='macro'>vec</span><span class='macro'>!</span>[]);
+      <span class='ident'>www_rrset</span>.<span class='ident'>sort</span>();
+
+      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>plus_10</span> <span class='op'>=</span> <span class='ident'>original_vec</span>.<span class='ident'>clone</span>();
+      <span class='ident'>plus_10</span>.<span class='ident'>push</span>(<span class='ident'>add_www_record</span>[<span class='number'>0</span>].<span class='ident'>clone</span>());
+      <span class='ident'>plus_10</span>.<span class='ident'>sort</span>();
+      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>www_rrset</span>, <span class='ident'>plus_10</span>.<span class='ident'>iter</span>().<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;&gt;</span>());
+    }
+
+    <span class='comment'>//</span>
+    <span class='comment'>//  NONE     rrset    rr       Delete an RR from an RRset</span>
+    <span class='kw'>let</span> <span class='ident'>del_record</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>new_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>24</span>))).<span class='ident'>clone</span>()];
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>update_records</span>(<span class='ident'>del_record</span>, <span class='number'>0</span>).<span class='ident'>is_ok</span>());
+    {
+      <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;after delete of specific record: {:?}&quot;</span>, <span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='ident'>new_name</span>, <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>));
+      <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='ident'>new_name</span>, <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>is_none</span>());
+    }
+
+    <span class='comment'>// remove one from www</span>
+    <span class='kw'>let</span> <span class='ident'>del_record</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>NONE</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>10</span>,<span class='number'>0</span>,<span class='number'>0</span>,<span class='number'>1</span>))).<span class='ident'>clone</span>()];
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>update_records</span>(<span class='ident'>del_record</span>, <span class='number'>0</span>).<span class='ident'>is_ok</span>());
+    {
+      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>www_rrset</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='ident'>www_name</span>, <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>unwrap_or</span>(<span class='macro'>vec</span><span class='macro'>!</span>[]);
+      <span class='ident'>www_rrset</span>.<span class='ident'>sort</span>();
+
+      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>www_rrset</span>, <span class='ident'>original_vec</span>.<span class='ident'>iter</span>().<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;&gt;</span>());
+    }
+
+    <span class='comment'>//</span>
+    <span class='comment'>//  ANY      rrset    empty    Delete an RRset</span>
+    <span class='kw'>let</span> <span class='ident'>del_record</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>A</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()];
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>update_records</span>(<span class='ident'>del_record</span>, <span class='number'>0</span>).<span class='ident'>is_ok</span>());
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>removed_a_vec</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span>_<span class='op'>&gt;</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[
+      <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>TXT</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>TXT</span>(<span class='ident'>TXT</span>::<span class='ident'>new</span>(<span class='macro'>vec</span><span class='macro'>!</span>[<span class='string'>&quot;v=spf1 -all&quot;</span>.<span class='ident'>to_string</span>()]))).<span class='ident'>clone</span>(),
+      <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>AAAA</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>AAAA</span>(<span class='ident'>Ipv6Addr</span>::<span class='ident'>new</span>(<span class='number'>0x2606</span>,<span class='number'>0x2800</span>,<span class='number'>0x220</span>,<span class='number'>0x1</span>,<span class='number'>0x248</span>,<span class='number'>0x1893</span>,<span class='number'>0x25c8</span>,<span class='number'>0x1946</span>))).<span class='ident'>clone</span>(),
+    ];
+    <span class='ident'>removed_a_vec</span>.<span class='ident'>sort</span>();
+
+    {
+      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>www_rrset</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='ident'>www_name</span>, <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>unwrap_or</span>(<span class='macro'>vec</span><span class='macro'>!</span>[]);
+      <span class='ident'>www_rrset</span>.<span class='ident'>sort</span>();
+
+      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>www_rrset</span>, <span class='ident'>removed_a_vec</span>.<span class='ident'>iter</span>().<span class='ident'>collect</span>::<span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;&gt;</span>());
+    }
+
+    <span class='comment'>//</span>
+    <span class='comment'>//  ANY      ANY      empty    Delete all RRsets from a name</span>
+    <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;deleting all records&quot;</span>);
+    <span class='kw'>let</span> <span class='ident'>del_record</span> <span class='op'>=</span> <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>ANY</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>ANY</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='ident'>NULL</span>::<span class='ident'>new</span>())).<span class='ident'>clone</span>()];
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>update_records</span>(<span class='ident'>del_record</span>, <span class='number'>0</span>).<span class='ident'>is_ok</span>());
+    <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='ident'>www_name</span>, <span class='ident'>RecordType</span>::<span class='ident'>ANY</span>), <span class='prelude-val'>None</span>);
+  }
+}
+</pre>
+</section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../../jquery.js"></script>
+    <script src="../../../../main.js"></script>
+    
+    <script defer src="../../../../search-index.js"></script>
+</body>
+</html>

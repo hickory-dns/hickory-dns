@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `DecodeError` enum in crate `trust_dns`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, DecodeError">
+
+    <title>trust_dns::error::DecodeError - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>error</a></p><script>window.sidebarCurrent = {name: 'DecodeError', ty: 'enum', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content enum">
+<h1 class='fqn'><span class='in-band'>Enum <a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>error</a>::<wbr><a class='enum' href=''>DecodeError</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-6103' class='srclink' href='../../src/trust_dns/src/error/decode_error.rs.html#24-42' title='goto source code'>[src]</a></span></h1>
+<pre class='rust enum'>pub enum DecodeError {
+    ParseUtf8Error(<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.FromUtf8Error.html' title='collections::string::FromUtf8Error'>FromUtf8Error</a>),
+    UnknownDnsClassValue(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>),
+    UnknownDnsClassStr(<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>),
+    UnknownRecordTypeValue(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>),
+    UnknownRecordTypeStr(<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.String.html' title='collections::string::String'>String</a>),
+    UnknownAlgorithmTypeValue(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>),
+    NoRecordDataType,
+    NoRecordDataLength,
+    EOF,
+    Sig0NotLast,
+    EdnsNameNotRoot,
+    DnsKeyProtocolNot3(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>),
+    UnrecognizedNsec3Flags(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>),
+    UnrecognizedLabelCode(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>),
+    IncorrectRDataLengthRead(<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>, <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>),
+    BadPublicKey,
+    SslError(<a class='enum' href='https://sfackler.github.io/rust-openssl/doc/v0.7.8/openssl/ssl/error/enum.SslError.html' title='openssl::ssl::error::SslError'>SslError</a>),
+}</pre><h2 class='variants'>Variants</h2>
+<table class='variants_table'><tr><td id='variant.ParseUtf8Error'><code>ParseUtf8Error</code></td><td></td><td></td></tr><tr><td id='variant.UnknownDnsClassValue'><code>UnknownDnsClassValue</code></td><td></td><td></td></tr><tr><td id='variant.UnknownDnsClassStr'><code>UnknownDnsClassStr</code></td><td></td><td></td></tr><tr><td id='variant.UnknownRecordTypeValue'><code>UnknownRecordTypeValue</code></td><td></td><td></td></tr><tr><td id='variant.UnknownRecordTypeStr'><code>UnknownRecordTypeStr</code></td><td></td><td></td></tr><tr><td id='variant.UnknownAlgorithmTypeValue'><code>UnknownAlgorithmTypeValue</code></td><td></td><td></td></tr><tr><td id='variant.NoRecordDataType'><code>NoRecordDataType</code></td><td></td><td></td></tr><tr><td id='variant.NoRecordDataLength'><code>NoRecordDataLength</code></td><td></td><td></td></tr><tr><td id='variant.EOF'><code>EOF</code></td><td></td><td></td></tr><tr><td id='variant.Sig0NotLast'><code>Sig0NotLast</code></td><td></td><td></td></tr><tr><td id='variant.EdnsNameNotRoot'><code>EdnsNameNotRoot</code></td><td></td><td></td></tr><tr><td id='variant.DnsKeyProtocolNot3'><code>DnsKeyProtocolNot3</code></td><td></td><td></td></tr><tr><td id='variant.UnrecognizedNsec3Flags'><code>UnrecognizedNsec3Flags</code></td><td></td><td></td></tr><tr><td id='variant.UnrecognizedLabelCode'><code>UnrecognizedLabelCode</code></td><td></td><td></td></tr><tr><td id='variant.IncorrectRDataLengthRead'><code>IncorrectRDataLengthRead</code></td><td></td><td></td></tr><tr><td id='variant.BadPublicKey'><code>BadPublicKey</code></td><td></td><td></td></tr><tr><td id='variant.SslError'><code>SslError</code></td><td></td><td></td></tr></table><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html' title='std::error::Error'>Error</a> for <a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a></code></h3><div class='impl-items'><h4 id='method.description' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html#method.description' class='fnname'>description</a>(&amp;self) -&gt; &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a></code></h4>
+<h4 id='method.cause' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html#method.cause' class='fnname'>cause</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;<a class='trait' href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html' title='std::error::Error'>Error</a>&gt;</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html' title='core::convert::From'>From</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.FromUtf8Error.html' title='collections::string::FromUtf8Error'>FromUtf8Error</a>&gt; for <a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a></code></h3><div class='impl-items'><h4 id='method.from' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html#method.from' class='fnname'>from</a>(err: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/string/struct.FromUtf8Error.html' title='collections::string::FromUtf8Error'>FromUtf8Error</a>) -&gt; <a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html' title='core::convert::From'>From</a>&lt;<a class='enum' href='https://sfackler.github.io/rust-openssl/doc/v0.7.8/openssl/ssl/error/enum.SslError.html' title='openssl::ssl::error::SslError'>SslError</a>&gt; for <a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a></code></h3><div class='impl-items'><h4 id='method.from-1' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html#method.from' class='fnname'>from</a>(err: <a class='enum' href='https://sfackler.github.io/rust-openssl/doc/v0.7.8/openssl/ssl/error/enum.SslError.html' title='openssl::ssl::error::SslError'>SslError</a>) -&gt; <a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a></code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a></code></h3><div class='impl-items'><h4 id='method.fmt-1' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

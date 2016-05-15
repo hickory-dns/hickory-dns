@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `Client` struct in crate `trust_dns`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, Client">
+
+    <title>trust_dns::client::Client - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>client</a></p><script>window.sidebarCurrent = {name: 'Client', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>client</a>::<wbr><a class='struct' href=''>Client</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-5633' class='srclink' href='../../src/trust_dns/src/client/client.rs.html#33-36' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct Client&lt;C: <a class='trait' href='../../trust_dns/client/trait.ClientConnection.html' title='trust_dns::client::ClientConnection'>ClientConnection</a>&gt; {
+    // some fields omitted
+}</pre><div class='docblock'><p>The Client is abstracted over either trust_dns::tcp::TcpClientConnection or
+trust_dns::udp::UdpClientConnection, usage of TCP or UDP is up to the user. Some DNS servers
+disallow TCP in some cases, so if TCP double check if UDP works.</p>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl&lt;C: <a class='trait' href='../../trust_dns/client/trait.ClientConnection.html' title='trust_dns::client::ClientConnection'>ClientConnection</a>&gt; <a class='struct' href='../../trust_dns/client/struct.Client.html' title='trust_dns::client::Client'>Client</a>&lt;C&gt;</code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(client_connection: C) -&gt; <a class='struct' href='../../trust_dns/client/struct.Client.html' title='trust_dns::client::Client'>Client</a>&lt;C&gt;</code></h4>
+<div class='docblock'><p>name_server to connect to with default port 53</p>
+</div><h4 id='method.secure_query' class='method'><code>fn <a href='#method.secure_query' class='fnname'>secure_query</a>(&amp;self, query_name: &amp;<a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>, query_class: <a class='enum' href='../../trust_dns/rr/dns_class/enum.DNSClass.html' title='trust_dns::rr::dns_class::DNSClass'>DNSClass</a>, query_type: <a class='enum' href='../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>) -&gt; <a class='type' href='../../trust_dns/error/type.ClientResult.html' title='trust_dns::error::ClientResult'>ClientResult</a>&lt;<a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a>&gt;</code></h4>
+<div class='docblock'><p>When the resolver receives an answer via the normal DNS lookup process, it then checks to
+make sure that the answer is correct. Then starts
+with verifying the DS and DNSKEY records at the DNS root. Then use the DS
+records for the top level domain found at the root, e.g. &#39;com&#39;, to verify the DNSKEY
+records in the &#39;com&#39; zone. From there see if there is a DS record for the
+subdomain, e.g. &#39;example.com&#39;, in the &#39;com&#39; zone, and if there is use the
+DS record to verify a DNSKEY record found in the &#39;example.com&#39; zone. Finally,
+verify the RRSIG record found in the answer for the rrset, e.g. &#39;<a href="http://www.example.com">www.example.com</a>&#39;.</p>
+</div><h4 id='method.query' class='method'><code>fn <a href='#method.query' class='fnname'>query</a>(&amp;self, name: &amp;<a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>, query_class: <a class='enum' href='../../trust_dns/rr/dns_class/enum.DNSClass.html' title='trust_dns::rr::dns_class::DNSClass'>DNSClass</a>, query_type: <a class='enum' href='../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>) -&gt; <a class='type' href='../../trust_dns/error/type.ClientResult.html' title='trust_dns::error::ClientResult'>ClientResult</a>&lt;<a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a>&gt;</code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../jquery.js"></script>
+    <script src="../../main.js"></script>
+    
+    <script defer src="../../search-index.js"></script>
+</body>
+</html>

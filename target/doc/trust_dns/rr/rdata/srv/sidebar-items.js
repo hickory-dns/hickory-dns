@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["emit",""],["parse",""],["read",""]],"struct":[["SRV","RFC 2782, DNS SRV RR, February 2000"]]});
