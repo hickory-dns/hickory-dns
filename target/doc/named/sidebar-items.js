@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["main","Main method for running the named server. As of this writing, this will panic on any invalid input. At this top level binary is the only  part Trust-DNS where panics are allowed."]]});

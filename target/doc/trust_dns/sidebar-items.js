@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["version",""]],"mod":[["authority","The catalog module has the types necessary for storing and caching authoritative records."],["client",""],["config",""],["error",""],["logger",""],["op",""],["rr",""],["serialize",""],["server",""],["tcp",""],["udp",""]]});

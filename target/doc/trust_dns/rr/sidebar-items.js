@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["dns_class",""],["dnssec",""],["domain",""],["record_data",""],["record_type",""],["resource",""]]});
