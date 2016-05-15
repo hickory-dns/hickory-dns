@@ -15,6 +15,7 @@
  */
 use ::rr::{Name, Record, RecordType, RData};
 
+
 /// Set of resource records associated to a name and type
 #[derive(Debug)]
 pub struct RRSet {
@@ -69,8 +70,12 @@ impl RRSet {
   /// # Return value
   ///
   /// Slice of all records in the set
-  pub fn get_records(&self) -> &[Record] {
-    &self.records
+  pub fn get_records(&self, and_rrsigs: bool) -> Vec<&Record> {
+    if and_rrsigs {
+      self.records.iter().chain(self.rrsigs.iter()).collect()
+    } else {
+      self.records.iter().collect()
+    }
   }
 
   /// # Return value
@@ -93,6 +98,10 @@ impl RRSet {
 
   pub fn insert_rrsig(&mut self, rrsig: Record) {
     self.rrsigs.push(rrsig)
+  }
+
+  pub fn clear_rrsigs(&mut self) {
+    self.rrsigs.clear()
   }
 
   fn updated(&mut self, serial: u32) {
@@ -275,20 +284,20 @@ mod test {
     let insert = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
-    assert_eq!(rr_set.get_records().len(), 1);
-    assert!(rr_set.get_records().contains(&insert));
+    assert_eq!(rr_set.get_records(false).len(), 1);
+    assert!(rr_set.get_records(false).contains(&&insert));
 
     // dups ignored
     assert!(!rr_set.insert(insert.clone(), 0));
-    assert_eq!(rr_set.get_records().len(), 1);
-    assert!(rr_set.get_records().contains(&insert));
+    assert_eq!(rr_set.get_records(false).len(), 1);
+    assert!(rr_set.get_records(false).contains(&&insert));
 
     // add one
     let insert1 = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,25))).clone();
     assert!(rr_set.insert(insert1.clone(), 0));
-    assert_eq!(rr_set.get_records().len(), 2);
-    assert!(rr_set.get_records().contains(&insert));
-    assert!(rr_set.get_records().contains(&insert1));
+    assert_eq!(rr_set.get_records(false).len(), 2);
+    assert!(rr_set.get_records(false).contains(&&insert));
+    assert!(rr_set.get_records(false).contains(&&insert1));
   }
 
   #[test]
@@ -302,19 +311,19 @@ mod test {
     let new_serial = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.net.", None).unwrap(), Name::parse("noc.dns.icann.net.", None).unwrap(), 2015082404, 7200, 3600, 1209600, 3600 ))).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
-    assert!(rr_set.get_records().contains(&insert));
+    assert!(rr_set.get_records(false).contains(&&insert));
     // same serial number
     assert!(!rr_set.insert(same_serial.clone(), 0));
-    assert!(rr_set.get_records().contains(&insert));
-    assert!(!rr_set.get_records().contains(&same_serial));
+    assert!(rr_set.get_records(false).contains(&&insert));
+    assert!(!rr_set.get_records(false).contains(&&same_serial));
 
     assert!(rr_set.insert(new_serial.clone(), 0));
     assert!(!rr_set.insert(same_serial.clone(), 0));
     assert!(!rr_set.insert(insert.clone(), 0));
 
-    assert!(rr_set.get_records().contains(&new_serial));
-    assert!(!rr_set.get_records().contains(&insert));
-    assert!(!rr_set.get_records().contains(&same_serial));
+    assert!(rr_set.get_records(false).contains(&&new_serial));
+    assert!(!rr_set.get_records(false).contains(&&insert));
+    assert!(!rr_set.get_records(false).contains(&&same_serial));
   }
 
   #[test]
@@ -330,12 +339,12 @@ mod test {
     let new_record = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME(new_cname.clone()) ).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
-    assert!(rr_set.get_records().contains(&insert));
+    assert!(rr_set.get_records(false).contains(&&insert));
 
     // update the record
     assert!(rr_set.insert(new_record.clone(), 0));
-    assert!(!rr_set.get_records().contains(&insert));
-    assert!(rr_set.get_records().contains(&new_record));
+    assert!(!rr_set.get_records(false).contains(&&insert));
+    assert!(rr_set.get_records(false).contains(&&new_record));
   }
 
   #[test]
@@ -366,7 +375,7 @@ mod test {
 
     assert!(rr_set.insert(insert.clone(), 0));
     assert!(!rr_set.remove(&insert, 0));
-    assert!(rr_set.get_records().contains(&insert));
+    assert!(rr_set.get_records(false).contains(&&insert));
   }
 
   #[test]

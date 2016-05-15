@@ -81,6 +81,10 @@ impl Authority {
       allow_update: allow_update, secure_keys: Vec::new() }
   }
 
+  pub fn add_secure_key(&mut self, signer: Signer) {
+    self.secure_keys.push(signer);
+  }
+
   #[cfg(test)]
   fn set_allow_update(&mut self, allow_update: bool) {
     self.allow_update = allow_update;
@@ -94,13 +98,28 @@ impl Authority {
     self.zone_type
   }
 
-  pub fn get_soa(&self) -> Option<&Record> {
+  pub fn get_soa(&self, is_secure: bool) -> Option<&Record> {
     // SOA should be origin|SOA
-    self.lookup(&self.origin, RecordType::SOA).and_then(|v|v.first().map(|v| *v))
+    self.lookup(&self.origin, RecordType::SOA, is_secure).and_then(|v|v.first().map(|v| *v))
+  }
+
+  fn get_serial(&self) -> u32 {
+    let soa = if let Some(ref soa_record) = self.get_soa(false) {
+      soa_record.clone()
+    } else {
+      warn!("no soa record found for zone: {}", self.origin);
+      return 0;
+    };
+
+    if let &RData::SOA(ref soa_rdata) = soa.get_rdata() {
+      soa_rdata.get_serial()
+    } else {
+      panic!("This was not an SOA record");
+    }
   }
 
   fn increment_soa_serial(&mut self) -> u32 {
-    let mut soa = if let Some(ref mut soa_record) = self.get_soa() {
+    let mut soa = if let Some(ref mut soa_record) = self.get_soa(false) {
       soa_record.clone()
     } else {
       warn!("no soa record found for zone: {}", self.origin);
@@ -118,8 +137,8 @@ impl Authority {
     return serial;
   }
 
-  pub fn get_ns(&self) -> Option<Vec<&Record>> {
-    self.lookup(&self.origin, RecordType::NS)
+  pub fn get_ns(&self, is_secure: bool) -> Option<Vec<&Record>> {
+    self.lookup(&self.origin, RecordType::NS, is_secure)
   }
 
   /// ```text
@@ -221,7 +240,7 @@ impl Authority {
             match require.get_rr_type() {
               // ANY      ANY      empty    Name is in use
               RecordType::ANY => {
-                if let None = self.lookup(require.get_name(), RecordType::ANY) {
+                if let None = self.lookup(require.get_name(), RecordType::ANY, false) {
                   return Err(ResponseCode::NXDomain);
                 } else {
                   continue;
@@ -229,7 +248,7 @@ impl Authority {
               },
               // ANY      rrset    empty    RRset exists (value independent)
               rrset @ _ => {
-                if let None = self.lookup(require.get_name(), rrset) {
+                if let None = self.lookup(require.get_name(), rrset, false) {
                   return Err(ResponseCode::NXRRSet);
                 } else {
                   continue;
@@ -245,7 +264,7 @@ impl Authority {
             match require.get_rr_type() {
               // NONE     ANY      empty    Name is not in use
               RecordType::ANY => {
-                if let Some(..) = self.lookup(require.get_name(), RecordType::ANY) {
+                if let Some(..) = self.lookup(require.get_name(), RecordType::ANY, false) {
                   return Err(ResponseCode::YXDomain);
                 } else {
                   continue;
@@ -253,7 +272,7 @@ impl Authority {
               },
               // NONE     rrset    empty    RRset does not exist
               rrset @ _ => {
-                if let Some(..) = self.lookup(require.get_name(), rrset) {
+                if let Some(..) = self.lookup(require.get_name(), rrset, false) {
                   return Err(ResponseCode::YXRRSet);
                 } else {
                   continue;
@@ -266,7 +285,7 @@ impl Authority {
         ,
         class @ _ if class == self.class =>
           // zone     rrset    rr       RRset exists (value dependent)
-          if let Some(rrset) = self.lookup(require.get_name(), require.get_rr_type()) {
+          if let Some(rrset) = self.lookup(require.get_name(), require.get_rr_type(), false) {
             if rrset.iter().filter(|rr| *rr == &require).next().is_none() {
               return Err(ResponseCode::NXRRSet);
             } else {
@@ -428,8 +447,10 @@ impl Authority {
   ///   NONE     rrset    rr       Delete an RR from an RRset
   ///   zone     rrset    rr       Add to an RRset
   /// ```
-  fn update_records(&mut self, records: &[Record], serial: u32) -> UpdateResult<bool> {
+  fn update_records(&mut self, records: &[Record]) -> UpdateResult<bool> {
     let mut updated = false;
+    let serial: u32 = self.get_serial();
+
 
     // 3.4.2.7 - Pseudocode For Update Section Processing
     //
@@ -527,6 +548,7 @@ impl Authority {
               if let &RData::NULL( .. ) = rr.get_rdata() {
                 let deleted = self.records.remove(&rr_key);
                 info!("deleted rrset: {:?}", deleted);
+                updated = updated || deleted.is_some();
               } else {
                 info!("expected empty rdata: {:?}", rr);
                 return Err(ResponseCode::FormErr)
@@ -550,6 +572,17 @@ impl Authority {
           return Err(ResponseCode::FormErr)
         }
       }
+    }
+
+    // update the serial...
+    if updated {
+
+      // need to resign any records at the current serial number and bump the number.
+      // first bump the serial number on the SOA, so that it is resigned with the new serial.
+      self.increment_soa_serial();
+
+      // TODO: should we auto sign here? or maybe up a level...
+      self.sign_zone();
     }
 
     Ok(updated)
@@ -630,24 +663,15 @@ impl Authority {
   ///
   /// # Return value
   ///
-  /// Ok() on success or Err() with the `ResponseCode` associated with the error.
-  pub fn update(&mut self, update: &UpdateMessage) -> UpdateResult<()> {
+  /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
+  ///  returned in the case of bad data, etc.
+  pub fn update(&mut self, update: &UpdateMessage) -> UpdateResult<bool> {
     // the spec says to authorize after prereqs, seems better to auth first.
     try!(self.authorize(update));
     try!(self.verify_prerequisites(update.get_pre_requisites()));
     try!(self.pre_scan(update.get_updates()));
 
-    let serial: u32 = self.get_soa().map_or(0, |r| if let &RData::SOA (ref soa) = r.get_rdata() { soa.get_serial() } else { 0 });
-
-    // TODO at this point, we've accepted the updates, we should write
-    //  to a write-ahead-log (journal) and then commit to memory.
-    if try!(self.update_records(update.get_updates(), serial)) {
-      // need to resign any records at the current serial number and bump the number.
-      // first bump the serial number on the SOA, so that it is resigned with the new serial.
-      self.increment_soa_serial();
-      self.sign_zone();
-    }
-    Ok(())
+    self.update_records(update.get_updates())
   }
 
   /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
@@ -659,11 +683,12 @@ impl Authority {
   ///             `name`. `RecordType::AXFR` will return all record types except `RecordType::SOA`
   ///             due to the requirements that on zone transfers the `RecordType::SOA` must both
   ///             preceed and follow all other records.
+  /// * `is_secure` - If the DO bit is set on the EDNS OPT record, then return RRSIGs as well.
   ///
   /// # Return value
   ///
   /// None if there are no matching records, otherwise a `Vec` containing the found records.
-  pub fn lookup(&self, name: &Name, rtype: RecordType) -> Option<Vec<&Record>> {
+  pub fn lookup(&self, name: &Name, rtype: RecordType, is_secure: bool) -> Option<Vec<&Record>> {
     // on an SOA request always return the SOA, regardless of the name
     let name: &Name = if rtype == RecordType::SOA { &self.origin } else { name };
     let rr_key = RrKey::new(name, rtype);
@@ -674,12 +699,12 @@ impl Authority {
         self.records.values().filter(|rr_set| rtype == RecordType::ANY || rr_set.get_record_type() != RecordType::SOA)
                              .filter(|rr_set| rtype == RecordType::AXFR || rr_set.get_name() == name)
                              .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
-                               vec.append(&mut rr_set.get_records().into_iter().collect());
+                               vec.append(&mut rr_set.get_records(is_secure));
                                vec
                              })
       },
       _ => {
-        self.records.get(&rr_key).map_or(vec![], |rr_set| rr_set.get_records().into_iter().collect())
+        self.records.get(&rr_key).map_or(vec![], |rr_set| rr_set.get_records(is_secure).into_iter().collect())
       }
     };
 
@@ -695,13 +720,16 @@ impl Authority {
   ///              record set serial is greater than or equal to the `serial`, then it will be
   ///              resigned.
   pub fn sign_zone(&mut self) {
+    debug!("signing zone: {}", self.origin);
     let now = UTC::now().timestamp() as u32;
-    let zone_ttl = self.get_soa()
+    let zone_ttl = self.get_soa(false)
                        .map_or(0, |soa_rec| if let &RData::SOA(ref soa) = soa_rec.get_rdata() { soa.get_minimum() }
                                             else { panic!("SOA has no RDATA: {}", self.origin) } );
 
     for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| { rr_set.get_rrsigs().is_empty();
                                                                      Some(rr_set) } ) {
+      debug!("signing rr_set: {}", rr_set.get_name());
+      rr_set.clear_rrsigs();
       let rrsig_temp = Record::with(rr_set.get_name().clone(), RecordType::RRSIG, zone_ttl);
 
       for signer in self.secure_keys.iter() {
@@ -715,7 +743,9 @@ impl Authority {
                                      now,
                                      signer.calculate_key_tag(),
                                      signer.get_signer_name(),
-                                     rr_set.get_records());
+                                     // TODO: this is a nasty clone... the issue is that the vec
+                                     //  from get_records is of Vec<&R>, but we really want &[R]
+                                     &rr_set.get_records(false).into_iter().cloned().collect::<Vec<Record>>());
         let signature = signer.sign(&hash);
         let mut rrsig = rrsig_temp.clone();
         rrsig.rdata(RData::SIG(SIG::new(
@@ -738,6 +768,9 @@ impl Authority {
           // sig: Vec<u8>
           signature,
         )));
+
+        rr_set.insert_rrsig(rrsig);
+        debug!("signed rr_set: {}", rr_set.get_name());
       }
     }
   }
@@ -813,25 +846,25 @@ pub mod authority_tests {
   fn test_authority() {
     let authority: Authority = create_example();
 
-    assert!(authority.get_soa().is_some());
-    assert_eq!(authority.get_soa().unwrap().get_dns_class(), DNSClass::IN);
+    assert!(authority.get_soa(false).is_some());
+    assert_eq!(authority.get_soa(false).unwrap().get_dns_class(), DNSClass::IN);
 
-    assert!(authority.lookup(authority.get_origin(), RecordType::NS).is_some());
+    assert!(authority.lookup(authority.get_origin(), RecordType::NS, false).is_some());
 
-    let mut lookup: Vec<_> = authority.get_ns().unwrap();
+    let mut lookup: Vec<_> = authority.get_ns(false).unwrap();
     lookup.sort();
 
     assert_eq!(**lookup.first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone());
     assert_eq!(**lookup.last().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone());
 
-    assert!(authority.lookup(authority.get_origin(), RecordType::TXT).is_some());
+    assert!(authority.lookup(authority.get_origin(), RecordType::TXT, false).is_some());
 
-    let mut lookup: Vec<_> = authority.lookup(authority.get_origin(), RecordType::TXT).unwrap();
+    let mut lookup: Vec<_> = authority.lookup(authority.get_origin(), RecordType::TXT, false).unwrap();
     lookup.sort();
 
     assert_eq!(**lookup.first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()]))).clone());
 
-    assert_eq!(**authority.lookup(authority.get_origin(), RecordType::A).unwrap().first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone());
+    assert_eq!(**authority.lookup(authority.get_origin(), RecordType::A, false).unwrap().first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone());
   }
 
   #[test]
@@ -923,6 +956,8 @@ pub mod authority_tests {
     let new_name = Name::new().label("new").label("example").label("com");
     let www_name = Name::new().label("www").label("example").label("com");
     let mut authority: Authority = create_example();
+    let serial = authority.get_serial();
+
     authority.set_allow_update(true);
 
     let mut original_vec: Vec<Record> = vec![
@@ -935,26 +970,28 @@ pub mod authority_tests {
 
     {
       // assert that the correct set of records is there.
-      let mut www_rrset: Vec<&Record> = authority.lookup(&www_name, RecordType::ANY).unwrap();
+      let mut www_rrset: Vec<&Record> = authority.lookup(&www_name, RecordType::ANY, false).unwrap();
       www_rrset.sort();
 
       assert_eq!(www_rrset, original_vec.iter().collect::<Vec<&Record>>());
 
       // assert new record doesn't exist
-      assert!(authority.lookup(&new_name, RecordType::ANY).is_none());
+      assert!(authority.lookup(&new_name, RecordType::ANY, false).is_none());
     }
 
     //
     //  zone     rrset    rr       Add to an RRset
     let add_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()];
-    assert!(authority.update_records(add_record, 0).is_ok());
-    assert_eq!(authority.lookup(&new_name, RecordType::ANY).unwrap_or(vec![]), add_record.iter().collect::<Vec<&Record>>());
+    assert!(authority.update_records(add_record).expect("update failed"));
+    assert_eq!(authority.lookup(&new_name, RecordType::ANY, false).unwrap_or(vec![]), add_record.iter().collect::<Vec<&Record>>());
+    assert_eq!(serial + 1, authority.get_serial());
 
     let add_www_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(10,0,0,1))).clone()];
-    assert!(authority.update_records(add_www_record, 0).is_ok());
+    assert!(authority.update_records(add_www_record).expect("update failed"));
+    assert_eq!(serial + 2, authority.get_serial());
 
     {
-      let mut www_rrset = authority.lookup(&www_name, RecordType::ANY).unwrap_or(vec![]);
+      let mut www_rrset = authority.lookup(&www_name, RecordType::ANY, false).unwrap_or(vec![]);
       www_rrset.sort();
 
       let mut plus_10 = original_vec.clone();
@@ -966,17 +1003,19 @@ pub mod authority_tests {
     //
     //  NONE     rrset    rr       Delete an RR from an RRset
     let del_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()];
-    assert!(authority.update_records(del_record, 0).is_ok());
+    assert!(authority.update_records(del_record).expect("update failed"));
+    assert_eq!(serial + 3, authority.get_serial());
     {
-      println!("after delete of specific record: {:?}", authority.lookup(&new_name, RecordType::ANY));
-      assert!(authority.lookup(&new_name, RecordType::ANY).is_none());
+      println!("after delete of specific record: {:?}", authority.lookup(&new_name, RecordType::ANY, false));
+      assert!(authority.lookup(&new_name, RecordType::ANY, false).is_none(), false);
     }
 
     // remove one from www
     let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A(Ipv4Addr::new(10,0,0,1))).clone()];
-    assert!(authority.update_records(del_record, 0).is_ok());
+    assert!(authority.update_records(del_record).expect("update failed"));
+    assert_eq!(serial + 4, authority.get_serial());
     {
-      let mut www_rrset = authority.lookup(&www_name, RecordType::ANY).unwrap_or(vec![]);
+      let mut www_rrset = authority.lookup(&www_name, RecordType::ANY, false).unwrap_or(vec![]);
       www_rrset.sort();
 
       assert_eq!(www_rrset, original_vec.iter().collect::<Vec<&Record>>());
@@ -985,7 +1024,8 @@ pub mod authority_tests {
     //
     //  ANY      rrset    empty    Delete an RRset
     let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()];
-    assert!(authority.update_records(del_record, 0).is_ok());
+    assert!(authority.update_records(del_record).expect("update failed"));
+    assert_eq!(serial + 5, authority.get_serial());
     let mut removed_a_vec: Vec<_> = vec![
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()]))).clone(),
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA(Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946))).clone(),
@@ -993,7 +1033,7 @@ pub mod authority_tests {
     removed_a_vec.sort();
 
     {
-      let mut www_rrset = authority.lookup(&www_name, RecordType::ANY).unwrap_or(vec![]);
+      let mut www_rrset = authority.lookup(&www_name, RecordType::ANY, false).unwrap_or(vec![]);
       www_rrset.sort();
 
       assert_eq!(www_rrset, removed_a_vec.iter().collect::<Vec<&Record>>());
@@ -1003,7 +1043,38 @@ pub mod authority_tests {
     //  ANY      ANY      empty    Delete all RRsets from a name
     println!("deleting all records");
     let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::ANY).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()];
-    assert!(authority.update_records(del_record, 0).is_ok());
-    assert_eq!(authority.lookup(&www_name, RecordType::ANY), None);
+    assert!(authority.update_records(del_record).expect("update failed"));
+    assert_eq!(authority.lookup(&www_name, RecordType::ANY, false), None);
+    assert_eq!(serial + 6, authority.get_serial());
+  }
+
+  #[test]
+  fn test_zone_signing() {
+    use openssl::crypto::pkey::PKey;
+    use ::rr::dnssec::{Algorithm, Signer};
+    use ::rr::{RData};
+
+    let mut authority: Authority = create_example();
+    let mut pkey = PKey::new();
+    pkey.gen(512);
+    let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
+
+    authority.add_secure_key(signer);
+    authority.sign_zone();
+
+    let results = authority.lookup(&authority.get_origin(), RecordType::AXFR, true).expect("AXFR broken");
+
+    for record in results.iter() {
+      if record.get_rr_type() == RecordType::RRSIG { continue }
+
+      // validate all records have associated RRSIGs after signing
+      assert!(results.iter().any(|r| r.get_rr_type() == RecordType::RRSIG &&
+                                     r.get_name() == record.get_name() &&
+                                     if let &RData::SIG(ref rrsig) = r.get_rdata() {
+                                       rrsig.get_type_covered() == record.get_rr_type()
+                                     } else {
+                                       false
+                                     } ), "record type not covered: {:?}", record);
+    }
   }
 }

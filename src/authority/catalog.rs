@@ -224,7 +224,7 @@ impl Catalog {
           response.add_all_answers(&records);
 
           // get the NS records
-          let ns = authority.get_ns();
+          let ns = authority.get_ns(false);
           if ns.is_none() { warn!("there are no NS records for: {:?}", authority.get_origin()); }
           else {
             response.add_all_name_servers(&ns.unwrap());
@@ -233,7 +233,7 @@ impl Catalog {
           // in the not found case it's standard to return the SOA in the authority section
           response.response_code(ResponseCode::NXDomain);
 
-          let soa = authority.get_soa();
+          let soa = authority.get_soa(false);
           if soa.is_none() { warn!("there is no SOA record for: {:?}", authority.get_origin()); }
           else {
             response.add_name_server(soa.unwrap().clone());
@@ -266,10 +266,10 @@ impl Catalog {
 
     // it would be better to stream this back, rather than packaging everything up in an array
     //  though for UDP it would still need to be bundled
-    let mut query_result: Option<Vec<_>> = authority.lookup(query.get_name(), record_type);
+    let mut query_result: Option<Vec<_>> = authority.lookup(query.get_name(), record_type, false);
 
     if RecordType::AXFR == record_type {
-      if let Some(soa) = authority.get_soa() {
+      if let Some(soa) = authority.get_soa(false) {
         let mut xfr: Vec<&Record> = query_result.unwrap_or(Vec::with_capacity(2));
         // TODO: probably make Records Rc or Arc, to remove the clone
         xfr.insert(0, soa);

@@ -4,7 +4,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## unreleased
 ### Added
-- Documentation on all modules
+- Documentation on all modules, and many standard RFC types
+- Authority zone signing now complete, still need to load/save private keys
 
 ### Fixed
 - Added loop on TCP accept requests
