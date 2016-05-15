@@ -23,10 +23,21 @@ use ::rr::{DNSClass, Name, RData, Record, RecordType};
 use ::rr::rdata::SIG;
 use ::rr::dnssec::Signer;
 
+/// Accessor key for RRSets in the Authority.
 #[derive(Eq, PartialEq, Debug, Hash, Clone)]
 pub struct RrKey { name: Name, record_type: RecordType }
 
 impl RrKey {
+  /// Creates a new key to access the Authority.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - domain name to lookup.
+  /// * `record_type` - the `RecordType` to lookup.
+  ///
+  /// # Return value
+  ///
+  /// A new key to access the Authorities.
   pub fn new(name: &Name, record_type: RecordType) -> RrKey {
     RrKey{ name: name.clone(), record_type: record_type }
   }

@@ -37,6 +37,15 @@ use ::error::*;
 pub struct TXT { txt_data: Vec<String> }
 
 impl TXT {
+  /// Creates a new TXT record data.
+  ///
+  /// # Arguments
+  ///
+  /// * `txt_data` - the set of strings which make up the txt_data.
+  ///
+  /// # Return value
+  ///
+  /// The new TXT record data.
   pub fn new(txt_data: Vec<String>) -> TXT {
     TXT { txt_data: txt_data }
   }

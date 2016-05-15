@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! class of DNS operations, in general always IN for internet
+
 use std::convert::From;
 use std::cmp::Ordering;
 

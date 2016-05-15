@@ -14,68 +14,110 @@
  * limitations under the License.
  */
 
-/*
- * RFC 1035        Domain Implementation and Specification    November 1987
- *
- * RCODE           Response code - this 4 bit field is set as part of
- *                 responses.  The values have the following
- *                 interpretation:
- *
- *                 0               No error condition
- *
- *                 1               Format error - The name server was
- *                                 unable to interpret the query.
- *
- *                 2               Server failure - The name server was
- *                                 unable to process this query due to a
- *                                 problem with the name server.
- *
- *                 3               Name Error - Meaningful only for
- *                                 responses from an authoritative name
- *                                 server, this code signifies that the
- *                                 domain name referenced in the query does
- *                                 not exist.
- *
- *                 4               Not Implemented - The name server does
- *                                 not support the requested kind of query.
- *
- *                 5               Refused - The name server refuses to
- *                                 perform the specified operation for
- *                                 policy reasons.  For example, a name
- *                                 server may not wish to provide the
- *                                 information to the particular requester,
- *                                 or a name server may not wish to perform
- *                                 a particular operation (e.g., zone
- *
- *                                 transfer) for particular data.
- *
- *                 6-15            Reserved for future use.
- */
+//! All defined response codes in DNS
+
+/// The status code of the response to a query.
+///
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+///
+/// ```text
+/// RCODE           Response code - this 4 bit field is set as part of
+///                 responses.  The values have the following
+///                 interpretation:
+///
+///                 0               No error condition
+///
+///                 1               Format error - The name server was
+///                                 unable to interpret the query.
+///
+///                 2               Server failure - The name server was
+///                                 unable to process this query due to a
+///                                 problem with the name server.
+///
+///                 3               Name Error - Meaningful only for
+///                                 responses from an authoritative name
+///                                 server, this code signifies that the
+///                                 domain name referenced in the query does
+///                                 not exist.
+///
+///                 4               Not Implemented - The name server does
+///                                 not support the requested kind of query.
+///
+///                 5               Refused - The name server refuses to
+///                                 perform the specified operation for
+///                                 policy reasons.  For example, a name
+///                                 server may not wish to provide the
+///                                 information to the particular requester,
+///                                 or a name server may not wish to perform
+///                                 a particular operation (e.g., zone
+///
+///                                 transfer) for particular data.
+///
+///                 6-15            Reserved for future use.
+///  ```
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 #[allow(dead_code)]
 pub enum ResponseCode {
-  NoError,   // 0	NoError	No Error	[RFC1035]
-  FormErr,   // 1	FormErr	Format Error	[RFC1035]
-  ServFail,  // 2	ServFail	Server Failure	[RFC1035]
-  NXDomain,  // 3	NXDomain	Non-Existent Domain	[RFC1035]
-  NotImp,    // 4	NotImp	Not Implemented	[RFC1035]
-  Refused,   // 5	Refused	Query Refused	[RFC1035]
-  YXDomain,  // 6	YXDomain	Name Exists when it should not	[RFC2136][RFC6672]
-  YXRRSet,   // 7	YXRRSet	RR Set Exists when it should not	[RFC2136]
-  NXRRSet,   // 8	NXRRSet	RR Set that should exist does not	[RFC2136]
-  NotAuth,   // 9	NotAuth	Server Not Authoritative for zone	[RFC2136]
-             // 9	NotAuth	Not Authorized	[RFC2845]
-  NotZone,   // 10	NotZone	Name not contained in zone	[RFC2136]
-             // 11-15	Unassigned
-  BADVERS,   // 16	BADVERS	Bad OPT Version	[RFC6891]
-  BADSIG,    // 16	BADSIG	TSIG Signature Failure	[RFC2845]
-  BADKEY,    // 17	BADKEY	Key not recognized	[RFC2845]
-  BADTIME,   // 18	BADTIME	Signature out of time window	[RFC2845]
-  BADMODE,   // 19	BADMODE	Bad TKEY Mode	[RFC2930]
-  BADNAME,   // 20	BADNAME	Duplicate key name	[RFC2930]
-  BADALG,    // 21	BADALG	Algorithm not supported	[RFC2930]
-  BADTRUNC,  // 22	BADTRUNC	Bad Truncation	[RFC4635]
-  BADCOOKIE, // 23	BADCOOKIE (TEMPORARY - registered 2015-07-26, expires 2016-07-26)	Bad/missing server cookie	[draft-ietf-dnsop-cookies]
+  /// No Error [RFC 1035](https://tools.ietf.org/html/rfc1035)
+  NoError,
+
+  /// Format Error [RFC 1035](https://tools.ietf.org/html/rfc1035)
+  FormErr,
+
+  /// Server Failure [RFC 1035](https://tools.ietf.org/html/rfc1035)
+  ServFail,
+
+  /// Non-Esistent Domain [RFC 1035](https://tools.ietf.org/html/rfc1035)
+  NXDomain,
+
+  /// Not Implemented [RFC 1035](https://tools.ietf.org/html/rfc1035)
+  NotImp,
+
+  /// Query Refused [RFC 1035](https://tools.ietf.org/html/rfc1035)
+  Refused,
+
+  /// Name Exists when it should not [RFC 2136](https://tools.ietf.org/html/rfc2136)
+  YXDomain,
+
+  /// RR Set Exists when it should not [RFC 2136](https://tools.ietf.org/html/rfc2136)
+  YXRRSet,
+
+  /// RR Set that should exist does not [RFC 2136](https://tools.ietf.org/html/rfc2136)
+  NXRRSet,
+
+  /// Server Not Authoritative for zone [RFC 2136](https://tools.ietf.org/html/rfc2136)
+  /// or Not Authorized [RFC 2845](https://tools.ietf.org/html/rfc2845)
+  NotAuth,
+
+  /// Name not contained in zone [RFC 2136](https://tools.ietf.org/html/rfc2136)
+  NotZone,
+
+  /// Bad OPT Version [RFC 6891](https://tools.ietf.org/html/rfc6891#section-9)
+  BADVERS,
+
+  /// TSIG Signature Failure [RFC 2845](https://tools.ietf.org/html/rfc2845)
+  BADSIG,
+
+  /// Key not recognized [RFC 2845](https://tools.ietf.org/html/rfc2845)
+  BADKEY,
+
+  /// Signature out of time window [RFC 2845](https://tools.ietf.org/html/rfc2845)
+  BADTIME,
+
+  /// Bad TKEY Mode [RFC 2930](https://tools.ietf.org/html/rfc2930#section-2.6)
+  BADMODE,
+
+  /// Duplicate key name [RFC 2930](https://tools.ietf.org/html/rfc2930#section-2.6)
+  BADNAME,
+
+  /// Algorithm not supported [RFC 2930](https://tools.ietf.org/html/rfc2930#section-2.6)
+  BADALG,
+
+  /// Bad Truncation [RFC 4635](https://tools.ietf.org/html/rfc4635#section-4)
+  BADTRUNC,
+
+  /// Bad/missing server cookie [draft-ietf-dnsop-cookies](https://tools.ietf.org/html/draft-ietf-dnsop-cookies-10)
+  BADCOOKIE,
              // 24-3840	Unassigned
              // 3841-4095	Reserved for Private Use		[RFC6895]
              // 4096-65534	Unassigned
@@ -151,6 +193,7 @@ impl From<ResponseCode> for u16 {
       ResponseCode::NXRRSet   => 8,  // 8	  NXRRSet	RR Set that should exist does not	[RFC2136]
       ResponseCode::NotAuth   => 9,  // 9	  NotAuth	Server Not Authoritative for zone	[RFC2136]
       ResponseCode::NotZone   => 10, // 10	NotZone	Name not contained in zone	[RFC2136]
+      // 11-15	Unassigned
       ResponseCode::BADVERS   => 16, // 16	BADVERS	Bad OPT Version	[RFC6891]
       ResponseCode::BADSIG    => 16, // 16	BADSIG	TSIG Signature Failure	[RFC2845]
       ResponseCode::BADKEY    => 17, // 17	BADKEY	Key not recognized	[RFC2845]

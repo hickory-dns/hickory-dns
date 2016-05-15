@@ -15,6 +15,7 @@
  */
 use ::rr::{Name, Record, RecordType, RData};
 
+/// Set of resource records associated to a name and type
 #[derive(Debug)]
 pub struct RRSet {
   name: Name,
@@ -25,7 +26,6 @@ pub struct RRSet {
   serial: u32, // serial number at which this record was modified
 }
 
-/// Set of resource records associated to a name and type
 impl RRSet {
   /// Creates a new Resource Record Set.
   ///

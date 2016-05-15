@@ -84,6 +84,19 @@ use ::rr::domain::Name;
 pub struct SRV { priority: u16, weight: u16, port: u16, target: Name }
 
 impl SRV {
+  /// Creates a new SRV record data.
+  ///
+  /// # Arguments
+  ///
+  /// * `priority` - lower values have a higher priority and clients will attempt to use these
+  ///                first.
+  /// * `weight` - for servers with the same priority, higher weights will be chosen more often.
+  /// * `port` - the socket port number on which the service is listening.
+  /// * `target` - like CNAME, this is the target domain name to which the service is associated.
+  ///
+  /// # Return value
+  ///
+  /// The newly constructed SRV record data.  
   pub fn new(priority: u16, weight: u16, port: u16, target: Name) -> SRV {
     SRV { priority: priority, weight: weight, port: port, target: target }
   }

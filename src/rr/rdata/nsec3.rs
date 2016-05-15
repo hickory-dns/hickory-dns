@@ -153,7 +153,7 @@ impl NSEC3 {
   ///    delegations.  It is the least significant bit in the Flags field.
   ///    See Section 6 for details about the use of this flag.
   /// ```
-  pub fn get_opt_out(&self) -> bool { self.opt_out }
+  pub fn is_opt_out(&self) -> bool { self.opt_out }
 
   /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.3)
   ///
@@ -328,7 +328,7 @@ enum BitMapState {
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> EncodeResult {
   try!(encoder.emit(rdata.get_hash_algorithm().into()));
   let mut flags: u8 = 0;
-  if rdata.get_opt_out() { flags |= 0b0000_0001 };
+  if rdata.is_opt_out() { flags |= 0b0000_0001 };
   try!(encoder.emit(flags));
   try!(encoder.emit_u16(rdata.get_iterations()));
   try!(encoder.emit(rdata.get_salt().len() as u8));

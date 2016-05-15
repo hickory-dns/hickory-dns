@@ -93,7 +93,7 @@ impl DNSKEY {
   ///    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
   ///    creation of the DNSKEY RR and MUST be ignored upon receipt.
   /// ```
-  pub fn get_zone_key(&self) -> bool { self.zone_key }
+  pub fn is_zone_key(&self) -> bool { self.zone_key }
 
   /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.1)
   ///
@@ -112,7 +112,7 @@ impl DNSKEY {
   ///    Zone Key flag not set MUST NOT be used to verify RRSIGs that cover
   ///    RRsets.
   /// ```
-  pub fn get_secure_entry_point(&self) -> bool { self.secure_entry_point }
+  pub fn is_secure_entry_point(&self) -> bool { self.secure_entry_point }
 
   /// [RFC 5011, Trust Anchor Update, September 2007](https://tools.ietf.org/html/rfc5011#section-3)
   ///
@@ -124,7 +124,7 @@ impl DNSKEY {
   ///   The IANA has assigned a bit in the DNSKEY flags field (see Section 7
   ///   of [RFC4034]) for the REVOKE bit (8).
   /// ```
-  pub fn get_revoke(&self) -> bool { self.revoke }
+  pub fn is_revoke(&self) -> bool { self.revoke }
 
   /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.3)
   ///
@@ -181,9 +181,9 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY>
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> EncodeResult {
   let mut flags: u16 = 0;
-  if rdata.get_zone_key() { flags |= 0b0000_0001_0000_0000 }
-  if rdata.get_secure_entry_point() { flags |= 0b0000_0000_0000_0001 }
-  if rdata.get_revoke() { flags |= 0b0000_0000_1000_0000 }
+  if rdata.is_zone_key() { flags |= 0b0000_0001_0000_0000 }
+  if rdata.is_secure_entry_point() { flags |= 0b0000_0000_0000_0001 }
+  if rdata.is_revoke() { flags |= 0b0000_0000_1000_0000 }
   try!(encoder.emit_u16(flags));
   try!(encoder.emit(3)); // always 3 for now
   try!(rdata.get_algorithm().emit(encoder));

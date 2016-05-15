@@ -14,10 +14,14 @@
  * limitations under the License.
  */
 
+//! Extended DNS options
+
 use ::rr::{DNSClass, Name, Record, RecordType, RData};
 use ::rr::rdata::OPT;
 use ::rr::rdata::opt::{ EdnsCode, EdnsOption };
 
+/// Edns implements the higher level concepts for working with Edns as it is used to create or be
+/// created from OPT record data.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Edns {
   // high 8 bits that make up the 12 bit total field when included with the 4bit rcode from the

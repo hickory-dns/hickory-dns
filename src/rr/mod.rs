@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! Resource record related components, e.g. `Name` aka label, `Record`, `RData`.
+//! Resource record related components, e.g. `Name` aka label, `Record`, `RData`, ...
 
 pub mod record_type;
 pub mod dns_class;

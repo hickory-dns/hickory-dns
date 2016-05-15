@@ -135,7 +135,7 @@ impl<C: ClientConnection> Client<C> {
       if let &RData::DNSKEY(ref dnskey) = record.get_rdata() {
         // the spec says that the secure_entry_point isn't reliable for the main DNSKey...
         //  but how do you know which needs to be validated with the DS in the parent zone?
-        if dnskey.get_zone_key() && dnskey.get_secure_entry_point() {
+        if dnskey.is_zone_key() && dnskey.is_secure_entry_point() {
           let mut proof = try!(self.verify_dnskey(record));
           // TODO: this is verified, it can be cached
           proof.push(record.clone());
@@ -155,8 +155,8 @@ impl<C: ClientConnection> Client<C> {
 
         for dnskey in key_rrset.iter() {
           if let &RData::DNSKEY(ref rdata) = dnskey.get_rdata() {
-            if rdata.get_revoke() { debug!("revoked: {}", dnskey.get_name()); continue } // TODO: does this need to be validated? RFC 5011
-            if !rdata.get_zone_key() { continue }
+            if rdata.is_revoke() { debug!("revoked: {}", dnskey.get_name()); continue } // TODO: does this need to be validated? RFC 5011
+            if !rdata.is_zone_key() { continue }
             if *rdata.get_algorithm() != sig.get_algorithm() { continue }
 
             let pkey = try!(rdata.get_algorithm().public_key_from_vec(rdata.get_public_key()));

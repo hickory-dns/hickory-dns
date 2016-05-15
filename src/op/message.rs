@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! Basic protocol message for DNS
+
 use std::fmt::Debug;
 
 use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
@@ -24,45 +27,46 @@ use ::serialize::binary::*;
 use ::error::*;
 use ::rr::dnssec::Signer;
 
-
-/*
- * RFC 1035        Domain Implementation and Specification    November 1987
- *
- * 4.1. Format
- *
- * All communications inside of the domain protocol are carried in a single
- * format called a message.  The top level format of message is divided
- * into 5 sections (some of which are empty in certain cases) shown below:
- *
- *     +--------------------------+
- *     |        Header            |
- *     +--------------------------+
- *     |  Question / Zone         | the question for the name server
- *     +--------------------------+
- *     |   Answer  / Prerequisite | RRs answering the question
- *     +--------------------------+
- *     | Authority / Update       | RRs pointing toward an authority
- *     +--------------------------+
- *     |      Additional          | RRs holding additional information
- *     +--------------------------+
- *
- * The header section is always present.  The header includes fields that
- * specify which of the remaining sections are present, and also specify
- * whether the message is a query or a response, a standard query or some
- * other opcode, etc.
- *
- * The names of the sections after the header are derived from their use in
- * standard queries.  The question section contains fields that describe a
- * question to a name server.  These fields are a query type (QTYPE), a
- * query class (QCLASS), and a query domain name (QNAME).  The last three
- * sections have the same format: a possibly empty list of concatenated
- * resource records (RRs).  The answer section contains RRs that answer the
- * question; the authority section contains RRs that point toward an
- * authoritative name server; the additional records section contains RRs
- * which relate to the query, but are not strictly answers for the
- * question.
- */
-
+/// The basic request and response datastructure, used for all DNS protocols.
+///
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+///
+/// ```text
+/// 4.1. Format
+///
+/// All communications inside of the domain protocol are carried in a single
+/// format called a message.  The top level format of message is divided
+/// into 5 sections (some of which are empty in certain cases) shown below:
+///
+///     +--------------------------+
+///     |        Header            |
+///     +--------------------------+
+///     |  Question / Zone         | the question for the name server
+///     +--------------------------+
+///     |   Answer  / Prerequisite | RRs answering the question
+///     +--------------------------+
+///     | Authority / Update       | RRs pointing toward an authority
+///     +--------------------------+
+///     |      Additional          | RRs holding additional information
+///     +--------------------------+
+///
+/// The header section is always present.  The header includes fields that
+/// specify which of the remaining sections are present, and also specify
+/// whether the message is a query or a response, a standard query or some
+/// other opcode, etc.
+///
+/// The names of the sections after the header are derived from their use in
+/// standard queries.  The question section contains fields that describe a
+/// question to a name server.  These fields are a query type (QTYPE), a
+/// query class (QCLASS), and a query domain name (QNAME).  The last three
+/// sections have the same format: a possibly empty list of concatenated
+/// resource records (RRs).  The answer section contains RRs that answer the
+/// question; the authority section contains RRs that point toward an
+/// authoritative name server; the additional records section contains RRs
+/// which relate to the query, but are not strictly answers for the
+/// question.
+/// ```
+///
 /// By default Message is a Query. Use the Message::as_update() to create and update, or
 ///  Message::new_update()
 #[derive(Debug, PartialEq)]
@@ -133,39 +137,120 @@ impl Message {
     self
   }
 
+  /// see `Header::get_id()`
   pub fn get_id(&self) -> u16 { self.header.get_id() }
+
+  /// see `Header::get_message_type()`
   pub fn get_message_type(&self) -> MessageType { self.header.get_message_type() }
+
+  /// see `Header::get_op_code()`
   pub fn get_op_code(&self) -> OpCode { self.header.get_op_code() }
+
+  /// see `Header::is_authoritative()`
   pub fn is_authoritative(&self) -> bool { self.header.is_authoritative() }
+
+  /// see `Header::is_truncated()`
   pub fn is_truncated(&self) -> bool { self.header.is_truncated() }
+
+  /// see `Header::is_recursion_desired()`
   pub fn is_recursion_desired(&self) -> bool { self.header.is_recursion_desired() }
+
+  /// see `Header::is_recursion_available()`
   pub fn is_recursion_available(&self) -> bool { self.header.is_recursion_available() }
+
+  /// see `Header::is_authentic_data()`
   pub fn is_authentic_data(&self) -> bool { self.header.is_authentic_data() }
+
+  /// see `Header::is_checking_disabled()`
   pub fn is_checking_disabled(&self) -> bool { self.header.is_checking_disabled() }
+
+  /// # Return value
+  ///
+  /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
+  ///  record to create the EDNS `ResponseCode`
   pub fn get_response_code(&self) -> ResponseCode { ResponseCode::from(self.edns.as_ref().map_or(0, |e|e.get_rcode_high()), self.header.get_response_code()) }
+
+  /// ```text
+  /// Question        Carries the query name and other query parameters.
+  /// ```
   pub fn get_queries(&self) -> &[Query] { &self.queries }
+
+  /// ```text
+  /// Answer          Carries RRs which directly answer the query.
+  /// ```
   pub fn get_answers(&self) -> &[Record] { &self.answers }
+
+  /// ```text
+  /// Authority       Carries RRs which describe other authoritative servers.
+  ///                 May optionally carry the SOA RR for the authoritative
+  ///                 data in the answer section.
+  /// ```
   pub fn get_name_servers(&self) -> &[Record] { &self.name_servers }
+
+  /// ```text
+  /// Additional      Carries RRs which may be helpful in using the RRs in the
+  ///                 other sections.
+  /// ```
   pub fn get_additional(&self) -> &[Record] { &self.additionals }
+
+  /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
+  ///
+  /// ```text
+  /// 6.1.1.  Basic Elements
+  ///
+  ///  An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
+  ///  additional data section of a request.
+  ///
+  ///  The OPT RR has RR type 41.
+  ///
+  ///  If an OPT record is present in a received request, compliant
+  ///  responders MUST include an OPT record in their respective responses.
+  ///
+  ///  An OPT record does not carry any DNS data.  It is used only to
+  ///  contain control information pertaining to the question-and-answer
+  ///  sequence of a specific transaction.  OPT RRs MUST NOT be cached,
+  ///  forwarded, or stored in or loaded from master files.
+  ///
+  ///  The OPT RR MAY be placed anywhere within the additional data section.
+  ///  When an OPT RR is included within any DNS message, it MUST be the
+  ///  only OPT RR in that message.  If a query message with more than one
+  ///  OPT RR is received, a FORMERR (RCODE=1) MUST be returned.  The
+  ///  placement flexibility for the OPT RR does not override the need for
+  ///  the TSIG or SIG(0) RRs to be the last in the additional section
+  ///  whenever they are present.
+  /// ```
+  /// # Return value
+  ///
+  /// Returns the EDNS record if it was found in the additional section.
   pub fn get_edns(&self) -> Option<&Edns> { self.edns.as_ref() }
+
+  /// # Return value
+  ///
+  /// the max payload value as it's defined in the EDNS section.
   pub fn get_max_payload(&self) -> u16 {
     let max_size = self.edns.as_ref().map_or(512, |e|e.get_max_payload());
     if max_size < 512 { 512 } else { max_size }
   }
+
+  /// # Return value
+  ///
+  /// the version as defined in the EDNS record
   pub fn get_version(&self) -> u8 { self.edns.as_ref().map_or(0, |e|e.get_version()) }
 
-  /// returns the sig0, i.e. signed record, for verifying the sending and package integrity
-  ///  RFC 2535 section 4
-  /// this should be the final record in the additional section of the Message
+  /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
   ///
-  /// RFC 2535                DNS Security Extensions               March 1999
-  ///
+  /// ```text
   /// A DNS request may be optionally signed by including one or more SIGs
   ///  at the end of the query. Such SIGs are identified by having a "type
   ///  covered" field of zero. They sign the preceding DNS request message
   ///  including DNS header but not including the IP header or any request
   ///  SIGs at the end and before the request RR counts have been adjusted
   ///  for the inclusions of any request SIG(s).
+  /// ```
+  ///
+  /// # Return value
+  ///
+  /// The sig0, i.e. signed record, for verifying the sending and package integrity
   fn get_sig0(&self) -> &[Record] { &self.sig0 }
 
   // TODO only necessary in tests, should it be removed?
@@ -225,18 +310,9 @@ pub trait UpdateMessage: Debug {
   fn get_updates(&self) -> &[Record];
   fn get_additional(&self) -> &[Record];
 
-  /// returns the sig0, i.e. signed record, for verifying the sending and package integrity
-  ///  RFC 2535 section 4
-  /// this should be the final record in the additional section of the Message
+  /// This is used to authenticate update messages.
   ///
-  /// RFC 2535                DNS Security Extensions               March 1999
-  ///
-  /// A DNS request may be optionally signed by including one or more SIGs
-  ///  at the end of the query. Such SIGs are identified by having a "type
-  ///  covered" field of zero. They sign the preceding DNS request message
-  ///  including DNS header but not including the IP header or any request
-  ///  SIGs at the end and before the request RR counts have been adjusted
-  ///  for the inclusions of any request SIG(s).
+  /// see `Message::get_sig0()` for more information.
   fn get_sig0(&self) -> &[Record];
 
   fn sign(&mut self, signer: &Signer, inception_time: u32);

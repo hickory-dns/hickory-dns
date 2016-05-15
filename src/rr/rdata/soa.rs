@@ -71,6 +71,21 @@ pub struct SOA { mname: Name, rname: Name, serial: u32,
                  minimum: u32, }
 
 impl SOA {
+  /// Creates a new SOA record data.
+  ///
+  /// # Arguments
+  ///
+  /// * `mname` - the name of the master, primary, authority for this zone.
+  /// * `rname` - the name of the responsible party for this zone, e.g. an email address.
+  /// * `serial` - the serial number of the zone, used for caching purposes.
+  /// * `refresh` - the amount of time to wait before a zone is resynched.
+  /// * `retry` - the minimum period to wait if there is a failure during refresh.
+  /// * `expire` - the time until this master is no longer authoritative for the zone.
+  /// * `minimum` - no zone records should have time-to-live values less than this minimum.
+  ///
+  /// # Return value
+  ///
+  /// The newly created SOA record data.
   pub fn new(mname: Name, rname: Name, serial: u32,
              refresh: i32, retry: i32, expire: i32,
              minimum: u32) -> Self {
@@ -81,7 +96,7 @@ impl SOA {
 
   /// Increments the serial number by one
   pub fn increment_serial(&mut self) {
-    self.serial += 1;
+    self.serial += 1; // TODO: what to do on overflow?
   }
 
   /// ```text

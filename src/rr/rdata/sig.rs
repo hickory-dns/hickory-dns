@@ -22,7 +22,6 @@ use ::rr::{Name, RecordType};
 use ::rr::dnssec::Algorithm;
 
 /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
-/// [RFC 2931, DNS Request and Transaction Signatures, September 2000](https://tools.ietf.org/html/rfc2931)
 ///
 /// NOTE: RFC 2535 was obsoleted with 4034+, with the exception of the
 ///  usage for UPDATE, which is what this implementation is for.
@@ -53,8 +52,12 @@ use ::rr::dnssec::Algorithm;
 /// /                                                               /
 /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ///
+/// ```
+/// [RFC 2931, DNS Request and Transaction Signatures, September 2000](https://tools.ietf.org/html/rfc2931)
+///
 /// NOTE: 2931 updates SIG0 to clarify certain particulars...
 ///
+/// ```text
 /// RFC 2931                       DNS SIG(0)                 September 2000
 ///
 /// 3. The SIG(0) Resource Record
@@ -182,6 +185,25 @@ pub struct SIG { type_covered: RecordType, algorithm: Algorithm, num_labels: u8,
                  sig: Vec<u8> }
 
 impl SIG {
+  /// Creates a new SIG record data, used for both RRSIG and SIG(0) records.
+  ///
+  /// # Arguments
+  ///
+  /// * `type_covered` - The `RecordType` which this signature covers, should be NULL for SIG(0).
+  /// * `algorithm` - The `Algorithm` used to generat the the `signature`.
+  /// * `num_labels` - The number of labels in the name, should be less 1 for *.name labels,
+  ///                  see `Name::num_labels()`.
+  /// * `original_ttl` - The TTL for the RRSet stored in the zone, should be 0 for SIG(0).
+  /// * `sig_expiration` - Timestamp at which this signature is no longer valid, very important to
+  ///                      keep this low, < +5 minutes to limit replay attacks.
+  /// * `sig_inception` - Timestamp when this signature was generated.
+  /// * `key_tag` - See the key_tag generation in `rr::dnssec::Signer::key_tag()`.
+  /// * `signer_name` - Domain name of the server which was used to generate the signature.
+  /// * `sig` - signature stored in this record.
+  ///
+  /// # Return value
+  ///
+  /// The new SIG record data.
   pub fn new(type_covered: RecordType, algorithm: Algorithm, num_labels: u8, original_ttl: u32,
              sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: Name,
              sig: Vec<u8>) -> SIG {

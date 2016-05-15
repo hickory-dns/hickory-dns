@@ -14,6 +14,8 @@
  * limitations under the License.
  */
 
+//! Message metadata
+
 use std::convert::From;
 
 use ::serialize::binary::*;
@@ -21,113 +23,38 @@ use ::error::*;
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
 
-/*
- * RFC 1035        Domain Implementation and Specification    November 1987
- *
- * 4.1.1. Header section format
- *
- * The header contains the following fields
- *
- *                                    1  1  1  1  1  1
- *      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
- *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *     |                      ID                       |
- *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *     |QR|   Opcode  |AA|TC|RD|RA|ZZ|AD|CD|   RCODE   |  // AD and CD from RFC4035
- *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *     |                    QDCOUNT / ZCOUNT           |
- *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *     |                    ANCOUNT / PRCOUNT          |
- *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *     |                    NSCOUNT / UPCOUNT          |
- *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *     |                    ARCOUNT / ADCOUNT          |
- *     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- *
- * where
- *
- * ID              A 16 bit identifier assigned by the program that
- *                 generates any kind of query.  This identifier is copied
- *                 the corresponding reply and can be used by the requester
- *                 to match up replies to outstanding queries.
- *
- * QR              A one bit field that specifies whether this message is a
- *                 query (0), or a response (1).
- *
- * OPCODE          A four bit field that specifies kind of query in this
- *                 message.  This value is set by the originator of a query
- *                 and copied into the response.  The values are: <see super::op_code>
- *
- * AA              Authoritative Answer - this bit is valid in responses,
- *                 and specifies that the responding name server is an
- *                 authority for the domain name in question section.
- *
- *                 Note that the contents of the answer section may have
- *                 multiple owner names because of aliases.  The AA bit
- *                 corresponds to the name which matches the query name, or
- *                 the first owner name in the answer section.
- *
- * TC              TrunCation - specifies that this message was truncated
- *                 due to length greater than that permitted on the
- *                 transmission channel.
- *
- * RD              Recursion Desired - this bit may be set in a query and
- *                 is copied into the response.  If RD is set, it directs
- *                 the name server to pursue the query recursively.
- *                 Recursive query support is optional.
- *
- * RA              Recursion Available - this be is set or cleared in a
- *                 response, and denotes whether recursive query support is
- *                 available in the name server.
- *
- * Z               Reserved for future use.  Must be zero in all queries
- *                 and responses.
- *
- * RCODE           Response code - this 4 bit field is set as part of
- *                 responses.  The values have the following
- *                 interpretation: <see super::response_code>
- *
- * QDCOUNT         an unsigned 16 bit integer specifying the number of
- *                 entries in the question section.
- *
- * ANCOUNT         an unsigned 16 bit integer specifying the number of
- *                 resource records in the answer section.
- *
- * NSCOUNT         an unsigned 16 bit integer specifying the number of name
- *                 server resource records in the authority records
- *                 section.
- *
- * ARCOUNT         an unsigned 16 bit integer specifying the number of
- *                 resource records in the additional records section.
- *
- * RFC 4035             DNSSEC Protocol Modifications            March 2005
- *
- * 3.1.6.  The AD and CD Bits in an Authoritative Response
- *
- *   The CD and AD bits are designed for use in communication between
- *   security-aware resolvers and security-aware recursive name servers.
- *   These bits are for the most part not relevant to query processing by
- *   security-aware authoritative name servers.
- *
- *   A security-aware name server does not perform signature validation
- *   for authoritative data during query processing, even when the CD bit
- *   is clear.  A security-aware name server SHOULD clear the CD bit when
- *   composing an authoritative response.
- *
- *   A security-aware name server MUST NOT set the AD bit in a response
- *   unless the name server considers all RRsets in the Answer and
- *   Authority sections of the response to be authentic.  A security-aware
- *   name server's local policy MAY consider data from an authoritative
- *   zone to be authentic without further validation.  However, the name
- *   server MUST NOT do so unless the name server obtained the
- *   authoritative zone via secure means (such as a secure zone transfer
- *   mechanism) and MUST NOT do so unless this behavior has been
- *   configured explicitly.
- *
- *   A security-aware name server that supports recursion MUST follow the
- *   rules for the CD and AD bits given in Section 3.2 when generating a
- *   response that involves data obtained via recursion.
- */
+/// Metadata for the `Message` struct.
+///
+/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+///
+/// ```text
+/// 4.1.1. Header section format
+///
+/// The header contains the following fields
+///
+///                                    1  1  1  1  1  1
+///      0  1  2  3  4  5  6  7  8  9  0  1  2  3  4  5
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                      ID                       |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |QR|   Opcode  |AA|TC|RD|RA|ZZ|AD|CD|   RCODE   |  /// AD and CD from RFC4035
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    QDCOUNT / ZCOUNT           |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    ANCOUNT / PRCOUNT          |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    NSCOUNT / UPCOUNT          |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///     |                    ARCOUNT / ADCOUNT          |
+///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+///
+/// where
+///
+/// Z               Reserved for future use.  Must be zero in all queries
+///                 and responses.
+///
+/// ```
+///
 #[derive(Debug, PartialEq, PartialOrd)]
 pub struct Header {
   id: u16, message_type: MessageType, op_code: OpCode,
@@ -182,30 +109,147 @@ impl Header {
   pub fn name_server_count(&mut self, name_server_count: u16) -> &mut Self { self.name_server_count = name_server_count; self }
   pub fn additional_count(&mut self, additional_count: u16) -> &mut Self { self.additional_count = additional_count; self }
 
+  /// ```text
+  /// ID              A 16 bit identifier assigned by the program that
+  ///                 generates any kind of query.  This identifier is copied
+  ///                 the corresponding reply and can be used by the requester
+  ///                 to match up replies to outstanding queries.
+  /// ```
   pub fn get_id(&self) -> u16 { self.id }
+
+  /// ```text
+  /// QR              A one bit field that specifies whether this message is a
+  ///                 query (0), or a response (1).
+  /// ```
   pub fn get_message_type(&self) -> MessageType { self.message_type }
+
+  /// ```text
+  /// OPCODE          A four bit field that specifies kind of query in this
+  ///                 message.  This value is set by the originator of a query
+  ///                 and copied into the response.  The values are: <see super::op_code>
+  /// ```
   pub fn get_op_code(&self) -> OpCode { self.op_code }
+
+  /// ```text
+  /// AA              Authoritative Answer - this bit is valid in responses,
+  ///                 and specifies that the responding name server is an
+  ///                 authority for the domain name in question section.
+  ///
+  ///                 Note that the contents of the answer section may have
+  ///                 multiple owner names because of aliases.  The AA bit
+  ///                 corresponds to the name which matches the query name, or
+  ///                 the first owner name in the answer section.
+  /// ```
   pub fn is_authoritative(&self) -> bool { self.authoritative }
+
+  /// ```text
+  /// TC              TrunCation - specifies that this message was truncated
+  ///                 due to length greater than that permitted on the
+  ///                 transmission channel.
+  /// ```
   pub fn is_truncated(&self) -> bool { self.truncation }
+
+  /// ```text
+  /// RD              Recursion Desired - this bit may be set in a query and
+  ///                 is copied into the response.  If RD is set, it directs
+  ///                 the name server to pursue the query recursively.
+  ///                 Recursive query support is optional.
+  /// ```
   pub fn is_recursion_desired(&self) -> bool { self.recursion_desired }
+
+  /// ```text
+  /// RA              Recursion Available - this be is set or cleared in a
+  ///                 response, and denotes whether recursive query support is
+  ///                 available in the name server.
+  /// ```
   pub fn is_recursion_available(&self) -> bool {self.recursion_available }
+
+  /// [RFC 4035, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4035#section-3.1.6)
+  ///
+  /// ```text
+  ///
+  /// 3.1.6.  The AD and CD Bits in an Authoritative Response
+  ///
+  ///   The CD and AD bits are designed for use in communication between
+  ///   security-aware resolvers and security-aware recursive name servers.
+  ///   These bits are for the most part not relevant to query processing by
+  ///   security-aware authoritative name servers.
+  ///
+  ///   A security-aware name server does not perform signature validation
+  ///   for authoritative data during query processing, even when the CD bit
+  ///   is clear.  A security-aware name server SHOULD clear the CD bit when
+  ///   composing an authoritative response.
+  ///
+  ///   A security-aware name server MUST NOT set the AD bit in a response
+  ///   unless the name server considers all RRsets in the Answer and
+  ///   Authority sections of the response to be authentic.  A security-aware
+  ///   name server's local policy MAY consider data from an authoritative
+  ///   zone to be authentic without further validation.  However, the name
+  ///   server MUST NOT do so unless the name server obtained the
+  ///   authoritative zone via secure means (such as a secure zone transfer
+  ///   mechanism) and MUST NOT do so unless this behavior has been
+  ///   configured explicitly.
+  ///
+  ///   A security-aware name server that supports recursion MUST follow the
+  ///   rules for the CD and AD bits given in Section 3.2 when generating a
+  ///   response that involves data obtained via recursion.
+  /// ```
   pub fn is_authentic_data(&self) -> bool {self.authentic_data}
+
+  /// see `is_authentic_data()`
   pub fn is_checking_disabled(&self) -> bool {self.checking_disabled}
+
+  /// ```text
+  /// RCODE           Response code - this 4 bit field is set as part of
+  ///                 responses.  The values have the following
+  ///                 interpretation: <see super::response_code>
+  /// ```
   pub fn get_response_code(&self) -> u8 { self.response_code }
 
-  /// for query this is the count of query records
-  /// for updates this is the zone count (only 1 allowed)
+  /// ```text
+  /// QDCOUNT         an unsigned 16 bit integer specifying the number of
+  ///                 entries in the question section.
+  /// ```
+  ///
+  /// # Return value
+  ///
+  /// If this is a query, this will return the number of queries in the query section of the
+  //   message, fo updates this represents the zone count (must be no more than 1).
   pub fn get_query_count(&self) -> u16 { self.query_count }
 
-  /// for queries this is the answer section and record count
-  /// for updates this is the prerequisite count
+  /// ```text
+  /// ANCOUNT         an unsigned 16 bit integer specifying the number of
+  ///                 resource records in the answer section.
+  /// ```
+  ///
+  /// # Return value
+  ///
+  /// For query responses this is the number of records in the answer section, should be 0 for
+  ///  requests, for updates this is the count of prerequisite records.
   pub fn get_answer_count(&self) -> u16 { self.answer_count }
 
   /// for queries this is the nameservers which are authorities for the SOA of the Record
   /// for updates this is the update record count
+  /// ```text
+  /// NSCOUNT         an unsigned 16 bit integer specifying the number of name
+  ///                 server resource records in the authority records
+  ///                 section.
+  /// ```
+  ///
+  /// # Return value
+  ///
+  /// For query responses this is the number of authorities, or nameservers, in the name server
+  ///  section, for updates this is the number of update records being sent.
   pub fn get_name_server_count(&self) -> u16 { self.name_server_count }
 
-  /// number of records in the additional section, same for queries and updates.
+  /// ```text
+  /// ARCOUNT         an unsigned 16 bit integer specifying the number of
+  ///                 resource records in the additional records section.
+  /// ```
+  ///
+  /// # Return value
+  ///
+  /// This is the additional record section count, this section may include EDNS options.
   pub fn get_additional_count(&self) -> u16 { self.additional_count }
 
   /// This is a specialized clone which clones all the fields but the counts

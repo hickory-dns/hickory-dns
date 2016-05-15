@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! resource record implementation
+
 use std::net::Ipv4Addr;
 use std::sync::Arc as Rc;
 use std::cmp::Ordering;

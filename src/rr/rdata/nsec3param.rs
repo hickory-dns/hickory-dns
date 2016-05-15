@@ -109,7 +109,7 @@ impl NSEC3PARAM {
   ///    NSEC3PARAM RRs with a Flags field value other than zero MUST be
   ///    ignored.
   /// ```
-  pub fn get_opt_out(&self) -> bool { self.opt_out }
+  pub fn is_opt_out(&self) -> bool { self.opt_out }
 
   /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.3)
   ///
@@ -150,7 +150,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<NSEC3PARAM> {
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> EncodeResult {
   try!(encoder.emit(rdata.get_hash_algorithm().into()));
   let mut flags: u8 = 0;
-  if rdata.get_opt_out() { flags |= 0b0000_0001 };
+  if rdata.is_opt_out() { flags |= 0b0000_0001 };
   try!(encoder.emit(flags));
   try!(encoder.emit_u16(rdata.get_iterations()));
   try!(encoder.emit(rdata.get_salt().len() as u8));

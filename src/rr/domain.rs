@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! domain name, aka labels, implementaton
+
 use std::ops::Index;
 use std::sync::Arc as Rc;
 use std::fmt;
