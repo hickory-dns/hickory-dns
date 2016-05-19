@@ -11,6 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+//! TCP based DNS client
+
 use std::net::SocketAddr;
 use std::io;
 use std::io::Write;
@@ -26,6 +29,7 @@ use ::tcp::{TcpHandler, TcpState};
 
 const RESPONSE: Token = Token(0);
 
+/// TCP based DNS client
 pub struct TcpClientConnection {
   handler: Option<TcpHandler>,
   event_loop: EventLoop<ClientHandler>,
@@ -33,6 +37,14 @@ pub struct TcpClientConnection {
 }
 
 impl TcpClientConnection {
+  /// Creates a new client connection.
+  ///
+  /// *Note* this has side affects of establishing the connection to the specified DNS server and
+  ///        starting the event_loop. Expect this to change in the future.
+  ///
+  /// # Arguments
+  ///
+  /// * `name_server` - address of the name server to use for queries
   pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
     debug!("connecting to {:?}", name_server);
     let stream = try!(TcpStream::connect(&name_server));

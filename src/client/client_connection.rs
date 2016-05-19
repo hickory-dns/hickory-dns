@@ -11,14 +11,22 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+//! Trait for client connections
+
 use std::fmt::Debug;
 
 use ::error::*;
 
+/// Trait for client connections
 pub trait ClientConnection: Sized+Debug {
-  /// send the message to the specified address
+  /// Sends a serialized message to via this connection, returning the serialized response.
+  ///
+  /// # Arguments
+  ///
+  /// * `bytes` - the serialized Message
   fn send(&mut self, bytes: Vec<u8>) -> ClientResult<Vec<u8>>;
-  // TODO: split send and read...
+  // TODO: split connect, send and read...
 }
 
 #[cfg(test)]

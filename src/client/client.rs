@@ -37,19 +37,33 @@ pub struct Client<C: ClientConnection> {
 }
 
 impl<C: ClientConnection> Client<C> {
-  /// name_server to connect to with default port 53
+  /// Creates a new DNS client with the specified connection type
+  ///
+  /// # Arguments
+  ///
+  /// * `client_connection` - the client_connection to use for all communication
   pub fn new(client_connection: C) -> Client<C> {
     Client{ client_connection: RefCell::new(client_connection),
             next_id: Cell::new(1037),
             trust_anchor: TrustAnchor::default() }
   }
 
+  /// This variant allows for the trust_anchor to be replaced
+  ///
+  /// # Arguments
+  ///
+  /// * `client_connection` - the client_connection to use for all communication
+  /// * `trust_anchor` - the set of trusted DNSKEY public_keys, by default this only contains the
+  ///                    root public_key.
   pub fn with_trust_anchor(client_connection: C, trust_anchor: TrustAnchor) -> Client<C> {
     Client{ client_connection: RefCell::new(client_connection),
             next_id: Cell::new(1037),
             trust_anchor: trust_anchor }
   }
 
+  /// DNSSec validating query, this will return an error if the requested records can not be
+  ///  validated against the trust_anchor.
+  ///
   /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
   ///  make sure that the answer is correct. Then starts
   ///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
@@ -58,6 +72,15 @@ impl<C: ClientConnection> Client<C> {
   ///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
   ///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
   ///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
+  ///
+  /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
+  ///        the caller.
+  ///
+  /// # Arguments
+  ///
+  /// * `query_name` - the label to lookup
+  /// * `query_class` - most likely this should always be DNSClass::IN
+  /// * `query_type` - record type to lookup
   pub fn secure_query(&self, query_name: &domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
     // TODO: if we knew we were talking with a DNS server that supported multiple queries, these
     //  could be a single multiple query request...
@@ -449,33 +472,16 @@ impl<C: ClientConnection> Client<C> {
     Err(ClientError::InvalidNsec3)
   }
 
-  // send a DNS query to the name_server specified in Client.
-  //
-  // ```
-  // use std::net::*;
-  //
-  // use trust_dns::rr::dns_class::DNSClass;
-  // use trust_dns::rr::record_type::RecordType;
-  // use trust_dns::rr::domain;
-  // use trust_dns::rr::record_data::RData;
-  // use trust_dns::udp::client::Client;
-  //
-  // let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-  // let client = Client::new(("8.8.8.8").parse().unwrap()).unwrap();
-  // let response = client.query(name.clone(), DNSClass::IN, RecordType::A).unwrap();
-  //
-  // let record = &response.get_answers()[0];
-  // assert_eq!(record.get_name(), &name);
-  // assert_eq!(record.get_rr_type(), RecordType::A);
-  // assert_eq!(record.get_dns_class(), DNSClass::IN);
-  //
-  // if let &RData::A{ ref address } = record.get_rdata() {
-  //   assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-  // } else {
-  //   assert!(false);
-  // }
-  //
-  // ```
+  /// A *classic* DNS query, i.e. does not perform and DNSSec operations
+  ///
+  /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
+  ///        the caller.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - the label to lookup
+  /// * `query_class` - most likely this should always be DNSClass::IN
+  /// * `query_type` - record type to lookup
   pub fn query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
     self.inner_query(name, query_class, query_type, false)
   }

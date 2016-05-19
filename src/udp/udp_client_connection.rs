@@ -11,6 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
+//! UDP based DNS client
+
 use std::mem;
 use std::net::{SocketAddr, ToSocketAddrs};
 use std::fmt;
@@ -23,6 +26,7 @@ use client::ClientConnection;
 
 const RESPONSE: Token = Token(0);
 
+/// UDP based DNS client
 pub struct UdpClientConnection {
   name_server: SocketAddr,
   socket: Option<UdpSocket>,
@@ -30,6 +34,14 @@ pub struct UdpClientConnection {
 }
 
 impl UdpClientConnection {
+  /// Creates a new client connection.
+  ///
+  /// *Note* this has side affects of binding the socket to 0.0.0.0 and starting the listening
+  ///        event_loop. Expect this to change in the future.
+  ///
+  /// # Arguments
+  ///
+  /// * `name_server` - address of the name server to use for queries
   pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
     // client binds to all addresses... this shouldn't ever fail
     let zero_addr = ("0.0.0.0", 0).to_socket_addrs().expect("could not parse 0.0.0.0 address").
