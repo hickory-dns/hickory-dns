@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `ResponseCode` enum in crate `trust_dns`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, ResponseCode">
+
+    <title>trust_dns::op::response_code::ResponseCode - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../../index.html'>trust_dns</a>::<wbr><a href='../index.html'>op</a>::<wbr><a href='index.html'>response_code</a></p><script>window.sidebarCurrent = {name: 'ResponseCode', ty: 'enum', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content enum">
+<h1 class='fqn'><span class='in-band'>Enum <a href='../../index.html'>trust_dns</a>::<wbr><a href='../index.html'>op</a>::<wbr><a href='index.html'>response_code</a>::<wbr><a class='enum' href=''>ResponseCode</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-4148' class='srclink' href='../../../src/trust_dns/src/op/response_code.rs.html#60-125' title='goto source code'>[src]</a></span></h1>
+<pre class='rust enum'>pub enum ResponseCode {
+    NoError,
+    FormErr,
+    ServFail,
+    NXDomain,
+    NotImp,
+    Refused,
+    YXDomain,
+    YXRRSet,
+    NXRRSet,
+    NotAuth,
+    NotZone,
+    BADVERS,
+    BADSIG,
+    BADKEY,
+    BADTIME,
+    BADMODE,
+    BADNAME,
+    BADALG,
+    BADTRUNC,
+    BADCOOKIE,
+}</pre><div class='docblock'><p>The status code of the response to a query.</p>
+
+<p><a href="https://tools.ietf.org/html/rfc1035">RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987</a></p>
+
+<pre><code class="language-text">RCODE           Response code - this 4 bit field is set as part of
+                responses.  The values have the following
+                interpretation:
+
+                0               No error condition
+
+                1               Format error - The name server was
+                                unable to interpret the query.
+
+                2               Server failure - The name server was
+                                unable to process this query due to a
+                                problem with the name server.
+
+                3               Name Error - Meaningful only for
+                                responses from an authoritative name
+                                server, this code signifies that the
+                                domain name referenced in the query does
+                                not exist.
+
+                4               Not Implemented - The name server does
+                                not support the requested kind of query.
+
+                5               Refused - The name server refuses to
+                                perform the specified operation for
+                                policy reasons.  For example, a name
+                                server may not wish to provide the
+                                information to the particular requester,
+                                or a name server may not wish to perform
+                                a particular operation (e.g., zone
+
+                                transfer) for particular data.
+
+                6-15            Reserved for future use.
+ ```
+</code></pre>
+</div><h2 class='variants'>Variants</h2>
+<table class='variants_table'><tr><td id='variant.NoError'><code>NoError</code></td><td><div class='docblock'><p>No Error <a href="https://tools.ietf.org/html/rfc1035">RFC 1035</a></p>
+</div></td><td></td></tr><tr><td id='variant.FormErr'><code>FormErr</code></td><td><div class='docblock'><p>Format Error <a href="https://tools.ietf.org/html/rfc1035">RFC 1035</a></p>
+</div></td><td></td></tr><tr><td id='variant.ServFail'><code>ServFail</code></td><td><div class='docblock'><p>Server Failure <a href="https://tools.ietf.org/html/rfc1035">RFC 1035</a></p>
+</div></td><td></td></tr><tr><td id='variant.NXDomain'><code>NXDomain</code></td><td><div class='docblock'><p>Non-Esistent Domain <a href="https://tools.ietf.org/html/rfc1035">RFC 1035</a></p>
+</div></td><td></td></tr><tr><td id='variant.NotImp'><code>NotImp</code></td><td><div class='docblock'><p>Not Implemented <a href="https://tools.ietf.org/html/rfc1035">RFC 1035</a></p>
+</div></td><td></td></tr><tr><td id='variant.Refused'><code>Refused</code></td><td><div class='docblock'><p>Query Refused <a href="https://tools.ietf.org/html/rfc1035">RFC 1035</a></p>
+</div></td><td></td></tr><tr><td id='variant.YXDomain'><code>YXDomain</code></td><td><div class='docblock'><p>Name Exists when it should not <a href="https://tools.ietf.org/html/rfc2136">RFC 2136</a></p>
+</div></td><td></td></tr><tr><td id='variant.YXRRSet'><code>YXRRSet</code></td><td><div class='docblock'><p>RR Set Exists when it should not <a href="https://tools.ietf.org/html/rfc2136">RFC 2136</a></p>
+</div></td><td></td></tr><tr><td id='variant.NXRRSet'><code>NXRRSet</code></td><td><div class='docblock'><p>RR Set that should exist does not <a href="https://tools.ietf.org/html/rfc2136">RFC 2136</a></p>
+</div></td><td></td></tr><tr><td id='variant.NotAuth'><code>NotAuth</code></td><td><div class='docblock'><p>Server Not Authoritative for zone <a href="https://tools.ietf.org/html/rfc2136">RFC 2136</a>
+or Not Authorized <a href="https://tools.ietf.org/html/rfc2845">RFC 2845</a></p>
+</div></td><td></td></tr><tr><td id='variant.NotZone'><code>NotZone</code></td><td><div class='docblock'><p>Name not contained in zone <a href="https://tools.ietf.org/html/rfc2136">RFC 2136</a></p>
+</div></td><td></td></tr><tr><td id='variant.BADVERS'><code>BADVERS</code></td><td><div class='docblock'><p>Bad OPT Version <a href="https://tools.ietf.org/html/rfc6891#section-9">RFC 6891</a></p>
+</div></td><td></td></tr><tr><td id='variant.BADSIG'><code>BADSIG</code></td><td><div class='docblock'><p>TSIG Signature Failure <a href="https://tools.ietf.org/html/rfc2845">RFC 2845</a></p>
+</div></td><td></td></tr><tr><td id='variant.BADKEY'><code>BADKEY</code></td><td><div class='docblock'><p>Key not recognized <a href="https://tools.ietf.org/html/rfc2845">RFC 2845</a></p>
+</div></td><td></td></tr><tr><td id='variant.BADTIME'><code>BADTIME</code></td><td><div class='docblock'><p>Signature out of time window <a href="https://tools.ietf.org/html/rfc2845">RFC 2845</a></p>
+</div></td><td></td></tr><tr><td id='variant.BADMODE'><code>BADMODE</code></td><td><div class='docblock'><p>Bad TKEY Mode <a href="https://tools.ietf.org/html/rfc2930#section-2.6">RFC 2930</a></p>
+</div></td><td></td></tr><tr><td id='variant.BADNAME'><code>BADNAME</code></td><td><div class='docblock'><p>Duplicate key name <a href="https://tools.ietf.org/html/rfc2930#section-2.6">RFC 2930</a></p>
+</div></td><td></td></tr><tr><td id='variant.BADALG'><code>BADALG</code></td><td><div class='docblock'><p>Algorithm not supported <a href="https://tools.ietf.org/html/rfc2930#section-2.6">RFC 2930</a></p>
+</div></td><td></td></tr><tr><td id='variant.BADTRUNC'><code>BADTRUNC</code></td><td><div class='docblock'><p>Bad Truncation <a href="https://tools.ietf.org/html/rfc4635#section-4">RFC 4635</a></p>
+</div></td><td></td></tr><tr><td id='variant.BADCOOKIE'><code>BADCOOKIE</code></td><td><div class='docblock'><p>Bad/missing server cookie <a href="https://tools.ietf.org/html/draft-ietf-dnsop-cookies-10">draft-ietf-dnsop-cookies</a></p>
+</div></td><td></td></tr></table><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a></code></h3><div class='impl-items'><h4 id='method.low' class='method'><code>fn <a href='#method.low' class='fnname'>low</a>(&amp;self) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a></code></h4>
+<div class='docblock'><p>returns the lower 4 bits of the response code (for the original header portion of the code)</p>
+</div><h4 id='method.high' class='method'><code>fn <a href='#method.high' class='fnname'>high</a>(&amp;self)</code></h4>
+<div class='docblock'><p>returns the high 12 bits for the edns portion of the response code</p>
+</div><h4 id='method.from' class='method'><code>fn <a href='#method.from' class='fnname'>from</a>(high: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>, low: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>) -&gt; <a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a></code></h4>
+<h4 id='method.to_str' class='method'><code>fn <a href='#method.to_str' class='fnname'>to_str</a>(&amp;self) -&gt; &amp;'static <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a></code></h4>
+</div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html' title='core::convert::From'>From</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>&gt; for <a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a></code></h3><div class='docblock'><p>Convert from u16 to ResponseCode</p>
+
+<pre class='rust rust-example-rendered'>
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>convert</span>::<span class='ident'>From</span>;
+<span class='kw'>use</span> <span class='ident'>trust_dns</span>::<span class='ident'>op</span>::<span class='ident'>response_code</span>::<span class='ident'>ResponseCode</span>;
+
+<span class='kw'>let</span> <span class='ident'>var</span>: <span class='ident'>u16</span> <span class='op'>=</span> <span class='ident'>From</span>::<span class='ident'>from</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NoError</span>);
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='number'>0</span>, <span class='ident'>var</span>);
+
+<span class='kw'>let</span> <span class='ident'>var</span>: <span class='ident'>u16</span> <span class='op'>=</span> <span class='ident'>ResponseCode</span>::<span class='ident'>NoError</span>.<span class='ident'>into</span>();
+<span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='number'>0</span>, <span class='ident'>var</span>);</pre>
+</div><div class='impl-items'><h4 id='method.from-1' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html#method.from' class='fnname'>from</a>(value: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>) -&gt; Self</code></h4>
+</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a></code></h4>
+<h4 id='method.clone_from' class='method'><span class="since">1.0.0</span><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/marker/trait.Copy.html' title='core::marker::Copy'>Copy</a> for <a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html' title='core::cmp::PartialOrd'>PartialOrd</a> for <a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a></code></h3><div class='impl-items'><h4 id='method.partial_cmp' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.partial_cmp' class='fnname'>partial_cmp</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='enum' href='https://doc.rust-lang.org/nightly/core/cmp/enum.Ordering.html' title='core::cmp::Ordering'>Ordering</a>&gt;</code></h4>
+<h4 id='method.lt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.lt' class='fnname'>lt</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.le' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.le' class='fnname'>le</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.gt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.gt' class='fnname'>gt</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ge' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialOrd.html#method.ge' class='fnname'>ge</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='enum' href='../../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../jquery.js"></script>
+    <script src="../../../main.js"></script>
+    
+    <script defer src="../../../search-index.js"></script>
+</body>
+</html>
