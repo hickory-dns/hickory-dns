@@ -1,0 +1,265 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="API documentation for the Rust `OPT` struct in crate `trust_dns`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang, OPT">
+
+    <title>trust_dns::rr::rdata::opt::OPT - Rust</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        <p class='location'><a href='../../../index.html'>trust_dns</a>::<wbr><a href='../../index.html'>rr</a>::<wbr><a href='../index.html'>rdata</a>::<wbr><a href='index.html'>opt</a></p><script>window.sidebarCurrent = {name: 'OPT', ty: 'struct', relpath: ''};</script><script defer src="sidebar-items.js"></script>
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content struct">
+<h1 class='fqn'><span class='in-band'>Struct <a href='../../../index.html'>trust_dns</a>::<wbr><a href='../../index.html'>rr</a>::<wbr><a href='../index.html'>rdata</a>::<wbr><a href='index.html'>opt</a>::<wbr><a class='struct' href=''>OPT</a></span><span class='out-of-band'><span id='render-detail'>
+            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                [<span class='inner'>&#x2212;</span>]
+            </a>
+        </span><a id='src-1916' class='srclink' href='../../../../src/trust_dns/src/rr/rdata/opt.rs.html#157' title='goto source code'>[src]</a></span></h1>
+<pre class='rust struct'>pub struct OPT {
+    // some fields omitted
+}</pre><div class='docblock'><p><a href="https://tools.ietf.org/html/rfc6891#section-6">RFC 6891, EDNS(0) Extensions, April 2013</a></p>
+
+<pre><code class="language-text">6.1.  OPT Record Definition
+
+6.1.1.  Basic Elements
+
+   An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
+   additional data section of a request.
+
+   The OPT RR has RR type 41.
+
+   If an OPT record is present in a received request, compliant
+   responders MUST include an OPT record in their respective responses.
+
+   An OPT record does not carry any DNS data.  It is used only to
+   contain control information pertaining to the question-and-answer
+   sequence of a specific transaction.  OPT RRs MUST NOT be cached,
+   forwarded, or stored in or loaded from master files.
+
+   The OPT RR MAY be placed anywhere within the additional data section.
+   When an OPT RR is included within any DNS message, it MUST be the
+   only OPT RR in that message.  If a query message with more than one
+   OPT RR is received, a FORMERR (RCODE=1) MUST be returned.  The
+   placement flexibility for the OPT RR does not override the need for
+   the TSIG or SIG(0) RRs to be the last in the additional section
+   whenever they are present.
+
+6.1.2.  Wire Format
+
+   An OPT RR has a fixed part and a variable set of options expressed as
+   {attribute, value} pairs.  The fixed part holds some DNS metadata,
+   and also a small collection of basic extension elements that we
+   expect to be so popular that it would be a waste of wire space to
+   encode them as {attribute, value} pairs.
+
+   The fixed part of an OPT RR is structured as follows:
+
+       +------------+--------------+------------------------------+
+       | Field Name | Field Type   | Description                  |
+       +------------+--------------+------------------------------+
+       | NAME       | domain name  | MUST be 0 (root domain)      |
+       | TYPE       | u_int16_t    | OPT (41)                     |
+       | CLASS      | u_int16_t    | requestor&#39;s UDP payload size |
+       | TTL        | u_int32_t    | extended RCODE and flags     |
+       | RDLEN      | u_int16_t    | length of all RDATA          |
+       | RDATA      | octet stream | {attribute,value} pairs      |
+       +------------+--------------+------------------------------+
+
+                               OPT RR Format
+
+   The variable part of an OPT RR may contain zero or more options in
+   the RDATA.  Each option MUST be treated as a bit field.  Each option
+   is encoded as:
+
+                  +0 (MSB)                            +1 (LSB)
+       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+    0: |                          OPTION-CODE                          |
+       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+    2: |                         OPTION-LENGTH                         |
+       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+    4: |                                                               |
+       /                          OPTION-DATA                          /
+       /                                                               /
+       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+
+   OPTION-CODE
+      Assigned by the Expert Review process as defined by the DNSEXT
+      working group and the IESG.
+
+   OPTION-LENGTH
+      Size (in octets) of OPTION-DATA.
+
+   OPTION-DATA
+      Varies per OPTION-CODE.  MUST be treated as a bit field.
+
+   The order of appearance of option tuples is not defined.  If one
+   option modifies the behaviour of another or multiple options are
+   related to one another in some way, they have the same effect
+   regardless of ordering in the RDATA wire encoding.
+
+   Any OPTION-CODE values not understood by a responder or requestor
+   MUST be ignored.  Specifications of such options might wish to
+   include some kind of signaled acknowledgement.  For example, an
+   option specification might say that if a responder sees and supports
+   option XYZ, it MUST include option XYZ in its response.
+
+6.1.3.  OPT Record TTL Field Use
+
+   The extended RCODE and flags, which OPT stores in the RR Time to Live
+   (TTL) field, are structured as follows:
+
+                  +0 (MSB)                            +1 (LSB)
+       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+    0: |         EXTENDED-RCODE        |            VERSION            |
+       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+    2: | DO|                           Z                               |
+       +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
+
+   EXTENDED-RCODE
+      Forms the upper 8 bits of extended 12-bit RCODE (together with the
+      4 bits defined in [RFC1035].  Note that EXTENDED-RCODE value 0
+      indicates that an unextended RCODE is in use (values 0 through
+      15).
+
+   VERSION
+      Indicates the implementation level of the setter.  Full
+      conformance with this specification is indicated by version &#39;0&#39;.
+      Requestors are encouraged to set this to the lowest implemented
+      level capable of expressing a transaction, to minimise the
+      responder and network load of discovering the greatest common
+      implementation level between requestor and responder.  A
+      requestor&#39;s version numbering strategy MAY ideally be a run-time
+      configuration option.
+      If a responder does not implement the VERSION level of the
+      request, then it MUST respond with RCODE=BADVERS.  All responses
+      MUST be limited in format to the VERSION level of the request, but
+      the VERSION of each response SHOULD be the highest implementation
+      level of the responder.  In this way, a requestor will learn the
+      implementation level of a responder as a side effect of every
+      response, including error responses and including RCODE=BADVERS.
+
+6.1.4.  Flags
+
+   DO
+      DNSSEC OK bit as defined by [RFC3225].
+
+   Z
+      Set to zero by senders and ignored by receivers, unless modified
+      in a subsequent specification.
+</code></pre>
+</div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(options: <a class='struct' href='https://doc.rust-lang.org/nightly/std/collections/hash/map/struct.HashMap.html' title='std::collections::hash::map::HashMap'>HashMap</a>&lt;<a class='enum' href='../../../../trust_dns/rr/rdata/opt/enum.EdnsCode.html' title='trust_dns::rr::rdata::opt::EdnsCode'>EdnsCode</a>, <a class='enum' href='../../../../trust_dns/rr/rdata/opt/enum.EdnsOption.html' title='trust_dns::rr::rdata::opt::EdnsOption'>EdnsOption</a>&gt;) -&gt; <a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a></code></h4>
+<div class='docblock'><p>Creates a new OPT record data.</p>
+
+<h1 id='arguments' class='section-header'><a href='#arguments'>Arguments</a></h1>
+<ul>
+<li><code>options</code> - A map of the codes and record types</li>
+</ul>
+
+<h1 id='return-value' class='section-header'><a href='#return-value'>Return value</a></h1>
+<p>The newly created OPT data</p>
+</div><h4 id='method.get_options' class='method'><code>fn <a href='#method.get_options' class='fnname'>get_options</a>(&amp;self) -&gt; &amp;<a class='struct' href='https://doc.rust-lang.org/nightly/std/collections/hash/map/struct.HashMap.html' title='std::collections::hash::map::HashMap'>HashMap</a>&lt;<a class='enum' href='../../../../trust_dns/rr/rdata/opt/enum.EdnsCode.html' title='trust_dns::rr::rdata::opt::EdnsCode'>EdnsCode</a>, <a class='enum' href='../../../../trust_dns/rr/rdata/opt/enum.EdnsOption.html' title='trust_dns::rr::rdata::opt::EdnsOption'>EdnsOption</a>&gt;</code></h4>
+<div class='docblock'><p>The entire map of options</p>
+</div><h4 id='method.get' class='method'><code>fn <a href='#method.get' class='fnname'>get</a>(&amp;self, code: &amp;<a class='enum' href='../../../../trust_dns/rr/rdata/opt/enum.EdnsCode.html' title='trust_dns::rr::rdata::opt::EdnsCode'>EdnsCode</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;<a class='enum' href='../../../../trust_dns/rr/rdata/opt/enum.EdnsOption.html' title='trust_dns::rr::rdata::opt::EdnsOption'>EdnsOption</a>&gt;</code></h4>
+<div class='docblock'><p>Get a single option based on the code</p>
+</div><h4 id='method.insert' class='method'><code>fn <a href='#method.insert' class='fnname'>insert</a>(&amp;mut self, option: <a class='enum' href='../../../../trust_dns/rr/rdata/opt/enum.EdnsOption.html' title='trust_dns::rr::rdata::opt::EdnsOption'>EdnsOption</a>)</code></h4>
+<div class='docblock'><p>Insert a new option, the key is derived from the <code>EdnsOption</code></p>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html' title='core::clone::Clone'>Clone</a> for <a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a></code></h3><div class='impl-items'><h4 id='method.clone' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone' class='fnname'>clone</a>(&amp;self) -&gt; <a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a></code></h4>
+<h4 id='method.clone_from' class='method'><span class="since">1.0.0</span><code>fn <a href='https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#method.clone_from' class='fnname'>clone_from</a>(&amp;mut self, source: &amp;Self)</code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.Eq.html' title='core::cmp::Eq'>Eq</a> for <a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a></code></h3><div class='impl-items'></div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html' title='core::cmp::PartialEq'>PartialEq</a> for <a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a></code></h3><div class='impl-items'><h4 id='method.eq' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.eq' class='fnname'>eq</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<h4 id='method.ne' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/cmp/trait.PartialEq.html#method.ne' class='fnname'>ne</a>(&amp;self, __arg_0: &amp;<a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html' title='core::default::Default'>Default</a> for <a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a></code></h3><div class='impl-items'><h4 id='method.default' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/default/trait.Default.html#method.default' class='fnname'>default</a>() -&gt; <a class='struct' href='../../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a></code></h4>
+</div></section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../../jquery.js"></script>
+    <script src="../../../../main.js"></script>
+    
+    <script defer src="../../../../search-index.js"></script>
+</body>
+</html>

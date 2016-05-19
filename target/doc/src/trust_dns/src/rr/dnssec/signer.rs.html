@@ -1,0 +1,1363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="generator" content="rustdoc">
+    <meta name="description" content="Source to the Rust file `src/rr/dnssec/signer.rs`.">
+    <meta name="keywords" content="rust, rustlang, rust-lang">
+
+    <title>signer.rs.html -- source</title>
+
+    <link rel="stylesheet" type="text/css" href="../../../../../rustdoc.css">
+    <link rel="stylesheet" type="text/css" href="../../../../../main.css">
+
+    
+    
+</head>
+<body class="rustdoc">
+    <!--[if lte IE 8]>
+    <div class="warning">
+        This old browser is unsupported and will most likely display funky
+        things.
+    </div>
+    <![endif]-->
+
+    
+
+    <nav class="sidebar">
+        
+        
+    </nav>
+
+    <nav class="sub">
+        <form class="search-form js-only">
+            <div class="search-container">
+                <input class="search-input" name="search"
+                       autocomplete="off"
+                       placeholder="Click or press ‘S’ to search, ‘?’ for more options…"
+                       type="search">
+            </div>
+        </form>
+    </nav>
+
+    <section id='main' class="content source"><pre class="line-numbers"><span id="1">  1</span>
+<span id="2">  2</span>
+<span id="3">  3</span>
+<span id="4">  4</span>
+<span id="5">  5</span>
+<span id="6">  6</span>
+<span id="7">  7</span>
+<span id="8">  8</span>
+<span id="9">  9</span>
+<span id="10"> 10</span>
+<span id="11"> 11</span>
+<span id="12"> 12</span>
+<span id="13"> 13</span>
+<span id="14"> 14</span>
+<span id="15"> 15</span>
+<span id="16"> 16</span>
+<span id="17"> 17</span>
+<span id="18"> 18</span>
+<span id="19"> 19</span>
+<span id="20"> 20</span>
+<span id="21"> 21</span>
+<span id="22"> 22</span>
+<span id="23"> 23</span>
+<span id="24"> 24</span>
+<span id="25"> 25</span>
+<span id="26"> 26</span>
+<span id="27"> 27</span>
+<span id="28"> 28</span>
+<span id="29"> 29</span>
+<span id="30"> 30</span>
+<span id="31"> 31</span>
+<span id="32"> 32</span>
+<span id="33"> 33</span>
+<span id="34"> 34</span>
+<span id="35"> 35</span>
+<span id="36"> 36</span>
+<span id="37"> 37</span>
+<span id="38"> 38</span>
+<span id="39"> 39</span>
+<span id="40"> 40</span>
+<span id="41"> 41</span>
+<span id="42"> 42</span>
+<span id="43"> 43</span>
+<span id="44"> 44</span>
+<span id="45"> 45</span>
+<span id="46"> 46</span>
+<span id="47"> 47</span>
+<span id="48"> 48</span>
+<span id="49"> 49</span>
+<span id="50"> 50</span>
+<span id="51"> 51</span>
+<span id="52"> 52</span>
+<span id="53"> 53</span>
+<span id="54"> 54</span>
+<span id="55"> 55</span>
+<span id="56"> 56</span>
+<span id="57"> 57</span>
+<span id="58"> 58</span>
+<span id="59"> 59</span>
+<span id="60"> 60</span>
+<span id="61"> 61</span>
+<span id="62"> 62</span>
+<span id="63"> 63</span>
+<span id="64"> 64</span>
+<span id="65"> 65</span>
+<span id="66"> 66</span>
+<span id="67"> 67</span>
+<span id="68"> 68</span>
+<span id="69"> 69</span>
+<span id="70"> 70</span>
+<span id="71"> 71</span>
+<span id="72"> 72</span>
+<span id="73"> 73</span>
+<span id="74"> 74</span>
+<span id="75"> 75</span>
+<span id="76"> 76</span>
+<span id="77"> 77</span>
+<span id="78"> 78</span>
+<span id="79"> 79</span>
+<span id="80"> 80</span>
+<span id="81"> 81</span>
+<span id="82"> 82</span>
+<span id="83"> 83</span>
+<span id="84"> 84</span>
+<span id="85"> 85</span>
+<span id="86"> 86</span>
+<span id="87"> 87</span>
+<span id="88"> 88</span>
+<span id="89"> 89</span>
+<span id="90"> 90</span>
+<span id="91"> 91</span>
+<span id="92"> 92</span>
+<span id="93"> 93</span>
+<span id="94"> 94</span>
+<span id="95"> 95</span>
+<span id="96"> 96</span>
+<span id="97"> 97</span>
+<span id="98"> 98</span>
+<span id="99"> 99</span>
+<span id="100">100</span>
+<span id="101">101</span>
+<span id="102">102</span>
+<span id="103">103</span>
+<span id="104">104</span>
+<span id="105">105</span>
+<span id="106">106</span>
+<span id="107">107</span>
+<span id="108">108</span>
+<span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
+<span id="118">118</span>
+<span id="119">119</span>
+<span id="120">120</span>
+<span id="121">121</span>
+<span id="122">122</span>
+<span id="123">123</span>
+<span id="124">124</span>
+<span id="125">125</span>
+<span id="126">126</span>
+<span id="127">127</span>
+<span id="128">128</span>
+<span id="129">129</span>
+<span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
+<span id="136">136</span>
+<span id="137">137</span>
+<span id="138">138</span>
+<span id="139">139</span>
+<span id="140">140</span>
+<span id="141">141</span>
+<span id="142">142</span>
+<span id="143">143</span>
+<span id="144">144</span>
+<span id="145">145</span>
+<span id="146">146</span>
+<span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
+<span id="151">151</span>
+<span id="152">152</span>
+<span id="153">153</span>
+<span id="154">154</span>
+<span id="155">155</span>
+<span id="156">156</span>
+<span id="157">157</span>
+<span id="158">158</span>
+<span id="159">159</span>
+<span id="160">160</span>
+<span id="161">161</span>
+<span id="162">162</span>
+<span id="163">163</span>
+<span id="164">164</span>
+<span id="165">165</span>
+<span id="166">166</span>
+<span id="167">167</span>
+<span id="168">168</span>
+<span id="169">169</span>
+<span id="170">170</span>
+<span id="171">171</span>
+<span id="172">172</span>
+<span id="173">173</span>
+<span id="174">174</span>
+<span id="175">175</span>
+<span id="176">176</span>
+<span id="177">177</span>
+<span id="178">178</span>
+<span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
+<span id="227">227</span>
+<span id="228">228</span>
+<span id="229">229</span>
+<span id="230">230</span>
+<span id="231">231</span>
+<span id="232">232</span>
+<span id="233">233</span>
+<span id="234">234</span>
+<span id="235">235</span>
+<span id="236">236</span>
+<span id="237">237</span>
+<span id="238">238</span>
+<span id="239">239</span>
+<span id="240">240</span>
+<span id="241">241</span>
+<span id="242">242</span>
+<span id="243">243</span>
+<span id="244">244</span>
+<span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
+<span id="248">248</span>
+<span id="249">249</span>
+<span id="250">250</span>
+<span id="251">251</span>
+<span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
+<span id="255">255</span>
+<span id="256">256</span>
+<span id="257">257</span>
+<span id="258">258</span>
+<span id="259">259</span>
+<span id="260">260</span>
+<span id="261">261</span>
+<span id="262">262</span>
+<span id="263">263</span>
+<span id="264">264</span>
+<span id="265">265</span>
+<span id="266">266</span>
+<span id="267">267</span>
+<span id="268">268</span>
+<span id="269">269</span>
+<span id="270">270</span>
+<span id="271">271</span>
+<span id="272">272</span>
+<span id="273">273</span>
+<span id="274">274</span>
+<span id="275">275</span>
+<span id="276">276</span>
+<span id="277">277</span>
+<span id="278">278</span>
+<span id="279">279</span>
+<span id="280">280</span>
+<span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
+<span id="285">285</span>
+<span id="286">286</span>
+<span id="287">287</span>
+<span id="288">288</span>
+<span id="289">289</span>
+<span id="290">290</span>
+<span id="291">291</span>
+<span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
+<span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
+<span id="534">534</span>
+<span id="535">535</span>
+<span id="536">536</span>
+<span id="537">537</span>
+<span id="538">538</span>
+<span id="539">539</span>
+<span id="540">540</span>
+<span id="541">541</span>
+<span id="542">542</span>
+<span id="543">543</span>
+<span id="544">544</span>
+<span id="545">545</span>
+<span id="546">546</span>
+<span id="547">547</span>
+<span id="548">548</span>
+<span id="549">549</span>
+<span id="550">550</span>
+<span id="551">551</span>
+<span id="552">552</span>
+<span id="553">553</span>
+<span id="554">554</span>
+<span id="555">555</span>
+<span id="556">556</span>
+<span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
+<span id="560">560</span>
+<span id="561">561</span>
+<span id="562">562</span>
+<span id="563">563</span>
+<span id="564">564</span>
+<span id="565">565</span>
+<span id="566">566</span>
+<span id="567">567</span>
+<span id="568">568</span>
+<span id="569">569</span>
+<span id="570">570</span>
+<span id="571">571</span>
+<span id="572">572</span>
+<span id="573">573</span>
+<span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
+<span id="622">622</span>
+<span id="623">623</span>
+<span id="624">624</span>
+<span id="625">625</span>
+<span id="626">626</span>
+<span id="627">627</span>
+<span id="628">628</span>
+</pre><pre class='rust '>
+<span class='comment'>/*
+ * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
+ *
+ * Licensed under the Apache License, Version 2.0 (the &quot;License&quot;);
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an &quot;AS IS&quot; BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */</span>
+
+<span class='doccomment'>//! signer is a structure for performing many of the signing processes of the DNSSec specification</span>
+
+<span class='kw'>use</span> <span class='ident'>openssl</span>::<span class='ident'>crypto</span>::<span class='ident'>pkey</span>::{<span class='ident'>PKey</span>, <span class='ident'>Role</span>};
+
+<span class='kw'>use</span> ::<span class='ident'>op</span>::<span class='ident'>Message</span>;
+<span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>dnssec</span>::{<span class='ident'>Algorithm</span>, <span class='ident'>DigestType</span>};
+<span class='kw'>use</span> ::<span class='ident'>rr</span>::{<span class='ident'>DNSClass</span>, <span class='ident'>Name</span>, <span class='ident'>Record</span>, <span class='ident'>RecordType</span>, <span class='ident'>RData</span>};
+<span class='kw'>use</span> ::<span class='ident'>serialize</span>::<span class='ident'>binary</span>::{<span class='ident'>BinEncoder</span>, <span class='ident'>BinSerializable</span>};
+<span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>rdata</span>::{<span class='ident'>sig</span>, <span class='ident'>DNSKEY</span>};
+
+
+<span class='doccomment'>/// Use for performing signing and validation of DNSSec based components.</span>
+<span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>Signer</span> {
+  <span class='ident'>algorithm</span>: <span class='ident'>Algorithm</span>,
+  <span class='ident'>pkey</span>: <span class='ident'>PKey</span>,
+  <span class='ident'>signer_name</span>: <span class='ident'>Name</span>,
+  <span class='ident'>expiration</span>: <span class='ident'>u32</span>,
+  <span class='ident'>inception</span>: <span class='ident'>u32</span>,
+}
+
+<span class='kw'>impl</span> <span class='ident'>Signer</span> {
+  <span class='doccomment'>/// Version of Signer for verifying RRSIGs and SIG0 records.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new_verifier</span>(<span class='ident'>algorithm</span>: <span class='ident'>Algorithm</span>, <span class='ident'>pkey</span>: <span class='ident'>PKey</span>, <span class='ident'>signer_name</span>: <span class='ident'>Name</span>) <span class='op'>-&gt;</span> <span class='kw'>Self</span> {
+    <span class='ident'>Signer</span>{ <span class='ident'>algorithm</span>: <span class='ident'>algorithm</span>, <span class='ident'>pkey</span>: <span class='ident'>pkey</span>, <span class='ident'>signer_name</span>: <span class='ident'>signer_name</span>, <span class='ident'>expiration</span>: <span class='number'>0</span>, <span class='ident'>inception</span>: <span class='number'>0</span> }
+  }
+
+  <span class='doccomment'>/// Version of Signer for signing RRSIGs and SIG0 records.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>new</span>(<span class='ident'>algorithm</span>: <span class='ident'>Algorithm</span>, <span class='ident'>pkey</span>: <span class='ident'>PKey</span>, <span class='ident'>signer_name</span>: <span class='ident'>Name</span>, <span class='ident'>expiration</span>: <span class='ident'>u32</span>, <span class='ident'>inception</span>: <span class='ident'>u32</span>) <span class='op'>-&gt;</span> <span class='kw'>Self</span> {
+    <span class='ident'>Signer</span>{ <span class='ident'>algorithm</span>: <span class='ident'>algorithm</span>, <span class='ident'>pkey</span>: <span class='ident'>pkey</span>, <span class='ident'>signer_name</span>: <span class='ident'>signer_name</span>, <span class='ident'>expiration</span>: <span class='ident'>expiration</span>, <span class='ident'>inception</span>: <span class='ident'>inception</span> }
+  }
+
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_algorithm</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>Algorithm</span> { <span class='self'>self</span>.<span class='ident'>algorithm</span> }
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_signer_name</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='ident'>Name</span> { <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>signer_name</span> }
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_expiration</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>u32</span> { <span class='self'>self</span>.<span class='ident'>expiration</span> }
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_inception</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>u32</span> { <span class='self'>self</span>.<span class='ident'>inception</span> }
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_pkey</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='ident'>PKey</span> { <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>pkey</span> }
+
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>get_public_key</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
+    <span class='self'>self</span>.<span class='ident'>algorithm</span>.<span class='ident'>public_key_to_vec</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>pkey</span>)
+  }
+
+  <span class='doccomment'>/// Creates a Record that represents the public key for this Signer</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>to_dnskey</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='ident'>Name</span>, <span class='ident'>ttl</span>: <span class='ident'>u32</span>) <span class='op'>-&gt;</span> <span class='ident'>Record</span> {
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>record</span> <span class='op'>=</span> <span class='ident'>Record</span>::<span class='ident'>with</span>(<span class='ident'>name</span>.<span class='ident'>clone</span>(), <span class='ident'>RecordType</span>::<span class='ident'>DNSKEY</span>, <span class='ident'>ttl</span>);
+    <span class='ident'>record</span>.<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>DNSKEY</span>(
+      <span class='ident'>DNSKEY</span>::<span class='ident'>new</span>(<span class='boolval'>true</span>, <span class='boolval'>true</span>, <span class='boolval'>false</span>,
+        <span class='self'>self</span>.<span class='ident'>algorithm</span>,
+        <span class='self'>self</span>.<span class='ident'>get_public_key</span>())
+    ));
+
+    <span class='ident'>record</span>
+  }
+
+  <span class='doccomment'>/// The key tag is calculated as a hash to more quickly lookup a DNSKEY.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// ```text</span>
+  <span class='doccomment'>/// RFC 2535                DNS Security Extensions               March 1999</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 4.1.6 Key Tag Field</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  The &quot;key Tag&quot; is a two octet quantity that is used to efficiently</span>
+  <span class='doccomment'>///  select between multiple keys which may be applicable and thus check</span>
+  <span class='doccomment'>///  that a public key about to be used for the computationally expensive</span>
+  <span class='doccomment'>///  effort to check the signature is possibly valid.  For algorithm 1</span>
+  <span class='doccomment'>///  (MD5/RSA) as defined in [RFC 2537], it is the next to the bottom two</span>
+  <span class='doccomment'>///  octets of the public key modulus needed to decode the signature</span>
+  <span class='doccomment'>///  field.  That is to say, the most significant 16 of the least</span>
+  <span class='doccomment'>///  significant 24 bits of the modulus in network (big endian) order. For</span>
+  <span class='doccomment'>///  all other algorithms, including private algorithms, it is calculated</span>
+  <span class='doccomment'>///  as a simple checksum of the KEY RR as described in Appendix C.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// Appendix C: Key Tag Calculation</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  The key tag field in the SIG RR is just a means of more efficiently</span>
+  <span class='doccomment'>///  selecting the correct KEY RR to use when there is more than one KEY</span>
+  <span class='doccomment'>///  RR candidate available, for example, in verifying a signature.  It is</span>
+  <span class='doccomment'>///  possible for more than one candidate key to have the same tag, in</span>
+  <span class='doccomment'>///  which case each must be tried until one works or all fail.  The</span>
+  <span class='doccomment'>///  following reference implementation of how to calculate the Key Tag,</span>
+  <span class='doccomment'>///  for all algorithms other than algorithm 1, is in ANSI C.  It is coded</span>
+  <span class='doccomment'>///  for clarity, not efficiency.  (See section 4.1.6 for how to determine</span>
+  <span class='doccomment'>///  the Key Tag of an algorithm 1 key.)</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  /* assumes int is at least 16 bits</span>
+  <span class='doccomment'>///     first byte of the key tag is the most significant byte of return</span>
+  <span class='doccomment'>///     value</span>
+  <span class='doccomment'>///     second byte of the key tag is the least significant byte of</span>
+  <span class='doccomment'>///     return value</span>
+  <span class='doccomment'>///     */</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  int keytag (</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///          unsigned char key[],  /* the RDATA part of the KEY RR */</span>
+  <span class='doccomment'>///          unsigned int keysize, /* the RDLENGTH */</span>
+  <span class='doccomment'>///          )</span>
+  <span class='doccomment'>///  {</span>
+  <span class='doccomment'>///  long int    ac;    /* assumed to be 32 bits or larger */</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  for ( ac = 0, i = 0; i &lt; keysize; ++i )</span>
+  <span class='doccomment'>///      ac += (i&amp;1) ? key[i] : key[i]&lt;&lt;8;</span>
+  <span class='doccomment'>///  ac += (ac&gt;&gt;16) &amp; 0xFFFF;</span>
+  <span class='doccomment'>///  return ac &amp; 0xFFFF;</span>
+  <span class='doccomment'>///  }</span>
+  <span class='doccomment'>/// ```</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>calculate_key_tag</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>u16</span> {
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>ac</span>: <span class='ident'>usize</span> <span class='op'>=</span> <span class='number'>0</span>;
+
+    <span class='comment'>// TODO This might need to be the RAW key, as opposed to the DER formatted public key</span>
+    <span class='comment'>//  would need to extract the RAW public key: https://en.wikipedia.org/wiki/X.690#DER_encoding</span>
+
+    <span class='comment'>// TODO use insert i with known sizes for optimized loop unrolling.</span>
+    <span class='kw'>for</span> (<span class='ident'>i</span>,<span class='ident'>k</span>) <span class='kw'>in</span> <span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>save_pub</span>().<span class='ident'>iter</span>().<span class='ident'>enumerate</span>() {
+      <span class='ident'>ac</span> <span class='op'>+=</span> <span class='kw'>if</span> <span class='ident'>i</span> <span class='kw-2'>&amp;</span> <span class='number'>0x0001</span> <span class='op'>==</span> <span class='number'>0x0001</span> { <span class='op'>*</span><span class='ident'>k</span> <span class='kw'>as</span> <span class='ident'>usize</span> } <span class='kw'>else</span> { (<span class='op'>*</span><span class='ident'>k</span> <span class='kw'>as</span> <span class='ident'>usize</span>) <span class='op'>&lt;&lt;</span> <span class='number'>8</span> };
+    }
+
+    <span class='ident'>ac</span> <span class='op'>+=</span> (<span class='ident'>ac</span> <span class='op'>&gt;&gt;</span> <span class='number'>16</span> ) <span class='kw-2'>&amp;</span> <span class='number'>0xFFFF</span>;
+    <span class='kw'>return</span> (<span class='ident'>ac</span> <span class='kw-2'>&amp;</span> <span class='number'>0xFFFF</span>) <span class='kw'>as</span> <span class='ident'>u16</span>; <span class='comment'>// this is unnecessary, no?</span>
+  }
+
+  <span class='kw'>fn</span> <span class='ident'>hash_message</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>message</span>: <span class='kw-2'>&amp;</span><span class='ident'>Message</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
+    <span class='comment'>// TODO: should perform the serialization and sign block by block to reduce the max memory</span>
+    <span class='comment'>//  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it&#39;s</span>
+    <span class='comment'>//  more important</span>
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>buf</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>with_capacity</span>(<span class='number'>512</span>);
+
+    {
+      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>encoder</span>: <span class='ident'>BinEncoder</span> <span class='op'>=</span> <span class='ident'>BinEncoder</span>::<span class='ident'>new</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>buf</span>);
+      <span class='ident'>message</span>.<span class='ident'>emit</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>encoder</span>).<span class='ident'>unwrap</span>(); <span class='comment'>// coding error if this panics (i think?)</span>
+    }
+
+    <span class='ident'>DigestType</span>::<span class='ident'>from</span>(<span class='self'>self</span>.<span class='ident'>algorithm</span>).<span class='ident'>hash</span>(<span class='kw-2'>&amp;</span><span class='ident'>buf</span>)
+  }
+
+  <span class='doccomment'>/// ```text</span>
+  <span class='doccomment'>/// 4.1.8.1 Calculating Transaction and Request SIGs</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  A response message from a security aware server may optionally</span>
+  <span class='doccomment'>///  contain a special SIG at the end of the additional information</span>
+  <span class='doccomment'>///  section to authenticate the transaction.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  This SIG has a &quot;type covered&quot; field of zero, which is not a valid RR</span>
+  <span class='doccomment'>///  type.  It is calculated by using a &quot;data&quot; (see Section 4.1.8) of the</span>
+  <span class='doccomment'>///  entire preceding DNS reply message, including DNS header but not the</span>
+  <span class='doccomment'>///  IP header and before the reply RR counts have been adjusted for the</span>
+  <span class='doccomment'>///  inclusion of any transaction SIG, concatenated with the entire DNS</span>
+  <span class='doccomment'>///  query message that produced this response, including the query&#39;s DNS</span>
+  <span class='doccomment'>///  header and any request SIGs but not its IP header.  That is</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  data = full response (less transaction SIG) | full query</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  Verification of the transaction SIG (which is signed by the server</span>
+  <span class='doccomment'>///  host key, not the zone key) by the requesting resolver shows that the</span>
+  <span class='doccomment'>///  query and response were not tampered with in transit, that the</span>
+  <span class='doccomment'>///  response corresponds to the intended query, and that the response</span>
+  <span class='doccomment'>///  comes from the queried server.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  A DNS request may be optionally signed by including one or more SIGs</span>
+  <span class='doccomment'>///  at the end of the query. Such SIGs are identified by having a &quot;type</span>
+  <span class='doccomment'>///  covered&quot; field of zero. They sign the preceding DNS request message</span>
+  <span class='doccomment'>///  including DNS header but not including the IP header or any request</span>
+  <span class='doccomment'>///  SIGs at the end and before the request RR counts have been adjusted</span>
+  <span class='doccomment'>///  for the inclusions of any request SIG(s).</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  WARNING: Request SIGs are unnecessary for any currently defined</span>
+  <span class='doccomment'>///  request other than update [RFC 2136, 2137] and will cause some old</span>
+  <span class='doccomment'>///  DNS servers to give an error return or ignore a query.  However, such</span>
+  <span class='doccomment'>///  SIGs may in the future be needed for other requests.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  Except where needed to authenticate an update or similar privileged</span>
+  <span class='doccomment'>///  request, servers are not required to check request SIGs.</span>
+  <span class='doccomment'>/// ```</span>
+  <span class='doccomment'>///  ---</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// NOTE: In classic RFC style, this is unclear, it implies that each SIG record is not included in</span>
+  <span class='doccomment'>///  the Additional record count, but this makes it more difficult to process and calculate more</span>
+  <span class='doccomment'>///  than one SIG0 record. Annoyingly, it means that the Header is signed with different material</span>
+  <span class='doccomment'>///  (i.e. additional record count - #SIG0 records), so the exact header sent is NOT the header</span>
+  <span class='doccomment'>///  being verified.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  ---</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>sign_message</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>message</span>: <span class='kw-2'>&amp;</span><span class='ident'>Message</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>can</span>(<span class='ident'>Role</span>::<span class='ident'>Sign</span>)); <span class='comment'>// this is bad code, not expected in regular runtime</span>
+    <span class='kw'>let</span> <span class='ident'>hash</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>hash_message</span>(<span class='ident'>message</span>);
+    <span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>sign_with_hash</span>(<span class='kw-2'>&amp;</span><span class='ident'>hash</span>, <span class='ident'>DigestType</span>::<span class='ident'>from</span>(<span class='self'>self</span>.<span class='ident'>algorithm</span>).<span class='ident'>to_hash</span>())
+  }
+
+  <span class='comment'>// RFC 4035             DNSSEC Protocol Modifications            March 2005</span>
+  <span class='comment'>//</span>
+  <span class='comment'>// 5.3.  Authenticating an RRset with an RRSIG RR</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    A validator can use an RRSIG RR and its corresponding DNSKEY RR to</span>
+  <span class='comment'>//    attempt to authenticate RRsets.  The validator first checks the RRSIG</span>
+  <span class='comment'>//    RR to verify that it covers the RRset, has a valid time interval, and</span>
+  <span class='comment'>//    identifies a valid DNSKEY RR.  The validator then constructs the</span>
+  <span class='comment'>//    canonical form of the signed data by appending the RRSIG RDATA</span>
+  <span class='comment'>//    (excluding the Signature Field) with the canonical form of the</span>
+  <span class='comment'>//    covered RRset.  Finally, the validator uses the public key and</span>
+  <span class='comment'>//    signature to authenticate the signed data.  Sections 5.3.1, 5.3.2,</span>
+  <span class='comment'>//    and 5.3.3 describe each step in detail.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>// 5.3.1.  Checking the RRSIG RR Validity</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    A security-aware resolver can use an RRSIG RR to authenticate an</span>
+  <span class='comment'>//    RRset if all of the following conditions hold:</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  The RRSIG RR and the RRset MUST have the same owner name and the</span>
+  <span class='comment'>//       same class.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  The RRSIG RR&#39;s Signer&#39;s Name field MUST be the name of the zone</span>
+  <span class='comment'>//       that contains the RRset.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  The RRSIG RR&#39;s Type Covered field MUST equal the RRset&#39;s type.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  The number of labels in the RRset owner name MUST be greater than</span>
+  <span class='comment'>//       or equal to the value in the RRSIG RR&#39;s Labels field.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  The validator&#39;s notion of the current time MUST be less than or</span>
+  <span class='comment'>//       equal to the time listed in the RRSIG RR&#39;s Expiration field.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  The validator&#39;s notion of the current time MUST be greater than or</span>
+  <span class='comment'>//       equal to the time listed in the RRSIG RR&#39;s Inception field.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  The RRSIG RR&#39;s Signer&#39;s Name, Algorithm, and Key Tag fields MUST</span>
+  <span class='comment'>//       match the owner name, algorithm, and key tag for some DNSKEY RR in</span>
+  <span class='comment'>//       the zone&#39;s apex DNSKEY RRset.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  The matching DNSKEY RR MUST be present in the zone&#39;s apex DNSKEY</span>
+  <span class='comment'>//       RRset, and MUST have the Zone Flag bit (DNSKEY RDATA Flag bit 7)</span>
+  <span class='comment'>//       set.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    It is possible for more than one DNSKEY RR to match the conditions</span>
+  <span class='comment'>//    above.  In this case, the validator cannot predetermine which DNSKEY</span>
+  <span class='comment'>//    RR to use to authenticate the signature, and it MUST try each</span>
+  <span class='comment'>//    matching DNSKEY RR until either the signature is validated or the</span>
+  <span class='comment'>//    validator has run out of matching public keys to try.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    Note that this authentication process is only meaningful if the</span>
+  <span class='comment'>//    validator authenticates the DNSKEY RR before using it to validate</span>
+  <span class='comment'>//    signatures.  The matching DNSKEY RR is considered to be authentic if:</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  the apex DNSKEY RRset containing the DNSKEY RR is considered</span>
+  <span class='comment'>//       authentic; or</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  the RRset covered by the RRSIG RR is the apex DNSKEY RRset itself,</span>
+  <span class='comment'>//       and the DNSKEY RR either matches an authenticated DS RR from the</span>
+  <span class='comment'>//       parent zone or matches a trust anchor.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>// 5.3.2.  Reconstructing the Signed Data</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    Once the RRSIG RR has met the validity requirements described in</span>
+  <span class='comment'>//    Section 5.3.1, the validator has to reconstruct the original signed</span>
+  <span class='comment'>//    data.  The original signed data includes RRSIG RDATA (excluding the</span>
+  <span class='comment'>//    Signature field) and the canonical form of the RRset.  Aside from</span>
+  <span class='comment'>//    being ordered, the canonical form of the RRset might also differ from</span>
+  <span class='comment'>//    the received RRset due to DNS name compression, decremented TTLs, or</span>
+  <span class='comment'>//    wildcard expansion.  The validator should use the following to</span>
+  <span class='comment'>//    reconstruct the original signed data:</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//             &quot;|&quot; denotes concatenation</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//             RRSIG_RDATA is the wire format of the RRSIG RDATA fields</span>
+  <span class='comment'>//                with the Signature field excluded and the Signer&#39;s Name</span>
+  <span class='comment'>//                in canonical form.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                name is calculated according to the function below</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                class is the RRset&#39;s class</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                type is the RRset type and all RRs in the class</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                OrigTTL is the value from the RRSIG Original TTL field</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                All names in the RDATA field are in canonical form</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                The set of all RR(i) is sorted into canonical order.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//             To calculate the name:</span>
+  <span class='comment'>//                let rrsig_labels = the value of the RRSIG Labels field</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                let fqdn = RRset&#39;s fully qualified domain name in</span>
+  <span class='comment'>//                                canonical form</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                let fqdn_labels = Label count of the fqdn above.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                if rrsig_labels = fqdn_labels,</span>
+  <span class='comment'>//                    name = fqdn</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                if rrsig_labels &lt; fqdn_labels,</span>
+  <span class='comment'>//                   name = &quot;*.&quot; | the rightmost rrsig_label labels of the</span>
+  <span class='comment'>//                                 fqdn</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                if rrsig_labels &gt; fqdn_labels</span>
+  <span class='comment'>//                   the RRSIG RR did not pass the necessary validation</span>
+  <span class='comment'>//                   checks and MUST NOT be used to authenticate this</span>
+  <span class='comment'>//                   RRset.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    The canonical forms for names and RRsets are defined in [RFC4034].</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    NSEC RRsets at a delegation boundary require special processing.</span>
+  <span class='comment'>//    There are two distinct NSEC RRsets associated with a signed delegated</span>
+  <span class='comment'>//    name.  One NSEC RRset resides in the parent zone, and specifies which</span>
+  <span class='comment'>//    RRsets are present at the parent zone.  The second NSEC RRset resides</span>
+  <span class='comment'>//    at the child zone and identifies which RRsets are present at the apex</span>
+  <span class='comment'>//    in the child zone.  The parent NSEC RRset and child NSEC RRset can</span>
+  <span class='comment'>//    always be distinguished as only a child NSEC RR will indicate that an</span>
+  <span class='comment'>//    SOA RRset exists at the name.  When reconstructing the original NSEC</span>
+  <span class='comment'>//    RRset for the delegation from the parent zone, the NSEC RRs MUST NOT</span>
+  <span class='comment'>//    be combined with NSEC RRs from the child zone.  When reconstructing</span>
+  <span class='comment'>//    the original NSEC RRset for the apex of the child zone, the NSEC RRs</span>
+  <span class='comment'>//    MUST NOT be combined with NSEC RRs from the parent zone.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    Note that each of the two NSEC RRsets at a delegation point has a</span>
+  <span class='comment'>//    corresponding RRSIG RR with an owner name matching the delegated</span>
+  <span class='comment'>//    name, and each of these RRSIG RRs is authoritative data associated</span>
+  <span class='comment'>//    with the same zone that contains the corresponding NSEC RRset.  If</span>
+  <span class='comment'>//    necessary, a resolver can tell these RRSIG RRs apart by checking the</span>
+  <span class='comment'>//    Signer&#39;s Name field.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>// 5.3.3.  Checking the Signature</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    Once the resolver has validated the RRSIG RR as described in Section</span>
+  <span class='comment'>//    5.3.1 and reconstructed the original signed data as described in</span>
+  <span class='comment'>//    Section 5.3.2, the validator can attempt to use the cryptographic</span>
+  <span class='comment'>//    signature to authenticate the signed data, and thus (finally!)</span>
+  <span class='comment'>//    authenticate the RRset.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    The Algorithm field in the RRSIG RR identifies the cryptographic</span>
+  <span class='comment'>//    algorithm used to generate the signature.  The signature itself is</span>
+  <span class='comment'>//    contained in the Signature field of the RRSIG RDATA, and the public</span>
+  <span class='comment'>//    key used to verify the signature is contained in the Public Key field</span>
+  <span class='comment'>//    of the matching DNSKEY RR(s) (found in Section 5.3.1).  [RFC4034]</span>
+  <span class='comment'>//    provides a list of algorithm types and provides pointers to the</span>
+  <span class='comment'>//    documents that define each algorithm&#39;s use.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    Note that it is possible for more than one DNSKEY RR to match the</span>
+  <span class='comment'>//    conditions in Section 5.3.1.  In this case, the validator can only</span>
+  <span class='comment'>//    determine which DNSKEY RR is correct by trying each matching public</span>
+  <span class='comment'>//    key until the validator either succeeds in validating the signature</span>
+  <span class='comment'>//    or runs out of keys to try.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    If the Labels field of the RRSIG RR is not equal to the number of</span>
+  <span class='comment'>//    labels in the RRset&#39;s fully qualified owner name, then the RRset is</span>
+  <span class='comment'>//    either invalid or the result of wildcard expansion.  The resolver</span>
+  <span class='comment'>//    MUST verify that wildcard expansion was applied properly before</span>
+  <span class='comment'>//    considering the RRset to be authentic.  Section 5.3.4 describes how</span>
+  <span class='comment'>//    to determine whether a wildcard was applied properly.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    If other RRSIG RRs also cover this RRset, the local resolver security</span>
+  <span class='comment'>//    policy determines whether the resolver also has to test these RRSIG</span>
+  <span class='comment'>//    RRs and how to resolve conflicts if these RRSIG RRs lead to differing</span>
+  <span class='comment'>//    results.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    If the resolver accepts the RRset as authentic, the validator MUST</span>
+  <span class='comment'>//    set the TTL of the RRSIG RR and each RR in the authenticated RRset to</span>
+  <span class='comment'>//    a value no greater than the minimum of:</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  the RRset&#39;s TTL as received in the response;</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  the RRSIG RR&#39;s TTL as received in the response;</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  the value in the RRSIG RR&#39;s Original TTL field; and</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    o  the difference of the RRSIG RR&#39;s Signature Expiration time and the</span>
+  <span class='comment'>//       current time.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>// 5.3.4.  Authenticating a Wildcard Expanded RRset Positive Response</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    If the number of labels in an RRset&#39;s owner name is greater than the</span>
+  <span class='comment'>//    Labels field of the covering RRSIG RR, then the RRset and its</span>
+  <span class='comment'>//    covering RRSIG RR were created as a result of wildcard expansion.</span>
+  <span class='comment'>//    Once the validator has verified the signature, as described in</span>
+  <span class='comment'>//    Section 5.3, it must take additional steps to verify the non-</span>
+  <span class='comment'>//    existence of an exact match or closer wildcard match for the query.</span>
+  <span class='comment'>//    Section 5.4 discusses these steps.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//    Note that the response received by the resolver should include all</span>
+  <span class='comment'>//    NSEC RRs needed to authenticate the response (see Section 3.1.3).</span>
+  <span class='comment'>//</span>
+  <span class='doccomment'>/// name is the the name of the records in the rrset</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>hash_rrset</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='kw-2'>&amp;</span><span class='ident'>Name</span>, <span class='ident'>dns_class</span>: <span class='ident'>DNSClass</span>, <span class='ident'>num_labels</span>: <span class='ident'>u8</span>,
+                    <span class='ident'>type_covered</span>: <span class='ident'>RecordType</span>, <span class='ident'>algorithm</span>: <span class='ident'>Algorithm</span>, <span class='ident'>original_ttl</span>: <span class='ident'>u32</span>,
+                    <span class='ident'>sig_expiration</span>: <span class='ident'>u32</span>, <span class='ident'>sig_inception</span>: <span class='ident'>u32</span>, <span class='ident'>key_tag</span>: <span class='ident'>u16</span>, <span class='ident'>signer_name</span>: <span class='kw-2'>&amp;</span><span class='ident'>Name</span>,
+                    <span class='ident'>records</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>]) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
+    <span class='comment'>// TODO: change this to a BTreeSet so that it&#39;s preordered, no sort necessary</span>
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>rrset</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
+
+    <span class='comment'>// collect only the records for this rrset</span>
+    <span class='kw'>for</span> <span class='ident'>record</span> <span class='kw'>in</span> <span class='ident'>records</span> {
+      <span class='kw'>if</span> <span class='ident'>dns_class</span> <span class='op'>==</span> <span class='ident'>record</span>.<span class='ident'>get_dns_class</span>() <span class='op'>&amp;&amp;</span>
+      <span class='ident'>type_covered</span> <span class='op'>==</span> <span class='ident'>record</span>.<span class='ident'>get_rr_type</span>() <span class='op'>&amp;&amp;</span>
+      <span class='ident'>name</span> <span class='op'>==</span> <span class='ident'>record</span>.<span class='ident'>get_name</span>() {
+        <span class='ident'>rrset</span>.<span class='ident'>push</span>(<span class='ident'>record</span>);
+      }
+    }
+
+    <span class='comment'>// put records in canonical order</span>
+    <span class='ident'>rrset</span>.<span class='ident'>sort</span>();
+
+    <span class='kw'>let</span> <span class='ident'>name</span>: <span class='ident'>Name</span> <span class='op'>=</span> <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>name</span>) <span class='op'>=</span> <span class='ident'>Self</span>::<span class='ident'>determine_name</span>(<span class='ident'>name</span>, <span class='ident'>num_labels</span>) {
+      <span class='ident'>name</span>
+    } <span class='kw'>else</span> {
+      <span class='comment'>// TODO: this should be an error</span>
+      <span class='macro'>warn</span><span class='macro'>!</span>(<span class='string'>&quot;could not determine name from {}&quot;</span>, <span class='ident'>name</span>);
+      <span class='kw'>return</span> <span class='macro'>vec</span><span class='macro'>!</span>[]
+    };
+
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>buf</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
+
+    {
+      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>encoder</span>: <span class='ident'>BinEncoder</span> <span class='op'>=</span> <span class='ident'>BinEncoder</span>::<span class='ident'>new</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>buf</span>);
+      <span class='ident'>encoder</span>.<span class='ident'>set_canonical_names</span>(<span class='boolval'>true</span>);
+
+      <span class='comment'>//          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where</span>
+      <span class='comment'>//</span>
+      <span class='comment'>//             &quot;|&quot; denotes concatenation</span>
+      <span class='comment'>//</span>
+      <span class='comment'>//             RRSIG_RDATA is the wire format of the RRSIG RDATA fields</span>
+      <span class='comment'>//                with the Signature field excluded and the Signer&#39;s Name</span>
+      <span class='comment'>//                in canonical form.</span>
+      <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>sig</span>::<span class='ident'>emit_pre_sig</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>encoder</span>, <span class='ident'>type_covered</span>, <span class='ident'>algorithm</span>,
+                          <span class='ident'>name</span>.<span class='ident'>num_labels</span>(), <span class='ident'>original_ttl</span>, <span class='ident'>sig_expiration</span>,
+                          <span class='ident'>sig_inception</span>, <span class='ident'>key_tag</span>, <span class='ident'>signer_name</span>).<span class='ident'>is_ok</span>());
+
+      <span class='comment'>// construct the rrset signing data</span>
+      <span class='kw'>for</span> <span class='ident'>record</span> <span class='kw'>in</span> <span class='ident'>rrset</span> {
+        <span class='comment'>//             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA</span>
+        <span class='comment'>//</span>
+        <span class='comment'>//                name is calculated according to the function in the RFC 4035</span>
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>name</span>.<span class='ident'>emit_as_canonical</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>encoder</span>, <span class='boolval'>true</span>).<span class='ident'>is_ok</span>());
+        <span class='comment'>//</span>
+        <span class='comment'>//                type is the RRset type and all RRs in the class</span>
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>type_covered</span>.<span class='ident'>emit</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>encoder</span>).<span class='ident'>is_ok</span>());
+        <span class='comment'>//</span>
+        <span class='comment'>//                class is the RRset&#39;s class</span>
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>dns_class</span>.<span class='ident'>emit</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>encoder</span>).<span class='ident'>is_ok</span>());
+        <span class='comment'>//</span>
+        <span class='comment'>//                OrigTTL is the value from the RRSIG Original TTL field</span>
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>encoder</span>.<span class='ident'>emit_u32</span>(<span class='ident'>original_ttl</span>).<span class='ident'>is_ok</span>());
+        <span class='comment'>//</span>
+        <span class='comment'>//                RDATA length</span>
+        <span class='comment'>// TODO: add support to the encoder to set a marker to go back and write the length</span>
+        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>rdata_buf</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
+        {
+          <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>rdata_encoder</span> <span class='op'>=</span> <span class='ident'>BinEncoder</span>::<span class='ident'>new</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>rdata_buf</span>);
+          <span class='ident'>rdata_encoder</span>.<span class='ident'>set_canonical_names</span>(<span class='boolval'>true</span>);
+          <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>record</span>.<span class='ident'>get_rdata</span>().<span class='ident'>emit</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>rdata_encoder</span>).<span class='ident'>is_ok</span>());
+        }
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>encoder</span>.<span class='ident'>emit_u16</span>(<span class='ident'>rdata_buf</span>.<span class='ident'>len</span>() <span class='kw'>as</span> <span class='ident'>u16</span>).<span class='ident'>is_ok</span>());
+        <span class='comment'>//</span>
+        <span class='comment'>//                All names in the RDATA field are in canonical form (set above)</span>
+        <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>encoder</span>.<span class='ident'>emit_vec</span>(<span class='kw-2'>&amp;</span><span class='ident'>rdata_buf</span>).<span class='ident'>is_ok</span>());
+      }
+    }
+
+    <span class='ident'>DigestType</span>::<span class='ident'>from</span>(<span class='self'>self</span>.<span class='ident'>algorithm</span>).<span class='ident'>hash</span>(<span class='kw-2'>&amp;</span><span class='ident'>buf</span>)
+  }
+
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>hash_rrset_with_rrsig</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>rrsig</span>: <span class='kw-2'>&amp;</span><span class='ident'>Record</span>, <span class='ident'>records</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>Record</span>]) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
+    <span class='kw'>if</span> <span class='kw'>let</span> <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>SIG</span>(<span class='kw-2'>ref</span> <span class='ident'>sig</span>) <span class='op'>=</span> <span class='ident'>rrsig</span>.<span class='ident'>get_rdata</span>() {
+      <span class='self'>self</span>.<span class='ident'>hash_rrset</span>(<span class='ident'>rrsig</span>.<span class='ident'>get_name</span>(), <span class='ident'>rrsig</span>.<span class='ident'>get_dns_class</span>(),
+                      <span class='ident'>sig</span>.<span class='ident'>get_num_labels</span>(), <span class='ident'>sig</span>.<span class='ident'>get_type_covered</span>(), <span class='ident'>sig</span>.<span class='ident'>get_algorithm</span>(),
+                      <span class='ident'>sig</span>.<span class='ident'>get_original_ttl</span>(), <span class='ident'>sig</span>.<span class='ident'>get_sig_expiration</span>(), <span class='ident'>sig</span>.<span class='ident'>get_sig_inception</span>(),
+                      <span class='ident'>sig</span>.<span class='ident'>get_key_tag</span>(), <span class='ident'>sig</span>.<span class='ident'>get_signer_name</span>(), <span class='ident'>records</span>)
+    } <span class='kw'>else</span> {
+      <span class='macro'>error</span><span class='macro'>!</span>(<span class='string'>&quot;rdata is not of type SIG: {:?}&quot;</span>, <span class='ident'>rrsig</span>.<span class='ident'>get_rdata</span>());
+      <span class='macro'>vec</span><span class='macro'>!</span>[]
+    }
+  }
+
+  <span class='kw'>fn</span> <span class='ident'>determine_name</span>(<span class='ident'>name</span>: <span class='kw-2'>&amp;</span><span class='ident'>Name</span>, <span class='ident'>num_labels</span>: <span class='ident'>u8</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Name</span><span class='op'>&gt;</span> {
+    <span class='comment'>//             To calculate the name:</span>
+    <span class='comment'>//                let rrsig_labels = the value of the RRSIG Labels field</span>
+    <span class='comment'>//</span>
+    <span class='comment'>//                let fqdn = RRset&#39;s fully qualified domain name in</span>
+    <span class='comment'>//                                canonical form</span>
+    <span class='comment'>//</span>
+    <span class='comment'>//                let fqdn_labels = Label count of the fqdn above.</span>
+    <span class='kw'>let</span> <span class='ident'>fqdn_labels</span> <span class='op'>=</span> <span class='ident'>name</span>.<span class='ident'>num_labels</span>();
+    <span class='comment'>//                if rrsig_labels = fqdn_labels,</span>
+    <span class='comment'>//                    name = fqdn</span>
+
+    <span class='kw'>if</span> <span class='ident'>fqdn_labels</span> <span class='op'>==</span> <span class='ident'>num_labels</span> {
+      <span class='kw'>return</span> <span class='prelude-val'>Some</span>(<span class='ident'>name</span>.<span class='ident'>clone</span>());
+    }
+    <span class='comment'>//                if rrsig_labels &lt; fqdn_labels,</span>
+    <span class='comment'>//                   name = &quot;*.&quot; | the rightmost rrsig_label labels of the</span>
+    <span class='comment'>//                                 fqdn</span>
+    <span class='kw'>if</span> <span class='ident'>num_labels</span> <span class='op'>&lt;</span> <span class='ident'>fqdn_labels</span> {
+      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>star_name</span>: <span class='ident'>Name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>new</span>().<span class='ident'>label</span>(<span class='string'>&quot;*&quot;</span>);
+      <span class='kw'>let</span> <span class='ident'>rightmost</span> <span class='op'>=</span> <span class='ident'>name</span>.<span class='ident'>base_name</span>();
+      <span class='kw'>if</span> <span class='op'>!</span><span class='ident'>rightmost</span>.<span class='ident'>is_root</span>() {
+        <span class='ident'>star_name</span>.<span class='ident'>append</span>(<span class='kw-2'>&amp;</span><span class='ident'>rightmost</span>);
+        <span class='kw'>return</span> <span class='prelude-val'>Some</span>(<span class='ident'>star_name</span>);
+      }
+      <span class='kw'>return</span> <span class='prelude-val'>Some</span>(<span class='ident'>star_name</span>);
+    }
+    <span class='comment'>//</span>
+    <span class='comment'>//                if rrsig_labels &gt; fqdn_labels</span>
+    <span class='comment'>//                   the RRSIG RR did not pass the necessary validation</span>
+    <span class='comment'>//                   checks and MUST NOT be used to authenticate this</span>
+    <span class='comment'>//                   RRset.</span>
+    <span class='comment'>// TODO: this should be an error</span>
+    <span class='prelude-val'>None</span>
+  }
+
+  <span class='doccomment'>/// Signs a hash.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// This will panic if the `key` is not a private key and can be used for signing.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `hash` - the hashed resource record set, see `hash_rrset`.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Return value</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// The signature, ready to be stored in an `RData::RRSIG`.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>sign</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>hash</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>can</span>(<span class='ident'>Role</span>::<span class='ident'>Sign</span>)); <span class='comment'>// this is bad code, not expected in regular runtime</span>
+    <span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>sign_with_hash</span>(<span class='kw-2'>&amp;</span><span class='ident'>hash</span>, <span class='ident'>DigestType</span>::<span class='ident'>from</span>(<span class='self'>self</span>.<span class='ident'>algorithm</span>).<span class='ident'>to_hash</span>())
+  }
+
+  <span class='doccomment'>/// Verifies the hash matches the signature with the current `key`.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `hash` - the hash to be validated, see `hash_rrset`</span>
+  <span class='doccomment'>/// * `signature` - the signature to use to verify the hash, extracted from an `RData::RRSIG`</span>
+  <span class='doccomment'>///                 for example.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Return value</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// True if and only if the signature is valid for the hash. This will always return</span>
+  <span class='doccomment'>/// false if the `key`.</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>verify</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>hash</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>], <span class='ident'>signature</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+    <span class='kw'>if</span> <span class='op'>!</span><span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>can</span>(<span class='ident'>Role</span>::<span class='ident'>Verify</span>) {
+      <span class='comment'>// this doesn&#39;t panic b/c the public key might just have been bad, and so this would fail</span>
+      <span class='comment'>//  in a bad data situation, therefore false instead of panic</span>
+      <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;pkey can not be used to verify&quot;</span>);
+      <span class='kw'>return</span> <span class='boolval'>false</span>;
+    }
+    <span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>verify_with_hash</span>(<span class='ident'>hash</span>, <span class='ident'>signature</span>, <span class='ident'>DigestType</span>::<span class='ident'>from</span>(<span class='self'>self</span>.<span class='ident'>algorithm</span>).<span class='ident'>to_hash</span>())
+  }
+}
+
+<span class='attribute'>#[<span class='ident'>test</span>]</span>
+<span class='kw'>fn</span> <span class='ident'>test_hash_rrset</span>() {
+  <span class='kw'>use</span> ::<span class='ident'>rr</span>::{<span class='ident'>Name</span>, <span class='ident'>RecordType</span>};
+  <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>rdata</span>::<span class='ident'>SIG</span>;
+
+  <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>pkey</span> <span class='op'>=</span> <span class='ident'>PKey</span>::<span class='ident'>new</span>();
+  <span class='ident'>pkey</span>.<span class='ident'>gen</span>(<span class='number'>512</span>);
+  <span class='kw'>let</span> <span class='ident'>signer</span> <span class='op'>=</span> <span class='ident'>Signer</span>::<span class='ident'>new</span>(<span class='ident'>Algorithm</span>::<span class='ident'>RSASHA256</span>, <span class='ident'>pkey</span>, <span class='ident'>Name</span>::<span class='ident'>root</span>(), <span class='ident'>u32</span>::<span class='ident'>max_value</span>(), <span class='number'>0</span>);
+
+  <span class='kw'>let</span> <span class='ident'>origin</span>: <span class='ident'>Name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;example.com.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>();
+  <span class='kw'>let</span> <span class='ident'>rrsig</span> <span class='op'>=</span> <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>SIG</span>(<span class='ident'>SIG</span>::<span class='ident'>new</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>, <span class='ident'>Algorithm</span>::<span class='ident'>RSASHA256</span>, <span class='ident'>origin</span>.<span class='ident'>num_labels</span>(), <span class='number'>86400</span>,
+        <span class='number'>5</span>, <span class='number'>0</span>, <span class='ident'>signer</span>.<span class='ident'>calculate_key_tag</span>(), <span class='ident'>origin</span>.<span class='ident'>clone</span>(), <span class='macro'>vec</span><span class='macro'>!</span>[]))).<span class='ident'>clone</span>();
+  <span class='kw'>let</span> <span class='ident'>rrset</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;a.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>(),
+                   <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;b.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>()];
+
+  <span class='kw'>let</span> <span class='ident'>hash</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>hash_rrset_with_rrsig</span>(<span class='kw-2'>&amp;</span><span class='ident'>rrsig</span>, <span class='kw-2'>&amp;</span><span class='ident'>rrset</span>);
+  <span class='macro'>assert</span><span class='macro'>!</span>(<span class='op'>!</span><span class='ident'>hash</span>.<span class='ident'>is_empty</span>());
+
+  <span class='kw'>let</span> <span class='ident'>rrset</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>CNAME</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>CNAME</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;a.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>(), <span class='comment'>// different type</span>
+                   <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;www.example.com.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;a.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>(), <span class='comment'>// different name</span>
+                   <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>CH</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;a.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>(), <span class='comment'>// different class</span>
+                   <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;a.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>(),
+                   <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;b.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>()];
+
+  <span class='kw'>let</span> <span class='ident'>filtered_hash</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>hash_rrset_with_rrsig</span>(<span class='kw-2'>&amp;</span><span class='ident'>rrsig</span>, <span class='kw-2'>&amp;</span><span class='ident'>rrset</span>);
+  <span class='macro'>assert</span><span class='macro'>!</span>(<span class='op'>!</span><span class='ident'>filtered_hash</span>.<span class='ident'>is_empty</span>());
+  <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>hash</span>, <span class='ident'>filtered_hash</span>);
+}
+
+<span class='attribute'>#[<span class='ident'>test</span>]</span>
+<span class='kw'>fn</span> <span class='ident'>test_sign_and_verify_rrset</span>() {
+  <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>RecordType</span>;
+  <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>Name</span>;
+  <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>rdata</span>::<span class='ident'>SIG</span>;
+
+  <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>pkey</span> <span class='op'>=</span> <span class='ident'>PKey</span>::<span class='ident'>new</span>();
+  <span class='ident'>pkey</span>.<span class='ident'>gen</span>(<span class='number'>512</span>);
+  <span class='kw'>let</span> <span class='ident'>signer</span> <span class='op'>=</span> <span class='ident'>Signer</span>::<span class='ident'>new</span>(<span class='ident'>Algorithm</span>::<span class='ident'>RSASHA256</span>, <span class='ident'>pkey</span>, <span class='ident'>Name</span>::<span class='ident'>root</span>(), <span class='ident'>u32</span>::<span class='ident'>max_value</span>(), <span class='number'>0</span>);
+
+  <span class='kw'>let</span> <span class='ident'>origin</span>: <span class='ident'>Name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;example.com.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>();
+  <span class='kw'>let</span> <span class='ident'>rrsig</span> <span class='op'>=</span> <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>SIG</span>(<span class='ident'>SIG</span>::<span class='ident'>new</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>, <span class='ident'>Algorithm</span>::<span class='ident'>RSASHA256</span>, <span class='ident'>origin</span>.<span class='ident'>num_labels</span>(), <span class='number'>86400</span>,
+        <span class='number'>5</span>, <span class='number'>0</span>, <span class='ident'>signer</span>.<span class='ident'>calculate_key_tag</span>(), <span class='ident'>origin</span>.<span class='ident'>clone</span>(), <span class='macro'>vec</span><span class='macro'>!</span>[]))).<span class='ident'>clone</span>();
+  <span class='kw'>let</span> <span class='ident'>rrset</span> <span class='op'>=</span> <span class='macro'>vec</span><span class='macro'>!</span>[<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;a.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>(),
+                   <span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;b.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>()];
+
+  <span class='kw'>let</span> <span class='ident'>hash</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>hash_rrset_with_rrsig</span>(<span class='kw-2'>&amp;</span><span class='ident'>rrsig</span>, <span class='kw-2'>&amp;</span><span class='ident'>rrset</span>);
+  <span class='kw'>let</span> <span class='ident'>sig</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>sign</span>(<span class='kw-2'>&amp;</span><span class='ident'>hash</span>);
+
+  <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>signer</span>.<span class='ident'>verify</span>(<span class='kw-2'>&amp;</span><span class='ident'>hash</span>, <span class='kw-2'>&amp;</span><span class='ident'>sig</span>));
+}
+
+<span class='attribute'>#[<span class='ident'>test</span>]</span>
+<span class='kw'>fn</span> <span class='ident'>test_calculate_key_tag</span>() {
+  <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>pkey</span> <span class='op'>=</span> <span class='ident'>PKey</span>::<span class='ident'>new</span>();
+  <span class='ident'>pkey</span>.<span class='ident'>gen</span>(<span class='number'>512</span>);
+  <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;pkey: {:?}&quot;</span>, <span class='ident'>pkey</span>.<span class='ident'>save_pub</span>());
+  <span class='kw'>let</span> <span class='ident'>signer</span> <span class='op'>=</span> <span class='ident'>Signer</span>::<span class='ident'>new</span>(<span class='ident'>Algorithm</span>::<span class='ident'>RSASHA256</span>, <span class='ident'>pkey</span>, <span class='ident'>Name</span>::<span class='ident'>root</span>(), <span class='ident'>u32</span>::<span class='ident'>max_value</span>(), <span class='number'>0</span>);
+  <span class='kw'>let</span> <span class='ident'>key_tag</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>calculate_key_tag</span>();
+
+  <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;key_tag: {}&quot;</span>, <span class='ident'>key_tag</span>);
+  <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>key_tag</span> <span class='op'>&gt;</span> <span class='number'>0</span>);
+}
+</pre>
+</section>
+    <section id='search' class="content hidden"></section>
+
+    <section class="footer"></section>
+
+    <aside id="help" class="hidden">
+        <div>
+            <h1 class="hidden">Help</h1>
+
+            <div class="shortcuts">
+                <h2>Keyboard Shortcuts</h2>
+
+                <dl>
+                    <dt>?</dt>
+                    <dd>Show this help dialog</dd>
+                    <dt>S</dt>
+                    <dd>Focus the search field</dd>
+                    <dt>&larrb;</dt>
+                    <dd>Move up in search results</dd>
+                    <dt>&rarrb;</dt>
+                    <dd>Move down in search results</dd>
+                    <dt>&#9166;</dt>
+                    <dd>Go to active search result</dd>
+                </dl>
+            </div>
+
+            <div class="infos">
+                <h2>Search Tricks</h2>
+
+                <p>
+                    Prefix searches with a type followed by a colon (e.g.
+                    <code>fn:</code>) to restrict the search to a given type.
+                </p>
+
+                <p>
+                    Accepted types are: <code>fn</code>, <code>mod</code>,
+                    <code>struct</code>, <code>enum</code>,
+                    <code>trait</code>, <code>type</code>, <code>macro</code>,
+                    and <code>const</code>.
+                </p>
+
+                <p>
+                    Search functions by type signature (e.g.
+                    <code>vec -> usize</code> or <code>* -> vec</code>)
+                </p>
+            </div>
+        </div>
+    </aside>
+
+    
+
+    <script>
+        window.rootPath = "../../../../../";
+        window.currentCrate = "trust_dns";
+        window.playgroundUrl = "";
+    </script>
+    <script src="../../../../../jquery.js"></script>
+    <script src="../../../../../main.js"></script>
+    
+    <script defer src="../../../../../search-index.js"></script>
+</body>
+</html>

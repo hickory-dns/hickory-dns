@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Message","The basic request and response datastructure, used for all DNS protocols."]],"trait":[["UpdateMessage","to reduce errors in using the Message struct as an Update, this will do the call throughs to properly do that."]]});

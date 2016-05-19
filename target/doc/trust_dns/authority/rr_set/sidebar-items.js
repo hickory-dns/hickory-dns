@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["RRSet","Set of resource records associated to a name and type"]]});
