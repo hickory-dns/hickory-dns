@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["EdnsCode",""],["EdnsOption","options used to pass information about capabilities between client and server"]],"fn":[["emit",""],["read",""]],"struct":[["OPT","RFC 6891, EDNS(0) Extensions, April 2013"]]});
