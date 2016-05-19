@@ -217,14 +217,15 @@ impl Catalog {
       if let Some(ref_authority) = self.find_auth_recurse(query.get_name()) {
         let authority = &ref_authority.read().unwrap(); // poison errors should panic
         debug!("found authority: {:?}", authority.get_origin());
+        let is_dnssec = request.get_edns().map_or(false, |edns|edns.is_dnssec_ok());
 
-        if let Some(records) = Self::search(&*authority, query) {
+        if let Some(records) = Self::search(&*authority, query, is_dnssec) {
           response.response_code(ResponseCode::NoError);
           response.authoritative(true);
           response.add_all_answers(&records);
 
           // get the NS records
-          let ns = authority.get_ns(false);
+          let ns = authority.get_ns(is_dnssec);
           if ns.is_none() { warn!("there are no NS records for: {:?}", authority.get_origin()); }
           else {
             response.add_all_name_servers(&ns.unwrap());
@@ -233,7 +234,7 @@ impl Catalog {
           // in the not found case it's standard to return the SOA in the authority section
           response.response_code(ResponseCode::NXDomain);
 
-          let soa = authority.get_soa(false);
+          let soa = authority.get_soa(is_dnssec);
           if soa.is_none() { warn!("there is no SOA record for: {:?}", authority.get_origin()); }
           else {
             response.add_name_server(soa.unwrap().clone());
@@ -251,7 +252,7 @@ impl Catalog {
   }
 
   // TODO: move this to Authority
-  pub fn search<'a>(authority: &'a Authority, query: &Query) -> Option<Vec<&'a Record>> {
+  pub fn search<'a>(authority: &'a Authority, query: &Query, is_secure: bool) -> Option<Vec<&'a Record>> {
     let record_type: RecordType = query.get_query_type();
 
     // if this is an AXFR zone transfer, verify that this is either the slave or master
@@ -266,7 +267,7 @@ impl Catalog {
 
     // it would be better to stream this back, rather than packaging everything up in an array
     //  though for UDP it would still need to be bundled
-    let mut query_result: Option<Vec<_>> = authority.lookup(query.get_name(), record_type, false);
+    let mut query_result: Option<Vec<_>> = authority.lookup(query.get_name(), record_type, is_secure);
 
     if RecordType::AXFR == record_type {
       if let Some(soa) = authority.get_soa(false) {
@@ -300,14 +301,16 @@ impl Catalog {
 
 #[cfg(test)]
 mod catalog_tests {
+  use std::net::*;
   use std::collections::*;
+
   use ::authority::{Authority, ZoneType};
   use ::authority::authority_tests::create_example;
-  use super::*;
+  use ::op::*;
   use ::rr::*;
   use ::rr::rdata::SOA;
-  use ::op::*;
-  use std::net::*;
+
+  use super::*;
 
   #[test]
   fn test_catalog_search() {
@@ -317,7 +320,7 @@ mod catalog_tests {
     let mut query: Query = Query::new();
     query.name(origin.clone());
 
-    if let Some(result) = Catalog::search(&example, &query) {
+    if let Some(result) = Catalog::search(&example, &query, false) {
       assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
       assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
       assert_eq!(result.first().unwrap().get_rdata(), &RData::A(Ipv4Addr::new(93,184,216,34)));
@@ -335,7 +338,7 @@ mod catalog_tests {
     let mut query: Query = Query::new();
     query.name(www_name.clone());
 
-    if let Some(result) = Catalog::search(&example, &query) {
+    if let Some(result) = Catalog::search(&example, &query, false) {
       assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
       assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
       assert_eq!(result.first().unwrap().get_rdata(), &RData::A(Ipv4Addr::new(93,184,216,34)));

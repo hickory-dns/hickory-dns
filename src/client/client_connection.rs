@@ -20,3 +20,46 @@ pub trait ClientConnection: Sized+Debug {
   fn send(&mut self, bytes: Vec<u8>) -> ClientResult<Vec<u8>>;
   // TODO: split send and read...
 }
+
+#[cfg(test)]
+pub mod test {
+  use std::fmt;
+  use super::*;
+  use ::op::Message;
+  use ::authority::Catalog;
+  use ::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
+  use ::error::*;
+
+  pub struct TestClientConnection<'a> {
+    catalog: &'a Catalog
+  }
+
+  impl<'a> TestClientConnection<'a> {
+    pub fn new(catalog: &'a Catalog) -> TestClientConnection<'a> {
+      TestClientConnection { catalog: catalog }
+    }
+  }
+
+  impl<'a> ClientConnection for TestClientConnection<'a> {
+    fn send(&mut self, bytes: Vec<u8>) -> ClientResult<Vec<u8>> {
+      let mut decoder = BinDecoder::new(&bytes);
+
+      let message = try!(Message::read(&mut decoder));
+      let response = self.catalog.handle_request(&message);
+
+      let mut buf = Vec::with_capacity(512);
+      {
+        let mut encoder = BinEncoder::new(&mut buf);
+        try!(response.emit(&mut encoder));
+      }
+
+      Ok(buf)
+    }
+  }
+
+  impl<'a> fmt::Debug for TestClientConnection<'a> {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+      write!(f, "TestClientConnection catalog")
+    }
+  }
+}

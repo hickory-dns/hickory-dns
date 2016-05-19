@@ -13,14 +13,19 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! signer is a structure for performing many of the signing processes of the DNSSec specification
+
 use openssl::crypto::pkey::{PKey, Role};
 
 use ::op::Message;
 use ::rr::dnssec::{Algorithm, DigestType};
 use ::rr::{DNSClass, Name, Record, RecordType, RData};
 use ::serialize::binary::{BinEncoder, BinSerializable};
-use ::rr::rdata::sig;
+use ::rr::rdata::{sig, DNSKEY};
 
+
+/// Use for performing signing and validation of DNSSec based components.
 pub struct Signer {
   algorithm: Algorithm,
   pkey: PKey,
@@ -30,10 +35,12 @@ pub struct Signer {
 }
 
 impl Signer {
+  /// Version of Signer for verifying RRSIGs and SIG0 records.
   pub fn new_verifier(algorithm: Algorithm, pkey: PKey, signer_name: Name) -> Self {
     Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, expiration: 0, inception: 0 }
   }
 
+  /// Version of Signer for signing RRSIGs and SIG0 records.
   pub fn new(algorithm: Algorithm, pkey: PKey, signer_name: Name, expiration: u32, inception: u32) -> Self {
     Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, expiration: expiration, inception: inception }
   }
@@ -42,54 +49,77 @@ impl Signer {
   pub fn get_signer_name(&self) -> &Name { &self.signer_name }
   pub fn get_expiration(&self) -> u32 { self.expiration }
   pub fn get_inception(&self) -> u32 { self.inception }
+  pub fn get_pkey(&self) -> &PKey { &self.pkey }
 
-  // RFC 2535                DNS Security Extensions               March 1999
-  //
-  // 4.1.6 Key Tag Field
-  //
-  //  The "key Tag" is a two octet quantity that is used to efficiently
-  //  select between multiple keys which may be applicable and thus check
-  //  that a public key about to be used for the computationally expensive
-  //  effort to check the signature is possibly valid.  For algorithm 1
-  //  (MD5/RSA) as defined in [RFC 2537], it is the next to the bottom two
-  //  octets of the public key modulus needed to decode the signature
-  //  field.  That is to say, the most significant 16 of the least
-  //  significant 24 bits of the modulus in network (big endian) order. For
-  //  all other algorithms, including private algorithms, it is calculated
-  //  as a simple checksum of the KEY RR as described in Appendix C.
-  //
-  // Appendix C: Key Tag Calculation
-  //
-  //  The key tag field in the SIG RR is just a means of more efficiently
-  //  selecting the correct KEY RR to use when there is more than one KEY
-  //  RR candidate available, for example, in verifying a signature.  It is
-  //  possible for more than one candidate key to have the same tag, in
-  //  which case each must be tried until one works or all fail.  The
-  //  following reference implementation of how to calculate the Key Tag,
-  //  for all algorithms other than algorithm 1, is in ANSI C.  It is coded
-  //  for clarity, not efficiency.  (See section 4.1.6 for how to determine
-  //  the Key Tag of an algorithm 1 key.)
-  //
-  //  /* assumes int is at least 16 bits
-  //     first byte of the key tag is the most significant byte of return
-  //     value
-  //     second byte of the key tag is the least significant byte of
-  //     return value
-  //     */
-  //
-  //  int keytag (
-  //
-  //          unsigned char key[],  /* the RDATA part of the KEY RR */
-  //          unsigned int keysize, /* the RDLENGTH */
-  //          )
-  //  {
-  //  long int    ac;    /* assumed to be 32 bits or larger */
-  //
-  //  for ( ac = 0, i = 0; i < keysize; ++i )
-  //      ac += (i&1) ? key[i] : key[i]<<8;
-  //  ac += (ac>>16) & 0xFFFF;
-  //  return ac & 0xFFFF;
-  //  }
+  pub fn get_public_key(&self) -> Vec<u8> {
+    self.algorithm.public_key_to_vec(&self.pkey)
+  }
+
+  /// Creates a Record that represents the public key for this Signer
+  pub fn to_dnskey(&self, name: Name, ttl: u32) -> Record {
+    let mut record = Record::with(name.clone(), RecordType::DNSKEY, ttl);
+    record.rdata(RData::DNSKEY(
+      DNSKEY::new(true, true, false,
+        self.algorithm,
+        self.get_public_key())
+    ));
+
+    record
+  }
+
+  /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
+  ///
+  /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+  ///
+  /// ```text
+  /// RFC 2535                DNS Security Extensions               March 1999
+  ///
+  /// 4.1.6 Key Tag Field
+  ///
+  ///  The "key Tag" is a two octet quantity that is used to efficiently
+  ///  select between multiple keys which may be applicable and thus check
+  ///  that a public key about to be used for the computationally expensive
+  ///  effort to check the signature is possibly valid.  For algorithm 1
+  ///  (MD5/RSA) as defined in [RFC 2537], it is the next to the bottom two
+  ///  octets of the public key modulus needed to decode the signature
+  ///  field.  That is to say, the most significant 16 of the least
+  ///  significant 24 bits of the modulus in network (big endian) order. For
+  ///  all other algorithms, including private algorithms, it is calculated
+  ///  as a simple checksum of the KEY RR as described in Appendix C.
+  ///
+  /// Appendix C: Key Tag Calculation
+  ///
+  ///  The key tag field in the SIG RR is just a means of more efficiently
+  ///  selecting the correct KEY RR to use when there is more than one KEY
+  ///  RR candidate available, for example, in verifying a signature.  It is
+  ///  possible for more than one candidate key to have the same tag, in
+  ///  which case each must be tried until one works or all fail.  The
+  ///  following reference implementation of how to calculate the Key Tag,
+  ///  for all algorithms other than algorithm 1, is in ANSI C.  It is coded
+  ///  for clarity, not efficiency.  (See section 4.1.6 for how to determine
+  ///  the Key Tag of an algorithm 1 key.)
+  ///
+  ///  /* assumes int is at least 16 bits
+  ///     first byte of the key tag is the most significant byte of return
+  ///     value
+  ///     second byte of the key tag is the least significant byte of
+  ///     return value
+  ///     */
+  ///
+  ///  int keytag (
+  ///
+  ///          unsigned char key[],  /* the RDATA part of the KEY RR */
+  ///          unsigned int keysize, /* the RDLENGTH */
+  ///          )
+  ///  {
+  ///  long int    ac;    /* assumed to be 32 bits or larger */
+  ///
+  ///  for ( ac = 0, i = 0; i < keysize; ++i )
+  ///      ac += (i&1) ? key[i] : key[i]<<8;
+  ///  ac += (ac>>16) & 0xFFFF;
+  ///  return ac & 0xFFFF;
+  ///  }
+  /// ```
   pub fn calculate_key_tag(&self) -> u16 {
     let mut ac: usize = 0;
 
@@ -119,6 +149,7 @@ impl Signer {
     DigestType::from(self.algorithm).hash(&buf)
   }
 
+  /// ```text
   /// 4.1.8.1 Calculating Transaction and Request SIGs
   ///
   ///  A response message from a security aware server may optionally
@@ -155,6 +186,7 @@ impl Signer {
   ///
   ///  Except where needed to authenticate an update or similar privileged
   ///  request, servers are not required to check request SIGs.
+  /// ```
   ///  ---
   ///
   /// NOTE: In classic RFC style, this is unclear, it implies that each SIG record is not included in

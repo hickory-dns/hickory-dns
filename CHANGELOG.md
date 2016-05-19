@@ -6,6 +6,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - Documentation on all modules, and many standard RFC types
 - Authority zone signing now complete, still need to load/save private keys
+- DNSKEYs auto inserted for added private keys
+- New mocked network client tests, to verify zone signing
 
 ### Fixed
 - Added loop on TCP accept requests

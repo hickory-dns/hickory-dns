@@ -33,12 +33,21 @@ use ::client::ClientConnection;
 pub struct Client<C: ClientConnection> {
   client_connection: RefCell<C>,
   next_id: Cell<u16>,
+  trust_anchor: TrustAnchor,
 }
 
 impl<C: ClientConnection> Client<C> {
   /// name_server to connect to with default port 53
   pub fn new(client_connection: C) -> Client<C> {
-    Client{ client_connection: RefCell::new(client_connection), next_id: Cell::new(1037) }
+    Client{ client_connection: RefCell::new(client_connection),
+            next_id: Cell::new(1037),
+            trust_anchor: TrustAnchor::default() }
+  }
+
+  pub fn with_trust_anchor(client_connection: C, trust_anchor: TrustAnchor) -> Client<C> {
+    Client{ client_connection: RefCell::new(client_connection),
+            next_id: Cell::new(1037),
+            trust_anchor: trust_anchor }
   }
 
   /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
@@ -86,7 +95,7 @@ impl<C: ClientConnection> Client<C> {
         // 'com. DS' is signed by '. DNSKEY' which produces 'com. RRSIG', all are in the same zone, '.'
         //  the '.' DNSKEY is signed by the well known root certificate.
         // TODO fix rrsigs clone()
-        let proof = try!(self.recursive_query_verify(&name, rrset, rrsigs.clone(), query_type, query_class));
+        let proof = try!(self.recursive_query_verify(&name, rrset, rrsigs.clone(), rrset_type, query_class));
 
         // TODO return this, also make a prettier print
         debug!("proved existance through: {:?}", proof);
@@ -198,11 +207,9 @@ impl<C: ClientConnection> Client<C> {
   fn verify_dnskey(&self, dnskey: &Record) -> ClientResult<Vec<Record>> {
     let name: &domain::Name = dnskey.get_name();
 
-    if dnskey.get_name().is_root() {
-      if let &RData::DNSKEY(ref rdata) = dnskey.get_rdata() {
-        if TrustAnchor::new().contains(rdata.get_public_key()) {
-          return Ok(vec![dnskey.clone()])
-        }
+    if let &RData::DNSKEY(ref rdata) = dnskey.get_rdata() {
+      if self.trust_anchor.contains(rdata.get_public_key()) {
+        return Ok(vec![dnskey.clone()])
       }
     }
 
@@ -302,7 +309,7 @@ impl<C: ClientConnection> Client<C> {
   //  corresponding RRSIG RR, a validator MUST ignore the settings of the
   //  NSEC and RRSIG bits in an NSEC RR.
   fn verify_nsec(&self, query_name: &domain::Name, query_type: RecordType,
-                 query_class: DNSClass, nsecs: Vec<&Record>) -> ClientResult<()> {
+                 _: DNSClass, nsecs: Vec<&Record>) -> ClientResult<()> {
     debug!("verifying nsec");
 
     // first look for a record with the same name
@@ -403,7 +410,7 @@ impl<C: ClientConnection> Client<C> {
   //    equivalent algorithm) proves that X does not exist by proving that an
   //    ancestor of X is its closest encloser.
   fn verify_nsec3(&self, query_name: &domain::Name, query_type: RecordType,
-                  query_class: DNSClass, soa: Option<&Record>,
+                  _: DNSClass, soa: Option<&Record>,
                   nsec3s: Vec<&Record>) -> ClientResult<()> {
     // the search name is the one to look for
     let zone_name = try!(soa.ok_or(ClientError::NoSOARecord(query_name.clone()))).get_name();
@@ -529,23 +536,40 @@ impl<C: ClientConnection> Client<C> {
 }
 
 #[cfg(test)]
-#[cfg(feature = "ftest")]
 mod test {
   use std::net::*;
 
-  use ::rr::{DNSClass, RecordType, domain, RData};
+  use ::authority::Catalog;
+  use ::authority::authority_tests::{create_example, create_secure_example};
+  use ::client::{Client, ClientConnection, TestClientConnection};
+  #[cfg(feature = "ftest")]
   use ::op::ResponseCode;
-  use ::udp::UdpClientConnection;
+  use ::rr::{DNSClass, RecordType, domain, RData};
+  use ::rr::dnssec::TrustAnchor;
+  #[cfg(feature = "ftest")]
   use ::tcp::TcpClientConnection;
-  use super::Client;
-  use super::super::ClientConnection;
+  #[cfg(feature = "ftest")]
+  use ::udp::UdpClientConnection;
+
+  #[test]
+  fn test_query_nonet() {
+    let authority = create_example();
+    let mut catalog = Catalog::new();
+    catalog.upsert(authority.get_origin().clone(), authority);
+
+    let client = Client::new(TestClientConnection::new(&catalog));
+
+    test_query(client);
+  }
 
   #[test]
   #[cfg(feature = "ftest")]
   fn test_query_udp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
-    test_query(conn);
+    let client = Client::new(conn);
+
+    test_query(client);
   }
 
   #[test]
@@ -553,16 +577,14 @@ mod test {
   fn test_query_tcp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
-    test_query(conn);
+    let client = Client::new(conn);
+
+    test_query(client);
   }
 
-
-  // TODO: this should be flagged with cfg as a functional test.
   #[cfg(test)]
-  #[cfg(feature = "ftest")]
-  fn test_query<C: ClientConnection>(conn: C) {
+  fn test_query<C: ClientConnection>(client: Client<C>) {
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-    let client = Client::new(conn);
 
     let response = client.query(&name, DNSClass::IN, RecordType::A);
     assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
@@ -584,11 +606,35 @@ mod test {
   }
 
   #[test]
+  fn test_secure_query_example_nonet() {
+    use ::client::client_connection::test::TestClientConnection;
+
+    let authority = create_secure_example();
+
+    let public_key = {
+      let signers = authority.get_secure_keys();
+      signers.first().expect("expected a key in the authority").get_public_key()
+    };
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(authority.get_origin().clone(), authority);
+
+    let mut trust_anchor = TrustAnchor::new();
+    trust_anchor.insert_trust_anchor(public_key);
+
+    let client = Client::with_trust_anchor(TestClientConnection::new(&catalog), trust_anchor);
+
+    test_secure_query_example(client);
+  }
+
+  #[test]
   #[cfg(feature = "ftest")]
   fn test_secure_query_example_udp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
-    test_secure_query_example(conn);
+    let client = Client::new(conn);
+
+    test_secure_query_example(client);
   }
 
   #[test]
@@ -596,21 +642,22 @@ mod test {
   fn test_secure_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
-    test_secure_query_example(conn);
+    let client = Client::new(conn);
+
+    test_secure_query_example(client);
   }
 
   #[cfg(test)]
-  #[cfg(feature = "ftest")]
-  fn test_secure_query_example<C: ClientConnection>(conn: C) {
+  fn test_secure_query_example<C: ClientConnection>(client: Client<C>) {
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-    let client = Client::new(conn);
-
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
-    assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+
+    assert!(response.is_ok(), "query for {} failed: {}", name, response.unwrap_err());
 
     let response = response.unwrap();
 
     println!("response records: {:?}", response);
+    assert!(response.get_edns().expect("edns not here").is_dnssec_ok());
 
     let record = &response.get_answers()[0];
     assert_eq!(record.get_name(), &name);

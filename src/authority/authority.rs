@@ -82,12 +82,24 @@ impl Authority {
   }
 
   pub fn add_secure_key(&mut self, signer: Signer) {
+    // also add the key to the zone
+    let zone_ttl = self.get_soa(false).map_or(0, |soa| if let &RData::SOA(ref soa_rdata) = soa.get_rdata() { soa_rdata.get_minimum() } else { 0 });
+    let dnskey = signer.to_dnskey(self.origin.clone(), zone_ttl);
+
+    // TODO: also generate the CDS and CDNSKEY
+    let serial = self.get_serial();
+    self.upsert(dnskey, serial);
     self.secure_keys.push(signer);
   }
 
   #[cfg(test)]
   fn set_allow_update(&mut self, allow_update: bool) {
     self.allow_update = allow_update;
+  }
+
+  #[cfg(test)]
+  pub fn get_secure_keys(&self) -> &[Signer] {
+    &self.secure_keys
   }
 
   pub fn get_origin(&self) -> &Name {
@@ -726,8 +738,12 @@ impl Authority {
                        .map_or(0, |soa_rec| if let &RData::SOA(ref soa) = soa_rec.get_rdata() { soa.get_minimum() }
                                             else { panic!("SOA has no RDATA: {}", self.origin) } );
 
-    for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| { rr_set.get_rrsigs().is_empty();
-                                                                     Some(rr_set) } ) {
+    for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| {
+      // do not sign zone DNSKEY's that's the job of the parent zone
+      if rr_set.get_record_type() == RecordType::DNSKEY { return None }
+      rr_set.get_rrsigs().is_empty();
+      Some(rr_set) } ) {
+
       debug!("signing rr_set: {}", rr_set.get_name());
       rr_set.clear_rrsigs();
       let rrsig_temp = Record::with(rr_set.get_name().clone(), RecordType::RRSIG, zone_ttl);
@@ -840,6 +856,21 @@ pub mod authority_tests {
     // www.example.com.	86400	IN	RRSIG	A 8 3 86400 20150915023456 20150824191224 54108 example.com. cWtw0nMvcXcYNnxejB3Le3KBfoPPQZLmbaJ8ybdmzBDefQOm1ZjZZMOP wHEIxzdjRhG9mLt1mpyo1H7OezKTGX+mDtskcECTl/+jB/YSZyvbwRxj e88Lrg4D+D2MiajQn3XSWf+6LQVe1J67gdbKTXezvux0tRxBNHHqWXRk pxCILes=
 
     return records;
+  }
+
+  pub fn create_secure_example() -> Authority {
+    use openssl::crypto::pkey::PKey;
+    use ::rr::dnssec::{Algorithm, Signer};
+
+    let mut authority: Authority = create_example();
+    let mut pkey = PKey::new();
+    pkey.gen(512);
+    let signer = Signer::new(Algorithm::RSASHA256, pkey, authority.get_origin().clone(), u32::max_value(), 0);
+
+    authority.add_secure_key(signer);
+    authority.sign_zone();
+
+    authority
   }
 
   #[test]
@@ -1050,22 +1081,17 @@ pub mod authority_tests {
 
   #[test]
   fn test_zone_signing() {
-    use openssl::crypto::pkey::PKey;
-    use ::rr::dnssec::{Algorithm, Signer};
     use ::rr::{RData};
 
-    let mut authority: Authority = create_example();
-    let mut pkey = PKey::new();
-    pkey.gen(512);
-    let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
-
-    authority.add_secure_key(signer);
-    authority.sign_zone();
+    let authority: Authority = create_secure_example();
 
     let results = authority.lookup(&authority.get_origin(), RecordType::AXFR, true).expect("AXFR broken");
 
+    assert!(results.iter().any(|r| r.get_rr_type() == RecordType::DNSKEY), "must contain a DNSKEY");
+
     for record in results.iter() {
       if record.get_rr_type() == RecordType::RRSIG { continue }
+      if record.get_rr_type() == RecordType::DNSKEY { continue }
 
       // validate all records have associated RRSIGs after signing
       assert!(results.iter().any(|r| r.get_rr_type() == RecordType::RRSIG &&
