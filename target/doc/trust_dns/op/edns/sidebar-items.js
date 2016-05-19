@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Edns","Edns implements the higher level concepts for working with Edns as it is used to create or be created from OPT record data."]]});

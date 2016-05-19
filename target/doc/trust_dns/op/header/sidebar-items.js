@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["MessageType",""]],"struct":[["Header","Metadata for the `Message` struct."]]});

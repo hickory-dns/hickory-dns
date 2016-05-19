@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["emit",""],["parse",""],["read",""]],"struct":[["SOA","RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987"]]});

@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["emit",""],["emit_pre_sig","specifically for outputing the RData for an RRSIG, with signer_name in canonical form"],["read",""]],"struct":[["SIG","RFC 2535, Domain Name System Security Extensions, March 1999"]]});

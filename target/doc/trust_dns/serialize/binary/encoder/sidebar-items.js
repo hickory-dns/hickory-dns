@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["EncodeMode","In the Verify mode there maybe some things which are encoded differently, e.g. SIG0 records should not be included in the additional count and not in the encoded data when in Verify"]],"struct":[["BinEncoder","Encode DNS messages and resource record types."]]});
