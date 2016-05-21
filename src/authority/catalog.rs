@@ -226,16 +226,17 @@ impl Catalog {
         debug!("found authority: {:?}", authority.get_origin());
         let is_dnssec = request.get_edns().map_or(false, |edns|edns.is_dnssec_ok());
 
-        if let Some(records) = Self::search(&*authority, query, is_dnssec) {
+        let records = Self::search(&*authority, query, is_dnssec);
+        if !records.is_empty() {
           response.response_code(ResponseCode::NoError);
           response.authoritative(true);
           response.add_all_answers(&records);
 
           // get the NS records
           let ns = authority.get_ns(is_dnssec);
-          if ns.is_none() { warn!("there are no NS records for: {:?}", authority.get_origin()); }
+          if ns.is_empty() { warn!("there are no NS records for: {:?}", authority.get_origin()); }
           else {
-            response.add_all_name_servers(&ns.unwrap());
+            response.add_all_name_servers(&ns);
           }
         } else {
           // in the not found case it's standard to return the SOA in the authority section
@@ -259,7 +260,7 @@ impl Catalog {
   }
 
   // TODO: move this to Authority
-  pub fn search<'a>(authority: &'a Authority, query: &Query, is_secure: bool) -> Option<Vec<&'a Record>> {
+  pub fn search<'a>(authority: &'a Authority, query: &Query, is_secure: bool) -> Vec<&'a Record> {
     let record_type: RecordType = query.get_query_type();
 
     // if this is an AXFR zone transfer, verify that this is either the slave or master
@@ -268,24 +269,24 @@ impl Catalog {
       match authority.get_zone_type() {
         ZoneType::Master | ZoneType::Slave => (),
         // TODO Forward?
-        _ => return None, // TODO this sould be an error.
+        _ => return vec![], // TODO this sould be an error.
       }
     }
 
     // it would be better to stream this back, rather than packaging everything up in an array
     //  though for UDP it would still need to be bundled
-    let mut query_result: Option<Vec<_>> = authority.lookup(query.get_name(), record_type, is_secure);
+    let mut query_result: Vec<_> = authority.lookup(query.get_name(), record_type, is_secure);
 
     if RecordType::AXFR == record_type {
       if let Some(soa) = authority.get_soa(false) {
-        let mut xfr: Vec<&Record> = query_result.unwrap_or(Vec::with_capacity(2));
+        let mut xfr: Vec<&Record> = query_result;
         // TODO: probably make Records Rc or Arc, to remove the clone
         xfr.insert(0, soa);
         xfr.push(soa);
 
-        query_result = Some(xfr);
+        query_result = xfr;
       } else {
-        return None; // TODO is this an error?
+        return vec![]; // TODO is this an error?
       }
     }
 
@@ -327,7 +328,8 @@ mod catalog_tests {
     let mut query: Query = Query::new();
     query.name(origin.clone());
 
-    if let Some(result) = Catalog::search(&example, &query, false) {
+    let result = Catalog::search(&example, &query, false);
+    if !result.is_empty() {
       assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
       assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
       assert_eq!(result.first().unwrap().get_rdata(), &RData::A(Ipv4Addr::new(93,184,216,34)));
@@ -345,7 +347,8 @@ mod catalog_tests {
     let mut query: Query = Query::new();
     query.name(www_name.clone());
 
-    if let Some(result) = Catalog::search(&example, &query, false) {
+    let result = Catalog::search(&example, &query, false);
+    if !result.is_empty() {
       assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
       assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
       assert_eq!(result.first().unwrap().get_rdata(), &RData::A(Ipv4Addr::new(93,184,216,34)));
