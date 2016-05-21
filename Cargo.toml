@@ -5,7 +5,13 @@ authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
-description = "TRust-DNS is meant to be a drop in replacement for BIND9, and be a safe and secure DNS server and client"
+description = """\
+TRust-DNS is a safe and secure DNS server and client with DNSec support.\
+ It is working to be a replacement for BIND9. DNSSec on the client side, with\
+ NSEC validation for negative records, is complete. The client and server both\
+ support dynamic DNS, SIG0 and TSIG validation are currently a WIP. Full DNSSec\
+ on the server is a WIP.\
+"""
 
 # These URLs point to more information about the repository
 documentation = "http://www.trust-dns.org/target/doc/trust_dns/index.html"
