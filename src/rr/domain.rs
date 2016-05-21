@@ -355,37 +355,39 @@ impl PartialOrd<Name> for Name {
 }
 
 impl Ord for Name {
-  // RFC 4034                DNSSEC Resource Records               March 2005
-  //
-  // 6.1.  Canonical DNS Name Order
-  //
-  //  For the purposes of DNS security, owner names are ordered by treating
-  //  individual labels as unsigned left-justified octet strings.  The
-  //  absence of a octet sorts before a zero value octet, and uppercase
-  //  US-ASCII letters are treated as if they were lowercase US-ASCII
-  //  letters.
-  //
-  //  To compute the canonical ordering of a set of DNS names, start by
-  //  sorting the names according to their most significant (rightmost)
-  //  labels.  For names in which the most significant label is identical,
-  //  continue sorting according to their next most significant label, and
-  //  so forth.
-  //
-  //  For example, the following names are sorted in canonical DNS name
-  //  order.  The most significant label is "example".  At this level,
-  //  "example" sorts first, followed by names ending in "a.example", then
-  //  by names ending "z.example".  The names within each level are sorted
-  //  in the same way.
-  //
-  //            example
-  //            a.example
-  //            yljkjljk.a.example
-  //            Z.a.example
-  //            zABC.a.EXAMPLE
-  //            z.example
-  //            \001.z.example
-  //            *.z.example
-  //            \200.z.example
+  /// RFC 4034                DNSSEC Resource Records               March 2005
+  ///
+  /// ```text
+  /// 6.1.  Canonical DNS Name Order
+  ///
+  ///  For the purposes of DNS security, owner names are ordered by treating
+  ///  individual labels as unsigned left-justified octet strings.  The
+  ///  absence of a octet sorts before a zero value octet, and uppercase
+  ///  US-ASCII letters are treated as if they were lowercase US-ASCII
+  ///  letters.
+  ///
+  ///  To compute the canonical ordering of a set of DNS names, start by
+  ///  sorting the names according to their most significant (rightmost)
+  ///  labels.  For names in which the most significant label is identical,
+  ///  continue sorting according to their next most significant label, and
+  ///  so forth.
+  ///
+  ///  For example, the following names are sorted in canonical DNS name
+  ///  order.  The most significant label is "example".  At this level,
+  ///  "example" sorts first, followed by names ending in "a.example", then
+  ///  by names ending "z.example".  The names within each level are sorted
+  ///  in the same way.
+  ///
+  ///            example
+  ///            a.example
+  ///            yljkjljk.a.example
+  ///            Z.a.example
+  ///            zABC.a.EXAMPLE
+  ///            z.example
+  ///            \001.z.example
+  ///            *.z.example
+  ///            \200.z.example
+  /// ```
   fn cmp(&self, other: &Self) -> Ordering {
     if self.labels.is_empty() && other.labels.is_empty() { return Ordering::Equal }
 

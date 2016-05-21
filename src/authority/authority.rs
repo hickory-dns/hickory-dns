@@ -13,14 +13,15 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashMap;
+use std::collections::BTreeMap;
+use std::cmp::Ordering;
 
 use chrono::offset::utc::UTC;
 
 use ::authority::{UpdateResult, ZoneType, RRSet};
 use ::op::{UpdateMessage, ResponseCode};
 use ::rr::{DNSClass, Name, RData, Record, RecordType};
-use ::rr::rdata::SIG;
+use ::rr::rdata::{NSEC, SIG};
 use ::rr::dnssec::Signer;
 
 /// Accessor key for RRSets in the Authority.
@@ -43,11 +44,28 @@ impl RrKey {
   }
 }
 
+impl PartialOrd for RrKey {
+  fn partial_cmp(&self, other: &RrKey) -> Option<Ordering> {
+    Some(self.cmp(other))
+  }
+}
+
+impl Ord for RrKey {
+  fn cmp(&self, other: &Self) -> Ordering {
+    let order = self.name.cmp(&other.name);
+    if order == Ordering::Equal {
+      self.record_type.cmp(&other.record_type)
+    } else {
+      order
+    }
+  }
+}
+
 /// Authority is the storage method for all resource records
 pub struct Authority {
   origin: Name,
   class: DNSClass,
-  records: HashMap<RrKey, RRSet>,
+  records: BTreeMap<RrKey, RRSet>,
   zone_type: ZoneType,
   allow_update: bool,
   // Private key mapped to the Record of the DNSKey
@@ -76,7 +94,7 @@ impl Authority {
   /// # Return value
   ///
   /// The new `Authority`.
-  pub fn new(origin: Name, records: HashMap<RrKey, RRSet>, zone_type: ZoneType, allow_update: bool) -> Authority {
+  pub fn new(origin: Name, records: BTreeMap<RrKey, RRSet>, zone_type: ZoneType, allow_update: bool) -> Authority {
     Authority{ origin: origin, class: DNSClass::IN, records: records, zone_type: zone_type,
       allow_update: allow_update, secure_keys: Vec::new() }
   }
@@ -588,6 +606,9 @@ impl Authority {
 
     // update the serial...
     if updated {
+      // TODO: only call nsec_zone after adds/deletes
+      // needs to be called before incrementing the soa serial, to make sur IXFR works properly
+      self.nsec_zone();
 
       // need to resign any records at the current serial number and bump the number.
       // first bump the serial number on the SOA, so that it is resigned with the new serial.
@@ -724,13 +745,63 @@ impl Authority {
     if result.is_empty() { None } else { Some(result) }
   }
 
+  /// Creates all nsec records needed for the zone, replaces any existing records.
+  fn nsec_zone(&mut self) {
+    // only create nsec records for secure zones
+    if self.secure_keys.is_empty() { return }
+    debug!("generating nsec records: {}", self.origin);
+
+    // first remove all existing nsec records
+    let delete_keys: Vec<RrKey> = self.records.keys()
+                                              .filter(|k| k.record_type == RecordType::NSEC)
+                                              .cloned()
+                                              .collect();
+
+    for key in delete_keys {
+      self.records.remove(&key);
+    }
+
+    // now go through and generate the nsec records
+    let ttl = self.get_soa(false).map_or(0, |soa| if let &RData::SOA(ref rdata) = soa.get_rdata() { rdata.get_minimum() } else { 0 });
+    let serial = self.get_serial();
+    let mut records: Vec<Record> = vec![];
+
+    {
+      let mut nsec_info: Option<(&Name, Vec<RecordType>)> = None;
+      for key in self.records.keys() {
+        match nsec_info {
+          None => nsec_info = Some((&key.name, vec![key.record_type])),
+          Some((name, ref mut vec)) if name == &key.name => { vec.push(key.record_type) },
+          Some((name, vec)) => {
+            // names aren't equal, create the NSEC record
+            let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
+            let rdata = NSEC::new(key.name.clone(), vec);
+            record.rdata(RData::NSEC(rdata));
+            records.push(record);
+
+            // new record...
+            nsec_info = Some((&key.name, vec![key.record_type]))
+          },
+        }
+      }
+
+      // the last record
+      if let Some((name, vec)) = nsec_info {
+        // names aren't equal, create the NSEC record
+        let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
+        let rdata = NSEC::new(self.get_origin().clone(), vec);
+        record.rdata(RData::NSEC(rdata));
+        records.push(record);
+      }
+    }
+
+    // insert all the nsec records
+    for record in records {
+      self.upsert(record, serial);
+    }
+  }
+
   /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
-  ///
-  /// # Arguments
-  ///
-  /// * `serial` - The serial to which the serial number of an `RRSet` should be compared. If the
-  ///              record set serial is greater than or equal to the `serial`, then it will be
-  ///              resigned.
   pub fn sign_zone(&mut self) {
     debug!("signing zone: {}", self.origin);
     let now = UTC::now().timestamp() as u32;
@@ -794,7 +865,7 @@ impl Authority {
 
 #[cfg(test)]
 pub mod authority_tests {
-  use std::collections::HashMap;
+  use std::collections::BTreeMap;
   use std::net::{Ipv4Addr,Ipv6Addr};
 
   use ::authority::ZoneType;
@@ -805,7 +876,7 @@ pub mod authority_tests {
 
   pub fn create_example() -> Authority {
     let origin: Name = Name::parse("example.com.", None,).unwrap();
-    let mut records: Authority = Authority::new(origin.clone(), HashMap::new(), ZoneType::Master, false);
+    let mut records: Authority = Authority::new(origin.clone(), BTreeMap::new(), ZoneType::Master, false);
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
     records.upsert(Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None).unwrap(), Name::parse("noc.dns.icann.org.", None).unwrap(), 2015082403, 7200, 3600, 1209600, 3600 ))).clone(), 0);
 
