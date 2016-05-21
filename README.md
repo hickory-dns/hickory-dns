@@ -8,6 +8,8 @@
 A Rust based DNS client and server, built to be safe and secure from the
 ground up.
 
+[API documentation](http://trust-dns.org/target/doc/trust_dns/index.html)
+
 # Goals
 
 - Build a safe and secure DNS server and client with modern features.
@@ -20,12 +22,16 @@ ground up.
 
 # Status:
 
+## Client
+
 Using the client should be safe. The client is currently hardcoded to a 5 second,
-timeout. I'll make this configurable if people ask for that, but this allows me
-to move on. Please send feedback! It currently does not cache responses, if
-this is a feature you'd like earlier rather than later, post a request. The
-validation of DNSSec is complete, but negative responses are not yet.
-The plan is to support NSEC3 primarily, but allow NSEC records to be validated.
+timeout. I'll make this configurable if people ask for that, please file a
+request for any features. Please send feedback! It currently does not cache
+responses, if this is a feature you'd like earlier rather than later, post a
+ request. The validation of DNSSec is complete including NSEC. As of now NSEC3
+ is broken, and it's not clear at this point that it will be supported.
+
+## Server
 
 The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
 There currently is no way to limit TCP and AXFR operations, so it is still not
@@ -35,10 +41,15 @@ option, and the server is not yet threaded. There is still a lot of work to do
 before a server can be trusted with this externally. Running it behind a firewall
 on a private network would be safe.
 
+Zone signing support is a work in progress, there is currently no way to
+associate keys to zones. Dynamic DNS is also complete, but currently there is
+no storage or syncing with other servers, so it's not recommended to use this
+feature yet, and is disabled by default on zones.
+
 ## DNSSec status
 
 Currently the root key is hardcoded into the system. This gives validation of
-DNSKEY and DS records back to the root. NSEC and NSEC3 are not yet implemented.
+DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
 Because caching is not yet enabled, it has been noticed that some DNS servers
 appear to rate limit the connections, validating RRSIG records back to the root
 can require a significant number of additional queries for those records.
