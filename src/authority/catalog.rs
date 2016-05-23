@@ -19,7 +19,7 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-use ::rr::{Record, Name, RecordType};
+use ::rr::{Name, RecordType};
 use ::authority::{Authority, ZoneType};
 use ::op::*;
 
@@ -33,6 +33,11 @@ impl Catalog {
     Catalog{ authorities: HashMap::new() }
   }
 
+  /// Determine's what needs to happen given the type of request, i.e. Query or Update.
+  ///
+  /// # Arguments
+  ///
+  /// * `request` - the requested action to perform.
   pub fn handle_request(&self, request: &Message) -> Message {
     info!("id: {} type: {:?} op_code: {:?}", request.get_id(), request.get_message_type(), request.get_op_code());
     debug!("request: {:?}", request);
@@ -212,6 +217,11 @@ impl Catalog {
     }
   }
 
+  /// Given the requested query, lookup and return any matching results.
+  ///
+  /// # Arguments
+  ///
+  /// * `request` - the query message.
   pub fn lookup(&self, request: &Message) -> Message {
     let mut response: Message = Message::new();
     response.id(request.get_id());
@@ -226,7 +236,7 @@ impl Catalog {
         debug!("found authority: {:?}", authority.get_origin());
         let is_dnssec = request.get_edns().map_or(false, |edns|edns.is_dnssec_ok());
 
-        let records = Self::search(&*authority, query, is_dnssec);
+        let records = authority.search(query, is_dnssec);
         if !records.is_empty() {
           response.response_code(ResponseCode::NoError);
           response.authoritative(true);
@@ -239,13 +249,18 @@ impl Catalog {
             response.add_all_name_servers(&ns);
           }
         } else {
+          if is_dnssec {
+            // get NSEC records
+            response.add_all_name_servers(&authority.get_nsec_records(query.get_name(), is_dnssec));
+          }
+
           // in the not found case it's standard to return the SOA in the authority section
           response.response_code(ResponseCode::NXDomain);
 
-          let soa = authority.get_soa(is_dnssec);
-          if soa.is_none() { warn!("there is no SOA record for: {:?}", authority.get_origin()); }
+          let soa = authority.get_soa_secure(is_dnssec);
+          if soa.is_empty() { warn!("there is no SOA record for: {:?}", authority.get_origin()); }
           else {
-            response.add_name_server(soa.unwrap().clone());
+            response.add_all_name_servers(&soa);
           }
         }
       } else {
@@ -259,40 +274,7 @@ impl Catalog {
     response
   }
 
-  // TODO: move this to Authority
-  pub fn search<'a>(authority: &'a Authority, query: &Query, is_secure: bool) -> Vec<&'a Record> {
-    let record_type: RecordType = query.get_query_type();
-
-    // if this is an AXFR zone transfer, verify that this is either the slave or master
-    //  for AXFR the first and last record must be the SOA
-    if RecordType::AXFR == record_type {
-      match authority.get_zone_type() {
-        ZoneType::Master | ZoneType::Slave => (),
-        // TODO Forward?
-        _ => return vec![], // TODO this sould be an error.
-      }
-    }
-
-    // it would be better to stream this back, rather than packaging everything up in an array
-    //  though for UDP it would still need to be bundled
-    let mut query_result: Vec<_> = authority.lookup(query.get_name(), record_type, is_secure);
-
-    if RecordType::AXFR == record_type {
-      if let Some(soa) = authority.get_soa(false) {
-        let mut xfr: Vec<&Record> = query_result;
-        // TODO: probably make Records Rc or Arc, to remove the clone
-        xfr.insert(0, soa);
-        xfr.push(soa);
-
-        query_result = xfr;
-      } else {
-        return vec![]; // TODO is this an error?
-      }
-    }
-
-    query_result
-  }
-
+  /// recursively searches the catalog for a matching auhtority.
   fn find_auth_recurse(&self, name: &Name) -> Option<&RwLock<Authority>> {
     let authority = self.authorities.get(name);
     if authority.is_some() { return authority; }
@@ -319,43 +301,6 @@ mod catalog_tests {
   use ::rr::rdata::SOA;
 
   use super::*;
-
-  #[test]
-  fn test_catalog_search() {
-    let example = create_example();
-    let origin = example.get_origin().clone();
-
-    let mut query: Query = Query::new();
-    query.name(origin.clone());
-
-    let result = Catalog::search(&example, &query, false);
-    if !result.is_empty() {
-      assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
-      assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
-      assert_eq!(result.first().unwrap().get_rdata(), &RData::A(Ipv4Addr::new(93,184,216,34)));
-    } else {
-      panic!("expected a result");
-    }
-  }
-
-  /// this is a litte more interesting b/c it requires a recursive lookup for the origin
-  #[test]
-  fn test_catalog_search_www() {
-    let example = create_example();
-    let www_name = Name::parse("www.example.com.", None).unwrap();
-
-    let mut query: Query = Query::new();
-    query.name(www_name.clone());
-
-    let result = Catalog::search(&example, &query, false);
-    if !result.is_empty() {
-      assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
-      assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
-      assert_eq!(result.first().unwrap().get_rdata(), &RData::A(Ipv4Addr::new(93,184,216,34)));
-    } else {
-      panic!("expected a result");
-    }
-  }
 
   pub fn create_test() -> Authority {
     let origin: Name = Name::parse("test.com.", None).unwrap();

@@ -101,7 +101,7 @@ impl Authority {
 
   pub fn add_secure_key(&mut self, signer: Signer) {
     // also add the key to the zone
-    let zone_ttl = self.get_soa(false).map_or(0, |soa| if let &RData::SOA(ref soa_rdata) = soa.get_rdata() { soa_rdata.get_minimum() } else { 0 });
+    let zone_ttl = self.get_minimum_ttl();
     let dnskey = signer.to_dnskey(self.origin.clone(), zone_ttl);
 
     // TODO: also generate the CDS and CDNSKEY
@@ -128,13 +128,28 @@ impl Authority {
     self.zone_type
   }
 
-  pub fn get_soa(&self, is_secure: bool) -> Option<&Record> {
+  /// Returns the SOA of the authority.
+  ///
+  /// *Note* This will only return the SOA, if this is fullfilling a request, a standard lookup
+  ///  should be used, see `get_soa_secure()`, which will optionally return RRSIGs.
+  pub fn get_soa(&self) -> Option<&Record> {
     // SOA should be origin|SOA
-    self.lookup(&self.origin, RecordType::SOA, is_secure).first().map(|v| *v)
+    self.lookup(&self.origin, RecordType::SOA, false).first().map(|v| *v)
+  }
+
+  /// Returns the SOA record
+  ///
+  ///
+  pub fn get_soa_secure(&self, is_secure: bool) -> Vec<&Record> {
+    self.lookup(&self.origin, RecordType::SOA, is_secure)
+  }
+
+  pub fn get_minimum_ttl(&self) -> u32 {
+    self.get_soa().map_or(0, |soa| if let &RData::SOA(ref rdata) = soa.get_rdata() { rdata.get_minimum() } else { 0 })
   }
 
   fn get_serial(&self) -> u32 {
-    let soa = if let Some(ref soa_record) = self.get_soa(false) {
+    let soa = if let Some(ref soa_record) = self.get_soa() {
       soa_record.clone()
     } else {
       warn!("no soa record found for zone: {}", self.origin);
@@ -149,7 +164,7 @@ impl Authority {
   }
 
   fn increment_soa_serial(&mut self) -> u32 {
-    let mut soa = if let Some(ref mut soa_record) = self.get_soa(false) {
+    let mut soa = if let Some(ref mut soa_record) = self.get_soa() {
       soa_record.clone()
     } else {
       warn!("no soa record found for zone: {}", self.origin);
@@ -727,7 +742,7 @@ impl Authority {
     let mut query_result: Vec<_> = self.lookup(query.get_name(), record_type, is_secure);
 
     if RecordType::AXFR == record_type {
-      if let Some(soa) = self.get_soa(false) {
+      if let Some(soa) = self.get_soa() {
         let mut xfr: Vec<&Record> = query_result;
         // TODO: probably make Records Rc or Arc, to remove the clone
         xfr.insert(0, soa);
@@ -776,18 +791,21 @@ impl Authority {
       }
     };
 
-    if is_secure && result.is_empty() {
-      // get NSEC records
+    result
+  }
 
-      // this search is predicated on the fact that the BTreeMap returns the properly ordered records
-      // if there are none, then
-      self.records.values().filter(|rr_set| rr_set.get_record_type() == RecordType::NSEC)
-                           .skip_while(|rr_set| name < rr_set.get_name())
-                           .next()
-                           .map_or(vec![], |rr_set| rr_set.get_records(is_secure).into_iter().collect())
-    } else {
-      result
-    }
+  /// Return the NSEC records based on the given name
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
+  ///            this
+  /// * `is_secure` - if true then it will return RRSIG records as well
+  pub fn get_nsec_records(&self, name: &Name, is_secure: bool) -> Vec<&Record> {
+    self.records.values().filter(|rr_set| rr_set.get_record_type() == RecordType::NSEC)
+                         .skip_while(|rr_set| name < rr_set.get_name())
+                         .next()
+                         .map_or(vec![], |rr_set| rr_set.get_records(is_secure).into_iter().collect())
   }
 
   /// (Re)generates the nsec records, increments the serial number nad signs the zone
@@ -821,7 +839,7 @@ impl Authority {
     }
 
     // now go through and generate the nsec records
-    let ttl = self.get_soa(false).map_or(0, |soa| if let &RData::SOA(ref rdata) = soa.get_rdata() { rdata.get_minimum() } else { 0 });
+    let ttl = self.get_minimum_ttl();
     let serial = self.get_serial();
     let mut records: Vec<Record> = vec![];
 
@@ -864,9 +882,7 @@ impl Authority {
   fn sign_zone(&mut self) {
     debug!("signing zone: {}", self.origin);
     let now = UTC::now().timestamp() as u32;
-    let zone_ttl = self.get_soa(false)
-                       .map_or(0, |soa_rec| if let &RData::SOA(ref soa) = soa_rec.get_rdata() { soa.get_minimum() }
-                                            else { panic!("SOA has no RDATA: {}", self.origin) } );
+    let zone_ttl = self.get_minimum_ttl();
 
     for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| {
       // do not sign zone DNSKEY's that's the job of the parent zone
@@ -1044,8 +1060,8 @@ pub mod authority_tests {
   fn test_authority() {
     let authority: Authority = create_example();
 
-    assert!(authority.get_soa(false).is_some());
-    assert_eq!(authority.get_soa(false).unwrap().get_dns_class(), DNSClass::IN);
+    assert!(authority.get_soa().is_some());
+    assert_eq!(authority.get_soa().unwrap().get_dns_class(), DNSClass::IN);
 
     assert!(!authority.lookup(authority.get_origin(), RecordType::NS, false).is_empty());
 
@@ -1268,6 +1284,18 @@ pub mod authority_tests {
                                      } else {
                                        false
                                      } ), "record type not covered: {:?}", record);
+    }
+  }
+
+  #[test]
+  fn test_get_nsec() {
+    let name = Name::new().label("zzz").label("example").label("com");
+    let authority: Authority = create_secure_example();
+
+    let results = authority.get_nsec_records(&name, true);
+
+    for record in results.iter() {
+      assert!(record.get_name() < &name);
     }
   }
 }

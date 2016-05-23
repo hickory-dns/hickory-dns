@@ -121,7 +121,7 @@ impl<C: ClientConnection> Client<C> {
         let proof = try!(self.recursive_query_verify(&name, rrset, rrsigs.clone(), rrset_type, query_class));
 
         // TODO return this, also make a prettier print
-        debug!("proved existance through: {:?}", proof);
+        debug!("proved existance through for {}:{:?}: {:?}", name, rrset_type, proof);
       }
 
       // at this point all records are validated, but if there are NSEC records present,
@@ -180,6 +180,8 @@ impl<C: ClientConnection> Client<C> {
     for rrsig in rrsigs.iter().filter(|rr| rr.get_name() == name) {
       // TODO: need to verify inception and experation...
       if let &RData::SIG(ref sig) = rrsig.get_rdata() {
+        if sig.get_type_covered() != query_type { continue } // wrong RRSIG, probably another record
+
         // get DNSKEY from signer_name
         let key_response = try!(self.inner_query(sig.get_signer_name(), query_class, RecordType::DNSKEY, true));
         let key_rrset: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::DNSKEY).collect();
@@ -211,7 +213,8 @@ impl<C: ClientConnection> Client<C> {
                 return Ok(proof);
               }
             } else {
-              debug!("could not verify: {} with: {}", name, rrsig.get_name());
+              debug!("could not verify: {}:{:?} with: {}:{:?}", name, query_type, rrsig.get_name(),
+                     if let &RData::SIG(ref sig) = rrsig.get_rdata() { sig.get_type_covered() } else { RecordType::NULL });
             }
           } else {
             panic!("this should be a DNSKEY")
@@ -548,7 +551,6 @@ mod test {
   use ::authority::Catalog;
   use ::authority::authority_tests::{create_example, create_secure_example};
   use ::client::{Client, ClientConnection, TestClientConnection};
-  #[cfg(feature = "ftest")]
   use ::op::ResponseCode;
   use ::rr::{DNSClass, RecordType, domain, RData};
   use ::rr::dnssec::TrustAnchor;
@@ -678,11 +680,34 @@ mod test {
   }
 
   #[test]
+  fn test_nsec_query_example_nonet() {
+    use ::client::client_connection::test::TestClientConnection;
+
+    let authority = create_secure_example();
+
+    let public_key = {
+      let signers = authority.get_secure_keys();
+      signers.first().expect("expected a key in the authority").get_public_key()
+    };
+
+    let mut catalog = Catalog::new();
+    catalog.upsert(authority.get_origin().clone(), authority);
+
+    let mut trust_anchor = TrustAnchor::new();
+    trust_anchor.insert_trust_anchor(public_key);
+
+    let client = Client::with_trust_anchor(TestClientConnection::new(&catalog), trust_anchor);
+
+    test_nsec_query_example(client);
+  }
+
+  #[test]
   #[cfg(feature = "ftest")]
   fn test_nsec_query_example_udp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
-    test_nsec_query_example(conn);
+    let client = Client::new(conn);
+    test_nsec_query_example(client);
   }
 
   #[test]
@@ -690,15 +715,14 @@ mod test {
   fn test_nsec_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
-    test_nsec_query_example(conn);
+    let client = Client::new(conn);
+    test_nsec_query_example(client);
   }
 
 
   #[cfg(test)]
-  #[cfg(feature = "ftest")]
-  fn test_nsec_query_example<C: ClientConnection>(conn: C) {
+  fn test_nsec_query_example<C: ClientConnection>(client: Client<C>) {
     let name = domain::Name::with_labels(vec!["none".to_string(), "example".to_string(), "com".to_string()]);
-    let client = Client::new(conn);
 
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
     assert!(response.is_ok(), "query failed: {}", response.unwrap_err());

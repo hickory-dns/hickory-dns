@@ -46,7 +46,7 @@ VENERA  A       10.1.0.52
   // not validating everything, just one of each...
 
   // SOA
-  let soa_record = authority.get_soa(false).unwrap();
+  let soa_record = authority.get_soa().unwrap();
   assert_eq!(RecordType::SOA, soa_record.get_rr_type());
   assert_eq!(&Name::new().label("isi").label("edu"), soa_record.get_name()); // i.e. the origin or domain
   assert_eq!(3600000, soa_record.get_ttl());
