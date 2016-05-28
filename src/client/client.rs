@@ -180,8 +180,6 @@ impl<C: ClientConnection> Client<C> {
     for rrsig in rrsigs.iter().filter(|rr| rr.get_name() == name) {
       // TODO: need to verify inception and experation...
       if let &RData::SIG(ref sig) = rrsig.get_rdata() {
-        if sig.get_type_covered() != query_type { continue } // wrong RRSIG, probably another record
-
         // get DNSKEY from signer_name
         let key_response = try!(self.inner_query(sig.get_signer_name(), query_class, RecordType::DNSKEY, true));
         let key_rrset: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::DNSKEY).collect();
