@@ -20,7 +20,6 @@ use std::string::FromUtf8Error;
 
 use openssl::ssl::error::SslError;
 
-#[derive(Debug)]
 pub enum DecodeError {
   ParseUtf8Error(FromUtf8Error),
   UnknownDnsClassValue(u16),
@@ -39,6 +38,12 @@ pub enum DecodeError {
   IncorrectRDataLengthRead(usize, usize),
   BadPublicKey,
   SslError(SslError),
+}
+
+impl fmt::Debug for DecodeError {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fmt::Display::fmt(&self, f)
+  }
 }
 
 impl fmt::Display for DecodeError {

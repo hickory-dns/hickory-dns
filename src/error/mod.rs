@@ -16,6 +16,8 @@
 
 //! All defined errors for Trust-DNS
 
+#[macro_use]
+mod base_error;
 mod decode_error;
 mod encode_error;
 mod client_error;
@@ -23,6 +25,7 @@ mod lexer_error;
 mod parse_error;
 mod config_error;
 
+pub use self::base_error::ErrorLoc;
 pub use self::decode_error::DecodeError;
 pub use self::encode_error::EncodeError;
 pub use self::client_error::ClientError;

@@ -23,7 +23,6 @@ use super::DecodeError;
 use super::LexerError;
 use ::serialize::txt::Token;
 
-#[derive(Debug)]
 pub enum ParseError {
   LexerError(LexerError),
   DecodeError(DecodeError),
@@ -41,6 +40,12 @@ pub enum ParseError {
   AddrParseError(AddrParseError),
   CharToIntError(char),
   ParseTimeError(String),
+}
+
+impl fmt::Debug for ParseError {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fmt::Display::fmt(&self, f)
+  }
 }
 
 impl fmt::Display for ParseError {

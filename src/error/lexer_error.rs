@@ -18,7 +18,6 @@ use std::fmt;
 use std::num;
 use std::string::FromUtf8Error;
 
-#[derive(Debug)]
 pub enum LexerError {
   ParseUtf8Error(FromUtf8Error),
   EscapedCharOutsideCharData,
@@ -32,6 +31,12 @@ pub enum LexerError {
   UnrecognizedDollar(String),
   EOF,
   IllegalState(&'static str),
+}
+
+impl fmt::Debug for LexerError {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fmt::Display::fmt(&self, f)
+  }
 }
 
 impl fmt::Display for LexerError {

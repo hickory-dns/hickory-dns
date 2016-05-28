@@ -52,13 +52,13 @@ pub mod test {
     fn send(&mut self, bytes: Vec<u8>) -> ClientResult<Vec<u8>> {
       let mut decoder = BinDecoder::new(&bytes);
 
-      let message = try!(Message::read(&mut decoder));
+      let message = try_rethrow!(ClientError::DecodeError, Message::read(&mut decoder));
       let response = self.catalog.handle_request(&message);
 
       let mut buf = Vec::with_capacity(512);
       {
         let mut encoder = BinEncoder::new(&mut buf);
-        try!(response.emit(&mut encoder));
+        try_rethrow!(ClientError::EncodeError, response.emit(&mut encoder));
       }
 
       Ok(buf)

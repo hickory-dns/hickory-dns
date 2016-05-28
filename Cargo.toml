@@ -68,6 +68,7 @@ debug-assertions = true
 codegen-units = 1
 
 [dependencies]
+backtrace = "^0.2.1"
 chrono = "^0.2.21"
 data-encoding = "^1.1.2"
 docopt = "^0.6.78"

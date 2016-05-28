@@ -17,11 +17,16 @@
 use std::error::Error;
 use std::fmt;
 
-#[derive(Debug)]
 pub enum EncodeError {
   CharacterDataTooLong(usize),
   LabelBytesTooLong(usize),
   DomainNameTooLong(usize),
+}
+
+impl fmt::Debug for EncodeError {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fmt::Display::fmt(&self, f)
+  }
 }
 
 impl fmt::Display for EncodeError {

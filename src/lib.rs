@@ -25,6 +25,7 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
+extern crate backtrace;
 extern crate chrono;
 extern crate data_encoding;
 #[macro_use] extern crate log;
@@ -35,6 +36,7 @@ extern crate rustc_serialize;
 extern crate toml;
 
 
+#[macro_use] pub mod error;
 pub mod logger;
 pub mod rr;
 pub mod authority;
@@ -43,7 +45,6 @@ pub mod udp;
 pub mod tcp;
 pub mod client;
 pub mod server;
-pub mod error;
 pub mod serialize;
 pub mod config;
 

@@ -21,12 +21,17 @@ use toml::ParserError;
 use toml::DecodeError;
 
 
-#[derive(Debug)]
 pub enum ConfigError {
   IoError(io::Error),
   ParserError(ParserError),
   VecParserError(Vec<ParserError>),
   DecodeError(DecodeError),
+}
+
+impl fmt::Debug for ConfigError {
+  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+    fmt::Display::fmt(&self, f)
+  }
 }
 
 impl fmt::Display for ConfigError {

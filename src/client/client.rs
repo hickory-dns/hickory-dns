@@ -96,7 +96,7 @@ impl<C: ClientConnection> Client<C> {
                                                 .filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
       if rrsigs.is_empty() {
-        return Err(ClientError::NoRRSIG);
+        return Err(ClientError::NoRRSIG(error_loc!()));
       }
 
       // group the record sets by name and type
@@ -146,7 +146,7 @@ impl<C: ClientConnection> Client<C> {
           }
         }
 
-        if !validated_nx { return Err(ClientError::NoNsec) }
+        if !validated_nx { return Err(ClientError::NoNsec(error_loc!())) }
       }
     }
 
@@ -193,7 +193,7 @@ impl<C: ClientConnection> Client<C> {
             if !rdata.is_zone_key() { continue }
             if *rdata.get_algorithm() != sig.get_algorithm() { continue }
 
-            let pkey = try!(rdata.get_algorithm().public_key_from_vec(rdata.get_public_key()));
+            let pkey = try_rethrow!(ClientError::DecodeError, rdata.get_algorithm().public_key_from_vec(rdata.get_public_key()));
             if !pkey.can(Role::Verify) { debug!("pkey can't verify, {:?}", dnskey.get_name()); continue }
 
             let signer: Signer = Signer::new_verifier(*rdata.get_algorithm(), pkey, sig.get_signer_name().clone());
@@ -225,7 +225,7 @@ impl<C: ClientConnection> Client<C> {
       }
     }
 
-    Err(ClientError::NoDNSKEY)
+    Err(ClientError::NoDNSKEY(error_loc!()))
   }
 
   /// attempts to verify the DNSKey against the DS of the parent.
@@ -267,8 +267,8 @@ impl<C: ClientConnection> Client<C> {
         {
           let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
           encoder.set_canonical_names(true);
-          try!(name.emit(&mut encoder));
-          try!(dnskey.get_rdata().emit(&mut encoder));
+          try_rethrow!(ClientError::EncodeError, name.emit(&mut encoder));
+          try_rethrow!(ClientError::EncodeError, dnskey.get_rdata().emit(&mut encoder));
         }
 
         let hash: Vec<u8> = ds_rdata.get_digest_type().hash(&buf);
@@ -283,7 +283,7 @@ impl<C: ClientConnection> Client<C> {
       }
     }
 
-    Err(ClientError::NoDS)
+    Err(ClientError::NoDS(error_loc!()))
   }
 
   // RFC 4035             DNSSEC Protocol Modifications            March 2005
@@ -362,7 +362,7 @@ impl<C: ClientConnection> Client<C> {
     // TODO: need to validate ANY or *.domain record existance, which doesn't make sense since
     //  that would have been returned in the request
     // if we got here, then there are no matching NSEC records, no validation
-    Err(ClientError::InvalidNsec)
+    Err(ClientError::InvalidNsec(error_loc!()))
   }
 
   // Laurie, et al.              Standards Track                    [Page 22]
@@ -439,7 +439,7 @@ impl<C: ClientConnection> Client<C> {
                   _: DNSClass, soa: Option<&Record>,
                   nsec3s: Vec<&Record>) -> ClientResult<()> {
     // the search name is the one to look for
-    let zone_name = try!(soa.ok_or(ClientError::NoSOARecord(query_name.clone()))).get_name();
+    let zone_name = try!(soa.ok_or(ClientError::NoSOARecord(error_loc!(), query_name.clone()))).get_name();
     debug!("nsec3s: {:?}", nsec3s);
 
     for nsec3 in nsec3s {
@@ -472,7 +472,7 @@ impl<C: ClientConnection> Client<C> {
       }
     }
 
-    Err(ClientError::InvalidNsec3)
+    Err(ClientError::InvalidNsec3(error_loc!()))
   }
 
   /// A *classic* DNS query, i.e. does not perform and DNSSec operations
@@ -523,16 +523,16 @@ impl<C: ClientConnection> Client<C> {
     let mut buffer: Vec<u8> = Vec::with_capacity(512);
     {
       let mut encoder = BinEncoder::new(&mut buffer);
-      try!(message.emit(&mut encoder));
+      try_rethrow!(ClientError::EncodeError, message.emit(&mut encoder));
     }
 
     // send the message and get the response from the connection.
     let resp_buffer = try!(self.client_connection.borrow_mut().send(buffer));
 
     let mut decoder = BinDecoder::new(&resp_buffer);
-    let response = try!(Message::read(&mut decoder));
+    let response = try_rethrow!(ClientError::DecodeError, Message::read(&mut decoder));
 
-    if response.get_id() != id { return Err(ClientError::IncorrectMessageId{ got: response.get_id(), expect: id }); }
+    if response.get_id() != id { return Err(ClientError::IncorrectMessageId{ loc: error_loc!(), got: response.get_id(), expect: id }); }
 
     Ok(response)
   }

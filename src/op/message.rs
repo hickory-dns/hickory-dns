@@ -298,6 +298,7 @@ impl Message {
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
 ///   to properly do that.
 pub trait UpdateMessage: Debug {
+  fn get_id(&self) -> u16;
   fn add_zone(&mut self, query: Query);
   fn add_pre_requisite(&mut self, record: Record);
   fn add_all_pre_requisites(&mut self, vector: &[&Record]);
@@ -321,6 +322,7 @@ pub trait UpdateMessage: Debug {
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
 ///   to properly do that.
 impl UpdateMessage for Message {
+  fn get_id(&self) -> u16 { self.get_id() }
   fn add_zone(&mut self, query: Query) { self.add_query(query); }
   fn add_pre_requisite(&mut self, record: Record) { self.add_answer(record); }
   fn add_all_pre_requisites(&mut self, vector: &[&Record]) { self.add_all_answers(vector); }

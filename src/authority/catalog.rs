@@ -21,7 +21,7 @@ use std::sync::RwLock;
 
 use ::rr::{Name, RecordType};
 use ::authority::{Authority, ZoneType};
-use ::op::*;
+use ::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage, ResponseCode};
 
 /// Set of authorities, zones, available to this server.
 pub struct Catalog {
@@ -86,7 +86,7 @@ impl Catalog {
             // recursive queries should be cached.
           },
           OpCode::Update => {
-            let response = self.update(&request);
+            let response = self.update(request);
             debug!("update response: {:?}", response);
             response
           }
@@ -175,13 +175,11 @@ impl Catalog {
   /// # Arguments
   ///
   /// * `request` - an update message
-  pub fn update(&self, request: &Message) -> Message {
+  pub fn update(&self, update: &UpdateMessage) -> Message {
     let mut response: Message = Message::new();
-    response.id(request.get_id());
+    response.id(update.get_id());
     response.op_code(OpCode::Update);
     response.message_type(MessageType::Response);
-
-    let update: &UpdateMessage = request;
 
     let zones: &[Query] = update.get_zones();
     if zones.len() != 1 || zones[0].get_query_type() != RecordType::SOA {
