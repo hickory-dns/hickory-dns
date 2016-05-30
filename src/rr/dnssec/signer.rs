@@ -21,7 +21,7 @@ use openssl::crypto::pkey::{PKey, Role};
 use ::op::Message;
 use ::rr::dnssec::{Algorithm, DigestType};
 use ::rr::{DNSClass, Name, Record, RecordType, RData};
-use ::serialize::binary::{BinEncoder, BinSerializable};
+use ::serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 use ::rr::rdata::{sig, DNSKEY};
 
 
@@ -123,11 +123,7 @@ impl Signer {
   pub fn calculate_key_tag(&self) -> u16 {
     let mut ac: usize = 0;
 
-    // TODO This might need to be the RAW key, as opposed to the DER formatted public key
-    //  would need to extract the RAW public key: https://en.wikipedia.org/wiki/X.690#DER_encoding
-
-    // TODO use insert i with known sizes for optimized loop unrolling.
-    for (i,k) in self.pkey.save_pub().iter().enumerate() {
+    for (i,k) in self.get_public_key().iter().enumerate() {
       ac += if i & 0x0001 == 0x0001 { *k as usize } else { (*k as usize) << 8 };
     }
 
@@ -142,13 +138,19 @@ impl Signer {
     let mut buf: Vec<u8> = Vec::with_capacity(512);
 
     {
-      let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+      let mut encoder: BinEncoder = BinEncoder::with_mode(&mut buf, EncodeMode::Signing);
       message.emit(&mut encoder).unwrap(); // coding error if this panics (i think?)
     }
 
     DigestType::from(self.algorithm).hash(&buf)
   }
 
+  /// Signs the given message, returning the signature bytes.
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - the message to sign
+  ///
   /// ```text
   /// 4.1.8.1 Calculating Transaction and Request SIGs
   ///
@@ -199,7 +201,23 @@ impl Signer {
   pub fn sign_message(&self, message: &Message) -> Vec<u8> {
     assert!(self.pkey.can(Role::Sign)); // this is bad code, not expected in regular runtime
     let hash = self.hash_message(message);
-    self.pkey.sign_with_hash(&hash, DigestType::from(self.algorithm).to_hash())
+    self.sign(&hash)
+  }
+
+  /// Verifies a message with the against the given signature
+  ///
+  /// # Arguments
+  ///
+  /// `message` - the message to verify
+  /// `signature` - the signature to use for validation
+  ///
+  /// # Return value
+  ///
+  /// `true` if the message could be validated against the signature, `false` otherwise
+  pub fn verify_message(&self, message: &Message, signature: &[u8]) -> bool {
+    assert!(self.pkey.can(Role::Verify)); // this is bad code, not expected in regular runtime
+    let hash = self.hash_message(message);
+    self.verify(&hash, signature)
   }
 
   // RFC 4035             DNSSEC Protocol Modifications            March 2005
@@ -561,6 +579,40 @@ impl Signer {
       return false;
     }
     self.pkey.verify_with_hash(hash, signature, DigestType::from(self.algorithm).to_hash())
+  }
+}
+
+#[test]
+fn test_sign_and_verify_message_sig0() {
+  use ::rr::Name;
+  use ::op::{Message, Query, UpdateMessage};
+
+  let origin: Name = Name::parse("example.com.", None).unwrap();
+  let mut question: Message = Message::new();
+  let mut query: Query = Query::new();
+  query.name(origin.clone());
+  question.add_query(query);
+
+  let mut pkey = PKey::new();
+  pkey.gen(512);
+  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
+
+  let sig = signer.sign_message(&question);
+  println!("sig: {:?}", sig);
+
+  assert!(!sig.is_empty());
+  assert!(signer.verify_message(&question, &sig));
+
+  // now test that the sig0 record works correctly.
+  assert!(question.get_sig0().is_empty());
+  question.sign(&signer, 0);
+  assert!(!question.get_sig0().is_empty());
+
+  let sig = signer.sign_message(&question);
+  println!("sig after sign: {:?}", sig);
+
+  if let &RData::SIG(ref sig) = question.get_sig0()[0].get_rdata() {
+    assert!(signer.verify_message(&question, sig.get_sig()));
   }
 }
 

@@ -16,6 +16,7 @@ use std::cell::{Cell, RefCell};
 use std::collections::HashSet;
 use std::sync::Arc as Rc;
 
+use chrono::UTC;
 use data_encoding::base32hex;
 use openssl::crypto::pkey::Role;
 
@@ -23,7 +24,7 @@ use ::error::*;
 use ::rr::{DNSClass, RecordType, Record, RData};
 use ::rr::domain;
 use ::rr::dnssec::{Signer, TrustAnchor};
-use ::op::{ Message, MessageType, OpCode, Query, Edns, ResponseCode };
+use ::op::{ Message, MessageType, OpCode, Query, Edns, ResponseCode, UpdateMessage };
 use ::serialize::binary::*;
 use ::client::ClientConnection;
 
@@ -490,8 +491,6 @@ impl<C: ClientConnection> Client<C> {
   fn inner_query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType, secure: bool) -> ClientResult<Message> {
     debug!("querying: {} {:?}", name, query_type);
 
-    // TODO: this isn't DRY, duplicate code with the TCP client
-
     // build the message
     let mut message: Message = Message::new();
     let id = self.next_id();
@@ -517,6 +516,78 @@ impl<C: ClientConnection> Client<C> {
     query.name(name.clone()).query_class(query_class).query_type(query_type);
     message.add_query(query);
 
+    self.send_message(&message)
+  }
+
+  /// Sends a record to create on the server, this will fail if the record exists.
+  ///
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
+  /// ```text
+  ///  2.4.3 - RRset Does Not Exist
+  ///
+  ///   No RRs with a specified NAME and TYPE (in the zone and class denoted
+  ///   by the Zone Section) can exist.
+  ///
+  ///   For this prerequisite, a requestor adds to the section a single RR
+  ///   whose NAME and TYPE are equal to that of the RRset whose nonexistence
+  ///   is required.  The RDLENGTH of this record is zero (0), and RDATA
+  ///   field is therefore empty.  CLASS must be specified as NONE in order
+  ///   to distinguish this condition from a valid RR whose RDLENGTH is
+  ///   naturally zero (0) (for example, the NULL RR).  TTL must be specified
+  ///   as zero (0).
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - the record name to create
+  /// * `zone` - the zone name (must match an SOA) to update
+  /// * `class` - the DNS class
+  /// * `record_data` - the RData to associate to the new record
+  /// * `signer` - the signer with private key to use to sign the request
+  ///
+  /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
+  pub fn create(&self,
+                record: Record,
+                zone_origin: domain::Name,
+                signer: &Signer) -> ClientResult<Message> {
+    assert!(zone_origin.zone_of(record.get_name()));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(record.get_rr_type());
+
+    // build the message
+    let mut message: Message = Message::new();
+    message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.add_zone(zone);
+
+    let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
+    prerequisite.dns_class(DNSClass::NONE);
+    message.add_pre_requisite(prerequisite);
+    message.add_update(record);
+
+    // Extended dns
+    let mut edns: Edns = Edns::new();
+
+    // if secure {
+    //   edns.set_dnssec_ok(true);
+    //   message.authentic_data(true);
+    //   message.checking_disabled(false);
+    // }
+
+    edns.set_max_payload(1500);
+    edns.set_version(0);
+
+    message.set_edns(edns);
+
+    // after all other updates to the message, sign it.
+    message.sign(signer, UTC::now().timestamp() as u32);
+
+    self.send_message(&message)
+  }
+
+  fn send_message(&self, message: &Message) -> ClientResult<Message> {
     // get the message bytes and send the query
     let mut buffer: Vec<u8> = Vec::with_capacity(512);
     {
@@ -530,7 +601,7 @@ impl<C: ClientConnection> Client<C> {
     let mut decoder = BinDecoder::new(&resp_buffer);
     let response = try_rethrow!(ClientError::DecodeError, Message::read(&mut decoder));
 
-    if response.get_id() != id { return Err(ClientError::IncorrectMessageId{ loc: error_loc!(), got: response.get_id(), expect: id }); }
+    if response.get_id() != message.get_id() { return Err(ClientError::IncorrectMessageId{ loc: error_loc!(), got: response.get_id(), expect: message.get_id() }); }
 
     Ok(response)
   }
@@ -546,12 +617,15 @@ impl<C: ClientConnection> Client<C> {
 mod test {
   use std::net::*;
 
+  use chrono::Duration;
+  use openssl::crypto::pkey::PKey;
+
   use ::authority::Catalog;
   use ::authority::authority_tests::{create_example, create_secure_example};
   use ::client::{Client, ClientConnection, TestClientConnection};
   use ::op::ResponseCode;
-  use ::rr::{DNSClass, RecordType, domain, RData};
-  use ::rr::dnssec::TrustAnchor;
+  use ::rr::{DNSClass, Record, RecordType, domain, RData};
+  use ::rr::dnssec::{Algorithm, Signer, TrustAnchor};
   #[cfg(feature = "ftest")]
   use ::tcp::TcpClientConnection;
   #[cfg(feature = "ftest")]
@@ -782,4 +856,47 @@ mod test {
   //   let response = response.unwrap();
   //   assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
   // }
+
+  #[test]
+  fn test_create() {
+    use ::rr::rdata::DNSKEY;
+
+    let mut authority = create_example();
+    authority.set_allow_update(true);
+    let mut catalog = Catalog::new();
+    let origin = authority.get_origin().clone();
+
+    let mut pkey = PKey::new();
+    pkey.gen(512);
+
+    let signer = Signer::new(Algorithm::RSASHA256,
+                             pkey,
+                             domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
+                             0,
+                             0);
+
+    // insert the KEY for the trusted.example.com
+    let mut auth_key = Record::with(domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::KEY,
+                                  Duration::minutes(5).num_seconds() as u32);
+    auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_public_key())));
+    authority.upsert(auth_key, 0);
+
+    catalog.upsert(authority.get_origin().clone(), authority);
+    let client = Client::new(TestClientConnection::new(&catalog));
+
+    // add a record
+    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::A,
+                                  Duration::minutes(5).num_seconds() as u32);
+    record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+
+
+    let result = client.create(record.clone(), origin, &signer).expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    let result = client.query(record.get_name(), record.get_dns_class(), record.get_rr_type()).expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    assert_eq!(result.get_answers().len(), 1);
+    assert_eq!(result.get_answers()[0], record);
+  }
 }

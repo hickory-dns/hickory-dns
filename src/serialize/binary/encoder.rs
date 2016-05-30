@@ -180,4 +180,4 @@ impl<'a> BinEncoder<'a> {
 /// In the Verify mode there maybe some things which are encoded differently, e.g. SIG0 records
 ///  should not be included in the additional count and not in the encoded data when in Verify
 #[derive(Copy, Clone, Eq, PartialEq)]
-pub enum EncodeMode { Verify, Normal }
+pub enum EncodeMode { Signing, Normal }

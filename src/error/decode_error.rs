@@ -38,6 +38,7 @@ pub enum DecodeError {
   IncorrectRDataLengthRead(usize, usize),
   BadPublicKey,
   SslError(SslError),
+  MoreThanOneEdns,
 }
 
 impl fmt::Debug for DecodeError {
@@ -66,6 +67,7 @@ impl fmt::Display for DecodeError {
       DecodeError::IncorrectRDataLengthRead(ref read, ref rdata_length) => write!(f, "IncorrectRDataLengthRead read: {}, expected: {}", read, rdata_length),
       DecodeError::BadPublicKey => write!(f, "BadPublicKey"),
       DecodeError::SslError(ref err) => err.fmt(f),
+      DecodeError::MoreThanOneEdns => write!(f, "More than one EDNS record is already set"),
     }
   }
 }
@@ -90,6 +92,7 @@ impl Error for DecodeError {
       DecodeError::IncorrectRDataLengthRead(..) => "IncorrectRDataLengthRead",
       DecodeError::BadPublicKey => "BadPublicKey",
       DecodeError::SslError(ref err) => err.description(),
+      DecodeError::MoreThanOneEdns => "More than one EDNS record is already set",
     }
   }
 

@@ -17,9 +17,10 @@ use std::collections::BTreeMap;
 use std::cmp::Ordering;
 
 use chrono::offset::utc::UTC;
+use openssl::crypto::pkey::Role;
 
 use ::authority::{UpdateResult, ZoneType, RRSet};
-use ::op::{UpdateMessage, ResponseCode, Query};
+use ::op::{Message, UpdateMessage, ResponseCode, Query};
 use ::rr::{DNSClass, Name, RData, Record, RecordType};
 use ::rr::rdata::{NSEC, SIG};
 use ::rr::dnssec::Signer;
@@ -111,7 +112,7 @@ impl Authority {
   }
 
   #[cfg(test)]
-  fn set_allow_update(&mut self, allow_update: bool) {
+  pub fn set_allow_update(&mut self, allow_update: bool) {
     self.allow_update = allow_update;
   }
 
@@ -186,8 +187,9 @@ impl Authority {
     self.lookup(&self.origin, RecordType::NS, is_secure)
   }
 
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
   /// ```text
-  /// RFC 2136                       DNS Update                     April 1997
   ///
   /// 3.2 - Process Prerequisite Section
   ///
@@ -348,8 +350,9 @@ impl Authority {
     Ok(())
   }
 
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
   /// ```text
-  /// RFC 2136                       DNS Update                     April 1997
   ///
   /// 3.3 - Check Requestor's Permissions
   ///
@@ -369,7 +372,7 @@ impl Authority {
   ///   and restore the zone to its original state before answering the
   ///   requestor.
   /// ```
-  fn authorize(&self, update_message: &UpdateMessage) -> UpdateResult<()> {
+  fn authorize(&self, update_message: &Message) -> UpdateResult<()> {
     // 3.3.3 - Pseudocode for Permission Checking
     //
     //      if (security policy exists)
@@ -386,20 +389,53 @@ impl Authority {
     }
 
     // verify sig0, currently the only authorization that is accepted.
-    let sig0: &[Record] = update_message.get_sig0();
-    if !sig0.is_empty() {
-      info!("attempted update rejected due to missing SIG0: {:?}", update_message);
-      return Err(ResponseCode::Refused);
-    }
+    let sig0s: &[Record] = update_message.get_sig0();
+    debug!("authorizing with: {:?}", sig0s);
+    if !sig0s.is_empty() && sig0s.iter()
+            .filter_map(|sig0| if let &RData::SIG(ref sig) = sig0.get_rdata() { Some(sig) } else { None })
+            .any(|sig| {
+              let name = sig.get_signer_name();
+              let keys = self.lookup(name, RecordType::KEY, false);
+              debug!("found keys {:?}", keys);
+              keys.iter()
+                  .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.get_rdata() { Some(key) } else { None })
+                  .any(|key| {
+                    let pkey = key.get_algorithm().public_key_from_vec(key.get_public_key());
+                    if let Err(error) = pkey {
+                      warn!("public key {:?} of {} could not be used: {}", key, name, error);
+                      return false
+                    }
 
+                    let pkey = pkey.unwrap();
+                    if pkey.can(Role::Verify) {
+                      let signer: Signer = Signer::new_verifier(*key.get_algorithm(), pkey, sig.get_signer_name().clone());
+
+                      if signer.verify_message(update_message, sig.get_sig()) {
+                        info!("verified sig: {:?} with key: {:?}", sig, key);
+                        true
+                      } else {
+                        debug!("did not verify sig: {:?} with key: {:?}", sig, key);
+                        false
+                      }
+                    } else {
+                      warn!("{}: can not be used to verify", name);
+                      false
+                    }
+                  })
+            }) {
+      return Ok(());
+    } else {
+      warn!("no sig0 matched registered records: id {}", update_message.get_id());
+    }
 
     // getting here, we will always default to rejecting the request
     //  the code will only ever explcitly return authrorized actions.
     Err(ResponseCode::Refused)
   }
 
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
   /// ```text
-  /// RFC 2136                       DNS Update                     April 1997
   ///
   /// 3.4 - Process Update Section
   ///
@@ -480,8 +516,9 @@ impl Authority {
 
   /// Updates the specified records according to the update section.
   ///
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
   /// ```text
-  /// RFC 2136                       DNS Update                     April 1997
   ///
   /// 3.4.2.6 - Table Of Metavalues Used In Update Section
   ///
@@ -650,8 +687,9 @@ impl Authority {
 
   /// Takes the UpdateMessage, extracts the Records, and applies the changes to the record set.
   ///
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
   /// ```text
-  /// RFC 2136                       DNS Update                     April 1997
   ///
   /// 3.4 - Process Update Section
   ///
@@ -704,7 +742,7 @@ impl Authority {
   ///
   /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
   ///  returned in the case of bad data, etc.
-  pub fn update(&mut self, update: &UpdateMessage) -> UpdateResult<bool> {
+  pub fn update(&mut self, update: &Message) -> UpdateResult<bool> {
     // the spec says to authorize after prereqs, seems better to auth first.
     try!(self.authorize(update));
     try!(self.verify_prerequisites(update.get_pre_requisites()));

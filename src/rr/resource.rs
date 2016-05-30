@@ -16,7 +16,6 @@
 
 //! resource record implementation
 
-use std::net::Ipv4Addr;
 use std::sync::Arc as Rc;
 use std::cmp::Ordering;
 
@@ -94,11 +93,10 @@ pub struct Record {
 }
 
 impl Record {
-  /**
-   * Creates a not very useful empty record, use the setters to build a more useful object
-   *  There are no optional elements in this object, defaults are an empty name, type A, class IN,
-   *  ttl of 0 and the 0.0.0.0 ip address.
-   */
+  /// Creates a default record, use the setters to build a more useful object.
+  ///
+  /// There are no optional elements in this object, defaults are an empty name, type A, class IN,
+  /// ttl of 0 and the 0.0.0.0 ip address.
   pub fn new() -> Record {
     Record {
       // TODO: these really should all be Optionals, I was lazy.
@@ -106,10 +104,17 @@ impl Record {
       rr_type: RecordType::A,
       dns_class: DNSClass::IN,
       ttl: 0,
-      rdata: RData::A(Ipv4Addr::new(0,0,0,0))
+      rdata: RData::NULL(NULL::new())
     }
   }
 
+  /// Create a record with the specified initial values.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - name of the resource records
+  /// * `rr_type` - the record type
+  /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
   pub fn with(name: domain::Name, rr_type: RecordType, ttl: u32) -> Record {
     Record {
       name_labels: name,

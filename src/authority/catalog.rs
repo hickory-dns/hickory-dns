@@ -175,14 +175,16 @@ impl Catalog {
   /// # Arguments
   ///
   /// * `request` - an update message
-  pub fn update(&self, update: &UpdateMessage) -> Message {
+  pub fn update(&self, update: &Message) -> Message {
     let mut response: Message = Message::new();
     response.id(update.get_id());
     response.op_code(OpCode::Update);
     response.message_type(MessageType::Response);
 
     let zones: &[Query] = update.get_zones();
-    if zones.len() != 1 || zones[0].get_query_type() != RecordType::SOA {
+
+    // TODO: allow SOA updates to create subzones more easily... (not RFC compliant)
+    if zones.len() != 1 || zones[0].get_query_type() == RecordType::SOA {
       response.response_code(ResponseCode::FormErr);
       return response;
     }

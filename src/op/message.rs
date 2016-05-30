@@ -23,7 +23,7 @@ use ::rr::resource::Record;
 use ::rr::domain::Name;
 use ::rr::{RData, RecordType, DNSClass};
 use ::rr::rdata::SIG;
-use ::serialize::binary::*;
+use ::serialize::binary::{BinEncoder, BinDecoder, BinSerializable, EncodeMode};
 use ::error::*;
 use ::rr::dnssec::Signer;
 
@@ -258,18 +258,19 @@ impl Message {
   ///  this happens implicitly on write_to, so no need to call before write_to
   #[cfg(test)]
   pub fn update_counts(&mut self) -> &mut Self {
-    self.header = self.update_header_counts(true, true);
+    self.header = self.update_header_counts(true);
     self
   }
 
-  fn update_header_counts(&self, include_edns: bool, include_sig0: bool) -> Header {
+  fn update_header_counts(&self, include_sig0: bool) -> Header {
     assert!(self.queries.len() <= u16::max_value() as usize);
     assert!(self.answers.len() <= u16::max_value() as usize);
     assert!(self.name_servers.len() <= u16::max_value() as usize);
     assert!(self.additionals.len() + self.sig0.len() <= u16::max_value() as usize);
 
     let mut additional_count = self.additionals.len();
-    if include_edns && self.edns.is_some() { additional_count += 1 }
+
+    if self.edns.is_some() { additional_count += 1 }
     if include_sig0 { additional_count += self.sig0.len() };
 
     self.header.clone(
@@ -279,12 +280,39 @@ impl Message {
       additional_count as u16)
   }
 
-  fn read_records(decoder: &mut BinDecoder, count: usize) -> DecodeResult<Vec<Record>> {
+  fn read_records(decoder: &mut BinDecoder, count: usize, is_additional: bool) -> DecodeResult<(Vec<Record>, Option<Edns>, Vec<Record>)> {
     let mut records: Vec<Record> = Vec::with_capacity(count);
+    let mut edns: Option<Edns> = None;
+    let mut sig0s: Vec<Record> = Vec::with_capacity(if is_additional { 1 } else { 0 });
+
+    // sig0 must be last, once this is set, disable.
+    let mut saw_sig0 = false;
     for _ in 0 .. count {
-       records.push(try!(Record::read(decoder)))
+      let record = try!(Record::read(decoder));
+
+      if !is_additional {
+        if saw_sig0 { return Err(DecodeError::Sig0NotLast) } // SIG0 must be last
+        records.push(record)
+      } else {
+        match record.get_rr_type() {
+          RecordType::SIG => {
+            saw_sig0 = true;
+            sig0s.push(record);
+          },
+          RecordType::OPT => {
+            if saw_sig0 { return Err(DecodeError::Sig0NotLast) } // SIG0 must be last
+            if edns.is_some() { return Err(DecodeError::MoreThanOneEdns) }
+            edns = Some((&record).into());
+          },
+          _ => {
+            if saw_sig0 { return Err(DecodeError::Sig0NotLast) } // SIG0 must be last
+            records.push(record);
+          }
+        }
+      }
     }
-    Ok(records)
+
+    Ok((records, edns, sig0s))
   }
 
   fn emit_records(encoder: &mut BinEncoder, records: &Vec<Record>) -> EncodeResult {
@@ -339,6 +367,7 @@ impl UpdateMessage for Message {
 
   // TODO: where's the 'right' spot for this function
   fn sign(&mut self, signer: &Signer, inception_time: u32) {
+    debug!("signing message: {:?}", self);
     let signature: Vec<u8> = signer.sign_message(self);
     let key_tag: u16 = signer.calculate_key_tag();
 
@@ -360,6 +389,7 @@ impl UpdateMessage for Message {
 
     let expiration_time: u32 = inception_time + (5 * 60); // +5 minutes in seconds
 
+    sig0.rr_type(RecordType::SIG);
     sig0.rdata(
       RData::SIG(SIG::new(
         // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
@@ -379,6 +409,10 @@ impl UpdateMessage for Message {
         signature,
       )
     ));
+
+    debug!("sig0: {:?}", sig0);
+
+    self.add_sig0(sig0);
   }
 }
 
@@ -396,47 +430,11 @@ impl BinSerializable<Message> for Message {
     // get all counts before header moves
     let answer_count = header.get_answer_count() as usize;
     let name_server_count = header.get_name_server_count() as usize;
-    let mut additional_count = header.get_additional_count() as usize;
+    let additional_count = header.get_additional_count() as usize;
 
-    let answers: Vec<Record> = try!(Self::read_records(decoder, answer_count));
-    let name_servers: Vec<Record> = try!(Self::read_records(decoder, name_server_count));
-    let mut additionals: Vec<Record> = try!(Self::read_records(decoder, additional_count));
-    let mut sig0: Vec<Record> = Vec::new();
-    let mut edns: Option<Edns> = None;
-
-    // get the sig0's and remove from from the additional section, and decrement the counts
-    // this will allow for the Message to be verified directly.
-    // TODO: this would be cleaner as a recursive function...
-    loop {
-      // TODO: make a function is_a() on Record for Type to RData Validation
-      if let Some(record) = additionals.last() {
-        if record.get_rr_type() != RecordType::SIG {
-          // no more sig0's break
-          break;
-        }
-      } else {
-        // nothing in the list
-        break;
-      }
-
-      // we're only getting here if the SIG0 record is what was found
-      let record = additionals.pop().unwrap();
-      assert!(record.get_rr_type() == RecordType::SIG);
-      sig0.push(record);
-      additional_count -= 1;
-    }
-
-    // edns goes from the other direction, but unlike sig0, edns does not pop off the stack
-    //  will loop through them all to verify that there is only one OPT record
-    for r in additionals.iter() {
-      match r.get_rr_type() {
-        RecordType::OPT => edns = Some(r.into()),
-        RecordType::SIG => return Err(DecodeError::Sig0NotLast),
-        _ =>(),
-      }
-    }
-
-    additionals.shrink_to_fit();
+    let (answers, _, _) = try!(Self::read_records(decoder, answer_count, false));
+    let (name_servers, _, _) = try!(Self::read_records(decoder, name_server_count, false));
+    let (additionals, edns, sig0) = try!(Self::read_records(decoder, additional_count, true));
 
     Ok(Message {
       header: header,
@@ -451,8 +449,8 @@ impl BinSerializable<Message> for Message {
 
   fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     // clone the header to set the counts lazily
-    let include_sig0: bool = encoder.mode() != EncodeMode::Verify;
-    try!(self.update_header_counts(include_sig0, include_sig0).emit(encoder));
+    let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
+    try!(self.update_header_counts(include_sig0).emit(encoder));
 
     for q in &self.queries {
       try!(q.emit(encoder));
@@ -465,14 +463,15 @@ impl BinSerializable<Message> for Message {
     try!(Self::emit_records(encoder, &self.name_servers));
     try!(Self::emit_records(encoder, &self.additionals));
 
+    if let Some(edns) = self.get_edns() {
+      // need to commit the error code
+      try!(Record::from(edns).emit(encoder));
+    }
+
     // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
     //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
     //  part of the additionals section.
     if include_sig0 {
-      if let Some(edns) = self.get_edns() {
-        // need to commit the error code
-        try!(Record::from(edns).emit(encoder));
-      }
       try!(Self::emit_records(encoder, &self.sig0));
     }
     Ok(())

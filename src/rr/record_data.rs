@@ -221,6 +221,51 @@ pub enum RData {
   //    digest algorithm is SHA-1, which produces a 20 octet digest.
   DS(DS),
 
+  // RFC 2535                DNS Security Extensions               March 1999
+  //
+  // 3.1 KEY RDATA format
+  //
+  //  The RDATA for a KEY RR consists of flags, a protocol octet, the
+  //  algorithm number octet, and the public key itself.  The format is as
+  //  follows:
+  //
+  //
+  //
+  //
+  //
+  //
+  //
+  //
+  //
+  //
+  //
+  //
+  //
+  //                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+  //   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |             flags             |    protocol   |   algorithm   |
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+  //  |                                                               /
+  //  /                          public key                           /
+  //  /                                                               /
+  //  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|
+  //
+  //  The KEY RR is not intended for storage of certificates and a separate
+  //  certificate RR has been developed for that purpose, defined in [RFC
+  //  2538].
+  //
+  //  The meaning of the KEY RR owner name, flags, and protocol octet are
+  //  described in Sections 3.1.1 through 3.1.5 below.  The flags and
+  //  algorithm must be examined before any data following the algorithm
+  //  octet as they control the existence and format of any following data.
+  //  The algorithm and public key fields are described in Section 3.2.
+  //  The format of the public key is algorithm dependent.
+  //
+  //  KEY RRs do not specify their validity period but their authenticating
+  //  SIG RR(s) do as described in Section 4 below.
+  KEY(DNSKEY),
+
   // 3.3.9. MX RDATA format
   //
   //     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
@@ -601,6 +646,7 @@ impl RData {
       RecordType::ANY => panic!("parsing ANY doesn't make sense"),
       RecordType::AXFR => panic!("parsing AXFR doesn't make sense"),
       RecordType::CNAME => RData::CNAME(try!(rdata::name::parse(tokens, origin))),
+      RecordType::KEY => panic!("KEY should be dynamically generated"),
       RecordType::DNSKEY => panic!("DNSKEY should be dynamically generated"),
       RecordType::DS => panic!("DS should be dynamically generated"),
       RecordType::IXFR => panic!("parsing IXFR doesn't make sense"),
@@ -640,6 +686,7 @@ impl RData {
       rt @ RecordType::ANY => return Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       rt @ RecordType::AXFR => return Err(DecodeError::UnknownRecordTypeValue(rt.into())),
       RecordType::CNAME => {debug!("reading CNAME"); RData::CNAME(try!(rdata::name::read(decoder))) },
+      RecordType::KEY => {debug!("reading KEY"); RData::KEY(try!(rdata::dnskey::read(decoder, rdata_length))) },
       RecordType::DNSKEY => {debug!("reading DNSKEY"); RData::DNSKEY(try!(rdata::dnskey::read(decoder, rdata_length))) },
       RecordType::DS => {debug!("reading DS"); RData::DS(try!(rdata::ds::read(decoder, rdata_length))) },
       rt @ RecordType::IXFR => return Err(DecodeError::UnknownRecordTypeValue(rt.into())),
@@ -672,6 +719,7 @@ impl RData {
       RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
       RData::CNAME(ref name) => rdata::name::emit(encoder, name),
       RData::DS(ref ds) => rdata::ds::emit(encoder, ds),
+      RData::KEY(ref key) => rdata::dnskey::emit(encoder, key),
       RData::DNSKEY(ref dnskey) => rdata::dnskey::emit(encoder, dnskey),
       RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
       RData::NULL(ref null) => rdata::null::emit(encoder, null),
@@ -698,6 +746,7 @@ impl<'a> From<&'a RData> for RecordType {
       RData::AAAA(..) => RecordType::AAAA,
       RData::CNAME(..) => RecordType::CNAME,
       RData::DS(..) => RecordType::DS,
+      RData::KEY(..) => RecordType::KEY,
       RData::DNSKEY(..) => RecordType::DNSKEY,
       RData::MX(..) => RecordType::MX,
       RData::NS(..) => RecordType::NS,

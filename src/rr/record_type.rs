@@ -46,7 +46,7 @@ pub enum RecordType {
     //  HIP,        //	55	RFC 5205	Host Identity Protocol
     //  IPSECKEY,   //	45	RFC 4025	IPsec Key
     IXFR,       //	251	RFC 1996	Incremental Zone Transfer
-    //  KEY,        //	25	RFC 2535[3] and RFC 2930[4]	Key record
+    KEY,        //	25	RFC 2535[3] and RFC 2930[4]	Key record
     //  KX,         //	36	RFC 2230	Key eXchanger record
     //  LOC,        //	29	RFC 1876	Location record
     MX,         //	15	RFC 1035[1]	Mail exchange record
@@ -115,6 +115,7 @@ impl RecordType {
       5 => Ok(RecordType::CNAME),
       48 => Ok(RecordType::DNSKEY),
       43 => Ok(RecordType::DS),
+      25 => Ok(RecordType::KEY),
       15 => Ok(RecordType::MX),
       2 => Ok(RecordType::NS),
       47 => Ok(RecordType::NSEC),
@@ -171,6 +172,7 @@ impl From<RecordType> for &'static str {
       RecordType::DNSKEY => "DNSKEY",
       RecordType::DS => "DS",
       RecordType::IXFR => "IXFR",
+      RecordType::KEY => "KEY",
       RecordType::MX => "MX",
       RecordType::NULL => "NULL",
       RecordType::NS => "NS",
@@ -205,6 +207,7 @@ impl From<RecordType> for u16 {
       RecordType::ANY => 255,
       RecordType::AXFR => 252,
       RecordType::CNAME => 5,
+      RecordType::KEY => 25,
       RecordType::DNSKEY => 48,
       RecordType::DS => 43,
       RecordType::IXFR => 251,

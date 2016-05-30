@@ -9,6 +9,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - DNSKEYs auto inserted for added private keys
 - New mocked network client tests, to verify zone signing
 - NSEC record creation for zone, with tests
+- SIG0 validation for Authentication on for dynamic updates
 
 ### Fixed
 - Added loop on TCP accept requests
@@ -24,6 +25,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - All authorities default to IN DNSCLASS now (none others currently supported)
 - Cleaned up the Signer interface to support zone signing
 - Simplified RData variant implementations
+- Improved ENDS and SIG0 parsing on Message deserialization
 
 ## 0.5.3 2016-04-07
 ### Fixed
