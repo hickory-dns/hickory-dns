@@ -640,12 +640,10 @@ impl Authority {
         },
         DNSClass::NONE => {
           info!("deleting specific record: {:?}", rr);
-          println!("deleting specific record: {:?}", rr);
           // NONE     rrset    rr       Delete an RR from an RRset
           if let Some(rrset) = self.records.get_mut(&rr_key) {
             let deleted = rrset.remove(rr, serial);
             info!("deleted ({}) specific record: {:?}", deleted, rr);
-            println!("deleted ({}) specific record: {:?}", deleted, rr);
             updated = updated || deleted;
           }
         },
