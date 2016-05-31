@@ -554,7 +554,7 @@ impl<C: ClientConnection> Client<C> {
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(record.get_rr_type());
+    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
@@ -629,7 +629,7 @@ impl<C: ClientConnection> Client<C> {
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(record.get_rr_type());
+    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
@@ -710,7 +710,7 @@ impl<C: ClientConnection> Client<C> {
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(record.get_rr_type());
+    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
@@ -795,7 +795,7 @@ impl<C: ClientConnection> Client<C> {
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(record.get_rr_type());
+    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
@@ -814,6 +814,78 @@ impl<C: ClientConnection> Client<C> {
     record.ttl(0);
     // the rdata must be null to delete all rrsets
     record.rdata(RData::NULL(NULL::new()));
+    message.add_update(record);
+
+    // Extended dns
+    let mut edns: Edns = Edns::new();
+
+    // if secure {
+    //   edns.set_dnssec_ok(true);
+    //   message.authentic_data(true);
+    //   message.checking_disabled(false);
+    // }
+
+    edns.set_max_payload(1500);
+    edns.set_version(0);
+
+    message.set_edns(edns);
+
+    // after all other updates to the message, sign it.
+    message.sign(signer, UTC::now().timestamp() as u32);
+
+    self.send_message(&message)
+  }
+
+  /// Deletes all records at the specified name
+  ///
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
+  /// ```text
+  /// 2.5.3 - Delete All RRsets From A Name
+  ///
+  ///   One RR is added to the Update Section whose NAME is that of the name
+  ///   to be cleansed of RRsets.  TYPE must be specified as ANY.  TTL must
+  ///   be specified as zero (0) and is otherwise not used by the primary
+  ///   master.  CLASS must be specified as ANY.  RDLENGTH must be zero (0)
+  ///   and RDATA must therefore be empty.  If no such RRsets exist, then
+  ///   this Update RR will be silently ignored by the primary master.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `record` - the record to delete from a RRSet, the name, and type must match the
+  ///              record set to delete
+  /// * `zone` - the zone name (must match an SOA) to update
+  /// * `must_exist` - if true, the request will fail if the record does not exist
+  /// * `signer` - the signer with private key to use to sign the request
+  ///
+  /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
+  /// operation attempts to delete all resource record sets the the specified name reguardless of
+  /// the record type.
+  pub fn delete_all(&self,
+                    name_of_records: domain::Name,
+                    zone_origin: domain::Name,
+                    dns_class: DNSClass,
+                    signer: &Signer) -> ClientResult<Message> {
+    assert!(zone_origin.zone_of(&name_of_records));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.name(zone_origin).query_class(dns_class).query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.add_zone(zone);
+
+    // the TTL shoudl be 0
+    // the rdata must be null to delete all rrsets
+    // the record type must be any
+    let mut record = Record::with(name_of_records, RecordType::ANY, 0);
+
+    // the class must be none for an rrset delete
+    record.dns_class(DNSClass::ANY);
+
     message.add_update(record);
 
     // Extended dns
@@ -1286,6 +1358,44 @@ mod test {
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     let result = client.query(record.get_name(), record.get_dns_class(), record.get_rr_type()).expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
+    assert_eq!(result.get_answers().len(), 0);
+  }
+
+  #[test]
+  fn test_delete_all() {
+    let mut catalog = Catalog::new();
+    let (client, signer, origin) = create_sig0_ready_client(&mut catalog);
+
+    // append a record
+    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::A,
+                                  Duration::minutes(5).num_seconds() as u32);
+    record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+
+    // first check the must_exist option
+    let result = client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN, &signer).expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    // next create to a non-existent RRset
+    let result = client.create(record.clone(), origin.clone(), &signer).expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let mut record = record.clone();
+    record.rr_type(RecordType::AAAA);
+    record.rdata(RData::AAAA(Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8)));
+    let result = client.create(record.clone(), origin.clone(), &signer).expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    // verify record contents
+    let result = client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN, &signer).expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let result = client.query(record.get_name(), record.get_dns_class(), RecordType::A).expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
+    assert_eq!(result.get_answers().len(), 0);
+
+    let result = client.query(record.get_name(), record.get_dns_class(), RecordType::AAAA).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
     assert_eq!(result.get_answers().len(), 0);
   }

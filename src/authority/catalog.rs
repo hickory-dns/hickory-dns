@@ -183,8 +183,13 @@ impl Catalog {
 
     let zones: &[Query] = update.get_zones();
 
-    // TODO: allow SOA updates to create subzones more easily... (not RFC compliant)
-    if zones.len() != 1 || zones[0].get_query_type() == RecordType::SOA {
+    // 2.3 - Zone Section
+    //
+    //  All records to be updated must be in the same zone, and
+    //  therefore the Zone Section is allowed to contain exactly one record.
+    //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
+    //  the zone's class.
+    if zones.len() != 1 || zones[0].get_query_type() != RecordType::SOA {
       response.response_code(ResponseCode::FormErr);
       return response;
     }

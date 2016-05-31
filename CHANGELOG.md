@@ -10,7 +10,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - New mocked network client tests, to verify zone signing
 - NSEC record creation for zone, with tests
 - SIG0 validation for Authentication on for dynamic updates
-- Client CRUD operations
+- Client CRUDDD operations, delete_by_rdata, delete_rrset, delete_all
 
 ### Fixed
 - Added loop on TCP accept requests
