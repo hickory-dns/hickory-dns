@@ -664,6 +664,86 @@ impl<C: ClientConnection> Client<C> {
     self.send_message(&message)
   }
 
+  /// Compares and if it matches, swaps it for the new value
+  ///
+  /// ```text
+  ///  2.4.2 - RRset Exists (Value Dependent)
+  ///
+  ///   A set of RRs with a specified NAME and TYPE exists and has the same
+  ///   members with the same RDATAs as the RRset specified here in this
+  ///   section.  While RRset ordering is undefined and therefore not
+  ///   significant to this comparison, the sets be identical in their
+  ///   extent.
+  ///
+  ///   For this prerequisite, a requestor adds to the section an entire
+  ///   RRset whose preexistence is required.  NAME and TYPE are that of the
+  ///   RRset being denoted.  CLASS is that of the zone.  TTL must be
+  ///   specified as zero (0) and is ignored when comparing RRsets for
+  ///   identity.
+  ///
+  ///  2.5.4 - Delete An RR From An RRset
+  ///
+  ///   RRs to be deleted are added to the Update Section.  The NAME, TYPE,
+  ///   RDLENGTH and RDATA must match the RR being deleted.  TTL must be
+  ///   specified as zero (0) and will otherwise be ignored by the primary
+  ///   master.  CLASS must be specified as NONE to distinguish this from an
+  ///   RR addition.  If no such RRs exist, then this Update RR will be
+  ///   silently ignored by the primary master.
+  /// ```
+  ///
+  pub fn compare_and_swap(&self,
+                          current: Record,
+                          new: Record,
+                          zone_origin: domain::Name,
+                          signer: &Signer) -> ClientResult<Message> {
+    assert!(zone_origin.zone_of(current.get_name()));
+    assert!(zone_origin.zone_of(new.get_name()));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.name(zone_origin).query_class(new.get_dns_class()).query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.add_zone(zone);
+
+    // make sure the record is what is expected
+    let mut prerequisite = current.clone();
+    prerequisite.ttl(0);
+    message.add_pre_requisite(prerequisite);
+
+    // add the delete for the old record
+    let mut delete = current;
+    // the class must be none for delete
+    delete.dns_class(DNSClass::NONE);
+    // the TTL shoudl be 0
+    delete.ttl(0);
+    message.add_update(delete);
+
+    // insert the new record...
+    message.add_update(new);
+
+    // Extended dns
+    let mut edns: Edns = Edns::new();
+
+    // if secure {
+    //   edns.set_dnssec_ok(true);
+    //   message.authentic_data(true);
+    //   message.checking_disabled(false);
+    // }
+
+    edns.set_max_payload(1500);
+    edns.set_version(0);
+
+    message.set_edns(edns);
+
+    // after all other updates to the message, sign it.
+    message.sign(signer, UTC::now().timestamp() as u32);
+
+    self.send_message(&message)
+  }
+
   /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
   ///
   /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
@@ -1293,6 +1373,45 @@ mod test {
     let result = client.query(record.get_name(), record.get_dns_class(), record.get_rr_type()).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 2);
+  }
+
+  #[test]
+  fn test_compare_and_swap() {
+    let mut catalog = Catalog::new();
+    let (client, signer, origin) = create_sig0_ready_client(&mut catalog);
+
+    // create a record
+    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::A,
+                                  Duration::minutes(5).num_seconds() as u32);
+    record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+
+    let result = client.create(record.clone(), origin.clone(), &signer).expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let current = record;
+    let mut new = current.clone();
+    new.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+
+    let result = client.compare_and_swap(current.clone(), new.clone(), origin.clone(), &signer).expect("compare_and_swap failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let result = client.query(new.get_name(), new.get_dns_class(), new.get_rr_type()).expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    assert_eq!(result.get_answers().len(), 1);
+    assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
+
+    // check the it fails if tried again.
+    let mut new = new;
+    new.rdata(RData::A(Ipv4Addr::new(102,12,102,12)));
+
+    let result = client.compare_and_swap(current, new.clone(), origin.clone(), &signer).expect("compare_and_swap failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
+
+    let result = client.query(new.get_name(), new.get_dns_class(), new.get_rr_type()).expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    assert_eq!(result.get_answers().len(), 1);
+    assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
   }
 
   #[test]
