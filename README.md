@@ -24,12 +24,26 @@ ground up.
 
 ## Client
 
-Using the client should be safe. The client is currently hardcoded to a 5 second,
+Using the client is safe. The client is currently hardcoded to a 5 second,
 timeout. I'll make this configurable if people ask for that, please file a
 request for any features. Please send feedback! It currently does not cache
 responses, if this is a feature you'd like earlier rather than later, post a
  request. The validation of DNSSec is complete including NSEC. As of now NSEC3
- is broken, and it's not clear at this point that it will be supported.
+ is broken, and I may never plan to support it. I have some alternative ideas
+ for private data in the zone.
+
+### Unique client side implementations
+
+These are not unique to this client, but are high level functions that hide
+the details in DNS from the caller
+
+* secure_query - DNSSec validation
+* create - atomic create of a record, with authenticated request
+* append - verify existence of a record and append to it
+* compare_and_swap - atomic (depends on server) compare and swap
+* delete_by_rdata - delete a specific record
+* delete_rrset - delete an entire record set
+* delete_all - delete all records sets with a given name
 
 ## Server
 
@@ -53,6 +67,8 @@ DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
 Because caching is not yet enabled, it has been noticed that some DNS servers
 appear to rate limit the connections, validating RRSIG records back to the root
 can require a significant number of additional queries for those records.
+
+Zones will be automatically resigned on any record updates via dynamic DNS.
 
 ## RFC's implemented
 

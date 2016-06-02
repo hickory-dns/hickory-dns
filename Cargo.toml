@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns"
-version = "0.5.3"
+version = "0.6.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -9,8 +9,7 @@ description = """\
 TRust-DNS is a safe and secure DNS server and client with DNSec support.\
  It is working to be a replacement for BIND9. DNSSec on the client side, with\
  NSEC validation for negative records, is complete. The client and server both\
- support dynamic DNS, SIG0 and TSIG validation are currently a WIP. Full DNSSec\
- on the server is a WIP.\
+ support dynamic DNS with authenticated requests.\
 """
 
 # These URLs point to more information about the repository

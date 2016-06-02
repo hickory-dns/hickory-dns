@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## unreleased
+## 0.6.0 2016-06-01
 ### Added
 - Documentation on all modules, and many standard RFC types
 - Authority zone signing now complete, still need to load/save private keys
