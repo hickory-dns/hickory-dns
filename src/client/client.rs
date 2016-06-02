@@ -520,7 +520,8 @@ impl<C: ClientConnection> Client<C> {
     self.send_message(&message)
   }
 
-  /// Sends a record to create on the server, this will fail if the record exists.
+  /// Sends a record to create on the server, this will fail if the record exists (atomicity
+  ///  depends on the server)
   ///
   /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
   ///
@@ -537,13 +538,20 @@ impl<C: ClientConnection> Client<C> {
   ///   to distinguish this condition from a valid RR whose RDLENGTH is
   ///   naturally zero (0) (for example, the NULL RR).  TTL must be specified
   ///   as zero (0).
+  ///
+  /// 2.5.1 - Add To An RRset
+  ///
+  ///    RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
+  ///    and RDATA are those being added, and CLASS is the same as the zone
+  ///    class.  Any duplicate RRs will be silently ignored by the primary
+  ///    master.
   /// ```
   ///
   /// # Arguments
   ///
   /// * `record` - the name of the record to create
-  /// * `zone_origin` - the zone name (must match an SOA) to update
-  /// * `signer` - the signer with private key to use to sign the request
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
   pub fn create(&self,
@@ -586,7 +594,8 @@ impl<C: ClientConnection> Client<C> {
     self.send_message(&message)
   }
 
-  /// Appends a record to an existing rrset, optionally require the rrset to exist.
+  /// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
+  ///  depends on the server)
   ///
   /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
   ///
@@ -614,9 +623,9 @@ impl<C: ClientConnection> Client<C> {
   /// # Arguments
   ///
   /// * `record` - the record to append to an RRSet
-  /// * `zone` - the zone name (must match an SOA) to update
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
   /// * `must_exist` - if true, the request will fail if the record does not exist
-  /// * `signer` - the signer with private key to use to sign the request
+  /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be created.
@@ -664,7 +673,7 @@ impl<C: ClientConnection> Client<C> {
     self.send_message(&message)
   }
 
-  /// Compares and if it matches, swaps it for the new value
+  /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
   ///
   /// ```text
   ///  2.4.2 - RRset Exists (Value Dependent)
@@ -689,8 +698,23 @@ impl<C: ClientConnection> Client<C> {
   ///   master.  CLASS must be specified as NONE to distinguish this from an
   ///   RR addition.  If no such RRs exist, then this Update RR will be
   ///   silently ignored by the primary master.
+  ///
+  ///  2.5.1 - Add To An RRset
+  ///
+  ///   RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
+  ///   and RDATA are those being added, and CLASS is the same as the zone
+  ///   class.  Any duplicate RRs will be silently ignored by the primary
+  ///   master.
   /// ```
   ///
+  /// # Arguements
+  ///
+  /// * `current` - the current current which must exist for the swap to complete
+  /// * `new` - the new record with which to replace the current record
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `signer` - the signer, with private key, to use to sign the request
+  ///
+  /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
   pub fn compare_and_swap(&self,
                           current: Record,
                           new: Record,
@@ -775,16 +799,14 @@ impl<C: ClientConnection> Client<C> {
   ///
   /// * `record` - the record to delete from a RRSet, the name, type and rdata must match the
   ///              record to delete
-  /// * `zone` - the zone name (must match an SOA) to update
-  /// * `must_exist` - if true, the request will fail if the record does not exist
-  /// * `signer` - the signer with private key to use to sign the request
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
   pub fn delete_by_rdata(&self,
                          mut record: Record,
                          zone_origin: domain::Name,
-                         must_exist: bool,
                          signer: &Signer) -> ClientResult<Message> {
     assert!(zone_origin.zone_of(record.get_name()));
 
@@ -796,12 +818,6 @@ impl<C: ClientConnection> Client<C> {
     let mut message: Message = Message::new();
     message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
-
-    if must_exist {
-      let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
-      prerequisite.dns_class(DNSClass::ANY);
-      message.add_pre_requisite(prerequisite);
-    }
 
     // the class must be none for delete
     record.dns_class(DNSClass::NONE);
@@ -860,16 +876,14 @@ impl<C: ClientConnection> Client<C> {
   ///
   /// * `record` - the record to delete from a RRSet, the name, and type must match the
   ///              record set to delete
-  /// * `zone` - the zone name (must match an SOA) to update
-  /// * `must_exist` - if true, the request will fail if the record does not exist
-  /// * `signer` - the signer with private key to use to sign the request
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
   pub fn delete_rrset(&self,
                       mut record: Record,
                       zone_origin: domain::Name,
-                      must_exist: bool,
                       signer: &Signer) -> ClientResult<Message> {
     assert!(zone_origin.zone_of(record.get_name()));
 
@@ -881,12 +895,6 @@ impl<C: ClientConnection> Client<C> {
     let mut message: Message = Message::new();
     message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
-
-    if must_exist {
-      let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
-      prerequisite.dns_class(DNSClass::ANY);
-      message.add_pre_requisite(prerequisite);
-    }
 
     // the class must be none for an rrset delete
     record.dns_class(DNSClass::ANY);
@@ -933,11 +941,10 @@ impl<C: ClientConnection> Client<C> {
   ///
   /// # Arguments
   ///
-  /// * `record` - the record to delete from a RRSet, the name, and type must match the
-  ///              record set to delete
-  /// * `zone` - the zone name (must match an SOA) to update
-  /// * `must_exist` - if true, the request will fail if the record does not exist
-  /// * `signer` - the signer with private key to use to sign the request
+  /// * `name_of_records` - the name of all the record sets to delete
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `dns_class` - the class of the SOA
+  /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
   /// operation attempts to delete all resource record sets the the specified name reguardless of
@@ -1426,8 +1433,8 @@ mod test {
     record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
 
     // first check the must_exist option
-    let result = client.delete_by_rdata(record.clone(), origin.clone(), true, &signer).expect("delete failed");
-    assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
+    let result = client.delete_by_rdata(record.clone(), origin.clone(), &signer).expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // next create to a non-existent RRset
     let result = client.create(record.clone(), origin.clone(), &signer).expect("create failed");
@@ -1439,7 +1446,7 @@ mod test {
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = client.delete_by_rdata(record.clone(), origin.clone(), false, &signer).expect("delete failed");
+    let result = client.delete_by_rdata(record.clone(), origin.clone(), &signer).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     let result = client.query(record.get_name(), record.get_dns_class(), record.get_rr_type()).expect("query failed");
@@ -1460,8 +1467,8 @@ mod test {
     record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
 
     // first check the must_exist option
-    let result = client.delete_rrset(record.clone(), origin.clone(), true, &signer).expect("delete failed");
-    assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
+    let result = client.delete_rrset(record.clone(), origin.clone(), &signer).expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // next create to a non-existent RRset
     let result = client.create(record.clone(), origin.clone(), &signer).expect("create failed");
@@ -1473,7 +1480,7 @@ mod test {
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = client.delete_rrset(record.clone(), origin.clone(), true, &signer).expect("delete failed");
+    let result = client.delete_rrset(record.clone(), origin.clone(), &signer).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     let result = client.query(record.get_name(), record.get_dns_class(), record.get_rr_type()).expect("query failed");
