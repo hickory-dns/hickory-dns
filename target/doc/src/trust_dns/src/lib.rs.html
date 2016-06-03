@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../main.css">
+    
 
     
     
@@ -98,6 +99,7 @@
 <span id="55">55</span>
 <span id="56">56</span>
 <span id="57">57</span>
+<span id="58">58</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -126,6 +128,7 @@
 <span class='doccomment'>//! * Secure dynamic update</span>
 <span class='doccomment'>//! * New features for securing public information</span>
 
+<span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>backtrace</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>chrono</span>;
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>data_encoding</span>;
 <span class='attribute'>#[<span class='ident'>macro_use</span>]</span> <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>log</span>;
@@ -136,6 +139,7 @@
 <span class='kw'>extern</span> <span class='kw'>crate</span> <span class='ident'>toml</span>;
 
 
+<span class='attribute'>#[<span class='ident'>macro_use</span>]</span> <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>error</span>;
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>logger</span>;
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>rr</span>;
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>authority</span>;
@@ -144,7 +148,6 @@
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>tcp</span>;
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>client</span>;
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>server</span>;
-<span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>error</span>;
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>serialize</span>;
 <span class='kw'>pub</span> <span class='kw'>mod</span> <span class='ident'>config</span>;
 

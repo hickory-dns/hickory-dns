@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../main.css">
+    
 
     
     
@@ -43,75 +44,68 @@
 
     <section id='main' class="content mod">
 <h1 class='fqn'><span class='in-band'>Module <a href='../index.html'>trust_dns</a>::<wbr><a class='mod' href=''>rr</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-46' class='srclink' href='../../src/trust_dns/src/rr/mod.rs.html#17-31' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-606' class='srclink' href='../../src/trust_dns/src/rr/mod.rs.html#17-31' title='goto source code'>[src]</a></span></h1>
 <div class='docblock'><p>Resource record related components, e.g. <code>Name</code> aka label, <code>Record</code>, <code>RData</code>, ...</p>
 </div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
 <table><tr><td><code>pub use self::<a class='mod'
-                                            href='./record_type/index.html'>record_type</a>::<a class='enum' href='../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./resource/index.html'>resource</a>::<a class='struct' href='../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./domain/index.html'>domain</a>::<a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./dns_class/index.html'>dns_class</a>::<a class='enum' href='../../trust_dns/rr/dns_class/enum.DNSClass.html' title='trust_dns::rr::dns_class::DNSClass'>DNSClass</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./record_data/index.html'>record_data</a>::<a class='enum' href='../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+                                       href='./record_type/index.html'>record_type</a>::<a class='enum' href='../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./resource/index.html'>resource</a>::<a class='struct' href='../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./domain/index.html'>domain</a>::<a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./dns_class/index.html'>dns_class</a>::<a class='enum' href='../../trust_dns/rr/dns_class/enum.DNSClass.html' title='trust_dns::rr::dns_class::DNSClass'>DNSClass</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./record_data/index.html'>record_data</a>::<a class='enum' href='../../trust_dns/rr/record_data/enum.RData.html' title='trust_dns::rr::record_data::RData'>RData</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='dns_class/index.html'
-                               title='trust_dns::rr::dns_class'>dns_class</a></td>
-                        <td class='docblock short'>
-                             <p>class of DNS operations, in general always IN for internet</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='dnssec/index.html'
-                               title='trust_dns::rr::dnssec'>dnssec</a></td>
-                        <td class='docblock short'>
-                             <p>dns security extension related modules</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='domain/index.html'
-                               title='trust_dns::rr::domain'>domain</a></td>
-                        <td class='docblock short'>
-                             <p>domain name, aka labels, implementaton</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='rdata/index.html'
-                               title='trust_dns::rr::rdata'>rdata</a></td>
-                        <td class='docblock short'>
-                             <p>All record data structures and related serialization methods</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='record_data/index.html'
-                               title='trust_dns::rr::record_data'>record_data</a></td>
-                        <td class='docblock short'>
-                             <p>record data enum variants</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='record_type/index.html'
-                               title='trust_dns::rr::record_type'>record_type</a></td>
-                        <td class='docblock short'>
-                             <p>record type definitions</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='resource/index.html'
-                               title='trust_dns::rr::resource'>resource</a></td>
-                        <td class='docblock short'>
-                             <p>resource record implementation</p>
-                        </td>
-                    </tr>
-                </table></section>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='dns_class/index.html'
+                                  title='trust_dns::rr::dns_class'>dns_class</a></td>
+                           <td class='docblock short'>
+                                <p>class of DNS operations, in general always IN for internet</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='dnssec/index.html'
+                                  title='trust_dns::rr::dnssec'>dnssec</a></td>
+                           <td class='docblock short'>
+                                <p>dns security extension related modules</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='domain/index.html'
+                                  title='trust_dns::rr::domain'>domain</a></td>
+                           <td class='docblock short'>
+                                <p>domain name, aka labels, implementaton</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='rdata/index.html'
+                                  title='trust_dns::rr::rdata'>rdata</a></td>
+                           <td class='docblock short'>
+                                <p>All record data structures and related serialization methods</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='record_data/index.html'
+                                  title='trust_dns::rr::record_data'>record_data</a></td>
+                           <td class='docblock short'>
+                                <p>record data enum variants</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='record_type/index.html'
+                                  title='trust_dns::rr::record_type'>record_type</a></td>
+                           <td class='docblock short'>
+                                <p>record type definitions</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='resource/index.html'
+                                  title='trust_dns::rr::resource'>resource</a></td>
+                           <td class='docblock short'>
+                                <p>resource record implementation</p>
+                           </td>
+                       </tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

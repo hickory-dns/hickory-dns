@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    
 
     
     
@@ -607,6 +608,7 @@
 <span id="564">564</span>
 <span id="565">565</span>
 <span id="566">566</span>
+<span id="567">567</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -633,7 +635,7 @@
 <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>domain</span>::<span class='ident'>Name</span>;
 <span class='kw'>use</span> ::<span class='ident'>rr</span>::{<span class='ident'>RData</span>, <span class='ident'>RecordType</span>, <span class='ident'>DNSClass</span>};
 <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>rdata</span>::<span class='ident'>SIG</span>;
-<span class='kw'>use</span> ::<span class='ident'>serialize</span>::<span class='ident'>binary</span>::<span class='op'>*</span>;
+<span class='kw'>use</span> ::<span class='ident'>serialize</span>::<span class='ident'>binary</span>::{<span class='ident'>BinEncoder</span>, <span class='ident'>BinDecoder</span>, <span class='ident'>BinSerializable</span>, <span class='ident'>EncodeMode</span>};
 <span class='kw'>use</span> ::<span class='ident'>error</span>::<span class='op'>*</span>;
 <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>dnssec</span>::<span class='ident'>Signer</span>;
 
@@ -868,18 +870,19 @@
   <span class='doccomment'>///  this happens implicitly on write_to, so no need to call before write_to</span>
   <span class='attribute'>#[<span class='ident'>cfg</span>(<span class='ident'>test</span>)]</span>
   <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>update_counts</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='kw'>Self</span> {
-    <span class='self'>self</span>.<span class='ident'>header</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>update_header_counts</span>(<span class='boolval'>true</span>, <span class='boolval'>true</span>);
+    <span class='self'>self</span>.<span class='ident'>header</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>update_header_counts</span>(<span class='boolval'>true</span>);
     <span class='self'>self</span>
   }
 
-  <span class='kw'>fn</span> <span class='ident'>update_header_counts</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>include_edns</span>: <span class='ident'>bool</span>, <span class='ident'>include_sig0</span>: <span class='ident'>bool</span>) <span class='op'>-&gt;</span> <span class='ident'>Header</span> {
+  <span class='kw'>fn</span> <span class='ident'>update_header_counts</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>include_sig0</span>: <span class='ident'>bool</span>) <span class='op'>-&gt;</span> <span class='ident'>Header</span> {
     <span class='macro'>assert</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>queries</span>.<span class='ident'>len</span>() <span class='op'>&lt;=</span> <span class='ident'>u16</span>::<span class='ident'>max_value</span>() <span class='kw'>as</span> <span class='ident'>usize</span>);
     <span class='macro'>assert</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>answers</span>.<span class='ident'>len</span>() <span class='op'>&lt;=</span> <span class='ident'>u16</span>::<span class='ident'>max_value</span>() <span class='kw'>as</span> <span class='ident'>usize</span>);
     <span class='macro'>assert</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>name_servers</span>.<span class='ident'>len</span>() <span class='op'>&lt;=</span> <span class='ident'>u16</span>::<span class='ident'>max_value</span>() <span class='kw'>as</span> <span class='ident'>usize</span>);
     <span class='macro'>assert</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>additionals</span>.<span class='ident'>len</span>() <span class='op'>+</span> <span class='self'>self</span>.<span class='ident'>sig0</span>.<span class='ident'>len</span>() <span class='op'>&lt;=</span> <span class='ident'>u16</span>::<span class='ident'>max_value</span>() <span class='kw'>as</span> <span class='ident'>usize</span>);
 
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>additional_count</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>additionals</span>.<span class='ident'>len</span>();
-    <span class='kw'>if</span> <span class='ident'>include_edns</span> <span class='op'>&amp;&amp;</span> <span class='self'>self</span>.<span class='ident'>edns</span>.<span class='ident'>is_some</span>() { <span class='ident'>additional_count</span> <span class='op'>+=</span> <span class='number'>1</span> }
+
+    <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>edns</span>.<span class='ident'>is_some</span>() { <span class='ident'>additional_count</span> <span class='op'>+=</span> <span class='number'>1</span> }
     <span class='kw'>if</span> <span class='ident'>include_sig0</span> { <span class='ident'>additional_count</span> <span class='op'>+=</span> <span class='self'>self</span>.<span class='ident'>sig0</span>.<span class='ident'>len</span>() };
 
     <span class='self'>self</span>.<span class='ident'>header</span>.<span class='ident'>clone</span>(
@@ -889,12 +892,39 @@
       <span class='ident'>additional_count</span> <span class='kw'>as</span> <span class='ident'>u16</span>)
   }
 
-  <span class='kw'>fn</span> <span class='ident'>read_records</span>(<span class='ident'>decoder</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>BinDecoder</span>, <span class='ident'>count</span>: <span class='ident'>usize</span>) <span class='op'>-&gt;</span> <span class='ident'>DecodeResult</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;&gt;</span> {
+  <span class='kw'>fn</span> <span class='ident'>read_records</span>(<span class='ident'>decoder</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>BinDecoder</span>, <span class='ident'>count</span>: <span class='ident'>usize</span>, <span class='ident'>is_additional</span>: <span class='ident'>bool</span>) <span class='op'>-&gt;</span> <span class='ident'>DecodeResult</span><span class='op'>&lt;</span>(<span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span>, <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Edns</span><span class='op'>&gt;</span>, <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span>)<span class='op'>&gt;</span> {
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>records</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>with_capacity</span>(<span class='ident'>count</span>);
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>edns</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Edns</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='prelude-val'>None</span>;
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>sig0s</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>with_capacity</span>(<span class='kw'>if</span> <span class='ident'>is_additional</span> { <span class='number'>1</span> } <span class='kw'>else</span> { <span class='number'>0</span> });
+
+    <span class='comment'>// sig0 must be last, once this is set, disable.</span>
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>saw_sig0</span> <span class='op'>=</span> <span class='boolval'>false</span>;
     <span class='kw'>for</span> _ <span class='kw'>in</span> <span class='number'>0</span> .. <span class='ident'>count</span> {
-       <span class='ident'>records</span>.<span class='ident'>push</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Record</span>::<span class='ident'>read</span>(<span class='ident'>decoder</span>)))
+      <span class='kw'>let</span> <span class='ident'>record</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Record</span>::<span class='ident'>read</span>(<span class='ident'>decoder</span>));
+
+      <span class='kw'>if</span> <span class='op'>!</span><span class='ident'>is_additional</span> {
+        <span class='kw'>if</span> <span class='ident'>saw_sig0</span> { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>DecodeError</span>::<span class='ident'>Sig0NotLast</span>) } <span class='comment'>// SIG0 must be last</span>
+        <span class='ident'>records</span>.<span class='ident'>push</span>(<span class='ident'>record</span>)
+      } <span class='kw'>else</span> {
+        <span class='kw'>match</span> <span class='ident'>record</span>.<span class='ident'>get_rr_type</span>() {
+          <span class='ident'>RecordType</span>::<span class='ident'>SIG</span> <span class='op'>=&gt;</span> {
+            <span class='ident'>saw_sig0</span> <span class='op'>=</span> <span class='boolval'>true</span>;
+            <span class='ident'>sig0s</span>.<span class='ident'>push</span>(<span class='ident'>record</span>);
+          },
+          <span class='ident'>RecordType</span>::<span class='ident'>OPT</span> <span class='op'>=&gt;</span> {
+            <span class='kw'>if</span> <span class='ident'>saw_sig0</span> { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>DecodeError</span>::<span class='ident'>Sig0NotLast</span>) } <span class='comment'>// SIG0 must be last</span>
+            <span class='kw'>if</span> <span class='ident'>edns</span>.<span class='ident'>is_some</span>() { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>DecodeError</span>::<span class='ident'>MoreThanOneEdns</span>) }
+            <span class='ident'>edns</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>((<span class='kw-2'>&amp;</span><span class='ident'>record</span>).<span class='ident'>into</span>());
+          },
+          _ <span class='op'>=&gt;</span> {
+            <span class='kw'>if</span> <span class='ident'>saw_sig0</span> { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>DecodeError</span>::<span class='ident'>Sig0NotLast</span>) } <span class='comment'>// SIG0 must be last</span>
+            <span class='ident'>records</span>.<span class='ident'>push</span>(<span class='ident'>record</span>);
+          }
+        }
+      }
     }
-    <span class='prelude-val'>Ok</span>(<span class='ident'>records</span>)
+
+    <span class='prelude-val'>Ok</span>((<span class='ident'>records</span>, <span class='ident'>edns</span>, <span class='ident'>sig0s</span>))
   }
 
   <span class='kw'>fn</span> <span class='ident'>emit_records</span>(<span class='ident'>encoder</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>BinEncoder</span>, <span class='ident'>records</span>: <span class='kw-2'>&amp;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>EncodeResult</span> {
@@ -908,6 +938,7 @@
 <span class='doccomment'>/// to reduce errors in using the Message struct as an Update, this will do the call throughs</span>
 <span class='doccomment'>///   to properly do that.</span>
 <span class='kw'>pub</span> <span class='kw'>trait</span> <span class='ident'>UpdateMessage</span>: <span class='ident'>Debug</span> {
+  <span class='kw'>fn</span> <span class='ident'>get_id</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>u16</span>;
   <span class='kw'>fn</span> <span class='ident'>add_zone</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>query</span>: <span class='ident'>Query</span>);
   <span class='kw'>fn</span> <span class='ident'>add_pre_requisite</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>record</span>: <span class='ident'>Record</span>);
   <span class='kw'>fn</span> <span class='ident'>add_all_pre_requisites</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>vector</span>: <span class='kw-2'>&amp;</span>[<span class='kw-2'>&amp;</span><span class='ident'>Record</span>]);
@@ -931,6 +962,7 @@
 <span class='doccomment'>/// to reduce errors in using the Message struct as an Update, this will do the call throughs</span>
 <span class='doccomment'>///   to properly do that.</span>
 <span class='kw'>impl</span> <span class='ident'>UpdateMessage</span> <span class='kw'>for</span> <span class='ident'>Message</span> {
+  <span class='kw'>fn</span> <span class='ident'>get_id</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>u16</span> { <span class='self'>self</span>.<span class='ident'>get_id</span>() }
   <span class='kw'>fn</span> <span class='ident'>add_zone</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>query</span>: <span class='ident'>Query</span>) { <span class='self'>self</span>.<span class='ident'>add_query</span>(<span class='ident'>query</span>); }
   <span class='kw'>fn</span> <span class='ident'>add_pre_requisite</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>record</span>: <span class='ident'>Record</span>) { <span class='self'>self</span>.<span class='ident'>add_answer</span>(<span class='ident'>record</span>); }
   <span class='kw'>fn</span> <span class='ident'>add_all_pre_requisites</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>vector</span>: <span class='kw-2'>&amp;</span>[<span class='kw-2'>&amp;</span><span class='ident'>Record</span>]) { <span class='self'>self</span>.<span class='ident'>add_all_answers</span>(<span class='ident'>vector</span>); }
@@ -947,6 +979,7 @@
 
   <span class='comment'>// TODO: where&#39;s the &#39;right&#39; spot for this function</span>
   <span class='kw'>fn</span> <span class='ident'>sign</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>signer</span>: <span class='kw-2'>&amp;</span><span class='ident'>Signer</span>, <span class='ident'>inception_time</span>: <span class='ident'>u32</span>) {
+    <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;signing message: {:?}&quot;</span>, <span class='self'>self</span>);
     <span class='kw'>let</span> <span class='ident'>signature</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>sign_message</span>(<span class='self'>self</span>);
     <span class='kw'>let</span> <span class='ident'>key_tag</span>: <span class='ident'>u16</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>calculate_key_tag</span>();
 
@@ -968,6 +1001,7 @@
 
     <span class='kw'>let</span> <span class='ident'>expiration_time</span>: <span class='ident'>u32</span> <span class='op'>=</span> <span class='ident'>inception_time</span> <span class='op'>+</span> (<span class='number'>5</span> <span class='op'>*</span> <span class='number'>60</span>); <span class='comment'>// +5 minutes in seconds</span>
 
+    <span class='ident'>sig0</span>.<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>SIG</span>);
     <span class='ident'>sig0</span>.<span class='ident'>rdata</span>(
       <span class='ident'>RData</span>::<span class='ident'>SIG</span>(<span class='ident'>SIG</span>::<span class='ident'>new</span>(
         <span class='comment'>// type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG</span>
@@ -987,6 +1021,10 @@
         <span class='ident'>signature</span>,
       )
     ));
+
+    <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;sig0: {:?}&quot;</span>, <span class='ident'>sig0</span>);
+
+    <span class='self'>self</span>.<span class='ident'>add_sig0</span>(<span class='ident'>sig0</span>);
   }
 }
 
@@ -1004,47 +1042,11 @@
     <span class='comment'>// get all counts before header moves</span>
     <span class='kw'>let</span> <span class='ident'>answer_count</span> <span class='op'>=</span> <span class='ident'>header</span>.<span class='ident'>get_answer_count</span>() <span class='kw'>as</span> <span class='ident'>usize</span>;
     <span class='kw'>let</span> <span class='ident'>name_server_count</span> <span class='op'>=</span> <span class='ident'>header</span>.<span class='ident'>get_name_server_count</span>() <span class='kw'>as</span> <span class='ident'>usize</span>;
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>additional_count</span> <span class='op'>=</span> <span class='ident'>header</span>.<span class='ident'>get_additional_count</span>() <span class='kw'>as</span> <span class='ident'>usize</span>;
+    <span class='kw'>let</span> <span class='ident'>additional_count</span> <span class='op'>=</span> <span class='ident'>header</span>.<span class='ident'>get_additional_count</span>() <span class='kw'>as</span> <span class='ident'>usize</span>;
 
-    <span class='kw'>let</span> <span class='ident'>answers</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Self</span>::<span class='ident'>read_records</span>(<span class='ident'>decoder</span>, <span class='ident'>answer_count</span>));
-    <span class='kw'>let</span> <span class='ident'>name_servers</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Self</span>::<span class='ident'>read_records</span>(<span class='ident'>decoder</span>, <span class='ident'>name_server_count</span>));
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>additionals</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Self</span>::<span class='ident'>read_records</span>(<span class='ident'>decoder</span>, <span class='ident'>additional_count</span>));
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>sig0</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>new</span>();
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>edns</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Edns</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='prelude-val'>None</span>;
-
-    <span class='comment'>// get the sig0&#39;s and remove from from the additional section, and decrement the counts</span>
-    <span class='comment'>// this will allow for the Message to be verified directly.</span>
-    <span class='comment'>// TODO: this would be cleaner as a recursive function...</span>
-    <span class='kw'>loop</span> {
-      <span class='comment'>// TODO: make a function is_a() on Record for Type to RData Validation</span>
-      <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>record</span>) <span class='op'>=</span> <span class='ident'>additionals</span>.<span class='ident'>last</span>() {
-        <span class='kw'>if</span> <span class='ident'>record</span>.<span class='ident'>get_rr_type</span>() <span class='op'>!=</span> <span class='ident'>RecordType</span>::<span class='ident'>SIG</span> {
-          <span class='comment'>// no more sig0&#39;s break</span>
-          <span class='kw'>break</span>;
-        }
-      } <span class='kw'>else</span> {
-        <span class='comment'>// nothing in the list</span>
-        <span class='kw'>break</span>;
-      }
-
-      <span class='comment'>// we&#39;re only getting here if the SIG0 record is what was found</span>
-      <span class='kw'>let</span> <span class='ident'>record</span> <span class='op'>=</span> <span class='ident'>additionals</span>.<span class='ident'>pop</span>().<span class='ident'>unwrap</span>();
-      <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>record</span>.<span class='ident'>get_rr_type</span>() <span class='op'>==</span> <span class='ident'>RecordType</span>::<span class='ident'>SIG</span>);
-      <span class='ident'>sig0</span>.<span class='ident'>push</span>(<span class='ident'>record</span>);
-      <span class='ident'>additional_count</span> <span class='op'>-=</span> <span class='number'>1</span>;
-    }
-
-    <span class='comment'>// edns goes from the other direction, but unlike sig0, edns does not pop off the stack</span>
-    <span class='comment'>//  will loop through them all to verify that there is only one OPT record</span>
-    <span class='kw'>for</span> <span class='ident'>r</span> <span class='kw'>in</span> <span class='ident'>additionals</span>.<span class='ident'>iter</span>() {
-      <span class='kw'>match</span> <span class='ident'>r</span>.<span class='ident'>get_rr_type</span>() {
-        <span class='ident'>RecordType</span>::<span class='ident'>OPT</span> <span class='op'>=&gt;</span> <span class='ident'>edns</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>r</span>.<span class='ident'>into</span>()),
-        <span class='ident'>RecordType</span>::<span class='ident'>SIG</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>DecodeError</span>::<span class='ident'>Sig0NotLast</span>),
-        _ <span class='op'>=&gt;</span>(),
-      }
-    }
-
-    <span class='ident'>additionals</span>.<span class='ident'>shrink_to_fit</span>();
+    <span class='kw'>let</span> (<span class='ident'>answers</span>, _, _) <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Self</span>::<span class='ident'>read_records</span>(<span class='ident'>decoder</span>, <span class='ident'>answer_count</span>, <span class='boolval'>false</span>));
+    <span class='kw'>let</span> (<span class='ident'>name_servers</span>, _, _) <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Self</span>::<span class='ident'>read_records</span>(<span class='ident'>decoder</span>, <span class='ident'>name_server_count</span>, <span class='boolval'>false</span>));
+    <span class='kw'>let</span> (<span class='ident'>additionals</span>, <span class='ident'>edns</span>, <span class='ident'>sig0</span>) <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Self</span>::<span class='ident'>read_records</span>(<span class='ident'>decoder</span>, <span class='ident'>additional_count</span>, <span class='boolval'>true</span>));
 
     <span class='prelude-val'>Ok</span>(<span class='ident'>Message</span> {
       <span class='ident'>header</span>: <span class='ident'>header</span>,
@@ -1059,8 +1061,8 @@
 
   <span class='kw'>fn</span> <span class='ident'>emit</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>encoder</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>BinEncoder</span>) <span class='op'>-&gt;</span> <span class='ident'>EncodeResult</span> {
     <span class='comment'>// clone the header to set the counts lazily</span>
-    <span class='kw'>let</span> <span class='ident'>include_sig0</span>: <span class='ident'>bool</span> <span class='op'>=</span> <span class='ident'>encoder</span>.<span class='ident'>mode</span>() <span class='op'>!=</span> <span class='ident'>EncodeMode</span>::<span class='ident'>Verify</span>;
-    <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>update_header_counts</span>(<span class='ident'>include_sig0</span>, <span class='ident'>include_sig0</span>).<span class='ident'>emit</span>(<span class='ident'>encoder</span>));
+    <span class='kw'>let</span> <span class='ident'>include_sig0</span>: <span class='ident'>bool</span> <span class='op'>=</span> <span class='ident'>encoder</span>.<span class='ident'>mode</span>() <span class='op'>!=</span> <span class='ident'>EncodeMode</span>::<span class='ident'>Signing</span>;
+    <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>update_header_counts</span>(<span class='ident'>include_sig0</span>).<span class='ident'>emit</span>(<span class='ident'>encoder</span>));
 
     <span class='kw'>for</span> <span class='ident'>q</span> <span class='kw'>in</span> <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>queries</span> {
       <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>q</span>.<span class='ident'>emit</span>(<span class='ident'>encoder</span>));
@@ -1073,14 +1075,15 @@
     <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Self</span>::<span class='ident'>emit_records</span>(<span class='ident'>encoder</span>, <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>name_servers</span>));
     <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Self</span>::<span class='ident'>emit_records</span>(<span class='ident'>encoder</span>, <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>additionals</span>));
 
+    <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>edns</span>) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_edns</span>() {
+      <span class='comment'>// need to commit the error code</span>
+      <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Record</span>::<span class='ident'>from</span>(<span class='ident'>edns</span>).<span class='ident'>emit</span>(<span class='ident'>encoder</span>));
+    }
+
     <span class='comment'>// this is a little hacky, but if we are Verifying a signature, i.e. the original Message</span>
     <span class='comment'>//  then the SIG0 records should not be encoded and the edns record (if it exists) is already</span>
     <span class='comment'>//  part of the additionals section.</span>
     <span class='kw'>if</span> <span class='ident'>include_sig0</span> {
-      <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>edns</span>) <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>get_edns</span>() {
-        <span class='comment'>// need to commit the error code</span>
-        <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Record</span>::<span class='ident'>from</span>(<span class='ident'>edns</span>).<span class='ident'>emit</span>(<span class='ident'>encoder</span>));
-      }
       <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>Self</span>::<span class='ident'>emit_records</span>(<span class='ident'>encoder</span>, <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>sig0</span>));
     }
     <span class='prelude-val'>Ok</span>(())

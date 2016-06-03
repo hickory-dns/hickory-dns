@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../../main.css">
+    
 
     
     
@@ -414,6 +415,7 @@
 <span id="371">371</span>
 <span id="372">372</span>
 <span id="373">373</span>
+<span id="374">374</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -430,7 +432,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */</span>
-<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>collections</span>::<span class='ident'>HashMap</span>;
+<span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>collections</span>::<span class='ident'>BTreeMap</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>io</span>::<span class='ident'>Read</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>fs</span>::<span class='ident'>File</span>;
 
@@ -440,104 +442,106 @@
 
 <span class='kw'>use</span> <span class='ident'>super</span>::<span class='ident'>master_lex</span>::{<span class='ident'>Lexer</span>, <span class='ident'>Token</span>};
 
- <span class='comment'>// 5. MASTER FILES</span>
- <span class='comment'>//</span>
- <span class='comment'>// Master files are text files that contain RRs in text form.  Since the</span>
- <span class='comment'>// contents of a zone can be expressed in the form of a list of RRs a</span>
- <span class='comment'>// master file is most often used to define a zone, though it can be used</span>
- <span class='comment'>// to list a cache&#39;s contents.  Hence, this section first discusses the</span>
- <span class='comment'>// format of RRs in a master file, and then the special considerations when</span>
- <span class='comment'>// a master file is used to create a zone in some name server.</span>
- <span class='comment'>//</span>
- <span class='comment'>// 5.1. Format</span>
- <span class='comment'>//</span>
- <span class='comment'>// The format of these files is a sequence of entries.  Entries are</span>
- <span class='comment'>// predominantly line-oriented, though parentheses can be used to continue</span>
- <span class='comment'>// a list of items across a line boundary, and text literals can contain</span>
- <span class='comment'>// CRLF within the text.  Any combination of tabs and spaces act as a</span>
- <span class='comment'>// delimiter between the separate items that make up an entry.  The end of</span>
- <span class='comment'>// any line in the master file can end with a comment.  The comment starts</span>
- <span class='comment'>// with a &quot;;&quot; (semicolon).</span>
- <span class='comment'>//</span>
- <span class='comment'>// The following entries are defined:</span>
- <span class='comment'>//</span>
- <span class='comment'>//     &lt;blank&gt;[&lt;comment&gt;]</span>
- <span class='comment'>//</span>
- <span class='comment'>//     $ORIGIN &lt;domain-name&gt; [&lt;comment&gt;]</span>
- <span class='comment'>//</span>
- <span class='comment'>//     $INCLUDE &lt;file-name&gt; [&lt;domain-name&gt;] [&lt;comment&gt;]</span>
- <span class='comment'>//</span>
- <span class='comment'>//     &lt;domain-name&gt;&lt;rr&gt; [&lt;comment&gt;]</span>
- <span class='comment'>//</span>
- <span class='comment'>//     &lt;blank&gt;&lt;rr&gt; [&lt;comment&gt;]</span>
- <span class='comment'>//</span>
- <span class='comment'>// Blank lines, with or without comments, are allowed anywhere in the file.</span>
- <span class='comment'>//</span>
- <span class='comment'>// Two control entries are defined: $ORIGIN and $INCLUDE.  $ORIGIN is</span>
- <span class='comment'>// followed by a domain name, and resets the current origin for relative</span>
- <span class='comment'>// domain names to the stated name.  $INCLUDE inserts the named file into</span>
- <span class='comment'>// the current file, and may optionally specify a domain name that sets the</span>
- <span class='comment'>// relative domain name origin for the included file.  $INCLUDE may also</span>
- <span class='comment'>// have a comment.  Note that a $INCLUDE entry never changes the relative</span>
- <span class='comment'>// origin of the parent file, regardless of changes to the relative origin</span>
- <span class='comment'>// made within the included file.</span>
- <span class='comment'>//</span>
- <span class='comment'>// The last two forms represent RRs.  If an entry for an RR begins with a</span>
- <span class='comment'>// blank, then the RR is assumed to be owned by the last stated owner.  If</span>
- <span class='comment'>// an RR entry begins with a &lt;domain-name&gt;, then the owner name is reset.</span>
- <span class='comment'>//</span>
- <span class='comment'>// &lt;rr&gt; contents take one of the following forms:</span>
- <span class='comment'>//</span>
- <span class='comment'>//     [&lt;TTL&gt;] [&lt;class&gt;] &lt;type&gt; &lt;RDATA&gt;</span>
- <span class='comment'>//</span>
- <span class='comment'>//     [&lt;class&gt;] [&lt;TTL&gt;] &lt;type&gt; &lt;RDATA&gt;</span>
- <span class='comment'>//</span>
- <span class='comment'>// The RR begins with optional TTL and class fields, followed by a type and</span>
- <span class='comment'>// RDATA field appropriate to the type and class.  Class and type use the</span>
- <span class='comment'>// standard mnemonics, TTL is a decimal integer.  Omitted class and TTL</span>
- <span class='comment'>// values are default to the last explicitly stated values.  Since type and</span>
- <span class='comment'>// class mnemonics are disjoint, the parse is unique.  (Note that this</span>
- <span class='comment'>// order is different from the order used in examples and the order used in</span>
- <span class='comment'>// the actual RRs; the given order allows easier parsing and defaulting.)</span>
- <span class='comment'>//</span>
- <span class='comment'>// &lt;domain-name&gt;s make up a large share of the data in the master file.</span>
- <span class='comment'>// The labels in the domain name are expressed as character strings and</span>
- <span class='comment'>// separated by dots.  Quoting conventions allow arbitrary characters to be</span>
- <span class='comment'>// stored in domain names.  Domain names that end in a dot are called</span>
- <span class='comment'>// absolute, and are taken as complete.  Domain names which do not end in a</span>
- <span class='comment'>// dot are called relative; the actual domain name is the concatenation of</span>
- <span class='comment'>// the relative part with an origin specified in a $ORIGIN, $INCLUDE, or as</span>
- <span class='comment'>// an argument to the master file loading routine.  A relative name is an</span>
- <span class='comment'>// error when no origin is available.</span>
- <span class='comment'>//</span>
- <span class='comment'>// &lt;character-string&gt; is expressed in one or two ways: as a contiguous set</span>
- <span class='comment'>// of characters without interior spaces, or as a string beginning with a &quot;</span>
- <span class='comment'>// and ending with a &quot;.  Inside a &quot; delimited string any character can</span>
- <span class='comment'>// occur, except for a &quot; itself, which must be quoted using \ (back slash).</span>
- <span class='comment'>//</span>
- <span class='comment'>// Because these files are text files several special encodings are</span>
- <span class='comment'>// necessary to allow arbitrary data to be loaded.  In particular:</span>
- <span class='comment'>//</span>
- <span class='comment'>//                 of the root.</span>
- <span class='comment'>//</span>
- <span class='comment'>// @               A free standing @ is used to denote the current origin.</span>
- <span class='comment'>//</span>
- <span class='comment'>// \X              where X is any character other than a digit (0-9), is</span>
- <span class='comment'>//                 used to quote that character so that its special meaning</span>
- <span class='comment'>//                 does not apply.  For example, &quot;\.&quot; can be used to place</span>
- <span class='comment'>//                 a dot character in a label.</span>
- <span class='comment'>//</span>
- <span class='comment'>// \DDD            where each D is a digit is the octet corresponding to</span>
- <span class='comment'>//                 the decimal number described by DDD.  The resulting</span>
- <span class='comment'>//                 octet is assumed to be text and is not checked for</span>
- <span class='comment'>//                 special meaning.</span>
- <span class='comment'>//</span>
- <span class='comment'>// ( )             Parentheses are used to group data that crosses a line</span>
- <span class='comment'>//                 boundary.  In effect, line terminations are not</span>
- <span class='comment'>//                 recognized within parentheses.</span>
- <span class='comment'>//</span>
- <span class='comment'>// ;               Semicolon is used to start a comment; the remainder of</span>
- <span class='comment'>//                 the line is ignored.</span>
+<span class='doccomment'>/// ```text</span>
+<span class='doccomment'>/// 5. MASTER FILES</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// Master files are text files that contain RRs in text form.  Since the</span>
+<span class='doccomment'>/// contents of a zone can be expressed in the form of a list of RRs a</span>
+<span class='doccomment'>/// master file is most often used to define a zone, though it can be used</span>
+<span class='doccomment'>/// to list a cache&#39;s contents.  Hence, this section first discusses the</span>
+<span class='doccomment'>/// format of RRs in a master file, and then the special considerations when</span>
+<span class='doccomment'>/// a master file is used to create a zone in some name server.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// 5.1. Format</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// The format of these files is a sequence of entries.  Entries are</span>
+<span class='doccomment'>/// predominantly line-oriented, though parentheses can be used to continue</span>
+<span class='doccomment'>/// a list of items across a line boundary, and text literals can contain</span>
+<span class='doccomment'>/// CRLF within the text.  Any combination of tabs and spaces act as a</span>
+<span class='doccomment'>/// delimiter between the separate items that make up an entry.  The end of</span>
+<span class='doccomment'>/// any line in the master file can end with a comment.  The comment starts</span>
+<span class='doccomment'>/// with a &quot;;&quot; (semicolon).</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// The following entries are defined:</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>///     &lt;blank&gt;[&lt;comment&gt;]</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>///     $ORIGIN &lt;domain-name&gt; [&lt;comment&gt;]</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>///     $INCLUDE &lt;file-name&gt; [&lt;domain-name&gt;] [&lt;comment&gt;]</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>///     &lt;domain-name&gt;&lt;rr&gt; [&lt;comment&gt;]</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>///     &lt;blank&gt;&lt;rr&gt; [&lt;comment&gt;]</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// Blank lines, with or without comments, are allowed anywhere in the file.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// Two control entries are defined: $ORIGIN and $INCLUDE.  $ORIGIN is</span>
+<span class='doccomment'>/// followed by a domain name, and resets the current origin for relative</span>
+<span class='doccomment'>/// domain names to the stated name.  $INCLUDE inserts the named file into</span>
+<span class='doccomment'>/// the current file, and may optionally specify a domain name that sets the</span>
+<span class='doccomment'>/// relative domain name origin for the included file.  $INCLUDE may also</span>
+<span class='doccomment'>/// have a comment.  Note that a $INCLUDE entry never changes the relative</span>
+<span class='doccomment'>/// origin of the parent file, regardless of changes to the relative origin</span>
+<span class='doccomment'>/// made within the included file.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// The last two forms represent RRs.  If an entry for an RR begins with a</span>
+<span class='doccomment'>/// blank, then the RR is assumed to be owned by the last stated owner.  If</span>
+<span class='doccomment'>/// an RR entry begins with a &lt;domain-name&gt;, then the owner name is reset.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// &lt;rr&gt; contents take one of the following forms:</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>///     [&lt;TTL&gt;] [&lt;class&gt;] &lt;type&gt; &lt;RDATA&gt;</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>///     [&lt;class&gt;] [&lt;TTL&gt;] &lt;type&gt; &lt;RDATA&gt;</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// The RR begins with optional TTL and class fields, followed by a type and</span>
+<span class='doccomment'>/// RDATA field appropriate to the type and class.  Class and type use the</span>
+<span class='doccomment'>/// standard mnemonics, TTL is a decimal integer.  Omitted class and TTL</span>
+<span class='doccomment'>/// values are default to the last explicitly stated values.  Since type and</span>
+<span class='doccomment'>/// class mnemonics are disjoint, the parse is unique.  (Note that this</span>
+<span class='doccomment'>/// order is different from the order used in examples and the order used in</span>
+<span class='doccomment'>/// the actual RRs; the given order allows easier parsing and defaulting.)</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// &lt;domain-name&gt;s make up a large share of the data in the master file.</span>
+<span class='doccomment'>/// The labels in the domain name are expressed as character strings and</span>
+<span class='doccomment'>/// separated by dots.  Quoting conventions allow arbitrary characters to be</span>
+<span class='doccomment'>/// stored in domain names.  Domain names that end in a dot are called</span>
+<span class='doccomment'>/// absolute, and are taken as complete.  Domain names which do not end in a</span>
+<span class='doccomment'>/// dot are called relative; the actual domain name is the concatenation of</span>
+<span class='doccomment'>/// the relative part with an origin specified in a $ORIGIN, $INCLUDE, or as</span>
+<span class='doccomment'>/// an argument to the master file loading routine.  A relative name is an</span>
+<span class='doccomment'>/// error when no origin is available.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// &lt;character-string&gt; is expressed in one or two ways: as a contiguous set</span>
+<span class='doccomment'>/// of characters without interior spaces, or as a string beginning with a &quot;</span>
+<span class='doccomment'>/// and ending with a &quot;.  Inside a &quot; delimited string any character can</span>
+<span class='doccomment'>/// occur, except for a &quot; itself, which must be quoted using \ (back slash).</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// Because these files are text files several special encodings are</span>
+<span class='doccomment'>/// necessary to allow arbitrary data to be loaded.  In particular:</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>///                 of the root.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// @               A free standing @ is used to denote the current origin.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// \X              where X is any character other than a digit (0-9), is</span>
+<span class='doccomment'>///                 used to quote that character so that its special meaning</span>
+<span class='doccomment'>///                 does not apply.  For example, &quot;\.&quot; can be used to place</span>
+<span class='doccomment'>///                 a dot character in a label.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// \DDD            where each D is a digit is the octet corresponding to</span>
+<span class='doccomment'>///                 the decimal number described by DDD.  The resulting</span>
+<span class='doccomment'>///                 octet is assumed to be text and is not checked for</span>
+<span class='doccomment'>///                 special meaning.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// ( )             Parentheses are used to group data that crosses a line</span>
+<span class='doccomment'>///                 boundary.  In effect, line terminations are not</span>
+<span class='doccomment'>///                 recognized within parentheses.</span>
+<span class='doccomment'>///</span>
+<span class='doccomment'>/// ;               Semicolon is used to start a comment; the remainder of</span>
+<span class='doccomment'>///                 the line is ignored.</span>
+<span class='doccomment'>/// ```</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>Parser</span>;
 
 <span class='kw'>impl</span> <span class='ident'>Parser</span> {
@@ -558,7 +562,7 @@
 
   <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>parse</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>lexer</span>: <span class='ident'>Lexer</span>, <span class='ident'>origin</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Name</span><span class='op'>&gt;</span>, <span class='ident'>zone_type</span>: <span class='ident'>ZoneType</span>, <span class='ident'>allow_update</span>: <span class='ident'>bool</span>) <span class='op'>-&gt;</span> <span class='ident'>ParseResult</span><span class='op'>&lt;</span><span class='ident'>Authority</span><span class='op'>&gt;</span> {
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>lexer</span> <span class='op'>=</span> <span class='ident'>lexer</span>;
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>records</span>: <span class='ident'>HashMap</span><span class='op'>&lt;</span><span class='ident'>RrKey</span>, <span class='ident'>RRSet</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>HashMap</span>::<span class='ident'>new</span>();
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>records</span>: <span class='ident'>BTreeMap</span><span class='op'>&lt;</span><span class='ident'>RrKey</span>, <span class='ident'>RRSet</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>BTreeMap</span>::<span class='ident'>new</span>();
 
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>origin</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Name</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>origin</span>;
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>current_name</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Name</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='prelude-val'>None</span>;
@@ -720,7 +724,6 @@
 
     <span class='comment'>//</span>
     <span class='comment'>// build the Authority and return.</span>
-    <span class='ident'>records</span>.<span class='ident'>shrink_to_fit</span>(); <span class='comment'>// this shouldn&#39;t change once stored (replacement instead)</span>
     <span class='prelude-val'>Ok</span>(<span class='ident'>Authority</span>::<span class='ident'>new</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>origin</span>.<span class='ident'>ok_or</span>(<span class='ident'>ParseError</span>::<span class='ident'>OriginIsUndefined</span>)), <span class='ident'>records</span>, <span class='ident'>zone_type</span>, <span class='ident'>allow_update</span>))
   }
 

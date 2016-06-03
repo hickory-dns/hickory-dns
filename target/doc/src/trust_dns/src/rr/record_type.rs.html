@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    
 
     
     
@@ -322,6 +323,9 @@
 <span id="279">279</span>
 <span id="280">280</span>
 <span id="281">281</span>
+<span id="282">282</span>
+<span id="283">283</span>
+<span id="284">284</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -371,7 +375,7 @@
     <span class='comment'>//  HIP,        //	55	RFC 5205	Host Identity Protocol</span>
     <span class='comment'>//  IPSECKEY,   //	45	RFC 4025	IPsec Key</span>
     <span class='ident'>IXFR</span>,       <span class='comment'>//	251	RFC 1996	Incremental Zone Transfer</span>
-    <span class='comment'>//  KEY,        //	25	RFC 2535[3] and RFC 2930[4]	Key record</span>
+    <span class='ident'>KEY</span>,        <span class='comment'>//	25	RFC 2535[3] and RFC 2930[4]	Key record</span>
     <span class='comment'>//  KX,         //	36	RFC 2230	Key eXchanger record</span>
     <span class='comment'>//  LOC,        //	29	RFC 1876	Location record</span>
     <span class='ident'>MX</span>,         <span class='comment'>//	15	RFC 1035[1]	Mail exchange record</span>
@@ -440,6 +444,7 @@
       <span class='number'>5</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='ident'>RecordType</span>::<span class='ident'>CNAME</span>),
       <span class='number'>48</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='ident'>RecordType</span>::<span class='ident'>DNSKEY</span>),
       <span class='number'>43</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='ident'>RecordType</span>::<span class='ident'>DS</span>),
+      <span class='number'>25</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='ident'>RecordType</span>::<span class='ident'>KEY</span>),
       <span class='number'>15</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='ident'>RecordType</span>::<span class='ident'>MX</span>),
       <span class='number'>2</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>),
       <span class='number'>47</span> <span class='op'>=&gt;</span> <span class='prelude-val'>Ok</span>(<span class='ident'>RecordType</span>::<span class='ident'>NSEC</span>),
@@ -496,6 +501,7 @@
       <span class='ident'>RecordType</span>::<span class='ident'>DNSKEY</span> <span class='op'>=&gt;</span> <span class='string'>&quot;DNSKEY&quot;</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>DS</span> <span class='op'>=&gt;</span> <span class='string'>&quot;DS&quot;</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>IXFR</span> <span class='op'>=&gt;</span> <span class='string'>&quot;IXFR&quot;</span>,
+      <span class='ident'>RecordType</span>::<span class='ident'>KEY</span> <span class='op'>=&gt;</span> <span class='string'>&quot;KEY&quot;</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>MX</span> <span class='op'>=&gt;</span> <span class='string'>&quot;MX&quot;</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>NULL</span> <span class='op'>=&gt;</span> <span class='string'>&quot;NULL&quot;</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>NS</span> <span class='op'>=&gt;</span> <span class='string'>&quot;NS&quot;</span>,
@@ -530,6 +536,7 @@
       <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>=&gt;</span> <span class='number'>255</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>=&gt;</span> <span class='number'>252</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>CNAME</span> <span class='op'>=&gt;</span> <span class='number'>5</span>,
+      <span class='ident'>RecordType</span>::<span class='ident'>KEY</span> <span class='op'>=&gt;</span> <span class='number'>25</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>DNSKEY</span> <span class='op'>=&gt;</span> <span class='number'>48</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>DS</span> <span class='op'>=&gt;</span> <span class='number'>43</span>,
       <span class='ident'>RecordType</span>::<span class='ident'>IXFR</span> <span class='op'>=&gt;</span> <span class='number'>251</span>,

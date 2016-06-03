@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../main.css">
+    
 
     
     
@@ -43,10 +44,10 @@
 
     <section id='main' class="content mod">
 <h1 class='fqn'><span class='in-band'>Crate <a class='mod' href=''>trust_dns</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-0' class='srclink' href='../src/trust_dns/src/lib.rs.html#17-57' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-0' class='srclink' href='../src/trust_dns/src/lib.rs.html#17-58' title='goto source code'>[src]</a></span></h1>
 <div class='docblock'><p>Trust-DNS is intended to be a fully compliant domain name server and client library.</p>
 
 <h1 id='goals' class='section-header'><a href='#goals'>Goals</a></h1>
@@ -60,105 +61,93 @@
 </ul>
 </div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='authority/index.html'
-                               title='trust_dns::authority'>authority</a></td>
-                        <td class='docblock short'>
-                             <p>Module for <code>Catalog</code> of <code>Authority</code> zones which are responsible for storing <code>RRSet</code> records.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='client/index.html'
-                               title='trust_dns::client'>client</a></td>
-                        <td class='docblock short'>
-                             <p>Use <code>Client</code> along with <code>trust_dns::udp::UdpClientConnection</code> or
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='authority/index.html'
+                                  title='trust_dns::authority'>authority</a></td>
+                           <td class='docblock short'>
+                                <p>Module for <code>Catalog</code> of <code>Authority</code> zones which are responsible for storing <code>RRSet</code> records.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='client/index.html'
+                                  title='trust_dns::client'>client</a></td>
+                           <td class='docblock short'>
+                                <p>Use <code>Client</code> along with <code>trust_dns::udp::UdpClientConnection</code> or
 <code>trust_dns::tcp::TcpClientConnection</code>.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='config/index.html'
-                               title='trust_dns::config'>config</a></td>
-                        <td class='docblock short'>
-                             <p>Configuration module for the server binary, <code>named</code>.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='error/index.html'
-                               title='trust_dns::error'>error</a></td>
-                        <td class='docblock short'>
-                             <p>All defined errors for Trust-DNS</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='logger/index.html'
-                               title='trust_dns::logger'>logger</a></td>
-                        <td class='docblock short'>
-                             
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='op/index.html'
-                               title='trust_dns::op'>op</a></td>
-                        <td class='docblock short'>
-                             <p>Operations to send with a <code>Client</code> or server, e.g. <code>Query</code>, <code>Message</code>, or <code>UpdateMessage</code> can
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='config/index.html'
+                                  title='trust_dns::config'>config</a></td>
+                           <td class='docblock short'>
+                                <p>Configuration module for the server binary, <code>named</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='error/index.html'
+                                  title='trust_dns::error'>error</a></td>
+                           <td class='docblock short'>
+                                <p>All defined errors for Trust-DNS</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='logger/index.html'
+                                  title='trust_dns::logger'>logger</a></td>
+                           <td class='docblock short'>
+                                
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='op/index.html'
+                                  title='trust_dns::op'>op</a></td>
+                           <td class='docblock short'>
+                                <p>Operations to send with a <code>Client</code> or server, e.g. <code>Query</code>, <code>Message</code>, or <code>UpdateMessage</code> can
 be used to gether to either query or update resource records sets.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='rr/index.html'
-                               title='trust_dns::rr'>rr</a></td>
-                        <td class='docblock short'>
-                             <p>Resource record related components, e.g. <code>Name</code> aka label, <code>Record</code>, <code>RData</code>, ...</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='serialize/index.html'
-                               title='trust_dns::serialize'>serialize</a></td>
-                        <td class='docblock short'>
-                             <p>Contains serialization libraries for <code>binary</code> and text, <code>txt</code>.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='server/index.html'
-                               title='trust_dns::server'>server</a></td>
-                        <td class='docblock short'>
-                             <p><code>Server</code> component for hosting a domain name servers operations.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='tcp/index.html'
-                               title='trust_dns::tcp'>tcp</a></td>
-                        <td class='docblock short'>
-                             <p>TCP protocol related components for DNS.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='udp/index.html'
-                               title='trust_dns::udp'>udp</a></td>
-                        <td class='docblock short'>
-                             <p>UDP protocol related components for DNS.</p>
-                        </td>
-                    </tr>
-                </table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='rr/index.html'
+                                  title='trust_dns::rr'>rr</a></td>
+                           <td class='docblock short'>
+                                <p>Resource record related components, e.g. <code>Name</code> aka label, <code>Record</code>, <code>RData</code>, ...</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='serialize/index.html'
+                                  title='trust_dns::serialize'>serialize</a></td>
+                           <td class='docblock short'>
+                                <p>Contains serialization libraries for <code>binary</code> and text, <code>txt</code>.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='server/index.html'
+                                  title='trust_dns::server'>server</a></td>
+                           <td class='docblock short'>
+                                <p><code>Server</code> component for hosting a domain name servers operations.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='tcp/index.html'
+                                  title='trust_dns::tcp'>tcp</a></td>
+                           <td class='docblock short'>
+                                <p>TCP protocol related components for DNS.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='udp/index.html'
+                                  title='trust_dns::udp'>udp</a></td>
+                           <td class='docblock short'>
+                                <p>UDP protocol related components for DNS.</p>
+                           </td>
+                       </tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='fn' href='fn.version.html'
-                               title='trust_dns::version'>version</a></td>
-                        <td class='docblock short'>
-                             
-                        </td>
-                    </tr>
-                </table></section>
+                       <tr class=' module-item'>
+                           <td><a class='fn' href='fn.version.html'
+                                  title='trust_dns::version'>version</a></td>
+                           <td class='docblock short'>
+                                
+                           </td>
+                       </tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

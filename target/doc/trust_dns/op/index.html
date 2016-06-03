@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../main.css">
+    
 
     
     
@@ -43,70 +44,64 @@
 
     <section id='main' class="content mod">
 <h1 class='fqn'><span class='in-band'>Module <a href='../index.html'>trust_dns</a>::<wbr><a class='mod' href=''>op</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-4078' class='srclink' href='../../src/trust_dns/src/op/mod.rs.html#17-33' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-4685' class='srclink' href='../../src/trust_dns/src/op/mod.rs.html#17-33' title='goto source code'>[src]</a></span></h1>
 <div class='docblock'><p>Operations to send with a <code>Client</code> or server, e.g. <code>Query</code>, <code>Message</code>, or <code>UpdateMessage</code> can
 be used to gether to either query or update resource records sets.</p>
 </div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
 <table><tr><td><code>pub use self::message::{<a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a>, <a class='trait' href='../../trust_dns/op/message/trait.UpdateMessage.html' title='trust_dns::op::message::UpdateMessage'>UpdateMessage</a>};</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./query/index.html'>query</a>::<a class='struct' href='../../trust_dns/op/query/struct.Query.html' title='trust_dns::op::query::Query'>Query</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./header/index.html'>header</a>::<a class='struct' href='../../trust_dns/op/header/struct.Header.html' title='trust_dns::op::header::Header'>Header</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./header/index.html'>header</a>::<a class='enum' href='../../trust_dns/op/header/enum.MessageType.html' title='trust_dns::op::header::MessageType'>MessageType</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./op_code/index.html'>op_code</a>::<a class='enum' href='../../trust_dns/op/op_code/enum.OpCode.html' title='trust_dns::op::op_code::OpCode'>OpCode</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./response_code/index.html'>response_code</a>::<a class='enum' href='../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+                                       href='./query/index.html'>query</a>::<a class='struct' href='../../trust_dns/op/query/struct.Query.html' title='trust_dns::op::query::Query'>Query</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./header/index.html'>header</a>::<a class='struct' href='../../trust_dns/op/header/struct.Header.html' title='trust_dns::op::header::Header'>Header</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./header/index.html'>header</a>::<a class='enum' href='../../trust_dns/op/header/enum.MessageType.html' title='trust_dns::op::header::MessageType'>MessageType</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./op_code/index.html'>op_code</a>::<a class='enum' href='../../trust_dns/op/op_code/enum.OpCode.html' title='trust_dns::op::op_code::OpCode'>OpCode</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./response_code/index.html'>response_code</a>::<a class='enum' href='../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='header/index.html'
-                               title='trust_dns::op::header'>header</a></td>
-                        <td class='docblock short'>
-                             <p>Message metadata</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='message/index.html'
-                               title='trust_dns::op::message'>message</a></td>
-                        <td class='docblock short'>
-                             <p>Basic protocol message for DNS</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='op_code/index.html'
-                               title='trust_dns::op::op_code'>op_code</a></td>
-                        <td class='docblock short'>
-                             <p>Operation code for queries, updates, and responses</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='query/index.html'
-                               title='trust_dns::op::query'>query</a></td>
-                        <td class='docblock short'>
-                             <p>Query struct for looking up resource records</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='response_code/index.html'
-                               title='trust_dns::op::response_code'>response_code</a></td>
-                        <td class='docblock short'>
-                             <p>All defined response codes in DNS</p>
-                        </td>
-                    </tr>
-                </table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='header/index.html'
+                                  title='trust_dns::op::header'>header</a></td>
+                           <td class='docblock short'>
+                                <p>Message metadata</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='message/index.html'
+                                  title='trust_dns::op::message'>message</a></td>
+                           <td class='docblock short'>
+                                <p>Basic protocol message for DNS</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='op_code/index.html'
+                                  title='trust_dns::op::op_code'>op_code</a></td>
+                           <td class='docblock short'>
+                                <p>Operation code for queries, updates, and responses</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='query/index.html'
+                                  title='trust_dns::op::query'>query</a></td>
+                           <td class='docblock short'>
+                                <p>Query struct for looking up resource records</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='response_code/index.html'
+                                  title='trust_dns::op::response_code'>response_code</a></td>
+                           <td class='docblock short'>
+                                <p>All defined response codes in DNS</p>
+                           </td>
+                       </tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='struct' href='struct.Edns.html'
-                               title='trust_dns::op::Edns'>Edns</a></td>
-                        <td class='docblock short'>
-                             <p>Edns implements the higher level concepts for working with Edns as it is used to create or be
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.Edns.html'
+                                  title='trust_dns::op::Edns'>Edns</a></td>
+                           <td class='docblock short'>
+                                <p>Edns implements the higher level concepts for working with Edns as it is used to create or be
 created from OPT record data.</p>
-                        </td>
-                    </tr>
-                </table></section>
+                           </td>
+                       </tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

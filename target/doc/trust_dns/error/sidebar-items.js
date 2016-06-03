@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["ClientError",""],["ConfigError",""],["DecodeError",""],["EncodeError",""],["LexerError",""],["ParseError",""]],"type":[["ClientResult",""],["ConfigResult",""],["DecodeResult",""],["EncodeResult",""],["LexerResult",""],["ParseResult",""]]});
+initSidebarItems({"enum":[["ClientError",""],["ConfigError",""],["DecodeError",""],["EncodeError",""],["LexerError",""],["ParseError",""]],"struct":[["ErrorLoc",""]],"type":[["ClientResult",""],["ConfigResult",""],["DecodeResult",""],["EncodeResult",""],["LexerResult",""],["ParseResult",""]]});

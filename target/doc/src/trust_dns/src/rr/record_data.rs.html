@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    
 
     
     
@@ -878,6 +879,55 @@
 <span id="835">835</span>
 <span id="836">836</span>
 <span id="837">837</span>
+<span id="838">838</span>
+<span id="839">839</span>
+<span id="840">840</span>
+<span id="841">841</span>
+<span id="842">842</span>
+<span id="843">843</span>
+<span id="844">844</span>
+<span id="845">845</span>
+<span id="846">846</span>
+<span id="847">847</span>
+<span id="848">848</span>
+<span id="849">849</span>
+<span id="850">850</span>
+<span id="851">851</span>
+<span id="852">852</span>
+<span id="853">853</span>
+<span id="854">854</span>
+<span id="855">855</span>
+<span id="856">856</span>
+<span id="857">857</span>
+<span id="858">858</span>
+<span id="859">859</span>
+<span id="860">860</span>
+<span id="861">861</span>
+<span id="862">862</span>
+<span id="863">863</span>
+<span id="864">864</span>
+<span id="865">865</span>
+<span id="866">866</span>
+<span id="867">867</span>
+<span id="868">868</span>
+<span id="869">869</span>
+<span id="870">870</span>
+<span id="871">871</span>
+<span id="872">872</span>
+<span id="873">873</span>
+<span id="874">874</span>
+<span id="875">875</span>
+<span id="876">876</span>
+<span id="877">877</span>
+<span id="878">878</span>
+<span id="879">879</span>
+<span id="880">880</span>
+<span id="881">881</span>
+<span id="882">882</span>
+<span id="883">883</span>
+<span id="884">884</span>
+<span id="885">885</span>
+<span id="886">886</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -1101,6 +1151,51 @@
   <span class='comment'>//    DNSKEY RR size.  As of the time of this writing, the only defined</span>
   <span class='comment'>//    digest algorithm is SHA-1, which produces a 20 octet digest.</span>
   <span class='ident'>DS</span>(<span class='ident'>DS</span>),
+
+  <span class='comment'>// RFC 2535                DNS Security Extensions               March 1999</span>
+  <span class='comment'>//</span>
+  <span class='comment'>// 3.1 KEY RDATA format</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//  The RDATA for a KEY RR consists of flags, a protocol octet, the</span>
+  <span class='comment'>//  algorithm number octet, and the public key itself.  The format is as</span>
+  <span class='comment'>//  follows:</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3</span>
+  <span class='comment'>//   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1</span>
+  <span class='comment'>//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</span>
+  <span class='comment'>//  |             flags             |    protocol   |   algorithm   |</span>
+  <span class='comment'>//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+</span>
+  <span class='comment'>//  |                                                               /</span>
+  <span class='comment'>//  /                          public key                           /</span>
+  <span class='comment'>//  /                                                               /</span>
+  <span class='comment'>//  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-|</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//  The KEY RR is not intended for storage of certificates and a separate</span>
+  <span class='comment'>//  certificate RR has been developed for that purpose, defined in [RFC</span>
+  <span class='comment'>//  2538].</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//  The meaning of the KEY RR owner name, flags, and protocol octet are</span>
+  <span class='comment'>//  described in Sections 3.1.1 through 3.1.5 below.  The flags and</span>
+  <span class='comment'>//  algorithm must be examined before any data following the algorithm</span>
+  <span class='comment'>//  octet as they control the existence and format of any following data.</span>
+  <span class='comment'>//  The algorithm and public key fields are described in Section 3.2.</span>
+  <span class='comment'>//  The format of the public key is algorithm dependent.</span>
+  <span class='comment'>//</span>
+  <span class='comment'>//  KEY RRs do not specify their validity period but their authenticating</span>
+  <span class='comment'>//  SIG RR(s) do as described in Section 4 below.</span>
+  <span class='ident'>KEY</span>(<span class='ident'>DNSKEY</span>),
 
   <span class='comment'>// 3.3.9. MX RDATA format</span>
   <span class='comment'>//</span>
@@ -1482,6 +1577,7 @@
       <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;parsing ANY doesn&#39;t make sense&quot;</span>),
       <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;parsing AXFR doesn&#39;t make sense&quot;</span>),
       <span class='ident'>RecordType</span>::<span class='ident'>CNAME</span> <span class='op'>=&gt;</span> <span class='ident'>RData</span>::<span class='ident'>CNAME</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>rdata</span>::<span class='ident'>name</span>::<span class='ident'>parse</span>(<span class='ident'>tokens</span>, <span class='ident'>origin</span>))),
+      <span class='ident'>RecordType</span>::<span class='ident'>KEY</span> <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;KEY should be dynamically generated&quot;</span>),
       <span class='ident'>RecordType</span>::<span class='ident'>DNSKEY</span> <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;DNSKEY should be dynamically generated&quot;</span>),
       <span class='ident'>RecordType</span>::<span class='ident'>DS</span> <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;DS should be dynamically generated&quot;</span>),
       <span class='ident'>RecordType</span>::<span class='ident'>IXFR</span> <span class='op'>=&gt;</span> <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;parsing IXFR doesn&#39;t make sense&quot;</span>),
@@ -1521,6 +1617,7 @@
       <span class='ident'>rt</span> <span class='kw-2'>@</span> <span class='ident'>RecordType</span>::<span class='ident'>ANY</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>DecodeError</span>::<span class='ident'>UnknownRecordTypeValue</span>(<span class='ident'>rt</span>.<span class='ident'>into</span>())),
       <span class='ident'>rt</span> <span class='kw-2'>@</span> <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>DecodeError</span>::<span class='ident'>UnknownRecordTypeValue</span>(<span class='ident'>rt</span>.<span class='ident'>into</span>())),
       <span class='ident'>RecordType</span>::<span class='ident'>CNAME</span> <span class='op'>=&gt;</span> {<span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;reading CNAME&quot;</span>); <span class='ident'>RData</span>::<span class='ident'>CNAME</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>rdata</span>::<span class='ident'>name</span>::<span class='ident'>read</span>(<span class='ident'>decoder</span>))) },
+      <span class='ident'>RecordType</span>::<span class='ident'>KEY</span> <span class='op'>=&gt;</span> {<span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;reading KEY&quot;</span>); <span class='ident'>RData</span>::<span class='ident'>KEY</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>rdata</span>::<span class='ident'>dnskey</span>::<span class='ident'>read</span>(<span class='ident'>decoder</span>, <span class='ident'>rdata_length</span>))) },
       <span class='ident'>RecordType</span>::<span class='ident'>DNSKEY</span> <span class='op'>=&gt;</span> {<span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;reading DNSKEY&quot;</span>); <span class='ident'>RData</span>::<span class='ident'>DNSKEY</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>rdata</span>::<span class='ident'>dnskey</span>::<span class='ident'>read</span>(<span class='ident'>decoder</span>, <span class='ident'>rdata_length</span>))) },
       <span class='ident'>RecordType</span>::<span class='ident'>DS</span> <span class='op'>=&gt;</span> {<span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;reading DS&quot;</span>); <span class='ident'>RData</span>::<span class='ident'>DS</span>(<span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>rdata</span>::<span class='ident'>ds</span>::<span class='ident'>read</span>(<span class='ident'>decoder</span>, <span class='ident'>rdata_length</span>))) },
       <span class='ident'>rt</span> <span class='kw-2'>@</span> <span class='ident'>RecordType</span>::<span class='ident'>IXFR</span> <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>DecodeError</span>::<span class='ident'>UnknownRecordTypeValue</span>(<span class='ident'>rt</span>.<span class='ident'>into</span>())),
@@ -1553,6 +1650,7 @@
       <span class='ident'>RData</span>::<span class='ident'>AAAA</span>(<span class='kw-2'>ref</span> <span class='ident'>address</span>) <span class='op'>=&gt;</span> <span class='ident'>rdata</span>::<span class='ident'>aaaa</span>::<span class='ident'>emit</span>(<span class='ident'>encoder</span>, <span class='ident'>address</span>),
       <span class='ident'>RData</span>::<span class='ident'>CNAME</span>(<span class='kw-2'>ref</span> <span class='ident'>name</span>) <span class='op'>=&gt;</span> <span class='ident'>rdata</span>::<span class='ident'>name</span>::<span class='ident'>emit</span>(<span class='ident'>encoder</span>, <span class='ident'>name</span>),
       <span class='ident'>RData</span>::<span class='ident'>DS</span>(<span class='kw-2'>ref</span> <span class='ident'>ds</span>) <span class='op'>=&gt;</span> <span class='ident'>rdata</span>::<span class='ident'>ds</span>::<span class='ident'>emit</span>(<span class='ident'>encoder</span>, <span class='ident'>ds</span>),
+      <span class='ident'>RData</span>::<span class='ident'>KEY</span>(<span class='kw-2'>ref</span> <span class='ident'>key</span>) <span class='op'>=&gt;</span> <span class='ident'>rdata</span>::<span class='ident'>dnskey</span>::<span class='ident'>emit</span>(<span class='ident'>encoder</span>, <span class='ident'>key</span>),
       <span class='ident'>RData</span>::<span class='ident'>DNSKEY</span>(<span class='kw-2'>ref</span> <span class='ident'>dnskey</span>) <span class='op'>=&gt;</span> <span class='ident'>rdata</span>::<span class='ident'>dnskey</span>::<span class='ident'>emit</span>(<span class='ident'>encoder</span>, <span class='ident'>dnskey</span>),
       <span class='ident'>RData</span>::<span class='ident'>MX</span>(<span class='kw-2'>ref</span> <span class='ident'>mx</span>) <span class='op'>=&gt;</span> <span class='ident'>rdata</span>::<span class='ident'>mx</span>::<span class='ident'>emit</span>(<span class='ident'>encoder</span>, <span class='ident'>mx</span>),
       <span class='ident'>RData</span>::<span class='ident'>NULL</span>(<span class='kw-2'>ref</span> <span class='ident'>null</span>) <span class='op'>=&gt;</span> <span class='ident'>rdata</span>::<span class='ident'>null</span>::<span class='ident'>emit</span>(<span class='ident'>encoder</span>, <span class='ident'>null</span>),
@@ -1579,6 +1677,7 @@
       <span class='ident'>RData</span>::<span class='ident'>AAAA</span>(..) <span class='op'>=&gt;</span> <span class='ident'>RecordType</span>::<span class='ident'>AAAA</span>,
       <span class='ident'>RData</span>::<span class='ident'>CNAME</span>(..) <span class='op'>=&gt;</span> <span class='ident'>RecordType</span>::<span class='ident'>CNAME</span>,
       <span class='ident'>RData</span>::<span class='ident'>DS</span>(..) <span class='op'>=&gt;</span> <span class='ident'>RecordType</span>::<span class='ident'>DS</span>,
+      <span class='ident'>RData</span>::<span class='ident'>KEY</span>(..) <span class='op'>=&gt;</span> <span class='ident'>RecordType</span>::<span class='ident'>KEY</span>,
       <span class='ident'>RData</span>::<span class='ident'>DNSKEY</span>(..) <span class='op'>=&gt;</span> <span class='ident'>RecordType</span>::<span class='ident'>DNSKEY</span>,
       <span class='ident'>RData</span>::<span class='ident'>MX</span>(..) <span class='op'>=&gt;</span> <span class='ident'>RecordType</span>::<span class='ident'>MX</span>,
       <span class='ident'>RData</span>::<span class='ident'>NS</span>(..) <span class='op'>=&gt;</span> <span class='ident'>RecordType</span>::<span class='ident'>NS</span>,

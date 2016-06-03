@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../main.css">
+    
 
     
     
@@ -43,146 +44,131 @@
 
     <section id='main' class="content mod">
 <h1 class='fqn'><span class='in-band'>Module <a href='../../index.html'>trust_dns</a>::<wbr><a href='../index.html'>rr</a>::<wbr><a class='mod' href=''>rdata</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-999' class='srclink' href='../../../src/trust_dns/src/rr/rdata/mod.rs.html#17-49' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-1572' class='srclink' href='../../../src/trust_dns/src/rr/rdata/mod.rs.html#17-49' title='goto source code'>[src]</a></span></h1>
 <div class='docblock'><p>All record data structures and related serialization methods</p>
 </div><h2 id='reexports' class='section-header'><a href="#reexports">Reexports</a></h2>
 <table><tr><td><code>pub use self::<a class='mod'
-                                            href='./dnskey/index.html'>dnskey</a>::<a class='struct' href='../../../trust_dns/rr/rdata/dnskey/struct.DNSKEY.html' title='trust_dns::rr::rdata::dnskey::DNSKEY'>DNSKEY</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./ds/index.html'>ds</a>::<a class='struct' href='../../../trust_dns/rr/rdata/ds/struct.DS.html' title='trust_dns::rr::rdata::ds::DS'>DS</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./mx/index.html'>mx</a>::<a class='struct' href='../../../trust_dns/rr/rdata/mx/struct.MX.html' title='trust_dns::rr::rdata::mx::MX'>MX</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./nsec/index.html'>nsec</a>::<a class='struct' href='../../../trust_dns/rr/rdata/nsec/struct.NSEC.html' title='trust_dns::rr::rdata::nsec::NSEC'>NSEC</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./nsec3/index.html'>nsec3</a>::<a class='struct' href='../../../trust_dns/rr/rdata/nsec3/struct.NSEC3.html' title='trust_dns::rr::rdata::nsec3::NSEC3'>NSEC3</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./nsec3param/index.html'>nsec3param</a>::<a class='struct' href='../../../trust_dns/rr/rdata/nsec3param/struct.NSEC3PARAM.html' title='trust_dns::rr::rdata::nsec3param::NSEC3PARAM'>NSEC3PARAM</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./null/index.html'>null</a>::<a class='struct' href='../../../trust_dns/rr/rdata/null/struct.NULL.html' title='trust_dns::rr::rdata::null::NULL'>NULL</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./opt/index.html'>opt</a>::<a class='struct' href='../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./sig/index.html'>sig</a>::<a class='struct' href='../../../trust_dns/rr/rdata/sig/struct.SIG.html' title='trust_dns::rr::rdata::sig::SIG'>SIG</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./srv/index.html'>srv</a>::<a class='struct' href='../../../trust_dns/rr/rdata/srv/struct.SRV.html' title='trust_dns::rr::rdata::srv::SRV'>SRV</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./soa/index.html'>soa</a>::<a class='struct' href='../../../trust_dns/rr/rdata/soa/struct.SOA.html' title='trust_dns::rr::rdata::soa::SOA'>SOA</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
-                                            href='./txt/index.html'>txt</a>::<a class='struct' href='../../../trust_dns/rr/rdata/txt/struct.TXT.html' title='trust_dns::rr::rdata::txt::TXT'>TXT</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+                                       href='./dnskey/index.html'>dnskey</a>::<a class='struct' href='../../../trust_dns/rr/rdata/dnskey/struct.DNSKEY.html' title='trust_dns::rr::rdata::dnskey::DNSKEY'>DNSKEY</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./ds/index.html'>ds</a>::<a class='struct' href='../../../trust_dns/rr/rdata/ds/struct.DS.html' title='trust_dns::rr::rdata::ds::DS'>DS</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./mx/index.html'>mx</a>::<a class='struct' href='../../../trust_dns/rr/rdata/mx/struct.MX.html' title='trust_dns::rr::rdata::mx::MX'>MX</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./nsec/index.html'>nsec</a>::<a class='struct' href='../../../trust_dns/rr/rdata/nsec/struct.NSEC.html' title='trust_dns::rr::rdata::nsec::NSEC'>NSEC</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./nsec3/index.html'>nsec3</a>::<a class='struct' href='../../../trust_dns/rr/rdata/nsec3/struct.NSEC3.html' title='trust_dns::rr::rdata::nsec3::NSEC3'>NSEC3</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./nsec3param/index.html'>nsec3param</a>::<a class='struct' href='../../../trust_dns/rr/rdata/nsec3param/struct.NSEC3PARAM.html' title='trust_dns::rr::rdata::nsec3param::NSEC3PARAM'>NSEC3PARAM</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./null/index.html'>null</a>::<a class='struct' href='../../../trust_dns/rr/rdata/null/struct.NULL.html' title='trust_dns::rr::rdata::null::NULL'>NULL</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./opt/index.html'>opt</a>::<a class='struct' href='../../../trust_dns/rr/rdata/opt/struct.OPT.html' title='trust_dns::rr::rdata::opt::OPT'>OPT</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./sig/index.html'>sig</a>::<a class='struct' href='../../../trust_dns/rr/rdata/sig/struct.SIG.html' title='trust_dns::rr::rdata::sig::SIG'>SIG</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./srv/index.html'>srv</a>::<a class='struct' href='../../../trust_dns/rr/rdata/srv/struct.SRV.html' title='trust_dns::rr::rdata::srv::SRV'>SRV</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./soa/index.html'>soa</a>::<a class='struct' href='../../../trust_dns/rr/rdata/soa/struct.SOA.html' title='trust_dns::rr::rdata::soa::SOA'>SOA</a>;</code></td></tr><tr><td><code>pub use self::<a class='mod'
+                                       href='./txt/index.html'>txt</a>::<a class='struct' href='../../../trust_dns/rr/rdata/txt/struct.TXT.html' title='trust_dns::rr::rdata::txt::TXT'>TXT</a>;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='a/index.html'
-                               title='trust_dns::rr::rdata::a'>a</a></td>
-                        <td class='docblock short'>
-                             <p>IPv4 address record data</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='aaaa/index.html'
-                               title='trust_dns::rr::rdata::aaaa'>aaaa</a></td>
-                        <td class='docblock short'>
-                             <p>IPv6 address record data</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='dnskey/index.html'
-                               title='trust_dns::rr::rdata::dnskey'>dnskey</a></td>
-                        <td class='docblock short'>
-                             <p>public key record data for signing zone records</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='ds/index.html'
-                               title='trust_dns::rr::rdata::ds'>ds</a></td>
-                        <td class='docblock short'>
-                             <p>pointer record from parent zone to child zone for dnskey proof</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='mx/index.html'
-                               title='trust_dns::rr::rdata::mx'>mx</a></td>
-                        <td class='docblock short'>
-                             <p>mail exchange, email, record</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='name/index.html'
-                               title='trust_dns::rr::rdata::name'>name</a></td>
-                        <td class='docblock short'>
-                             <p>Record type for all cname like records.</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='nsec/index.html'
-                               title='trust_dns::rr::rdata::nsec'>nsec</a></td>
-                        <td class='docblock short'>
-                             <p>negative cache proof for non-existence</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='nsec3/index.html'
-                               title='trust_dns::rr::rdata::nsec3'>nsec3</a></td>
-                        <td class='docblock short'>
-                             <p>hashed negative cache proof for non-existence</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='nsec3param/index.html'
-                               title='trust_dns::rr::rdata::nsec3param'>nsec3param</a></td>
-                        <td class='docblock short'>
-                             <p>parameters used for the nsec3 hash method</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='null/index.html'
-                               title='trust_dns::rr::rdata::null'>null</a></td>
-                        <td class='docblock short'>
-                             <p>null record type, generally not used except as an internal tool for representing null data</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='opt/index.html'
-                               title='trust_dns::rr::rdata::opt'>opt</a></td>
-                        <td class='docblock short'>
-                             <p>option record for passing protocol options between the client and server</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='sig/index.html'
-                               title='trust_dns::rr::rdata::sig'>sig</a></td>
-                        <td class='docblock short'>
-                             <p>signature record for signing queries, updates, and responses</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='soa/index.html'
-                               title='trust_dns::rr::rdata::soa'>soa</a></td>
-                        <td class='docblock short'>
-                             <p>start of authority record defining ownership and defaults for the zone</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='srv/index.html'
-                               title='trust_dns::rr::rdata::srv'>srv</a></td>
-                        <td class='docblock short'>
-                             <p>service records for identify port mapping for specific services on a host</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='mod' href='txt/index.html'
-                               title='trust_dns::rr::rdata::txt'>txt</a></td>
-                        <td class='docblock short'>
-                             <p>text records for storing arbitrary data</p>
-                        </td>
-                    </tr>
-                </table></section>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='a/index.html'
+                                  title='trust_dns::rr::rdata::a'>a</a></td>
+                           <td class='docblock short'>
+                                <p>IPv4 address record data</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='aaaa/index.html'
+                                  title='trust_dns::rr::rdata::aaaa'>aaaa</a></td>
+                           <td class='docblock short'>
+                                <p>IPv6 address record data</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='dnskey/index.html'
+                                  title='trust_dns::rr::rdata::dnskey'>dnskey</a></td>
+                           <td class='docblock short'>
+                                <p>public key record data for signing zone records</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='ds/index.html'
+                                  title='trust_dns::rr::rdata::ds'>ds</a></td>
+                           <td class='docblock short'>
+                                <p>pointer record from parent zone to child zone for dnskey proof</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='mx/index.html'
+                                  title='trust_dns::rr::rdata::mx'>mx</a></td>
+                           <td class='docblock short'>
+                                <p>mail exchange, email, record</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='name/index.html'
+                                  title='trust_dns::rr::rdata::name'>name</a></td>
+                           <td class='docblock short'>
+                                <p>Record type for all cname like records.</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='nsec/index.html'
+                                  title='trust_dns::rr::rdata::nsec'>nsec</a></td>
+                           <td class='docblock short'>
+                                <p>negative cache proof for non-existence</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='nsec3/index.html'
+                                  title='trust_dns::rr::rdata::nsec3'>nsec3</a></td>
+                           <td class='docblock short'>
+                                <p>hashed negative cache proof for non-existence</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='nsec3param/index.html'
+                                  title='trust_dns::rr::rdata::nsec3param'>nsec3param</a></td>
+                           <td class='docblock short'>
+                                <p>parameters used for the nsec3 hash method</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='null/index.html'
+                                  title='trust_dns::rr::rdata::null'>null</a></td>
+                           <td class='docblock short'>
+                                <p>null record type, generally not used except as an internal tool for representing null data</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='opt/index.html'
+                                  title='trust_dns::rr::rdata::opt'>opt</a></td>
+                           <td class='docblock short'>
+                                <p>option record for passing protocol options between the client and server</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='sig/index.html'
+                                  title='trust_dns::rr::rdata::sig'>sig</a></td>
+                           <td class='docblock short'>
+                                <p>signature record for signing queries, updates, and responses</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='soa/index.html'
+                                  title='trust_dns::rr::rdata::soa'>soa</a></td>
+                           <td class='docblock short'>
+                                <p>start of authority record defining ownership and defaults for the zone</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='srv/index.html'
+                                  title='trust_dns::rr::rdata::srv'>srv</a></td>
+                           <td class='docblock short'>
+                                <p>service records for identify port mapping for specific services on a host</p>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='mod' href='txt/index.html'
+                                  title='trust_dns::rr::rdata::txt'>txt</a></td>
+                           <td class='docblock short'>
+                                <p>text records for storing arbitrary data</p>
+                           </td>
+                       </tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

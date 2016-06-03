@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../main.css">
+    
 
     
     
@@ -43,10 +44,10 @@
 
     <section id='main' class="content struct">
 <h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>server</a>::<wbr><a class='struct' href=''>Server</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-5943' class='srclink' href='../../src/trust_dns/src/server/server.rs.html#33-43' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-6553' class='srclink' href='../../src/trust_dns/src/server/server.rs.html#33-43' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct Server {
     // some fields omitted
 }</pre><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../trust_dns/server/struct.Server.html' title='trust_dns::server::Server'>Server</a></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>(catalog: <a class='struct' href='../../trust_dns/authority/struct.Catalog.html' title='trust_dns::authority::Catalog'>Catalog</a>) -&gt; <a class='struct' href='../../trust_dns/server/struct.Server.html' title='trust_dns::server::Server'>Server</a></code></h4>
@@ -59,8 +60,8 @@ IPv4 address.</p>
 <div class='docblock'><p>TODO how to do threads? should we do a bunch of listener threads and then query threads?
 Ideally the processing would be n-threads for recieving, which hand off to m-threads for
  request handling. It would generally be the case that n &lt;= m.</p>
-</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl Handler for <a class='struct' href='../../trust_dns/server/struct.Server.html' title='trust_dns::server::Server'>Server</a></code></h3><div class='impl-items'><h4 id='associatedtype.Timeout' class='type'><code>type Timeout = Token</code></h4>
-<h4 id='associatedtype.Message' class='type'><code>type Message = <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a></code></h4>
+</div></div><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl Handler for <a class='struct' href='../../trust_dns/server/struct.Server.html' title='trust_dns::server::Server'>Server</a></code></h3><div class='impl-items'><h4 id='associatedtype.Timeout' class='type'><code>type <a href='#associatedtype.Timeout' class='type'>Timeout</a> = Token</code></h4>
+<h4 id='associatedtype.Message' class='type'><code>type <a href='#associatedtype.Message' class='type'>Message</a> = <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.tuple.html'>()</a></code></h4>
 <h4 id='method.ready' class='method'><code>fn <a href='#method.ready' class='fnname'>ready</a>(&amp;mut self, event_loop: &amp;mut EventLoop&lt;Self&gt;, token: Token, events: EventSet)</code></h4>
 <h4 id='method.interrupted' class='method'><code>fn <a href='#method.interrupted' class='fnname'>interrupted</a>(&amp;mut self, event_loop: &amp;mut EventLoop&lt;Self&gt;)</code></h4>
 <h4 id='method.notify' class='method'><code>fn <a href='#method.notify' class='fnname'>notify</a>(&amp;mut self, event_loop: &amp;mut EventLoop&lt;Self&gt;, msg: Self::Message)</code></h4>

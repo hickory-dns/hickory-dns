@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../../main.css">
+    
 
     
     
@@ -669,6 +670,58 @@
 <span id="626">626</span>
 <span id="627">627</span>
 <span id="628">628</span>
+<span id="629">629</span>
+<span id="630">630</span>
+<span id="631">631</span>
+<span id="632">632</span>
+<span id="633">633</span>
+<span id="634">634</span>
+<span id="635">635</span>
+<span id="636">636</span>
+<span id="637">637</span>
+<span id="638">638</span>
+<span id="639">639</span>
+<span id="640">640</span>
+<span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
+<span id="645">645</span>
+<span id="646">646</span>
+<span id="647">647</span>
+<span id="648">648</span>
+<span id="649">649</span>
+<span id="650">650</span>
+<span id="651">651</span>
+<span id="652">652</span>
+<span id="653">653</span>
+<span id="654">654</span>
+<span id="655">655</span>
+<span id="656">656</span>
+<span id="657">657</span>
+<span id="658">658</span>
+<span id="659">659</span>
+<span id="660">660</span>
+<span id="661">661</span>
+<span id="662">662</span>
+<span id="663">663</span>
+<span id="664">664</span>
+<span id="665">665</span>
+<span id="666">666</span>
+<span id="667">667</span>
+<span id="668">668</span>
+<span id="669">669</span>
+<span id="670">670</span>
+<span id="671">671</span>
+<span id="672">672</span>
+<span id="673">673</span>
+<span id="674">674</span>
+<span id="675">675</span>
+<span id="676">676</span>
+<span id="677">677</span>
+<span id="678">678</span>
+<span id="679">679</span>
+<span id="680">680</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -693,7 +746,7 @@
 <span class='kw'>use</span> ::<span class='ident'>op</span>::<span class='ident'>Message</span>;
 <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>dnssec</span>::{<span class='ident'>Algorithm</span>, <span class='ident'>DigestType</span>};
 <span class='kw'>use</span> ::<span class='ident'>rr</span>::{<span class='ident'>DNSClass</span>, <span class='ident'>Name</span>, <span class='ident'>Record</span>, <span class='ident'>RecordType</span>, <span class='ident'>RData</span>};
-<span class='kw'>use</span> ::<span class='ident'>serialize</span>::<span class='ident'>binary</span>::{<span class='ident'>BinEncoder</span>, <span class='ident'>BinSerializable</span>};
+<span class='kw'>use</span> ::<span class='ident'>serialize</span>::<span class='ident'>binary</span>::{<span class='ident'>BinEncoder</span>, <span class='ident'>BinSerializable</span>, <span class='ident'>EncodeMode</span>};
 <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>rdata</span>::{<span class='ident'>sig</span>, <span class='ident'>DNSKEY</span>};
 
 
@@ -795,11 +848,7 @@
   <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>calculate_key_tag</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>) <span class='op'>-&gt;</span> <span class='ident'>u16</span> {
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>ac</span>: <span class='ident'>usize</span> <span class='op'>=</span> <span class='number'>0</span>;
 
-    <span class='comment'>// TODO This might need to be the RAW key, as opposed to the DER formatted public key</span>
-    <span class='comment'>//  would need to extract the RAW public key: https://en.wikipedia.org/wiki/X.690#DER_encoding</span>
-
-    <span class='comment'>// TODO use insert i with known sizes for optimized loop unrolling.</span>
-    <span class='kw'>for</span> (<span class='ident'>i</span>,<span class='ident'>k</span>) <span class='kw'>in</span> <span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>save_pub</span>().<span class='ident'>iter</span>().<span class='ident'>enumerate</span>() {
+    <span class='kw'>for</span> (<span class='ident'>i</span>,<span class='ident'>k</span>) <span class='kw'>in</span> <span class='self'>self</span>.<span class='ident'>get_public_key</span>().<span class='ident'>iter</span>().<span class='ident'>enumerate</span>() {
       <span class='ident'>ac</span> <span class='op'>+=</span> <span class='kw'>if</span> <span class='ident'>i</span> <span class='kw-2'>&amp;</span> <span class='number'>0x0001</span> <span class='op'>==</span> <span class='number'>0x0001</span> { <span class='op'>*</span><span class='ident'>k</span> <span class='kw'>as</span> <span class='ident'>usize</span> } <span class='kw'>else</span> { (<span class='op'>*</span><span class='ident'>k</span> <span class='kw'>as</span> <span class='ident'>usize</span>) <span class='op'>&lt;&lt;</span> <span class='number'>8</span> };
     }
 
@@ -814,13 +863,19 @@
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>buf</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>Vec</span>::<span class='ident'>with_capacity</span>(<span class='number'>512</span>);
 
     {
-      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>encoder</span>: <span class='ident'>BinEncoder</span> <span class='op'>=</span> <span class='ident'>BinEncoder</span>::<span class='ident'>new</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>buf</span>);
+      <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>encoder</span>: <span class='ident'>BinEncoder</span> <span class='op'>=</span> <span class='ident'>BinEncoder</span>::<span class='ident'>with_mode</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>buf</span>, <span class='ident'>EncodeMode</span>::<span class='ident'>Signing</span>);
       <span class='ident'>message</span>.<span class='ident'>emit</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>encoder</span>).<span class='ident'>unwrap</span>(); <span class='comment'>// coding error if this panics (i think?)</span>
     }
 
     <span class='ident'>DigestType</span>::<span class='ident'>from</span>(<span class='self'>self</span>.<span class='ident'>algorithm</span>).<span class='ident'>hash</span>(<span class='kw-2'>&amp;</span><span class='ident'>buf</span>)
   }
 
+  <span class='doccomment'>/// Signs the given message, returning the signature bytes.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `message` - the message to sign</span>
+  <span class='doccomment'>///</span>
   <span class='doccomment'>/// ```text</span>
   <span class='doccomment'>/// 4.1.8.1 Calculating Transaction and Request SIGs</span>
   <span class='doccomment'>///</span>
@@ -871,7 +926,23 @@
   <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>sign_message</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>message</span>: <span class='kw-2'>&amp;</span><span class='ident'>Message</span>) <span class='op'>-&gt;</span> <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span> {
     <span class='macro'>assert</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>can</span>(<span class='ident'>Role</span>::<span class='ident'>Sign</span>)); <span class='comment'>// this is bad code, not expected in regular runtime</span>
     <span class='kw'>let</span> <span class='ident'>hash</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>hash_message</span>(<span class='ident'>message</span>);
-    <span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>sign_with_hash</span>(<span class='kw-2'>&amp;</span><span class='ident'>hash</span>, <span class='ident'>DigestType</span>::<span class='ident'>from</span>(<span class='self'>self</span>.<span class='ident'>algorithm</span>).<span class='ident'>to_hash</span>())
+    <span class='self'>self</span>.<span class='ident'>sign</span>(<span class='kw-2'>&amp;</span><span class='ident'>hash</span>)
+  }
+
+  <span class='doccomment'>/// Verifies a message with the against the given signature</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// `message` - the message to verify</span>
+  <span class='doccomment'>/// `signature` - the signature to use for validation</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Return value</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// `true` if the message could be validated against the signature, `false` otherwise</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>verify_message</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>message</span>: <span class='kw-2'>&amp;</span><span class='ident'>Message</span>, <span class='ident'>signature</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>u8</span>]) <span class='op'>-&gt;</span> <span class='ident'>bool</span> {
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>can</span>(<span class='ident'>Role</span>::<span class='ident'>Verify</span>)); <span class='comment'>// this is bad code, not expected in regular runtime</span>
+    <span class='kw'>let</span> <span class='ident'>hash</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>hash_message</span>(<span class='ident'>message</span>);
+    <span class='self'>self</span>.<span class='ident'>verify</span>(<span class='kw-2'>&amp;</span><span class='ident'>hash</span>, <span class='ident'>signature</span>)
   }
 
   <span class='comment'>// RFC 4035             DNSSEC Protocol Modifications            March 2005</span>
@@ -1233,6 +1304,40 @@
       <span class='kw'>return</span> <span class='boolval'>false</span>;
     }
     <span class='self'>self</span>.<span class='ident'>pkey</span>.<span class='ident'>verify_with_hash</span>(<span class='ident'>hash</span>, <span class='ident'>signature</span>, <span class='ident'>DigestType</span>::<span class='ident'>from</span>(<span class='self'>self</span>.<span class='ident'>algorithm</span>).<span class='ident'>to_hash</span>())
+  }
+}
+
+<span class='attribute'>#[<span class='ident'>test</span>]</span>
+<span class='kw'>fn</span> <span class='ident'>test_sign_and_verify_message_sig0</span>() {
+  <span class='kw'>use</span> ::<span class='ident'>rr</span>::<span class='ident'>Name</span>;
+  <span class='kw'>use</span> ::<span class='ident'>op</span>::{<span class='ident'>Message</span>, <span class='ident'>Query</span>, <span class='ident'>UpdateMessage</span>};
+
+  <span class='kw'>let</span> <span class='ident'>origin</span>: <span class='ident'>Name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;example.com.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>();
+  <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>question</span>: <span class='ident'>Message</span> <span class='op'>=</span> <span class='ident'>Message</span>::<span class='ident'>new</span>();
+  <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>query</span>: <span class='ident'>Query</span> <span class='op'>=</span> <span class='ident'>Query</span>::<span class='ident'>new</span>();
+  <span class='ident'>query</span>.<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>());
+  <span class='ident'>question</span>.<span class='ident'>add_query</span>(<span class='ident'>query</span>);
+
+  <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>pkey</span> <span class='op'>=</span> <span class='ident'>PKey</span>::<span class='ident'>new</span>();
+  <span class='ident'>pkey</span>.<span class='ident'>gen</span>(<span class='number'>512</span>);
+  <span class='kw'>let</span> <span class='ident'>signer</span> <span class='op'>=</span> <span class='ident'>Signer</span>::<span class='ident'>new</span>(<span class='ident'>Algorithm</span>::<span class='ident'>RSASHA256</span>, <span class='ident'>pkey</span>, <span class='ident'>Name</span>::<span class='ident'>root</span>(), <span class='ident'>u32</span>::<span class='ident'>max_value</span>(), <span class='number'>0</span>);
+
+  <span class='kw'>let</span> <span class='ident'>sig</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>sign_message</span>(<span class='kw-2'>&amp;</span><span class='ident'>question</span>);
+  <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;sig: {:?}&quot;</span>, <span class='ident'>sig</span>);
+
+  <span class='macro'>assert</span><span class='macro'>!</span>(<span class='op'>!</span><span class='ident'>sig</span>.<span class='ident'>is_empty</span>());
+  <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>signer</span>.<span class='ident'>verify_message</span>(<span class='kw-2'>&amp;</span><span class='ident'>question</span>, <span class='kw-2'>&amp;</span><span class='ident'>sig</span>));
+
+  <span class='comment'>// now test that the sig0 record works correctly.</span>
+  <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>question</span>.<span class='ident'>get_sig0</span>().<span class='ident'>is_empty</span>());
+  <span class='ident'>question</span>.<span class='ident'>sign</span>(<span class='kw-2'>&amp;</span><span class='ident'>signer</span>, <span class='number'>0</span>);
+  <span class='macro'>assert</span><span class='macro'>!</span>(<span class='op'>!</span><span class='ident'>question</span>.<span class='ident'>get_sig0</span>().<span class='ident'>is_empty</span>());
+
+  <span class='kw'>let</span> <span class='ident'>sig</span> <span class='op'>=</span> <span class='ident'>signer</span>.<span class='ident'>sign_message</span>(<span class='kw-2'>&amp;</span><span class='ident'>question</span>);
+  <span class='macro'>println</span><span class='macro'>!</span>(<span class='string'>&quot;sig after sign: {:?}&quot;</span>, <span class='ident'>sig</span>);
+
+  <span class='kw'>if</span> <span class='kw'>let</span> <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>SIG</span>(<span class='kw-2'>ref</span> <span class='ident'>sig</span>) <span class='op'>=</span> <span class='ident'>question</span>.<span class='ident'>get_sig0</span>()[<span class='number'>0</span>].<span class='ident'>get_rdata</span>() {
+    <span class='macro'>assert</span><span class='macro'>!</span>(<span class='ident'>signer</span>.<span class='ident'>verify_message</span>(<span class='kw-2'>&amp;</span><span class='ident'>question</span>, <span class='ident'>sig</span>.<span class='ident'>get_sig</span>()));
   }
 }
 

@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../main.css">
+    
 
     
     
@@ -43,48 +44,44 @@
 
     <section id='main' class="content mod">
 <h1 class='fqn'><span class='in-band'>Module <a href='../../index.html'>trust_dns</a>::<wbr><a href='../index.html'>serialize</a>::<wbr><a class='mod' href=''>binary</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-6747' class='srclink' href='../../../src/trust_dns/src/serialize/binary/mod.rs.html#16-71' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-6761' class='srclink' href='../../../src/trust_dns/src/serialize/binary/mod.rs.html#16-71' title='goto source code'>[src]</a></span></h1>
 <h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='struct' href='struct.BinDecoder.html'
-                               title='trust_dns::serialize::binary::BinDecoder'>BinDecoder</a></td>
-                        <td class='docblock short'>
-                             <p>This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.BinDecoder.html'
+                                  title='trust_dns::serialize::binary::BinDecoder'>BinDecoder</a></td>
+                           <td class='docblock short'>
+                                <p>This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
  seek to lookup names</p>
-                        </td>
-                    </tr>
-                
-                    <tr class=' module-item'>
-                        <td><a class='struct' href='struct.BinEncoder.html'
-                               title='trust_dns::serialize::binary::BinEncoder'>BinEncoder</a></td>
-                        <td class='docblock short'>
-                             <p>Encode DNS messages and resource record types.</p>
-                        </td>
-                    </tr>
-                </table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+                           </td>
+                       </tr>
+                       <tr class=' module-item'>
+                           <td><a class='struct' href='struct.BinEncoder.html'
+                                  title='trust_dns::serialize::binary::BinEncoder'>BinEncoder</a></td>
+                           <td class='docblock short'>
+                                <p>Encode DNS messages and resource record types.</p>
+                           </td>
+                       </tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='enum' href='enum.EncodeMode.html'
-                               title='trust_dns::serialize::binary::EncodeMode'>EncodeMode</a></td>
-                        <td class='docblock short'>
-                             <p>In the Verify mode there maybe some things which are encoded differently, e.g. SIG0 records
+                       <tr class=' module-item'>
+                           <td><a class='enum' href='enum.EncodeMode.html'
+                                  title='trust_dns::serialize::binary::EncodeMode'>EncodeMode</a></td>
+                           <td class='docblock short'>
+                                <p>In the Verify mode there maybe some things which are encoded differently, e.g. SIG0 records
 should not be included in the additional count and not in the encoded data when in Verify</p>
-                        </td>
-                    </tr>
-                </table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+                           </td>
+                       </tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
 <table>
-                    <tr class=' module-item'>
-                        <td><a class='trait' href='trait.BinSerializable.html'
-                               title='trust_dns::serialize::binary::BinSerializable'>BinSerializable</a></td>
-                        <td class='docblock short'>
-                             
-                        </td>
-                    </tr>
-                </table></section>
+                       <tr class=' module-item'>
+                           <td><a class='trait' href='trait.BinSerializable.html'
+                                  title='trust_dns::serialize::binary::BinSerializable'>BinSerializable</a></td>
+                           <td class='docblock short'>
+                                
+                           </td>
+                       </tr></table></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

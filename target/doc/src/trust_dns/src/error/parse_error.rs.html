@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    
 
     
     
@@ -171,6 +172,11 @@
 <span id="128">128</span>
 <span id="129">129</span>
 <span id="130">130</span>
+<span id="131">131</span>
+<span id="132">132</span>
+<span id="133">133</span>
+<span id="134">134</span>
+<span id="135">135</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -197,7 +203,6 @@
 <span class='kw'>use</span> <span class='ident'>super</span>::<span class='ident'>LexerError</span>;
 <span class='kw'>use</span> ::<span class='ident'>serialize</span>::<span class='ident'>txt</span>::<span class='ident'>Token</span>;
 
-<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Debug</span>)]</span>
 <span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>ParseError</span> {
   <span class='ident'>LexerError</span>(<span class='ident'>LexerError</span>),
   <span class='ident'>DecodeError</span>(<span class='ident'>DecodeError</span>),
@@ -215,6 +220,12 @@
   <span class='ident'>AddrParseError</span>(<span class='ident'>AddrParseError</span>),
   <span class='ident'>CharToIntError</span>(<span class='ident'>char</span>),
   <span class='ident'>ParseTimeError</span>(<span class='ident'>String</span>),
+}
+
+<span class='kw'>impl</span> <span class='ident'>fmt</span>::<span class='ident'>Debug</span> <span class='kw'>for</span> <span class='ident'>ParseError</span> {
+  <span class='kw'>fn</span> <span class='ident'>fmt</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>f</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>fmt</span>::<span class='ident'>Formatter</span>) <span class='op'>-&gt;</span> <span class='ident'>fmt</span>::<span class='prelude-ty'>Result</span> {
+    <span class='ident'>fmt</span>::<span class='ident'>Display</span>::<span class='ident'>fmt</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>f</span>)
+  }
 }
 
 <span class='kw'>impl</span> <span class='ident'>fmt</span>::<span class='ident'>Display</span> <span class='kw'>for</span> <span class='ident'>ParseError</span> {

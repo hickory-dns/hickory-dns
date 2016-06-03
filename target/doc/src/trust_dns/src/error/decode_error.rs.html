@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    
 
     
     
@@ -150,6 +151,14 @@
 <span id="107">107</span>
 <span id="108">108</span>
 <span id="109">109</span>
+<span id="110">110</span>
+<span id="111">111</span>
+<span id="112">112</span>
+<span id="113">113</span>
+<span id="114">114</span>
+<span id="115">115</span>
+<span id="116">116</span>
+<span id="117">117</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -173,7 +182,6 @@
 
 <span class='kw'>use</span> <span class='ident'>openssl</span>::<span class='ident'>ssl</span>::<span class='ident'>error</span>::<span class='ident'>SslError</span>;
 
-<span class='attribute'>#[<span class='ident'>derive</span>(<span class='ident'>Debug</span>)]</span>
 <span class='kw'>pub</span> <span class='kw'>enum</span> <span class='ident'>DecodeError</span> {
   <span class='ident'>ParseUtf8Error</span>(<span class='ident'>FromUtf8Error</span>),
   <span class='ident'>UnknownDnsClassValue</span>(<span class='ident'>u16</span>),
@@ -192,6 +200,13 @@
   <span class='ident'>IncorrectRDataLengthRead</span>(<span class='ident'>usize</span>, <span class='ident'>usize</span>),
   <span class='ident'>BadPublicKey</span>,
   <span class='ident'>SslError</span>(<span class='ident'>SslError</span>),
+  <span class='ident'>MoreThanOneEdns</span>,
+}
+
+<span class='kw'>impl</span> <span class='ident'>fmt</span>::<span class='ident'>Debug</span> <span class='kw'>for</span> <span class='ident'>DecodeError</span> {
+  <span class='kw'>fn</span> <span class='ident'>fmt</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>f</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>fmt</span>::<span class='ident'>Formatter</span>) <span class='op'>-&gt;</span> <span class='ident'>fmt</span>::<span class='prelude-ty'>Result</span> {
+    <span class='ident'>fmt</span>::<span class='ident'>Display</span>::<span class='ident'>fmt</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>f</span>)
+  }
 }
 
 <span class='kw'>impl</span> <span class='ident'>fmt</span>::<span class='ident'>Display</span> <span class='kw'>for</span> <span class='ident'>DecodeError</span> {
@@ -214,6 +229,7 @@
       <span class='ident'>DecodeError</span>::<span class='ident'>IncorrectRDataLengthRead</span>(<span class='kw-2'>ref</span> <span class='ident'>read</span>, <span class='kw-2'>ref</span> <span class='ident'>rdata_length</span>) <span class='op'>=&gt;</span> <span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>f</span>, <span class='string'>&quot;IncorrectRDataLengthRead read: {}, expected: {}&quot;</span>, <span class='ident'>read</span>, <span class='ident'>rdata_length</span>),
       <span class='ident'>DecodeError</span>::<span class='ident'>BadPublicKey</span> <span class='op'>=&gt;</span> <span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>f</span>, <span class='string'>&quot;BadPublicKey&quot;</span>),
       <span class='ident'>DecodeError</span>::<span class='ident'>SslError</span>(<span class='kw-2'>ref</span> <span class='ident'>err</span>) <span class='op'>=&gt;</span> <span class='ident'>err</span>.<span class='ident'>fmt</span>(<span class='ident'>f</span>),
+      <span class='ident'>DecodeError</span>::<span class='ident'>MoreThanOneEdns</span> <span class='op'>=&gt;</span> <span class='macro'>write</span><span class='macro'>!</span>(<span class='ident'>f</span>, <span class='string'>&quot;More than one EDNS record is already set&quot;</span>),
     }
   }
 }
@@ -238,6 +254,7 @@
       <span class='ident'>DecodeError</span>::<span class='ident'>IncorrectRDataLengthRead</span>(..) <span class='op'>=&gt;</span> <span class='string'>&quot;IncorrectRDataLengthRead&quot;</span>,
       <span class='ident'>DecodeError</span>::<span class='ident'>BadPublicKey</span> <span class='op'>=&gt;</span> <span class='string'>&quot;BadPublicKey&quot;</span>,
       <span class='ident'>DecodeError</span>::<span class='ident'>SslError</span>(<span class='kw-2'>ref</span> <span class='ident'>err</span>) <span class='op'>=&gt;</span> <span class='ident'>err</span>.<span class='ident'>description</span>(),
+      <span class='ident'>DecodeError</span>::<span class='ident'>MoreThanOneEdns</span> <span class='op'>=&gt;</span> <span class='string'>&quot;More than one EDNS record is already set&quot;</span>,
     }
   }
 

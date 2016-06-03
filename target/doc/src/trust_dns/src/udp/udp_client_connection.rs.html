@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    
 
     
     
@@ -261,14 +262,14 @@
     <span class='kw'>let</span> <span class='ident'>zero_addr</span> <span class='op'>=</span> (<span class='string'>&quot;0.0.0.0&quot;</span>, <span class='number'>0</span>).<span class='ident'>to_socket_addrs</span>().<span class='ident'>expect</span>(<span class='string'>&quot;could not parse 0.0.0.0 address&quot;</span>).
                                    <span class='ident'>next</span>().<span class='ident'>expect</span>(<span class='string'>&quot;no addresses parsed from 0.0.0.0&quot;</span>);
 
-    <span class='kw'>let</span> <span class='ident'>socket</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>UdpSocket</span>::<span class='ident'>bound</span>(<span class='kw-2'>&amp;</span><span class='ident'>zero_addr</span>));
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>event_loop</span>: <span class='ident'>EventLoop</span><span class='op'>&lt;</span><span class='ident'>Response</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>EventLoop</span>::<span class='ident'>new</span>());
+    <span class='kw'>let</span> <span class='ident'>socket</span> <span class='op'>=</span> <span class='macro'>try_rethrow</span><span class='macro'>!</span>(<span class='ident'>ClientError</span>::<span class='ident'>IoError</span>, <span class='ident'>UdpSocket</span>::<span class='ident'>bound</span>(<span class='kw-2'>&amp;</span><span class='ident'>zero_addr</span>));
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>event_loop</span>: <span class='ident'>EventLoop</span><span class='op'>&lt;</span><span class='ident'>Response</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='macro'>try_rethrow</span><span class='macro'>!</span>(<span class='ident'>ClientError</span>::<span class='ident'>IoError</span>, <span class='ident'>EventLoop</span>::<span class='ident'>new</span>());
     <span class='comment'>// TODO make the timeout configurable, 5 seconds is the dig default</span>
     <span class='comment'>// TODO the error is private to mio, which makes this awkward...</span>
-    <span class='kw'>if</span> <span class='ident'>event_loop</span>.<span class='ident'>timeout_ms</span>((), <span class='number'>5000</span>).<span class='ident'>is_err</span>() { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ClientError</span>::<span class='ident'>TimerError</span>) };
+    <span class='kw'>if</span> <span class='ident'>event_loop</span>.<span class='ident'>timeout_ms</span>((), <span class='number'>5000</span>).<span class='ident'>is_err</span>() { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ClientError</span>::<span class='ident'>TimerError</span>(<span class='macro'>error_loc</span><span class='macro'>!</span>())) };
     <span class='comment'>// TODO: Linux requires a register before a reregister, reregister is needed b/c of OSX later</span>
     <span class='comment'>//  ideally this would not be added to the event loop until the client connection request.</span>
-    <span class='macro'>try</span><span class='macro'>!</span>(<span class='ident'>event_loop</span>.<span class='ident'>register</span>(<span class='kw-2'>&amp;</span><span class='ident'>socket</span>, <span class='ident'>RESPONSE</span>, <span class='ident'>EventSet</span>::<span class='ident'>readable</span>(), <span class='ident'>PollOpt</span>::<span class='ident'>all</span>()));
+    <span class='macro'>try_rethrow</span><span class='macro'>!</span>(<span class='ident'>ClientError</span>::<span class='ident'>IoError</span>, <span class='ident'>event_loop</span>.<span class='ident'>register</span>(<span class='kw-2'>&amp;</span><span class='ident'>socket</span>, <span class='ident'>RESPONSE</span>, <span class='ident'>EventSet</span>::<span class='ident'>readable</span>(), <span class='ident'>PollOpt</span>::<span class='ident'>all</span>()));
 
     <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;client event_loop created&quot;</span>);
 
@@ -280,20 +281,20 @@
   <span class='kw'>fn</span> <span class='ident'>send</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>buffer</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;</span>) <span class='op'>-&gt;</span> <span class='ident'>ClientResult</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='ident'>u8</span><span class='op'>&gt;&gt;</span> {
     <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;client reregistering&quot;</span>);
     <span class='comment'>// TODO: b/c of OSX this needs to be a reregister (since deregister is not working)</span>
-    <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>event_loop</span>.<span class='ident'>reregister</span>(<span class='self'>self</span>.<span class='ident'>socket</span>.<span class='ident'>as_ref</span>().<span class='ident'>expect</span>(<span class='string'>&quot;never none&quot;</span>), <span class='ident'>RESPONSE</span>, <span class='ident'>EventSet</span>::<span class='ident'>readable</span>(), <span class='ident'>PollOpt</span>::<span class='ident'>all</span>()));
+    <span class='macro'>try_rethrow</span><span class='macro'>!</span>(<span class='ident'>ClientError</span>::<span class='ident'>IoError</span>, <span class='self'>self</span>.<span class='ident'>event_loop</span>.<span class='ident'>reregister</span>(<span class='self'>self</span>.<span class='ident'>socket</span>.<span class='ident'>as_ref</span>().<span class='ident'>expect</span>(<span class='string'>&quot;never none&quot;</span>), <span class='ident'>RESPONSE</span>, <span class='ident'>EventSet</span>::<span class='ident'>readable</span>(), <span class='ident'>PollOpt</span>::<span class='ident'>all</span>()));
     <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;client sending&quot;</span>);
-    <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>socket</span>.<span class='ident'>as_ref</span>().<span class='ident'>expect</span>(<span class='string'>&quot;never none&quot;</span>).<span class='ident'>send_to</span>(<span class='kw-2'>&amp;</span><span class='ident'>buffer</span>, <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>name_server</span>));
+    <span class='macro'>try_rethrow</span><span class='macro'>!</span>(<span class='ident'>ClientError</span>::<span class='ident'>IoError</span>, <span class='self'>self</span>.<span class='ident'>socket</span>.<span class='ident'>as_ref</span>().<span class='ident'>expect</span>(<span class='string'>&quot;never none&quot;</span>).<span class='ident'>send_to</span>(<span class='kw-2'>&amp;</span><span class='ident'>buffer</span>, <span class='kw-2'>&amp;</span><span class='self'>self</span>.<span class='ident'>name_server</span>));
     <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;client sent data&quot;</span>);
 
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>response</span>: <span class='ident'>Response</span> <span class='op'>=</span> <span class='ident'>Response</span>::<span class='ident'>new</span>(<span class='ident'>mem</span>::<span class='ident'>replace</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>.<span class='ident'>socket</span>, <span class='prelude-val'>None</span>).<span class='ident'>expect</span>(<span class='string'>&quot;never none&quot;</span>));
 
     <span class='comment'>// run_once should be enough, if something else nepharious hits the socket, what?</span>
-    <span class='macro'>try</span><span class='macro'>!</span>(<span class='self'>self</span>.<span class='ident'>event_loop</span>.<span class='ident'>run</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>response</span>));
+    <span class='macro'>try_rethrow</span><span class='macro'>!</span>(<span class='ident'>ClientError</span>::<span class='ident'>IoError</span>, <span class='self'>self</span>.<span class='ident'>event_loop</span>.<span class='ident'>run</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>response</span>));
     <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;client event_loop running&quot;</span>);
 
 
     <span class='kw'>if</span> <span class='ident'>response</span>.<span class='ident'>error</span>.<span class='ident'>is_some</span>() { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>response</span>.<span class='ident'>error</span>.<span class='ident'>unwrap</span>()) }
-    <span class='kw'>if</span> <span class='ident'>response</span>.<span class='ident'>buf</span>.<span class='ident'>is_none</span>() { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ClientError</span>::<span class='ident'>NoDataReceived</span>) }
+    <span class='kw'>if</span> <span class='ident'>response</span>.<span class='ident'>buf</span>.<span class='ident'>is_none</span>() { <span class='kw'>return</span> <span class='prelude-val'>Err</span>(<span class='ident'>ClientError</span>::<span class='ident'>NoDataReceived</span>(<span class='macro'>error_loc</span><span class='macro'>!</span>())) }
     <span class='kw'>let</span> <span class='ident'>result</span> <span class='op'>=</span> <span class='prelude-val'>Ok</span>(<span class='ident'>response</span>.<span class='ident'>buf</span>.<span class='ident'>unwrap</span>());
     <span class='comment'>//debug!(&quot;client deregistering&quot;);</span>
     <span class='comment'>// TODO: when this line is added OSX starts failing, but we should have it...</span>
@@ -341,14 +342,14 @@
         <span class='kw'>if</span> <span class='ident'>recv_result</span>.<span class='ident'>is_err</span>() {
           <span class='comment'>// debug b/c we&#39;re returning the error explicitly</span>
           <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;could not recv_from on {:?}: {:?}&quot;</span>, <span class='self'>self</span>.<span class='ident'>socket</span>, <span class='ident'>recv_result</span>);
-          <span class='self'>self</span>.<span class='ident'>error</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>recv_result</span>.<span class='ident'>unwrap_err</span>().<span class='ident'>into</span>());
+          <span class='self'>self</span>.<span class='ident'>error</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>ClientError</span>::<span class='ident'>IoError</span>(<span class='macro'>error_loc</span><span class='macro'>!</span>(), <span class='ident'>recv_result</span>.<span class='ident'>unwrap_err</span>()));
           <span class='kw'>return</span>
         }
 
         <span class='kw'>if</span> <span class='ident'>recv_result</span>.<span class='ident'>as_ref</span>().<span class='ident'>unwrap</span>().<span class='ident'>is_none</span>() {
           <span class='comment'>// debug b/c we&#39;re returning the error explicitly</span>
           <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;no return address on recv_from: {:?}&quot;</span>, <span class='self'>self</span>.<span class='ident'>socket</span>);
-          <span class='self'>self</span>.<span class='ident'>error</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>ClientError</span>::<span class='ident'>NoAddress</span>);
+          <span class='self'>self</span>.<span class='ident'>error</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>ClientError</span>::<span class='ident'>NoAddress</span>(<span class='macro'>error_loc</span><span class='macro'>!</span>()));
           <span class='kw'>return</span>
         }
 
@@ -370,13 +371,13 @@
       },
       _ <span class='op'>=&gt;</span> {
         <span class='macro'>error</span><span class='macro'>!</span>(<span class='string'>&quot;unrecognized token: {:?}&quot;</span>, <span class='ident'>token</span>);
-        <span class='self'>self</span>.<span class='ident'>error</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>ClientError</span>::<span class='ident'>NoDataReceived</span>);
+        <span class='self'>self</span>.<span class='ident'>error</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>ClientError</span>::<span class='ident'>NoDataReceived</span>(<span class='macro'>error_loc</span><span class='macro'>!</span>()));
       },
     }
   }
 
   <span class='kw'>fn</span> <span class='ident'>timeout</span>(<span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='self'>self</span>, <span class='ident'>event_loop</span>: <span class='kw-2'>&amp;</span><span class='kw-2'>mut</span> <span class='ident'>EventLoop</span><span class='op'>&lt;</span><span class='kw'>Self</span><span class='op'>&gt;</span>, _: ()) {
-    <span class='self'>self</span>.<span class='ident'>error</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>ClientError</span>::<span class='ident'>TimedOut</span>);
+    <span class='self'>self</span>.<span class='ident'>error</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>ClientError</span>::<span class='ident'>TimedOut</span>(<span class='macro'>error_loc</span><span class='macro'>!</span>()));
     <span class='ident'>event_loop</span>.<span class='ident'>shutdown</span>();
   }
 }

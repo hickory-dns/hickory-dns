@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    
 
     
     
@@ -492,46 +493,6 @@
 <span id="449">449</span>
 <span id="450">450</span>
 <span id="451">451</span>
-<span id="452">452</span>
-<span id="453">453</span>
-<span id="454">454</span>
-<span id="455">455</span>
-<span id="456">456</span>
-<span id="457">457</span>
-<span id="458">458</span>
-<span id="459">459</span>
-<span id="460">460</span>
-<span id="461">461</span>
-<span id="462">462</span>
-<span id="463">463</span>
-<span id="464">464</span>
-<span id="465">465</span>
-<span id="466">466</span>
-<span id="467">467</span>
-<span id="468">468</span>
-<span id="469">469</span>
-<span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
-<span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
-<span id="480">480</span>
-<span id="481">481</span>
-<span id="482">482</span>
-<span id="483">483</span>
-<span id="484">484</span>
-<span id="485">485</span>
-<span id="486">486</span>
-<span id="487">487</span>
-<span id="488">488</span>
-<span id="489">489</span>
-<span id="490">490</span>
-<span id="491">491</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -554,9 +515,9 @@
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>collections</span>::<span class='ident'>HashMap</span>;
 <span class='kw'>use</span> <span class='ident'>std</span>::<span class='ident'>sync</span>::<span class='ident'>RwLock</span>;
 
-<span class='kw'>use</span> ::<span class='ident'>rr</span>::{<span class='ident'>Record</span>, <span class='ident'>Name</span>, <span class='ident'>RecordType</span>};
+<span class='kw'>use</span> ::<span class='ident'>rr</span>::{<span class='ident'>Name</span>, <span class='ident'>RecordType</span>};
 <span class='kw'>use</span> ::<span class='ident'>authority</span>::{<span class='ident'>Authority</span>, <span class='ident'>ZoneType</span>};
-<span class='kw'>use</span> ::<span class='ident'>op</span>::<span class='op'>*</span>;
+<span class='kw'>use</span> ::<span class='ident'>op</span>::{<span class='ident'>Edns</span>, <span class='ident'>Message</span>, <span class='ident'>MessageType</span>, <span class='ident'>OpCode</span>, <span class='ident'>Query</span>, <span class='ident'>UpdateMessage</span>, <span class='ident'>ResponseCode</span>};
 
 <span class='doccomment'>/// Set of authorities, zones, available to this server.</span>
 <span class='kw'>pub</span> <span class='kw'>struct</span> <span class='ident'>Catalog</span> {
@@ -568,6 +529,11 @@
     <span class='ident'>Catalog</span>{ <span class='ident'>authorities</span>: <span class='ident'>HashMap</span>::<span class='ident'>new</span>() }
   }
 
+  <span class='doccomment'>/// Determine&#39;s what needs to happen given the type of request, i.e. Query or Update.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `request` - the requested action to perform.</span>
   <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>handle_request</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>request</span>: <span class='kw-2'>&amp;</span><span class='ident'>Message</span>) <span class='op'>-&gt;</span> <span class='ident'>Message</span> {
     <span class='macro'>info</span><span class='macro'>!</span>(<span class='string'>&quot;id: {} type: {:?} op_code: {:?}&quot;</span>, <span class='ident'>request</span>.<span class='ident'>get_id</span>(), <span class='ident'>request</span>.<span class='ident'>get_message_type</span>(), <span class='ident'>request</span>.<span class='ident'>get_op_code</span>());
     <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;request: {:?}&quot;</span>, <span class='ident'>request</span>);
@@ -616,7 +582,7 @@
             <span class='comment'>// recursive queries should be cached.</span>
           },
           <span class='ident'>OpCode</span>::<span class='ident'>Update</span> <span class='op'>=&gt;</span> {
-            <span class='kw'>let</span> <span class='ident'>response</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>update</span>(<span class='kw-2'>&amp;</span><span class='ident'>request</span>);
+            <span class='kw'>let</span> <span class='ident'>response</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>update</span>(<span class='ident'>request</span>);
             <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;update response: {:?}&quot;</span>, <span class='ident'>response</span>);
             <span class='ident'>response</span>
           }
@@ -657,56 +623,68 @@
     <span class='self'>self</span>.<span class='ident'>authorities</span>.<span class='ident'>insert</span>(<span class='ident'>name</span>, <span class='ident'>RwLock</span>::<span class='ident'>new</span>(<span class='ident'>authority</span>));
   }
 
-  <span class='comment'>/*
-   * RFC 2136                       DNS Update                     April 1997
-   *
-   * 3.1 - Process Zone Section
-   *
-   *   3.1.1. The Zone Section is checked to see that there is exactly one
-   *   RR therein and that the RR&#39;s ZTYPE is SOA, else signal FORMERR to the
-   *   requestor.  Next, the ZNAME and ZCLASS are checked to see if the zone
-   *   so named is one of this server&#39;s authority zones, else signal NOTAUTH
-   *   to the requestor.  If the server is a zone slave, the request will be
-   *   forwarded toward the primary master.
-   *
-   *   3.1.2 - Pseudocode For Zone Section Processing
-   *
-   *      if (zcount != 1 || ztype != SOA)
-   *           return (FORMERR)
-   *      if (zone_type(zname, zclass) == SLAVE)
-   *           return forward()
-   *      if (zone_type(zname, zclass) == MASTER)
-   *           return update()
-   *      return (NOTAUTH)
-   *
-   *   Sections 3.2 through 3.8 describe the primary master&#39;s behaviour,
-   *   whereas Section 6 describes a forwarder&#39;s behaviour.
-   *
-   * 3.8 - Response
-   *
-   *   At the end of UPDATE processing, a response code will be known.  A
-   *   response message is generated by copying the ID and Opcode fields
-   *   from the request, and either copying the ZOCOUNT, PRCOUNT, UPCOUNT,
-   *   and ADCOUNT fields and associated sections, or placing zeros (0) in
-   *   the these &quot;count&quot; fields and not including any part of the original
-   *   update.  The QR bit is set to one (1), and the response is sent back
-   *   to the requestor.  If the requestor used UDP, then the response will
-   *   be sent to the requestor&#39;s source UDP port.  If the requestor used
-   *   TCP, then the response will be sent back on the requestor&#39;s open TCP
-   *   connection.
-   */</span>
+  <span class='doccomment'>/// Update the zone given the Update request.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// ```text</span>
+  <span class='doccomment'>/// 3.1 - Process Zone Section</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   3.1.1. The Zone Section is checked to see that there is exactly one</span>
+  <span class='doccomment'>///   RR therein and that the RR&#39;s ZTYPE is SOA, else signal FORMERR to the</span>
+  <span class='doccomment'>///   requestor.  Next, the ZNAME and ZCLASS are checked to see if the zone</span>
+  <span class='doccomment'>///   so named is one of this server&#39;s authority zones, else signal NOTAUTH</span>
+  <span class='doccomment'>///   to the requestor.  If the server is a zone slave, the request will be</span>
+  <span class='doccomment'>///   forwarded toward the primary master.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   3.1.2 - Pseudocode For Zone Section Processing</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///      if (zcount != 1 || ztype != SOA)</span>
+  <span class='doccomment'>///           return (FORMERR)</span>
+  <span class='doccomment'>///      if (zone_type(zname, zclass) == SLAVE)</span>
+  <span class='doccomment'>///           return forward()</span>
+  <span class='doccomment'>///      if (zone_type(zname, zclass) == MASTER)</span>
+  <span class='doccomment'>///           return update()</span>
+  <span class='doccomment'>///      return (NOTAUTH)</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   Sections 3.2 through 3.8 describe the primary master&#39;s behaviour,</span>
+  <span class='doccomment'>///   whereas Section 6 describes a forwarder&#39;s behaviour.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// 3.8 - Response</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///   At the end of UPDATE processing, a response code will be known.  A</span>
+  <span class='doccomment'>///   response message is generated by copying the ID and Opcode fields</span>
+  <span class='doccomment'>///   from the request, and either copying the ZOCOUNT, PRCOUNT, UPCOUNT,</span>
+  <span class='doccomment'>///   and ADCOUNT fields and associated sections, or placing zeros (0) in</span>
+  <span class='doccomment'>///   the these &quot;count&quot; fields and not including any part of the original</span>
+  <span class='doccomment'>///   update.  The QR bit is set to one (1), and the response is sent back</span>
+  <span class='doccomment'>///   to the requestor.  If the requestor used UDP, then the response will</span>
+  <span class='doccomment'>///   be sent to the requestor&#39;s source UDP port.  If the requestor used</span>
+  <span class='doccomment'>///   TCP, then the response will be sent back on the requestor&#39;s open TCP</span>
+  <span class='doccomment'>///   connection.</span>
+  <span class='doccomment'>/// ```</span>
+  <span class='doccomment'>///</span>
   <span class='doccomment'>/// The &quot;request&quot; should be an update formatted message.</span>
   <span class='doccomment'>///  The response will be in the alternate, all 0&#39;s format described in RFC 2136 section 3.8</span>
   <span class='doccomment'>///  as this is more efficient.</span>
-  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>update</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>request</span>: <span class='kw-2'>&amp;</span><span class='ident'>Message</span>) <span class='op'>-&gt;</span> <span class='ident'>Message</span> {
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `request` - an update message</span>
+  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>update</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>update</span>: <span class='kw-2'>&amp;</span><span class='ident'>Message</span>) <span class='op'>-&gt;</span> <span class='ident'>Message</span> {
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>response</span>: <span class='ident'>Message</span> <span class='op'>=</span> <span class='ident'>Message</span>::<span class='ident'>new</span>();
-    <span class='ident'>response</span>.<span class='ident'>id</span>(<span class='ident'>request</span>.<span class='ident'>get_id</span>());
+    <span class='ident'>response</span>.<span class='ident'>id</span>(<span class='ident'>update</span>.<span class='ident'>get_id</span>());
     <span class='ident'>response</span>.<span class='ident'>op_code</span>(<span class='ident'>OpCode</span>::<span class='ident'>Update</span>);
     <span class='ident'>response</span>.<span class='ident'>message_type</span>(<span class='ident'>MessageType</span>::<span class='ident'>Response</span>);
 
-    <span class='kw'>let</span> <span class='ident'>update</span>: <span class='kw-2'>&amp;</span><span class='ident'>UpdateMessage</span> <span class='op'>=</span> <span class='ident'>request</span>;
-
     <span class='kw'>let</span> <span class='ident'>zones</span>: <span class='kw-2'>&amp;</span>[<span class='ident'>Query</span>] <span class='op'>=</span> <span class='ident'>update</span>.<span class='ident'>get_zones</span>();
+
+    <span class='comment'>// 2.3 - Zone Section</span>
+    <span class='comment'>//</span>
+    <span class='comment'>//  All records to be updated must be in the same zone, and</span>
+    <span class='comment'>//  therefore the Zone Section is allowed to contain exactly one record.</span>
+    <span class='comment'>//  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is</span>
+    <span class='comment'>//  the zone&#39;s class.</span>
     <span class='kw'>if</span> <span class='ident'>zones</span>.<span class='ident'>len</span>() <span class='op'>!=</span> <span class='number'>1</span> <span class='op'>||</span> <span class='ident'>zones</span>[<span class='number'>0</span>].<span class='ident'>get_query_type</span>() <span class='op'>!=</span> <span class='ident'>RecordType</span>::<span class='ident'>SOA</span> {
       <span class='ident'>response</span>.<span class='ident'>response_code</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>FormErr</span>);
       <span class='kw'>return</span> <span class='ident'>response</span>;
@@ -740,6 +718,11 @@
     }
   }
 
+  <span class='doccomment'>/// Given the requested query, lookup and return any matching results.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// # Arguments</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// * `request` - the query message.</span>
   <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>lookup</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>request</span>: <span class='kw-2'>&amp;</span><span class='ident'>Message</span>) <span class='op'>-&gt;</span> <span class='ident'>Message</span> {
     <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>response</span>: <span class='ident'>Message</span> <span class='op'>=</span> <span class='ident'>Message</span>::<span class='ident'>new</span>();
     <span class='ident'>response</span>.<span class='ident'>id</span>(<span class='ident'>request</span>.<span class='ident'>get_id</span>());
@@ -754,25 +737,31 @@
         <span class='macro'>debug</span><span class='macro'>!</span>(<span class='string'>&quot;found authority: {:?}&quot;</span>, <span class='ident'>authority</span>.<span class='ident'>get_origin</span>());
         <span class='kw'>let</span> <span class='ident'>is_dnssec</span> <span class='op'>=</span> <span class='ident'>request</span>.<span class='ident'>get_edns</span>().<span class='ident'>map_or</span>(<span class='boolval'>false</span>, <span class='op'>|</span><span class='ident'>edns</span><span class='op'>|</span><span class='ident'>edns</span>.<span class='ident'>is_dnssec_ok</span>());
 
-        <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>records</span>) <span class='op'>=</span> <span class='ident'>Self</span>::<span class='ident'>search</span>(<span class='kw-2'>&amp;</span><span class='op'>*</span><span class='ident'>authority</span>, <span class='ident'>query</span>, <span class='ident'>is_dnssec</span>) {
+        <span class='kw'>let</span> <span class='ident'>records</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>search</span>(<span class='ident'>query</span>, <span class='ident'>is_dnssec</span>);
+        <span class='kw'>if</span> <span class='op'>!</span><span class='ident'>records</span>.<span class='ident'>is_empty</span>() {
           <span class='ident'>response</span>.<span class='ident'>response_code</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NoError</span>);
           <span class='ident'>response</span>.<span class='ident'>authoritative</span>(<span class='boolval'>true</span>);
           <span class='ident'>response</span>.<span class='ident'>add_all_answers</span>(<span class='kw-2'>&amp;</span><span class='ident'>records</span>);
 
           <span class='comment'>// get the NS records</span>
           <span class='kw'>let</span> <span class='ident'>ns</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>get_ns</span>(<span class='ident'>is_dnssec</span>);
-          <span class='kw'>if</span> <span class='ident'>ns</span>.<span class='ident'>is_none</span>() { <span class='macro'>warn</span><span class='macro'>!</span>(<span class='string'>&quot;there are no NS records for: {:?}&quot;</span>, <span class='ident'>authority</span>.<span class='ident'>get_origin</span>()); }
+          <span class='kw'>if</span> <span class='ident'>ns</span>.<span class='ident'>is_empty</span>() { <span class='macro'>warn</span><span class='macro'>!</span>(<span class='string'>&quot;there are no NS records for: {:?}&quot;</span>, <span class='ident'>authority</span>.<span class='ident'>get_origin</span>()); }
           <span class='kw'>else</span> {
-            <span class='ident'>response</span>.<span class='ident'>add_all_name_servers</span>(<span class='kw-2'>&amp;</span><span class='ident'>ns</span>.<span class='ident'>unwrap</span>());
+            <span class='ident'>response</span>.<span class='ident'>add_all_name_servers</span>(<span class='kw-2'>&amp;</span><span class='ident'>ns</span>);
           }
         } <span class='kw'>else</span> {
+          <span class='kw'>if</span> <span class='ident'>is_dnssec</span> {
+            <span class='comment'>// get NSEC records</span>
+            <span class='ident'>response</span>.<span class='ident'>add_all_name_servers</span>(<span class='kw-2'>&amp;</span><span class='ident'>authority</span>.<span class='ident'>get_nsec_records</span>(<span class='ident'>query</span>.<span class='ident'>get_name</span>(), <span class='ident'>is_dnssec</span>));
+          }
+
           <span class='comment'>// in the not found case it&#39;s standard to return the SOA in the authority section</span>
           <span class='ident'>response</span>.<span class='ident'>response_code</span>(<span class='ident'>ResponseCode</span>::<span class='ident'>NXDomain</span>);
 
-          <span class='kw'>let</span> <span class='ident'>soa</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>get_soa</span>(<span class='ident'>is_dnssec</span>);
-          <span class='kw'>if</span> <span class='ident'>soa</span>.<span class='ident'>is_none</span>() { <span class='macro'>warn</span><span class='macro'>!</span>(<span class='string'>&quot;there is no SOA record for: {:?}&quot;</span>, <span class='ident'>authority</span>.<span class='ident'>get_origin</span>()); }
+          <span class='kw'>let</span> <span class='ident'>soa</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>get_soa_secure</span>(<span class='ident'>is_dnssec</span>);
+          <span class='kw'>if</span> <span class='ident'>soa</span>.<span class='ident'>is_empty</span>() { <span class='macro'>warn</span><span class='macro'>!</span>(<span class='string'>&quot;there is no SOA record for: {:?}&quot;</span>, <span class='ident'>authority</span>.<span class='ident'>get_origin</span>()); }
           <span class='kw'>else</span> {
-            <span class='ident'>response</span>.<span class='ident'>add_name_server</span>(<span class='ident'>soa</span>.<span class='ident'>unwrap</span>().<span class='ident'>clone</span>());
+            <span class='ident'>response</span>.<span class='ident'>add_all_name_servers</span>(<span class='kw-2'>&amp;</span><span class='ident'>soa</span>);
           }
         }
       } <span class='kw'>else</span> {
@@ -786,40 +775,7 @@
     <span class='ident'>response</span>
   }
 
-  <span class='comment'>// TODO: move this to Authority</span>
-  <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>search</span><span class='op'>&lt;</span><span class='lifetime'>&#39;a</span><span class='op'>&gt;</span>(<span class='ident'>authority</span>: <span class='kw-2'>&amp;</span><span class='lifetime'>&#39;a</span> <span class='ident'>Authority</span>, <span class='ident'>query</span>: <span class='kw-2'>&amp;</span><span class='ident'>Query</span>, <span class='ident'>is_secure</span>: <span class='ident'>bool</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='lifetime'>&#39;a</span> <span class='ident'>Record</span><span class='op'>&gt;&gt;</span> {
-    <span class='kw'>let</span> <span class='ident'>record_type</span>: <span class='ident'>RecordType</span> <span class='op'>=</span> <span class='ident'>query</span>.<span class='ident'>get_query_type</span>();
-
-    <span class='comment'>// if this is an AXFR zone transfer, verify that this is either the slave or master</span>
-    <span class='comment'>//  for AXFR the first and last record must be the SOA</span>
-    <span class='kw'>if</span> <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>==</span> <span class='ident'>record_type</span> {
-      <span class='kw'>match</span> <span class='ident'>authority</span>.<span class='ident'>get_zone_type</span>() {
-        <span class='ident'>ZoneType</span>::<span class='ident'>Master</span> <span class='op'>|</span> <span class='ident'>ZoneType</span>::<span class='ident'>Slave</span> <span class='op'>=&gt;</span> (),
-        <span class='comment'>// TODO Forward?</span>
-        _ <span class='op'>=&gt;</span> <span class='kw'>return</span> <span class='prelude-val'>None</span>, <span class='comment'>// TODO this sould be an error.</span>
-      }
-    }
-
-    <span class='comment'>// it would be better to stream this back, rather than packaging everything up in an array</span>
-    <span class='comment'>//  though for UDP it would still need to be bundled</span>
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>query_result</span>: <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='ident'>Vec</span><span class='op'>&lt;</span>_<span class='op'>&gt;&gt;</span> <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>lookup</span>(<span class='ident'>query</span>.<span class='ident'>get_name</span>(), <span class='ident'>record_type</span>, <span class='ident'>is_secure</span>);
-
-    <span class='kw'>if</span> <span class='ident'>RecordType</span>::<span class='ident'>AXFR</span> <span class='op'>==</span> <span class='ident'>record_type</span> {
-      <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>soa</span>) <span class='op'>=</span> <span class='ident'>authority</span>.<span class='ident'>get_soa</span>(<span class='boolval'>false</span>) {
-        <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>xfr</span>: <span class='ident'>Vec</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>Record</span><span class='op'>&gt;</span> <span class='op'>=</span> <span class='ident'>query_result</span>.<span class='ident'>unwrap_or</span>(<span class='ident'>Vec</span>::<span class='ident'>with_capacity</span>(<span class='number'>2</span>));
-        <span class='comment'>// TODO: probably make Records Rc or Arc, to remove the clone</span>
-        <span class='ident'>xfr</span>.<span class='ident'>insert</span>(<span class='number'>0</span>, <span class='ident'>soa</span>);
-        <span class='ident'>xfr</span>.<span class='ident'>push</span>(<span class='ident'>soa</span>);
-
-        <span class='ident'>query_result</span> <span class='op'>=</span> <span class='prelude-val'>Some</span>(<span class='ident'>xfr</span>);
-      } <span class='kw'>else</span> {
-        <span class='kw'>return</span> <span class='prelude-val'>None</span>; <span class='comment'>// TODO is this an error?</span>
-      }
-    }
-
-    <span class='ident'>query_result</span>
-  }
-
+  <span class='doccomment'>/// recursively searches the catalog for a matching auhtority.</span>
   <span class='kw'>fn</span> <span class='ident'>find_auth_recurse</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>name</span>: <span class='kw-2'>&amp;</span><span class='ident'>Name</span>) <span class='op'>-&gt;</span> <span class='prelude-ty'>Option</span><span class='op'>&lt;</span><span class='kw-2'>&amp;</span><span class='ident'>RwLock</span><span class='op'>&lt;</span><span class='ident'>Authority</span><span class='op'>&gt;&gt;</span> {
     <span class='kw'>let</span> <span class='ident'>authority</span> <span class='op'>=</span> <span class='self'>self</span>.<span class='ident'>authorities</span>.<span class='ident'>get</span>(<span class='ident'>name</span>);
     <span class='kw'>if</span> <span class='ident'>authority</span>.<span class='ident'>is_some</span>() { <span class='kw'>return</span> <span class='ident'>authority</span>; }
@@ -847,44 +803,9 @@
 
   <span class='kw'>use</span> <span class='ident'>super</span>::<span class='op'>*</span>;
 
-  <span class='attribute'>#[<span class='ident'>test</span>]</span>
-  <span class='kw'>fn</span> <span class='ident'>test_catalog_search</span>() {
-    <span class='kw'>let</span> <span class='ident'>example</span> <span class='op'>=</span> <span class='ident'>create_example</span>();
-    <span class='kw'>let</span> <span class='ident'>origin</span> <span class='op'>=</span> <span class='ident'>example</span>.<span class='ident'>get_origin</span>().<span class='ident'>clone</span>();
-
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>query</span>: <span class='ident'>Query</span> <span class='op'>=</span> <span class='ident'>Query</span>::<span class='ident'>new</span>();
-    <span class='ident'>query</span>.<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>());
-
-    <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>result</span>) <span class='op'>=</span> <span class='ident'>Catalog</span>::<span class='ident'>search</span>(<span class='kw-2'>&amp;</span><span class='ident'>example</span>, <span class='kw-2'>&amp;</span><span class='ident'>query</span>, <span class='boolval'>false</span>) {
-      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>result</span>.<span class='ident'>first</span>().<span class='ident'>unwrap</span>().<span class='ident'>get_rr_type</span>(), <span class='ident'>RecordType</span>::<span class='ident'>A</span>);
-      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>result</span>.<span class='ident'>first</span>().<span class='ident'>unwrap</span>().<span class='ident'>get_dns_class</span>(), <span class='ident'>DNSClass</span>::<span class='ident'>IN</span>);
-      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>result</span>.<span class='ident'>first</span>().<span class='ident'>unwrap</span>().<span class='ident'>get_rdata</span>(), <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>34</span>)));
-    } <span class='kw'>else</span> {
-      <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;expected a result&quot;</span>);
-    }
-  }
-
-  <span class='doccomment'>/// this is a litte more interesting b/c it requires a recursive lookup for the origin</span>
-  <span class='attribute'>#[<span class='ident'>test</span>]</span>
-  <span class='kw'>fn</span> <span class='ident'>test_catalog_search_www</span>() {
-    <span class='kw'>let</span> <span class='ident'>example</span> <span class='op'>=</span> <span class='ident'>create_example</span>();
-    <span class='kw'>let</span> <span class='ident'>www_name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;www.example.com.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>();
-
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>query</span>: <span class='ident'>Query</span> <span class='op'>=</span> <span class='ident'>Query</span>::<span class='ident'>new</span>();
-    <span class='ident'>query</span>.<span class='ident'>name</span>(<span class='ident'>www_name</span>.<span class='ident'>clone</span>());
-
-    <span class='kw'>if</span> <span class='kw'>let</span> <span class='prelude-val'>Some</span>(<span class='ident'>result</span>) <span class='op'>=</span> <span class='ident'>Catalog</span>::<span class='ident'>search</span>(<span class='kw-2'>&amp;</span><span class='ident'>example</span>, <span class='kw-2'>&amp;</span><span class='ident'>query</span>, <span class='boolval'>false</span>) {
-      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>result</span>.<span class='ident'>first</span>().<span class='ident'>unwrap</span>().<span class='ident'>get_rr_type</span>(), <span class='ident'>RecordType</span>::<span class='ident'>A</span>);
-      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>result</span>.<span class='ident'>first</span>().<span class='ident'>unwrap</span>().<span class='ident'>get_dns_class</span>(), <span class='ident'>DNSClass</span>::<span class='ident'>IN</span>);
-      <span class='macro'>assert_eq</span><span class='macro'>!</span>(<span class='ident'>result</span>.<span class='ident'>first</span>().<span class='ident'>unwrap</span>().<span class='ident'>get_rdata</span>(), <span class='kw-2'>&amp;</span><span class='ident'>RData</span>::<span class='ident'>A</span>(<span class='ident'>Ipv4Addr</span>::<span class='ident'>new</span>(<span class='number'>93</span>,<span class='number'>184</span>,<span class='number'>216</span>,<span class='number'>34</span>)));
-    } <span class='kw'>else</span> {
-      <span class='macro'>panic</span><span class='macro'>!</span>(<span class='string'>&quot;expected a result&quot;</span>);
-    }
-  }
-
   <span class='kw'>pub</span> <span class='kw'>fn</span> <span class='ident'>create_test</span>() <span class='op'>-&gt;</span> <span class='ident'>Authority</span> {
     <span class='kw'>let</span> <span class='ident'>origin</span>: <span class='ident'>Name</span> <span class='op'>=</span> <span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;test.com.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>();
-    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>records</span>: <span class='ident'>Authority</span> <span class='op'>=</span> <span class='ident'>Authority</span>::<span class='ident'>new</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>(), <span class='ident'>HashMap</span>::<span class='ident'>new</span>(), <span class='ident'>ZoneType</span>::<span class='ident'>Master</span>, <span class='boolval'>false</span>);
+    <span class='kw'>let</span> <span class='kw-2'>mut</span> <span class='ident'>records</span>: <span class='ident'>Authority</span> <span class='op'>=</span> <span class='ident'>Authority</span>::<span class='ident'>new</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>(), <span class='ident'>BTreeMap</span>::<span class='ident'>new</span>(), <span class='ident'>ZoneType</span>::<span class='ident'>Master</span>, <span class='boolval'>false</span>);
     <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>3600</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>SOA</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>SOA</span>(<span class='ident'>SOA</span>::<span class='ident'>new</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;sns.dns.icann.org.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>(), <span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;noc.dns.icann.org.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>(), <span class='number'>2015082403</span>, <span class='number'>7200</span>, <span class='number'>3600</span>, <span class='number'>1209600</span>, <span class='number'>3600</span> ))).<span class='ident'>clone</span>(), <span class='number'>0</span>);
 
     <span class='ident'>records</span>.<span class='ident'>upsert</span>(<span class='ident'>Record</span>::<span class='ident'>new</span>().<span class='ident'>name</span>(<span class='ident'>origin</span>.<span class='ident'>clone</span>()).<span class='ident'>ttl</span>(<span class='number'>86400</span>).<span class='ident'>rr_type</span>(<span class='ident'>RecordType</span>::<span class='ident'>NS</span>).<span class='ident'>dns_class</span>(<span class='ident'>DNSClass</span>::<span class='ident'>IN</span>).<span class='ident'>rdata</span>(<span class='ident'>RData</span>::<span class='ident'>NS</span>(<span class='ident'>Name</span>::<span class='ident'>parse</span>(<span class='string'>&quot;a.iana-servers.net.&quot;</span>, <span class='prelude-val'>None</span>).<span class='ident'>unwrap</span>()) ).<span class='ident'>clone</span>(), <span class='number'>0</span>);

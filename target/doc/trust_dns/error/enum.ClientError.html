@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../main.css">
+    
 
     
     
@@ -43,58 +44,59 @@
 
     <section id='main' class="content enum">
 <h1 class='fqn'><span class='in-band'>Enum <a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>error</a>::<wbr><a class='enum' href=''>ClientError</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-6321' class='srclink' href='../../src/trust_dns/src/error/client_error.rs.html#25-46' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-175' class='srclink' href='../../src/trust_dns/src/error/client_error.rs.html#24-45' title='goto source code'>[src]</a></span></h1>
 <pre class='rust enum'>pub enum ClientError {
-    DecodeError(<a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a>),
-    EncodeError(<a class='enum' href='../../trust_dns/error/enum.EncodeError.html' title='trust_dns::error::EncodeError'>EncodeError</a>),
-    IoError(<a class='struct' href='https://doc.rust-lang.org/nightly/std/io/error/struct.Error.html' title='std::io::error::Error'>Error</a>),
+    DecodeError(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>, <a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a>),
+    EncodeError(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>, <a class='enum' href='../../trust_dns/error/enum.EncodeError.html' title='trust_dns::error::EncodeError'>EncodeError</a>),
+    IoError(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>, <a class='struct' href='https://doc.rust-lang.org/nightly/std/io/error/struct.Error.html' title='std::io::error::Error'>Error</a>),
     NotAllBytesSent {
+        loc: <a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>,
         sent: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>,
         expect: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>,
     },
     NotAllBytesReceived {
+        loc: <a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>,
         received: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>,
         expect: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.usize.html'>usize</a>,
     },
     IncorrectMessageId {
+        loc: <a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>,
         got: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
         expect: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>,
     },
-    TimedOut,
-    NoAddress,
-    NoNameServer,
-    TimerError,
-    NoDataReceived,
-    ErrorResponse(<a class='enum' href='../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>),
-    NoRRSIG,
-    NoDNSKEY,
-    NoDS,
-    NoSOARecord(<a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>),
+    TimedOut(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    NoAddress(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    NoNameServer(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    TimerError(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    NoDataReceived(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    ErrorResponse(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>, <a class='enum' href='../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>),
+    NoRRSIG(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    NoDNSKEY(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    NoDS(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    NoSOARecord(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>, <a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>),
     SecNxDomain {
+        loc: <a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>,
         proof: <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='struct' href='../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>&gt;,
     },
-    InvalidNsec,
-    InvalidNsec3,
-    NoNsec,
+    InvalidNsec(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    InvalidNsec3(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
+    NoNsec(<a class='struct' href='../../trust_dns/error/struct.ErrorLoc.html' title='trust_dns::error::ErrorLoc'>ErrorLoc</a>),
 }</pre><h2 class='variants'>Variants</h2>
 <table class='variants_table'><tr><td id='variant.DecodeError'><code>DecodeError</code></td><td></td><td></td></tr><tr><td id='variant.EncodeError'><code>EncodeError</code></td><td></td><td></td></tr><tr><td id='variant.IoError'><code>IoError</code></td><td></td><td></td></tr><tr><td id='variant.NotAllBytesSent'><code>NotAllBytesSent</code></td><td><h3 class='fields'>Fields</h3>
 
-                                              <table><tr><td id='variant.NotAllBytesSent.field.sent'><code>sent</code></td><td></td></tr><tr><td id='variant.NotAllBytesSent.field.expect'><code>expect</code></td><td></td></tr></table></td><td></td></tr><tr><td id='variant.NotAllBytesReceived'><code>NotAllBytesReceived</code></td><td><h3 class='fields'>Fields</h3>
+                           <table><tr><td id='variant.NotAllBytesSent.field.loc'><code>loc</code></td><td></td></tr><tr><td id='variant.NotAllBytesSent.field.sent'><code>sent</code></td><td></td></tr><tr><td id='variant.NotAllBytesSent.field.expect'><code>expect</code></td><td></td></tr></table></td><td></td></tr><tr><td id='variant.NotAllBytesReceived'><code>NotAllBytesReceived</code></td><td><h3 class='fields'>Fields</h3>
 
-                                              <table><tr><td id='variant.NotAllBytesReceived.field.received'><code>received</code></td><td></td></tr><tr><td id='variant.NotAllBytesReceived.field.expect'><code>expect</code></td><td></td></tr></table></td><td></td></tr><tr><td id='variant.IncorrectMessageId'><code>IncorrectMessageId</code></td><td><h3 class='fields'>Fields</h3>
+                           <table><tr><td id='variant.NotAllBytesReceived.field.loc'><code>loc</code></td><td></td></tr><tr><td id='variant.NotAllBytesReceived.field.received'><code>received</code></td><td></td></tr><tr><td id='variant.NotAllBytesReceived.field.expect'><code>expect</code></td><td></td></tr></table></td><td></td></tr><tr><td id='variant.IncorrectMessageId'><code>IncorrectMessageId</code></td><td><h3 class='fields'>Fields</h3>
 
-                                              <table><tr><td id='variant.IncorrectMessageId.field.got'><code>got</code></td><td></td></tr><tr><td id='variant.IncorrectMessageId.field.expect'><code>expect</code></td><td></td></tr></table></td><td></td></tr><tr><td id='variant.TimedOut'><code>TimedOut</code></td><td></td><td></td></tr><tr><td id='variant.NoAddress'><code>NoAddress</code></td><td></td><td></td></tr><tr><td id='variant.NoNameServer'><code>NoNameServer</code></td><td></td><td></td></tr><tr><td id='variant.TimerError'><code>TimerError</code></td><td></td><td></td></tr><tr><td id='variant.NoDataReceived'><code>NoDataReceived</code></td><td></td><td></td></tr><tr><td id='variant.ErrorResponse'><code>ErrorResponse</code></td><td></td><td></td></tr><tr><td id='variant.NoRRSIG'><code>NoRRSIG</code></td><td></td><td></td></tr><tr><td id='variant.NoDNSKEY'><code>NoDNSKEY</code></td><td></td><td></td></tr><tr><td id='variant.NoDS'><code>NoDS</code></td><td></td><td></td></tr><tr><td id='variant.NoSOARecord'><code>NoSOARecord</code></td><td></td><td></td></tr><tr><td id='variant.SecNxDomain'><code>SecNxDomain</code></td><td><h3 class='fields'>Fields</h3>
+                           <table><tr><td id='variant.IncorrectMessageId.field.loc'><code>loc</code></td><td></td></tr><tr><td id='variant.IncorrectMessageId.field.got'><code>got</code></td><td></td></tr><tr><td id='variant.IncorrectMessageId.field.expect'><code>expect</code></td><td></td></tr></table></td><td></td></tr><tr><td id='variant.TimedOut'><code>TimedOut</code></td><td></td><td></td></tr><tr><td id='variant.NoAddress'><code>NoAddress</code></td><td></td><td></td></tr><tr><td id='variant.NoNameServer'><code>NoNameServer</code></td><td></td><td></td></tr><tr><td id='variant.TimerError'><code>TimerError</code></td><td></td><td></td></tr><tr><td id='variant.NoDataReceived'><code>NoDataReceived</code></td><td></td><td></td></tr><tr><td id='variant.ErrorResponse'><code>ErrorResponse</code></td><td></td><td></td></tr><tr><td id='variant.NoRRSIG'><code>NoRRSIG</code></td><td></td><td></td></tr><tr><td id='variant.NoDNSKEY'><code>NoDNSKEY</code></td><td></td><td></td></tr><tr><td id='variant.NoDS'><code>NoDS</code></td><td></td><td></td></tr><tr><td id='variant.NoSOARecord'><code>NoSOARecord</code></td><td></td><td></td></tr><tr><td id='variant.SecNxDomain'><code>SecNxDomain</code></td><td><h3 class='fields'>Fields</h3>
 
-                                              <table><tr><td id='variant.SecNxDomain.field.proof'><code>proof</code></td><td></td></tr></table></td><td></td></tr><tr><td id='variant.InvalidNsec'><code>InvalidNsec</code></td><td></td><td></td></tr><tr><td id='variant.InvalidNsec3'><code>InvalidNsec3</code></td><td></td><td></td></tr><tr><td id='variant.NoNsec'><code>NoNsec</code></td><td></td><td></td></tr></table><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='enum' href='../../trust_dns/error/enum.ClientError.html' title='trust_dns::error::ClientError'>ClientError</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#method.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
-</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html' title='std::error::Error'>Error</a> for <a class='enum' href='../../trust_dns/error/enum.ClientError.html' title='trust_dns::error::ClientError'>ClientError</a></code></h3><div class='impl-items'><h4 id='method.description' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html#method.description' class='fnname'>description</a>(&amp;self) -&gt; &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a></code></h4>
+                           <table><tr><td id='variant.SecNxDomain.field.loc'><code>loc</code></td><td></td></tr><tr><td id='variant.SecNxDomain.field.proof'><code>proof</code></td><td></td></tr></table></td><td></td></tr><tr><td id='variant.InvalidNsec'><code>InvalidNsec</code></td><td></td><td></td></tr><tr><td id='variant.InvalidNsec3'><code>InvalidNsec3</code></td><td></td><td></td></tr><tr><td id='variant.NoNsec'><code>NoNsec</code></td><td></td><td></td></tr></table><h2 id='implementations'>Trait Implementations</h2><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='enum' href='../../trust_dns/error/enum.ClientError.html' title='trust_dns::error::ClientError'>ClientError</a></code></h3><div class='impl-items'><h4 id='method.fmt' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html' title='core::fmt::Display'>Display</a> for <a class='enum' href='../../trust_dns/error/enum.ClientError.html' title='trust_dns::error::ClientError'>ClientError</a></code></h3><div class='impl-items'><h4 id='method.fmt-1' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Display.html#tymethod.fmt' class='fnname'>fmt</a>(&amp;self, f: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
+</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html' title='std::error::Error'>Error</a> for <a class='enum' href='../../trust_dns/error/enum.ClientError.html' title='trust_dns::error::ClientError'>ClientError</a></code></h3><div class='impl-items'><h4 id='method.description' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html#tymethod.description' class='fnname'>description</a>(&amp;self) -&gt; &amp;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.str.html'>str</a></code></h4>
 <h4 id='method.cause' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html#method.cause' class='fnname'>cause</a>(&amp;self) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;&amp;<a class='trait' href='https://doc.rust-lang.org/nightly/std/error/trait.Error.html' title='std::error::Error'>Error</a>&gt;</code></h4>
-</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html' title='core::convert::From'>From</a>&lt;<a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a>&gt; for <a class='enum' href='../../trust_dns/error/enum.ClientError.html' title='trust_dns::error::ClientError'>ClientError</a></code></h3><div class='impl-items'><h4 id='method.from' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html#method.from' class='fnname'>from</a>(err: <a class='enum' href='../../trust_dns/error/enum.DecodeError.html' title='trust_dns::error::DecodeError'>DecodeError</a>) -&gt; Self</code></h4>
-</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html' title='core::convert::From'>From</a>&lt;<a class='enum' href='../../trust_dns/error/enum.EncodeError.html' title='trust_dns::error::EncodeError'>EncodeError</a>&gt; for <a class='enum' href='../../trust_dns/error/enum.ClientError.html' title='trust_dns::error::ClientError'>ClientError</a></code></h3><div class='impl-items'><h4 id='method.from-1' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html#method.from' class='fnname'>from</a>(err: <a class='enum' href='../../trust_dns/error/enum.EncodeError.html' title='trust_dns::error::EncodeError'>EncodeError</a>) -&gt; Self</code></h4>
-</div><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html' title='core::convert::From'>From</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/std/io/error/struct.Error.html' title='std::io::error::Error'>Error</a>&gt; for <a class='enum' href='../../trust_dns/error/enum.ClientError.html' title='trust_dns::error::ClientError'>ClientError</a></code></h3><div class='impl-items'><h4 id='method.from-2' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/convert/trait.From.html#method.from' class='fnname'>from</a>(err: <a class='struct' href='https://doc.rust-lang.org/nightly/std/io/error/struct.Error.html' title='std::io::error::Error'>Error</a>) -&gt; Self</code></h4>
-</div><h3 id='derived_implementations'>Derived Implementations </h3><h3 class='impl'><code>impl <a class='trait' href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html' title='core::fmt::Debug'>Debug</a> for <a class='enum' href='../../trust_dns/error/enum.ClientError.html' title='trust_dns::error::ClientError'>ClientError</a></code></h3><div class='impl-items'><h4 id='method.fmt-1' class='method'><code>fn <a href='https://doc.rust-lang.org/nightly/core/fmt/trait.Debug.html#method.fmt' class='fnname'>fmt</a>(&amp;self, __arg_0: &amp;mut <a class='struct' href='https://doc.rust-lang.org/nightly/core/fmt/struct.Formatter.html' title='core::fmt::Formatter'>Formatter</a>) -&gt; <a class='type' href='https://doc.rust-lang.org/nightly/core/fmt/type.Result.html' title='core::fmt::Result'>Result</a></code></h4>
 </div></section>
     <section id='search' class="content hidden"></section>
 

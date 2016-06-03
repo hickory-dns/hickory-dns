@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    
 
     
     
@@ -79,6 +80,9 @@
 <span id="36">36</span>
 <span id="37">37</span>
 <span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -98,6 +102,8 @@
 
 <span class='doccomment'>//! All defined errors for Trust-DNS</span>
 
+<span class='attribute'>#[<span class='ident'>macro_use</span>]</span>
+<span class='kw'>mod</span> <span class='ident'>base_error</span>;
 <span class='kw'>mod</span> <span class='ident'>decode_error</span>;
 <span class='kw'>mod</span> <span class='ident'>encode_error</span>;
 <span class='kw'>mod</span> <span class='ident'>client_error</span>;
@@ -105,6 +111,7 @@
 <span class='kw'>mod</span> <span class='ident'>parse_error</span>;
 <span class='kw'>mod</span> <span class='ident'>config_error</span>;
 
+<span class='kw'>pub</span> <span class='kw'>use</span> <span class='self'>self</span>::<span class='ident'>base_error</span>::<span class='ident'>ErrorLoc</span>;
 <span class='kw'>pub</span> <span class='kw'>use</span> <span class='self'>self</span>::<span class='ident'>decode_error</span>::<span class='ident'>DecodeError</span>;
 <span class='kw'>pub</span> <span class='kw'>use</span> <span class='self'>self</span>::<span class='ident'>encode_error</span>::<span class='ident'>EncodeError</span>;
 <span class='kw'>pub</span> <span class='kw'>use</span> <span class='self'>self</span>::<span class='ident'>client_error</span>::<span class='ident'>ClientError</span>;

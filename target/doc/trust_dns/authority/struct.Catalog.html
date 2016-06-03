@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../main.css">
+    
 
     
     
@@ -43,24 +44,80 @@
 
     <section id='main' class="content struct">
 <h1 class='fqn'><span class='in-band'>Struct <a href='../index.html'>trust_dns</a>::<wbr><a href='index.html'>authority</a>::<wbr><a class='struct' href=''>Catalog</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-3844' class='srclink' href='../../src/trust_dns/src/authority/catalog.rs.html#27-29' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-4461' class='srclink' href='../../src/trust_dns/src/authority/catalog.rs.html#27-29' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct Catalog {
     // some fields omitted
 }</pre><div class='docblock'><p>Set of authorities, zones, available to this server.</p>
 </div><h2 id='methods'>Methods</h2><h3 class='impl'><code>impl <a class='struct' href='../../trust_dns/authority/struct.Catalog.html' title='trust_dns::authority::Catalog'>Catalog</a></code></h3><div class='impl-items'><h4 id='method.new' class='method'><code>fn <a href='#method.new' class='fnname'>new</a>() -&gt; Self</code></h4>
 <h4 id='method.handle_request' class='method'><code>fn <a href='#method.handle_request' class='fnname'>handle_request</a>(&amp;self, request: &amp;<a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a>) -&gt; <a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a></code></h4>
-<h4 id='method.error_msg' class='method'><code>fn <a href='#method.error_msg' class='fnname'>error_msg</a>(id: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>, op_code: <a class='enum' href='../../trust_dns/op/op_code/enum.OpCode.html' title='trust_dns::op::op_code::OpCode'>OpCode</a>, response_code: <a class='enum' href='../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>) -&gt; <a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a></code></h4>
+<div class='docblock'><p>Determine&#39;s what needs to happen given the type of request, i.e. Query or Update.</p>
+
+<h1 id='arguments' class='section-header'><a href='#arguments'>Arguments</a></h1>
+<ul>
+<li><code>request</code> - the requested action to perform.</li>
+</ul>
+</div><h4 id='method.error_msg' class='method'><code>fn <a href='#method.error_msg' class='fnname'>error_msg</a>(id: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>, op_code: <a class='enum' href='../../trust_dns/op/op_code/enum.OpCode.html' title='trust_dns::op::op_code::OpCode'>OpCode</a>, response_code: <a class='enum' href='../../trust_dns/op/response_code/enum.ResponseCode.html' title='trust_dns::op::response_code::ResponseCode'>ResponseCode</a>) -&gt; <a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a></code></h4>
 <h4 id='method.upsert' class='method'><code>fn <a href='#method.upsert' class='fnname'>upsert</a>(&amp;mut self, name: <a class='struct' href='../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>, authority: <a class='struct' href='../../trust_dns/authority/struct.Authority.html' title='trust_dns::authority::Authority'>Authority</a>)</code></h4>
-<h4 id='method.update' class='method'><code>fn <a href='#method.update' class='fnname'>update</a>(&amp;self, request: &amp;<a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a>) -&gt; <a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a></code></h4>
-<div class='docblock'><p>The &quot;request&quot; should be an update formatted message.
-The response will be in the alternate, all 0&#39;s format described in RFC 2136 section 3.8
-as this is more efficient.</p>
+<h4 id='method.update' class='method'><code>fn <a href='#method.update' class='fnname'>update</a>(&amp;self, update: &amp;<a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a>) -&gt; <a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a></code></h4>
+<div class='docblock'><p>Update the zone given the Update request.</p>
+
+<p><a href="https://tools.ietf.org/html/rfc2136">RFC 2136</a>, DNS Update, April 1997</p>
+
+<pre><code class="language-text">3.1 - Process Zone Section
+
+  3.1.1. The Zone Section is checked to see that there is exactly one
+  RR therein and that the RR&#39;s ZTYPE is SOA, else signal FORMERR to the
+  requestor.  Next, the ZNAME and ZCLASS are checked to see if the zone
+  so named is one of this server&#39;s authority zones, else signal NOTAUTH
+  to the requestor.  If the server is a zone slave, the request will be
+  forwarded toward the primary master.
+
+  3.1.2 - Pseudocode For Zone Section Processing
+
+     if (zcount != 1 || ztype != SOA)
+          return (FORMERR)
+     if (zone_type(zname, zclass) == SLAVE)
+          return forward()
+     if (zone_type(zname, zclass) == MASTER)
+          return update()
+     return (NOTAUTH)
+
+  Sections 3.2 through 3.8 describe the primary master&#39;s behaviour,
+  whereas Section 6 describes a forwarder&#39;s behaviour.
+
+3.8 - Response
+
+  At the end of UPDATE processing, a response code will be known.  A
+  response message is generated by copying the ID and Opcode fields
+  from the request, and either copying the ZOCOUNT, PRCOUNT, UPCOUNT,
+  and ADCOUNT fields and associated sections, or placing zeros (0) in
+  the these &quot;count&quot; fields and not including any part of the original
+  update.  The QR bit is set to one (1), and the response is sent back
+  to the requestor.  If the requestor used UDP, then the response will
+  be sent to the requestor&#39;s source UDP port.  If the requestor used
+  TCP, then the response will be sent back on the requestor&#39;s open TCP
+  connection.
+</code></pre>
+
+<p>The &quot;request&quot; should be an update formatted message.
+ The response will be in the alternate, all 0&#39;s format described in RFC 2136 section 3.8
+ as this is more efficient.</p>
+
+<h1 id='arguments-1' class='section-header'><a href='#arguments-1'>Arguments</a></h1>
+<ul>
+<li><code>request</code> - an update message</li>
+</ul>
 </div><h4 id='method.lookup' class='method'><code>fn <a href='#method.lookup' class='fnname'>lookup</a>(&amp;self, request: &amp;<a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a>) -&gt; <a class='struct' href='../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a></code></h4>
-<h4 id='method.search' class='method'><code>fn <a href='#method.search' class='fnname'>search</a>&lt;'a&gt;(authority: &amp;'a <a class='struct' href='../../trust_dns/authority/struct.Authority.html' title='trust_dns::authority::Authority'>Authority</a>, query: &amp;<a class='struct' href='../../trust_dns/op/query/struct.Query.html' title='trust_dns::op::query::Query'>Query</a>, is_secure: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a>) -&gt; <a class='enum' href='https://doc.rust-lang.org/nightly/core/option/enum.Option.html' title='core::option::Option'>Option</a>&lt;<a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;&amp;'a <a class='struct' href='../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>&gt;&gt;</code></h4>
-</div></section>
+<div class='docblock'><p>Given the requested query, lookup and return any matching results.</p>
+
+<h1 id='arguments-2' class='section-header'><a href='#arguments-2'>Arguments</a></h1>
+<ul>
+<li><code>request</code> - the query message.</li>
+</ul>
+</div></div></section>
     <section id='search' class="content hidden"></section>
 
     <section class="footer"></section>

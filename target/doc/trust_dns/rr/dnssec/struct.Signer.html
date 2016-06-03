@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../main.css">
+    
 
     
     
@@ -43,10 +44,10 @@
 
     <section id='main' class="content struct">
 <h1 class='fqn'><span class='in-band'>Struct <a href='../../index.html'>trust_dns</a>::<wbr><a href='../index.html'>rr</a>::<wbr><a href='index.html'>dnssec</a>::<wbr><a class='struct' href=''>Signer</a></span><span class='out-of-band'><span id='render-detail'>
-            <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
-                [<span class='inner'>&#x2212;</span>]
-            </a>
-        </span><a id='src-3230' class='srclink' href='../../../src/trust_dns/src/rr/dnssec/signer.rs.html#29-35' title='goto source code'>[src]</a></span></h1>
+                   <a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">
+                       [<span class='inner'>&#x2212;</span>]
+                   </a>
+               </span><a id='src-3750' class='srclink' href='../../../src/trust_dns/src/rr/dnssec/signer.rs.html#29-35' title='goto source code'>[src]</a></span></h1>
 <pre class='rust struct'>pub struct Signer {
     // some fields omitted
 }</pre><div class='docblock'><p>Use for performing signing and validation of DNSSec based components.</p>
@@ -116,7 +117,14 @@ Appendix C: Key Tag Calculation
  }
 </code></pre>
 </div><h4 id='method.sign_message' class='method'><code>fn <a href='#method.sign_message' class='fnname'>sign_message</a>(&amp;self, message: &amp;<a class='struct' href='../../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a>) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;</code></h4>
-<div class='docblock'><pre><code class="language-text">4.1.8.1 Calculating Transaction and Request SIGs
+<div class='docblock'><p>Signs the given message, returning the signature bytes.</p>
+
+<h1 id='arguments' class='section-header'><a href='#arguments'>Arguments</a></h1>
+<ul>
+<li><code>message</code> - the message to sign</li>
+</ul>
+
+<pre><code class="language-text">4.1.8.1 Calculating Transaction and Request SIGs
 
  A response message from a security aware server may optionally
  contain a special SIG at the end of the additional information
@@ -163,6 +171,15 @@ Appendix C: Key Tag Calculation
  being verified.</p>
 
 <hr>
+</div><h4 id='method.verify_message' class='method'><code>fn <a href='#method.verify_message' class='fnname'>verify_message</a>(&amp;self, message: &amp;<a class='struct' href='../../../trust_dns/op/message/struct.Message.html' title='trust_dns::op::message::Message'>Message</a>, signature: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
+<div class='docblock'><p>Verifies a message with the against the given signature</p>
+
+<h1 id='arguments-1' class='section-header'><a href='#arguments-1'>Arguments</a></h1>
+<p><code>message</code> - the message to verify
+<code>signature</code> - the signature to use for validation</p>
+
+<h1 id='return-value' class='section-header'><a href='#return-value'>Return value</a></h1>
+<p><code>true</code> if the message could be validated against the signature, <code>false</code> otherwise</p>
 </div><h4 id='method.hash_rrset' class='method'><code>fn <a href='#method.hash_rrset' class='fnname'>hash_rrset</a>(&amp;self, name: &amp;<a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>, dns_class: <a class='enum' href='../../../trust_dns/rr/dns_class/enum.DNSClass.html' title='trust_dns::rr::dns_class::DNSClass'>DNSClass</a>, num_labels: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>, type_covered: <a class='enum' href='../../../trust_dns/rr/record_type/enum.RecordType.html' title='trust_dns::rr::record_type::RecordType'>RecordType</a>, algorithm: <a class='enum' href='../../../trust_dns/rr/dnssec/enum.Algorithm.html' title='trust_dns::rr::dnssec::Algorithm'>Algorithm</a>, original_ttl: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sig_expiration: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, sig_inception: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u32.html'>u32</a>, key_tag: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u16.html'>u16</a>, signer_name: &amp;<a class='struct' href='../../../trust_dns/rr/domain/struct.Name.html' title='trust_dns::rr::domain::Name'>Name</a>, records: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='struct' href='../../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;</code></h4>
 <div class='docblock'><p>name is the the name of the records in the rrset</p>
 </div><h4 id='method.hash_rrset_with_rrsig' class='method'><code>fn <a href='#method.hash_rrset_with_rrsig' class='fnname'>hash_rrset_with_rrsig</a>(&amp;self, rrsig: &amp;<a class='struct' href='../../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a>, records: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='struct' href='../../../trust_dns/rr/resource/struct.Record.html' title='trust_dns::rr::resource::Record'>Record</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='struct' href='https://doc.rust-lang.org/nightly/collections/vec/struct.Vec.html' title='collections::vec::Vec'>Vec</a>&lt;<a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a>&gt;</code></h4>
@@ -171,24 +188,24 @@ Appendix C: Key Tag Calculation
 
 <p>This will panic if the <code>key</code> is not a private key and can be used for signing.</p>
 
-<h1 id='arguments' class='section-header'><a href='#arguments'>Arguments</a></h1>
+<h1 id='arguments-2' class='section-header'><a href='#arguments-2'>Arguments</a></h1>
 <ul>
 <li><code>hash</code> - the hashed resource record set, see <code>hash_rrset</code>.</li>
 </ul>
 
-<h1 id='return-value' class='section-header'><a href='#return-value'>Return value</a></h1>
+<h1 id='return-value-1' class='section-header'><a href='#return-value-1'>Return value</a></h1>
 <p>The signature, ready to be stored in an <code>RData::RRSIG</code>.</p>
 </div><h4 id='method.verify' class='method'><code>fn <a href='#method.verify' class='fnname'>verify</a>(&amp;self, hash: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>, signature: <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>&amp;[</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.u8.html'>u8</a><a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.slice.html'>]</a>) -&gt; <a class='primitive' href='https://doc.rust-lang.org/nightly/std/primitive.bool.html'>bool</a></code></h4>
 <div class='docblock'><p>Verifies the hash matches the signature with the current <code>key</code>.</p>
 
-<h1 id='arguments-1' class='section-header'><a href='#arguments-1'>Arguments</a></h1>
+<h1 id='arguments-3' class='section-header'><a href='#arguments-3'>Arguments</a></h1>
 <ul>
 <li><code>hash</code> - the hash to be validated, see <code>hash_rrset</code></li>
 <li><code>signature</code> - the signature to use to verify the hash, extracted from an <code>RData::RRSIG</code>
             for example.</li>
 </ul>
 
-<h1 id='return-value-1' class='section-header'><a href='#return-value-1'>Return value</a></h1>
+<h1 id='return-value-2' class='section-header'><a href='#return-value-2'>Return value</a></h1>
 <p>True if and only if the signature is valid for the hash. This will always return
 false if the <code>key</code>.</p>
 </div></div></section>

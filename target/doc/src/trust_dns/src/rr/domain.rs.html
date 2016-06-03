@@ -11,6 +11,7 @@
 
     <link rel="stylesheet" type="text/css" href="../../../../rustdoc.css">
     <link rel="stylesheet" type="text/css" href="../../../../main.css">
+    
 
     
     
@@ -598,6 +599,8 @@
 <span id="555">555</span>
 <span id="556">556</span>
 <span id="557">557</span>
+<span id="558">558</span>
+<span id="559">559</span>
 </pre><pre class='rust '>
 <span class='comment'>/*
  * Copyright (C) 2015 Benjamin Fry &lt;benjaminfry@me.com&gt;
@@ -956,37 +959,39 @@
 }
 
 <span class='kw'>impl</span> <span class='ident'>Ord</span> <span class='kw'>for</span> <span class='ident'>Name</span> {
-  <span class='comment'>// RFC 4034                DNSSEC Resource Records               March 2005</span>
-  <span class='comment'>//</span>
-  <span class='comment'>// 6.1.  Canonical DNS Name Order</span>
-  <span class='comment'>//</span>
-  <span class='comment'>//  For the purposes of DNS security, owner names are ordered by treating</span>
-  <span class='comment'>//  individual labels as unsigned left-justified octet strings.  The</span>
-  <span class='comment'>//  absence of a octet sorts before a zero value octet, and uppercase</span>
-  <span class='comment'>//  US-ASCII letters are treated as if they were lowercase US-ASCII</span>
-  <span class='comment'>//  letters.</span>
-  <span class='comment'>//</span>
-  <span class='comment'>//  To compute the canonical ordering of a set of DNS names, start by</span>
-  <span class='comment'>//  sorting the names according to their most significant (rightmost)</span>
-  <span class='comment'>//  labels.  For names in which the most significant label is identical,</span>
-  <span class='comment'>//  continue sorting according to their next most significant label, and</span>
-  <span class='comment'>//  so forth.</span>
-  <span class='comment'>//</span>
-  <span class='comment'>//  For example, the following names are sorted in canonical DNS name</span>
-  <span class='comment'>//  order.  The most significant label is &quot;example&quot;.  At this level,</span>
-  <span class='comment'>//  &quot;example&quot; sorts first, followed by names ending in &quot;a.example&quot;, then</span>
-  <span class='comment'>//  by names ending &quot;z.example&quot;.  The names within each level are sorted</span>
-  <span class='comment'>//  in the same way.</span>
-  <span class='comment'>//</span>
-  <span class='comment'>//            example</span>
-  <span class='comment'>//            a.example</span>
-  <span class='comment'>//            yljkjljk.a.example</span>
-  <span class='comment'>//            Z.a.example</span>
-  <span class='comment'>//            zABC.a.EXAMPLE</span>
-  <span class='comment'>//            z.example</span>
-  <span class='comment'>//            \001.z.example</span>
-  <span class='comment'>//            *.z.example</span>
-  <span class='comment'>//            \200.z.example</span>
+  <span class='doccomment'>/// RFC 4034                DNSSEC Resource Records               March 2005</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>/// ```text</span>
+  <span class='doccomment'>/// 6.1.  Canonical DNS Name Order</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  For the purposes of DNS security, owner names are ordered by treating</span>
+  <span class='doccomment'>///  individual labels as unsigned left-justified octet strings.  The</span>
+  <span class='doccomment'>///  absence of a octet sorts before a zero value octet, and uppercase</span>
+  <span class='doccomment'>///  US-ASCII letters are treated as if they were lowercase US-ASCII</span>
+  <span class='doccomment'>///  letters.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  To compute the canonical ordering of a set of DNS names, start by</span>
+  <span class='doccomment'>///  sorting the names according to their most significant (rightmost)</span>
+  <span class='doccomment'>///  labels.  For names in which the most significant label is identical,</span>
+  <span class='doccomment'>///  continue sorting according to their next most significant label, and</span>
+  <span class='doccomment'>///  so forth.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///  For example, the following names are sorted in canonical DNS name</span>
+  <span class='doccomment'>///  order.  The most significant label is &quot;example&quot;.  At this level,</span>
+  <span class='doccomment'>///  &quot;example&quot; sorts first, followed by names ending in &quot;a.example&quot;, then</span>
+  <span class='doccomment'>///  by names ending &quot;z.example&quot;.  The names within each level are sorted</span>
+  <span class='doccomment'>///  in the same way.</span>
+  <span class='doccomment'>///</span>
+  <span class='doccomment'>///            example</span>
+  <span class='doccomment'>///            a.example</span>
+  <span class='doccomment'>///            yljkjljk.a.example</span>
+  <span class='doccomment'>///            Z.a.example</span>
+  <span class='doccomment'>///            zABC.a.EXAMPLE</span>
+  <span class='doccomment'>///            z.example</span>
+  <span class='doccomment'>///            \001.z.example</span>
+  <span class='doccomment'>///            *.z.example</span>
+  <span class='doccomment'>///            \200.z.example</span>
+  <span class='doccomment'>/// ```</span>
   <span class='kw'>fn</span> <span class='ident'>cmp</span>(<span class='kw-2'>&amp;</span><span class='self'>self</span>, <span class='ident'>other</span>: <span class='kw-2'>&amp;</span><span class='kw'>Self</span>) <span class='op'>-&gt;</span> <span class='ident'>Ordering</span> {
     <span class='kw'>if</span> <span class='self'>self</span>.<span class='ident'>labels</span>.<span class='ident'>is_empty</span>() <span class='op'>&amp;&amp;</span> <span class='ident'>other</span>.<span class='ident'>labels</span>.<span class='ident'>is_empty</span>() { <span class='kw'>return</span> <span class='ident'>Ordering</span>::<span class='ident'>Equal</span> }
 
