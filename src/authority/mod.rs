@@ -25,6 +25,7 @@ pub enum ZoneType { Master, Slave, Hint, Forward }
 
 mod authority;
 mod catalog;
+mod persistence;
 mod rr_set;
 
 pub use self::authority::Authority;
