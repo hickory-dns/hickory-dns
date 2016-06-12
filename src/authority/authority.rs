@@ -1404,6 +1404,49 @@ pub mod authority_tests {
   }
 
   #[test]
+  fn test_journal() {
+    use std::net::Ipv4Addr;
+    use rusqlite::Connection;
+    use ::authority::Journal;
+
+    // test that this message can be inserted
+    let conn = Connection::open_in_memory().expect("could not create in memory DB");
+    let mut journal = Journal::new(conn).unwrap();
+    journal.schema_up().unwrap();
+
+    let mut authority = create_example();
+    authority.journal(journal);
+    authority.persist_to_journal().unwrap();
+
+    let new_name = Name::new().label("new").label("example").label("com");
+    let delete_name = Name::new().label("www").label("example").label("com");
+    let new_record = Record::new().name(new_name.clone()).rdata(RData::A(Ipv4Addr::new(10,11,12,13))).clone();
+    let delete_record = Record::new().name(delete_name.clone()).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).dns_class(DNSClass::NONE).clone();
+    authority.update_records(&[new_record.clone(), delete_record], true).unwrap();
+
+    // assert that the correct set of records is there.
+    let new_rrset: Vec<&Record> = authority.lookup(&new_name, RecordType::A, false);
+    assert!(new_rrset.iter().all(|r| *r == &new_record));
+
+    let delete_rrset: Vec<&Record> = authority.lookup(&delete_name, RecordType::A, false);
+    assert!(delete_rrset.is_empty());
+
+    // that record should have been recorded... let's reload the journal and see if we get it.
+    let mut recovered_authority = Authority::new(authority.get_origin().clone(),
+                                                 BTreeMap::new(),
+                                                 ZoneType::Master,
+                                                 false);
+    recovered_authority.recover_with_journal(authority.get_journal().expect("journal not Some"));
+
+    // assert that the correct set of records is there.
+    let new_rrset: Vec<&Record> = recovered_authority.lookup(&new_name, RecordType::A, false);
+    assert!(new_rrset.iter().all(|r| *r == &new_record));
+
+    let delete_rrset: Vec<&Record> = authority.lookup(&delete_name, RecordType::A, false);
+    assert!(delete_rrset.is_empty());
+  }
+
+  #[test]
   fn test_recovery() {
     use rusqlite::Connection;
     use ::authority::Journal;
