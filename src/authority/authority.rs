@@ -19,7 +19,8 @@ use std::cmp::Ordering;
 use chrono::offset::utc::UTC;
 use openssl::crypto::pkey::Role;
 
-use ::authority::{UpdateResult, ZoneType, RRSet};
+use ::authority::{Journal, RRSet, UpdateResult, ZoneType};
+use ::error::PersistenceResult;
 use ::op::{Message, UpdateMessage, ResponseCode, Query};
 use ::rr::{DNSClass, Name, RData, Record, RecordType};
 use ::rr::rdata::{NSEC, SIG};
@@ -62,10 +63,14 @@ impl Ord for RrKey {
   }
 }
 
-/// Authority is the storage method for all resource records
+/// Authority is responsible for storing the resource records for a particular zone.
+///
+/// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
+/// start of authority for the zone, is a slave, or a cached zone.
 pub struct Authority {
   origin: Name,
   class: DNSClass,
+  journal: Option<Journal>,
   records: BTreeMap<RrKey, RRSet>,
   zone_type: ZoneType,
   allow_update: bool,
@@ -77,10 +82,6 @@ pub struct Authority {
   secure_keys: Vec<Signer>,
 }
 
-/// Authority is responsible for storing the resource records for a particular zone.
-///
-/// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
-/// start of authority for the zone, is a slave, or a cached zone.
 impl Authority {
   /// Creates a new Authority.
   ///
@@ -88,7 +89,7 @@ impl Authority {
   ///
   /// * `origin` - The zone `Name` being created, this should match that of the `RecordType::SOA`
   ///              record.
-  /// * `records` - The `HashMap` of the initial set of records in the zone.
+  /// * `records` - The map of the initial set of records in the zone.
   /// * `zone_type` - The type of zone, i.e. is this authoritative?
   /// * `allow_update` - If true, then this zone accepts dynamic updates.
   ///
@@ -96,7 +97,7 @@ impl Authority {
   ///
   /// The new `Authority`.
   pub fn new(origin: Name, records: BTreeMap<RrKey, RRSet>, zone_type: ZoneType, allow_update: bool) -> Authority {
-    Authority{ origin: origin, class: DNSClass::IN, records: records, zone_type: zone_type,
+    Authority{ origin: origin, class: DNSClass::IN,  journal: None, records: records, zone_type: zone_type,
       allow_update: allow_update, secure_keys: Vec::new() }
   }
 
@@ -109,6 +110,55 @@ impl Authority {
     let serial = self.get_serial();
     self.upsert(dnskey, serial);
     self.secure_keys.push(signer);
+  }
+
+  pub fn recover_with_journal(&mut self, journal: &Journal) {
+    assert!(self.records.is_empty(), "records should be empty during a recovery");
+
+    info!("recovering from journal");
+    for record in journal.iter() {
+      // AXFR is special, it is used to mark the dump of a full zone.
+      //  when recovering, if an AXFR is encountered, we should remove all the records in the
+      //  authority.
+      if record.get_rr_type() == RecordType::AXFR {
+        self.records.clear();
+      } else {
+        self.update_records(&[record], false).expect("error recovering from journal!");
+      }
+    }
+
+    // zone signing was off during load, now sign the zone.
+    self.sign_zone();
+  }
+
+  pub fn persist_to_journal(&self) -> PersistenceResult<()> {
+    if let Some(journal) = self.journal.as_ref() {
+      let serial = self.get_serial();
+
+      info!("persisting zone to journal at SOA.serial: {}", serial);
+
+      // TODO: THIS NEEDS TO BE IN A TRANSACTION!!!
+      try!(journal.insert_record(serial, Record::new().rr_type(RecordType::AXFR)));
+
+      for rr_set in self.records.values() {
+        // TODO: should we preserve rr_sets or not?
+        for record in rr_set.iter() {
+          try!(journal.insert_record(serial, record));
+        }
+      }
+
+      // TODO: COMMIT THE TRANSACTION!!!
+    }
+
+    Ok(())
+  }
+
+  pub fn journal(&mut self, journal: Journal) {
+    self.journal = Some(journal);
+  }
+
+  pub fn get_journal(&self) -> Option<&Journal> {
+    self.journal.as_ref()
   }
 
   #[cfg(test)]
@@ -127,6 +177,10 @@ impl Authority {
 
   pub fn get_zone_type(&self) -> ZoneType {
     self.zone_type
+  }
+
+  pub fn get_records(&self) -> &BTreeMap<RrKey, RRSet> {
+    &self.records
   }
 
   /// Returns the SOA of the authority.
@@ -529,10 +583,24 @@ impl Authority {
   ///   NONE     rrset    rr       Delete an RR from an RRset
   ///   zone     rrset    rr       Add to an RRset
   /// ```
-  fn update_records(&mut self, records: &[Record]) -> UpdateResult<bool> {
+  ///
+  /// # Arguments
+  ///
+  /// * `records` - set of record instructions for update following above rules
+  /// * `auto_sign` - if true, the zone will auto_sign (assuming there are signers present), this
+  ///                 should be disabled during recovery.
+  fn update_records(&mut self, records: &[Record], auto_sign: bool) -> UpdateResult<bool> {
     let mut updated = false;
     let serial: u32 = self.get_serial();
 
+    // the persistence act as a write-ahead log. The WAL will also be used for recovery of a zone
+    //  subsequent to a failure of the server.
+    if let Some(ref journal) = self.journal {
+      if let Err(error) = journal.insert_records(serial, records) {
+        error!("could not persist update records: {}", error);
+        return Err(ResponseCode::ServFail);
+      }
+    }
 
     // 3.4.2.7 - Pseudocode For Update Section Processing
     //
@@ -655,7 +723,7 @@ impl Authority {
     }
 
     // update the serial...
-    if updated {
+    if auto_sign && updated {
       self.secure_zone();
     }
 
@@ -746,7 +814,7 @@ impl Authority {
     try!(self.verify_prerequisites(update.get_pre_requisites()));
     try!(self.pre_scan(update.get_updates()));
 
-    self.update_records(update.get_updates())
+    self.update_records(update.get_updates(), true)
   }
 
   /// Using the specified query, perform a lookup against this zone.
@@ -1232,12 +1300,12 @@ pub mod authority_tests {
     //
     //  zone     rrset    rr       Add to an RRset
     let add_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()];
-    assert!(authority.update_records(add_record).expect("update failed"));
+    assert!(authority.update_records(add_record, true).expect("update failed"));
     assert_eq!(authority.lookup(&new_name, RecordType::ANY, false), add_record.iter().collect::<Vec<&Record>>());
     assert_eq!(serial + 1, authority.get_serial());
 
     let add_www_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(10,0,0,1))).clone()];
-    assert!(authority.update_records(add_www_record).expect("update failed"));
+    assert!(authority.update_records(add_www_record, true).expect("update failed"));
     assert_eq!(serial + 2, authority.get_serial());
 
     {
@@ -1253,7 +1321,7 @@ pub mod authority_tests {
     //
     //  NONE     rrset    rr       Delete an RR from an RRset
     let del_record = &[Record::new().name(new_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone()];
-    assert!(authority.update_records(del_record).expect("update failed"));
+    assert!(authority.update_records(del_record, true).expect("update failed"));
     assert_eq!(serial + 3, authority.get_serial());
     {
       println!("after delete of specific record: {:?}", authority.lookup(&new_name, RecordType::ANY, false));
@@ -1262,7 +1330,7 @@ pub mod authority_tests {
 
     // remove one from www
     let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::NONE).rdata(RData::A(Ipv4Addr::new(10,0,0,1))).clone()];
-    assert!(authority.update_records(del_record).expect("update failed"));
+    assert!(authority.update_records(del_record, true).expect("update failed"));
     assert_eq!(serial + 4, authority.get_serial());
     {
       let mut www_rrset = authority.lookup(&www_name, RecordType::ANY, false);
@@ -1274,7 +1342,7 @@ pub mod authority_tests {
     //
     //  ANY      rrset    empty    Delete an RRset
     let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()];
-    assert!(authority.update_records(del_record).expect("update failed"));
+    assert!(authority.update_records(del_record, true).expect("update failed"));
     assert_eq!(serial + 5, authority.get_serial());
     let mut removed_a_vec: Vec<_> = vec![
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()]))).clone(),
@@ -1293,7 +1361,7 @@ pub mod authority_tests {
     //  ANY      ANY      empty    Delete all RRsets from a name
     println!("deleting all records");
     let del_record = &[Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::ANY).dns_class(DNSClass::ANY).rdata(RData::NULL(NULL::new())).clone()];
-    assert!(authority.update_records(del_record).expect("update failed"));
+    assert!(authority.update_records(del_record, true).expect("update failed"));
     assert!(authority.lookup(&www_name, RecordType::ANY, false).is_empty());
     assert_eq!(serial + 6, authority.get_serial());
   }
@@ -1333,5 +1401,46 @@ pub mod authority_tests {
     for record in results.iter() {
       assert!(record.get_name() < &name);
     }
+  }
+
+  #[test]
+  fn test_recovery() {
+    use rusqlite::Connection;
+    use ::authority::Journal;
+
+    // test that this message can be inserted
+    let conn = Connection::open_in_memory().expect("could not create in memory DB");
+    let mut journal = Journal::new(conn).unwrap();
+    journal.schema_up().unwrap();
+
+    let mut authority = create_example();
+    authority.journal(journal);
+    authority.persist_to_journal().unwrap();
+
+    let journal = authority.get_journal().unwrap();
+    let mut recovered_authority = Authority::new(authority.get_origin().clone(),
+                                                 BTreeMap::new(),
+                                                 ZoneType::Master,
+                                                 false);
+
+    recovered_authority.recover_with_journal(journal);
+
+    assert_eq!(recovered_authority.get_records().len(), authority.get_records().len());
+    assert_eq!(recovered_authority.get_soa(), authority.get_soa());
+    assert!(recovered_authority.get_records().iter().all(|(rr_key, rr_set)| {
+      let other_rr_set = authority.get_records().get(rr_key).expect(&format!("key doesn't exist: {:?}", rr_key));
+      rr_set.iter().zip(other_rr_set.iter()).all(|(record, other_record)| {
+        record.get_ttl() == other_record.get_ttl() &&
+        record.get_rdata() == other_record.get_rdata()
+      })
+    }));
+
+    assert!(authority.get_records().iter().all(|(rr_key, rr_set)| {
+      let other_rr_set = recovered_authority.get_records().get(rr_key).expect(&format!("key doesn't exist: {:?}", rr_key));
+      rr_set.iter().zip(other_rr_set.iter()).all(|(record, other_record)| {
+        record.get_ttl() == other_record.get_ttl() &&
+        record.get_rdata() == other_record.get_rdata()
+      })
+    }));
   }
 }

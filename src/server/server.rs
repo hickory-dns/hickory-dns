@@ -338,29 +338,18 @@ mod server_tests {
   use ::udp::UdpClientConnection;
   #[cfg(feature = "ftest")]
   use ::tcp::TcpClientConnection;
+  #[cfg(feature = "ftest")]
+  use mio::tcp::TcpListener;
 
   #[test]
   fn test_server_www_udp() {
-    // use log::LogLevel;
-    // use ::logger;
-    // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
-
-    let example = create_example();
-    let origin = example.get_origin().clone();
-
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), example);
-
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 0));
     let udp_socket = UdpSocket::bound(&addr).unwrap();
 
     let ipaddr = udp_socket.local_addr().unwrap();
     println!("udp_socket on port: {}", ipaddr);
 
-    let mut server = Server::new(catalog);
-    server.register_socket(udp_socket);
-
-    /*let server_thread = */thread::Builder::new().name("test_server:udp:server".to_string()).spawn(move || server_thread(server)).unwrap();
+    thread::Builder::new().name("test_server:udp:server".to_string()).spawn(move || server_thread_udp(udp_socket)).unwrap();
 
     let client_conn = UdpClientConnection::new(ipaddr).unwrap();
     let client_thread = thread::Builder::new().name("test_server:udp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
@@ -377,26 +366,13 @@ mod server_tests {
   fn test_server_www_tcp() {
     use mio::tcp::TcpListener;
 
-    // use log::LogLevel;
-    // use ::logger;
-    // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
-
-    let example = create_example();
-    let origin = example.get_origin().clone();
-
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), example);
-
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 0));
     let tcp_listener = TcpListener::bind(&addr).unwrap();
 
     let ipaddr = tcp_listener.local_addr().unwrap();
     println!("tcp_listner on port: {}", ipaddr);
 
-    let mut server = Server::new(catalog);
-    server.register_listener(tcp_listener);
-
-    /*let server_thread = */thread::Builder::new().name("test_server:tcp:server".to_string()).spawn(move || server_thread(server)).unwrap();
+    thread::Builder::new().name("test_server:tcp:server".to_string()).spawn(move || server_thread_tcp(tcp_listener)).unwrap();
 
     let client_conn = TcpClientConnection::new(ipaddr).unwrap();
     let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
@@ -439,7 +415,30 @@ mod server_tests {
     assert_eq!(ns.last().unwrap().get_rdata(), &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) );
   }
 
-  fn server_thread(mut server: Server) {
+  fn new_catalog() -> Catalog {
+    let example = create_example();
+    let origin = example.get_origin().clone();
+
+    let mut catalog: Catalog = Catalog::new();
+    catalog.upsert(origin.clone(), example);
+    catalog
+  }
+
+  fn server_thread_udp(udp_socket: UdpSocket) {
+    let catalog = new_catalog();
+
+    let mut server = Server::new(catalog);
+    server.register_socket(udp_socket);
+
+    server.listen().unwrap();
+  }
+
+  #[cfg(feature = "ftest")]
+  fn server_thread_tcp(tcp_listener: TcpListener) {
+    let catalog = new_catalog();
+    let mut server = Server::new(catalog);
+    server.register_listener(tcp_listener);
+
     server.listen().unwrap();
   }
 }

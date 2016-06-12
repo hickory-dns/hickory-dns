@@ -32,6 +32,7 @@ pub use self::authority::Authority;
 pub use self::authority::RrKey;
 pub use self::catalog::Catalog;
 pub use self::rr_set::RRSet;
+pub use self::persistence::Journal;
 
 #[cfg(test)]
 pub use self::authority::authority_tests;

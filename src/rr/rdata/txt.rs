@@ -61,7 +61,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<TXT> {
   let mut strings = Vec::with_capacity(1);
 
   while data_len - decoder.len() < rdata_length as usize {
-    strings.push(try!(decoder.read_character_data()));
+    strings.push(try!(decoder.read_character_data(false)));
   }
   Ok(TXT::new(strings))
 }
@@ -88,7 +88,7 @@ pub fn parse(tokens: &Vec<Token>) -> ParseResult<TXT> {
 
 #[test]
 fn test() {
-  let rdata = TXT::new(vec!["test me some".to_string(), "more please".to_string()]);
+  let rdata = TXT::new(vec!["Test me some".to_string(), "more please".to_string()]);
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

@@ -1,23 +1,15 @@
-/*
- * Copyright (C) 2015-2016 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2016 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+use  std::slice::Iter;
+
 use ::rr::{Name, Record, RecordType, RData};
 
-
 /// Set of resource records associated to a name and type
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub struct RRSet {
   name: Name,
   record_type: RecordType,
@@ -76,6 +68,11 @@ impl RRSet {
     } else {
       self.records.iter().collect()
     }
+  }
+
+  /// Returns an iterator over the records in the set
+  pub fn iter<'s>(&'s self) -> Iter<'s, Record> {
+    self.records.iter()
   }
 
   /// # Return value

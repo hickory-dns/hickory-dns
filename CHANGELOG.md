@@ -2,6 +2,13 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## unreleased
+### Added
+- SQLite journal for dynamic update persistence
+
+### Fixed
+- TXT record 
+
 ## 0.6.0 2016-06-01
 ### Added
 - Documentation on all modules, and many standard RFC types

@@ -53,7 +53,7 @@ use ::rr::dnssec::Algorithm;
 /// +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
 ///
 /// ```
-/// [RFC 2931, DNS Request and Transaction Signatures, September 2000](https://tools.ietf.org/html/rfc2931)
+/// [RFC 2931](https://tools.ietf.org/html/rfc2931), DNS Request and Transaction Signatures, September 2000
 ///
 /// NOTE: 2931 updates SIG0 to clarify certain particulars...
 ///

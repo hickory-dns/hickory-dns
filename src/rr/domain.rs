@@ -275,7 +275,7 @@ impl BinSerializable<Name> for Name {
           }
         },
         LabelParseState::Label => {
-          labels.push(Rc::new(try!(decoder.read_character_data())));
+          labels.push(Rc::new(try!(decoder.read_character_data(true))));
 
           // reset to collect more data
           LabelParseState::LabelLengthOrPointer

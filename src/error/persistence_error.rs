@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 use std::error::Error;
 use std::fmt;
-use std::io;
 
 use rusqlite;
 

@@ -20,7 +20,7 @@ use ::serialize::binary::*;
 use ::error::*;
 use ::rr::dnssec::Algorithm;
 
-/// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2)
+/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
 /// ```text
 /// 2.  The DNSKEY Resource Record
