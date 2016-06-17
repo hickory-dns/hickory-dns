@@ -38,11 +38,11 @@ fn test_read_config() {
   assert_eq!(config.get_log_level(), LogLevel::Info);
   assert_eq!(config.get_directory(), Path::new("/var/named"));
   assert_eq!(config.get_zones(), [
-    ZoneConfig { zone: "localhost".into(), zone_type: ZoneType::Master, file: "default/localhost.zone".into(), allow_update: None },
-    ZoneConfig { zone: "0.0.127.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/127.0.0.1.zone".into(), allow_update: None },
-    ZoneConfig { zone: "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa".into(), zone_type: ZoneType::Master, file: "default/ipv6_1.zone".into(), allow_update: None },
-    ZoneConfig { zone: "255.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/255.zone".into(), allow_update: None },
-    ZoneConfig { zone: "0.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/0.zone".into(), allow_update: None }
+    ZoneConfig { zone: "localhost".into(), zone_type: ZoneType::Master, file: "default/localhost.zone".into(), allow_update: None, enable_dnssec: None },
+    ZoneConfig { zone: "0.0.127.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/127.0.0.1.zone".into(), allow_update: None, enable_dnssec: None },
+    ZoneConfig { zone: "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa".into(), zone_type: ZoneType::Master, file: "default/ipv6_1.zone".into(), allow_update: None, enable_dnssec: None },
+    ZoneConfig { zone: "255.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/255.zone".into(), allow_update: None, enable_dnssec: None },
+    ZoneConfig { zone: "0.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/0.zone".into(), allow_update: None, enable_dnssec: None }
   ]);
 }
 

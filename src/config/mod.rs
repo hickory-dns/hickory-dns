@@ -90,6 +90,7 @@ pub struct ZoneConfig {
   zone_type: ZoneType,
   file: String,
   allow_update: Option<bool>,
+  enable_dnssec: Option<bool>,
 }
 
 impl ZoneConfig {
@@ -97,7 +98,8 @@ impl ZoneConfig {
   pub fn get_zone(&self) -> ParseResult<Name> { Name::parse(&self.zone, Some(&Name::new())) }
   pub fn get_zone_type(&self) -> ZoneType { self.zone_type }
   pub fn get_file(&self) -> PathBuf { PathBuf::from(&self.file) }
-  pub fn get_allow_udpate(&self) -> bool { self.allow_update.unwrap_or(false) }
+  pub fn is_update_allowed(&self) -> bool { self.allow_update.unwrap_or(false) }
+  pub fn is_dnssec_enabled(&self) -> bool { self.enable_dnssec.unwrap_or(false) }
 }
 
 #[cfg(test)]

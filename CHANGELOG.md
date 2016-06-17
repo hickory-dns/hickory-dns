@@ -4,10 +4,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## unreleased
 ### Added
+- Added recovery from journal to named startup
 - SQLite journal for dynamic update persistence
 
+### Changed
+- Removed many of the unwraps in named binary
+
 ### Fixed
-- TXT record 
+- TXT record case sensitivity
 
 ## 0.6.0 2016-06-01
 ### Added

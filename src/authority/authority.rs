@@ -20,7 +20,7 @@ use chrono::offset::utc::UTC;
 use openssl::crypto::pkey::Role;
 
 use ::authority::{Journal, RRSet, UpdateResult, ZoneType};
-use ::error::PersistenceResult;
+use ::error::{PersistenceError, PersistenceResult};
 use ::op::{Message, UpdateMessage, ResponseCode, Query};
 use ::rr::{DNSClass, Name, RData, Record, RecordType};
 use ::rr::rdata::{NSEC, SIG};
@@ -112,7 +112,7 @@ impl Authority {
     self.secure_keys.push(signer);
   }
 
-  pub fn recover_with_journal(&mut self, journal: &Journal) {
+  pub fn recover_with_journal(&mut self, journal: &Journal) -> PersistenceResult<()> {
     assert!(self.records.is_empty(), "records should be empty during a recovery");
 
     info!("recovering from journal");
@@ -123,12 +123,16 @@ impl Authority {
       if record.get_rr_type() == RecordType::AXFR {
         self.records.clear();
       } else {
-        self.update_records(&[record], false).expect("error recovering from journal!");
+        match self.update_records(&[record], false) {
+          Err(error) => return Err(PersistenceError::RecoveryError(error_loc!(), format!("error recovering from journal: {:?}", error))),
+          _ => (),
+        }
       }
     }
 
     // zone signing was off during load, now sign the zone.
     self.sign_zone();
+    Ok(())
   }
 
   pub fn persist_to_journal(&self) -> PersistenceResult<()> {
@@ -1436,7 +1440,7 @@ pub mod authority_tests {
                                                  BTreeMap::new(),
                                                  ZoneType::Master,
                                                  false);
-    recovered_authority.recover_with_journal(authority.get_journal().expect("journal not Some"));
+    recovered_authority.recover_with_journal(authority.get_journal().expect("journal not Some")).expect("recovery");
 
     // assert that the correct set of records is there.
     let new_rrset: Vec<&Record> = recovered_authority.lookup(&new_name, RecordType::A, false);
@@ -1466,7 +1470,7 @@ pub mod authority_tests {
                                                  ZoneType::Master,
                                                  false);
 
-    recovered_authority.recover_with_journal(journal);
+    recovered_authority.recover_with_journal(journal).expect("recovery");
 
     assert_eq!(recovered_authority.get_records().len(), authority.get_records().len());
     assert_eq!(recovered_authority.get_soa(), authority.get_soa());

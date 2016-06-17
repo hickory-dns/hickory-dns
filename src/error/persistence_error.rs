@@ -14,6 +14,7 @@ pub enum PersistenceError {
   EncodeError(super::ErrorLoc, super::EncodeError),
   SqliteError(super::ErrorLoc, rusqlite::Error),
   WrongInsertCount{ loc: super::ErrorLoc, got: i32, expect: i32 },
+  RecoveryError(super::ErrorLoc, String),
 }
 
 impl fmt::Debug for PersistenceError {
@@ -29,6 +30,7 @@ impl fmt::Display for PersistenceError {
       PersistenceError::EncodeError(ref err_loc, ref err) => write!(f, "{}:{}", err_loc, err),
       PersistenceError::SqliteError(ref err_loc, ref err) => write!(f, "{}: {}", err_loc, err),
       PersistenceError::WrongInsertCount{ref loc, got, expect } => write!(f, "{}: got {}, expected: {}", loc, got, expect),
+      PersistenceError::RecoveryError(ref err_loc, ref msg) => write!(f, "{}: error recovering: {}", err_loc, msg),
     }
   }
 }
@@ -40,6 +42,7 @@ impl Error for PersistenceError {
       PersistenceError::EncodeError(_, ref err) => err.description(),
       PersistenceError::SqliteError(_, ref err) => err.description(),
       PersistenceError::WrongInsertCount{ .. } => "an unexpected number of records were inserted",
+      PersistenceError::RecoveryError( .. ) => "error recovering from journal",
     }
   }
 

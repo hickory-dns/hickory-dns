@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use std::iter::Iterator;
+use std::path::Path;
 
 use time;
 use rusqlite;
@@ -28,6 +29,10 @@ impl Journal {
   pub fn new(conn: Connection) -> PersistenceResult<Journal> {
     let version = Self::select_schema_version(&conn);
     Ok(Journal { conn: conn, version: try!(version) })
+  }
+
+  pub fn from_file(journal_file: &Path) -> PersistenceResult<Journal> {
+    Self::new(try_rethrow!(PersistenceError::SqliteError, Connection::open(journal_file)))
   }
 
   /// gets the current schema version of the journal
