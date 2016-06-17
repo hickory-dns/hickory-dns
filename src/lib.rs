@@ -32,7 +32,9 @@ extern crate data_encoding;
 extern crate mio;
 extern crate openssl;
 extern crate openssl_sys;
+extern crate rusqlite;
 extern crate rustc_serialize;
+extern crate time;
 extern crate toml;
 
 

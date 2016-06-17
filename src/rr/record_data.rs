@@ -31,7 +31,7 @@ use super::rdata::{ DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, OPT, SIG, SOA
 
 /// Record data enum variants
 ///
-/// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+/// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
 ///
 /// ```text
 /// 3.3. Standard RRs

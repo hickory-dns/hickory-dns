@@ -141,6 +141,7 @@ impl Parser {
     Self::new().parse(lexer, origin, zone_type, allow_update)
   }
 
+  // TODO: change this function to load into an Authority, using the update_records() method
   pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>, zone_type: ZoneType, allow_update: bool) -> ParseResult<Authority> {
     let mut lexer = lexer;
     let mut records: BTreeMap<RrKey, RRSet> = BTreeMap::new();

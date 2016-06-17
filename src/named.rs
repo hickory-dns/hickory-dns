@@ -13,6 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! The `named` binary for running a DNS server
+//!
+//! ```text
+//! Usage: named [options]
+//!       named (-h | --help | --version)
+//!
+//! Options:
+//!    -q, --quiet             Disable INFO messages, WARN and ERROR will remain
+//!    -d, --debug             Turn on DEBUG messages (default is only INFO)
+//!    -h, --help              Show this message
+//!    -v, --version           Show the version of trust-dns
+//!    -c FILE, --config=FILE  Path to configuration file, default is /etc/named.toml
+//!    -z DIR, --zonedir=DIR   Path to the root directory for all zone files, see also config toml
+//!    -p PORT, --port=PORT    Override the listening port
+//! ```
+
 extern crate trust_dns;
 extern crate rustc_serialize;
 extern crate docopt;
@@ -21,6 +38,7 @@ extern crate mio;
 
 use std::fs::File;
 use std::path::{Path, PathBuf};
+use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::net::ToSocketAddrs;
 
@@ -31,8 +49,8 @@ use docopt::Docopt;
 
 use trust_dns::logger;
 use trust_dns::version;
-use trust_dns::authority::{Catalog, Authority};
-use trust_dns::config::Config;
+use trust_dns::authority::{Authority, Catalog, Journal};
+use trust_dns::config::{Config, ZoneConfig};
 use trust_dns::serialize::txt::Parser;
 use trust_dns::rr::Name;
 use trust_dns::server::Server;
@@ -64,9 +82,67 @@ struct Args {
   pub flag_port: Option<u16>,
 }
 
+fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
+  let zone_name: Name = zone.get_zone().expect("bad zone name");
+  let zone_path: PathBuf = zone_dir.to_owned().join(zone.get_file());
+  let journal_path: PathBuf = zone_path.with_extension(".jrnl");
+
+
+  if zone.is_update_allowed() && journal_path.exists() {
+    info!("recovering zone from journal: {:?}", journal_path);
+    let journal = match Journal::from_file(&journal_path) {
+      Ok(j) => j,
+      Err(e) => return Err(format!("error opening journal: {:?}: {}", journal_path, e)),
+    };
+
+    let mut authority = Authority::new(zone_name.clone(), BTreeMap::new(),  zone.get_zone_type(), zone.is_update_allowed());
+    if let Err(e) = authority.recover_with_journal(&journal) {
+      return Err(format!("error recovering from journal: {}", e))
+    }
+
+    authority.journal(journal);
+    info!("recovered zone: {}", zone_name);
+
+    Ok(authority)
+  } else if zone_path.exists() {
+    info!("loading zone file: {:?}", zone_path);
+
+    let zone_file = match File::open(&zone_path) {
+      Ok(f) => f,
+      Err(e) => return Err(format!("error opening zone file: {:?}: {}", zone_path, e)),
+    };
+
+    let mut authority: Authority = match Parser::parse_file(zone_file, Some(zone_name.clone()), zone.get_zone_type(), zone.is_update_allowed()) {
+      Ok(a) => a,
+      Err(e) => return Err(format!("error reading zone: {:?}: {}", zone_path, e)),
+    };
+
+    // if dynamic update is enabled, enable the journal
+    if zone.is_update_allowed() {
+      info!("enabling journal: {:?}", journal_path);
+      let journal = match Journal::from_file(&journal_path) {
+        Ok(j) => j,
+        Err(e) => return Err(format!("error creating journal {:?}: {}", journal_path, e)),
+      };
+
+      authority.journal(journal);
+
+      // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
+      if let Err(e) = authority.persist_to_journal() {
+        return Err(format!("error persisting to journal {:?}: {}", journal_path, e))
+      }
+    }
+
+    info!("loaded zone: {}", zone_name);
+    Ok(authority)
+  } else {
+    Err(format!("no zone file defined at: {:?}", zone_path))
+  }
+}
+
 /// Main method for running the named server.
-/// As of this writing, this will panic on any invalid input. At this top level binary is the only
-///  part Trust-DNS where panics are allowed.
+///
+/// `Note`: Tries to avoid panics, in favor of always starting.
 pub fn main() {
   // read any command line options
   let args: Args = Docopt::new(USAGE)
@@ -93,15 +169,12 @@ pub fn main() {
   let mut catalog: Catalog = Catalog::new();
   // configure our server based on the config_path
   for zone in config.get_zones() {
-    let zone_name: Name = zone.get_zone().unwrap();
-    let zone_path: PathBuf = zone_dir.to_owned().join(zone.get_file());
-    info!("loading zone file: {:?}", zone_path);
+    let zone_name = zone.get_zone().expect(&format!("bad zone name in {:?}", config_path));
 
-    let zone_file = File::open(zone_path).unwrap();
-    let authority: Authority = Parser::parse_file(zone_file, Some(zone_name.clone()), zone.get_zone_type(), zone.get_allow_udpate()).unwrap();
-    info!("loaded zone: {}", zone_name);
-
-    catalog.upsert(zone_name, authority);
+    match load_zone(zone_dir, zone) {
+      Ok(authority) => catalog.upsert(zone_name, authority),
+      Err(error) => error!("could not load zone {}: {}", zone_name, error),
+    }
   }
 
   // TODO support all the IPs asked to listen on...
