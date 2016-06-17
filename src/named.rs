@@ -142,8 +142,7 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
 
 /// Main method for running the named server.
 ///
-/// As of this writing, this will panic on any invalid input. At this top level binary is the only
-///  part Trust-DNS where panics are allowed.
+/// `Note`: Tries to avoid panics, in favor of always starting.
 pub fn main() {
   // read any command line options
   let args: Args = Docopt::new(USAGE)

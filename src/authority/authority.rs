@@ -101,6 +101,11 @@ impl Authority {
       allow_update: allow_update, secure_keys: Vec::new() }
   }
 
+  /// By adding a secure key, this will implicitly enable dnssec for the zone.
+  ///
+  /// # Arguments
+  ///
+  /// * `signer` - Signer with associated private key
   pub fn add_secure_key(&mut self, signer: Signer) {
     // also add the key to the zone
     let zone_ttl = self.get_minimum_ttl();
@@ -112,6 +117,11 @@ impl Authority {
     self.secure_keys.push(signer);
   }
 
+  /// Recovers the zone from a Journal, returns an error on failure to recover the zone.
+  ///
+  /// # Arguments
+  ///
+  /// * `journal` - the journal from which to load the persisted zone.
   pub fn recover_with_journal(&mut self, journal: &Journal) -> PersistenceResult<()> {
     assert!(self.records.is_empty(), "records should be empty during a recovery");
 
@@ -135,6 +145,10 @@ impl Authority {
     Ok(())
   }
 
+  /// Persist the state of the current zone to the journal, does nothing if there is no associated
+  ///  Journal.
+  ///
+  /// Returns an error if there was an issue writing to the persistence layer.
   pub fn persist_to_journal(&self) -> PersistenceResult<()> {
     if let Some(journal) = self.journal.as_ref() {
       let serial = self.get_serial();
@@ -189,7 +203,7 @@ impl Authority {
 
   /// Returns the SOA of the authority.
   ///
-  /// *Note* This will only return the SOA, if this is fullfilling a request, a standard lookup
+  /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
   ///  should be used, see `get_soa_secure()`, which will optionally return RRSIGs.
   pub fn get_soa(&self) -> Option<&Record> {
     // SOA should be origin|SOA
