@@ -14,119 +14,97 @@
  * limitations under the License.
  */
 
-use std::error::Error;
-use std::io;
-use std::fmt;
+use std::error::Error as StdError;
+use std::io::Error as IoError;
 
 use ::op::ResponseCode;
 use ::rr::{Name, Record};
 
-pub enum ClientError {
-  DecodeError(super::ErrorLoc, super::DecodeError),
-  EncodeError(super::ErrorLoc, super::EncodeError),
-  IoError(super::ErrorLoc, io::Error),
-  NotAllBytesSent{ loc: super::ErrorLoc, sent: usize, expect: usize},
-  NotAllBytesReceived{ loc: super::ErrorLoc, received: usize, expect: usize},
-  IncorrectMessageId{ loc: super::ErrorLoc, got: u16, expect: u16},
-  TimedOut(super::ErrorLoc),
-  NoAddress(super::ErrorLoc),
-  NoNameServer(super::ErrorLoc),
-  TimerError(super::ErrorLoc),
-  NoDataReceived(super::ErrorLoc),
-  ErrorResponse(super::ErrorLoc, ResponseCode),
-  NoRRSIG(super::ErrorLoc),
-  NoDNSKEY(super::ErrorLoc),
-  NoDS(super::ErrorLoc),
-  NoSOARecord(super::ErrorLoc, Name),
-  SecNxDomain{ loc: super::ErrorLoc, proof: Vec<Record>},
-  InvalidNsec(super::ErrorLoc),
-  InvalidNsec3(super::ErrorLoc),
-  NoNsec(super::ErrorLoc),
-}
 
-impl fmt::Debug for ClientError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    fmt::Display::fmt(&self, f)
-  }
-}
-
-impl fmt::Display for ClientError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match *self {
-      ClientError::DecodeError(ref err_loc, ref err) => write!(f, "{}:{}", err_loc, err),
-      ClientError::EncodeError(ref err_loc, ref err) => write!(f, "{}:{}", err_loc, err),
-      ClientError::IoError(ref err_loc, ref err) => write!(f, "{}:{}", err_loc, err),
-      ClientError::NotAllBytesSent{ ref loc, sent, expect } => write!(f, "{}: Not all bytes were sent: {}, expected: {}", loc, sent, expect),
-      ClientError::NotAllBytesReceived{ ref loc, received, expect } => write!(f, "{}: Not all bytes were sent: {}, expected: {}", loc, received, expect),
-      ClientError::IncorrectMessageId { ref loc, got, expect } => write!(f, "{}: IncorrectMessageId got: {}, expected: {}", loc, got, expect),
-      ClientError::TimedOut(ref loc) => write!(f, "{}: TimedOut awaiting response from server(s)", loc),
-      ClientError::NoAddress(ref loc) => write!(f, "{}: No address received in response", loc),
-      ClientError::NoNameServer(ref loc) => write!(f, "{}: No name server address available", loc),
-      ClientError::TimerError(ref loc) => write!(f, "{}: Error setting timer", loc),
-      ClientError::NoDataReceived(ref loc) => write!(f, "{}: No data was received from the remote", loc),
-      ClientError::ErrorResponse(ref loc, response_code) => write!(f, "{}: Response was an error: {}", loc, response_code.to_str()),
-      ClientError::NoRRSIG(ref loc) => write!(f, "{}: No RRSIG was recieved", loc),
-      ClientError::NoDS(ref loc) => write!(f, "{}: No DS was recieved", loc),
-      ClientError::NoDNSKEY(ref loc) => write!(f, "{}: No DNSKEY proof available", loc),
-      ClientError::NoSOARecord(ref loc, ref name) => write!(f, "{}: No SOA record found for {}", loc, name),
-      ClientError::SecNxDomain{ref loc, ..} => write!(f, "{}: Verified secure non-existence", loc),
-      ClientError::InvalidNsec(ref loc) => write!(f, "{}: Can not validate NSEC records", loc),
-      ClientError::InvalidNsec3(ref loc) => write!(f, "{}: Can not validate NSEC3 records", loc),
-      ClientError::NoNsec(ref loc) => write!(f, "{}: No NSEC(3) records to validate NXDOMAIN", loc),
+error_chain! {
+    // The type defined for this error. These are the conventional
+    // and recommended names, but they can be arbitrarily chosen.
+    types {
+        Error, ErrorKind, ChainErr, Result;
     }
-  }
-}
 
-impl Error for ClientError {
-  fn description(&self) -> &str {
-    match *self {
-      ClientError::DecodeError(_, ref err) => err.description(),
-      ClientError::EncodeError(_, ref err) => err.description(),
-      ClientError::IoError(_, ref err) => err.description(),
-      ClientError::NotAllBytesSent{ .. } => "Not all bytes were sent",
-      ClientError::NotAllBytesReceived{ .. } => "Not all bytes were received",
-      ClientError::IncorrectMessageId { .. } => "IncorrectMessageId received",
-      ClientError::TimedOut(..) => "TimedOut",
-      ClientError::NoAddress(..) => "NoAddress received",
-      ClientError::NoNameServer(..) => "No name server address available",
-      ClientError::TimerError(..) => "Error setting timer",
-      ClientError::NoDataReceived(..) => "No data was received from the remote",
-      ClientError::ErrorResponse(..) => "Response was an error",
-      ClientError::NoRRSIG(..) => "No RRSIG was recieved",
-      ClientError::NoDS(..) => "No DS was recieved",
-      ClientError::NoDNSKEY(..) => "No DNSKEY proof available",
-      ClientError::NoSOARecord(..) => "No SOA record found",
-      ClientError::SecNxDomain{ .. } => "Verified secure non-existence",
-      ClientError::InvalidNsec(..) => "Can not validate NSEC records",
-      ClientError::InvalidNsec3(..) => "Can not validate NSEC3 records",
-      ClientError::NoNsec(..) => "No NSEC(3) records to validate NXDOMAIN",
+    // Automatic conversions between this error chain and other
+    // error chains. In this case, it will e.g. generate an
+    // `ErrorKind` variant called `Dist` which in turn contains
+    // the `rustup_dist::ErrorKind`, with conversions from
+    // `rustup_dist::Error`.
+    //
+    // This section can be empty.
+    links {
+      super::decode_error::Error, super::decode_error::ErrorKind, Decode;
+      super::encode_error::Error, super::encode_error::ErrorKind, Encode;
     }
-  }
 
-  fn cause(&self) -> Option<&Error> {
-    match *self {
-      ClientError::DecodeError(_, ref err) => Some(err),
-      ClientError::EncodeError(_, ref err) => Some(err),
-      ClientError::IoError(_, ref err) => Some(err),
-      _ => None,
+    // Automatic conversions between this error chain and other
+    // error types not defined by the `error_chain!`. These will be
+    // boxed as the error cause and wrapped in a new error with,
+    // in this case, the `ErrorKind::Temp` variant.
+    //
+    // This section can be empty.
+    foreign_links {
+      IoError, Io, "io error";
     }
-  }
+
+    // Define additional `ErrorKind` variants. The syntax here is
+    // the same as `quick_error!`, but the `from()` and `cause()`
+    // syntax is not supported.
+    errors {
+      Message(msg: &'static str) {
+        description(msg)
+        display("{}", msg)
+      }
+
+      NotAllBytesSent(sent: usize, expect: usize) {
+        description("not all bytes were sent")
+        display("not all bytes were sent: {}, expected: {}", sent, expect)
+      }
+
+      NotAllBytesReceived(received: usize, expect: usize) {
+        description("not all bytes were recieved")
+        display("not all bytes were recieved: {}, expected: {}", received, expect)
+      }
+
+      IncorrectMessageId(got: u16, expect: u16) {
+        description("incorrectMessageId received")
+        display("incorrectMessageId got: {}, expected: {}", got, expect)
+      }
+
+      ErrorResponse(response_code: ResponseCode) {
+        description("response was an error")
+        display("response was an error: {}", response_code.to_str())
+      }
+
+      // TODO: add record to which this applies
+      NoRRSIG {
+        description("no rrsig was recieved")
+        display("no rrsig was recieved")
+      }
+
+      // TODO: add record to which this applies
+      NoDNSKEY {
+        description("no dnskey proof available")
+        display("no dnskey proof available")
+      }
+
+      // TODO: add record to which this applies
+      NoDS {
+        description("no ds proof available")
+        display("no ds proof available")
+      }
+      //
+      NoSOARecord(name: Name) {
+        description("no soa record found")
+        display("no soa record found for zone: {}", name)
+      }
+
+      SecNxDomain(proof: Vec<Record>) {
+        description("verified secure non-existence")
+        display("verified secure non-existence: {:?}", proof)
+      }
+    }
 }
-
-// impl From<super::DecodeError> for ClientError {
-//   fn from(err: super::DecodeError) -> Self {
-//     ClientError::DecodeError(error_loc!(), err)
-//   }
-// }
-
-// impl From<super::EncodeError> for ClientError {
-//   fn from(err: super::EncodeError) -> Self {
-//     ClientError::EncodeError(err)
-//   }
-// }
-
-// impl From<io::Error> for ClientError {
-//   fn from(err: io::Error) -> Self {
-//     ClientError::IoError(err)
-//   }
-// }

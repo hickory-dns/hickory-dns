@@ -291,7 +291,7 @@ impl Message {
       let record = try!(Record::read(decoder));
 
       if !is_additional {
-        if saw_sig0 { return Err(DecodeError::Sig0NotLast) } // SIG0 must be last
+        if saw_sig0 { return Err(DecodeErrorKind::Message("sig0 must be final resource record").into()) } // SIG0 must be last
         records.push(record)
       } else {
         match record.get_rr_type() {
@@ -300,12 +300,12 @@ impl Message {
             sig0s.push(record);
           },
           RecordType::OPT => {
-            if saw_sig0 { return Err(DecodeError::Sig0NotLast) } // SIG0 must be last
-            if edns.is_some() { return Err(DecodeError::MoreThanOneEdns) }
+            if saw_sig0 { return Err(DecodeErrorKind::Message("sig0 must be final resource record").into()) } // SIG0 must be last
+            if edns.is_some() { return Err(DecodeErrorKind::Message("more than one edns record present").into()) }
             edns = Some((&record).into());
           },
           _ => {
-            if saw_sig0 { return Err(DecodeError::Sig0NotLast) } // SIG0 must be last
+            if saw_sig0 { return Err(DecodeErrorKind::Message("sig0 must be final resource record").into()) } // SIG0 must be last
             records.push(record);
           }
         }

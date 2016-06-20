@@ -13,123 +13,73 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::error::Error;
-use std::fmt;
+use std::error::Error as StdError;
 use std::num;
 use std::io;
 use std::net::AddrParseError;
 
-use super::DecodeError;
-use super::LexerError;
+use super::decode_error;
+use super::lexer_error;
 use ::serialize::txt::Token;
 
-pub enum ParseError {
-  LexerError(LexerError),
-  DecodeError(DecodeError),
-  UnexpectedToken(Token),
-  OriginIsUndefined,
-  RecordTypeNotSpecified,
-  RecordNameNotSpecified,
-  RecordClassNotSpecified,
-  RecordTTLNotSpecified,
-  RecordDataNotSpecified,
-  SoaAlreadySpecified,
-  MissingToken(String),
-  IoError(io::Error),
-  ParseIntError(num::ParseIntError),
-  AddrParseError(AddrParseError),
-  CharToIntError(char),
-  ParseTimeError(String),
-}
-
-impl fmt::Debug for ParseError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    fmt::Display::fmt(&self, f)
-  }
-}
-
-impl fmt::Display for ParseError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match *self {
-      ParseError::LexerError(ref err) => err.fmt(f),
-      ParseError::DecodeError(ref err) => err.fmt(f),
-      ParseError::UnexpectedToken(ref t) => write!(f, "Unrecognized Token in stream: {:?}", t),
-      ParseError::OriginIsUndefined => write!(f, "$ORIGIN was not specified"),
-      ParseError::RecordTypeNotSpecified => write!(f, "Record type not specified"),
-      ParseError::RecordNameNotSpecified => write!(f, "Record name not specified"),
-      ParseError::RecordClassNotSpecified => write!(f, "Record class not specified"),
-      ParseError::RecordTTLNotSpecified => write!(f, "Record ttl not specified"),
-      ParseError::RecordDataNotSpecified => write!(f, "Record data not specified"),
-      ParseError::SoaAlreadySpecified => write!(f, "SOA is already specified"),
-      ParseError::MissingToken(ref s) => write!(f, "Token is missing: {}", s),
-      ParseError::IoError(ref err) => err.fmt(f),
-      ParseError::ParseIntError(ref err) => err.fmt(f),
-      ParseError::AddrParseError(ref s) => write!(f, "Could not parse address: {:?}", s),
-      ParseError::CharToIntError(c) => write!(f, "Invalid numerical character: {}", c),
-      ParseError::ParseTimeError(ref s) => write!(f, "Invalid time string: {}", s),
+error_chain! {
+    // The type defined for this error. These are the conventional
+    // and recommended names, but they can be arbitrarily chosen.
+    types {
+        Error, ErrorKind, ChainErr, Result;
     }
-  }
-}
 
-impl Error for ParseError {
-  fn description(&self) -> &str {
-    match *self {
-      ParseError::LexerError(ref err) => err.description(),
-      ParseError::DecodeError(ref err) => err.description(),
-      ParseError::UnexpectedToken(..) => "Unrecognized Token",
-      ParseError::OriginIsUndefined => "$ORIGIN was not specified",
-      ParseError::RecordTypeNotSpecified => "Record type not specified",
-      ParseError::RecordNameNotSpecified => "Record name not specified",
-      ParseError::RecordClassNotSpecified => "Record class not specified",
-      ParseError::RecordTTLNotSpecified => "Record ttl not specified",
-      ParseError::RecordDataNotSpecified => "Record data not specified",
-      ParseError::SoaAlreadySpecified => "SOA is already specified",
-      ParseError::MissingToken(..) => "Token is missing",
-      ParseError::IoError(ref err) => err.description(),
-      ParseError::ParseIntError(ref err) => err.description(),
-      ParseError::AddrParseError(..) => "Could not parse address",
-      ParseError::CharToIntError(..) => "Invalid numerical character",
-      ParseError::ParseTimeError(..) => "Invalid time string",
+    // Automatic conversions between this error chain and other
+    // error chains. In this case, it will e.g. generate an
+    // `ErrorKind` variant called `Dist` which in turn contains
+    // the `rustup_dist::ErrorKind`, with conversions from
+    // `rustup_dist::Error`.
+    //
+    // This section can be empty.
+    links {
+      decode_error::Error, decode_error::ErrorKind, Decode;
+      lexer_error::Error, lexer_error::ErrorKind, Lexer;
     }
-  }
 
-  fn cause(&self) -> Option<&Error> {
-    match *self {
-      ParseError::LexerError(ref err) => Some(err),
-      ParseError::DecodeError(ref err) => Some(err),
-      ParseError::IoError(ref err) => Some(err),
-      ParseError::ParseIntError(ref err) => Some(err),
-      _ => None,
+    // Automatic conversions between this error chain and other
+    // error types not defined by the `error_chain!`. These will be
+    // boxed as the error cause and wrapped in a new error with,
+    // in this case, the `ErrorKind::Temp` variant.
+    //
+    // This section can be empty.
+    foreign_links {
+      io::Error, Io, "io error";
+      num::ParseIntError, ParseInt, "parse int error";
+      AddrParseError, AddrParse, "address parse error";
     }
-  }
-}
 
-impl From<LexerError> for ParseError {
-  fn from(err: LexerError) -> ParseError {
-    ParseError::LexerError(err)
-  }
-}
+    // Define additional `ErrorKind` variants. The syntax here is
+    // the same as `quick_error!`, but the `from()` and `cause()`
+    // syntax is not supported.
+    errors {
+      Message(msg: &'static str) {
+        description(msg)
+        display("{}", msg)
+      }
 
-impl From<DecodeError> for ParseError {
-  fn from(err: DecodeError) -> ParseError {
-    ParseError::DecodeError(err)
-  }
-}
+      UnexpectedToken(token: Token) {
+        description("unrecognized token in stream")
+        display("unrecognized token in stream: {:?}", token)
+      }
 
-impl From<io::Error> for ParseError {
-  fn from(err: io::Error) -> ParseError {
-    ParseError::IoError(err)
-  }
-}
+      MissingToken(string: String) {
+        description("token is missing")
+        display("token is missing: {}", string)
+      }
 
-impl From<num::ParseIntError> for ParseError {
-  fn from(err: num::ParseIntError) -> ParseError {
-    ParseError::ParseIntError(err)
-  }
-}
+      CharToIntError(ch: char) {
+        description("invalid numerical character")
+        display("invalid numerical character: {}", ch)
+      }
 
-impl From<AddrParseError> for ParseError {
-  fn from(err: AddrParseError) -> ParseError {
-    ParseError::AddrParseError(err)
-  }
+      ParseTimeError(string: String) {
+        description("invalid time string")
+        display("invalid time string: {}", string)
+      }
+    }
 }

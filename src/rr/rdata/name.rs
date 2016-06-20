@@ -57,7 +57,7 @@ pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> EncodeResult {
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Name> {
   let mut token = tokens.iter();
 
-  let name: Name = try!(token.next().ok_or(ParseError::MissingToken("name".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let name: Name = try!(token.next().ok_or(ParseErrorKind::MissingToken("name".to_string()).into()).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
   Ok(name)
 }
 

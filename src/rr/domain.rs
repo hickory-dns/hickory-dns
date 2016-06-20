@@ -152,11 +152,11 @@ impl Name {
             },
             '\\' => state = ParseState::Escape1,
             ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch.to_lowercase().next().unwrap_or(ch)),
-            _ => return Err(ParseError::LexerError(LexerError::UnrecognizedChar(ch))),
+            _ => return Err(ParseErrorKind::Msg(format!("unrecognized char: {}", ch)).into()),
           }
         },
         ParseState::Escape1 => {
-          if ch.is_numeric() { state = ParseState::Escape2(try!(ch.to_digit(10).ok_or(LexerError::IllegalCharacter(ch)))) }
+          if ch.is_numeric() { state = ParseState::Escape2(try!(ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: {}", ch)))))) }
           else {
             // it's a single escaped char
             label.push(ch);
@@ -165,16 +165,16 @@ impl Name {
         },
         ParseState::Escape2(i) => {
           if ch.is_numeric() {
-            state = ParseState::Escape3(i, try!(ch.to_digit(10).ok_or(LexerError::IllegalCharacter(ch))));
-          } else { return Err(ParseError::LexerError(LexerError::UnrecognizedChar(ch))) }
+            state = ParseState::Escape3(i, try!(ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: {}", ch))))));
+          } else { return try!(Err(ParseErrorKind::Msg(format!("unrecognized char: {}", ch)))) }
         },
         ParseState::Escape3(i, ii) => {
           if ch.is_numeric() {
-            let val: u32 = (i << 16) + (ii << 8) + try!(ch.to_digit(10).ok_or(LexerError::IllegalCharacter(ch)));
-            let new: char = try!(char::from_u32(val).ok_or(ParseError::LexerError(LexerError::UnrecognizedOctet(val))));
+            let val: u32 = (i << 16) + (ii << 8) + try!(ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: {}", ch)))));
+            let new: char = try!(char::from_u32(val).ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: {}", ch)))));
             label.push(new.to_lowercase().next().unwrap_or(new));
             state = ParseState::Label;
-          } else { return Err(ParseError::LexerError(LexerError::UnrecognizedChar(ch))) }
+          } else { return try!(Err(ParseErrorKind::Msg(format!("unrecognized char: {}", ch)))) }
         },
       }
     }
@@ -189,7 +189,7 @@ impl Name {
     // }
 
     if !local.ends_with('.') {
-      name.append(try!(origin.ok_or(ParseError::OriginIsUndefined)));
+      name.append(try!(origin.ok_or(ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified")))));
     }
 
     Ok(name)
@@ -216,7 +216,7 @@ impl Name {
           // we found a pointer don't write more, break
           return Ok(())
         } else {
-          if label.len() > 63 { return Err(EncodeError::LabelBytesTooLong(label.len())); }
+          if label.len() > 63 { return Err(EncodeErrorKind::LabelBytesTooLong(label.len()).into()); }
 
           // to_owned is cloning the the vector, but the Rc's at least don't clone the strings.
           encoder.store_label_pointer(labels.to_owned());
@@ -236,7 +236,7 @@ impl Name {
 
      // the entire name needs to be less than 256.
     let length = encoder.len() - buf_len;
-    if length > 255 { return Err(EncodeError::DomainNameTooLong(length)); }
+    if length > 255 { return Err(EncodeErrorKind::DomainNameTooLong(length).into()); }
 
     Ok(())
   }
@@ -271,7 +271,7 @@ impl BinSerializable<Name> for Name {
             Some(0) | None => LabelParseState::Root,
             Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
             Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
-            Some(byte) => return Err(DecodeError::UnrecognizedLabelCode(byte)),
+            Some(byte) => return Err(DecodeErrorKind::UnrecognizedLabelCode(byte).into()),
           }
         },
         LabelParseState::Label => {

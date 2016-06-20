@@ -63,7 +63,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NULL> {
       if let Ok(byte) = decoder.pop() {
         anything.push(byte);
       } else {
-        return Err(DecodeError::EOF);
+        return Err(DecodeErrorKind::Message("unexpected end of input reached").into());
       }
     }
 

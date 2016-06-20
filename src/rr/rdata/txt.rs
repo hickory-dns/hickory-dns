@@ -79,7 +79,7 @@ pub fn parse(tokens: &Vec<Token>) -> ParseResult<TXT> {
   for t in tokens {
     match *t {
       Token::CharData(ref txt) => txt_data.push(txt.clone()),
-      _ => return Err(ParseError::UnexpectedToken(t.clone())),
+      _ => return Err(ParseErrorKind::UnexpectedToken(t.clone()).into()),
     }
   }
 

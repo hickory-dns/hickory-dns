@@ -68,7 +68,7 @@ pub fn emit(encoder: &mut BinEncoder, address: &Ipv4Addr) -> EncodeResult {
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<Ipv4Addr> {
   let mut token = tokens.iter();
 
-  let address: Ipv4Addr = try!(token.next().ok_or(ParseError::MissingToken("ipv4 address".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let address: Ipv4Addr = try!(token.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("ipv4 address".to_string()))).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
   Ok(address)
 }
 

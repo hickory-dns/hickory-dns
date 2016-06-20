@@ -168,7 +168,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY>
   //    some value other than 3.
   //
   // protocol is defined to only be '3' right now
-  if protocol != 3 { return Err(DecodeError::DnsKeyProtocolNot3(protocol)) }
+  if protocol != 3 { return Err(DecodeErrorKind::DnsKeyProtocolNot3(protocol).into()) }
 
   let algorithm: Algorithm = try!(Algorithm::read(decoder));
 

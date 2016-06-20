@@ -27,7 +27,7 @@ use rustc_serialize::Decodable;
 
 use toml::{Decoder, Value};
 
-use ::error::*;
+use ::error::{ConfigErrorKind, ConfigResult, ConfigError, ParseResult};
 use ::rr::Name;
 use ::authority::ZoneType;
 
@@ -78,7 +78,7 @@ impl FromStr for Config {
   type Err = ConfigError;
 
   fn from_str(toml: &str) -> ConfigResult<Config> {
-    let value: Value = try!(toml.parse());
+    let value: Value = try!(toml.parse().map_err(|vec| ConfigErrorKind::VecParserError(vec)));
     let mut decoder: Decoder = Decoder::new(value);
     Ok(try!(Self::decode(&mut decoder)))
   }

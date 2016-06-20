@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 use std::sync::Arc as Rc;
 
-use ::error::{EncodeError, EncodeResult};
+use ::error::{EncodeErrorKind, EncodeResult};
 
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder<'a> {
@@ -105,7 +105,7 @@ impl<'a> BinEncoder<'a> {
   /// ```
   pub fn emit_character_data(&mut self, char_data: &str) -> EncodeResult {
     let char_bytes = char_data.as_bytes();
-    if char_bytes.len() > 255 { return Err(EncodeError::CharacterDataTooLong(char_bytes.len())) }
+    if char_bytes.len() > 255 { return Err(EncodeErrorKind::CharacterDataTooLong(char_bytes.len()).into()) }
 
     self.buffer.reserve(char_bytes.len() + 1); // reserve the full space for the string and length marker
     try!(self.emit(char_bytes.len() as u8));

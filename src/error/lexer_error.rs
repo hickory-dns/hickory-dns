@@ -13,86 +13,89 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::error::Error;
-use std::fmt;
+use std::error::Error as StdError;
 use std::num;
 use std::string::FromUtf8Error;
 
-pub enum LexerError {
-  ParseUtf8Error(FromUtf8Error),
-  EscapedCharOutsideCharData,
-  IllegalCharacter(char),
-  UnrecognizedChar(char),
-  BadEscapedData(String),
-  UnrecognizedOctet(u32),
-  ParseIntError(num::ParseIntError),
-  UnclosedQuotedString,
-  UnclosedList,
-  UnrecognizedDollar(String),
-  EOF,
-  IllegalState(&'static str),
-}
-
-impl fmt::Debug for LexerError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    fmt::Display::fmt(&self, f)
-  }
-}
-
-impl fmt::Display for LexerError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match *self {
-      LexerError::ParseUtf8Error(ref err) => err.fmt(f),
-      LexerError::EscapedCharOutsideCharData => write!(f, "Escaped character outside character data"),
-      LexerError::IllegalCharacter(ch) => write!(f, "Illegal input character: {}", ch),
-      LexerError::UnrecognizedChar(ch) => write!(f, "Did not recognize the input character: {}", ch),
-      LexerError::BadEscapedData(ref s) => write!(f, "Illegal input character: {}", s),
-      LexerError::UnrecognizedOctet(o) => write!(f, "Unrecognized octet: {}", o),
-      LexerError::ParseIntError(ref err) => err.fmt(f),
-      LexerError::UnclosedQuotedString => write!(f, "Unclosed quoted string"),
-      LexerError::UnclosedList => write!(f, "Unclosed list, missing ')'"),
-      LexerError::UnrecognizedDollar(ref s) => write!(f, "Unrecognized dollar content: {}", s),
-      LexerError::EOF => write!(f, "End of input reached before next read could complete"),
-      LexerError::IllegalState(s) => write!(f, "Illegal state: {}", s),
+error_chain! {
+    // The type defined for this error. These are the conventional
+    // and recommended names, but they can be arbitrarily chosen.
+    types {
+        Error, ErrorKind, ChainErr, Result;
     }
-  }
-}
 
-impl Error for LexerError {
-  fn description(&self) -> &str {
-    match *self {
-      LexerError::ParseUtf8Error(ref err) => err.description(),
-      LexerError::EscapedCharOutsideCharData => "Escaped character outside character data",
-      LexerError::IllegalCharacter(..) => "Illegal character input",
-      LexerError::UnrecognizedChar(..) => "Unrecognized character input",
-      LexerError::BadEscapedData(..) => "Escaped data not recognized",
-      LexerError::UnrecognizedOctet(..) => "Unrecognized octet",
-      LexerError::ParseIntError(ref err) => err.description(),
-      LexerError::UnclosedQuotedString => "Unclosed quoted string",
-      LexerError::UnclosedList => "Unclosed list",
-      LexerError::UnrecognizedDollar(..) => "Unrecognized dollar content",
-      LexerError::EOF => "End of input",
-      LexerError::IllegalState(..) => "Illegal state",
+    // Automatic conversions between this error chain and other
+    // error chains. In this case, it will e.g. generate an
+    // `ErrorKind` variant called `Dist` which in turn contains
+    // the `rustup_dist::ErrorKind`, with conversions from
+    // `rustup_dist::Error`.
+    //
+    // This section can be empty.
+    links {}
+
+    // Automatic conversions between this error chain and other
+    // error types not defined by the `error_chain!`. These will be
+    // boxed as the error cause and wrapped in a new error with,
+    // in this case, the `ErrorKind::Temp` variant.
+    //
+    // This section can be empty.
+    foreign_links {
+      FromUtf8Error, FromUtf8, "from utf8 error";
+      num::ParseIntError, ParseInt, "parse int error";
     }
-  }
 
-  fn cause(&self) -> Option<&Error> {
-    match *self {
-      LexerError::ParseUtf8Error(ref err) => Some(err),
-      LexerError::ParseIntError(ref err) => Some(err),
-      _ => None,
-    }
-  }
-}
+    // Define additional `ErrorKind` variants. The syntax here is
+    // the same as `quick_error!`, but the `from()` and `cause()`
+    // syntax is not supported.
+    errors {
+      EscapedCharOutsideCharData {
+        description("escaped character outside character data")
+        display("escaped character outside character data")
+      }
 
-impl From<FromUtf8Error> for LexerError {
-    fn from(err: FromUtf8Error) -> LexerError {
-        LexerError::ParseUtf8Error(err)
-    }
-}
+      IllegalCharacter(ch: char) {
+        description("illegal character input")
+        display("illegal character input: {}", ch)
+      }
 
-impl From<num::ParseIntError> for LexerError {
-    fn from(err: num::ParseIntError) -> LexerError {
-        LexerError::ParseIntError(err)
+      UnrecognizedChar(ch: char) {
+        description("unrecognized character input")
+        display("unrecognized character input: {}", ch)
+      }
+
+      BadEscapedData(string: String) {
+        description("escaped data not recognized")
+        display("escaped data not recognized: {}", string)
+      }
+
+      UnrecognizedOctet(octet: u32) {
+        description("unrecognized octet")
+        display("unrecognized octet: {:x}", octet)
+      }
+
+      UnclosedQuotedString {
+        description("unclosed quoted string")
+        display("unclosed quoted string")
+      }
+
+      UnclosedList {
+        description("unclosed list, missing ')'")
+        display("unclosed list, missing ')'")
+      }
+
+      UnrecognizedDollar(string: String) {
+        description("unrecognized dollar content")
+        display("unrecognized dollar content: {}", string)
+      }
+
+      EOF {
+        description("unexpected end of input")
+        display("unexpected end of input")
+      }
+
+      IllegalState(string: &'static str) {
+        description("illegal state")
+        display("illegal state: {}", string)
+      }
     }
 }

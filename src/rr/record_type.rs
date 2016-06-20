@@ -94,7 +94,7 @@ impl RecordType {
       "TXT" => Ok(RecordType::TXT),
       "ANY" | "*" => Ok(RecordType::ANY),
       "AXFR" => Ok(RecordType::AXFR),
-      _ => Err(DecodeError::UnknownRecordTypeStr(str.to_string())),
+      _ => Err(DecodeErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
     }
   }
 
@@ -130,7 +130,7 @@ impl RecordType {
       33 => Ok(RecordType::SRV),
       16 => Ok(RecordType::TXT),
       // TODO: this should probably return a generic value wrapper.
-      _ => Err(DecodeError::UnknownRecordTypeValue(value)),
+      _ => Err(DecodeErrorKind::UnknownRecordTypeValue(value).into()),
     }
   }
 }

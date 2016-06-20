@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use ::error::{DecodeError, DecodeResult};
+use ::error::{DecodeErrorKind, DecodeResult};
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -38,7 +38,7 @@ impl<'a> BinDecoder<'a> {
       self.index += 1;
       Ok(byte)
     } else {
-      Err(DecodeError::EOF)
+      Err(DecodeErrorKind::Message("unexpected end of input reached").into())
     }
   }
 

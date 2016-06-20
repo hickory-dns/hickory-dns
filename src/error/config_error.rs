@@ -13,79 +13,47 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::error::Error;
-use std::fmt;
+use std::error::Error as StdError;
 use std::io;
 
 use toml::ParserError;
 use toml::DecodeError;
 
-
-pub enum ConfigError {
-  IoError(io::Error),
-  ParserError(ParserError),
-  VecParserError(Vec<ParserError>),
-  DecodeError(DecodeError),
-}
-
-impl fmt::Debug for ConfigError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    fmt::Display::fmt(&self, f)
-  }
-}
-
-impl fmt::Display for ConfigError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match *self {
-      ConfigError::IoError(ref err) => err.fmt(f),
-      ConfigError::ParserError(ref err) => err.fmt(f),
-      ConfigError::VecParserError(ref errs) => write!(f, "{:?}", errs),
-      ConfigError::DecodeError(ref err) => err.fmt(f),
+error_chain! {
+    // The type defined for this error. These are the conventional
+    // and recommended names, but they can be arbitrarily chosen.
+    types {
+        Error, ErrorKind, ChainErr, Result;
     }
-  }
-}
 
-impl Error for ConfigError {
-  fn description(&self) -> &str {
-    match *self {
-      ConfigError::IoError(ref err) => err.description(),
-      ConfigError::ParserError(ref err) => err.description(),
-      ConfigError::VecParserError(..) => "There were errors parsing config",
-      ConfigError::DecodeError(ref err) => err.description(),
+    // Automatic conversions between this error chain and other
+    // error chains. In this case, it will e.g. generate an
+    // `ErrorKind` variant called `Dist` which in turn contains
+    // the `rustup_dist::ErrorKind`, with conversions from
+    // `rustup_dist::Error`.
+    //
+    // This section can be empty.
+    links {}
+
+    // Automatic conversions between this error chain and other
+    // error types not defined by the `error_chain!`. These will be
+    // boxed as the error cause and wrapped in a new error with,
+    // in this case, the `ErrorKind::Temp` variant.
+    //
+    // This section can be empty.
+    foreign_links {
+      io::Error, Io, "io error";
+      ParserError, Parser, "parser error";
+      DecodeError, Decode, "decode error";
     }
-  }
 
-  fn cause(&self) -> Option<&Error> {
-    match *self {
-      ConfigError::IoError(ref err) => Some(err),
-      ConfigError::ParserError(ref err) => Some(err),
-      ConfigError::DecodeError(ref err) => Some(err),
-      _ => None,
+    // Define additional `ErrorKind` variants. The syntax here is
+    // the same as `quick_error!`, but the `from()` and `cause()`
+    // syntax is not supported.
+    errors {
+      VecParserError(vec: Vec<ParserError>) {
+        description("parser errors")
+        display("parser errors: {:?}", vec)
+      }
     }
-  }
-}
-
-impl From<io::Error> for ConfigError {
-  fn from(err: io::Error) -> Self {
-    ConfigError::IoError(err)
-  }
-}
-
-impl From<ParserError> for ConfigError {
-  fn from(err: ParserError) -> Self {
-    ConfigError::ParserError(err)
-  }
-}
-
-
-impl From<Vec<ParserError>> for ConfigError {
-  fn from(err: Vec<ParserError>) -> Self {
-    ConfigError::VecParserError(err)
-  }
-}
-
-impl From<DecodeError> for ConfigError {
-  fn from(err: DecodeError) -> Self {
-    ConfigError::DecodeError(err)
-  }
 }

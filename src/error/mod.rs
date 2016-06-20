@@ -16,8 +16,6 @@
 
 //! All defined errors for Trust-DNS
 
-#[macro_use]
-mod base_error;
 mod decode_error;
 mod encode_error;
 mod client_error;
@@ -26,14 +24,29 @@ mod parse_error;
 mod persistence_error;
 mod config_error;
 
-pub use self::base_error::ErrorLoc;
-pub use self::decode_error::DecodeError;
-pub use self::encode_error::EncodeError;
-pub use self::client_error::ClientError;
-pub use self::lexer_error::LexerError;
-pub use self::parse_error::ParseError;
-pub use self::persistence_error::PersistenceError;
-pub use self::config_error::ConfigError;
+pub use self::decode_error::Error as DecodeError;
+pub use self::encode_error::Error as EncodeError;
+pub use self::client_error::Error as ClientError;
+pub use self::lexer_error::Error as LexerError;
+pub use self::parse_error::Error as ParseError;
+pub use self::persistence_error::Error as PersistenceError;
+pub use self::config_error::Error as ConfigError;
+
+pub use self::decode_error::ErrorKind as DecodeErrorKind;
+pub use self::encode_error::ErrorKind as EncodeErrorKind;
+pub use self::client_error::ErrorKind as ClientErrorKind;
+pub use self::lexer_error::ErrorKind as LexerErrorKind;
+pub use self::parse_error::ErrorKind as ParseErrorKind;
+pub use self::persistence_error::ErrorKind as PersistenceErrorKind;
+pub use self::config_error::ErrorKind as ConfigErrorKind;
+
+pub use self::decode_error::ChainErr as DecodeChainErr;
+pub use self::encode_error::ChainErr as EncodeChainErr;
+pub use self::client_error::ChainErr as ClientChainErr;
+pub use self::lexer_error::ChainErr as LexerChainErr;
+pub use self::parse_error::ChainErr as ParseChainErr;
+pub use self::persistence_error::ChainErr as PersistenceChainErr;
+pub use self::config_error::ChainErr as ConfigChainErr;
 
 pub type DecodeResult<T> = Result<T, DecodeError>;
 pub type EncodeResult = Result<(), EncodeError>;

@@ -49,7 +49,7 @@ impl DNSClass {
       "HS" => Ok(DNSClass::HS),
       "NONE" => Ok(DNSClass::NONE),
       "ANY" | "*" => Ok(DNSClass::ANY),
-      _ => Err(DecodeError::UnknownDnsClassStr(str.to_string())),
+      _ => Err(DecodeErrorKind::UnknownDnsClassStr(str.to_string()).into()),
     }
   }
 
@@ -69,7 +69,7 @@ impl DNSClass {
       4 => Ok(DNSClass::HS),
       254 => Ok(DNSClass::NONE),
       255 => Ok(DNSClass::ANY),
-      _ => Err(DecodeError::UnknownDnsClassValue(value)),
+      _ => Err(DecodeErrorKind::UnknownDnsClassValue(value).into()),
     }
   }
 

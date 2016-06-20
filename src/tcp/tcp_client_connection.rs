@@ -47,15 +47,15 @@ impl TcpClientConnection {
   /// * `name_server` - address of the name server to use for queries
   pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
     debug!("connecting to {:?}", name_server);
-    let stream = try_rethrow!(ClientError::IoError, TcpStream::connect(&name_server));
+    let stream = try!(TcpStream::connect(&name_server));
 
-    let mut event_loop: EventLoop<ClientHandler> = try_rethrow!(ClientError::IoError, EventLoop::new());
+    let mut event_loop: EventLoop<ClientHandler> = try!(EventLoop::new());
     // TODO make the timeout configurable, 5 seconds is the dig default
     // TODO the error is private to mio, which makes this awkward...
-    if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientError::TimerError(error_loc!())) };
+    if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientErrorKind::Message("error setting timer").into()) };
     // TODO: Linux requires a register before a reregister, reregister is needed b/c of OSX later
     //  ideally this would not be added to the event loop until the client connection request.
-    try_rethrow!(ClientError::IoError, event_loop.register(&stream, RESPONSE, EventSet::all(), PollOpt::all()));
+    try!(event_loop.register(&stream, RESPONSE, EventSet::all(), PollOpt::all()));
 
     Ok(TcpClientConnection{ handler: Some(TcpHandler::new_client_handler(stream)), event_loop: event_loop, error: None })
   }
@@ -66,7 +66,7 @@ impl ClientConnection for TcpClientConnection {
     self.error = None;
     // TODO: b/c of OSX this needs to be a reregister (since deregister is not working)
     // ideally it should be a register with the later deregister...
-    try_rethrow!(ClientError::IoError, self.event_loop.reregister(self.handler.as_ref().expect("never none").get_stream(), RESPONSE, EventSet::all(), PollOpt::all()));
+    try!(self.event_loop.reregister(self.handler.as_ref().expect("never none").get_stream(), RESPONSE, EventSet::all(), PollOpt::all()));
     // this is the request message, needs to be set each time
     // TODO: it would be cool to reuse this buffer.
     let mut handler = mem::replace(&mut self.handler, None).expect("never none");
@@ -75,7 +75,7 @@ impl ClientConnection for TcpClientConnection {
     let result = self.event_loop.run(&mut client_handler);
     self.handler = Some(client_handler.handler);
 
-    try_rethrow!(ClientError::IoError, result);
+    try!(result);
 
     if self.error.is_some() { return Err(mem::replace(&mut self.error, None).unwrap()) }
     Ok(self.handler.as_mut().expect("never none").remove_buffer())
@@ -151,13 +151,13 @@ impl Handler for ClientHandler {
       },
       _ => {
         error!("unrecognized token: {:?}", token);
-        self.error = Some(ClientError::NoDataReceived(error_loc!()));
+        self.error = Some(ClientErrorKind::Message("no data was received from the remote").into());
       },
     }
   }
 
   fn timeout(&mut self, event_loop: &mut EventLoop<Self>, _: ()) {
-    self.error = Some(ClientError::TimedOut(error_loc!()));
+    self.error = Some(ClientErrorKind::Message("timed out awaiting response from server(s)").into());
     event_loop.shutdown();
   }
 }

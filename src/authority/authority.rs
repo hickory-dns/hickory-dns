@@ -20,7 +20,7 @@ use chrono::offset::utc::UTC;
 use openssl::crypto::pkey::Role;
 
 use ::authority::{Journal, RRSet, UpdateResult, ZoneType};
-use ::error::{PersistenceError, PersistenceResult};
+use ::error::{PersistenceErrorKind, PersistenceResult};
 use ::op::{Message, UpdateMessage, ResponseCode, Query};
 use ::rr::{DNSClass, Name, RData, Record, RecordType};
 use ::rr::rdata::{NSEC, SIG};
@@ -134,7 +134,7 @@ impl Authority {
         self.records.clear();
       } else {
         match self.update_records(&[record], false) {
-          Err(error) => return Err(PersistenceError::RecoveryError(error_loc!(), format!("error recovering from journal: {:?}", error))),
+          Err(error) => return Err(PersistenceErrorKind::RecoveryError(error.to_str()).into()),
           _ => (),
         }
       }
