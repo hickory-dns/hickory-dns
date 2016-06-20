@@ -4,54 +4,53 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use std::error::Error;
-use std::fmt;
+use std::error::Error as StdError;
 
 use rusqlite;
 
-pub enum PersistenceError {
-  DecodeError(super::ErrorLoc, super::DecodeError),
-  EncodeError(super::ErrorLoc, super::EncodeError),
-  SqliteError(super::ErrorLoc, rusqlite::Error),
-  WrongInsertCount{ loc: super::ErrorLoc, got: i32, expect: i32 },
-  RecoveryError(super::ErrorLoc, String),
-}
+use super::{decode_error, encode_error};
 
-impl fmt::Debug for PersistenceError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    fmt::Display::fmt(&self, f)
+error_chain! {
+  // The type defined for this error. These are the conventional
+  // and recommended names, but they can be arbitrarily chosen.
+  types {
+    Error, ErrorKind, ChainErr, Result;
   }
-}
 
-impl fmt::Display for PersistenceError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match *self {
-      PersistenceError::DecodeError(ref err_loc, ref err) => write!(f, "{}:{}", err_loc, err),
-      PersistenceError::EncodeError(ref err_loc, ref err) => write!(f, "{}:{}", err_loc, err),
-      PersistenceError::SqliteError(ref err_loc, ref err) => write!(f, "{}: {}", err_loc, err),
-      PersistenceError::WrongInsertCount{ref loc, got, expect } => write!(f, "{}: got {}, expected: {}", loc, got, expect),
-      PersistenceError::RecoveryError(ref err_loc, ref msg) => write!(f, "{}: error recovering: {}", err_loc, msg),
+  // Automatic conversions between this error chain and other
+  // error chains. In this case, it will e.g. generate an
+  // `ErrorKind` variant called `Dist` which in turn contains
+  // the `rustup_dist::ErrorKind`, with conversions from
+  // `rustup_dist::Error`.
+  //
+  // This section can be empty.
+  links {
+    decode_error::Error, decode_error::ErrorKind, Decode;
+    encode_error::Error, encode_error::ErrorKind, Encode;
+  }
+
+  // Automatic conversions between this error chain and other
+  // error types not defined by the `error_chain!`. These will be
+  // boxed as the error cause and wrapped in a new error with,
+  // in this case, the `ErrorKind::Temp` variant.
+  //
+  // This section can be empty.
+  foreign_links {
+    rusqlite::Error, Sqlite, "sqlite error";
+  }
+
+  // Define additional `ErrorKind` variants. The syntax here is
+  // the same as `quick_error!`, but the `from()` and `cause()`
+  // syntax is not supported.
+  errors {
+    WrongInsertCount(got: i32, expect: i32) {
+      description("wrong insert count")
+      display("wrong insert count: {} expect: {}", got, expect)
     }
-  }
-}
 
-impl Error for PersistenceError {
-  fn description(&self) -> &str {
-    match *self {
-      PersistenceError::DecodeError(_, ref err) => err.description(),
-      PersistenceError::EncodeError(_, ref err) => err.description(),
-      PersistenceError::SqliteError(_, ref err) => err.description(),
-      PersistenceError::WrongInsertCount{ .. } => "an unexpected number of records were inserted",
-      PersistenceError::RecoveryError( .. ) => "error recovering from journal",
-    }
-  }
-
-  fn cause(&self) -> Option<&Error> {
-    match *self {
-      PersistenceError::DecodeError(_, ref err) => Some(err),
-      PersistenceError::EncodeError(_, ref err) => Some(err),
-      PersistenceError::SqliteError(_, ref err) => Some(err),
-      _ => None,
+    RecoveryError(msg: &'static str) {
+      description("error recovering from journal")
+      display("error recovering from journal: {}", msg)
     }
   }
 }

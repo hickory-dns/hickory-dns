@@ -163,7 +163,7 @@ impl BinSerializable<Record> for Record {
     let class: DNSClass = if record_type == RecordType::OPT {
       // verify that the OPT record is Root
       if !name_labels.is_root() {
-        return Err(DecodeError::EdnsNameNotRoot)
+        return Err(DecodeErrorKind::EdnsNameNotRoot(name_labels).into())
       }
 
       //  DNS Class is overloaded for OPT records in EDNS - RFC 6891
@@ -267,7 +267,7 @@ macro_rules! compare_or_equal {
 }
 
 impl PartialOrd<Record> for Record {
-  /// Canonical ordering as defined by 
+  /// Canonical ordering as defined by
   ///  [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
   ///
   /// ```text

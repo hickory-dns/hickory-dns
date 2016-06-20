@@ -96,7 +96,7 @@ impl SRV {
   ///
   /// # Return value
   ///
-  /// The newly constructed SRV record data.  
+  /// The newly constructed SRV record data.
   pub fn new(priority: u16, weight: u16, port: u16, target: Name) -> SRV {
     SRV { priority: priority, weight: weight, port: port, target: target }
   }
@@ -195,10 +195,10 @@ pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> EncodeResult {
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SRV> {
   let mut token = tokens.iter();
 
-  let priority: u16 = try!(token.next().ok_or(ParseError::MissingToken("priority".to_string())).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  let weight: u16 = try!(token.next().ok_or(ParseError::MissingToken("weight".to_string())).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  let port: u16 = try!(token.next().ok_or(ParseError::MissingToken("port".to_string())).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  let target: Name = try!(token.next().ok_or(ParseError::MissingToken("target".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let priority: u16 = try!(token.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("priority".to_string()))).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
+  let weight: u16 = try!(token.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("weight".to_string()))).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
+  let port: u16 = try!(token.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("port".to_string()))).and_then(|t| if let &Token::CharData(ref s) = t { Ok(try!(s.parse())) } else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
+  let target: Name = try!(token.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("target".to_string()))).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
 
   Ok(SRV::new(priority, weight, port, target))
 }

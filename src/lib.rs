@@ -26,6 +26,7 @@
 //! * New features for securing public information
 
 extern crate backtrace;
+#[macro_use] extern crate error_chain;
 extern crate chrono;
 extern crate data_encoding;
 #[macro_use] extern crate log;
@@ -38,7 +39,7 @@ extern crate time;
 extern crate toml;
 
 
-#[macro_use] pub mod error;
+pub mod error;
 pub mod logger;
 pub mod rr;
 pub mod authority;

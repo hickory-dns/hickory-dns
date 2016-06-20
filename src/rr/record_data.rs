@@ -683,13 +683,13 @@ impl RData {
     let result = match record_type {
       RecordType::A => {debug!("reading A"); RData::A(try!(rdata::a::read(decoder))) },
       RecordType::AAAA => {debug!("reading AAAA"); RData::AAAA(try!(rdata::aaaa::read(decoder))) },
-      rt @ RecordType::ANY => return Err(DecodeError::UnknownRecordTypeValue(rt.into())),
-      rt @ RecordType::AXFR => return Err(DecodeError::UnknownRecordTypeValue(rt.into())),
+      rt @ RecordType::ANY => return Err(DecodeErrorKind::UnknownRecordTypeValue(rt.into()).into()),
+      rt @ RecordType::AXFR => return Err(DecodeErrorKind::UnknownRecordTypeValue(rt.into()).into()),
       RecordType::CNAME => {debug!("reading CNAME"); RData::CNAME(try!(rdata::name::read(decoder))) },
       RecordType::KEY => {debug!("reading KEY"); RData::KEY(try!(rdata::dnskey::read(decoder, rdata_length))) },
       RecordType::DNSKEY => {debug!("reading DNSKEY"); RData::DNSKEY(try!(rdata::dnskey::read(decoder, rdata_length))) },
       RecordType::DS => {debug!("reading DS"); RData::DS(try!(rdata::ds::read(decoder, rdata_length))) },
-      rt @ RecordType::IXFR => return Err(DecodeError::UnknownRecordTypeValue(rt.into())),
+      rt @ RecordType::IXFR => return Err(DecodeErrorKind::UnknownRecordTypeValue(rt.into()).into()),
       RecordType::MX => {debug!("reading MX"); RData::MX(try!(rdata::mx::read(decoder))) },
       RecordType::NULL => {debug!("reading NULL"); RData::NULL(try!(rdata::null::read(decoder, rdata_length))) },
       RecordType::NS => {debug!("reading NS"); RData::NS(try!(rdata::name::read(decoder))) },
@@ -708,7 +708,7 @@ impl RData {
     // we should have read rdata_length, but we did not
     let read = decoder.index() - start_idx;
     if read != rdata_length as usize {
-      return Err(DecodeError::IncorrectRDataLengthRead(read, rdata_length as usize))
+      return Err(DecodeErrorKind::IncorrectRDataLengthRead(read, rdata_length as usize).into())
     }
     Ok(result)
   }

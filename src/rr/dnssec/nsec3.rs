@@ -103,7 +103,7 @@ impl Nsec3HashAlgorithm {
     match value {
       1  => Ok(Nsec3HashAlgorithm::SHA1),
       // TODO: where/when is SHA2?
-      _ => Err(DecodeError::UnknownAlgorithmTypeValue(value)),
+      _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
     }
   }
 

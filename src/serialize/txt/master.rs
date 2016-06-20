@@ -184,7 +184,7 @@ impl Parser {
               State::TtlClassType
             },
             Token::EOL => State::StartLine, // probably a comment
-            _ => return Err(ParseError::UnexpectedToken(t)),
+            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
           }
         },
         State::Ttl => {
@@ -193,7 +193,7 @@ impl Parser {
               ttl = Some(try!(Self::parse_time(data)));
               State::StartLine
             }
-            _ => return Err(ParseError::UnexpectedToken(t)),
+            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
           }
         }
         State::Origin => {
@@ -203,7 +203,7 @@ impl Parser {
               origin = Some(try!(Name::parse(data, None)));
               State::StartLine
             }
-            _ => return Err(ParseError::UnexpectedToken(t)),
+            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
           }
         }
         State::Include => unimplemented!(),
@@ -214,7 +214,7 @@ impl Parser {
             // One of Class or Type (these cannot be overlapping!)
             Token::CharData(ref data) => {
               // if it's a number it's a ttl
-              let result: Result<u32, ParseError> = Self::parse_time(data);
+              let result: ParseResult<u32> = Self::parse_time(data);
               if result.is_ok() {
                 ttl = result.ok();
                 State::TtlClassType // hm, should this go to just ClassType?
@@ -236,7 +236,7 @@ impl Parser {
             Token::EOL => {
               State::StartLine // next line
             },
-            _ => return Err(ParseError::UnexpectedToken(t)),
+            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
           }
         },
         State::Record => {
@@ -245,16 +245,16 @@ impl Parser {
           match t {
             Token::EOL => {
               // call out to parsers for difference record types
-              let rdata = try!(RData::parse(try!(rtype.ok_or(ParseError::RecordTypeNotSpecified)), &tokens, origin.as_ref()));
+              let rdata = try!(RData::parse(try!(rtype.ok_or(ParseError::from(ParseErrorKind::Message("record type not specified")))), &tokens, origin.as_ref()));
 
               // verify that we have everything we need for the record
               let mut record = Record::new();
               // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
               //  might want to wait until RC.weak() stabilizes, as that would be needed for global
               //  memory where you want
-              record.name(try!(current_name.clone().ok_or(ParseError::RecordNameNotSpecified)));
+              record.name(try!(current_name.clone().ok_or(ParseError::from(ParseErrorKind::Message("record name not specified")))));
               record.rr_type(rtype.unwrap());
-              record.dns_class(try!(class.ok_or(ParseError::RecordClassNotSpecified)));
+              record.dns_class(try!(class.ok_or(ParseError::from(ParseErrorKind::Message("record class not specified")))));
 
               // slightly annoying, need to grab the TTL, then move rdata into the record,
               //  then check the Type again and have custom add logic.
@@ -269,7 +269,7 @@ impl Parser {
                   } else { assert!(false, "Invalid RData here, expected SOA: {:?}", rdata); }
                 },
                 _ => {
-                  record.ttl(try!(ttl.ok_or(ParseError::RecordTTLNotSpecified)));
+                  record.ttl(try!(ttl.ok_or(ParseError::from(ParseErrorKind::Message("record ttl not specified")))));
                 },
               }
 
@@ -286,7 +286,7 @@ impl Parser {
                   let mut set = RRSet::new(record.get_name(), record.get_rr_type(), 0);
                   set.insert(record, 0);
                   if records.insert(key, set).is_some() {
-                    return Err(ParseError::SoaAlreadySpecified);
+                    return Err(ParseErrorKind::Message("SOA is already specified").into());
                   }
                 },
                 _ => {
@@ -306,7 +306,7 @@ impl Parser {
 
     //
     // build the Authority and return.
-    Ok(Authority::new(try!(origin.ok_or(ParseError::OriginIsUndefined)), records, zone_type, allow_update))
+    Ok(Authority::new(try!(origin.ok_or(ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified")))), records, zone_type, allow_update))
   }
 
   /// parses the string following the rules from:
@@ -350,13 +350,13 @@ impl Parser {
     for c in ttl_str.chars() {
       match c {
         // TODO, should these all be checked operations?
-        '0' ... '9' => { collect *= 10; collect += try!(c.to_digit(10).ok_or(ParseError::CharToIntError(c))); },
+        '0' ... '9' => { collect *= 10; collect += try!(c.to_digit(10).ok_or(ParseErrorKind::CharToIntError(c))); },
         'S' | 's'  => { value += collect; collect = 0; },
         'M' | 'm'  => { value += collect * 60; collect = 0; },
         'H' | 'h'  => { value += collect * 3600; collect = 0; },
         'D' | 'd'  => { value += collect * 86400; collect = 0; },
         'W' | 'w'  => { value += collect * 604800; collect = 0; },
-        _ => return Err(ParseError::ParseTimeError(ttl_str.to_string())),
+        _ => return Err(ParseErrorKind::ParseTimeError(ttl_str.to_string()).into()),
       }
     }
 

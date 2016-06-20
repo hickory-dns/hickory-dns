@@ -47,14 +47,14 @@ impl UdpClientConnection {
     let zero_addr = ("0.0.0.0", 0).to_socket_addrs().expect("could not parse 0.0.0.0 address").
                                    next().expect("no addresses parsed from 0.0.0.0");
 
-    let socket = try_rethrow!(ClientError::IoError, UdpSocket::bound(&zero_addr));
-    let mut event_loop: EventLoop<Response> = try_rethrow!(ClientError::IoError, EventLoop::new());
+    let socket = try!(UdpSocket::bound(&zero_addr));
+    let mut event_loop: EventLoop<Response> = try!(EventLoop::new());
     // TODO make the timeout configurable, 5 seconds is the dig default
     // TODO the error is private to mio, which makes this awkward...
-    if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientError::TimerError(error_loc!())) };
+    if event_loop.timeout_ms((), 5000).is_err() { return Err(ClientErrorKind::Message("error setting timer").into()) };
     // TODO: Linux requires a register before a reregister, reregister is needed b/c of OSX later
     //  ideally this would not be added to the event loop until the client connection request.
-    try_rethrow!(ClientError::IoError, event_loop.register(&socket, RESPONSE, EventSet::readable(), PollOpt::all()));
+    try!(event_loop.register(&socket, RESPONSE, EventSet::readable(), PollOpt::all()));
 
     debug!("client event_loop created");
 
@@ -66,20 +66,20 @@ impl ClientConnection for UdpClientConnection {
   fn send(&mut self, buffer: Vec<u8>) -> ClientResult<Vec<u8>> {
     debug!("client reregistering");
     // TODO: b/c of OSX this needs to be a reregister (since deregister is not working)
-    try_rethrow!(ClientError::IoError, self.event_loop.reregister(self.socket.as_ref().expect("never none"), RESPONSE, EventSet::readable(), PollOpt::all()));
+    try!(self.event_loop.reregister(self.socket.as_ref().expect("never none"), RESPONSE, EventSet::readable(), PollOpt::all()));
     debug!("client sending");
-    try_rethrow!(ClientError::IoError, self.socket.as_ref().expect("never none").send_to(&buffer, &self.name_server));
+    try!(self.socket.as_ref().expect("never none").send_to(&buffer, &self.name_server));
     debug!("client sent data");
 
     let mut response: Response = Response::new(mem::replace(&mut self.socket, None).expect("never none"));
 
     // run_once should be enough, if something else nepharious hits the socket, what?
-    try_rethrow!(ClientError::IoError, self.event_loop.run(&mut response));
+    try!(self.event_loop.run(&mut response));
     debug!("client event_loop running");
 
 
     if response.error.is_some() { return Err(response.error.unwrap()) }
-    if response.buf.is_none() { return Err(ClientError::NoDataReceived(error_loc!())) }
+    if response.buf.is_none() { return Err(ClientErrorKind::Message("no data was received from the remote").into()) }
     let result = Ok(response.buf.unwrap());
     //debug!("client deregistering");
     // TODO: when this line is added OSX starts failing, but we should have it...
@@ -127,14 +127,14 @@ impl Handler for Response {
         if recv_result.is_err() {
           // debug b/c we're returning the error explicitly
           debug!("could not recv_from on {:?}: {:?}", self.socket, recv_result);
-          self.error = Some(ClientError::IoError(error_loc!(), recv_result.unwrap_err()));
+          self.error = Some(recv_result.unwrap_err().into());
           return
         }
 
         if recv_result.as_ref().unwrap().is_none() {
           // debug b/c we're returning the error explicitly
           debug!("no return address on recv_from: {:?}", self.socket);
-          self.error = Some(ClientError::NoAddress(error_loc!()));
+          self.error = Some(ClientErrorKind::Message("no address received in response").into());
           return
         }
 
@@ -156,13 +156,13 @@ impl Handler for Response {
       },
       _ => {
         error!("unrecognized token: {:?}", token);
-        self.error = Some(ClientError::NoDataReceived(error_loc!()));
+        self.error = Some(ClientErrorKind::Message("no data was received from the remote").into());
       },
     }
   }
 
   fn timeout(&mut self, event_loop: &mut EventLoop<Self>, _: ()) {
-    self.error = Some(ClientError::TimedOut(error_loc!()));
+    self.error = Some(ClientErrorKind::Message("timed out awaiting response from server(s)").into());
     event_loop.shutdown();
   }
 }

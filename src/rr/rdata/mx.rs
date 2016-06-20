@@ -77,8 +77,8 @@ pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> EncodeResult {
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<MX> {
   let mut token = tokens.iter();
 
-  let preference: u16 = try!(token.next().ok_or(ParseError::MissingToken("preference".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  let exchange: Name = try!(token.next().ok_or(ParseError::MissingToken("exchange".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+  let preference: u16 = try!(token.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("preference".to_string()))).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
+  let exchange: Name = try!(token.next().ok_or(ParseErrorKind::MissingToken("exchange".to_string()).into()).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
 
   Ok(MX::new(preference, exchange))
 }

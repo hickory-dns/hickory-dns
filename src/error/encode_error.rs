@@ -14,43 +14,49 @@
  * limitations under the License.
  */
 
-use std::error::Error;
-use std::fmt;
+use std::error::Error as StdError;
 
-pub enum EncodeError {
-  CharacterDataTooLong(usize),
-  LabelBytesTooLong(usize),
-  DomainNameTooLong(usize),
-}
-
-impl fmt::Debug for EncodeError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    fmt::Display::fmt(&self, f)
-  }
-}
-
-impl fmt::Display for EncodeError {
-  fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    match *self {
-      EncodeError::CharacterDataTooLong(length) => write!(f, "Char data exceeds 255: {}", length),
-      EncodeError::LabelBytesTooLong(length) => write!(f, "Label bytes exceed 63: {}", length),
-      EncodeError::DomainNameTooLong(length) => write!(f, "Name data exceed 255: {}", length),
+error_chain! {
+    // The type defined for this error. These are the conventional
+    // and recommended names, but they can be arbitrarily chosen.
+    types {
+        Error, ErrorKind, ChainErr, Result;
     }
-  }
-}
 
-impl Error for EncodeError {
-  fn description(&self) -> &str {
-    match *self {
-      EncodeError::CharacterDataTooLong(..) => "Char data length exceeds 255",
-      EncodeError::LabelBytesTooLong(..) => "Label bytes exceed 63",
-      EncodeError::DomainNameTooLong(..) => "Name data exceed 255",
-    }
-  }
+    // Automatic conversions between this error chain and other
+    // error chains. In this case, it will e.g. generate an
+    // `ErrorKind` variant called `Dist` which in turn contains
+    // the `rustup_dist::ErrorKind`, with conversions from
+    // `rustup_dist::Error`.
+    //
+    // This section can be empty.
+    links {}
 
-  fn cause(&self) -> Option<&Error> {
-    match *self {
-      _ => None,
+    // Automatic conversions between this error chain and other
+    // error types not defined by the `error_chain!`. These will be
+    // boxed as the error cause and wrapped in a new error with,
+    // in this case, the `ErrorKind::Temp` variant.
+    //
+    // This section can be empty.
+    foreign_links {}
+
+    // Define additional `ErrorKind` variants. The syntax here is
+    // the same as `quick_error!`, but the `from()` and `cause()`
+    // syntax is not supported.
+    errors {
+      CharacterDataTooLong(len: usize) {
+        description("char data length exceeds 255")
+        display("char data length exceeds 255: {}", len)
+      }
+
+      LabelBytesTooLong(len: usize) {
+        description("label bytes exceed 63")
+        display("label bytes exceed 63: {}", len)
+      }
+
+      DomainNameTooLong(len: usize) {
+        description("name label data exceed 255")
+        display("name label data exceed 255: {}", len)
+      }
     }
-  }
 }

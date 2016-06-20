@@ -41,7 +41,7 @@ impl DigestType {
       2  => Ok(DigestType::SHA256),
       //  3  => Ok(DigestType::GOSTR34_11_94),
       4  => Ok(DigestType::SHA384),
-      _ => Err(DecodeError::UnknownAlgorithmTypeValue(value)),
+      _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
     }
   }
 

@@ -9,7 +9,7 @@ use std::iter::Peekable;
 use std::str::Chars;
 use std::char;
 
-use ::error::{LexerResult,LexerError};
+use ::error::{LexerResult, LexerError, LexerErrorKind};
 
 pub struct Lexer<'a> {
   txt: Peekable<Chars<'a>>,
@@ -51,14 +51,14 @@ impl<'a> Lexer<'a> {
             match ch {
               Some('@') => { self.state = State::At },
               Some('(') => { self.txt.next(); char_data_vec = Some(Vec::new()); self.state = State::List; },
-              Some(')') => { return Err(LexerError::IllegalCharacter(ch.unwrap_or(')'))) },
+              Some(')') => { return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into()) },
               Some('$') => { self.txt.next(); char_data = Some(String::new()); self.state = State::Dollar; },
               Some('\r') | Some('\n') => { self.state = State::EOL; },
               Some('"') => { self.txt.next(); char_data = Some(String::new()); self.state = State::Quote; },
               Some(';') => { self.state = State::Comment{ is_list: false } },
               Some(ch) if ch.is_whitespace() => { self.txt.next(); }, // gobble other whitespace
               Some(ch) if !ch.is_control() && !ch.is_whitespace() => { char_data = Some(String::new()); self.state = State::CharData{ is_list: false }; },
-              Some(ch) => return Err(LexerError::UnrecognizedChar(ch)),
+              Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
               None => { self.state = State::EOF; },
             }
           }
@@ -84,7 +84,7 @@ impl<'a> Lexer<'a> {
               Some('"') => { self.state = State::RestOfLine; self.txt.next() ; return Ok(Some(Token::CharData(char_data.take().unwrap_or("".into())))) },
               Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
               Some(ch) => { self.txt.next(); try!(Self::push_to_str(&mut char_data, ch)); },
-              None => { return Err(LexerError::UnclosedQuotedString) },
+              None => { return Err(LexerErrorKind::UnclosedQuotedString.into()) },
             }
           },
           State::Dollar => {
@@ -94,35 +94,35 @@ impl<'a> Lexer<'a> {
               // finishes the Dollar...
               Some(_) | None => {
                 self.state = State::RestOfLine;
-                let dollar: String = try!(char_data.take().ok_or(LexerError::IllegalState("char_data is None")));
+                let dollar: String = try!(char_data.take().ok_or(LexerError::from(LexerErrorKind::IllegalState("char_data is None"))));
 
                 if     "INCLUDE" == dollar { return Ok(Some(Token::Include)) }
                 else if "ORIGIN" == dollar { return Ok(Some(Token::Origin)) }
                 else if "TTL"    == dollar { return Ok(Some(Token::Ttl)) }
-                else { return Err(LexerError::UnrecognizedDollar(char_data.take().unwrap_or("".into()))) }
+                else { return Err(LexerErrorKind::UnrecognizedDollar(char_data.take().unwrap_or("".into())).into()) }
               },
             }
           },
           State::List => {
             match ch {
               Some(';') => { self.txt.next(); self.state = State::Comment{ is_list: true } },
-              Some(')') => { self.txt.next(); self.state = State::RestOfLine; return char_data_vec.take().ok_or(LexerError::IllegalState("char_data_vec is None")).map(|v|Some(Token::List(v))); }
+              Some(')') => { self.txt.next(); self.state = State::RestOfLine; return char_data_vec.take().ok_or(LexerErrorKind::IllegalState("char_data_vec is None").into()).map(|v|Some(Token::List(v))); }
               Some(ch) if ch.is_whitespace() => { self.txt.next(); },
               Some(ch) if !ch.is_control() && !ch.is_whitespace() => { char_data = Some(String::new()); self.state = State::CharData{ is_list: true } },
-              Some(ch) => return Err(LexerError::UnrecognizedChar(ch)),
-              None => { return Err(LexerError::UnclosedList) },
+              Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
+              None => { return Err(LexerErrorKind::UnclosedList.into()) },
             }
           },
           State::CharData{ is_list } => {
             match ch {
-              Some(')') if !is_list => { return Err(LexerError::IllegalCharacter(ch.unwrap_or(')'))) },
+              Some(')') if !is_list => { return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into()) },
               Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
                 if is_list {
-                  try!(char_data_vec.as_mut().ok_or(LexerError::IllegalState("char_data_vec is None")).and_then(|v|Ok(v.push(try!(char_data.take().ok_or(LexerError::IllegalState("char_data is None")))))));
+                  try!(char_data_vec.as_mut().ok_or(LexerError::from(LexerErrorKind::IllegalState("char_data_vec is None"))).and_then(|v|Ok(v.push(try!(char_data.take().ok_or(LexerErrorKind::IllegalState("char_data is None")))))));
                   self.state = State::List;
                 } else {
                   self.state = State::RestOfLine;
-                  let result = char_data.take().ok_or(LexerError::IllegalState("char_data is None"));
+                  let result = char_data.take().ok_or(LexerErrorKind::IllegalState("char_data is None").into());
                   let opt = result.map(|s|Some(Token::CharData(s)));
                   return opt;
                 }
@@ -130,8 +130,8 @@ impl<'a> Lexer<'a> {
               // TODO: this next one can be removed, but will keep unescaping for quoted strings
               //Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
               Some(ch) if !ch.is_control() && !ch.is_whitespace() => { self.txt.next(); try!(Self::push_to_str(&mut char_data, ch)); },
-              Some(ch) => return Err(LexerError::UnrecognizedChar(ch)),
-              None => { self.state = State::EOF; return char_data.take().ok_or(LexerError::IllegalState("char_data is None")).map(|s|Some(Token::CharData(s))) },
+              Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
+              None => { self.state = State::EOF; return char_data.take().ok_or(LexerErrorKind::IllegalState("char_data is None").into()).map(|s|Some(Token::CharData(s))) },
             }
           },
           State::At => {
@@ -143,8 +143,8 @@ impl<'a> Lexer<'a> {
             match ch {
               Some('\r') => { self.txt.next(); },
               Some('\n') => { self.txt.next(); self.state = State::StartLine; return Ok(Some(Token::EOL)) },
-              Some(_) => { return Err(LexerError::IllegalCharacter(ch.unwrap())) },
-              None => { return Err(LexerError::EOF) },
+              Some(_) => { return Err(LexerErrorKind::IllegalCharacter(ch.unwrap()).into()) },
+              None => { return Err(LexerErrorKind::EOF.into()) },
             }
           },
           // to exhaust all cases, this should never be run...
@@ -160,23 +160,23 @@ impl<'a> Lexer<'a> {
   }
 
   fn push_to_str(collect: &mut Option<String>, ch: char) -> LexerResult<()> {
-    collect.as_mut().ok_or(LexerError::IllegalState("collect is None")).and_then(|s|Ok(s.push(ch)))
+    collect.as_mut().ok_or(LexerErrorKind::IllegalState("collect is None").into()).and_then(|s|Ok(s.push(ch)))
   }
 
   fn escape_seq(&mut self) -> LexerResult<char> {
     // escaped character, let's decode it.
     self.txt.next(); // consume the escape
-    let ch = try!(self.peek().ok_or(LexerError::EOF));
+    let ch = try!(self.peek().ok_or(LexerError::from(LexerErrorKind::EOF)));
 
     if !ch.is_control() {
       if ch.is_numeric() {
         // in this case it's an excaped octal: \DDD
-        let d1: u32 = try!(try!(self.txt.next().ok_or(LexerError::EOF).map(|c|c.to_digit(10).ok_or(LexerError::IllegalCharacter(ch))))); // gobble
-        let d2: u32 = try!(try!(self.txt.next().ok_or(LexerError::EOF).map(|c|c.to_digit(10).ok_or(LexerError::IllegalCharacter(ch))))); // gobble
-        let d3: u32 = try!(try!(self.txt.next().ok_or(LexerError::EOF).map(|c|c.to_digit(10).ok_or(LexerError::IllegalCharacter(ch))))); // gobble
+        let d1: u32 = try!(try!(self.txt.next().ok_or(LexerError::from(LexerErrorKind::EOF)).map(|c|c.to_digit(10).ok_or(LexerError::from(LexerErrorKind::IllegalCharacter(c)))))); // gobble
+        let d2: u32 = try!(try!(self.txt.next().ok_or(LexerError::from(LexerErrorKind::EOF)).map(|c|c.to_digit(10).ok_or(LexerError::from(LexerErrorKind::IllegalCharacter(c)))))); // gobble
+        let d3: u32 = try!(try!(self.txt.next().ok_or(LexerError::from(LexerErrorKind::EOF)).map(|c|c.to_digit(10).ok_or(LexerError::from(LexerErrorKind::IllegalCharacter(c)))))); // gobble
 
         let val: u32 = (d1 << 16) + (d2 << 8) + d3;
-        let ch: char = try!(char::from_u32(val).ok_or(LexerError::UnrecognizedOctet(val)));
+        let ch: char = try!(char::from_u32(val).ok_or(LexerError::from(LexerErrorKind::UnrecognizedOctet(val))));
 
         return Ok(ch);
       } else {
@@ -185,7 +185,7 @@ impl<'a> Lexer<'a> {
         return Ok(ch);
       }
     } else {
-      return Err(LexerError::IllegalCharacter(ch));
+      return Err(LexerErrorKind::IllegalCharacter(ch).into());
     }
 
   }

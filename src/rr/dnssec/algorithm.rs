@@ -136,7 +136,7 @@ impl Algorithm {
       10 => Ok(Algorithm::RSASHA512),
 //      13 => Algorithm::ECDSAP256SHA256,
 //      14 => Algorithm::ECDSAP384SHA384,
-      _ => Err(DecodeError::UnknownAlgorithmTypeValue(value)),
+      _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
     }
   }
 
@@ -185,7 +185,7 @@ impl Algorithm {
         //
         //  Note: This changes the algorithm number for RSA KEY RRs to be the
         //  same as the new algorithm number for RSA/SHA1 SIGs.
-        if public_key.len() < 3 || public_key.len() > (4096 + 3) { return Err(DecodeError::BadPublicKey) }
+        if public_key.len() < 3 || public_key.len() > (4096 + 3) { return Err(DecodeErrorKind::Message("bad public key").into()) }
         let mut num_exp_len_octs = 1;
         let mut len: u16 = public_key[0] as u16;
         if len == 0 {

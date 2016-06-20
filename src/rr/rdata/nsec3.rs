@@ -214,7 +214,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC3> 
   let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
   let flags: u8 = try!(decoder.read_u8());
 
-  if flags & 0b1111_1110 != 0 { return Err(DecodeError::UnrecognizedNsec3Flags(flags)) }
+  if flags & 0b1111_1110 != 0 { return Err(DecodeErrorKind::UnrecognizedNsec3Flags(flags).into()) }
   let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
   let iterations: u16 = try!(decoder.read_u16());
   let salt_len: u8 = try!(decoder.read_u8());

@@ -12,7 +12,7 @@ use rusqlite;
 use rusqlite::Connection;
 use rusqlite::SqliteError;
 
-use ::error::PersistenceError;
+use ::error::PersistenceErrorKind;
 use ::error::PersistenceResult;
 use ::rr::Record;
 use ::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
@@ -32,7 +32,7 @@ impl Journal {
   }
 
   pub fn from_file(journal_file: &Path) -> PersistenceResult<Journal> {
-    Self::new(try_rethrow!(PersistenceError::SqliteError, Connection::open(journal_file)))
+    Self::new(try!(Connection::open(journal_file)))
   }
 
   /// gets the current schema version of the journal
@@ -60,21 +60,20 @@ impl Journal {
     let mut serial_record: Vec<u8> = Vec::with_capacity(512);
     {
       let mut encoder = BinEncoder::new(&mut serial_record);
-      try_rethrow!(PersistenceError::EncodeError, record.emit(&mut encoder));
+      try!(record.emit(&mut encoder));
     }
 
     let timestamp = time::get_time();
     let client_id: i64 = 0; // TODO: we need better id information about the client, like pub_key
     let soa_serial: i64 = soa_serial as i64;
 
-    let count = try_rethrow!(PersistenceError::SqliteError,
-                              self.conn.execute("INSERT
-                                                 INTO records (client_id, soa_serial, timestamp, record)
-                                                 VALUES ($1, $2, $3, $4)",
-                                                 &[&client_id, &soa_serial, &timestamp, &serial_record]));
+    let count = try!(self.conn.execute("INSERT
+                                          INTO records (client_id, soa_serial, timestamp, record)
+                                          VALUES ($1, $2, $3, $4)",
+                                          &[&client_id, &soa_serial, &timestamp, &serial_record]));
     //
     if count != 1 {
-      return Err(PersistenceError::WrongInsertCount{loc: error_loc!(), got: count, expect: 1});
+      return Err(PersistenceErrorKind::WrongInsertCount(count, 1).into());
     };
 
     Ok(())
@@ -102,15 +101,13 @@ impl Journal {
   pub fn select_record(&self, row_id: i64) -> PersistenceResult<Option<(i64, Record)>> {
     assert!(self.version == CURRENT_VERSION, "schema version mismatch, schema_up() resolves this");
 
-    let mut stmt = try_rethrow!(PersistenceError::SqliteError,
-                                self.conn.prepare("SELECT _rowid_, record
-                                                FROM records
-                                                WHERE _rowid_ >= $1
-                                                LIMIT 1"));
+    let mut stmt = try!(self.conn.prepare("SELECT _rowid_, record
+                                            FROM records
+                                            WHERE _rowid_ >= $1
+                                            LIMIT 1"));
 
-    let record_opt: Option<Result<(i64, Record), SqliteError>> = try_rethrow!(PersistenceError::SqliteError,
-                                                            stmt.query_and_then(&[&row_id],
-                                                            |row| -> Result<(i64, Record), SqliteError> {
+    let record_opt: Option<Result<(i64, Record), SqliteError>> = try!(stmt.query_and_then(&[&row_id],
+                                                                      |row| -> Result<(i64, Record), SqliteError> {
       let row_id: i64 = try!(row.get_checked(0));
       let record_bytes: Vec<u8> = try!(row.get_checked(1));
       let mut decoder = BinDecoder::new(&record_bytes);
@@ -118,14 +115,14 @@ impl Journal {
       // todo add location to this...
       match Record::read(&mut decoder) {
         Ok(record) => Ok((row_id, record)),
-        Err(decode_error) => Err(rusqlite::Error::FromSqlConversionFailure(Box::new(decode_error))),
+        Err(decode_error) => Err(rusqlite::Error::InvalidParameterName(format!("could not decode: {}", decode_error))),
       }
     })).next();
 
     //
     match record_opt {
       Some(Ok((row_id, record))) => Ok(Some((row_id, record))),
-      Some(Err(err)) => Err(PersistenceError::SqliteError(error_loc!(), err)),
+      Some(Err(err)) => return Err(try!(Err(err))),
       None => Ok(None),
     }
   }
@@ -138,30 +135,27 @@ impl Journal {
   /// * `conn` - db connection to use
   fn select_schema_version(conn: &Connection) -> PersistenceResult<i64> {
     // first see if our schema is there
-    let mut stmt = try_rethrow!(PersistenceError::SqliteError,
-                            conn.prepare("SELECT name
-                                            FROM sqlite_master
-                                            WHERE type='table'
-                                            AND name='tdns_schema'"));
+    let mut stmt = try!(conn.prepare("SELECT name
+                                        FROM sqlite_master
+                                        WHERE type='table'
+                                        AND name='tdns_schema'"));
 
-    let tdns_schema_opt: Option<Result<String, _>> = try_rethrow!(PersistenceError::SqliteError,
-                                                                  stmt.query_map(&[],
-                                                                  |row| row.get(0)))
+    let tdns_schema_opt: Option<Result<String, _>> = try!(stmt.query_map(&[],
+                                                            |row| row.get(0)))
                                                     .next();
 
     let tdns_schema = match tdns_schema_opt {
       Some(Ok(string)) => string,
-      Some(Err(err)) => return Err(PersistenceError::SqliteError(error_loc!(), err)),
+      Some(Err(err)) => return try!(Err(err)),
       None => return Ok(-1),
     };
 
     assert_eq!(&tdns_schema, "tdns_schema");
 
-    let version: i64 = try_rethrow!(PersistenceError::SqliteError,
-                                    conn.query_row_safe("SELECT version
-                                                          FROM tdns_schema",
-                                                        &[],
-                                                        |row| row.get(0)));
+    let version: i64 = try!(conn.query_row_safe("SELECT version
+                                                  FROM tdns_schema",
+                                                  &[],
+                                                  |row| row.get(0)));
 
     Ok(version)
   }
@@ -171,8 +165,7 @@ impl Journal {
     // validate the versions of all the schemas...
     assert!(new_version <= CURRENT_VERSION);
 
-    let count = try_rethrow!(PersistenceError::SqliteError,
-                              self.conn.execute("UPDATE tdns_schema SET version = $1", &[&new_version]));
+    let count = try!(self.conn.execute("UPDATE tdns_schema SET version = $1", &[&new_version]));
 
     //
     assert_eq!(count, 1);
@@ -196,16 +189,13 @@ impl Journal {
 
   /// initial schema, include the tdns_schema table for tracking the Journal version
   fn init_up(&self) -> PersistenceResult<i64> {
-    let count = try_rethrow!(PersistenceError::SqliteError,
-                              self.conn.execute("CREATE TABLE tdns_schema (
-                              version          INTEGER NOT NULL
-                            )", &[]));
+    let count = try!(self.conn.execute("CREATE TABLE tdns_schema (
+                                          version INTEGER NOT NULL
+                                        )", &[]));
     //
     assert_eq!(count, 0);
 
-    let count = try_rethrow!(PersistenceError::SqliteError,
-                              self.conn.execute("INSERT INTO tdns_schema (version)
-                                            VALUES (0)", &[]));
+    let count = try!(self.conn.execute("INSERT INTO tdns_schema (version) VALUES (0)", &[]));
     //
     assert_eq!(count, 1);
 
@@ -216,13 +206,12 @@ impl Journal {
   ///  authority. Each record is expected to be in the format of an update record
   fn records_up(&self) -> PersistenceResult<i64> {
     // we'll be using rowid for our primary key, basically: `rowid INTEGER PRIMARY KEY ASC`
-    let count = try_rethrow!(PersistenceError::SqliteError,
-                              self.conn.execute("CREATE TABLE records (
-                                                  client_id      INTEGER NOT NULL,
-                                                  soa_serial     INTEGER NOT NULL,
-                                                  timestamp      TEXT NOT NULL,
-                                                  record         BLOB NOT NULL
-                                                )", &[]));
+    let count = try!(self.conn.execute("CREATE TABLE records (
+                                          client_id      INTEGER NOT NULL,
+                                          soa_serial     INTEGER NOT NULL,
+                                          timestamp      TEXT NOT NULL,
+                                          record         BLOB NOT NULL
+                                        )", &[]));
     //
     assert_eq!(count, 1);
 
