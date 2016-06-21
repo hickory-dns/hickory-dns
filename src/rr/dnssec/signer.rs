@@ -16,6 +16,7 @@
 
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 
+use chrono::Duration;
 use openssl::crypto::pkey::{PKey, Role};
 
 use ::op::Message;
@@ -30,25 +31,23 @@ pub struct Signer {
   algorithm: Algorithm,
   pkey: PKey,
   signer_name: Name,
-  expiration: u32,
-  inception: u32,
+  sig_duration: Duration,
 }
 
 impl Signer {
   /// Version of Signer for verifying RRSIGs and SIG0 records.
   pub fn new_verifier(algorithm: Algorithm, pkey: PKey, signer_name: Name) -> Self {
-    Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, expiration: 0, inception: 0 }
+    Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, sig_duration: Duration::zero() }
   }
 
   /// Version of Signer for signing RRSIGs and SIG0 records.
-  pub fn new(algorithm: Algorithm, pkey: PKey, signer_name: Name, expiration: u32, inception: u32) -> Self {
-    Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, expiration: expiration, inception: inception }
+  pub fn new(algorithm: Algorithm, pkey: PKey, signer_name: Name, sig_duration: Duration) -> Self {
+    Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, sig_duration: sig_duration }
   }
 
   pub fn get_algorithm(&self) -> Algorithm { self.algorithm }
+  pub fn get_sig_duration(&self) -> Duration { self.sig_duration }
   pub fn get_signer_name(&self) -> &Name { &self.signer_name }
-  pub fn get_expiration(&self) -> u32 { self.expiration }
-  pub fn get_inception(&self) -> u32 { self.inception }
   pub fn get_pkey(&self) -> &PKey { &self.pkey }
 
   pub fn get_public_key(&self) -> Vec<u8> {
@@ -595,7 +594,7 @@ fn test_sign_and_verify_message_sig0() {
 
   let mut pkey = PKey::new();
   pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
+  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
 
   let sig = signer.sign_message(&question);
   println!("sig: {:?}", sig);
@@ -623,7 +622,7 @@ fn test_hash_rrset() {
 
   let mut pkey = PKey::new();
   pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
+  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -653,7 +652,7 @@ fn test_sign_and_verify_rrset() {
 
   let mut pkey = PKey::new();
   pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
+  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -672,7 +671,7 @@ fn test_calculate_key_tag() {
   let mut pkey = PKey::new();
   pkey.gen(512);
   println!("pkey: {:?}", pkey.save_pub());
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), u32::max_value(), 0);
+  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
   let key_tag = signer.calculate_key_tag();
 
   println!("key_tag: {}", key_tag);

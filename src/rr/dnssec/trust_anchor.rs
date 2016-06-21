@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
+
 use std::io::Cursor;
 use std::default::Default;
 

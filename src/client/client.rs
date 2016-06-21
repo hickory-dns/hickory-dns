@@ -1273,6 +1273,7 @@ mod test {
 
   #[cfg(test)]
   fn create_sig0_ready_client<'a>(catalog: &'a mut Catalog) -> (Client<TestClientConnection<'a>>, Signer, domain::Name) {
+    use chrono::Duration;
     use ::rr::rdata::DNSKEY;
 
     let mut authority = create_example();
@@ -1285,8 +1286,7 @@ mod test {
     let signer = Signer::new(Algorithm::RSASHA256,
                              pkey,
                              domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
-                             0,
-                             0);
+                             Duration::max_value());
 
     // insert the KEY for the trusted.example.com
     let mut auth_key = Record::with(domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),

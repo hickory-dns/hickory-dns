@@ -6,9 +6,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - Added recovery from journal to named startup
 - SQLite journal for dynamic update persistence
+- Private Key generation during startup, for dnssec zones
+- Read private key from filesystem during start and registers to zone
 
 ### Changed
 - Removed many of the unwraps in named binary
+- Reworked all errors to use error-chain
+- Adjusted interface for Signer to use duration
 
 ### Fixed
 - TXT record case sensitivity

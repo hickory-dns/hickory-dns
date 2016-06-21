@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! bitmap for expressing the set of supported algorithms in edns.
+
 use std::convert::From;
 
 use ::rr::dnssec::Algorithm;

@@ -16,7 +16,7 @@
 use std::collections::BTreeMap;
 use std::cmp::Ordering;
 
-use chrono::offset::utc::UTC;
+use chrono::UTC;
 use openssl::crypto::pkey::Role;
 
 use ::authority::{Journal, RRSet, UpdateResult, ZoneType};
@@ -1003,7 +1003,7 @@ impl Authority {
   /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
   fn sign_zone(&mut self) {
     debug!("signing zone: {}", self.origin);
-    let now = UTC::now().timestamp() as u32;
+    let inception = UTC::now();
     let zone_ttl = self.get_minimum_ttl();
 
     for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| {
@@ -1017,14 +1017,16 @@ impl Authority {
       let rrsig_temp = Record::with(rr_set.get_name().clone(), RecordType::RRSIG, zone_ttl);
 
       for signer in self.secure_keys.iter() {
+        let expiration = inception + signer.get_sig_duration();
+
         let hash = signer.hash_rrset(rr_set.get_name(),
                                      self.class,
                                      rr_set.get_name().num_labels(),
                                      rr_set.get_record_type(),
                                      signer.get_algorithm(),
                                      rr_set.get_ttl(),
-                                     signer.get_expiration(),
-                                     now,
+                                     expiration.timestamp() as u32,
+                                     inception.timestamp() as u32,
                                      signer.calculate_key_tag(),
                                      signer.get_signer_name(),
                                      // TODO: this is a nasty clone... the issue is that the vec
@@ -1042,9 +1044,9 @@ impl Authority {
           // original_ttl: u32,
           rr_set.get_ttl(),
           // sig_expiration: u32,
-          signer.get_expiration(),
+          expiration.timestamp() as u32,
           // sig_inception: u32,
-          now,
+          inception.timestamp() as u32,
           // key_tag: u16,
           signer.calculate_key_tag(),
           // signer_name: Name,
@@ -1127,13 +1129,14 @@ pub mod authority_tests {
   }
 
   pub fn create_secure_example() -> Authority {
+    use chrono::Duration;
     use openssl::crypto::pkey::PKey;
     use ::rr::dnssec::{Algorithm, Signer};
 
     let mut authority: Authority = create_example();
     let mut pkey = PKey::new();
     pkey.gen(512);
-    let signer = Signer::new(Algorithm::RSASHA256, pkey, authority.get_origin().clone(), u32::max_value(), 0);
+    let signer = Signer::new(Algorithm::RSASHA256, pkey, authority.get_origin().clone(), Duration::weeks(1));
 
     authority.add_secure_key(signer);
     authority.secure_zone();
