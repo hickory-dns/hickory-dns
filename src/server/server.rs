@@ -336,9 +336,7 @@ mod server_tests {
   use ::op::*;
   use ::client::{Client, ClientConnection};
   use ::udp::UdpClientConnection;
-  #[cfg(feature = "ftest")]
   use ::tcp::TcpClientConnection;
-  #[cfg(feature = "ftest")]
   use mio::tcp::TcpListener;
 
   #[test]
@@ -362,7 +360,7 @@ mod server_tests {
   }
 
   #[test]
-  #[cfg(feature = "ftest")]
+  #[ignore]
   fn test_server_www_tcp() {
     use mio::tcp::TcpListener;
 
@@ -433,7 +431,6 @@ mod server_tests {
     server.listen().unwrap();
   }
 
-  #[cfg(feature = "ftest")]
   fn server_thread_tcp(tcp_listener: TcpListener) {
     let catalog = new_catalog();
     let mut server = Server::new(catalog);

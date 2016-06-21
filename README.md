@@ -25,9 +25,9 @@ ground up.
 ## Client
 
 Using the client is safe. The client is currently hardcoded to a 5 second,
-timeout. I'll make this configurable if people ask for that, please file a
-request for any features. Please send feedback! It currently does not cache
-responses, if this is a feature you'd like earlier rather than later, post a
+ timeout. I'll make this configurable if people ask for that, please file a
+ request for any features. Please send feedback! It currently does not cache
+ responses, if this is a feature you'd like earlier rather than later, post a
  request. The validation of DNSSec is complete including NSEC. As of now NSEC3
  is broken, and I may never plan to support it. I have some alternative ideas
  for private data in the zone.
@@ -48,25 +48,34 @@ the details in DNS from the caller
 ## Server
 
 The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
-There currently is no way to limit TCP and AXFR operations, so it is still not
-recommended to put into production as TCP can be used to DOS the service.
-Master file parsing is complete and supported. There is currently no forking
-option, and the server is not yet threaded. There is still a lot of work to do
-before a server can be trusted with this externally. Running it behind a firewall
-on a private network would be safe.
+ There currently is no way to limit TCP and AXFR operations, so it is still not
+ recommended to put into production as TCP can be used to DOS the service.
+ Master file parsing is complete and supported. There is currently no forking
+ option, and the server is not yet threaded. There is still a lot of work to do
+ before a server can be trusted with this externally. Running it behind a firewall
+ on a private network would be safe.
 
-Zone signing support is a work in progress, there is currently no way to
-associate keys to zones. Dynamic DNS is also complete, but currently there is
-no storage or syncing with other servers, so it's not recommended to use this
-feature yet, and is disabled by default on zones.
+Zone signing support is complete, to insert a key store a pem encoded rsa file
+ in the same directory as the initial zone file with the `.key` suffix. *Note*:
+ this must be only readable by the current user. If one is not present one will
+ be created and written to the correct location. This also acts as the initial
+ key for dynamic update SIG(0) validation. To get the public key, the `DNSKEY`
+ record for the zone can be queried. This is needed to provide to other
+ upstream servers to create the `DS` key. Dynamic DNS is also complete,
+ if enabled, a journal file will be stored next to the zone file with the
+ `jrnl` suffix. *Note*: if the key is changed or updated, it is currently the
+ operators responsibility to remove the only public key from the zone, this
+ allows for the `DNSKEY` to exist for some unspecified period of time during
+ key rotation. Rotating the key currently is not available online and requires
+ a restart of the server process.
 
 ## DNSSec status
 
 Currently the root key is hardcoded into the system. This gives validation of
-DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
-Because caching is not yet enabled, it has been noticed that some DNS servers
-appear to rate limit the connections, validating RRSIG records back to the root
-can require a significant number of additional queries for those records.
+ DNSKEY and DS records back to the root. NSEC is implemented, but not NSEC3.
+ Because caching is not yet enabled, it has been noticed that some DNS servers
+ appear to rate limit the connections, validating RRSIG records back to the root
+ can require a significant number of additional queries for those records.
 
 Zones will be automatically resigned on any record updates via dynamic DNS.
 
@@ -140,7 +149,7 @@ presume that the trust-dns repos have already been synced to the local system:
     and also make some remote requests to verify compatibility with other DNS
     systems. These can not currently be run on Travis for example.
 
-        $ cargo test --features=ftest
+        $ cargo test -- --ignored
 
 -   Benchmarks
 

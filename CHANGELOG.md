@@ -2,13 +2,18 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## unreleased
+## 0.7.0 2016-06-20
 ### Added
 - Added recovery from journal to named startup
 - SQLite journal for dynamic update persistence
+- Private Key generation during startup, for dnssec zones
+- Read private key from filesystem during start and registers to zone
 
 ### Changed
 - Removed many of the unwraps in named binary
+- Reworked all errors to use error-chain
+- Adjusted interface for Signer to use duration
+- All `#[cfg(ftest)]` tests now `#[ignore]`
 
 ### Fixed
 - TXT record case sensitivity

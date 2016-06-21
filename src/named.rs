@@ -35,17 +35,22 @@ extern crate rustc_serialize;
 extern crate docopt;
 #[macro_use] extern crate log;
 extern crate mio;
+extern crate openssl;
+extern crate chrono;
 
+use std::fs;
 use std::fs::File;
 use std::path::{Path, PathBuf};
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::net::ToSocketAddrs;
 
+use chrono::{Duration};
 use mio::tcp::TcpListener;
 use mio::udp::UdpSocket;
 use log::LogLevel;
 use docopt::Docopt;
+use openssl::crypto::pkey::PKey;
 
 use trust_dns::logger;
 use trust_dns::version;
@@ -54,6 +59,7 @@ use trust_dns::config::{Config, ZoneConfig};
 use trust_dns::serialize::txt::Parser;
 use trust_dns::rr::Name;
 use trust_dns::server::Server;
+use trust_dns::rr::dnssec::{Algorithm, Signer};
 
 // the Docopt usage string.
 //  http://docopt.org
@@ -86,9 +92,10 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
   let zone_name: Name = zone.get_zone().expect("bad zone name");
   let zone_path: PathBuf = zone_dir.to_owned().join(zone.get_file());
   let journal_path: PathBuf = zone_path.with_extension(".jrnl");
+  let key_path: PathBuf = zone_path.with_extension(".key");
 
-
-  if zone.is_update_allowed() && journal_path.exists() {
+  // load the zone
+  let mut authority = if zone.is_update_allowed() && journal_path.exists() {
     info!("recovering zone from journal: {:?}", journal_path);
     let journal = match Journal::from_file(&journal_path) {
       Ok(j) => j,
@@ -103,7 +110,7 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
     authority.journal(journal);
     info!("recovered zone: {}", zone_name);
 
-    Ok(authority)
+    authority
   } else if zone_path.exists() {
     info!("loading zone file: {:?}", zone_path);
 
@@ -134,10 +141,54 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
     }
 
     info!("loaded zone: {}", zone_name);
-    Ok(authority)
+    authority
   } else {
-    Err(format!("no zone file defined at: {:?}", zone_path))
+    return Err(format!("no zone file defined at: {:?}", zone_path))
+  };
+
+  // load any keys for the Zone, if it is a dynamic update zone, then keys are required
+  if zone.is_dnssec_enabled() {
+    let pkey = if key_path.exists() {
+      info!("reading key: {:?}", key_path);
+
+      // TODO: validate owndership
+      let mut file = match File::open(&key_path) {
+        Ok(f) => f,
+        Err(e) => return Err(format!("error opening private key file: {:?}: {}", key_path, e)),
+      };
+
+      match PKey::private_rsa_key_from_pem(&mut file) {
+        Ok(pkey) => pkey,
+        Err(e) => return Err(format!("error reading private key file: {:?}: {}", key_path, e)),
+      }
+    } else {
+      info!("creating key: {:?}", key_path);
+
+      // TODO: establish proper ownership
+      let mut file = match File::create(&key_path) {
+        Ok(f) => f,
+        Err(e) => return Err(format!("error creating private key file: {:?}: {}", key_path, e))
+      };
+
+      let mut pkey: PKey = PKey::new();
+      pkey.gen(2048);
+
+      if let Err(e) = pkey.write_pem(&mut file) {
+        fs::remove_file(&key_path).ok(); // ignored
+        return Err(format!("error writing private key file: {:?}: {}", key_path, e))
+      }
+
+      pkey
+    };
+
+    // add the key to the zone
+    // TODO: allow the duration of signatutes to be customized
+    let signer = Signer::new(Algorithm::RSASHA256, pkey, authority.get_origin().clone(), Duration::weeks(52));
+    authority.add_secure_key(signer);
   }
+
+
+  Ok(authority)
 }
 
 /// Main method for running the named server.
