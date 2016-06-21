@@ -1040,9 +1040,7 @@ mod test {
   use ::op::ResponseCode;
   use ::rr::{DNSClass, Record, RecordType, domain, RData};
   use ::rr::dnssec::{Algorithm, Signer, TrustAnchor};
-  #[cfg(feature = "ftest")]
   use ::tcp::TcpClientConnection;
-  #[cfg(feature = "ftest")]
   use ::udp::UdpClientConnection;
 
   #[test]
@@ -1057,7 +1055,7 @@ mod test {
   }
 
   #[test]
-  #[cfg(feature = "ftest")]
+  #[ignore]
   fn test_query_udp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
@@ -1067,7 +1065,7 @@ mod test {
   }
 
   #[test]
-  #[cfg(feature = "ftest")]
+  #[ignore]
   fn test_query_tcp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
@@ -1122,7 +1120,7 @@ mod test {
   }
 
   #[test]
-  #[cfg(feature = "ftest")]
+  #[ignore]
   fn test_secure_query_example_udp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
@@ -1132,7 +1130,7 @@ mod test {
   }
 
   #[test]
-  #[cfg(feature = "ftest")]
+  #[ignore]
   fn test_secure_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
@@ -1188,7 +1186,7 @@ mod test {
   }
 
   #[test]
-  #[cfg(feature = "ftest")]
+  #[ignore]
   fn test_nsec_query_example_udp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = UdpClientConnection::new(addr).unwrap();
@@ -1197,7 +1195,7 @@ mod test {
   }
 
   #[test]
-  #[cfg(feature = "ftest")]
+  #[ignore]
   fn test_nsec_query_example_tcp() {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
@@ -1219,7 +1217,7 @@ mod test {
 
 
   #[test]
-  #[cfg(feature = "ftest")]
+  #[ignore]
   fn test_nsec_query_type() {
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
 
@@ -1240,7 +1238,7 @@ mod test {
   //
   // TODO these NSEC3 tests don't work, it seems that the zone is not signed properly.
   // #[test]
-  // #[cfg(feature = "ftest")]
+  // #[ignore]
   // fn test_nsec3_sdsmt() {
   //   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
   //   let conn = TcpClientConnection::new(addr).unwrap();
@@ -1257,7 +1255,7 @@ mod test {
   // TODO: disabled until I decide what to do with NSEC3 see issue #10
   //
   // #[test]
-  // #[cfg(feature = "ftest")]
+  // #[ignore]
   // fn test_nsec3_sdsmt_type() {
   //   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
   //   let conn = TcpClientConnection::new(addr).unwrap();

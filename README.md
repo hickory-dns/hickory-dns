@@ -149,7 +149,7 @@ presume that the trust-dns repos have already been synced to the local system:
     and also make some remote requests to verify compatibility with other DNS
     systems. These can not currently be run on Travis for example.
 
-        $ cargo test --features=ftest
+        $ cargo test -- --ignored
 
 -   Benchmarks
 

@@ -13,6 +13,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Removed many of the unwraps in named binary
 - Reworked all errors to use error-chain
 - Adjusted interface for Signer to use duration
+- All `#[cfg(ftest)]` tests now `#[ignore]`
 
 ### Fixed
 - TXT record case sensitivity
