@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## unreleased
+### Fixed
+- Randomized ports for client connections and message ids, #23
+
 ## 0.7.0 2016-06-20
 ### Added
 - Added recovery from journal to named startup

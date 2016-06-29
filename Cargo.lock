@@ -11,6 +11,7 @@ dependencies = [
  "mio 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl-sys 0.7.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.3.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.35 (registry+https://github.com/rust-lang/crates.io-index)",

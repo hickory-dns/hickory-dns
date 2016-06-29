@@ -7,7 +7,7 @@ authors = ["Benjamin Fry <benjaminfry@me.com>"]
 # uploaded to crates.io (aka this is not markdown)
 description = """
 TRust-DNS is a safe and secure DNS server and client with DNSec support.
- Eentually this could be a replacement for BIND9. DNSSec on the client side,
+ Eventually this could be a replacement for BIND9. DNSSec on the client side,
  with NSEC validation for negative records, is complete. The client and
  server both support dynamic DNS with authenticated requests.
 """
@@ -73,6 +73,7 @@ log = "^0.3.5"
 mio = "^0.5.1"
 openssl = "^0.7.8"
 openssl-sys = "^0.7.8"
+rand = "^0.3"
 rustc-serialize = "^0.3.18"
 rusqlite = "^0.7.3"
 time = "^0.1.35"
