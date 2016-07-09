@@ -19,7 +19,7 @@ use std::io;
 use std::sync::Arc;
 use std::cell::Cell;
 
-use mio::{Token, EventLoop, Handler, EventSet, PollOpt, TryAccept};
+use mio::{Token, EventLoop, Handler, EventSet, PollOpt};
 use mio::tcp::{TcpListener, TcpStream};
 use mio::udp::UdpSocket;
 

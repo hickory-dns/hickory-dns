@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::error::Error as StdError;
 use std::string::FromUtf8Error;
 
 use openssl::ssl::error::SslError;

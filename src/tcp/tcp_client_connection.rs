@@ -16,7 +16,6 @@
 
 use std::net::SocketAddr;
 use std::io;
-use std::io::Write;
 use std::mem;
 use std::fmt;
 
