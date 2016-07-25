@@ -824,8 +824,8 @@ mod tests {
     0xFF,0xFF,0xFF,0xFF,
     0xFF,0xFF,0xFF,0xFF,
     0xFF,0xFF,0xFF,0xFF]),
-    (RData::TXT(TXT::new(vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()])),
-    vec![6,b'a',b'b',b'c',b'd',b'e',b'f', 3,b'g',b'h',b'i', 0, 1,b'j']),
+    (RData::TXT(TXT::new(b"abcdef ghi j".to_vec())),
+     b"abcdef ghi j".to_vec()),
     (RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()), vec![0,0,0,0]),
     (RData::AAAA(Ipv6Addr::from_str("::").unwrap()), vec![0,0,0,0,0,0,0,0, 0,0,0,0,0,0,0,0]),
     (RData::SRV(SRV::new(1, 2, 3, Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]))), vec![0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 3,b'w',b'w',b'w',7,b'e',b'x',b'a',b'm',b'p',b'l',b'e',3,b'c',b'o',b'm',0]),
@@ -846,7 +846,7 @@ mod tests {
       RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
                           Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
                           u32::max_value(), -1 as i32, -1 as i32, -1 as i32, u32::max_value())),
-      RData::TXT(TXT::new(vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()])),
+      RData::TXT(TXT::new(b"abcdef ghi j".to_vec())),
     ];
     let mut unordered = vec![
       RData::CNAME(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()])),
@@ -856,7 +856,7 @@ mod tests {
       RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
                           Name::with_labels(vec!["xxx".to_string(),"example".to_string(),"com".to_string()]),
                           u32::max_value(), -1 as i32, -1 as i32, -1 as i32, u32::max_value())),
-      RData::TXT(TXT::new(vec!["abcdef".to_string(), "ghi".to_string(), "".to_string(), "j".to_string()])),
+      RData::TXT(TXT::new(b"abcdef ghi j".to_vec())),
       RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
       RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
       RData::SRV(SRV::new(1, 2, 3, Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]))),

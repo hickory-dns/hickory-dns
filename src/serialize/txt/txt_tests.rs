@@ -23,9 +23,9 @@ fn test_string() {
       MX      20      VAXA
 
 A       A       26.3.0.103
-        TXT     I am a txt record
-        TXT     I am another txt record
-        TXT     \"I am a different\" \"txt record\"
+        TXT     \"I am a txt record\"
+        TXT     \"I am another txt record\"
+        TXT     \"I am a different\" \" txt record\"
         TXT     key=val
 AAAA    AAAA    4321:0:1:2:3:4:567:89ab
 ALIAS   CNAME   A
@@ -147,10 +147,10 @@ VENERA  A       10.1.0.52
   // TXT
   let mut txt_records: Vec<&Record> = authority.lookup(&Name::new().label("a").label("isi").label("edu"), RecordType::TXT, false);
   let compare = vec![
-    vec!["I".to_string(), "am".to_string(), "a".to_string(), "txt".to_string(), "record".to_string()],
-    vec!["I".to_string(), "am".to_string(), "another".to_string(), "txt".to_string(), "record".to_string()],
-    vec!["key=val".to_string()],
-    vec!["I am a different".to_string(), "txt record".to_string()],
+    b"I am a different txt record".to_vec(),
+    b"I am a txt record".to_vec(),
+    b"I am another txt record".to_vec(),
+    b"key=val".to_vec(),
     ];
 
   txt_records.sort();
@@ -163,7 +163,8 @@ VENERA  A       10.1.0.52
 
   for (record, ref vector) in compare {
     if let RData::TXT(ref rdata) = *record.get_rdata() {
-      assert_eq!(vector as &[String], rdata.get_txt_data());
+      println!("vector: '{}' rdata: '{}'", String::from_utf8_lossy(vector), String::from_utf8_lossy(rdata.get_txt_data()));
+      assert_eq!(vector as &[u8], rdata.get_txt_data());
     } else {
       panic!("Not a TXT record!!!")
     }

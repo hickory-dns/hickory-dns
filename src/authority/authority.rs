@@ -1085,7 +1085,7 @@ pub mod authority_tests {
     // example.com.		60	IN	TXT	"v=spf1 -all"
     //records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
     // example.com.		60	IN	TXT	"$Id: example.com 4415 2015-08-24 20:12:23Z davids $"
-    records.upsert(Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()]))).clone(), 0);
+    records.upsert(Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(b"$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_vec()))).clone(), 0);
 
     // example.com.		86400	IN	A	93.184.216.34
     records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone(), 0);
@@ -1111,7 +1111,7 @@ pub mod authority_tests {
     let www_name: Name = Name::parse("www.example.com.", None).unwrap();
 
     // www.example.com.	86400	IN	TXT	"v=spf1 -all"
-    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()]))).clone(), 0);
+    records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(b"v=spf1 -all".to_vec()))).clone(), 0);
 
     // www.example.com.	86400	IN	A	93.184.216.34
     records.upsert(Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone(), 0);
@@ -1201,7 +1201,7 @@ pub mod authority_tests {
     let mut lookup: Vec<_> = authority.lookup(authority.get_origin(), RecordType::TXT, false);
     lookup.sort();
 
-    assert_eq!(**lookup.first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(vec!["$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_string()]))).clone());
+    assert_eq!(**lookup.first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(b"$Id: example.com 4415 2015-08-24 20:12:23Z davids $".to_vec()))).clone());
 
     assert_eq!(**authority.lookup(authority.get_origin(), RecordType::A, false).first().unwrap(), Record::new().name(authority.get_origin().clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone());
   }
@@ -1300,7 +1300,7 @@ pub mod authority_tests {
     authority.set_allow_update(true);
 
     let mut original_vec: Vec<Record> = vec![
-      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()]))).clone(),
+      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(b"v=spf1 -all".to_vec()))).clone(),
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,34))).clone(),
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA(Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946))).clone(),
     ];
@@ -1366,7 +1366,7 @@ pub mod authority_tests {
     assert!(authority.update_records(del_record, true).expect("update failed"));
     assert_eq!(serial + 5, authority.get_serial());
     let mut removed_a_vec: Vec<_> = vec![
-      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()]))).clone(),
+      Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT(TXT::new(b"v=spf1 -all".to_vec()))).clone(),
       Record::new().name(www_name.clone()).ttl(86400).rr_type(RecordType::AAAA).dns_class(DNSClass::IN).rdata(RData::AAAA(Ipv6Addr::new(0x2606,0x2800,0x220,0x1,0x248,0x1893,0x25c8,0x1946))).clone(),
     ];
     removed_a_vec.sort();

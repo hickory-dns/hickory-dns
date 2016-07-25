@@ -34,7 +34,7 @@ use ::error::*;
 /// depends on the domain where it is found.
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct TXT { txt_data: Vec<String> }
+pub struct TXT { txt_data: Vec<u8> }
 
 impl TXT {
   /// Creates a new TXT record data.
@@ -46,39 +46,32 @@ impl TXT {
   /// # Return value
   ///
   /// The new TXT record data.
-  pub fn new(txt_data: Vec<String>) -> TXT {
+  pub fn new(txt_data: Vec<u8>) -> TXT {
     TXT { txt_data: txt_data }
   }
 
   /// ```text
   /// TXT-DATA        One or more <character-string>s.
   /// ```
-  pub fn get_txt_data(&self) -> &[String] { &self.txt_data }
+  pub fn get_txt_data(&self) -> &[u8] { &self.txt_data }
 }
 
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<TXT> {
-  let data_len = decoder.len();
-  let mut strings = Vec::with_capacity(1);
-
-  while data_len - decoder.len() < rdata_length as usize {
-    strings.push(try!(decoder.read_character_data(false)));
-  }
-  Ok(TXT::new(strings))
+  Ok(TXT::new(try!(decoder.read_vec(rdata_length as usize))))
 }
 
 pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> EncodeResult {
-  for s in txt.get_txt_data() {
-    try!(encoder.emit_character_data(s));
-  }
+  try!(encoder.emit_vec(txt.get_txt_data()));
 
   Ok(())
 }
 
+// TODO: Should this somehow decode the string if it was encoded?
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<TXT> {
-  let mut txt_data: Vec<String> = Vec::with_capacity(tokens.len());
+  let mut txt_data: Vec<u8> = vec![];
   for t in tokens {
     match *t {
-      Token::CharData(ref txt) => txt_data.push(txt.clone()),
+      Token::CharData(ref txt) => txt_data.extend_from_slice(txt.as_bytes()),
       _ => return Err(ParseErrorKind::UnexpectedToken(t.clone()).into()),
     }
   }
@@ -88,7 +81,7 @@ pub fn parse(tokens: &Vec<Token>) -> ParseResult<TXT> {
 
 #[test]
 fn test() {
-  let rdata = TXT::new(vec!["Test me some".to_string(), "more please".to_string()]);
+  let rdata = TXT::new(b"Test me some more please".to_vec());
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

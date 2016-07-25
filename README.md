@@ -133,6 +133,8 @@ presume that the trust-dns repos have already been synced to the local system:
 
         $ brew install openssl
         $ brew link --force openssl
+        $ brew install pkg-config
+        $ brew install libsodium
 
 ## Testing
 
