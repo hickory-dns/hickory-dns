@@ -127,12 +127,21 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Prerequisites
 
--   openssl development libraries are necessary
+-   openssl development libraries 
+-   sqlite3 development libraries
 
     Mac OS X: using homebrew
-
+    
         $ brew install openssl
         $ brew link --force openssl
+        $ brew install sqlite
+    
+    Debian-based (includes Ubuntu & Raspbian): using apt-get
+    
+        $ apt-get install openssl
+        $ apt-get install libssl-dev
+        $ apt-get install libsqlite3-dev
+
 
 ## Testing
 
