@@ -4,8 +4,6 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use std::io::{Cursor, Read};
-use std::cmp::{ Ord, Ordering };
 use std::usize;
 
 use sodiumoxide::crypto::box_::curve25519xsalsa20poly1305::PublicKey;
@@ -44,6 +42,8 @@ impl CryptQuery {
   /// # Arguments
   /// * `client` - client client connection for the DNSCrypt connection
   /// * `zone` - zone name to query for the DNSCrypt certificate
+  /// * `current_time` - used to qualify any returned certificates valid start and end dates in
+  ///                    epoch seconds
   ///
   /// ```text
   /// The client begins a DNSCrypt session by sending a regular unencrypted
@@ -58,7 +58,7 @@ impl CryptQuery {
   ///
   /// A major protocol version has only one certificate format.
   /// ```
-  pub fn query_cert<C>(client: Client<C>, zone: &Name) -> ClientResult<Option<Certificate>> where C: ClientConnection {
+  pub fn query_cert<C>(client: Client<C>, zone: &Name, current_time: u32) -> ClientResult<Option<Certificate>> where C: ClientConnection {
     // this can be static...
     let mut name = Name::with_labels(vec!["1".to_string(), "dnscrypt-cert".to_string()]);
     let query = name.append(zone);
@@ -77,12 +77,16 @@ impl CryptQuery {
                             })
                             .filter(|c| {
                               // After having received a set of certificates, the client checks their
-                              //  validity based on the current date, filters out the ones designed for
-                              //  encryption systems that are not supported by the client,
+                              //  validity based on the current date,
+                              c.get_start_timestamp() <= current_time &&
+                              c.get_end_timestamp() >= current_time &&
+
+                              // filters out the ones designed for encryption systems that are not
+                              //  supported by the client,
                               c.get_cert_version() == &CertVersion::X25519_XSalsa20Poly1305
                             })
                             //  and chooses the certificate with the higher serial number
-                            .max())
+                            .max_by_key(|c| c.serial))
   }
 
   pub fn encrypt_query(message: &Message, public_key: Vec<u8>, ) -> ClientResult<CryptQuery> {
@@ -184,10 +188,10 @@ pub struct Certificate {
   serial: u32,
   /// the date the certificate is valid from, as a 4-byte
   ///  unsigned Unix timestamp.
-  ts_start: u32,
+  start_timestamp: u32,
   /// the date the certificate is valid until (inclusive), as a
   ///  4-byte unsigned Unix timestamp
-  ts_end: u32,
+  end_timestamp: u32,
   /// empty in the current protocol version, but may
   ///  contain additional data in future revisions, including minor versions.
   ///  The computation and the verification of the signature must include the
@@ -200,6 +204,8 @@ const CERT_MAGIC: [u8; 4] = [0x44,0x4e,0x53,0x43];
 
 impl Certificate {
   pub fn get_cert_version(&self) -> &CertVersion { &self.es_version }
+  pub fn get_start_timestamp(&self) -> u32 { self.start_timestamp }
+  pub fn get_end_timestamp(&self) -> u32 { self.end_timestamp }
 
   fn parse(bytes: &[u8]) -> ClientResult<Self> {
     let mut decoder = BinDecoder::new(bytes);
@@ -207,7 +213,7 @@ impl Certificate {
     // validate cert magic
     let cert_magic = try!(decoder.read_vec(4));
     if &cert_magic != &CERT_MAGIC {
-      return Err(ClientErrorKind::Msg(format!("incorrect cer-magic: {:?}", cert_magic)).into())
+      return Err(ClientErrorKind::Msg(format!("incorrect cert-magic: {:?}", cert_magic)).into())
     }
 
     // es-version
@@ -254,31 +260,66 @@ impl Certificate {
                     resolver_pk: cert_version.to_public_key(&resolver_pk),
                     client_magic: client_magic,
                     serial: serial,
-                    ts_start: start_timestamp,
-                    ts_end: end_timestamp,
+                    start_timestamp: start_timestamp,
+                    end_timestamp: end_timestamp,
                     extensions: vec![],
                   })
   }
-}
 
-// TODO: these are a little ugly since they aren't true comparison operators, needed for max()
-//  on iterator.
-impl Ord for Certificate {
-  fn cmp(&self, other: &Self) -> Ordering {
-    self.serial.cmp(&other.serial)
+  fn to_vec(&self) -> ClientResult<Vec<u8>> {
+    let mut buf = Vec::with_capacity(124);
+    {
+      let mut encoder = BinEncoder::new(&mut buf);
+
+      try!(encoder.emit_vec(&CERT_MAGIC));
+      try!(encoder.emit_u16(self.es_version.into()));
+      try!(encoder.emit_u16(self.protocol_minor_version));
+      try!(encoder.emit_vec(&self.signature));
+      try!(encoder.emit_vec(self.resolver_pk.as_ref()));
+      try!(encoder.emit_vec(&self.client_magic));
+      try!(encoder.emit_u32(self.serial));
+      try!(encoder.emit_u32(self.start_timestamp));
+      try!(encoder.emit_u32(self.end_timestamp));
+      try!(encoder.emit_vec(&self.extensions));
+    }
+
+    Ok(buf)
   }
 }
 
-impl PartialOrd<Certificate> for Certificate {
-  fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-    Some(self.cmp(other))
-  }
-}
+#[test]
+fn test_encode_decode() {
+  let cert_version = CertVersion::X25519_XSalsa20Poly1305;
+  let protocol_minor_version = 0x0100;
+  let signature = [0_u8;64];
+  let public_key = [1_u8;32];
+  let client_magic = [2_u8;8];
+  let serial = 1234_u32;
+  let start_timestamp = 1_u32;
+  let end_timestamp = 10_u32;
 
-impl PartialEq<Certificate> for Certificate {
-  fn eq(&self, other: &Self) -> bool {
-    self.eq(other)
-  }
-}
+  let cert = Certificate{
+    es_version: cert_version,
+    protocol_minor_version: protocol_minor_version,
+    signature: signature.to_vec(),
+    resolver_pk: cert_version.to_public_key(&public_key),
+    client_magic: client_magic.to_vec(),
+    serial: serial,
+    start_timestamp: start_timestamp,
+    end_timestamp: end_timestamp,
+    extensions: vec![],
+  };
 
-impl Eq for Certificate {}
+  let encoded = cert.to_vec().expect("failed to encode");
+  let decoded = Certificate::parse(&encoded).expect("failed to parse");
+
+  assert_eq!(decoded.es_version, cert_version);
+  assert_eq!(decoded.protocol_minor_version, protocol_minor_version);
+  assert_eq!(&decoded.signature as &[u8], &signature as &[u8]);
+  assert_eq!(decoded.resolver_pk, cert_version.to_public_key(&public_key));
+  assert_eq!(decoded.client_magic, client_magic);
+  assert_eq!(decoded.serial, cert.serial);
+  assert_eq!(decoded.start_timestamp, start_timestamp);
+  assert_eq!(decoded.end_timestamp, end_timestamp);
+  assert!(cert.extensions.is_empty());
+}
