@@ -6,7 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 use std::usize;
 
-use sodiumoxide::crypto::box_::curve25519xsalsa20poly1305::PublicKey;
+use sodiumoxide::crypto::box_::curve25519xsalsa20poly1305::{PublicKey, SecretKey};
+use sodiumoxide::crypto::sign::ed25519::{PublicKey as EdPublicKey, SecretKey as EdSecretKey, Signature, sign_detached, verify_detached};
+use time::Duration;
 
 use ::client::{Client, ClientConnection};
 use ::error::{ClientResult, ClientErrorKind};
@@ -175,7 +177,7 @@ pub struct Certificate {
   ///  <serial> <ts-start> <ts-end> <extensions>) using the Ed25519 algorithm and the
   ///  provider secret key. Ed25519 must be used in this version of the
   ///  protocol.
-  signature: Vec<u8>, //[u8; 64],
+  signature: Signature, //[u8; 64],
   /// the resolver short-term public key, which is 32 bytes when using X25519
   resolver_pk: PublicKey,
   /// the first 8 bytes of a client query that was built
@@ -203,6 +205,52 @@ pub struct Certificate {
 const CERT_MAGIC: [u8; 4] = [0x44,0x4e,0x53,0x43];
 
 impl Certificate {
+  pub fn with_key(signing_key: &EdSecretKey, public_key: &PublicKey, serial: u32, start_timestamp: u32, valid_duration: Duration) -> Certificate {
+    let es_version = CertVersion::X25519_XSalsa20Poly1305;
+    let client_magic = &public_key[0..8];
+    let protocol_minor_version = 0_u16;
+
+    assert!(valid_duration.num_seconds() > 0);
+    assert!(valid_duration.num_seconds() < u32::max_value() as i64);
+    let end_timestamp = start_timestamp + valid_duration.num_seconds() as u32;
+    let extensions = [0_u8;0];
+
+    let sign_bits = Self::get_sign_bits(public_key, &client_magic, serial, start_timestamp, end_timestamp);
+
+    // Ed25519 must be used in this version of the protocol.
+    let signature = sign_detached(&sign_bits, signing_key);
+
+    Certificate {
+      es_version: CertVersion::X25519_XSalsa20Poly1305,
+      protocol_minor_version: protocol_minor_version,
+      signature: signature,
+      resolver_pk: public_key.clone(),
+      client_magic: client_magic.to_vec(),
+      serial: serial,
+      start_timestamp: start_timestamp,
+      end_timestamp: end_timestamp,
+      extensions: extensions.to_vec(),
+    }
+  }
+
+  /// The protocol declares signatures to be of:
+  /// `signature of (<resolver-pk> <client-magic> <serial> <ts-start> <ts-end> <extensions>)`
+  fn get_sign_bits(public_key: &PublicKey, client_magic: &[u8], serial: u32, start_timestamp: u32, end_timestamp: u32) -> Vec<u8> {
+    let mut bytes = Vec::with_capacity(124);
+    {
+      let mut encoder = BinEncoder::new(&mut bytes);
+
+      encoder.emit_vec(public_key.as_ref());
+      encoder.emit_vec(&client_magic);
+      encoder.emit_u32(serial);
+      encoder.emit_u32(start_timestamp);
+      encoder.emit_u32(end_timestamp);
+      encoder.emit_vec(&[0_u8;0]);
+    }
+
+    bytes
+  }
+
   pub fn get_cert_version(&self) -> &CertVersion { &self.es_version }
   pub fn get_start_timestamp(&self) -> u32 { self.start_timestamp }
   pub fn get_end_timestamp(&self) -> u32 { self.end_timestamp }
@@ -226,7 +274,7 @@ impl Certificate {
     let protocol_minor_version = try!(decoder.read_u16());
 
     // signature a 64-byte signature
-    let signature = try!(decoder.read_vec(64));
+    let signature = Signature::from_slice(&try!(decoder.read_vec(64))).expect("wrong length bytes read for signature");
 
     // the resolver short-term public key, which is 32 bytes when using X25519
     //  if this was not x25519, it would have returned above
@@ -274,7 +322,7 @@ impl Certificate {
       try!(encoder.emit_vec(&CERT_MAGIC));
       try!(encoder.emit_u16(self.es_version.into()));
       try!(encoder.emit_u16(self.protocol_minor_version));
-      try!(encoder.emit_vec(&self.signature));
+      try!(encoder.emit_vec(self.signature.as_ref()));
       try!(encoder.emit_vec(self.resolver_pk.as_ref()));
       try!(encoder.emit_vec(&self.client_magic));
       try!(encoder.emit_u32(self.serial));
@@ -285,13 +333,42 @@ impl Certificate {
 
     Ok(buf)
   }
+
+  /// verifies the signature of the Certificate with the given public_key
+  pub fn is_valid(&self, public_key: &EdPublicKey) -> bool {
+    let sign_bits = Self::get_sign_bits(&self.resolver_pk,
+                                        &self.client_magic,
+                                        self.serial,
+                                        self.start_timestamp,
+                                        self.end_timestamp);
+    //
+    // TODO: the signing is meant to have the 64 bit signature attached to the signed data, but
+    //  the cert is destructured, but means that it's not laid out that way at this point.
+    //  perhaps changing the cert to directly read from a stored Vec?
+    verify_detached(&self.signature, &sign_bits, public_key)
+  }
+}
+
+#[test]
+fn test_new_certificate() {
+  use sodiumoxide;
+  use sodiumoxide::crypto::box_::curve25519xsalsa20poly1305::gen_keypair as box_gen_keypair;
+  use sodiumoxide::crypto::sign::ed25519::gen_keypair as sign_gen_keypair;
+
+  sodiumoxide::init();
+  let (resolver_pk, _) = box_gen_keypair();
+  let (signer_pk, signer_sk) = sign_gen_keypair();
+
+  let cert = Certificate::with_key(&signer_sk, &resolver_pk, 1, 0, Duration::seconds(1));
+  assert_eq!(cert.signature.as_ref().len(), 64);
+  assert!(cert.is_valid(&signer_pk));
 }
 
 #[test]
 fn test_encode_decode() {
   let cert_version = CertVersion::X25519_XSalsa20Poly1305;
   let protocol_minor_version = 0x0100;
-  let signature = [0_u8;64];
+  let signature = Signature::from_slice(&[0_u8;64]).expect("wrong length signature");
   let public_key = [1_u8;32];
   let client_magic = [2_u8;8];
   let serial = 1234_u32;
@@ -301,7 +378,7 @@ fn test_encode_decode() {
   let cert = Certificate{
     es_version: cert_version,
     protocol_minor_version: protocol_minor_version,
-    signature: signature.to_vec(),
+    signature: signature,
     resolver_pk: cert_version.to_public_key(&public_key),
     client_magic: client_magic.to_vec(),
     serial: serial,
@@ -315,7 +392,7 @@ fn test_encode_decode() {
 
   assert_eq!(decoded.es_version, cert_version);
   assert_eq!(decoded.protocol_minor_version, protocol_minor_version);
-  assert_eq!(&decoded.signature as &[u8], &signature as &[u8]);
+  assert_eq!(&decoded.signature, &signature);
   assert_eq!(decoded.resolver_pk, cert_version.to_public_key(&public_key));
   assert_eq!(decoded.client_magic, client_magic);
   assert_eq!(decoded.serial, cert.serial);
