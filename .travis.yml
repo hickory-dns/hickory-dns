@@ -6,8 +6,6 @@ rust:
 matrix:
   allow_failure:
     - rust: nightly
-before_install:
-  - sudo apt-get -qq update
 addons:
   apt:
     packages:
