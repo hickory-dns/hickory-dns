@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## unreleased
+### Added
+- DNSCrypt Certificate construction, signing, and validation
+
 ### Fixed
 - Randomized ports for client connections and message ids, #23
 
