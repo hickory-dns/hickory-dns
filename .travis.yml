@@ -8,7 +8,7 @@ matrix:
     - rust: nightly
 before_install:
   - sudo apt-get -qq update
-  - sudo apt-get install -y libsodium13
+  - sudo apt-get install -y libsodium-dev
 after_success: |
   sudo apt-get install libcurl4-openssl-dev libelf-dev libdw-dev &&
   wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
