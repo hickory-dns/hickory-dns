@@ -1076,7 +1076,8 @@ mod test {
 
   #[cfg(test)]
   fn test_query<C: ClientConnection>(client: Client<C>) {
-    let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+    use std::cmp::Ordering;
+    let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
 
     let response = client.query(&name, DNSClass::IN, RecordType::A);
     assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
@@ -1084,9 +1085,10 @@ mod test {
     let response = response.unwrap();
 
     println!("response records: {:?}", response);
+    assert_eq!(response.get_queries().first().expect("expected query").get_name(), &name);
 
     let record = &response.get_answers()[0];
-    assert_eq!(record.get_name(), &name);
+    assert_eq!(record.get_name().cmp_with_case(&name, true), Ordering::Equal);
     assert_eq!(record.get_rr_type(), RecordType::A);
     assert_eq!(record.get_dns_class(), DNSClass::IN);
 
@@ -1161,6 +1163,44 @@ mod test {
     } else {
       assert!(false);
     }
+  }
+
+  #[test]
+  #[ignore]
+  fn test_dnssec_rollernet_td_udp() {
+    use ::udp::UdpClientConnection;
+    use ::client::Client;
+    use ::rr::Name;
+    use ::logger::TrustDnsLogger;
+    use log::LogLevel;
+
+    TrustDnsLogger::enable_logging(LogLevel::Debug);
+
+    let c = Client::new(UdpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap());
+    c.secure_query(
+      &Name::parse("rollernet.us.", None).unwrap(),
+      DNSClass::IN,
+      RecordType::DS,
+    ).unwrap();
+  }
+
+  #[test]
+  #[ignore]
+  fn test_dnssec_rollernet_td_tcp() {
+    use ::tcp::TcpClientConnection;
+    use ::client::Client;
+    use ::rr::Name;
+    use ::logger::TrustDnsLogger;
+    use log::LogLevel;
+
+    TrustDnsLogger::enable_logging(LogLevel::Debug);
+
+    let c = Client::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap());
+    c.secure_query(
+      &Name::parse("rollernet.us.", None).unwrap(),
+      DNSClass::IN,
+      RecordType::DS,
+    ).unwrap();
   }
 
   #[test]

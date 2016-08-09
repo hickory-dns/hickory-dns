@@ -46,7 +46,7 @@ use ::error::*;
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///
 /// ```
-#[derive(PartialEq, Debug)]
+#[derive(PartialEq, Debug, Clone)]
 pub struct Query {
   name: Name, query_type: RecordType, query_class: DNSClass
 }
@@ -108,7 +108,7 @@ impl BinSerializable<Query> for Query {
 
 #[test]
 fn test_read_and_emit() {
-  let expect = Query { name: Name::with_labels(vec!["www".to_string(),"example".to_string(),"com".to_string()]),
+  let expect = Query { name: Name::with_labels(vec!["WWW".to_string(),"example".to_string(),"com".to_string()]),
                        query_type: RecordType::AAAA, query_class: DNSClass::IN };
 
   let mut byte_vec: Vec<u8> = Vec::with_capacity(512);

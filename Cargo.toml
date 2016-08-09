@@ -1,13 +1,13 @@
 [package]
 name = "trust-dns"
-version = "0.7.0"
+version = "0.7.1"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
 TRust-DNS is a safe and secure DNS server and client with DNSec support.
- Eentually this could be a replacement for BIND9. DNSSec on the client side,
+ Eventually this could be a replacement for BIND9. DNSSec on the client side,
  with NSEC validation for negative records, is complete. The client and
  server both support dynamic DNS with authenticated requests.
 """

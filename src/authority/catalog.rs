@@ -232,6 +232,7 @@ impl Catalog {
     response.id(request.get_id());
     response.op_code(OpCode::Query);
     response.message_type(MessageType::Response);
+    response.add_all_queries(request.get_queries());
 
     // TODO: the spec is very unclear on what to do with multiple queries
     //  we will search for each, in the future, maybe make this threaded to respond even faster.
