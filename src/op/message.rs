@@ -108,6 +108,13 @@ impl Message {
   pub fn checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {self.header.checking_disabled(checking_disabled); self}
   pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.header.response_code(response_code); self }
   pub fn add_query(&mut self, query: Query) -> &mut Self { self.queries.push(query); self }
+  pub fn add_all_queries(&mut self, queries: &[Query]) -> &mut Self {
+    for q in queries {
+      // TODO: the clone here should really be performed (or not) by the caller
+      self.add_query(q.clone());
+    }
+    self
+  }
   pub fn add_answer(&mut self, record: Record) -> &mut Self { self.answers.push(record); self }
   pub fn add_all_answers(&mut self, vector: &[&Record]) -> &mut Self {
     for &r in vector {

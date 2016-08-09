@@ -64,7 +64,7 @@ pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Name> {
 
 #[test]
 pub fn test() {
-  let rdata = Name::new().label("www").label("example").label("com");
+  let rdata = Name::new().label("WWW").label("example").label("com");
 
   let mut bytes = Vec::new();
   let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

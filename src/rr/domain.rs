@@ -151,7 +151,7 @@ impl Name {
               label.clear();
             },
             '\\' => state = ParseState::Escape1,
-            ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch.to_lowercase().next().unwrap_or(ch)),
+            ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
             _ => return Err(ParseErrorKind::Msg(format!("unrecognized char: {}", ch)).into()),
           }
         },
@@ -172,7 +172,7 @@ impl Name {
           if ch.is_numeric() {
             let val: u32 = (i << 16) + (ii << 8) + try!(ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: {}", ch)))));
             let new: char = try!(char::from_u32(val).ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: {}", ch)))));
-            label.push(new.to_lowercase().next().unwrap_or(new));
+            label.push(new);
             state = ParseState::Label;
           } else { return try!(Err(ParseErrorKind::Msg(format!("unrecognized char: {}", ch)))) }
         },
@@ -240,6 +240,33 @@ impl Name {
 
     Ok(())
   }
+
+  /// compares with the other label, ignoring case
+  pub fn cmp_with_case(&self, other: &Self, ignore_case: bool) -> Ordering {
+    if self.labels.is_empty() && other.labels.is_empty() { return Ordering::Equal }
+
+    let mut self_labels: Vec<_> = (*self.labels).clone();
+    let mut other_labels: Vec<_> = (*other.labels).clone();
+
+    self_labels.reverse();
+    other_labels.reverse();
+
+    for (l, r) in self_labels.iter().zip(other_labels.iter()) {
+      if ignore_case {
+        match (*l).to_lowercase().cmp(&(*r).to_lowercase()) {
+          o @ Ordering::Less | o @ Ordering::Greater => return o,
+          Ordering::Equal => continue,
+        }
+      } else {
+        match l.cmp(r) {
+          o @ Ordering::Less | o @ Ordering::Greater => return o,
+          Ordering::Equal => continue,
+        }
+      }
+    }
+
+    self.labels.len().cmp(&other.labels.len())
+  }
 }
 
 enum ParseState {
@@ -275,7 +302,7 @@ impl BinSerializable<Name> for Name {
           }
         },
         LabelParseState::Label => {
-          labels.push(Rc::new(try!(decoder.read_character_data(true))));
+          labels.push(Rc::new(try!(decoder.read_character_data())));
 
           // reset to collect more data
           LabelParseState::LabelLengthOrPointer
@@ -389,22 +416,7 @@ impl Ord for Name {
   ///            \200.z.example
   /// ```
   fn cmp(&self, other: &Self) -> Ordering {
-    if self.labels.is_empty() && other.labels.is_empty() { return Ordering::Equal }
-
-    let mut self_labels: Vec<_> = (*self.labels).clone();
-    let mut other_labels: Vec<_> = (*other.labels).clone();
-
-    self_labels.reverse();
-    other_labels.reverse();
-
-    for (l, r) in self_labels.iter().zip(other_labels.iter()) {
-      match l.cmp(r) {
-        o @ Ordering::Less | o @ Ordering::Greater => return o,
-        Ordering::Equal => continue,
-      }
-    }
-
-    self.labels.len().cmp(&other.labels.len())
+    self.cmp_with_case(other, false)
   }
 }
 
@@ -553,7 +565,21 @@ mod tests {
 
     for (left, right) in comparisons {
       println!("left: {}, right: {}", left, right);
-      assert_eq!(left.partial_cmp(&right), Some(Ordering::Less));
+      assert_eq!(left.cmp_with_case(&right, true), Ordering::Less);
+     }
+  }
+
+  #[test]
+  fn test_cmp_ignore_case() {
+    let root = Some(Name::with_labels(vec![]));
+    let comparisons:Vec<(Name, Name)> = vec![
+     (Name::parse("ExAmPle", root.as_ref()).unwrap(), Name::parse("example", root.as_ref()).unwrap()),
+     (Name::parse("A.example", root.as_ref()).unwrap(), Name::parse("a.example", root.as_ref()).unwrap()),
+     ];
+
+    for (left, right) in comparisons {
+      println!("left: {}, right: {}", left, right);
+      assert_eq!(left.cmp_with_case(&right, true), Ordering::Equal);
      }
   }
 }
