@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-use std::error::Error as StdError;
 use std::io::Error as IoError;
 
 use ::op::ResponseCode;

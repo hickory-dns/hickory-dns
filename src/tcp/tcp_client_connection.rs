@@ -16,7 +16,6 @@
 
 use std::net::SocketAddr;
 use std::io;
-use std::io::Write;
 use std::mem;
 use std::fmt;
 
@@ -46,6 +45,8 @@ impl TcpClientConnection {
   ///
   /// * `name_server` - address of the name server to use for queries
   pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
+    // TODO: randomize local port binding issue #23
+    //  probably not necessary for TCP...
     debug!("connecting to {:?}", name_server);
     let stream = try!(TcpStream::connect(&name_server));
 
