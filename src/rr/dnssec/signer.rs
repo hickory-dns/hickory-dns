@@ -526,7 +526,7 @@ impl Signer {
     //                                 fqdn
     if num_labels < fqdn_labels {
       let mut star_name: Name = Name::new().label("*");
-      let rightmost = name.base_name();
+      let rightmost = name.trim_to(num_labels as usize);
       if !rightmost.is_root() {
         star_name.append(&rightmost);
         return Some(star_name);
