@@ -9,33 +9,33 @@ use super::*;
 
 #[test]
 fn test_string() {
-  let lexer = Lexer::new("@   IN  SOA     VENERA      Action\\.domains (
+  let lexer = Lexer::new("@   IN  SOA     venera      action\\.domains (
                                20     ; SERIAL
                                7200   ; REFRESH
                                600    ; RETRY
                                3600000; EXPIRE
                                60)    ; MINIMUM
 
-      NS      A.ISI.EDU.
-      NS      VENERA
-      NS      VAXA
-      MX      10      VENERA
-      MX      20      VAXA
+      NS      a.isi.edu.
+      NS      venera
+      NS      vaxa
+      MX      10      venera
+      MX      20      vaxa
 
-A       A       26.3.0.103
+a       A       26.3.0.103
         TXT     \"I am a txt record\"
         TXT     \"I am another txt record\"
         TXT     \"I am a different\" \" txt record\"
         TXT     key=val
-AAAA    AAAA    4321:0:1:2:3:4:567:89ab
-ALIAS   CNAME   A
-103.0.3.26.IN-ADDR.ARPA.   PTR A
-b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.1.2.3.4.IP6.ARPA. PTR AAAA
+aaaa    AAAA    4321:0:1:2:3:4:567:89ab
+alias   CNAME   a
+103.0.3.26.IN-ADDR.ARPA.   PTR a
+b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.1.2.3.4.IP6.ARPA. PTR aaaa
 
-_ldap._tcp.SERVICE SRV 1 2 3 SHORT
+_ldap._tcp.service SRV 1 2 3 short
 
-SHORT 70 A      26.3.0.104
-VENERA  A       10.1.0.52
+short 70 A      26.3.0.104
+venera  A       10.1.0.52
       A       128.9.0.32");
 
   let authority = Parser::new().parse(lexer, Some(Name::new().label("isi").label("edu")), ZoneType::Master, false);

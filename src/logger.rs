@@ -22,7 +22,7 @@ impl TrustDnsLogger {
   }
 
   pub fn enable_logging(log_level: LogLevel) {
-    Self::new(log_level).init().unwrap();
+    Self::new(log_level).init().is_ok();
   }
 }
 

@@ -12,6 +12,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 - Cleaned up the Server implementation to isolate connection handlers
 
+## 0.7.2 2016-08-10
+### Fixed
+- Issue #28: RRSIG validation of wildcards, label length > wildcard length
+
+## 0.7.1 2016-08-09
+### Fixed
+- Issue #27: remove implicit case conversion of labels (fixes NSEC validation)
+
 ## 0.7.0 2016-06-20
 ### Added
 - Added recovery from journal to named startup

@@ -73,7 +73,7 @@ impl<'a> BinDecoder<'a> {
   /// length (including the length octet).
   ///
   /// the vector should be reversed before calling.
-  pub fn read_character_data(&mut self, lowercase: bool) -> DecodeResult<String> {
+  pub fn read_character_data(&mut self) -> DecodeResult<String> {
     let length: u8 = try!(self.pop());
 
     // TODO once Drain stabalizes on Vec, this should be replaced...
@@ -81,11 +81,8 @@ impl<'a> BinDecoder<'a> {
 
     // translate bytes to string, then lowercase...
     let data = try!(String::from_utf8(label_vec));
-    if lowercase {
-      Ok(data.to_lowercase())
-    } else {
-      Ok(data)
-    }
+
+    Ok(data)
   }
 
   pub fn read_vec(&mut self, len: usize) -> DecodeResult<Vec<u8>> {
