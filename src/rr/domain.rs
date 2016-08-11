@@ -96,9 +96,36 @@ impl Name {
   }
 
   /// Trims off the first part of the name, to help with searching for the domain piece
+  /// ```
+  /// use trust_dns::rr::domain::Name;
+  ///
+  /// let example_com = Name::new().label("example").label("com");
+  /// assert_eq!(example_com.base_name(), Name::new().label("com"));
+  /// assert_eq!(Name::new().label("com").base_name(), Name::root());
+  /// assert_eq!(Name::root().base_name(), Name::root());
+  /// ```
   pub fn base_name(&self) -> Name {
-    if self.labels.len() >= 1 {
-      Name { labels: Rc::new(self.labels[1..].to_vec()) }
+    let length = self.labels.len();
+    if length > 0 {
+      self.trim_to(length - 1)
+    } else {
+      Self::root()
+    }
+  }
+
+  /// Trims to the number of labels specified
+  /// ```
+  /// use trust_dns::rr::domain::Name;
+  ///
+  /// let example_com = Name::new().label("example").label("com");
+  /// assert_eq!(example_com.trim_to(2), Name::new().label("example").label("com"));
+  /// assert_eq!(example_com.trim_to(1), Name::new().label("com"));
+  /// assert_eq!(example_com.trim_to(0), Name::root());
+  /// ```
+  pub fn trim_to(&self, num_labels: usize) -> Name {
+    if self.labels.len() >= num_labels {
+      let trim = self.labels.len() - num_labels;
+      Name { labels: Rc::new(self.labels[trim..].to_vec()) }
     } else {
       Self::root()
     }
