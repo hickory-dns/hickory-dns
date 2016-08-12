@@ -135,8 +135,11 @@ impl Handler for ClientHandler {
               }
             },
             Err(ref e) if io::ErrorKind::WouldBlock == e.kind() => {
-              // this is expected with the connection would block
-              // noop
+              debug!("WouldBlock, reregistering for next call: {:?}", self.handler.get_events());
+              if let Err(e) = event_loop.reregister(self.handler.get_stream(), token, self.handler.get_events(), PollOpt::all()) {
+                  error!("could not reregister stream: {:?} cause: {}", self.handler.get_stream(), e);
+                  // FIXME: Maybe it doesn't need reregistration on this system?
+              }
             },
             Err(e) => {
               // shutdown the connection, remove it.
