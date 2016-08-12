@@ -4,6 +4,10 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.7.2 2016-08-10
 ### Fixed
+- Issue #27: label case sensitivity revisited for RRSIG signing
+
+## 0.7.2 2016-08-10
+### Fixed
 - Issue #28: RRSIG validation of wildcards, label length > wildcard length
 
 ## 0.7.1 2016-08-09

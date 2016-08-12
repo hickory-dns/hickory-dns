@@ -1085,10 +1085,10 @@ mod test {
     let response = response.unwrap();
 
     println!("response records: {:?}", response);
-    assert_eq!(response.get_queries().first().expect("expected query").get_name(), &name);
+    assert_eq!(response.get_queries().first().expect("expected query").get_name().cmp_with_case(&name, false), Ordering::Equal);
 
     let record = &response.get_answers()[0];
-    assert_eq!(record.get_name().cmp_with_case(&name, true), Ordering::Equal);
+    assert_eq!(record.get_name(), &name);
     assert_eq!(record.get_rr_type(), RecordType::A);
     assert_eq!(record.get_dns_class(), DNSClass::IN);
 
@@ -1168,9 +1168,6 @@ mod test {
   #[test]
   #[ignore]
   fn test_dnssec_rollernet_td_udp() {
-    use ::udp::UdpClientConnection;
-    use ::client::Client;
-    use ::rr::Name;
     use ::logger::TrustDnsLogger;
     use log::LogLevel;
 
@@ -1178,7 +1175,7 @@ mod test {
 
     let c = Client::new(UdpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap());
     c.secure_query(
-      &Name::parse("rollernet.us.", None).unwrap(),
+      &domain::Name::parse("rollernet.us.", None).unwrap(),
       DNSClass::IN,
       RecordType::DS,
     ).unwrap();
@@ -1187,9 +1184,6 @@ mod test {
   #[test]
   #[ignore]
   fn test_dnssec_rollernet_td_tcp() {
-    use ::tcp::TcpClientConnection;
-    use ::client::Client;
-    use ::rr::Name;
     use ::logger::TrustDnsLogger;
     use log::LogLevel;
 
@@ -1197,7 +1191,23 @@ mod test {
 
     let c = Client::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap());
     c.secure_query(
-      &Name::parse("rollernet.us.", None).unwrap(),
+      &domain::Name::parse("rollernet.us.", None).unwrap(),
+      DNSClass::IN,
+      RecordType::DS,
+    ).unwrap();
+  }
+
+  #[test]
+  #[ignore]
+  fn test_dnssec_rollernet_td_tcp_mixed_case() {
+    use ::logger::TrustDnsLogger;
+    use log::LogLevel;
+
+    TrustDnsLogger::enable_logging(LogLevel::Debug);
+
+    let c = Client::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap());
+    c.secure_query(
+      &domain::Name::parse("RollErnet.Us.", None).unwrap(),
       DNSClass::IN,
       RecordType::DS,
     ).unwrap();
