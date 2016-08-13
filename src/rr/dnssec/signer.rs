@@ -458,14 +458,14 @@ impl Signer {
       //                in canonical form.
       assert!(sig::emit_pre_sig(&mut encoder, type_covered, algorithm,
                           name.num_labels(), original_ttl, sig_expiration,
-                          sig_inception, key_tag, signer_name).is_ok());
+                          sig_inception, key_tag, &signer_name).is_ok());
 
       // construct the rrset signing data
       for record in rrset {
         //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
         //
         //                name is calculated according to the function in the RFC 4035
-        assert!(name.emit_as_canonical(&mut encoder, true).is_ok());
+        assert!(name.to_lowercase().emit_as_canonical(&mut encoder, true).is_ok());
         //
         //                type is the RRset type and all RRs in the class
         assert!(type_covered.emit(&mut encoder).is_ok());

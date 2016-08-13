@@ -101,6 +101,16 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC> {
   Ok(NSEC::new(next_domain_name, record_types))
 }
 
+/// [RFC 6840](https://tools.ietf.org/html/rfc6840#section-6)
+///
+/// ```text
+/// 5.1.  Errors in Canonical Form Type Code List
+///
+///   When canonicalizing DNS names (for both ordering and signing), DNS
+///   names in the RDATA section of NSEC resource records are not converted
+///   to lowercase.  DNS names in the RDATA section of RRSIG resource
+///   records are converted to lowercase.
+/// ```
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> EncodeResult {
   let is_canonical_names = encoder.is_canonical_names();
   encoder.set_canonical_names(true);

@@ -54,7 +54,7 @@ impl PartialOrd for RrKey {
 
 impl Ord for RrKey {
   fn cmp(&self, other: &Self) -> Ordering {
-    let order = self.name.cmp_with_case(&other.name, true);
+    let order = self.name.cmp(&other.name);
     if order == Ordering::Equal {
       self.record_type.cmp(&other.record_type)
     } else {

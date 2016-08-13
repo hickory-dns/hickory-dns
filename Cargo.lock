@@ -1,6 +1,6 @@
 [root]
 name = "trust-dns"
-version = "0.7.1"
+version = "0.7.3"
 dependencies = [
  "backtrace 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.2.22 (registry+https://github.com/rust-lang/crates.io-index)",

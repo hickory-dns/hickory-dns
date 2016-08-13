@@ -9,6 +9,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 - Cleaned up the Server implementation to isolate connection handlers
 
+## 0.7.3 2016-08-12
+### Fixed
+- Issue #27: label case sensitivity revisited for RRSIG signing, RFC 6840
+- TCP reregister on would-block errors
+
 ## 0.7.2 2016-08-10
 ### Fixed
 - Issue #28: RRSIG validation of wildcards, label length > wildcard length

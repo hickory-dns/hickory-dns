@@ -19,8 +19,9 @@
 use std::ops::Index;
 use std::sync::Arc as Rc;
 use std::fmt;
-use std::cmp::Ordering;
+use std::cmp::{Ordering, PartialEq};
 use std::char;
+use std::hash::{Hash, Hasher};
 
 use ::serialize::binary::*;
 use ::error::*;
@@ -28,7 +29,7 @@ use ::error::*;
 /// TODO: all Names should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 /// TODO: Currently this probably doesn't support binary names, it would be nice to do that.
-#[derive(Debug, PartialEq, Eq, Clone, Hash)]
+#[derive(Debug, Eq, Clone)]
 pub struct Name {
   labels: Rc<Vec<Rc<String>>>
 }
@@ -95,7 +96,26 @@ impl Name {
     self
   }
 
+  /// Creates a new Name with all labels lowercased
+  ///
+  /// ```
+  /// use trust_dns::rr::domain::Name;
+  /// use std::cmp::Ordering;
+  ///
+  /// let example_com = Name::new().label("Example").label("Com");
+  /// assert_eq!(example_com.to_lowercase().cmp_with_case(&Name::new().label("example").label("com"), false), Ordering::Equal);
+  /// ```
+  pub fn to_lowercase(&self) -> Name {
+    let mut new_labels = Vec::with_capacity(self.labels.len());
+    for label in self.labels.iter() {
+      new_labels.push(label.to_lowercase());
+    }
+
+    Self::with_labels(new_labels)
+  }
+
   /// Trims off the first part of the name, to help with searching for the domain piece
+  ///
   /// ```
   /// use trust_dns::rr::domain::Name;
   ///
@@ -114,6 +134,7 @@ impl Name {
   }
 
   /// Trims to the number of labels specified
+  ///
   /// ```
   /// use trust_dns::rr::domain::Name;
   ///
@@ -268,6 +289,15 @@ impl Name {
     Ok(())
   }
 
+  pub fn emit_with_lowercase(&self, encoder: &mut BinEncoder, lowercase: bool) -> EncodeResult {
+    let is_canonical_names = encoder.is_canonical_names();
+    if lowercase {
+      self.to_lowercase().emit_as_canonical(encoder, is_canonical_names)
+    } else {
+      self.emit_as_canonical(encoder, is_canonical_names)
+    }
+  }
+
   /// compares with the other label, ignoring case
   pub fn cmp_with_case(&self, other: &Self, ignore_case: bool) -> Ordering {
     if self.labels.is_empty() && other.labels.is_empty() { return Ordering::Equal }
@@ -293,6 +323,20 @@ impl Name {
     }
 
     self.labels.len().cmp(&other.labels.len())
+  }
+}
+
+impl Hash for Name {
+  fn hash<H>(&self, state: &mut H) where H: Hasher {
+    for label in self.labels.iter() {
+      state.write(label.to_lowercase().as_bytes());
+    }
+  }
+}
+
+impl PartialEq<Name> for Name {
+  fn eq(&self, other: &Self) -> bool {
+    self.cmp_with_case(other, true) == Ordering::Equal
   }
 }
 
@@ -443,7 +487,7 @@ impl Ord for Name {
   ///            \200.z.example
   /// ```
   fn cmp(&self, other: &Self) -> Ordering {
-    self.cmp_with_case(other, false)
+    self.cmp_with_case(other, true)
   }
 }
 
@@ -592,7 +636,7 @@ mod tests {
 
     for (left, right) in comparisons {
       println!("left: {}, right: {}", left, right);
-      assert_eq!(left.cmp_with_case(&right, true), Ordering::Less);
+      assert_eq!(left.cmp(&right), Ordering::Less);
      }
   }
 
@@ -606,7 +650,7 @@ mod tests {
 
     for (left, right) in comparisons {
       println!("left: {}, right: {}", left, right);
-      assert_eq!(left.cmp_with_case(&right, true), Ordering::Equal);
+      assert_eq!(left, right);
      }
   }
 }
