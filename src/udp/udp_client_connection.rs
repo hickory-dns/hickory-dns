@@ -20,6 +20,8 @@ use std::fmt;
 
 use mio::udp::UdpSocket;
 use mio::{Token, EventLoop, Handler, EventSet, PollOpt}; // not * b/c don't want confusion with std::net
+use rand::Rng;
+use rand;
 
 use ::error::*;
 use client::ClientConnection;
@@ -34,6 +36,23 @@ pub struct UdpClientConnection {
 }
 
 impl UdpClientConnection {
+  fn next_bound_local_address() -> ClientResult<UdpSocket> {
+    let mut rand = rand::thread_rng();
+
+    let mut error = Err(ClientErrorKind::Message("could not bind address in 10 tries").into());
+    for _ in 0..10 {
+      let zero_addr = ("0.0.0.0", rand.gen_range(1025_u16, u16::max_value())).to_socket_addrs().expect("could not parse 0.0.0.0 address").
+                                     next().expect("no addresses parsed from 0.0.0.0");
+
+      match UdpSocket::bound(&zero_addr) {
+        Ok(socket) => return Ok(socket),
+        Err(err) => error = Err(err.into()),
+      }
+    }
+
+    error
+  }
+
   /// Creates a new client connection.
   ///
   /// *Note* this has side affects of binding the socket to 0.0.0.0 and starting the listening
@@ -43,11 +62,9 @@ impl UdpClientConnection {
   ///
   /// * `name_server` - address of the name server to use for queries
   pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
+    // TODO: allow the bind address to be specified...
     // client binds to all addresses... this shouldn't ever fail
-    let zero_addr = ("0.0.0.0", 0).to_socket_addrs().expect("could not parse 0.0.0.0 address").
-                                   next().expect("no addresses parsed from 0.0.0.0");
-
-    let socket = try!(UdpSocket::bound(&zero_addr));
+    let socket = try!(Self::next_bound_local_address());
     let mut event_loop: EventLoop<Response> = try!(EventLoop::new());
     // TODO make the timeout configurable, 5 seconds is the dig default
     // TODO the error is private to mio, which makes this awkward...

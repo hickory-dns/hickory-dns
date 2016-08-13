@@ -12,13 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc as Rc;
 
 use chrono::UTC;
 use data_encoding::base32hex;
 use openssl::crypto::pkey::Role;
+use rand;
 
 use ::error::*;
 use ::rr::{DNSClass, RecordType, Record, RData};
@@ -34,7 +35,6 @@ use ::client::ClientConnection;
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
 pub struct Client<C: ClientConnection> {
   client_connection: RefCell<C>,
-  next_id: Cell<u16>,
   trust_anchor: TrustAnchor,
 }
 
@@ -46,7 +46,6 @@ impl<C: ClientConnection> Client<C> {
   /// * `client_connection` - the client_connection to use for all communication
   pub fn new(client_connection: C) -> Client<C> {
     Client{ client_connection: RefCell::new(client_connection),
-            next_id: Cell::new(1037),
             trust_anchor: TrustAnchor::default() }
   }
 
@@ -59,7 +58,6 @@ impl<C: ClientConnection> Client<C> {
   ///                    root public_key.
   pub fn with_trust_anchor(client_connection: C, trust_anchor: TrustAnchor) -> Client<C> {
     Client{ client_connection: RefCell::new(client_connection),
-            next_id: Cell::new(1037),
             trust_anchor: trust_anchor }
   }
 
@@ -494,7 +492,7 @@ impl<C: ClientConnection> Client<C> {
 
     // build the message
     let mut message: Message = Message::new();
-    let id = self.next_id();
+    let id: u16 = rand::random();
     // TODO make recursion a parameter
     message.id(id).message_type(MessageType::Query).op_code(OpCode::Query).recursion_desired(true);
 
@@ -566,7 +564,7 @@ impl<C: ClientConnection> Client<C> {
 
     // build the message
     let mut message: Message = Message::new();
-    message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
 
     let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
@@ -642,7 +640,7 @@ impl<C: ClientConnection> Client<C> {
 
     // build the message
     let mut message: Message = Message::new();
-    message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
 
     if must_exist {
@@ -729,7 +727,7 @@ impl<C: ClientConnection> Client<C> {
 
     // build the message
     let mut message: Message = Message::new();
-    message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
 
     // make sure the record is what is expected
@@ -816,7 +814,7 @@ impl<C: ClientConnection> Client<C> {
 
     // build the message
     let mut message: Message = Message::new();
-    message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
 
     // the class must be none for delete
@@ -893,7 +891,7 @@ impl<C: ClientConnection> Client<C> {
 
     // build the message
     let mut message: Message = Message::new();
-    message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
 
     // the class must be none for an rrset delete
@@ -962,7 +960,7 @@ impl<C: ClientConnection> Client<C> {
 
     // build the message
     let mut message: Message = Message::new();
-    message.id(self.next_id()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
 
     // the TTL shoudl be 0
@@ -1017,13 +1015,6 @@ impl<C: ClientConnection> Client<C> {
     if response.get_id() != message.get_id() { return Err(ClientErrorKind::IncorrectMessageId(response.get_id(), message.get_id()).into()); }
 
     Ok(response)
-  }
-
-  /// increments the next_id for use in messages
-  fn next_id(&self) -> u16 {
-    let id = self.next_id.get();
-    self.next_id.set(id + 1);
-    id
   }
 }
 
