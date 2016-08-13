@@ -289,6 +289,15 @@ impl Name {
     Ok(())
   }
 
+  pub fn emit_with_lowercase(&self, encoder: &mut BinEncoder, lowercase: bool) -> EncodeResult {
+    let is_canonical_names = encoder.is_canonical_names();
+    if lowercase {
+      self.to_lowercase().emit_as_canonical(encoder, is_canonical_names)
+    } else {
+      self.emit_as_canonical(encoder, is_canonical_names)
+    }
+  }
+
   /// compares with the other label, ignoring case
   pub fn cmp_with_case(&self, other: &Self, ignore_case: bool) -> Ordering {
     if self.labels.is_empty() && other.labels.is_empty() { return Ordering::Equal }

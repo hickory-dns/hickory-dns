@@ -405,7 +405,27 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<SIG> {
               sig_inception, key_tag, signer_name, sig))
 }
 
+/// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+///
+/// This is accurate for all currently known name records.
+///
+/// ```text
+/// 6.2.  Canonical RR Form
+///
+///    For the purposes of DNS security, the canonical form of an RR is the
+///    wire format of the RR where:
+///
+///    ...
+///
+///    3.  if the type of the RR is NS, MD, MF, CNAME, SOA, MB, MG, MR, PTR,
+///        HINFO, MINFO, MX, HINFO, RP, AFSDB, RT, SIG, PX, NXT, NAPTR, KX,
+///        SRV, DNAME, A6, RRSIG, or (rfc6840 removes NSEC), all uppercase
+///        US-ASCII letters in the DNS names contained within the RDATA are replaced
+///        by the corresponding lowercase US-ASCII letters;
+/// ```
 pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> EncodeResult {
+  let is_canonical_names = encoder.is_canonical_names();
+  
   try!(sig.get_type_covered().emit(encoder));
   try!(sig.get_algorithm().emit(encoder));
   try!(encoder.emit(sig.get_num_labels()));
@@ -413,7 +433,7 @@ pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> EncodeResult {
   try!(encoder.emit_u32(sig.get_sig_expiration()));
   try!(encoder.emit_u32(sig.get_sig_inception()));
   try!(encoder.emit_u16(sig.get_key_tag()));
-  try!(sig.get_signer_name().emit(encoder));
+  try!(sig.get_signer_name().emit_with_lowercase(encoder, is_canonical_names));
   try!(encoder.emit_vec(sig.get_sig()));
   Ok(())
 }

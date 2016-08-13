@@ -713,24 +713,47 @@ impl RData {
     Ok(result)
   }
 
+  /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
+  ///
+  /// ```text
+  /// 6.2.  Canonical RR Form
+  ///
+  ///    For the purposes of DNS security, the canonical form of an RR is the
+  ///    wire format of the RR where:
+  ///
+  ///    ...
+  ///
+  ///    3.  if the type of the RR is NS, MD, MF, CNAME, SOA, MB, MG, MR, PTR,
+  ///        HINFO, MINFO, MX, HINFO, RP, AFSDB, RT, SIG, PX, NXT, NAPTR, KX,
+  ///        SRV, DNAME, A6, RRSIG, or (rfc6840 removes NSEC), all uppercase
+  ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
+  ///        by the corresponding lowercase US-ASCII letters;
+  /// ```
   pub fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
     match *self {
       RData::A(ref address) => rdata::a::emit(encoder, address),
       RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
+      // to_lowercase for rfc4034 and rfc6840
       RData::CNAME(ref name) => rdata::name::emit(encoder, name),
       RData::DS(ref ds) => rdata::ds::emit(encoder, ds),
       RData::KEY(ref key) => rdata::dnskey::emit(encoder, key),
       RData::DNSKEY(ref dnskey) => rdata::dnskey::emit(encoder, dnskey),
+      // to_lowercase for rfc4034 and rfc6840
       RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
       RData::NULL(ref null) => rdata::null::emit(encoder, null),
+      // to_lowercase for rfc4034 and rfc6840
       RData::NS(ref name) => rdata::name::emit(encoder, name),
       RData::NSEC(ref nsec) => rdata::nsec::emit(encoder, nsec),
       RData::NSEC3(ref nsec3) => rdata::nsec3::emit(encoder, nsec3),
       RData::NSEC3PARAM(ref nsec3param) => rdata::nsec3param::emit(encoder, nsec3param),
       RData::OPT(ref opt) => rdata::opt::emit(encoder, opt),
+      // to_lowercase for rfc4034 and rfc6840
       RData::PTR(ref name) => rdata::name::emit(encoder, name),
+      // to_lowercase for rfc4034 and rfc6840
       RData::SIG(ref sig) => rdata::sig::emit(encoder, sig),
+      // to_lowercase for rfc4034 and rfc6840
       RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
+      // to_lowercase for rfc4034 and rfc6840
       RData::SRV(ref srv) => rdata::srv::emit(encoder, srv),
       RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
     }
