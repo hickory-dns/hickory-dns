@@ -156,10 +156,12 @@ impl Name {
   pub fn zone_of(&self, name: &Self) -> bool {
     let self_len = self.labels.len();
     let name_len = name.labels.len();
+    let self_lower = self.to_lowercase();
+    let name_lower = name.to_lowercase();
 
     // TODO: there's probably a better way using iterators directly, but it wasn't obvious
     for i in 1..(self_len+1) {
-      if self.labels.get(self_len - i) != name.labels.get(name_len - i) {
+      if self_lower.labels.get(self_len - i) != name_lower.labels.get(name_len - i) {
         return false;
       }
     }
@@ -599,6 +601,17 @@ mod tests {
   #[test]
   fn test_zone_of() {
     let zone = Name::new().label("example").label("com");
+    let www = Name::new().label("www").label("example").label("com");
+    let none = Name::new().label("none").label("com");
+
+    assert!(zone.zone_of(&zone));
+    assert!(zone.zone_of(&www));
+    assert!(!zone.zone_of(&none))
+  }
+
+  #[test]
+  fn test_zone_of_case() {
+    let zone = Name::new().label("examplE").label("cOm");
     let www = Name::new().label("www").label("example").label("com");
     let none = Name::new().label("none").label("com");
 
