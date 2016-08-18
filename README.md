@@ -1,7 +1,8 @@
 [![Build Status](https://travis-ci.org/bluejekyll/trust-dns.svg?branch=master)](https://travis-ci.org/bluejekyll/trust-dns)
 [![Coverage Status](https://coveralls.io/repos/github/bluejekyll/trust-dns/badge.svg?branch=master)](https://coveralls.io/github/bluejekyll/trust-dns?branch=master)
 [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns)
-
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
+[![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
 
 # trust-dns
 
