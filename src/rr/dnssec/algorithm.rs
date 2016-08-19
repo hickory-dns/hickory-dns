@@ -106,8 +106,51 @@ pub enum Algorithm {
   ECDSAP384SHA384,
 }
 
+#[derive(Clone)]
+pub enum DnssecKey {
+    Rsa(PKey),
+    Ecdsa(Vec<u8>),
+}
+impl From<PKey> for DnssecKey {
+    fn from(key: PKey) -> Self {
+        DnssecKey::Rsa(key)
+    }
+}
+impl DnssecKey {
+    pub fn can(&self, role: Role) -> bool {
+        match *self {
+            DnssecKey::Rsa(ref k) => k.can(role),
+            DnssecKey::Ecdsa(ref k) => unimplemented!(), 
+        }
+    }
+    pub fn sign(&self, h: &[u8]) -> Vec<u8> {
+        match *self {
+            DnssecKey::Rsa(ref k) => k.sign(h),
+            DnssecKey::Ecdsa(ref k) => unimplemented!(), 
+        }
+    }
+    pub fn verify(&self, h: &[u8], s: &[u8]) -> bool {
+        match *self {
+            DnssecKey::Rsa(ref k) => k.verify(h, s),
+            DnssecKey::Ecdsa(ref k) => unimplemented!(), 
+        }
+    }
+    pub fn sign_with_hash(&self, h: &[u8], hash: DigestType) -> Vec<u8> {
+        match *self {
+            DnssecKey::Rsa(ref k) => k.sign_with_hash(h, hash.to_hash()),
+            DnssecKey::Ecdsa(ref k) => unimplemented!(), 
+        }
+    }
+    pub fn verify_with_hash(&self, h: &[u8], s: &[u8], hash: DigestType) -> bool {
+        match *self {
+            DnssecKey::Rsa(ref k) => k.verify_with_hash(h, s, hash.to_hash()),
+            DnssecKey::Ecdsa(ref k) => unimplemented!(), 
+        }
+    }
+}
+
 impl Algorithm {
-  pub fn sign(&self, private_key: &PKey, data: &[u8]) -> Vec<u8> {
+  pub fn sign(&self, private_key: &DnssecKey, data: &[u8]) -> Vec<u8> {
     if !private_key.can(Role::Sign) { panic!("This key cannot be used for signing") }
 
     // calculate the hash...
@@ -117,7 +160,7 @@ impl Algorithm {
     private_key.sign(&hash)
   }
 
-  pub fn verify(&self, public_key: &PKey, data: &[u8], signature: &[u8]) -> bool {
+  pub fn verify(&self, public_key: &DnssecKey, data: &[u8], signature: &[u8]) -> bool {
     if !public_key.can(Role::Verify) { panic!("This key cannot be used to verify signature") }
 
     // calculate the hash on the local data
@@ -150,7 +193,7 @@ impl Algorithm {
     }
   }
 
-  pub fn public_key_from_vec(&self, public_key: &[u8]) -> DecodeResult<PKey> {
+  pub fn public_key_from_vec(&self, public_key: &[u8]) -> DecodeResult<DnssecKey> {
     match *self {
       Algorithm::RSASHA1 |
       Algorithm::RSASHA1NSEC3SHA1 |
@@ -201,7 +244,7 @@ impl Algorithm {
 
         let rsa = try!(RSA::from_public_components(n, e));
         pkey.set_rsa(&rsa);
-        Ok(pkey)
+        Ok(pkey.into())
       },
       Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
         // TODO
@@ -210,16 +253,21 @@ impl Algorithm {
     }
   }
 
-  pub fn public_key_to_vec(&self, public_key: &PKey) -> Vec<u8> {
+  pub fn public_key_to_vec(&self, public_key: &DnssecKey) -> Vec<u8> {
     match *self {
       Algorithm::RSASHA1 |
       Algorithm::RSASHA1NSEC3SHA1 |
       Algorithm::RSASHA256 |
       Algorithm::RSASHA512 => {
+        let pkey = if let DnssecKey::Rsa(ref key) = *public_key {
+            key
+        } else {
+            panic!("Invalid type of key")
+        };
         let mut bytes: Vec<u8> = Vec::new();
 
         // this is to get us access to the exponent and the modulus
-        let rsa: RSA = public_key.get_rsa();
+        let rsa: RSA = pkey.get_rsa();
         let e: Vec<u8> = rsa.e().expect("PKey should have been initialized").to_vec();
         let n: Vec<u8> = rsa.n().expect("PKey should have been initialized").to_vec();
 

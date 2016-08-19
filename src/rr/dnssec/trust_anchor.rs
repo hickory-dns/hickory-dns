@@ -21,7 +21,7 @@ use std::default::Default;
 
 use openssl::crypto::pkey::{PKey, Role};
 
-use ::rr::dnssec::Algorithm;
+use ::rr::dnssec::{Algorithm};
 
 const ROOT_ANCHOR: &'static str = include_str!("Kjqmt7v.pem");
 
@@ -40,7 +40,7 @@ impl Default for TrustAnchor {
 
     let alg = Algorithm::RSASHA256;
 
-    TrustAnchor{ pkeys: vec![alg.public_key_to_vec(&pkey)] }
+    TrustAnchor{ pkeys: vec![alg.public_key_to_vec(&pkey.into())] }
   }
 }
 

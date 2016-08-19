@@ -23,7 +23,7 @@ mod signer;
 mod supported_algorithm;
 mod trust_anchor;
 
-pub use self::algorithm::Algorithm;
+pub use self::algorithm::{Algorithm, DnssecKey};
 pub use self::digest_type::DigestType;
 pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::signer::Signer;
