@@ -585,6 +585,7 @@ impl Signer {
 fn test_sign_and_verify_message_sig0() {
   use ::rr::Name;
   use ::op::{Message, Query, UpdateMessage};
+  use openssl::crypto::pkey::PKey;
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let mut question: Message = Message::new();
@@ -594,7 +595,7 @@ fn test_sign_and_verify_message_sig0() {
 
   let mut pkey = PKey::new();
   pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
+  let signer = Signer::new(Algorithm::RSASHA256, pkey.into(), Name::root(), Duration::max_value());
 
   let sig = signer.sign_message(&question);
   println!("sig: {:?}", sig);
@@ -619,10 +620,11 @@ fn test_sign_and_verify_message_sig0() {
 fn test_hash_rrset() {
   use ::rr::{Name, RecordType};
   use ::rr::rdata::SIG;
+  use openssl::crypto::pkey::PKey;
 
   let mut pkey = PKey::new();
   pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
+  let signer = Signer::new(Algorithm::RSASHA256, pkey.into(), Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -649,10 +651,11 @@ fn test_sign_and_verify_rrset() {
   use ::rr::RecordType;
   use ::rr::Name;
   use ::rr::rdata::SIG;
+  use openssl::crypto::pkey::PKey;
 
   let mut pkey = PKey::new();
   pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
+  let signer = Signer::new(Algorithm::RSASHA256, pkey.into(), Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -668,10 +671,12 @@ fn test_sign_and_verify_rrset() {
 
 #[test]
 fn test_calculate_key_tag() {
+  use openssl::crypto::pkey::PKey;
+
   let mut pkey = PKey::new();
   pkey.gen(512);
   println!("pkey: {:?}", pkey.save_pub());
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
+  let signer = Signer::new(Algorithm::RSASHA256, pkey.into(), Name::root(), Duration::max_value());
   let key_tag = signer.calculate_key_tag();
 
   println!("key_tag: {}", key_tag);

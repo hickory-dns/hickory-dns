@@ -1136,7 +1136,7 @@ pub mod authority_tests {
     let mut authority: Authority = create_example();
     let mut pkey = PKey::new();
     pkey.gen(512);
-    let signer = Signer::new(Algorithm::RSASHA256, pkey, authority.get_origin().clone(), Duration::weeks(1));
+    let signer = Signer::new(Algorithm::RSASHA256, pkey.into(), authority.get_origin().clone(), Duration::weeks(1));
 
     authority.add_secure_key(signer);
     authority.secure_zone();

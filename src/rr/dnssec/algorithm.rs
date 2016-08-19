@@ -346,7 +346,7 @@ impl From<Algorithm> for u8 {
 
 #[cfg(test)]
 mod test {
-  use super::Algorithm;
+  use super::{Algorithm, DnssecKey};
   use openssl::crypto::pkey;
   use openssl::crypto::pkey::Role;
 
@@ -355,6 +355,7 @@ mod test {
     let bytes = b"www.example.com";
     let mut pkey = pkey::PKey::new();
     pkey.gen(2048);
+    let pkey: DnssecKey = pkey.into();
 
     for algorithm in &[Algorithm::RSASHA1,
                        Algorithm::RSASHA256,
@@ -379,7 +380,7 @@ mod test {
 
     let algorithm = Algorithm::RSASHA256;
 
-    let bin_key = algorithm.public_key_to_vec(&pkey);
+    let bin_key = algorithm.public_key_to_vec(&(pkey.clone().into()));
     let new_key = algorithm.public_key_from_vec(&bin_key).expect("couldn't read bin_key");
 
     assert!(new_key.can(Role::Encrypt));
@@ -388,7 +389,10 @@ mod test {
     assert!(!new_key.can(Role::Sign));
 
 
-    let crypt = new_key.encrypt(&bytes);
+    let crypt = match new_key {
+        DnssecKey::Rsa(k) => k.encrypt(&bytes),
+        _ => panic!("Invalid key type"),
+    };
     let decrypt = pkey.decrypt(&crypt);
 
     assert_eq!(bytes, decrypt);
