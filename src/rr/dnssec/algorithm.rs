@@ -102,8 +102,8 @@ pub enum Algorithm {
   /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
   RSASHA1NSEC3SHA1,
   RSASHA512,
-//  ECDSAP256SHA256, // not yet supported
-//  ECDSAP384SHA384,
+  ECDSAP256SHA256,
+  ECDSAP384SHA384,
 }
 
 impl Algorithm {
@@ -134,8 +134,8 @@ impl Algorithm {
       7  => Ok(Algorithm::RSASHA1NSEC3SHA1),
       8  => Ok(Algorithm::RSASHA256),
       10 => Ok(Algorithm::RSASHA512),
-//      13 => Algorithm::ECDSAP256SHA256,
-//      14 => Algorithm::ECDSAP384SHA384,
+      13 => Ok(Algorithm::ECDSAP256SHA256),
+      14 => Ok(Algorithm::ECDSAP384SHA384),
       _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
     }
   }
@@ -144,8 +144,9 @@ impl Algorithm {
   pub fn hash_len(&self) -> usize {
     match *self {
       Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
-      Algorithm::RSASHA256 => 32, // 256 bits
-      Algorithm::RSASHA512 => 64, // 512 bites
+      Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 => 32, // 256 bits
+      Algorithm::ECDSAP384SHA384 => 48, // 384 bits
+      Algorithm::RSASHA512 => 64, // 512 bits
     }
   }
 
@@ -201,7 +202,11 @@ impl Algorithm {
         let rsa = try!(RSA::from_public_components(n, e));
         pkey.set_rsa(&rsa);
         Ok(pkey)
-      }
+      },
+      Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
+        // TODO
+        unimplemented!()
+      },
     }
   }
 
@@ -230,7 +235,11 @@ impl Algorithm {
         bytes.extend_from_slice(&n);
 
         bytes
-      }
+      },
+      Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
+        // TODO
+        unimplemented!()
+      },
     }
   }
 }
@@ -254,8 +263,8 @@ impl From<&'static str> for Algorithm {
       "RSASHA256" => Algorithm::RSASHA256,
       "RSASHA1-NSEC3-SHA1" => Algorithm::RSASHA1NSEC3SHA1,
       "RSASHA512" => Algorithm::RSASHA512,
-//      "ECDSAP256SHA256" => Algorithm::ECDSAP256SHA256,
-//      "ECDSAP384SHA384" => Algorithm::ECDSAP384SHA384,
+      "ECDSAP256SHA256" => Algorithm::ECDSAP256SHA256,
+      "ECDSAP384SHA384" => Algorithm::ECDSAP384SHA384,
       _ => panic!("unrecognized string {}", s),
     }
   }
@@ -268,8 +277,8 @@ impl From<Algorithm> for &'static str {
       Algorithm::RSASHA256 => "RSASHA256",
       Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
       Algorithm::RSASHA512 => "RSASHA512",
-//      ECDSAP256SHA256 => "ECDSAP256SHA256",
-//      ECDSAP384SHA384 => "ECDSAP384SHA384",
+      Algorithm::ECDSAP256SHA256 => "ECDSAP256SHA256",
+      Algorithm::ECDSAP384SHA384 => "ECDSAP384SHA384",
     }
   }
 }
@@ -281,8 +290,8 @@ impl From<Algorithm> for u8 {
       Algorithm::RSASHA1NSEC3SHA1 => 7,
       Algorithm::RSASHA256 => 8,
       Algorithm::RSASHA512 => 10,
-//      ECDSAP256SHA256 => 13,
-//      ECDSAP384SHA384 => 14,
+      Algorithm::ECDSAP256SHA256 => 13,
+      Algorithm::ECDSAP384SHA384 => 14,
     }
   }
 }

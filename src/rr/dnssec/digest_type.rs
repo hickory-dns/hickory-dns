@@ -65,8 +65,8 @@ impl From<Algorithm> for DigestType {
       Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => DigestType::SHA1,
       Algorithm::RSASHA256 => DigestType::SHA256,
       Algorithm::RSASHA512 => DigestType::SHA512,
-//      Algorithm::ECDSAP256SHA256 => hash::Type::SHA256,
-//      Algorithm::ECDSAP384SHA384 => hash::Type::SHA384,
+      Algorithm::ECDSAP256SHA256 => DigestType::SHA256,
+      Algorithm::ECDSAP384SHA384 => DigestType::SHA384,
     }
   }
 }

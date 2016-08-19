@@ -32,7 +32,7 @@ impl SupportedAlgorithms {
   }
 
   pub fn all() -> Self {
-    SupportedAlgorithms{ bit_map: 0b00001111 }
+    SupportedAlgorithms{ bit_map: 0b00111111 }
   }
 
   fn pos(algorithm: Algorithm) -> u8 {
@@ -42,8 +42,8 @@ impl SupportedAlgorithms {
       Algorithm::RSASHA256 => 1,
       Algorithm::RSASHA1NSEC3SHA1 => 2,
       Algorithm::RSASHA512 => 3,
-      // ECDSAP256SHA256 => 4,
-      // ECDSAP384SHA384 => 5,
+      Algorithm::ECDSAP256SHA256 => 4,
+      Algorithm::ECDSAP384SHA384 => 5,
     };
 
     assert!(bit_pos <= u8::max_value());
@@ -57,6 +57,8 @@ impl SupportedAlgorithms {
       1 => Some(Algorithm::RSASHA256),
       2 => Some(Algorithm::RSASHA1NSEC3SHA1),
       3 => Some(Algorithm::RSASHA512),
+      4 => Some(Algorithm::ECDSAP256SHA256),
+      5 => Some(Algorithm::ECDSAP384SHA384),
       _ => None,
     }
   }
@@ -161,7 +163,7 @@ fn test_has() {
 #[test]
 fn test_iterator() {
   let supported = SupportedAlgorithms::all();
-  assert_eq!(supported.iter().count(), 4);
+  assert_eq!(supported.iter().count(), 6);
 
   // it just so happens that the iterator has a fixed order...
   let supported = SupportedAlgorithms::all();
@@ -170,6 +172,8 @@ fn test_iterator() {
   assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
   assert_eq!(iter.next(), Some(Algorithm::RSASHA1NSEC3SHA1));
   assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
+  assert_eq!(iter.next(), Some(Algorithm::ECDSAP256SHA256));
+  assert_eq!(iter.next(), Some(Algorithm::ECDSAP384SHA384));
 
   let mut supported = SupportedAlgorithms::new();
   supported.set(Algorithm::RSASHA256);
