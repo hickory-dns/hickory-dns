@@ -107,26 +107,54 @@ pub enum Algorithm {
 }
 
 #[derive(Clone)]
+pub struct EcdsaKey(Vec<u8>);
+impl EcdsaKey {
+    fn from_wire(data: &[u8]) -> DecodeResult<Self> {
+        if data.len() != 64 && data.len() != 96 {
+            return Err(DecodeErrorKind::Message("bad public key").into());
+        }
+        // SEC 1: Elliptic Curve Cryptography, Version 2.0
+        // 2.3.4: Octet-String-to-Elliptic-Curve-Point
+        let mut key = Vec::<u8>::with_capacity(data.len() + 1);
+        key.push(4);
+        key.extend_from_slice(data);
+        Ok(EcdsaKey(key))
+    }
+    fn to_wire(&self) -> Vec<u8> {
+        // Just strip the first byte
+        self.0[1..].into()
+    }
+}
+
+#[derive(Clone)]
 pub enum DnssecKey {
     Rsa(PKey),
-    Ecdsa(Vec<u8>),
+    Ecdsa(EcdsaKey),
 }
 impl From<PKey> for DnssecKey {
     fn from(key: PKey) -> Self {
         DnssecKey::Rsa(key)
     }
 }
+impl From<EcdsaKey> for DnssecKey {
+    fn from(key: EcdsaKey) -> Self {
+        DnssecKey::Ecdsa(key)
+    }
+}
 impl DnssecKey {
     pub fn can(&self, role: Role) -> bool {
         match *self {
             DnssecKey::Rsa(ref k) => k.can(role),
-            DnssecKey::Ecdsa(ref k) => unimplemented!(), 
+            DnssecKey::Ecdsa(_) => match role {
+                Role::Verify => true,
+                _ => false,
+            },
         }
     }
     pub fn sign(&self, h: &[u8]) -> Vec<u8> {
         match *self {
             DnssecKey::Rsa(ref k) => k.sign(h),
-            DnssecKey::Ecdsa(ref k) => unimplemented!(), 
+            DnssecKey::Ecdsa(_) => panic!("Signing is not supported for ECDSA"),
         }
     }
     pub fn verify(&self, h: &[u8], s: &[u8]) -> bool {
@@ -138,7 +166,7 @@ impl DnssecKey {
     pub fn sign_with_hash(&self, h: &[u8], hash: DigestType) -> Vec<u8> {
         match *self {
             DnssecKey::Rsa(ref k) => k.sign_with_hash(h, hash.to_hash()),
-            DnssecKey::Ecdsa(ref k) => unimplemented!(), 
+            DnssecKey::Ecdsa(_) => panic!("Signing is not supported for ECDSA"),
         }
     }
     pub fn verify_with_hash(&self, h: &[u8], s: &[u8], hash: DigestType) -> bool {
@@ -247,8 +275,7 @@ impl Algorithm {
         Ok(pkey.into())
       },
       Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
-        // TODO
-        unimplemented!()
+        Ok(try!(EcdsaKey::from_wire(public_key)).into())
       },
     }
   }
@@ -285,8 +312,12 @@ impl Algorithm {
         bytes
       },
       Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
-        // TODO
-        unimplemented!()
+        let pkey = if let DnssecKey::Ecdsa(ref key) = *public_key {
+            key
+        } else {
+            panic!("Invalid type of key")
+        };
+        pkey.to_wire()
       },
     }
   }
