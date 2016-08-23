@@ -1323,7 +1323,7 @@ mod test {
     pkey.gen(512);
 
     let signer = Signer::new(Algorithm::RSASHA256,
-                             pkey,
+                             pkey.into(),
                              domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
                              Duration::max_value());
 
