@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## unreleased
 ### Fixed
 - Randomized ports for client connections and message ids, #23
+- OpCode::From for u8 removed, added OpCode::from_u8(), #36 
 
 ### Changed
 - Cleaned up the Server implementation to isolate connection handlers
