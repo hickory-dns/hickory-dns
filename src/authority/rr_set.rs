@@ -167,7 +167,7 @@ impl RRSet {
                 return false;
               }
             },
-            rdata @ _ => panic!("wrong rdata: {:?}", rdata),
+            rdata @ _ => panic!("wrong rdata: {:?}", rdata), // valid panic, never should happen
           }
         }
 

@@ -178,7 +178,7 @@ impl Journal {
       match self.version + 1 {
         0 => self.version = try!(self.init_up()),
         1 => self.version = try!(self.records_up()),
-        _ => panic!("incorrect version somewhere"),
+        _ => panic!("incorrect version somewhere"), // valid panic, non-recoverable state
       }
 
       try!(self.update_schema_version(self.version));

@@ -78,7 +78,7 @@ impl From<DigestType> for u8 {
       DigestType::SHA256 => 2,
       // DigestType::GOSTR34_11_94 => 3,
       DigestType::SHA384 => 4,
-      _ => panic!("No code for this type: {:?}", a)
+      DigestType::SHA512 => 255,
     }
   }
 }

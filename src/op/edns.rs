@@ -75,7 +75,7 @@ impl<'a> From<&'a Record> for Edns {
       },
       _ => {
         // this should be a coding error, as opposed to a parsing error.
-        panic!("rr_type doesn't match the RData: {:?}", value.get_rdata());
+        panic!("rr_type doesn't match the RData: {:?}", value.get_rdata()); // valid panic, never should happen
       },
     };
 
