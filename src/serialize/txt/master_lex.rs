@@ -229,7 +229,7 @@ mod lex_test {
 
   fn next_token(lexer: &mut Lexer) -> Option<Token> {
     let result = lexer.next_token();
-    if result.is_err() { panic!("{:?}", result) }
+    assert!(!result.is_err(), "{:?}", result);
     result.unwrap()
   }
 

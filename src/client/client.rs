@@ -215,11 +215,11 @@ impl<C: ClientConnection> Client<C> {
                      if let &RData::SIG(ref sig) = rrsig.get_rdata() { sig.get_type_covered() } else { RecordType::NULL });
             }
           } else {
-            panic!("this should be a DNSKEY")
+            panic!("this should be a DNSKEY") // valid panic, never should happen
           }
         }
       } else {
-        panic!("expected RRSIG: {:?}", rrsig.get_rr_type());
+        panic!("expected RRSIG: {:?}", rrsig.get_rr_type()); // valid panic, never should happen
       }
     }
 
@@ -277,7 +277,7 @@ impl<C: ClientConnection> Client<C> {
           return Ok(proof)
         }
       } else {
-        panic!("expected DS: {:?}", ds.get_rr_type());
+        panic!("expected DS: {:?}", ds.get_rr_type()); // valid panic, never should happen
       }
     }
 
@@ -334,8 +334,6 @@ impl<C: ClientConnection> Client<C> {
   //  NSEC and RRSIG bits in an NSEC RR.
   fn verify_nsec(&self, query_name: &domain::Name, query_type: RecordType,
                  _: DNSClass, nsecs: Vec<&Record>) -> ClientResult<()> {
-    debug!("verifying nsec");
-
     // first look for a record with the same name
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
@@ -344,7 +342,7 @@ impl<C: ClientConnection> Client<C> {
       if let &RData::NSEC(ref rdata) = r.get_rdata() {
         !rdata.get_type_bit_maps().contains(&query_type)
       } else {
-        panic!("expected NSEC was {:?}", r.get_rr_type())
+        panic!("expected NSEC was {:?}", r.get_rr_type()) // valid panic, never should happen
       }
     }) { return Ok(()) }
 
@@ -353,7 +351,7 @@ impl<C: ClientConnection> Client<C> {
       if let &RData::NSEC(ref rdata) = r.get_rdata() {
         query_name < rdata.get_next_domain_name()
       } else {
-        panic!("expected NSEC was {:?}", r.get_rr_type())
+        panic!("expected NSEC was {:?}", r.get_rr_type()) // valid panic, never should happen
       }
     }) { return Ok(()) }
 

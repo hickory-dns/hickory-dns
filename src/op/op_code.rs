@@ -96,7 +96,7 @@ impl From<u8> for OpCode {
       2 => OpCode::Status,
       4 => OpCode::Notify,
       5 => OpCode::Update,
-      _ => panic!("unimplemented code: {}", value),
+      _ => panic!("unimplemented code: {}", value), // FIXME!
     }
   }
 }

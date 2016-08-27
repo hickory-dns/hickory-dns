@@ -232,7 +232,7 @@ impl Authority {
     if let &RData::SOA(ref soa_rdata) = soa.get_rdata() {
       soa_rdata.get_serial()
     } else {
-      panic!("This was not an SOA record");
+      panic!("This was not an SOA record"); // valid panic, never should happen
     }
   }
 
@@ -248,7 +248,7 @@ impl Authority {
       soa_rdata.increment_serial();
       soa_rdata.get_serial()
     } else {
-      panic!("This was not an SOA record");
+      panic!("This was not an SOA record"); // valid panic, never should happen
     };
 
     self.upsert(soa, serial);
@@ -1158,7 +1158,7 @@ pub mod authority_tests {
       assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
       assert_eq!(result.first().unwrap().get_rdata(), &RData::A(Ipv4Addr::new(93,184,216,34)));
     } else {
-      panic!("expected a result");
+      panic!("expected a result");  // valid panic, in test
     }
   }
 
@@ -1177,7 +1177,7 @@ pub mod authority_tests {
       assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
       assert_eq!(result.first().unwrap().get_rdata(), &RData::A(Ipv4Addr::new(93,184,216,34)));
     } else {
-      panic!("expected a result");
+      panic!("expected a result");  // valid panic, in test
     }
   }
 

@@ -108,7 +108,7 @@ pub enum Algorithm {
 
 impl Algorithm {
   pub fn sign(&self, private_key: &PKey, data: &[u8]) -> Vec<u8> {
-    if !private_key.can(Role::Sign) { panic!("This key cannot be used for signing") }
+    assert!(private_key.can(Role::Sign), "This key cannot be used for signing");
 
     // calculate the hash...
     let hash = DigestType::from(*self).hash(data);
@@ -118,7 +118,7 @@ impl Algorithm {
   }
 
   pub fn verify(&self, public_key: &PKey, data: &[u8], signature: &[u8]) -> bool {
-    if !public_key.can(Role::Verify) { panic!("This key cannot be used to verify signature") }
+    assert!(public_key.can(Role::Verify), "This key cannot be used to verify signature");
 
     // calculate the hash on the local data
     let hash = DigestType::from(*self).hash(data);
@@ -256,7 +256,7 @@ impl From<&'static str> for Algorithm {
       "RSASHA512" => Algorithm::RSASHA512,
 //      "ECDSAP256SHA256" => Algorithm::ECDSAP256SHA256,
 //      "ECDSAP384SHA384" => Algorithm::ECDSAP384SHA384,
-      _ => panic!("unrecognized string {}", s),
+      _ => panic!("unrecognized string {}", s), // FIXME!
     }
   }
 }

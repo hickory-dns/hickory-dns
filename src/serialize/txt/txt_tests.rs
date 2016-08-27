@@ -61,7 +61,7 @@ venera  A       10.1.0.52
     assert_eq!(3600000, soa.get_expire());
     assert_eq!(60, soa.get_minimum());
   } else {
-    panic!("Not an SOA record!!!")
+    panic!("Not an SOA record!!!") // valid panic, test code
   }
 
   // NS
@@ -84,7 +84,7 @@ venera  A       10.1.0.52
     if let RData::NS( ref nsdname ) = *record.get_rdata() {
       assert_eq!(name, nsdname);
     } else {
-      panic!("Not an NS record!!!")
+      panic!("Not an NS record!!!") // valid panic, test code
     }
   }
 
@@ -109,7 +109,7 @@ venera  A       10.1.0.52
       assert_eq!(num, rdata.get_preference());
       assert_eq!(name, rdata.get_exchange());
     } else {
-      panic!("Not an NS record!!!")
+      panic!("Not an NS record!!!") // valid panic, test code
     }
   }
 
@@ -122,7 +122,7 @@ venera  A       10.1.0.52
   if let RData::A(ref address) = *a_record.get_rdata() {
     assert_eq!(&Ipv4Addr::new(26u8,3u8,0u8,103u8), address);
   } else {
-    panic!("Not an A record!!!")
+    panic!("Not an A record!!!") // valid panic, test code
   }
 
   // AAAA
@@ -131,7 +131,7 @@ venera  A       10.1.0.52
   if let RData::AAAA(ref address) = *aaaa_record.get_rdata() {
     assert_eq!(&Ipv6Addr::from_str("4321:0:1:2:3:4:567:89ab").unwrap(), address);
   } else {
-    panic!("Not a AAAA record!!!")
+    panic!("Not a AAAA record!!!") // valid panic, test code
   }
 
   // SHORT
@@ -141,7 +141,7 @@ venera  A       10.1.0.52
   if let RData::A(ref address) = *short_record.get_rdata() {
     assert_eq!(&Ipv4Addr::new(26u8,3u8,0u8,104u8), address);
   } else {
-    panic!("Not an A record!!!")
+    panic!("Not an A record!!!") // valid panic, test code
   }
 
   // TXT
@@ -165,7 +165,7 @@ venera  A       10.1.0.52
     if let RData::TXT(ref rdata) = *record.get_rdata() {
       assert_eq!(vector as &[String], rdata.get_txt_data());
     } else {
-      panic!("Not a TXT record!!!")
+      panic!("Not a TXT record!!!") // valid panic, test code
     }
   }
 
@@ -174,7 +174,7 @@ venera  A       10.1.0.52
   if let RData::PTR( ref ptrdname ) = *ptr_record.get_rdata() {
     assert_eq!(&Name::new().label("a").label("isi").label("edu"), ptrdname);
   } else {
-    panic!("Not a PTR record!!!")
+    panic!("Not a PTR record!!!") // valid panic, test code
   }
 
   // SRV
@@ -185,6 +185,6 @@ venera  A       10.1.0.52
     assert_eq!(rdata.get_port(), 3);
     assert_eq!(rdata.get_target(), &Name::new().label("short").label("isi").label("edu"));
   } else {
-    panic!("Not an SRV record!!!")
+    panic!("Not an SRV record!!!") // valid panic, test code
   }
 }

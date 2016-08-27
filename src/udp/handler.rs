@@ -130,7 +130,7 @@ impl UdpHandler {
           Ok(UdpState::Writing)
         }
       },
-      UdpState::Done => panic!("This handler should have been removed or reset"),
+      UdpState::Done => panic!("This handler should have been removed or reset"), // valid panic, never should happen
     }
   }
 }
