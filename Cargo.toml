@@ -29,7 +29,7 @@ keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
 # crates.io will validate the license provided against a whitelist of known
 # license identifiers from http://spdx.org/licenses/. Multiple licenses can
 # be separated with a `/`
-license = "MIT OR Apache-2.0"
+license = "MIT/Apache-2.0"
 
 # custom build steps
 build = "build.rs"

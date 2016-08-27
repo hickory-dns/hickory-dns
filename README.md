@@ -128,21 +128,25 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Prerequisites
 
--   openssl development libraries 
+-   openssl development libraries
 -   sqlite3 development libraries
 
-    Mac OS X: using homebrew
-    
-        $ brew install openssl
-        $ brew link --force openssl
-        $ brew install sqlite
-    
-    Debian-based (includes Ubuntu & Raspbian): using apt-get
-    
-        $ apt-get install openssl
-        $ apt-get install libssl-dev
-        $ apt-get install libsqlite3-dev
+### Mac OS X: using homebrew
 
+```
+  $ brew install openssl
+  $ brew install sqlite
+  $ export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
+  $ export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
+```
+
+### Debian-based (includes Ubuntu & Raspbian): using apt-get
+
+```
+  $ apt-get install openssl
+  $ apt-get install libssl-dev
+  $ apt-get install libsqlite3-dev
+```
 
 ## Testing
 
@@ -151,7 +155,9 @@ presume that the trust-dns repos have already been synced to the local system:
     These are good for running on local systems. They will create sockets for
     local tests, but will not attempt to access remote systems.
 
-        $ cargo test
+```
+  $ cargo test
+```
 
 -   Functional tests
 
@@ -159,7 +165,9 @@ presume that the trust-dns repos have already been synced to the local system:
     and also make some remote requests to verify compatibility with other DNS
     systems. These can not currently be run on Travis for example.
 
-        $ cargo test -- --ignored
+```
+  $ cargo test -- --ignored
+```
 
 -   Benchmarks
 
@@ -169,7 +177,9 @@ presume that the trust-dns repos have already been synced to the local system:
 
 -   Production build
 
-        $ cargo build --release
+```
+  $ cargo build --release
+```
 
 ## Running
 
@@ -179,11 +189,15 @@ so this should allow it to work with most internal loads.
 
 -   Verify the version
 
-        $ target/release/named --version
+```
+  $ target/release/named --version
+```
 
 -   Get help
 
-        $ target/release/named --help
+```
+  $ target/release/named --help
+```
 
 # FAQ
 
