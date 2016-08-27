@@ -270,7 +270,7 @@ impl BinSerializable<Header> for Header {
     // if the first bit is set
     let message_type = if (0x80 & q_opcd_a_t_r) == 0x80 { MessageType::Response } else { MessageType::Query };
     // the 4bit opcode, masked and then shifted right 3bits for the u8...
-    let op_code: OpCode = ((0x78 & q_opcd_a_t_r) >> 3).into();
+    let op_code: OpCode = try!(OpCode::from_u8((0x78 & q_opcd_a_t_r) >> 3));
     let authoritative = (0x4 & q_opcd_a_t_r) == 0x4;
     let truncation = (0x2 & q_opcd_a_t_r) == 0x2;
     let recursion_desired = (0x1 & q_opcd_a_t_r) == 0x1;

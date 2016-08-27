@@ -30,7 +30,7 @@ pub enum DigestType {
   SHA256, // [RFC4509]
   // GOSTR34_11_94, // [RFC5933]
   SHA384, // [RFC6605]
-  // SHA512,
+  SHA512,
 }
 
 impl DigestType {
@@ -50,7 +50,7 @@ impl DigestType {
       DigestType::SHA1 => hash::Type::SHA1,
       DigestType::SHA256 => hash::Type::SHA256,
       DigestType::SHA384 => hash::Type::SHA384,
-      // DigestType::SHA512 => hash::Type::SHA512,
+      DigestType::SHA512 => hash::Type::SHA512,
     }
   }
 
@@ -64,7 +64,7 @@ impl From<Algorithm> for DigestType {
     match a {
       Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => DigestType::SHA1,
       Algorithm::RSASHA256 => DigestType::SHA256,
-//      Algorithm::RSASHA512 => DigestType::SHA512,
+      Algorithm::RSASHA512 => DigestType::SHA512,
 //      Algorithm::ECDSAP256SHA256 => hash::Type::SHA256,
 //      Algorithm::ECDSAP384SHA384 => hash::Type::SHA384,
     }
@@ -78,6 +78,7 @@ impl From<DigestType> for u8 {
       DigestType::SHA256 => 2,
       // DigestType::GOSTR34_11_94 => 3,
       DigestType::SHA384 => 4,
+      DigestType::SHA512 => 255,
     }
   }
 }

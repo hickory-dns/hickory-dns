@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::str::FromStr;
+
 use openssl::crypto::pkey::{PKey, Role};
 use openssl::crypto::rsa::RSA;
 use openssl::bn::BigNum;
@@ -247,16 +249,18 @@ impl BinSerializable<Algorithm> for Algorithm {
   }
 }
 
-impl From<&'static str> for Algorithm {
-  fn from(s: &'static str) -> Algorithm {
+impl FromStr for Algorithm {
+  type Err = DecodeError;
+
+  fn from_str(s: &str) -> DecodeResult<Algorithm> {
     match s {
-      "RSASHA1" => Algorithm::RSASHA1,
-      "RSASHA256" => Algorithm::RSASHA256,
-      "RSASHA1-NSEC3-SHA1" => Algorithm::RSASHA1NSEC3SHA1,
-      "RSASHA512" => Algorithm::RSASHA512,
+      "RSASHA1" => Ok(Algorithm::RSASHA1),
+      "RSASHA256" => Ok(Algorithm::RSASHA256),
+      "RSASHA1-NSEC3-SHA1" => Ok(Algorithm::RSASHA1NSEC3SHA1),
+      "RSASHA512" => Ok(Algorithm::RSASHA512),
 //      "ECDSAP256SHA256" => Algorithm::ECDSAP256SHA256,
 //      "ECDSAP384SHA384" => Algorithm::ECDSAP384SHA384,
-      _ => panic!("unrecognized string {}", s), // FIXME!
+      _ => Err(DecodeErrorKind::Msg(format!("unrecognized string {}", s)).into()),
     }
   }
 }

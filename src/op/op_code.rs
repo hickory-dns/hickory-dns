@@ -18,6 +18,8 @@
 
 use std::convert::From;
 
+use ::error::*;
+
 /// Operation code for queries, updates, and responses
 ///
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -57,11 +59,11 @@ pub enum OpCode {
 /// use std::convert::From;
 /// use trust_dns::op::op_code::OpCode;
 ///
-/// let var: OpCode = From::from(0);
-/// assert_eq!(OpCode::Query, var);
+/// let var: u8 = From::from(OpCode::Query);
+/// assert_eq!(0, var);
 ///
-/// let var: OpCode = 0.into();
-/// assert_eq!(OpCode::Query, var);
+/// let var: u8 = OpCode::Query.into();
+/// assert_eq!(0, var);
 /// ```
 impl From<OpCode> for u8 {
   fn from(rt: OpCode) -> Self {
@@ -83,20 +85,17 @@ impl From<OpCode> for u8 {
 /// use std::convert::From;
 /// use trust_dns::op::op_code::OpCode;
 ///
-/// let var: u8 = From::from(OpCode::Query);
-/// assert_eq!(0, var);
-///
-/// let var: u8 = OpCode::Query.into();
-/// assert_eq!(0, var);
+/// let var: OpCode = OpCode::from_u8(0).unwrap();
+/// assert_eq!(OpCode::Query, var);
 /// ```
-impl From<u8> for OpCode {
-  fn from(value: u8) -> Self {
+impl OpCode {
+  pub fn from_u8(value: u8) -> DecodeResult<Self> {
     match value {
-      0 => OpCode::Query,
-      2 => OpCode::Status,
-      4 => OpCode::Notify,
-      5 => OpCode::Update,
-      _ => panic!("unimplemented code: {}", value), // FIXME!
+      0 => Ok(OpCode::Query),
+      2 => Ok(OpCode::Status),
+      4 => Ok(OpCode::Notify),
+      5 => Ok(OpCode::Update),
+      _ => Err(DecodeErrorKind::Msg(format!("unknown OpCode: {}", value)).into()),
     }
   }
 }
