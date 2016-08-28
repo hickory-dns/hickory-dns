@@ -13,7 +13,7 @@ TRust-DNS is a safe and secure DNS server and client with DNSec support.
 """
 
 # These URLs point to more information about the repository
-documentation = "http://www.trust-dns.org/target/doc/trust_dns/index.html"
+documentation = "https://docs.rs/trust-dns"
 homepage = "http://www.trust-dns.org/index.html"
 repository = "https://github.com/bluejekyll/trust-dns"
 

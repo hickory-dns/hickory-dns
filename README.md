@@ -9,7 +9,7 @@
 A Rust based DNS client and server, built to be safe and secure from the
 ground up.
 
-[API documentation](http://trust-dns.org/target/doc/trust_dns/index.html)
+[API documentation](https://docs.rs/trust-dns)
 
 # Goals
 
