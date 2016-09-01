@@ -29,6 +29,8 @@ extern crate backtrace;
 #[macro_use] extern crate error_chain;
 extern crate chrono;
 extern crate data_encoding;
+extern crate futures;
+#[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
 extern crate mio;
 extern crate openssl;
@@ -37,8 +39,8 @@ extern crate rand;
 extern crate rusqlite;
 extern crate rustc_serialize;
 extern crate time;
+#[macro_use] extern crate tokio_core;
 extern crate toml;
-
 
 pub mod error;
 pub mod logger;
