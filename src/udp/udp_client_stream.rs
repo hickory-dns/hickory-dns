@@ -94,7 +94,7 @@ impl Stream for UdpClient {
       }
     }
 
-    // For QoS, this will only accept one message and output that to the sender.
+    // For QoS, this will only accept one message and output that
     // recieve all inbound messages
 
     // TODO: this should match edns settings
