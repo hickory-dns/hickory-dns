@@ -328,6 +328,21 @@ impl Message {
     }
     Ok(())
   }
+
+  pub fn from_vec(buffer: &[u8]) -> DecodeResult<Message> {
+    let mut decoder = BinDecoder::new(buffer);
+    Message::read(&mut decoder)
+  }
+
+  pub fn to_vec(&self) -> Result<Vec<u8>, EncodeError> {
+    let mut buffer = Vec::with_capacity(512);
+    {
+      let mut encoder = BinEncoder::new(&mut buffer);
+      try!(self.emit(&mut encoder));
+    }
+
+    Ok(buffer)
+  }
 }
 
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -426,6 +441,9 @@ impl UpdateMessage for Message {
 impl BinSerializable<Message> for Message {
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     let header = try!(Header::read(decoder));
+
+    // TODO/FIXME: return just header, and in the case of the rest of message getting an error.
+    //  this could improve error detection while decoding.
 
     // get the questions
     let count = header.get_query_count() as usize;

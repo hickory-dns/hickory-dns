@@ -29,7 +29,7 @@ extern crate backtrace;
 #[macro_use] extern crate error_chain;
 extern crate chrono;
 extern crate data_encoding;
-extern crate futures;
+#[macro_use] extern crate futures;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
 extern crate mio;

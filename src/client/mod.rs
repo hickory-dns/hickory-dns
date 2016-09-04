@@ -19,6 +19,7 @@
 
 mod client;
 mod client_connection;
+mod client_future;
 
 pub use self::client::Client;
 pub use self::client_connection::ClientConnection;
