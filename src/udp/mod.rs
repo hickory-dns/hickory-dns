@@ -23,4 +23,4 @@ mod udp_client_stream;
 pub use self::handler::UdpHandler;
 pub use self::handler::UdpState;
 pub use self::udp_client_connection::UdpClientConnection;
-pub use self::udp_client_stream::UdpClient;
+pub use self::udp_client_stream::UdpClientStream;

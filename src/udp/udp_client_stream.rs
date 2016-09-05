@@ -21,7 +21,7 @@ use tokio_core::io::IoFuture;
 use ::error::*;
 use client::ClientConnection;
 
-pub struct UdpClient {
+pub struct UdpClientStream {
   // TODO: this shouldn't be stored, it's only necessary for the client to setup Ipv4 or Ipv6
   //   binding
   // destination address for all requests
@@ -38,11 +38,11 @@ lazy_static!{
   static ref IPV6_ZERO: Ipv6Addr = Ipv6Addr::new(0,0,0,0,0,0,0,0);
 }
 
-impl UdpClient {
+impl UdpClientStream {
   /// it is expected that the resolver wrapper will be responsible for creating and managing
   ///  new UdpClients such that each new client would have a random port (reduce chance of cache
   ///  poisoning)
-  pub fn new(name_server: SocketAddr, loop_handle: LoopHandle) -> BoxFuture<UdpClient, io::Error> {
+  pub fn new(name_server: SocketAddr, loop_handle: LoopHandle) -> BoxFuture<Self, io::Error> {
     let (message_sender, outbound_messages) = loop_handle.clone().channel();
 
     // TODO: allow the bind address to be specified...
@@ -53,7 +53,7 @@ impl UdpClient {
     //  sending and receiving udp packets.
     let stream = next_socket.map(move |socket| {
       socket.join(outbound_messages).map(move |(socket, rx)| {
-        UdpClient {
+        UdpClientStream {
           name_server: name_server,
           socket: socket,
           outbound_messages: rx.fuse(),
@@ -81,7 +81,7 @@ impl UdpClient {
   }
 }
 
-impl Stream for UdpClient {
+impl Stream for UdpClientStream {
   type Item = Vec<u8>;
   type Error = io::Error;
 
