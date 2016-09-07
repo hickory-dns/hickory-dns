@@ -6,15 +6,14 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::collections::HashMap;
-use std::mem;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket};
 use std::fmt;
 use std::io;
 
 use futures;
-use futures::{Async, BoxFuture, Complete, Fuse as FutureFuse, Future, Map, Oneshot, Poll};
+use futures::{Async, BoxFuture, Canceled, Complete, Fuse as FutureFuse, Future, Map, Oneshot, Poll};
 use futures::stream;
-use futures::stream::{Fuse as StreamFuse, Stream};
+use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use rand::Rng;
 use rand;
 use tokio_core;
@@ -33,25 +32,20 @@ use ::udp::UdpClientStream;
 pub struct Client {
   udp_client: UdpClientStream, // TODO: shouldn't we establish a new connection for every request?
   message_sender: Sender<(Message, Complete<ClientResult<Message>>)>,
-  new_receiver: StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>,
-  new_message: Option<(Message, Complete<ClientResult<Message>>)>,
+  new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, Complete<ClientResult<Message>>>,
 }
 
 impl Client {
-  fn new(udp_client: UdpClientStream, loop_handle: LoopHandle) -> BoxFuture<Self, io::Error> {
-    let (sender, receiver): (Sender<(Message, Complete<ClientResult<Message>>)>,
-                             IoFuture<Receiver<(Message, Complete<ClientResult<Message>>)>>) =
-      loop_handle.channel();
+  fn new(udp_client: IoFuture<UdpClientStream>, loop_handle: LoopHandle) -> IoFuture<Self> {
+    let (sender, rx) = loop_handle.channel();
 
-    receiver.map(move |rx| {
-      let fuse: StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>> = receiver.fuse();
-
+    rx.join(udp_client).map(move |(rx, udp_client)| {
+      debug!("creating new client");
       Client{
         udp_client: udp_client,
         message_sender: sender,
-        new_receiver: fuse,
-        new_message: None,
+        new_receiver: rx.fuse().peekable(),
         active_requests: HashMap::new()
       }
     }).boxed()
@@ -78,7 +72,7 @@ impl Client {
   fn next_random_query_id(&self) -> Async<u16> {
     let mut rand = rand::thread_rng();
 
-    for attempt in 0..100 {
+    for _ in 0..100 {
       let id = rand.gen_range(0_u16, u16::max_value());
 
       if !self.active_requests.contains_key(&id) {
@@ -149,57 +143,50 @@ impl Future for Client {
   type Error = ClientError;
 
   fn poll(&mut self) -> Poll<(), Self::Error> {
+    debug!("being polled");
     self.drop_cancelled();
 
     // loop over new_receiver for all outbound requests
     loop {
-      // find a new message, need to split here for mutex reference restricion
-      let query_id = if self.new_message.is_some() {
-        match self.next_random_query_id() {
-          Async::Ready(id) => Some(id),
-          Async::NotReady => return Ok(Async::NotReady),
-        }
-      } else {
-        None
+      // get next query_id
+      let query_id: Option<u16> = match try!(self.new_receiver.peek()) {
+        Async::Ready(Some(_)) => {
+          // we have a new message to send
+          match self.next_random_query_id() {
+            Async::Ready(id) => Some(id),
+            Async::NotReady => return Ok(Async::NotReady),
+          }
+        },
+        _ => None,
       };
 
-      // if there was a new message, send it.
-      let activated: Result<(), ClientError> = if let Some((ref mut message, _)) = self.new_message {
-        // getting a random query id, this mitigates potential cache poisoning.
-        // FIXME: for SIG0 we can't change the message id after signing.
-        message.id(query_id.expect("error, query_id should be available from above"));
-
-        match message.to_vec() {
-          Ok(buffer) => {
-            try!(self.udp_client.send(buffer));
-            Ok(())
-          },
-          Err(err) => {
-            Err(err.into())
-          },
-        }
-      } else {
-        Ok(())
-      };
-
-      // getting here means that the message was sent or atleast processed to an error
-      if let Some((message, complete)) = self.new_message.take() {
-        match activated {
-          Ok(_) => {
-            // add to the map -after- the client send b/c we don't want to put it in the map if
-            //  we ended up returning from that send.
-            self.active_requests.insert(message.get_id(), complete);
-          },
-          Err(e) => {
-            // we don't add to the active_requests map because we failed to send/encode the message
-            complete.complete(Err(e))
-          },
-        }
-      }
-
-      //   poll the reciever
+      // finally pop the reciever
       match try!(self.new_receiver.poll()) {
-        Async::Ready(Some(message)) => self.new_message = Some(message),
+        Async::Ready(Some((mut message, complete))) => {
+          // if there was a message, and the above succesion was succesful,
+          //  register the new message, if not do not register, and set the complete to error.
+          // getting a random query id, this mitigates potential cache poisoning.
+          // FIXME: for SIG0 we can't change the message id after signing.
+          let query_id = query_id.expect("query_id should have been set above");
+          message.id(query_id);
+
+          // send the message
+          // FIXME: possible fix to id issue above, is to make sure signing happens here...
+          match message.to_vec() {
+            Ok(buffer) => {
+              debug!("sending message id: {}", query_id);
+              try!(self.udp_client.send(buffer));
+              // add to the map -after- the client send b/c we don't want to put it in the map if
+              //  we ended up returning from the send.
+              self.active_requests.insert(message.get_id(), complete);
+            },
+            Err(e) => {
+              debug!("error message id: {} error: {}", query_id, e);
+              // complete with the error, don't add to the map of active requests
+              complete.complete(Err(e.into()));
+            },
+          }
+        },
         Async::Ready(None) | Async::NotReady => break,
       }
     }
@@ -234,49 +221,59 @@ impl Future for Client {
   }
 }
 
+#[test]
+//#[ignore]
+fn test_query_udp_ipv4() {
+  let mut io_loop = Loop::new().unwrap();
+  let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+  let stream = UdpClientStream::new(addr, io_loop.handle());
+  let client = Client::new(stream, io_loop.handle());
+
+  io_loop.run(test_query(client)).unwrap();
+}
+
 // #[test]
-// #[ignore]
-// fn test_query_udp_ipv4() {
-//   let io_loop = Loop::new().unwrap();
-//   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
-//   let stream = UdpClientStream::new(addr, io_loop.handle()).unwrap();
-//   let client = Client::new(stream, io_loop);
-//
-//   test_query(client);
-// }
-//
-// #[test]
-// #[ignore]
+// //#[ignore]
 // fn test_query_udp_ipv6() {
-//   let io_loop = Loop::new().unwrap();
+//   let mut io_loop = Loop::new().unwrap();
 //   let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
-//   let stream = UdpClientStream::new(addr, io_loop.handle()).unwrap();
-//   let client = Client::new(stream, io_loop);
+//   let stream = UdpClientStream::new(addr, io_loop.handle());
+//   let client = Client::new(stream, io_loop.handle());
 //
-//   test_query(client);
+//   io_loop.run(test_query(client)).unwrap();
 // }
-//
-// #[cfg(test)]
-// fn test_query(client: Client) {
-//   use std::cmp::Ordering;
-//   let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
-//
-//   let response = client.query(&name, DNSClass::IN, RecordType::A);
-//   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-//
-//   let response = response.unwrap();
-//
-//   println!("response records: {:?}", response);
-//   assert_eq!(response.get_queries().first().expect("expected query").get_name().cmp_with_case(&name, false), Ordering::Equal);
-//
-//   let record = &response.get_answers()[0];
-//   assert_eq!(record.get_name(), &name);
-//   assert_eq!(record.get_rr_type(), RecordType::A);
-//   assert_eq!(record.get_dns_class(), DNSClass::IN);
-//
-//   if let &RData::A(ref address) = record.get_rdata() {
-//     assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-//   } else {
-//     assert!(false);
-//   }
-// }
+
+#[cfg(test)]
+fn test_query(client: IoFuture<Client>) -> BoxFuture<(), ()> {
+  use std::cmp::Ordering;
+  let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
+
+  client.map(move |client: Client| {
+    client.query(&name, DNSClass::IN, RecordType::A).expect("error with query")
+          .map(move |response| {
+            assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+
+            let response = response.unwrap();
+
+            println!("response records: {:?}", response);
+            assert_eq!(response.get_queries().first().expect("expected query").get_name().cmp_with_case(&name, false), Ordering::Equal);
+
+            let record = &response.get_answers()[0];
+            assert_eq!(record.get_name(), &name);
+            assert_eq!(record.get_rr_type(), RecordType::A);
+            assert_eq!(record.get_dns_class(), DNSClass::IN);
+
+            if let &RData::A(ref address) = record.get_rdata() {
+              assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+            } else {
+              assert!(false);
+            }
+          })
+          .map_err(|_| {
+            assert!(false);
+          })
+        })
+        .map_err(|_| assert!(false))
+        .flatten()
+        .boxed()
+}

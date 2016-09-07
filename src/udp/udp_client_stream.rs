@@ -11,7 +11,7 @@ use std::fmt;
 use std::io;
 
 use futures::{Async, BoxFuture, Future, Map, Poll};
-use futures::stream::{Fuse, Stream};
+use futures::stream::{Fuse, Peekable, Stream};
 use rand::Rng;
 use rand;
 use tokio_core;
@@ -28,9 +28,8 @@ pub struct UdpClientStream {
   name_server: SocketAddr,
   //
   socket: tokio_core::UdpSocket,
-  outbound_messages: Fuse<Receiver<Vec<u8>>>,
+  outbound_messages: Peekable<Fuse<Receiver<Vec<u8>>>>,
   message_sender: Sender<Vec<u8>>,
-  outbound_opt: Option<Vec<u8>>,
 }
 
 lazy_static!{
@@ -56,9 +55,8 @@ impl UdpClientStream {
         UdpClientStream {
           name_server: name_server,
           socket: socket,
-          outbound_messages: rx.fuse(),
+          outbound_messages: rx.fuse().peekable(),
           message_sender: message_sender,
-          outbound_opt: None,
         }
       })
     }).flatten();
@@ -89,30 +87,28 @@ impl Stream for UdpClientStream {
     // this will not accept incoming data while there is data to send
     //  makes this self throttling.
     loop {
-      if let Some(ref buffer) = self.outbound_opt {
-        // will return if the socket will block
-        try_nb!(self.socket.send_to(buffer, &self.name_server));
-      }
-
-      // if we got here, then any message was sent.
-      self.outbound_opt = None;
-
-      match try!(self.outbound_messages.poll()) {
+      // first try to send
+      match try!(self.outbound_messages.peek()) {
         Async::Ready(Some(buffer)) => {
           match try!(self.socket.poll_write()) {
             Async::NotReady => return Ok(Async::NotReady),
             Async::Ready(_) => {
-              self.outbound_opt = Some(buffer);
+              // will return if the socket will block
+              try_nb!(self.socket.send_to(buffer, &self.name_server));
             },
           }
         },
+        // all others will drop through to the poll()
+        _ => (),
+      }
+
+      // now pop the request and check if we should break or continue.
+      match try!(self.outbound_messages.poll()) {
+        // already handled above, here to make sure the poll() pops the next message
+        Async::Ready(Some(_)) => (),
+        // now we get to drop through to the receives...
         Async::NotReady | Async::Ready(None) => break,
       }
-    }
-
-    // check the reciever, if it's closed, we are done, b/c there will be no more requests
-    if self.outbound_messages.is_done() {
-      return Ok(Async::Ready(None));
     }
 
     // For QoS, this will only accept one message and output that
