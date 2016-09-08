@@ -32,7 +32,14 @@ impl Journal {
   }
 
   pub fn from_file(journal_file: &Path) -> PersistenceResult<Journal> {
-    Self::new(try!(Connection::open(journal_file)))
+    let result = Self::new(try!(Connection::open(journal_file)));
+    match result {
+      Ok(mut journal) => {
+        journal.schema_up().unwrap();
+        Ok(journal)
+      },
+      Err(err) => Err(err)
+    }
   }
 
   /// gets the current schema version of the journal
