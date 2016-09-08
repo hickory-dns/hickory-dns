@@ -91,8 +91,8 @@ struct Args {
 fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
   let zone_name: Name = zone.get_zone().expect("bad zone name");
   let zone_path: PathBuf = zone_dir.to_owned().join(zone.get_file());
-  let journal_path: PathBuf = zone_path.with_extension(".jrnl");
-  let key_path: PathBuf = zone_path.with_extension(".key");
+  let journal_path: PathBuf = zone_path.with_extension("jrnl");
+  let key_path: PathBuf = zone_path.with_extension("key");
 
   // load the zone
   let mut authority = if zone.is_update_allowed() && journal_path.exists() {
