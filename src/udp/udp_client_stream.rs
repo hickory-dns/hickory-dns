@@ -5,17 +5,19 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std;
 use std::mem;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
 use std::fmt;
 use std::io;
 
 use futures::{Async, BoxFuture, Future, Map, Poll};
-use futures::stream::{Fuse, Peekable, Stream};
+use futures::stream::{BoxStream, Fuse, Peekable, Stream};
 use rand::Rng;
 use rand;
 use tokio_core;
-use tokio_core::{Loop, LoopHandle, Sender, Receiver};
+use tokio_core::reactor::{Core, Handle};
+use tokio_core::channel::{channel, Sender, Receiver};
 use tokio_core::io::IoFuture;
 
 use ::error::*;
@@ -27,9 +29,8 @@ pub struct UdpClientStream {
   // destination address for all requests
   name_server: SocketAddr,
   //
-  socket: tokio_core::UdpSocket,
+  socket: tokio_core::net::UdpSocket,
   outbound_messages: Peekable<Fuse<Receiver<Vec<u8>>>>,
-  message_sender: Sender<Vec<u8>>,
 }
 
 lazy_static!{
@@ -41,41 +42,66 @@ impl UdpClientStream {
   /// it is expected that the resolver wrapper will be responsible for creating and managing
   ///  new UdpClients such that each new client would have a random port (reduce chance of cache
   ///  poisoning)
-  pub fn new(name_server: SocketAddr, loop_handle: LoopHandle) -> BoxFuture<Self, io::Error> {
-    let (message_sender, outbound_messages) = loop_handle.clone().channel();
+  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Self, UdpClientStreamHandle) {
+    let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
 
     // TODO: allow the bind address to be specified...
     // constructs a future for getting the next randomly bound port to a UdpSocket
-    let next_socket = Self::next_bound_local_address(&name_server, loop_handle);
+
+    // FIXME: we really want this future
+    // let next_socket = Self::next_bound_local_address(&name_server);
+
+    let socket = Self::next_bound_local_address_immediate(&name_server, &loop_handle);
 
     // This set of futures collapses the next udp socket into a stream which can be used for
     //  sending and receiving udp packets.
-    let stream = next_socket.map(move |socket| {
-      socket.join(outbound_messages).map(move |(socket, rx)| {
-        UdpClientStream {
+    // FIXME: associate the future for the next socket here. just use Box::new()
+    //F- let stream = next_socket
+      //F- .map(move |socket| { tokio_core::net::UdpSocket::from_socket(socket, &loop_handle).expect("something wrong with the handle?") })
+      //F- .map(move |socket| {
+        debug!("bound socket");
+    let stream = UdpClientStream {
           name_server: name_server,
           socket: socket,
-          outbound_messages: rx.fuse().peekable(),
-          message_sender: message_sender,
-        }
-      })
-    }).flatten();
+          outbound_messages: outbound_messages.fuse().peekable(),
+        };
+      //F- })
+      //F- .boxed();
 
-    stream.boxed()
+    let handle = UdpClientStreamHandle{ message_sender: message_sender };
+    (stream, handle)
   }
 
-  /// Creates a future for randomly binding to a local socket address for client connections.
-  fn next_bound_local_address(name_server: &SocketAddr, loop_handle: LoopHandle) -> NextRandomUdpSocket {
+  fn next_bound_local_address_immediate(name_server: &SocketAddr, handle: &Handle) -> tokio_core::net::UdpSocket {
     let zero_addr: IpAddr = match *name_server {
       SocketAddr::V4(..) => IpAddr::V4(*IPV4_ZERO),
       SocketAddr::V6(..) => IpAddr::V6(*IPV6_ZERO),
     };
 
-    NextRandomUdpSocket{ bind_address: zero_addr, loop_handle: loop_handle }
+    let mut rand = rand::thread_rng();
+    for attempt in 0..100 {
+      let zero_addr = SocketAddr::new(zero_addr, rand.gen_range(1025_u16, u16::max_value()));
+
+      match tokio_core::net::UdpSocket::bind(&zero_addr, handle) {
+        Ok(socket) => {
+          return socket
+        },
+        Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
+      }
+    }
+
+    // FIXME: this is not good.
+    panic!("no available socket!")
   }
 
-  pub fn send(&self, buffer: Vec<u8>) -> io::Result<()> {
-    self.message_sender.send(buffer)
+  /// Creates a future for randomly binding to a local socket address for client connections.
+  fn next_bound_local_address(name_server: &SocketAddr) -> NextRandomUdpSocket {
+    let zero_addr: IpAddr = match *name_server {
+      SocketAddr::V4(..) => IpAddr::V4(*IPV4_ZERO),
+      SocketAddr::V6(..) => IpAddr::V6(*IPV6_ZERO),
+    };
+
+    NextRandomUdpSocket{ bind_address: zero_addr }
   }
 }
 
@@ -84,16 +110,23 @@ impl Stream for UdpClientStream {
   type Error = io::Error;
 
   fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+    debug!("being polled");
+
     // this will not accept incoming data while there is data to send
     //  makes this self throttling.
     loop {
       // first try to send
+      // FIXME: StreamChannel...
       match try!(self.outbound_messages.peek()) {
         Async::Ready(Some(buffer)) => {
-          match try!(self.socket.poll_write()) {
-            Async::NotReady => return Ok(Async::NotReady),
+          match self.socket.poll_write() {
+            Async::NotReady => {
+              debug!("socket not ready");
+              return Ok(Async::NotReady)
+            },
             Async::Ready(_) => {
               // will return if the socket will block
+              debug!("received buffer, sending");
               try_nb!(self.socket.send_to(buffer, &self.name_server));
             },
           }
@@ -111,12 +144,15 @@ impl Stream for UdpClientStream {
       }
     }
 
+    debug!("continuing");
+
     // For QoS, this will only accept one message and output that
     // recieve all inbound messages
 
     // TODO: this should match edns settings
     let mut buf = [0u8; 2048];
 
+    debug!("reading data");
     // TODO: should we drop this packet if it's not from the same src as dest?
     let (len, src) = try_nb!(self.socket.recv_from(&mut buf));
     if src != self.name_server {
@@ -129,11 +165,10 @@ impl Stream for UdpClientStream {
 
 struct NextRandomUdpSocket {
   bind_address: IpAddr,
-  loop_handle: LoopHandle,
 }
 
 impl Future for NextRandomUdpSocket {
-  type Item = IoFuture<tokio_core::UdpSocket>;
+  type Item = std::net::UdpSocket;
   type Error = io::Error;
 
   /// polls until there is an available next random UDP port.
@@ -145,8 +180,10 @@ impl Future for NextRandomUdpSocket {
     for attempt in 0..10 {
       let zero_addr = SocketAddr::new(self.bind_address, rand.gen_range(1025_u16, u16::max_value()));
 
-      match UdpSocket::bind(&zero_addr) {
-        Ok(socket) => return Ok(Async::Ready(tokio_core::UdpSocket::from_socket(socket, self.loop_handle.clone()))),
+      match std::net::UdpSocket::bind(&zero_addr) {
+        Ok(socket) => {
+          return Ok(Async::Ready(socket))
+        },
         Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
       }
     }
@@ -156,4 +193,62 @@ impl Future for NextRandomUdpSocket {
     // returning NotReady here, perhaps the next poll there will be some more socket available.
     Ok(Async::NotReady)
   }
+}
+
+pub struct UdpClientStreamHandle {
+  message_sender: Sender<Vec<u8>>,
+}
+
+impl UdpClientStreamHandle {
+  pub fn send(&self, buffer: Vec<u8>) -> io::Result<()> {
+    debug!("taking buffer to send");
+    self.message_sender.send(buffer)
+  }
+}
+
+#[test]
+fn test_udp_client_stream_ipv4() {
+  use std::time::Duration;
+  use std::thread;
+  use log::LogLevel;
+  use ::logger::TrustDnsLogger;
+
+  TrustDnsLogger::enable_logging(LogLevel::Debug);
+
+  let server = std::net::UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127,0,0,1)), 0)).unwrap();
+  server.set_read_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
+  server.set_write_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
+  let server_addr = server.local_addr().unwrap();
+
+  let test_bytes: &'static [u8; 8] = b"DEADBEEF";
+  let send_recv_times = 4;
+
+  // an in and out server
+  let server_handle = thread::Builder::new().name("test_udp_client_stream_ipv4:server".to_string()).spawn(move || {
+    let mut buffer = [0_u8; 512];
+
+    for _ in 0..send_recv_times {
+      // wait for some bytes...
+      let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
+
+      assert_eq!(&buffer[0..len], test_bytes);
+
+      // bounce them right back...
+      assert_eq!(server.send_to(&buffer[0..len], addr).expect("send failed"), len);
+    }
+  }).unwrap();
+
+  // setup the client, which is going to run on the testing thread...
+  let mut io_loop = Core::new().unwrap();
+  let (mut stream, sender) = UdpClientStream::new(server_addr, io_loop.handle());
+
+  for _ in 0..send_recv_times {
+    // test once
+    sender.send(test_bytes.to_vec());
+    let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().unwrap();
+    stream = stream_tmp;
+    assert_eq!(&buffer.expect("no buffer received"), test_bytes);
+  }
+
+  server_handle.join().expect("server thread failed");
 }
