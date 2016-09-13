@@ -6,22 +6,16 @@
 // copied, modified, or distributed except according to those terms.
 
 use std;
-use std::mem;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs};
-use std::fmt;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::io;
 
-use futures::{Async, BoxFuture, Future, Map, Poll};
-use futures::stream::{BoxStream, Fuse, Peekable, Stream};
+use futures::{Async, Future, Poll};
+use futures::stream::{Fuse, Peekable, Stream};
 use rand::Rng;
 use rand;
 use tokio_core;
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::{Handle};
 use tokio_core::channel::{channel, Sender, Receiver};
-use tokio_core::io::IoFuture;
-
-use ::error::*;
-use client::ClientConnection;
 
 pub struct UdpClientStream {
   // TODO: this shouldn't be stored, it's only necessary for the client to setup Ipv4 or Ipv6
@@ -210,6 +204,9 @@ impl UdpClientStreamHandle {
 fn test_udp_client_stream_ipv4() {
   use std::time::Duration;
   use std::thread;
+
+  use tokio_core::reactor::{Core, Timeout};
+
   use log::LogLevel;
   use ::logger::TrustDnsLogger;
 
@@ -240,6 +237,10 @@ fn test_udp_client_stream_ipv4() {
 
   // setup the client, which is going to run on the testing thread...
   let mut io_loop = Core::new().unwrap();
+
+  // the tests should run within 5 seconds... right?
+  // TODO: add timeout here, so that test never hangs...
+  // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
   let (mut stream, sender) = UdpClientStream::new(server_addr, io_loop.handle());
 
   for _ in 0..send_recv_times {

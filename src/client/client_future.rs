@@ -6,49 +6,51 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::collections::HashMap;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, ToSocketAddrs, UdpSocket};
-use std::fmt;
 use std::io;
 
 use futures;
-use futures::{Async, BoxFuture, Canceled, Complete, Fuse as FutureFuse, Future, Map, Oneshot, Poll};
-use futures::stream;
+use futures::{Async, Complete, Future, Oneshot, Poll, task};
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use rand::Rng;
 use rand;
-use tokio_core;
-use tokio_core::{Loop, LoopHandle, Sender, Receiver};
-use tokio_core::io::IoFuture;
+use tokio_core::reactor::Handle;
+use tokio_core::channel::{channel, Sender, Receiver};
+use futures::BoxFuture;
 
 use ::error::*;
-use ::rr::{DNSClass, RecordType, Record, RData};
-use ::rr::rdata::NULL;
+use ::rr::{DNSClass, RecordType};
 use ::rr::domain;
-use ::rr::dnssec::{Signer, TrustAnchor};
-use ::op::{Message, MessageType, OpCode, Query, Edns, ResponseCode, UpdateMessage };
-use ::serialize::binary::*;
-use ::udp::UdpClientStream;
+use ::op::{Message, MessageType, OpCode, Query, Edns};
+use ::udp::{UdpClientStream, UdpClientStreamHandle};
 
 pub struct Client {
   udp_client: UdpClientStream, // TODO: shouldn't we establish a new connection for every request?
-  message_sender: Sender<(Message, Complete<ClientResult<Message>>)>,
+  udp_sender: UdpClientStreamHandle,
   new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, Complete<ClientResult<Message>>>,
 }
 
 impl Client {
-  fn new(udp_client: IoFuture<UdpClientStream>, loop_handle: LoopHandle) -> IoFuture<Self> {
-    let (sender, rx) = loop_handle.channel();
+  fn new(udp_client: UdpClientStream,
+         udp_sender: UdpClientStreamHandle,
+         loop_handle: Handle) -> ClientHandle {
+    let (sender, rx) = channel(&loop_handle).expect("could not get channel!");
 
-    rx.join(udp_client).map(move |(rx, udp_client)| {
-      debug!("creating new client");
-      Client{
-        udp_client: udp_client,
-        message_sender: sender,
-        new_receiver: rx.fuse().peekable(),
-        active_requests: HashMap::new()
-      }
-    }).boxed()
+    loop_handle.spawn(
+      //udp_client.map(move |udp_client| {
+        Client{
+          udp_client: udp_client,
+          udp_sender: udp_sender,
+          new_receiver: rx.fuse().peekable(),
+          active_requests: HashMap::new()
+        }
+      // }).flatten()
+      .map_err(|e| {
+         error!("error in Client: {}", e);
+      })
+    );
+
+    ClientHandle { message_sender: sender }
   }
 
   /// loop over active_requests and remove cancelled requests
@@ -83,8 +85,98 @@ impl Client {
     warn!("could not get next random query id, delaying");
     Async::NotReady
   }
+}
 
+impl Future for Client {
+  type Item = ();
+  type Error = ClientError;
+
+  fn poll(&mut self) -> Poll<(), Self::Error> {
+    debug!("being polled");
+    self.drop_cancelled();
+
+    // loop over new_receiver for all outbound requests
+    loop {
+      // get next query_id
+      let query_id: Option<u16> = match try!(self.new_receiver.peek()) {
+        Async::Ready(Some(_)) => {
+          debug!("got message from receiver");
+
+          // we have a new message to send
+          match self.next_random_query_id() {
+            Async::Ready(id) => Some(id),
+            Async::NotReady => return Ok(Async::NotReady),
+          }
+        },
+        _ => None,
+      };
+
+      // finally pop the reciever
+      match try!(self.new_receiver.poll()) {
+        Async::Ready(Some((mut message, complete))) => {
+          // if there was a message, and the above succesion was succesful,
+          //  register the new message, if not do not register, and set the complete to error.
+          // getting a random query id, this mitigates potential cache poisoning.
+          // FIXME: for SIG0 we can't change the message id after signing.
+          let query_id = query_id.expect("query_id should have been set above");
+          message.id(query_id);
+
+          // send the message
+          // FIXME: possible fix to id issue above, is to make sure signing happens here...
+          match message.to_vec() {
+            Ok(buffer) => {
+              debug!("sending message id: {}", query_id);
+              try!(self.udp_sender.send(buffer));
+              // add to the map -after- the client send b/c we don't want to put it in the map if
+              //  we ended up returning from the send.
+              self.active_requests.insert(message.get_id(), complete);
+            },
+            Err(e) => {
+              debug!("error message id: {} error: {}", query_id, e);
+              // complete with the error, don't add to the map of active requests
+              complete.complete(Err(e.into()));
+            },
+          }
+        },
+        Async::Ready(None) | Async::NotReady => break,
+      }
+    }
+
+    debug!("continuing");
+
+    // Collect all inbound requests, max 100 at a time for QoS
+    //   by having a max we will guarantee that the client can't be DOSed in this loop
+    // TODO: make the QoS configurable
+    for _ in 0..100 {
+      match try!(self.udp_client.poll()) {
+        Async::Ready(Some(buffer)) => {
+          //   deserialize or log decode_error
+          match Message::from_vec(&buffer) {
+            Ok(message) => {
+              match self.active_requests.remove(&message.get_id()) {
+                Some(complete) => complete.complete(Ok(message)),
+                None => debug!("unexpected request_id: {}", message.get_id()),
+              }
+            },
+            // TODO: return src address for diagnostics
+            Err(e) => debug!("error decoding message: {}", e),
+          }
+        },
+        Async::Ready(None) | Async::NotReady => break,
+      }
+    }
+
+    return Ok(Async::NotReady)
+  }
+}
+
+struct ClientHandle {
+  message_sender: Sender<(Message, Complete<ClientResult<Message>>)>,
+}
+
+impl ClientHandle {
   fn send(&self, message: Message) -> io::Result<Oneshot<ClientResult<Message>>> {
+    debug!("sending message");
     let (complete, oneshot) = futures::oneshot();
     try!(self.message_sender.send((message, complete)));
     Ok(oneshot)
@@ -138,103 +230,27 @@ impl Client {
   }
 }
 
-impl Future for Client {
-  type Item = ();
-  type Error = ClientError;
-
-  fn poll(&mut self) -> Poll<(), Self::Error> {
-    debug!("being polled");
-    self.drop_cancelled();
-
-    // loop over new_receiver for all outbound requests
-    loop {
-      // get next query_id
-      let query_id: Option<u16> = match try!(self.new_receiver.peek()) {
-        Async::Ready(Some(_)) => {
-          // we have a new message to send
-          match self.next_random_query_id() {
-            Async::Ready(id) => Some(id),
-            Async::NotReady => return Ok(Async::NotReady),
-          }
-        },
-        _ => None,
-      };
-
-      // finally pop the reciever
-      match try!(self.new_receiver.poll()) {
-        Async::Ready(Some((mut message, complete))) => {
-          // if there was a message, and the above succesion was succesful,
-          //  register the new message, if not do not register, and set the complete to error.
-          // getting a random query id, this mitigates potential cache poisoning.
-          // FIXME: for SIG0 we can't change the message id after signing.
-          let query_id = query_id.expect("query_id should have been set above");
-          message.id(query_id);
-
-          // send the message
-          // FIXME: possible fix to id issue above, is to make sure signing happens here...
-          match message.to_vec() {
-            Ok(buffer) => {
-              debug!("sending message id: {}", query_id);
-              try!(self.udp_client.send(buffer));
-              // add to the map -after- the client send b/c we don't want to put it in the map if
-              //  we ended up returning from the send.
-              self.active_requests.insert(message.get_id(), complete);
-            },
-            Err(e) => {
-              debug!("error message id: {} error: {}", query_id, e);
-              // complete with the error, don't add to the map of active requests
-              complete.complete(Err(e.into()));
-            },
-          }
-        },
-        Async::Ready(None) | Async::NotReady => break,
-      }
-    }
-
-    // Collect all inbound requests, max 100 at a time for QoS
-    //   by having a max we will guarantee that the client can't be DOSed in this loop
-    for _ in 0..100 {
-      match try!(self.udp_client.poll()) {
-        Async::Ready(Some(buffer)) => {
-          //   deserialize or log decode_error
-          match Message::from_vec(&buffer) {
-            Ok(message) => {
-              match self.active_requests.remove(&message.get_id()) {
-                Some(complete) => complete.complete(Ok(message)),
-                None => debug!("unexpected request_id: {}", message.get_id()),
-              }
-            },
-            // TODO: return src address for diagnostics
-            Err(e) => debug!("error decoding message: {}", e),
-          }
-        },
-        Async::Ready(None) | Async::NotReady => break,
-      }
-    }
-
-    // if there are no active requests, we are done...
-    if self.active_requests.len() > 0 {
-      return Ok(Async::NotReady)
-    } else {
-      return Ok(Async::Ready(()))
-    }
-  }
-}
-
 #[test]
 //#[ignore]
 fn test_query_udp_ipv4() {
-  let mut io_loop = Loop::new().unwrap();
-  let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
-  let stream = UdpClientStream::new(addr, io_loop.handle());
-  let client = Client::new(stream, io_loop.handle());
+  use std::net::{SocketAddr, ToSocketAddrs};
+  use tokio_core::reactor::Core;
 
-  io_loop.run(test_query(client)).unwrap();
+  let mut io_loop = Core::new().unwrap();
+  let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+  let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
+  let client = Client::new(stream, sender, io_loop.handle());
+
+  io_loop.run(test_query(&client)).unwrap();
+  io_loop.run(test_query(&client)).unwrap();
 }
 
 // #[test]
 // //#[ignore]
 // fn test_query_udp_ipv6() {
+//   use std::net::{SocketAddr, ToSocketAddrs};
+//   use tokio_core::reactor::Core;
+//
 //   let mut io_loop = Loop::new().unwrap();
 //   let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
 //   let stream = UdpClientStream::new(addr, io_loop.handle());
@@ -244,36 +260,40 @@ fn test_query_udp_ipv4() {
 // }
 
 #[cfg(test)]
-fn test_query(client: IoFuture<Client>) -> BoxFuture<(), ()> {
+fn test_query(client: &ClientHandle) -> BoxFuture<(), ()> {
+  use std::net::Ipv4Addr;
   use std::cmp::Ordering;
+  use ::rr::RData;
+
+  use log::LogLevel;
+  use ::logger::TrustDnsLogger;
+
+  TrustDnsLogger::enable_logging(LogLevel::Debug);
+
   let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
 
-  client.map(move |client: Client| {
-    client.query(&name, DNSClass::IN, RecordType::A).expect("error with query")
-          .map(move |response| {
-            assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+  client.query(&name, DNSClass::IN, RecordType::A).expect("error with query")
+        .map(move |response| {
+          assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
-            let response = response.unwrap();
+          let response = response.unwrap();
 
-            println!("response records: {:?}", response);
-            assert_eq!(response.get_queries().first().expect("expected query").get_name().cmp_with_case(&name, false), Ordering::Equal);
+          println!("response records: {:?}", response);
+          assert_eq!(response.get_queries().first().expect("expected query").get_name().cmp_with_case(&name, false), Ordering::Equal);
 
-            let record = &response.get_answers()[0];
-            assert_eq!(record.get_name(), &name);
-            assert_eq!(record.get_rr_type(), RecordType::A);
-            assert_eq!(record.get_dns_class(), DNSClass::IN);
+          let record = &response.get_answers()[0];
+          assert_eq!(record.get_name(), &name);
+          assert_eq!(record.get_rr_type(), RecordType::A);
+          assert_eq!(record.get_dns_class(), DNSClass::IN);
 
-            if let &RData::A(ref address) = record.get_rdata() {
-              assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-            } else {
-              assert!(false);
-            }
-          })
-          .map_err(|_| {
+          if let &RData::A(ref address) = record.get_rdata() {
+            assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+          } else {
             assert!(false);
-          })
+          }
         })
-        .map_err(|_| assert!(false))
-        .flatten()
+        .map_err(|_| {
+          assert!(false);
+        })
         .boxed()
 }
