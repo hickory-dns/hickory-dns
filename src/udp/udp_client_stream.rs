@@ -36,56 +36,29 @@ impl UdpClientStream {
   /// it is expected that the resolver wrapper will be responsible for creating and managing
   ///  new UdpClients such that each new client would have a random port (reduce chance of cache
   ///  poisoning)
-  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Self, UdpClientStreamHandle) {
+  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=UdpClientStream, Error=io::Error>>, UdpClientStreamHandle) {
     let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
 
     // TODO: allow the bind address to be specified...
     // constructs a future for getting the next randomly bound port to a UdpSocket
 
-    // FIXME: we really want this future
-    // let next_socket = Self::next_bound_local_address(&name_server);
-
-    let socket = Self::next_bound_local_address_immediate(&name_server, &loop_handle);
+    let next_socket = Self::next_bound_local_address(&name_server);
 
     // This set of futures collapses the next udp socket into a stream which can be used for
     //  sending and receiving udp packets.
-    // FIXME: associate the future for the next socket here. just use Box::new()
-    //F- let stream = next_socket
-      //F- .map(move |socket| { tokio_core::net::UdpSocket::from_socket(socket, &loop_handle).expect("something wrong with the handle?") })
-      //F- .map(move |socket| {
+    let stream: Box<Future<Item=UdpClientStream, Error=io::Error>> = Box::new(next_socket
+      .map(move |socket| { tokio_core::net::UdpSocket::from_socket(socket, &loop_handle).expect("something wrong with the handle?") })
+      .map(move |socket| {
         debug!("bound socket");
-    let stream = UdpClientStream {
+        UdpClientStream {
           name_server: name_server,
           socket: socket,
           outbound_messages: outbound_messages.fuse().peekable(),
-        };
-      //F- })
-      //F- .boxed();
+        }
+      }));
 
     let handle = UdpClientStreamHandle{ message_sender: message_sender };
     (stream, handle)
-  }
-
-  fn next_bound_local_address_immediate(name_server: &SocketAddr, handle: &Handle) -> tokio_core::net::UdpSocket {
-    let zero_addr: IpAddr = match *name_server {
-      SocketAddr::V4(..) => IpAddr::V4(*IPV4_ZERO),
-      SocketAddr::V6(..) => IpAddr::V6(*IPV6_ZERO),
-    };
-
-    let mut rand = rand::thread_rng();
-    for attempt in 0..100 {
-      let zero_addr = SocketAddr::new(zero_addr, rand.gen_range(1025_u16, u16::max_value()));
-
-      match tokio_core::net::UdpSocket::bind(&zero_addr, handle) {
-        Ok(socket) => {
-          return socket
-        },
-        Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
-      }
-    }
-
-    // FIXME: this is not good.
-    panic!("no available socket!")
   }
 
   /// Creates a future for randomly binding to a local socket address for client connections.
@@ -241,7 +214,8 @@ fn test_udp_client_stream_ipv4() {
   // the tests should run within 5 seconds... right?
   // TODO: add timeout here, so that test never hangs...
   // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-  let (mut stream, sender) = UdpClientStream::new(server_addr, io_loop.handle());
+  let (stream, sender) = UdpClientStream::new(server_addr, io_loop.handle());
+  let mut stream: UdpClientStream = io_loop.run(stream).ok().unwrap();
 
   for _ in 0..send_recv_times {
     // test once

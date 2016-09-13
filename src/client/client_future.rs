@@ -31,20 +31,20 @@ pub struct Client {
 }
 
 impl Client {
-  fn new(udp_client: UdpClientStream,
+  fn new(udp_client: Box<Future<Item=UdpClientStream, Error=io::Error>>,
          udp_sender: UdpClientStreamHandle,
          loop_handle: Handle) -> ClientHandle {
     let (sender, rx) = channel(&loop_handle).expect("could not get channel!");
 
     loop_handle.spawn(
-      //udp_client.map(move |udp_client| {
+      udp_client.map(move |udp_client| {
         Client{
           udp_client: udp_client,
           udp_sender: udp_sender,
           new_receiver: rx.fuse().peekable(),
           active_requests: HashMap::new()
         }
-      // }).flatten()
+      }).flatten()
       .map_err(|e| {
          error!("error in Client: {}", e);
       })
