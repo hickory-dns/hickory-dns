@@ -41,7 +41,6 @@ impl UdpClientStream {
 
     // TODO: allow the bind address to be specified...
     // constructs a future for getting the next randomly bound port to a UdpSocket
-
     let next_socket = Self::next_bound_local_address(&name_server);
 
     // This set of futures collapses the next udp socket into a stream which can be used for
@@ -107,6 +106,7 @@ impl Stream for UdpClientStream {
         // already handled above, here to make sure the poll() pops the next message
         Async::Ready(Some(_)) => (),
         // now we get to drop through to the receives...
+        // TODO: should we also return None if there are no more messages to send?
         Async::NotReady | Async::Ready(None) => break,
       }
     }
@@ -175,17 +175,27 @@ impl UdpClientStreamHandle {
 
 #[test]
 fn test_udp_client_stream_ipv4() {
+  udp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127,0,0,1)))
+}
+
+#[test]
+fn test_udp_client_stream_ipv6() {
+  udp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
+}
+
+#[cfg(test)]
+fn udp_client_stream_test(server_addr: IpAddr) {
   use std::time::Duration;
   use std::thread;
 
-  use tokio_core::reactor::{Core, Timeout};
+  use tokio_core::reactor::Core;
 
   use log::LogLevel;
   use ::logger::TrustDnsLogger;
 
   TrustDnsLogger::enable_logging(LogLevel::Debug);
 
-  let server = std::net::UdpSocket::bind(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127,0,0,1)), 0)).unwrap();
+  let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
   server.set_read_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
   server.set_write_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
   let server_addr = server.local_addr().unwrap();
@@ -219,7 +229,7 @@ fn test_udp_client_stream_ipv4() {
 
   for _ in 0..send_recv_times {
     // test once
-    sender.send(test_bytes.to_vec());
+    sender.send(test_bytes.to_vec()).unwrap();
     let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().unwrap();
     stream = stream_tmp;
     assert_eq!(&buffer.expect("no buffer received"), test_bytes);

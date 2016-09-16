@@ -15,7 +15,6 @@ use rand::Rng;
 use rand;
 use tokio_core::reactor::Handle;
 use tokio_core::channel::{channel, Sender, Receiver};
-use futures::BoxFuture;
 
 use ::error::*;
 use ::rr::{DNSClass, RecordType};
@@ -23,8 +22,11 @@ use ::rr::domain;
 use ::op::{Message, MessageType, OpCode, Query, Edns};
 use ::udp::{UdpClientStream, UdpClientStreamHandle};
 
+const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
+
 pub struct Client {
-  udp_client: UdpClientStream, // TODO: shouldn't we establish a new connection for every request?
+  // TODO: shouldn't we establish a new connection for every request?
+  udp_client: UdpClientStream,
   udp_sender: UdpClientStreamHandle,
   new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, Complete<ClientResult<Message>>>,
@@ -92,7 +94,6 @@ impl Future for Client {
   type Error = ClientError;
 
   fn poll(&mut self) -> Poll<(), Self::Error> {
-    debug!("being polled");
     self.drop_cancelled();
 
     // loop over new_receiver for all outbound requests
@@ -142,14 +143,15 @@ impl Future for Client {
       }
     }
 
-    debug!("continuing");
-
     // Collect all inbound requests, max 100 at a time for QoS
     //   by having a max we will guarantee that the client can't be DOSed in this loop
     // TODO: make the QoS configurable
-    for _ in 0..100 {
+    let mut messages_received = 0;
+    for i in 0..QOS_MAX_RECEIVE_MSGS {
       match try!(self.udp_client.poll()) {
         Async::Ready(Some(buffer)) => {
+          messages_received = i;
+
           //   deserialize or log decode_error
           match Message::from_vec(&buffer) {
             Ok(message) => {
@@ -161,11 +163,28 @@ impl Future for Client {
             // TODO: return src address for diagnostics
             Err(e) => debug!("error decoding message: {}", e),
           }
+
         },
         Async::Ready(None) | Async::NotReady => break,
       }
     }
 
+    // Clean shutdown happens when all pending requests are done and the
+    // incoming channel has been closed (e.g. you'll never receive another
+    // request).
+    let done = if let Async::Ready(None) = try!(self.new_receiver.peek()) { true } else { false };
+    if self.active_requests.is_empty() && done {
+      return Ok(().into()); // we are done
+    }
+
+    // If still active, then if the qos (for _ in 0..100 loop) limit
+    // was hit then "yield". This'll make sure that the future is
+    // woken up immediately on the next turn of the event loop.
+    if messages_received == QOS_MAX_RECEIVE_MSGS {
+      task::park().unpark();
+    }
+
+    // Finally, return not ready to keep the 'driver task' alive.
     return Ok(Async::NotReady)
   }
 }
@@ -231,7 +250,7 @@ impl ClientHandle {
 }
 
 #[test]
-//#[ignore]
+#[ignore]
 fn test_query_udp_ipv4() {
   use std::net::{SocketAddr, ToSocketAddrs};
   use tokio_core::reactor::Core;
@@ -241,26 +260,29 @@ fn test_query_udp_ipv4() {
   let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
   let client = Client::new(stream, sender, io_loop.handle());
 
+  // TODO: timeouts on these requests so that the test doesn't hang
   io_loop.run(test_query(&client)).unwrap();
   io_loop.run(test_query(&client)).unwrap();
 }
 
-// #[test]
-// //#[ignore]
-// fn test_query_udp_ipv6() {
-//   use std::net::{SocketAddr, ToSocketAddrs};
-//   use tokio_core::reactor::Core;
-//
-//   let mut io_loop = Loop::new().unwrap();
-//   let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
-//   let stream = UdpClientStream::new(addr, io_loop.handle());
-//   let client = Client::new(stream, io_loop.handle());
-//
-//   io_loop.run(test_query(client)).unwrap();
-// }
+#[test]
+#[ignore]
+fn test_query_udp_ipv6() {
+  use std::net::{SocketAddr, ToSocketAddrs};
+  use tokio_core::reactor::Core;
+
+  let mut io_loop = Core::new().unwrap();
+  let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
+  let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
+  let client = Client::new(stream, sender, io_loop.handle());
+
+  // TODO: timeouts on these requests so that the test doesn't hang
+  io_loop.run(test_query(&client)).unwrap();
+  io_loop.run(test_query(&client)).unwrap();
+}
 
 #[cfg(test)]
-fn test_query(client: &ClientHandle) -> BoxFuture<(), ()> {
+fn test_query(client: &ClientHandle) -> futures::BoxFuture<(), ()> {
   use std::net::Ipv4Addr;
   use std::cmp::Ordering;
   use ::rr::RData;
