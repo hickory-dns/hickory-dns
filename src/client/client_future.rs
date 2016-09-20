@@ -24,6 +24,7 @@ use ::udp::{UdpClientStream, UdpClientStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
+
 pub struct Client {
   // TODO: shouldn't we establish a new connection for every request?
   udp_client: UdpClientStream,
@@ -99,6 +100,9 @@ impl Future for Client {
     // loop over new_receiver for all outbound requests
     loop {
       // get next query_id
+      // FIXME: remove try! attempt to receive more messages below and clear
+      //  completes. i.e. is it a valid case where the receiver has been closed
+      //  but completes are still awaiting responses?
       let query_id: Option<u16> = match try!(self.new_receiver.peek()) {
         Async::Ready(Some(_)) => {
           debug!("got message from receiver");

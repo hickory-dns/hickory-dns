@@ -14,8 +14,10 @@ use futures::stream::{Fuse, Peekable, Stream};
 use rand::Rng;
 use rand;
 use tokio_core;
-use tokio_core::reactor::{Handle};
 use tokio_core::channel::{channel, Sender, Receiver};
+use tokio_core::reactor::{Handle};
+
+pub type UdpClientStreamHandle = Sender<Vec<u8>>;
 
 pub struct UdpClientStream {
   // TODO: this shouldn't be stored, it's only necessary for the client to setup Ipv4 or Ipv6
@@ -48,7 +50,6 @@ impl UdpClientStream {
     let stream: Box<Future<Item=UdpClientStream, Error=io::Error>> = Box::new(next_socket
       .map(move |socket| { tokio_core::net::UdpSocket::from_socket(socket, &loop_handle).expect("something wrong with the handle?") })
       .map(move |socket| {
-        debug!("bound socket");
         UdpClientStream {
           name_server: name_server,
           socket: socket,
@@ -56,8 +57,7 @@ impl UdpClientStream {
         }
       }));
 
-    let handle = UdpClientStreamHandle{ message_sender: message_sender };
-    (stream, handle)
+    (stream, message_sender)
   }
 
   /// Creates a future for randomly binding to a local socket address for client connections.
@@ -76,23 +76,18 @@ impl Stream for UdpClientStream {
   type Error = io::Error;
 
   fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-    debug!("being polled");
-
     // this will not accept incoming data while there is data to send
     //  makes this self throttling.
     loop {
       // first try to send
-      // FIXME: StreamChannel...
       match try!(self.outbound_messages.peek()) {
         Async::Ready(Some(buffer)) => {
           match self.socket.poll_write() {
             Async::NotReady => {
-              debug!("socket not ready");
               return Ok(Async::NotReady)
             },
             Async::Ready(_) => {
               // will return if the socket will block
-              debug!("received buffer, sending");
               try_nb!(self.socket.send_to(buffer, &self.name_server));
             },
           }
@@ -111,15 +106,12 @@ impl Stream for UdpClientStream {
       }
     }
 
-    debug!("continuing");
-
     // For QoS, this will only accept one message and output that
     // recieve all inbound messages
 
     // TODO: this should match edns settings
     let mut buf = [0u8; 2048];
 
-    debug!("reading data");
     // TODO: should we drop this packet if it's not from the same src as dest?
     let (len, src) = try_nb!(self.socket.recv_from(&mut buf));
     if src != self.name_server {
@@ -159,17 +151,6 @@ impl Future for NextRandomUdpSocket {
 
     // returning NotReady here, perhaps the next poll there will be some more socket available.
     Ok(Async::NotReady)
-  }
-}
-
-pub struct UdpClientStreamHandle {
-  message_sender: Sender<Vec<u8>>,
-}
-
-impl UdpClientStreamHandle {
-  pub fn send(&self, buffer: Vec<u8>) -> io::Result<()> {
-    debug!("taking buffer to send");
-    self.message_sender.send(buffer)
   }
 }
 
