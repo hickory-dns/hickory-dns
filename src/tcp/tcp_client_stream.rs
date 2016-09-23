@@ -89,17 +89,17 @@ impl Stream for TcpClientStream {
           loop {
             match sending.poll() {
               // message was sent
-              Ok(Async::Ready((_, _))) => break,
+              Ok(Async::Ready((_, _))) => { debug!("sent"); break },
               // return an error
               Err(e) => return Err(e),
               // yield and loop until everything sent (no other progress will be made)
-              Ok(Async::NotReady) => park().unpark(),
+              Ok(Async::NotReady) => { debug!("not fully sent"); park().unpark() },
             }
           }
         },
         // now we get to drop through to the receives...
         // TODO: should we also return None if there are no more messages to send?
-        Async::NotReady | Async::Ready(None) => break,
+        Async::NotReady | Async::Ready(None) => { debug!("no messages to send"); break},
       }
     }
 
@@ -108,7 +108,7 @@ impl Stream for TcpClientStream {
     // For QoS, this will only accept one message and output that
     // recieve all inbound messages
     if let Async::NotReady = self.socket.poll_read() {
-      debug!("nothing ready");
+      debug!("read not ready ");
       // nothing to read
       // TODO: check if outbound_messages is closed and return None?
       return Ok(Async::NotReady);
@@ -116,9 +116,9 @@ impl Stream for TcpClientStream {
 
     // getting here means that there was something to read
     let len_bytes = [0u8; 2];
+    debug!("spawning read");
     let mut reading = read_exact(&self.socket, len_bytes)
                   .and_then(|(socket, len_bytes)| {
-                    debug!("waiting for length");
                     let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
                     debug!("read length: {}", length);
 
@@ -129,7 +129,7 @@ impl Stream for TcpClientStream {
                   });
 
     // TODO: timeout here, or just put that on the socket?
-    loop {
+    for _ in 0..100 {
       match reading.poll() {
         // return the read buffer
         Ok(Async::Ready((_, buffer))) => {
@@ -139,9 +139,12 @@ impl Stream for TcpClientStream {
         // return an error
         Err(e) => return Err(e),
         // yield and loop until there is more data (this will block sending)
-        Ok(Async::NotReady) => park().unpark(),
+        Ok(Async::NotReady) => { /*debug!("read not ready");*/ park().unpark() },
       }
     }
+
+    debug!("bottomed out");
+    return Ok(Async::NotReady)
   }
 }
 
@@ -192,10 +195,10 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
       // wait for some bytes...
       // println!("reading length iter: {}", i);
 
-      if i > 0 {
-        thread::sleep(Duration::from_millis(5));
-        std::process::exit(-1)
-      }
+      // if i > 0 {
+      //   thread::sleep(Duration::from_millis(5));
+      //   std::process::exit(-1)
+      // }
 
       let mut len_bytes = [0_u8; 2];
       socket.read_exact(&mut len_bytes).expect("receive failed");
