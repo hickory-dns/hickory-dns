@@ -21,29 +21,30 @@ use ::rr::{DNSClass, RecordType};
 use ::rr::domain;
 use ::op::{Message, MessageType, OpCode, Query, Edns};
 use ::udp::{UdpClientStream, UdpClientStreamHandle};
+use ::tcp::{TcpClientStream, TcpClientStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
+type StreamHandle = Sender<Vec<u8>>;
 
-pub struct Client {
-  // TODO: shouldn't we establish a new connection for every request?
-  udp_client: UdpClientStream,
-  udp_sender: UdpClientStreamHandle,
+pub struct Client<S: Stream<Item=Vec<u8>, Error=io::Error>> {
+  stream: S,
+  streamHandle: StreamHandle,
   new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, Complete<ClientResult<Message>>>,
 }
 
-impl Client {
-  fn new(udp_client: Box<Future<Item=UdpClientStream, Error=io::Error>>,
-         udp_sender: UdpClientStreamHandle,
+impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Client<S> {
+  fn new(stream: Box<Future<Item=S, Error=io::Error>>,
+         streamHandle: StreamHandle,
          loop_handle: Handle) -> ClientHandle {
     let (sender, rx) = channel(&loop_handle).expect("could not get channel!");
 
     loop_handle.spawn(
-      udp_client.map(move |udp_client| {
+      stream.map(move |stream| {
         Client{
-          udp_client: udp_client,
-          udp_sender: udp_sender,
+          stream: stream,
+          streamHandle: streamHandle,
           new_receiver: rx.fuse().peekable(),
           active_requests: HashMap::new()
         }
@@ -90,7 +91,7 @@ impl Client {
   }
 }
 
-impl Future for Client {
+impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for Client<S> {
   type Item = ();
   type Error = ClientError;
 
@@ -131,7 +132,7 @@ impl Future for Client {
           match message.to_vec() {
             Ok(buffer) => {
               debug!("sending message id: {}", query_id);
-              try!(self.udp_sender.send(buffer));
+              try!(self.streamHandle.send(buffer));
               // add to the map -after- the client send b/c we don't want to put it in the map if
               //  we ended up returning from the send.
               self.active_requests.insert(message.get_id(), complete);
@@ -152,7 +153,7 @@ impl Future for Client {
     // TODO: make the QoS configurable
     let mut messages_received = 0;
     for i in 0..QOS_MAX_RECEIVE_MSGS {
-      match try!(self.udp_client.poll()) {
+      match try!(self.stream.poll()) {
         Async::Ready(Some(buffer)) => {
           messages_received = i;
 
@@ -278,6 +279,38 @@ fn test_query_udp_ipv6() {
   let mut io_loop = Core::new().unwrap();
   let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
   let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
+  let client = Client::new(stream, sender, io_loop.handle());
+
+  // TODO: timeouts on these requests so that the test doesn't hang
+  io_loop.run(test_query(&client)).unwrap();
+  io_loop.run(test_query(&client)).unwrap();
+}
+
+#[test]
+#[ignore]
+fn test_query_tcp_ipv4() {
+  use std::net::{SocketAddr, ToSocketAddrs};
+  use tokio_core::reactor::Core;
+
+  let mut io_loop = Core::new().unwrap();
+  let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+  let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
+  let client = Client::new(stream, sender, io_loop.handle());
+
+  // TODO: timeouts on these requests so that the test doesn't hang
+  io_loop.run(test_query(&client)).unwrap();
+  io_loop.run(test_query(&client)).unwrap();
+}
+
+#[test]
+#[ignore]
+fn test_query_tcp_ipv6() {
+  use std::net::{SocketAddr, ToSocketAddrs};
+  use tokio_core::reactor::Core;
+
+  let mut io_loop = Core::new().unwrap();
+  let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
+  let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
   let client = Client::new(stream, sender, io_loop.handle());
 
   // TODO: timeouts on these requests so that the test doesn't hang

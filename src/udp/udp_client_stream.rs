@@ -160,6 +160,7 @@ fn test_udp_client_stream_ipv4() {
 }
 
 #[test]
+#[ignore] // ignored until Travis-CI fixes IPv6
 fn test_udp_client_stream_ipv6() {
   udp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 }
