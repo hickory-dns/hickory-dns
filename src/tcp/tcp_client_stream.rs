@@ -6,8 +6,10 @@
 // copied, modified, or distributed except according to those terms.
 
 use std;
+use std::mem;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::io;
+use std::io::Read;
 
 use futures::{AndThen, Async, BoxFuture, Flatten, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
@@ -22,6 +24,12 @@ use tokio_core::reactor::{Handle};
 
 pub type TcpClientStreamHandle = Sender<Vec<u8>>;
 
+enum TcpState {
+  LenByte1,
+  LenByte2{ byte1: u8 },
+  Bytes{ pos: usize, bytes: Vec<u8> },
+}
+
 pub struct TcpClientStream {
   name_server: SocketAddr,
   socket: TokioTcpStream,
@@ -32,6 +40,7 @@ pub struct TcpClientStream {
   //                         (Fn( (TokioTcpStream, Vec<u8>) ) -> WriteAll<TokioTcpStream, Vec<u8>> ) >>,
   // sending: Option<BoxFuture<(TokioTcpStream, Vec<u8>), io::Error>>,
   // receiving: Option<BoxFuture<, io::Error>>,
+  state: TcpState,
 }
 
 impl TcpClientStream {
@@ -52,6 +61,7 @@ impl TcpClientStream {
           outbound_messages: outbound_messages.fuse().peekable(),
           // sending: None,
           // receiving: None,
+          state: TcpState::LenByte1,
         }
       }));
 
@@ -104,47 +114,59 @@ impl Stream for TcpClientStream {
     }
 
     debug!("continuing");
+    let mut ret_buf: Option<Vec<u8>> = None;
 
-    // For QoS, this will only accept one message and output that
-    // recieve all inbound messages
-    if let Async::NotReady = self.socket.poll_read() {
-      debug!("read not ready ");
-      // nothing to read
-      // TODO: check if outbound_messages is closed and return None?
-      return Ok(Async::NotReady);
-    }
+    // this will loop while there is data to read, or the data has been read, or an IO
+    //  event would block
+    while ret_buf.is_none() {
+      self.state = match mem::replace(&mut self.state, TcpState::LenByte1) {
+        TcpState::LenByte1 => {
+          let mut buf = [0u8; 1];
+          debug!("reading first byte");
+          let len = try_nb!(self.socket.read(&mut buf));
 
-    // getting here means that there was something to read
-    let len_bytes = [0u8; 2];
-    debug!("spawning read");
-    let mut reading = read_exact(&self.socket, len_bytes)
-                  .and_then(|(socket, len_bytes)| {
-                    let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
-                    debug!("read length: {}", length);
-
-                     // TODO: how can we reuse the same buffer?
-                    let mut buffer: Vec<u8> = Vec::with_capacity(length as usize);
-                    buffer.resize(length as usize, 0);
-                    read_exact(socket, buffer)
-                  });
-
-    // TODO: timeout here, or just put that on the socket?
-    for _ in 0..100 {
-      match reading.poll() {
-        // return the read buffer
-        Ok(Async::Ready((_, buffer))) => {
-          debug!("read bytes: {}", buffer.len());
-          return Ok(Async::Ready(Some(buffer)))
+          if len == 1 { TcpState::LenByte2{ byte1: buf[0] } } else { TcpState::LenByte1 }
         },
-        // return an error
-        Err(e) => return Err(e),
-        // yield and loop until there is more data (this will block sending)
-        Ok(Async::NotReady) => { /*debug!("read not ready");*/ park().unpark() },
-      }
+        TcpState::LenByte2 { byte1 } => {
+          let mut buf = [0u8; 1];
+          debug!("reading second byte");
+          let len = try_nb!(self.socket.read(&mut buf));
+
+          if len == 1 {
+            let length = (byte1 as u16) << 8 & 0xFF00 | buf[0] as u16 & 0x00FF;
+            let mut bytes = Vec::with_capacity(length as usize);
+            bytes.resize(length as usize, 0);
+
+            TcpState::Bytes{ pos: 0, bytes: bytes }
+          } else {
+            TcpState::LenByte2{ byte1: byte1 }
+          }
+        },
+        TcpState::Bytes { mut pos, mut bytes } => {
+          debug!("reading bytes {}", bytes.len());
+          let read = try_nb!(self.socket.read(&mut bytes[pos..]));
+          pos += read;
+
+          if pos < bytes.len() {
+            TcpState::Bytes { pos: pos, bytes: bytes }
+          } else {
+            ret_buf = Some(bytes);
+            TcpState::LenByte1
+          }
+        }
+      };
     }
 
-    debug!("bottomed out");
-    return Ok(Async::NotReady)
+    // if the buffer is ready, return it, if not we're NotReady
+    if let Some(buffer) = ret_buf {
+      debug!("returning buffer");
+      return Ok(Async::Ready(Some(buffer)))
+    } else {
+      debug!("bottomed out");
+      // at a minimum the outbound_messages should have been polled,
+      //  which will wake this future up later...
+      return Ok(Async::NotReady)
+    }
   }
 }
 
@@ -180,7 +202,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
   let server_addr = server.local_addr().unwrap();
 
-  let send_recv_times = 2;
+  let send_recv_times = 3;
 
   // an in and out server
   let server_handle = thread::Builder::new().name("test_tcp_client_stream_ipv4:server".to_string()).spawn(move || {
@@ -201,7 +223,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
       // }
 
       let mut len_bytes = [0_u8; 2];
-      socket.read_exact(&mut len_bytes).expect("receive failed");
+      socket.read_exact(&mut len_bytes).expect("SERVER: receive failed");
       let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
       assert_eq!(length as usize, test_bytes_len);
 
@@ -212,8 +234,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
       assert_eq!(&buffer, test_bytes);
 
       // bounce them right back...
-      socket.write_all(&len_bytes).expect("send length failed");
-      socket.write_all(&buffer).expect("send buffer failed");
+      socket.write_all(&len_bytes).expect("SERVER: send length failed");
+      socket.write_all(&buffer).expect("SERVER: send buffer failed");
       // println!("wrote bytes iter: {}", i);
       thread::yield_now();
     }
