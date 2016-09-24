@@ -25,8 +25,7 @@ use tokio_core::reactor::{Handle};
 pub type TcpClientStreamHandle = Sender<Vec<u8>>;
 
 enum TcpState {
-  LenByte1,
-  LenByte2{ byte1: u8 },
+  LenBytes{ pos: usize, bytes: [u8; 2] },
   Bytes{ pos: usize, bytes: Vec<u8> },
 }
 
@@ -61,7 +60,7 @@ impl TcpClientStream {
           outbound_messages: outbound_messages.fuse().peekable(),
           // sending: None,
           // receiving: None,
-          state: TcpState::LenByte1,
+          state: TcpState::LenBytes { pos: 0, bytes: [0u8; 2] },
         }
       }));
 
@@ -119,27 +118,21 @@ impl Stream for TcpClientStream {
     // this will loop while there is data to read, or the data has been read, or an IO
     //  event would block
     while ret_buf.is_none() {
-      self.state = match mem::replace(&mut self.state, TcpState::LenByte1) {
-        TcpState::LenByte1 => {
-          let mut buf = [0u8; 1];
-          debug!("reading first byte");
-          let len = try_nb!(self.socket.read(&mut buf));
+      self.state = match mem::replace(&mut self.state,
+                                      TcpState::LenBytes{ pos: 0, bytes: [0u8; 2] }) {
+        TcpState::LenBytes { mut pos, mut bytes } => {
+          debug!("reading length {}", bytes.len());
+          let read = try_nb!(self.socket.read(&mut bytes[pos..]));
+          pos += read;
 
-          if len == 1 { TcpState::LenByte2{ byte1: buf[0] } } else { TcpState::LenByte1 }
-        },
-        TcpState::LenByte2 { byte1 } => {
-          let mut buf = [0u8; 1];
-          debug!("reading second byte");
-          let len = try_nb!(self.socket.read(&mut buf));
-
-          if len == 1 {
-            let length = (byte1 as u16) << 8 & 0xFF00 | buf[0] as u16 & 0x00FF;
+          if pos < bytes.len() {
+            TcpState::LenBytes { pos: pos, bytes: bytes }
+          } else {
+            let length = (bytes[0] as u16) << 8 & 0xFF00 | bytes[1] as u16 & 0x00FF;
             let mut bytes = Vec::with_capacity(length as usize);
             bytes.resize(length as usize, 0);
 
             TcpState::Bytes{ pos: 0, bytes: bytes }
-          } else {
-            TcpState::LenByte2{ byte1: byte1 }
           }
         },
         TcpState::Bytes { mut pos, mut bytes } => {
@@ -151,9 +144,9 @@ impl Stream for TcpClientStream {
             TcpState::Bytes { pos: pos, bytes: bytes }
           } else {
             ret_buf = Some(bytes);
-            TcpState::LenByte1
+            TcpState::LenBytes{ pos: 0, bytes: [0u8; 2] }
           }
-        }
+        },
       };
     }
 
