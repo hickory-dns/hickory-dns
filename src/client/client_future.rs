@@ -194,6 +194,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for Client<S> {
   }
 }
 
+#[derive(Clone)]
 struct ClientHandle {
   message_sender: Sender<(Message, Complete<ClientResult<Message>>)>,
 }

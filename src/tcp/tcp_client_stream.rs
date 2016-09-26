@@ -121,29 +121,36 @@ impl Stream for TcpClientStream {
       self.state = match mem::replace(&mut self.state,
                                       TcpState::LenBytes{ pos: 0, bytes: [0u8; 2] }) {
         TcpState::LenBytes { mut pos, mut bytes } => {
-          debug!("reading length {}", bytes.len());
+          debug!("in TcpState::LenBytes: {}", pos);
+
+          // debug!("reading length {}", bytes.len());
           let read = try_nb!(self.socket.read(&mut bytes[pos..]));
           pos += read;
 
           if pos < bytes.len() {
+            debug!("remain TcpState::LenBytes: {}", pos);
             TcpState::LenBytes { pos: pos, bytes: bytes }
           } else {
             let length = (bytes[0] as u16) << 8 & 0xFF00 | bytes[1] as u16 & 0x00FF;
+            debug!("got length: {}", length);
             let mut bytes = Vec::with_capacity(length as usize);
             bytes.resize(length as usize, 0);
 
+            debug!("move TcpState::Bytes: {}", bytes.len());
             TcpState::Bytes{ pos: 0, bytes: bytes }
           }
         },
         TcpState::Bytes { mut pos, mut bytes } => {
-          debug!("reading bytes {}", bytes.len());
+          debug!("in TcpState::Bytes: {}", bytes.len());
           let read = try_nb!(self.socket.read(&mut bytes[pos..]));
           pos += read;
 
           if pos < bytes.len() {
+            debug!("remain TcpState::Bytes: {}", bytes.len());
             TcpState::Bytes { pos: pos, bytes: bytes }
           } else {
             ret_buf = Some(bytes);
+            debug!("reset TcpState::LenBytes: {}", 0);
             TcpState::LenBytes{ pos: 0, bytes: [0u8; 2] }
           }
         },
@@ -164,12 +171,16 @@ impl Stream for TcpClientStream {
 }
 
 #[test]
+// this fails on linux for some reason. It appears that a buffer somewhere is dirty
+//  and subsequent reads of a mesage buffer reads the wrong length. It works for 2 iterations
+//  but not 3?
+// #[cfg(not(target_os = "linux"))]
 fn test_tcp_client_stream_ipv4() {
   tcp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127,0,0,1)))
 }
 
 #[test]
-#[ignore] // ignored until Travis-CI fixes IPv6
+#[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_tcp_client_stream_ipv6() {
   tcp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 }
@@ -184,6 +195,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   use std::time::Duration;
   use std::thread;
   use std::io::{Read, Write};
+  use std::sync::Arc;
+  use std::sync::atomic::{AtomicBool,Ordering};
 
   use tokio_core::reactor::Core;
 
@@ -191,6 +204,19 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   use ::logger::TrustDnsLogger;
 
   TrustDnsLogger::enable_logging(LogLevel::Debug);
+
+  let mut succeeded = Arc::new(AtomicBool::new(false));
+  let succeeded_clone = succeeded.clone();
+  let test_killer = thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
+    let succeeded = succeeded_clone.clone();
+    for _ in 0..5 {
+      thread::sleep(Duration::from_secs(1));
+      if succeeded.load(Ordering::Relaxed) { return }
+    }
+
+    println!("timeout");
+    std::process::exit(-1)
+  });
 
   // TODO: need a timeout on listen
   let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -209,26 +235,23 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
 
     for i in 0..send_recv_times {
       // wait for some bytes...
-      // println!("reading length iter: {}", i);
-
-      // if i > 0 {
-      //   thread::sleep(Duration::from_millis(5));
-      //   std::process::exit(-1)
-      // }
-
       let mut len_bytes = [0_u8; 2];
+      println!("SERVER: reading length");
       socket.read_exact(&mut len_bytes).expect("SERVER: receive failed");
       let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
       assert_eq!(length as usize, test_bytes_len);
 
       let mut buffer = [0_u8; test_bytes_len];
+      println!("SERVER: reading bytes");
       socket.read_exact(&mut buffer);
 
       // println!("read bytes iter: {}", i);
       assert_eq!(&buffer, test_bytes);
 
       // bounce them right back...
+      println!("SERVER: writing length: {}", length);
       socket.write_all(&len_bytes).expect("SERVER: send length failed");
+      println!("SERVER: writing bytes");
       socket.write_all(&buffer).expect("SERVER: send buffer failed");
       // println!("wrote bytes iter: {}", i);
       thread::yield_now();
@@ -259,5 +282,6 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     assert_eq!(&buffer, test_bytes);
   }
 
+  succeeded.store(true, Ordering::Relaxed);
   server_handle.join().expect("server thread failed");
 }
