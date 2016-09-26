@@ -118,18 +118,19 @@ impl Stream for TcpClientStream {
     // this will loop while there is data to read, or the data has been read, or an IO
     //  event would block
     while ret_buf.is_none() {
-      self.state = match mem::replace(&mut self.state,
-                                      TcpState::LenBytes{ pos: 0, bytes: [0u8; 2] }) {
-        TcpState::LenBytes { mut pos, mut bytes } => {
+      // Evaluates the next state. If None is the result, then no state change occurs,
+      //  if Some(_) is returned, then that will be used as the next state.
+      let new_state: Option<_> = match self.state {
+        TcpState::LenBytes { ref mut pos, ref mut bytes } => {
           debug!("in TcpState::LenBytes: {}", pos);
 
           // debug!("reading length {}", bytes.len());
-          let read = try_nb!(self.socket.read(&mut bytes[pos..]));
-          pos += read;
+          let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
+          *pos += read;
 
-          if pos < bytes.len() {
+          if *pos < bytes.len() {
             debug!("remain TcpState::LenBytes: {}", pos);
-            TcpState::LenBytes { pos: pos, bytes: bytes }
+            None
           } else {
             let length = (bytes[0] as u16) << 8 & 0xFF00 | bytes[1] as u16 & 0x00FF;
             debug!("got length: {}", length);
@@ -137,24 +138,36 @@ impl Stream for TcpClientStream {
             bytes.resize(length as usize, 0);
 
             debug!("move TcpState::Bytes: {}", bytes.len());
-            TcpState::Bytes{ pos: 0, bytes: bytes }
+            Some(TcpState::Bytes{ pos: 0, bytes: bytes })
           }
         },
-        TcpState::Bytes { mut pos, mut bytes } => {
+        TcpState::Bytes { ref mut pos, ref mut bytes } => {
           debug!("in TcpState::Bytes: {}", bytes.len());
-          let read = try_nb!(self.socket.read(&mut bytes[pos..]));
-          pos += read;
+          let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
+          *pos += read;
 
-          if pos < bytes.len() {
+          if *pos < bytes.len() {
             debug!("remain TcpState::Bytes: {}", bytes.len());
-            TcpState::Bytes { pos: pos, bytes: bytes }
+            None
           } else {
-            ret_buf = Some(bytes);
             debug!("reset TcpState::LenBytes: {}", 0);
-            TcpState::LenBytes{ pos: 0, bytes: [0u8; 2] }
+            Some(TcpState::LenBytes{ pos: 0, bytes: [0u8; 2] })
           }
         },
       };
+
+      // this will move to the next state,
+      //  if it was a completed receipt of bytes, then it will move out the bytes
+      if let Some(state) = new_state {
+        match mem::replace(&mut self.state, state) {
+          TcpState::Bytes{ pos, bytes } => {
+            debug!("returning bytes");
+            assert_eq!(pos, bytes.len());
+            ret_buf = Some(bytes);
+          },
+          _ => (),
+        }
+      }
     }
 
     // if the buffer is ready, return it, if not we're NotReady
@@ -222,7 +235,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
   let server_addr = server.local_addr().unwrap();
 
-  let send_recv_times = 3;
+  let send_recv_times = 4;
 
   // an in and out server
   let server_handle = thread::Builder::new().name("test_tcp_client_stream_ipv4:server".to_string()).spawn(move || {
