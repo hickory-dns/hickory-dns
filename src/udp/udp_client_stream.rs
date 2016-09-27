@@ -11,6 +11,7 @@ use std::io;
 
 use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
+use futures::task::park;
 use rand::Rng;
 use rand;
 use tokio_core;
@@ -149,6 +150,7 @@ impl Future for NextRandomUdpSocket {
 
     warn!("could not get next random port, delaying");
 
+    park().unpark();
     // returning NotReady here, perhaps the next poll there will be some more socket available.
     Ok(Async::NotReady)
   }
