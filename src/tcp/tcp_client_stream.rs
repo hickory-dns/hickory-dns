@@ -9,7 +9,7 @@ use std;
 use std::mem;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::io;
-use std::io::Read;
+use std::io::{Read, Write};
 
 use futures::{AndThen, Async, BoxFuture, Flatten, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
@@ -24,7 +24,12 @@ use tokio_core::reactor::{Handle};
 
 pub type TcpClientStreamHandle = Sender<Vec<u8>>;
 
-enum TcpState {
+enum WriteTcpState {
+  LenBytes{ pos: usize, length: [u8; 2], bytes: Vec<u8> },
+  Bytes{ pos: usize, bytes: Vec<u8> },
+}
+
+enum ReadTcpState {
   LenBytes{ pos: usize, bytes: [u8; 2] },
   Bytes{ pos: usize, bytes: Vec<u8> },
 }
@@ -33,13 +38,8 @@ pub struct TcpClientStream {
   name_server: SocketAddr,
   socket: TokioTcpStream,
   outbound_messages: Peekable<Fuse<Receiver<Vec<u8>>>>,
-  // TODO: would be nice to not use box, this would be close to the field without that:
-  // sending: Option<AndThen<WriteAll<TokioTcpStream, [u8; 2]>,
-  //                         WriteAll<TokioTcpStream, Vec<u8>>,
-  //                         (Fn( (TokioTcpStream, Vec<u8>) ) -> WriteAll<TokioTcpStream, Vec<u8>> ) >>,
-  // sending: Option<BoxFuture<(TokioTcpStream, Vec<u8>), io::Error>>,
-  // receiving: Option<BoxFuture<, io::Error>>,
-  state: TcpState,
+  send_state: Option<WriteTcpState>,
+  read_state: ReadTcpState,
 }
 
 impl TcpClientStream {
@@ -58,9 +58,8 @@ impl TcpClientStream {
           name_server: name_server,
           socket: tcp_stream,
           outbound_messages: outbound_messages.fuse().peekable(),
-          // sending: None,
-          // receiving: None,
-          state: TcpState::LenBytes { pos: 0, bytes: [0u8; 2] },
+          send_state: None,
+          read_state: ReadTcpState::LenBytes { pos: 0, bytes: [0u8; 2] },
         }
       }));
 
@@ -79,40 +78,64 @@ impl Stream for TcpClientStream {
     //  makes this self throttling.
     // TODO: it might be interesting to try and split the sending and receiving futures.
     loop {
-      // then see if there is more to send
-      match try!(self.outbound_messages.poll()) {
-        // already handled above, here to make sure the poll() pops the next message
-        Async::Ready(Some(buffer)) => {
-          // will return if the socket will block
-          debug!("received buffer, sending");
+      // in the case we are sending, send it all?
+      if self.send_state.is_some() {
+        // sending...
+        match self.send_state {
+          Some(WriteTcpState::LenBytes{ ref mut pos, ref length, .. }) => {
+            let wrote = try_nb!(self.socket.write(&length[*pos..]));
+            *pos += wrote;
+          },
+          Some(WriteTcpState::Bytes{ ref mut pos, ref bytes }) => {
+            let wrote = try_nb!(self.socket.write(&bytes[*pos..]));
+            *pos += wrote;
+          },
+          _ => (),
+        }
 
-          // the length is 16 bits
-          let len: [u8; 2] = [(buffer.len() >> 8 & 0xFF) as u8,
-                              (buffer.len() & 0xFF) as u8];
+        // get current state
+        let current_state = mem::replace(&mut self.send_state, None);
 
-          let mut sending = write_all(&self.socket, len)
-                        .and_then(|(socket, _)| write_all(socket, buffer));
-
-          // loop through the sending of the message
-          // TODO: timeout here?
-          loop {
-            match sending.poll() {
-              // message was sent
-              Ok(Async::Ready((_, _))) => { debug!("sent"); break },
-              // return an error
-              Err(e) => return Err(e),
-              // yield and loop until everything sent (no other progress will be made)
-              Ok(Async::NotReady) => { debug!("not fully sent"); park().unpark() },
+        // switch states
+        match current_state {
+          Some(WriteTcpState::LenBytes{ pos, length, bytes }) => {
+            if pos < length.len() {
+              mem::replace(&mut self.send_state, Some(WriteTcpState::LenBytes{ pos: pos, length: length, bytes: bytes }));
+            } else{
+              mem::replace(&mut self.send_state, Some(WriteTcpState::Bytes{ pos: 0, bytes: bytes }));
             }
-          }
-        },
-        // now we get to drop through to the receives...
-        // TODO: should we also return None if there are no more messages to send?
-        Async::NotReady | Async::Ready(None) => { debug!("no messages to send"); break},
+          },
+          Some(WriteTcpState::Bytes{ pos, bytes }) => {
+            if pos < bytes.len() {
+              mem::replace(&mut self.send_state, Some(WriteTcpState::Bytes{ pos: pos, bytes: bytes }));
+            } else {
+              mem::replace(&mut self.send_state, None);
+            }
+          },
+          None => (),
+        };
+      } else {
+        // then see if there is more to send
+        match try!(self.outbound_messages.poll()) {
+          // already handled above, here to make sure the poll() pops the next message
+          Async::Ready(Some(buffer)) => {
+            // will return if the socket will block
+            debug!("received buffer, sending");
+
+            // the length is 16 bits
+            let len: [u8; 2] = [(buffer.len() >> 8 & 0xFF) as u8,
+                                (buffer.len() & 0xFF) as u8];
+
+            self.send_state = Some(WriteTcpState::LenBytes{ pos: 0, length: len, bytes: buffer });
+          },
+          // now we get to drop through to the receives...
+          // TODO: should we also return None if there are no more messages to send?
+          Async::NotReady | Async::Ready(None) => { debug!("no messages to send"); break },
+        }
       }
     }
 
-    debug!("continuing");
+    debug!("continuing to read");
     let mut ret_buf: Option<Vec<u8>> = None;
 
     // this will loop while there is data to read, or the data has been read, or an IO
@@ -120,16 +143,16 @@ impl Stream for TcpClientStream {
     while ret_buf.is_none() {
       // Evaluates the next state. If None is the result, then no state change occurs,
       //  if Some(_) is returned, then that will be used as the next state.
-      let new_state: Option<_> = match self.state {
-        TcpState::LenBytes { ref mut pos, ref mut bytes } => {
-          debug!("in TcpState::LenBytes: {}", pos);
+      let new_state: Option<ReadTcpState> = match self.read_state {
+        ReadTcpState::LenBytes { ref mut pos, ref mut bytes } => {
+          debug!("in ReadTcpState::LenBytes: {}", pos);
 
           // debug!("reading length {}", bytes.len());
           let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
           *pos += read;
 
           if *pos < bytes.len() {
-            debug!("remain TcpState::LenBytes: {}", pos);
+            debug!("remain ReadTcpState::LenBytes: {}", pos);
             None
           } else {
             let length = (bytes[0] as u16) << 8 & 0xFF00 | bytes[1] as u16 & 0x00FF;
@@ -137,21 +160,21 @@ impl Stream for TcpClientStream {
             let mut bytes = Vec::with_capacity(length as usize);
             bytes.resize(length as usize, 0);
 
-            debug!("move TcpState::Bytes: {}", bytes.len());
-            Some(TcpState::Bytes{ pos: 0, bytes: bytes })
+            debug!("move ReadTcpState::Bytes: {}", bytes.len());
+            Some(ReadTcpState::Bytes{ pos: 0, bytes: bytes })
           }
         },
-        TcpState::Bytes { ref mut pos, ref mut bytes } => {
-          debug!("in TcpState::Bytes: {}", bytes.len());
+        ReadTcpState::Bytes { ref mut pos, ref mut bytes } => {
+          debug!("in ReadTcpState::Bytes: {}", bytes.len());
           let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
           *pos += read;
 
           if *pos < bytes.len() {
-            debug!("remain TcpState::Bytes: {}", bytes.len());
+            debug!("remain ReadTcpState::Bytes: {}", bytes.len());
             None
           } else {
-            debug!("reset TcpState::LenBytes: {}", 0);
-            Some(TcpState::LenBytes{ pos: 0, bytes: [0u8; 2] })
+            debug!("reset ReadTcpState::LenBytes: {}", 0);
+            Some(ReadTcpState::LenBytes{ pos: 0, bytes: [0u8; 2] })
           }
         },
       };
@@ -159,8 +182,8 @@ impl Stream for TcpClientStream {
       // this will move to the next state,
       //  if it was a completed receipt of bytes, then it will move out the bytes
       if let Some(state) = new_state {
-        match mem::replace(&mut self.state, state) {
-          TcpState::Bytes{ pos, bytes } => {
+        match mem::replace(&mut self.read_state, state) {
+          ReadTcpState::Bytes{ pos, bytes } => {
             debug!("returning bytes");
             assert_eq!(pos, bytes.len());
             ret_buf = Some(bytes);
