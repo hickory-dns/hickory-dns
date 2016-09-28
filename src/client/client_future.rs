@@ -11,6 +11,7 @@ use std::io;
 use futures;
 use futures::{Async, Complete, Future, Oneshot, Poll, task};
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
+use futures::task::park;
 use rand::Rng;
 use rand;
 use tokio_core::reactor::Handle;
@@ -27,14 +28,14 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 
 type StreamHandle = Sender<Vec<u8>>;
 
-pub struct Client<S: Stream<Item=Vec<u8>, Error=io::Error>> {
+pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
   stream: S,
   streamHandle: StreamHandle,
   new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, Complete<ClientResult<Message>>>,
 }
 
-impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Client<S> {
+impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
   fn new(stream: Box<Future<Item=S, Error=io::Error>>,
          streamHandle: StreamHandle,
          loop_handle: Handle) -> ClientHandle {
@@ -42,7 +43,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Client<S> {
 
     loop_handle.spawn(
       stream.map(move |stream| {
-        Client{
+        ClientFuture{
           stream: stream,
           streamHandle: streamHandle,
           new_receiver: rx.fuse().peekable(),
@@ -87,11 +88,12 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Client<S> {
     }
 
     warn!("could not get next random query id, delaying");
+    park().unpark();
     Async::NotReady
   }
 }
 
-impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for Client<S> {
+impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture<S> {
   type Item = ();
   type Error = ClientError;
 
@@ -111,7 +113,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for Client<S> {
           // we have a new message to send
           match self.next_random_query_id() {
             Async::Ready(id) => Some(id),
-            Async::NotReady => return Ok(Async::NotReady),
+            Async::NotReady => break,
           }
         },
         _ => None,
@@ -264,7 +266,7 @@ fn test_query_udp_ipv4() {
   let mut io_loop = Core::new().unwrap();
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-  let client = Client::new(stream, sender, io_loop.handle());
+  let client = ClientFuture::new(stream, sender, io_loop.handle());
 
   // TODO: timeouts on these requests so that the test doesn't hang
   io_loop.run(test_query(&client)).unwrap();
@@ -280,7 +282,7 @@ fn test_query_udp_ipv6() {
   let mut io_loop = Core::new().unwrap();
   let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
   let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-  let client = Client::new(stream, sender, io_loop.handle());
+  let client = ClientFuture::new(stream, sender, io_loop.handle());
 
   // TODO: timeouts on these requests so that the test doesn't hang
   io_loop.run(test_query(&client)).unwrap();
@@ -296,7 +298,7 @@ fn test_query_tcp_ipv4() {
   let mut io_loop = Core::new().unwrap();
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-  let client = Client::new(stream, sender, io_loop.handle());
+  let client = ClientFuture::new(stream, sender, io_loop.handle());
 
   // TODO: timeouts on these requests so that the test doesn't hang
   io_loop.run(test_query(&client)).unwrap();
@@ -312,7 +314,7 @@ fn test_query_tcp_ipv6() {
   let mut io_loop = Core::new().unwrap();
   let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
   let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-  let client = Client::new(stream, sender, io_loop.handle());
+  let client = ClientFuture::new(stream, sender, io_loop.handle());
 
   // TODO: timeouts on these requests so that the test doesn't hang
   io_loop.run(test_query(&client)).unwrap();
