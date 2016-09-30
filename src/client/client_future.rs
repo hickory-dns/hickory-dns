@@ -8,6 +8,7 @@
 use std::collections::HashMap;
 use std::io;
 
+use chrono::UTC;
 use futures;
 use futures::{Async, Complete, Future, Oneshot, Poll, task};
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
@@ -18,9 +19,9 @@ use tokio_core::reactor::Handle;
 use tokio_core::channel::{channel, Sender, Receiver};
 
 use ::error::*;
-use ::rr::{DNSClass, RecordType};
-use ::rr::domain;
-use ::op::{Message, MessageType, OpCode, Query, Edns};
+use ::rr::{domain, DNSClass, Record, RecordType};
+use ::rr::dnssec::Signer;
+use ::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage};
 use ::udp::{UdpClientStream, UdpClientStreamHandle};
 use ::tcp::{TcpClientStream, TcpClientStreamHandle};
 
@@ -33,12 +34,15 @@ pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
   streamHandle: StreamHandle,
   new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, Complete<ClientResult<Message>>>,
+  // TODO: Maybe make a typed version of ClientFuture for Updates?
+  signer: Option<Signer>,
 }
 
 impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
   fn new(stream: Box<Future<Item=S, Error=io::Error>>,
          streamHandle: StreamHandle,
-         loop_handle: Handle) -> ClientHandle {
+         loop_handle: Handle,
+         signer: Option<Signer>) -> ClientHandle {
     let (sender, rx) = channel(&loop_handle).expect("could not get channel!");
 
     loop_handle.spawn(
@@ -47,7 +51,8 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
           stream: stream,
           streamHandle: streamHandle,
           new_receiver: rx.fuse().peekable(),
-          active_requests: HashMap::new()
+          active_requests: HashMap::new(),
+          signer: signer,
         }
       }).flatten()
       .map_err(|e| {
@@ -129,8 +134,15 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
           let query_id = query_id.expect("query_id should have been set above");
           message.id(query_id);
 
+          // update messages need to be signed.
+          if let OpCode::Update = message.get_op_code() {
+            if let Some(ref signer) = self.signer {
+              // TODO: it's too bad this happens here...
+              message.sign(signer, UTC::now().timestamp() as u32);
+            }
+          }
+
           // send the message
-          // FIXME: possible fix to id issue above, is to make sure signing happens here...
           match message.to_vec() {
             Ok(buffer) => {
               debug!("sending message id: {}", query_id);
@@ -219,12 +231,8 @@ impl ClientHandle {
   /// * `name` - the label to lookup
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type to lookup
-  pub fn query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType)
-    -> io::Result<Oneshot<ClientResult<Message>>> {
-    self.inner_query(name, query_class, query_type, false)
-  }
-
-  fn inner_query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType, secure: bool)
+  //  * `dnssec` - request RRSIG records to be returned in query response
+  pub fn query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType, dnssec: bool)
     -> io::Result<Oneshot<ClientResult<Message>>> {
     debug!("querying: {} {:?}", name, query_type);
 
@@ -237,7 +245,7 @@ impl ClientHandle {
     // Extended dns
     let mut edns: Edns = Edns::new();
 
-    if secure {
+    if dnssec {
       edns.set_dnssec_ok(true);
       message.authentic_data(true);
       message.checking_disabled(false);
@@ -255,107 +263,270 @@ impl ClientHandle {
 
     self.send(message)
   }
-}
 
-#[test]
-#[ignore]
-fn test_query_udp_ipv4() {
-  use std::net::{SocketAddr, ToSocketAddrs};
-  use tokio_core::reactor::Core;
+  /// Sends a record to create on the server, this will fail if the record exists (atomicity
+  ///  depends on the server)
+  ///
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
+  /// ```text
+  ///  2.4.3 - RRset Does Not Exist
+  ///
+  ///   No RRs with a specified NAME and TYPE (in the zone and class denoted
+  ///   by the Zone Section) can exist.
+  ///
+  ///   For this prerequisite, a requestor adds to the section a single RR
+  ///   whose NAME and TYPE are equal to that of the RRset whose nonexistence
+  ///   is required.  The RDLENGTH of this record is zero (0), and RDATA
+  ///   field is therefore empty.  CLASS must be specified as NONE in order
+  ///   to distinguish this condition from a valid RR whose RDLENGTH is
+  ///   naturally zero (0) (for example, the NULL RR).  TTL must be specified
+  ///   as zero (0).
+  ///
+  /// 2.5.1 - Add To An RRset
+  ///
+  ///    RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
+  ///    and RDATA are those being added, and CLASS is the same as the zone
+  ///    class.  Any duplicate RRs will be silently ignored by the primary
+  ///    master.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `record` - the name of the record to create
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `signer` - the signer, with private key, to use to sign the request
+  ///
+  /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
+  pub fn create(&self,
+                record: Record,
+                zone_origin: domain::Name)
+                -> io::Result<Oneshot<ClientResult<Message>>> {
+    assert!(zone_origin.zone_of(record.get_name()));
 
-  let mut io_loop = Core::new().unwrap();
-  let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
-  let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-  let client = ClientFuture::new(stream, sender, io_loop.handle());
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
 
-  // TODO: timeouts on these requests so that the test doesn't hang
-  io_loop.run(test_query(&client)).unwrap();
-  io_loop.run(test_query(&client)).unwrap();
-}
+    // build the message
+    let mut message: Message = Message::new();
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.add_zone(zone);
 
-#[test]
-#[ignore]
-fn test_query_udp_ipv6() {
-  use std::net::{SocketAddr, ToSocketAddrs};
-  use tokio_core::reactor::Core;
+    let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
+    prerequisite.dns_class(DNSClass::NONE);
+    message.add_pre_requisite(prerequisite);
+    message.add_update(record);
 
-  let mut io_loop = Core::new().unwrap();
-  let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
-  let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-  let client = ClientFuture::new(stream, sender, io_loop.handle());
+    // Extended dns
+    let mut edns: Edns = Edns::new();
 
-  // TODO: timeouts on these requests so that the test doesn't hang
-  io_loop.run(test_query(&client)).unwrap();
-  io_loop.run(test_query(&client)).unwrap();
-}
+    edns.set_max_payload(1500);
+    edns.set_version(0);
 
-#[test]
-#[ignore]
-fn test_query_tcp_ipv4() {
-  use std::net::{SocketAddr, ToSocketAddrs};
-  use tokio_core::reactor::Core;
+    message.set_edns(edns);
 
-  let mut io_loop = Core::new().unwrap();
-  let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
-  let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-  let client = ClientFuture::new(stream, sender, io_loop.handle());
+    // after all other updates to the message, sign it.
+    // signed in the to_vec()
+    //   message.sign(signer, UTC::now().timestamp() as u32);
 
-  // TODO: timeouts on these requests so that the test doesn't hang
-  io_loop.run(test_query(&client)).unwrap();
-  io_loop.run(test_query(&client)).unwrap();
-}
-
-#[test]
-#[ignore]
-fn test_query_tcp_ipv6() {
-  use std::net::{SocketAddr, ToSocketAddrs};
-  use tokio_core::reactor::Core;
-
-  let mut io_loop = Core::new().unwrap();
-  let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
-  let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-  let client = ClientFuture::new(stream, sender, io_loop.handle());
-
-  // TODO: timeouts on these requests so that the test doesn't hang
-  io_loop.run(test_query(&client)).unwrap();
-  io_loop.run(test_query(&client)).unwrap();
+    self.send(message)
+  }
 }
 
 #[cfg(test)]
-fn test_query(client: &ClientHandle) -> futures::BoxFuture<(), ()> {
-  use std::net::Ipv4Addr;
-  use std::cmp::Ordering;
-  use ::rr::RData;
+pub mod test {
+  use std::fmt;
+  use std::io;
 
-  use log::LogLevel;
-  use ::logger::TrustDnsLogger;
+  use futures;
+  use futures::{Async, Complete, Future, finished, Oneshot, Poll, task};
+  use futures::stream::{Fuse, Stream};
+  use futures::task::park;
+  use tokio_core::reactor::{Core, Handle};
+  use tokio_core::channel::{channel, Sender, Receiver};
 
-  TrustDnsLogger::enable_logging(LogLevel::Debug);
+  use super::{ClientFuture, ClientHandle, StreamHandle};
+  use ::op::Message;
+  use ::authority::Catalog;
+  use ::authority::authority_tests::{create_example, create_secure_example};
+  use ::rr::domain;
+  use ::rr::{DNSClass, RecordType};
+  use ::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
+  use ::error::*;
+  use ::udp::{UdpClientStream, UdpClientStreamHandle};
+  use ::tcp::{TcpClientStream, TcpClientStreamHandle};
 
-  let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
 
-  client.query(&name, DNSClass::IN, RecordType::A).expect("error with query")
-        .map(move |response| {
-          assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
-          let response = response.unwrap();
+  pub struct TestClientStream {
+    catalog: Catalog,
+    outbound_messages: Fuse<Receiver<Vec<u8>>>,
+  }
 
-          println!("response records: {:?}", response);
-          assert_eq!(response.get_queries().first().expect("expected query").get_name().cmp_with_case(&name, false), Ordering::Equal);
+  impl TestClientStream {
+    pub fn new(catalog: Catalog, loop_handle: Handle) -> (Box<Future<Item=Self, Error=io::Error>>, StreamHandle) {
+      let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
 
-          let record = &response.get_answers()[0];
-          assert_eq!(record.get_name(), &name);
-          assert_eq!(record.get_rr_type(), RecordType::A);
-          assert_eq!(record.get_dns_class(), DNSClass::IN);
+      let stream: Box<Future<Item=TestClientStream, Error=io::Error>> = Box::new(finished(
+        TestClientStream { catalog: catalog, outbound_messages: outbound_messages.fuse() }
+      ));
 
-          if let &RData::A(ref address) = record.get_rdata() {
-            assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-          } else {
-            assert!(false);
+      (stream, message_sender)
+    }
+  }
+
+  impl Stream for TestClientStream {
+    type Item = Vec<u8>;
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+      match try!(self.outbound_messages.poll()) {
+        // already handled above, here to make sure the poll() pops the next message
+        Async::Ready(Some(bytes)) => {
+          let mut decoder = BinDecoder::new(&bytes);
+
+          let message = Message::read(&mut decoder).expect("could not decode message");
+          let response = self.catalog.handle_request(&message);
+
+          let mut buf = Vec::with_capacity(512);
+          {
+            let mut encoder = BinEncoder::new(&mut buf);
+            response.emit(&mut encoder).expect("could not encode");
           }
-        })
-        .map_err(|_| {
-          assert!(false);
-        })
-        .boxed()
+
+          Ok(Async::Ready(Some(buf)))
+        },
+        // now we get to drop through to the receives...
+        // TODO: should we also return None if there are no more messages to send?
+        _ => {
+          park().unpark();
+          Ok(Async::NotReady)
+        },
+      }
+    }
+  }
+
+  impl fmt::Debug for TestClientStream {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+      write!(f, "TestClientStream catalog")
+    }
+  }
+
+  #[test]
+  fn test_query_nonet() {
+    let authority = create_example();
+    let mut catalog = Catalog::new();
+    catalog.upsert(authority.get_origin().clone(), authority);
+
+    let mut io_loop = Core::new().unwrap();
+    let (stream, sender) = TestClientStream::new(catalog, io_loop.handle());
+    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+
+    io_loop.run(test_query(&client)).unwrap();
+    io_loop.run(test_query(&client)).unwrap();
+  }
+
+  #[test]
+  #[ignore]
+  fn test_query_udp_ipv4() {
+    use std::net::{SocketAddr, ToSocketAddrs};
+    use tokio_core::reactor::Core;
+
+    let mut io_loop = Core::new().unwrap();
+    let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+    let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
+    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+
+    // TODO: timeouts on these requests so that the test doesn't hang
+    io_loop.run(test_query(&client)).unwrap();
+    io_loop.run(test_query(&client)).unwrap();
+  }
+
+  #[test]
+  #[ignore]
+  fn test_query_udp_ipv6() {
+    use std::net::{SocketAddr, ToSocketAddrs};
+    use tokio_core::reactor::Core;
+
+    let mut io_loop = Core::new().unwrap();
+    let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
+    let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
+    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+
+    // TODO: timeouts on these requests so that the test doesn't hang
+    io_loop.run(test_query(&client)).unwrap();
+    io_loop.run(test_query(&client)).unwrap();
+  }
+
+  #[test]
+  #[ignore]
+  fn test_query_tcp_ipv4() {
+    use std::net::{SocketAddr, ToSocketAddrs};
+    use tokio_core::reactor::Core;
+
+    let mut io_loop = Core::new().unwrap();
+    let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
+    let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
+    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+
+    // TODO: timeouts on these requests so that the test doesn't hang
+    io_loop.run(test_query(&client)).unwrap();
+    io_loop.run(test_query(&client)).unwrap();
+  }
+
+  #[test]
+  #[ignore]
+  fn test_query_tcp_ipv6() {
+    use std::net::{SocketAddr, ToSocketAddrs};
+    use tokio_core::reactor::Core;
+
+    let mut io_loop = Core::new().unwrap();
+    let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
+    let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
+    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+
+    // TODO: timeouts on these requests so that the test doesn't hang
+    io_loop.run(test_query(&client)).unwrap();
+    io_loop.run(test_query(&client)).unwrap();
+  }
+
+  #[cfg(test)]
+  fn test_query(client: &ClientHandle) -> futures::BoxFuture<(), ()> {
+    use std::net::Ipv4Addr;
+    use std::cmp::Ordering;
+    use ::rr::RData;
+
+    use log::LogLevel;
+    use ::logger::TrustDnsLogger;
+
+    TrustDnsLogger::enable_logging(LogLevel::Debug);
+
+    let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
+
+    client.query(&name, DNSClass::IN, RecordType::A, false).expect("error with query")
+          .map(move |response| {
+            assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
+
+            let response = response.unwrap();
+
+            println!("response records: {:?}", response);
+            assert_eq!(response.get_queries().first().expect("expected query").get_name().cmp_with_case(&name, false), Ordering::Equal);
+
+            let record = &response.get_answers()[0];
+            assert_eq!(record.get_name(), &name);
+            assert_eq!(record.get_rr_type(), RecordType::A);
+            assert_eq!(record.get_dns_class(), DNSClass::IN);
+
+            if let &RData::A(ref address) = record.get_rdata() {
+              assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+            } else {
+              assert!(false);
+            }
+          })
+          .map_err(|_| {
+            assert!(false);
+          })
+          .boxed()
+  }
 }
