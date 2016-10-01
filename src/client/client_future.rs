@@ -305,7 +305,6 @@ impl ClientHandle {
   ///
   /// * `record` - the name of the record to create
   /// * `zone_origin` - the zone name to update, i.e. SOA name
-  /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
   pub fn create(&self,
@@ -335,11 +334,74 @@ impl ClientHandle {
     edns.set_version(0);
 
     message.set_edns(edns);
+    self.send(message)
+  }
 
-    // after all other updates to the message, sign it.
-    // signed in the to_vec()
-    //   message.sign(signer, UTC::now().timestamp() as u32);
+  /// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
+  ///  depends on the server)
+  ///
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
+  /// ```text
+  /// 2.4.1 - RRset Exists (Value Independent)
+  ///
+  ///   At least one RR with a specified NAME and TYPE (in the zone and class
+  ///   specified in the Zone Section) must exist.
+  ///
+  ///   For this prerequisite, a requestor adds to the section a single RR
+  ///   whose NAME and TYPE are equal to that of the zone RRset whose
+  ///   existence is required.  RDLENGTH is zero and RDATA is therefore
+  ///   empty.  CLASS must be specified as ANY to differentiate this
+  ///   condition from that of an actual RR whose RDLENGTH is naturally zero
+  ///   (0) (e.g., NULL).  TTL is specified as zero (0).
+  ///
+  /// 2.5.1 - Add To An RRset
+  ///
+  ///    RRs are added to the Update Section whose NAME, TYPE, TTL, RDLENGTH
+  ///    and RDATA are those being added, and CLASS is the same as the zone
+  ///    class.  Any duplicate RRs will be silently ignored by the primary
+  ///    master.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `record` - the record to append to an RRSet
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `must_exist` - if true, the request will fail if the record does not exist
+  ///
+  /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
+  /// the rrset does not exist and must_exist is false, then the RRSet will be created.
+  pub fn append(&self,
+                record: Record,
+                zone_origin: domain::Name,
+                must_exist: bool)
+                -> Oneshot<ClientResult<Message>> {
+    assert!(zone_origin.zone_of(record.get_name()));
 
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.add_zone(zone);
+
+    if must_exist {
+      let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
+      prerequisite.dns_class(DNSClass::ANY);
+      message.add_pre_requisite(prerequisite);
+    }
+
+    message.add_update(record);
+
+    // Extended dns
+    let mut edns: Edns = Edns::new();
+
+    edns.set_max_payload(1500);
+    edns.set_version(0);
+
+    message.set_edns(edns);
     self.send(message)
   }
 }
@@ -609,6 +671,53 @@ pub mod test {
 
     let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::YXRRSet);
+  }
 
+  #[test]
+  fn test_append() {
+    let mut io_loop = Core::new().unwrap();
+    let (client, origin) = create_sig0_ready_client(&io_loop);
+
+    // append a record
+    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::A,
+                                  Duration::minutes(5).num_seconds() as u32);
+    record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+
+    // first check the must_exist option
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("append failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
+
+    // next append to a non-existent RRset
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), false)).expect("oneshot canceled").expect("append failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    // verify record contents
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    assert_eq!(result.get_answers().len(), 1);
+    assert_eq!(result.get_answers()[0], record);
+
+    // will fail if already set and not the same value.
+    let mut record = record.clone();
+    record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    assert_eq!(result.get_answers().len(), 2);
+
+    assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(100,10,100,10) } else { false }));
+    assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
+
+    // show that appending the same thing again is ok, but doesn't add any records
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    assert_eq!(result.get_answers().len(), 2);
   }
 }
