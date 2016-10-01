@@ -214,11 +214,21 @@ struct ClientHandle {
 }
 
 impl ClientHandle {
-  fn send(&self, message: Message) -> io::Result<Oneshot<ClientResult<Message>>> {
+  fn send(&self, message: Message) -> Oneshot<ClientResult<Message>> {
     debug!("sending message");
+    let complete: Complete<ClientResult<Message>>;
+    let oneshot: Oneshot<ClientResult<Message>>;
+
     let (complete, oneshot) = futures::oneshot();
-    try!(self.message_sender.send((message, complete)));
-    Ok(oneshot)
+
+    match self.message_sender.send((message, complete)) {
+      Ok(()) => oneshot,
+      Err(e) => {
+        let (complete, oneshot) = futures::oneshot();
+        complete.complete(Err(e.into()));
+        oneshot
+      }
+    }
   }
 
   /// A *classic* DNS query, i.e. does not perform and DNSSec operations
@@ -233,7 +243,7 @@ impl ClientHandle {
   /// * `query_type` - record type to lookup
   //  * `dnssec` - request RRSIG records to be returned in query response
   pub fn query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType, dnssec: bool)
-    -> io::Result<Oneshot<ClientResult<Message>>> {
+    -> Oneshot<ClientResult<Message>> {
     debug!("querying: {} {:?}", name, query_type);
 
     // build the message
@@ -301,7 +311,7 @@ impl ClientHandle {
   pub fn create(&self,
                 record: Record,
                 zone_origin: domain::Name)
-                -> io::Result<Oneshot<ClientResult<Message>>> {
+                -> Oneshot<ClientResult<Message>> {
     assert!(zone_origin.zone_of(record.get_name()));
 
     // for updates, the query section is used for the zone
@@ -338,26 +348,28 @@ impl ClientHandle {
 pub mod test {
   use std::fmt;
   use std::io;
+  use std::net::*;
 
+  use chrono::Duration;
   use futures;
   use futures::{Async, Complete, Future, finished, Oneshot, Poll, task};
   use futures::stream::{Fuse, Stream};
   use futures::task::park;
+  use openssl::crypto::pkey::{PKey, Role};
   use tokio_core::reactor::{Core, Handle};
   use tokio_core::channel::{channel, Sender, Receiver};
 
   use super::{ClientFuture, ClientHandle, StreamHandle};
-  use ::op::Message;
+  use ::op::{Message, ResponseCode};
   use ::authority::Catalog;
   use ::authority::authority_tests::{create_example, create_secure_example};
   use ::rr::domain;
-  use ::rr::{DNSClass, RecordType};
+  use ::rr::{DNSClass, RData, Record, RecordType};
+  use ::rr::dnssec::{Algorithm, Signer};
   use ::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
   use ::error::*;
   use ::udp::{UdpClientStream, UdpClientStreamHandle};
   use ::tcp::{TcpClientStream, TcpClientStreamHandle};
-
-
 
   pub struct TestClientStream {
     catalog: Catalog,
@@ -504,7 +516,7 @@ pub mod test {
 
     let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
 
-    client.query(&name, DNSClass::IN, RecordType::A, false).expect("error with query")
+    client.query(&name, DNSClass::IN, RecordType::A, false)
           .map(move |response| {
             assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
 
@@ -528,5 +540,75 @@ pub mod test {
             assert!(false);
           })
           .boxed()
+  }
+
+  // update tests
+  //
+
+  /// create a client with a sig0 section
+  fn create_sig0_ready_client(io_loop: &Core) -> (ClientHandle, domain::Name) {
+    use chrono::Duration;
+    use ::rr::rdata::DNSKEY;
+
+    let mut authority = create_example();
+    authority.set_allow_update(true);
+    let origin = authority.get_origin().clone();
+
+    let mut pkey = PKey::new();
+    pkey.gen(512);
+
+    let signer = Signer::new(Algorithm::RSASHA256,
+                             pkey,
+                             domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
+                             Duration::max_value());
+
+    // insert the KEY for the trusted.example.com
+    let mut auth_key = Record::with(domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::KEY,
+                                  Duration::minutes(5).num_seconds() as u32);
+    auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_public_key())));
+    authority.upsert(auth_key, 0);
+
+    // setup the catalog
+    let mut catalog = Catalog::new();
+    catalog.upsert(authority.get_origin().clone(), authority);
+
+    let (stream, sender) = TestClientStream::new(catalog, io_loop.handle());
+    let client = ClientFuture::new(stream, sender, io_loop.handle(), Some(signer));
+
+    (client, origin)
+  }
+
+  #[test]
+  fn test_create() {
+    let mut io_loop = Core::new().unwrap();
+    let (client, origin) = create_sig0_ready_client(&io_loop);
+
+    // create a record
+    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::A,
+                                  Duration::minutes(5).num_seconds() as u32);
+    record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+
+
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    assert_eq!(result.get_answers().len(), 1);
+    assert_eq!(result.get_answers()[0], record);
+
+    // trying to create again should error
+    // TODO: it would be cool to make this
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::YXRRSet);
+
+    // will fail if already set and not the same value.
+    let mut record = record.clone();
+    record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::YXRRSet);
+
   }
 }
