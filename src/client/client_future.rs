@@ -19,8 +19,9 @@ use tokio_core::reactor::Handle;
 use tokio_core::channel::{channel, Sender, Receiver};
 
 use ::error::*;
-use ::rr::{domain, DNSClass, Record, RecordType};
+use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::Signer;
+use ::rr::rdata::NULL;
 use ::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage};
 use ::udp::{UdpClientStream, UdpClientStreamHandle};
 use ::tcp::{TcpClientStream, TcpClientStreamHandle};
@@ -488,6 +489,203 @@ impl ClientHandle {
     message.set_edns(edns);
     self.send(message)
   }
+
+  /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
+  ///
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
+  /// ```text
+  /// 2.4.1 - RRset Exists (Value Independent)
+  ///
+  ///   At least one RR with a specified NAME and TYPE (in the zone and class
+  ///   specified in the Zone Section) must exist.
+  ///
+  ///   For this prerequisite, a requestor adds to the section a single RR
+  ///   whose NAME and TYPE are equal to that of the zone RRset whose
+  ///   existence is required.  RDLENGTH is zero and RDATA is therefore
+  ///   empty.  CLASS must be specified as ANY to differentiate this
+  ///   condition from that of an actual RR whose RDLENGTH is naturally zero
+  ///   (0) (e.g., NULL).  TTL is specified as zero (0).
+  ///
+  /// 2.5.4 - Delete An RR From An RRset
+  ///
+  ///   RRs to be deleted are added to the Update Section.  The NAME, TYPE,
+  ///   RDLENGTH and RDATA must match the RR being deleted.  TTL must be
+  ///   specified as zero (0) and will otherwise be ignored by the primary
+  ///   master.  CLASS must be specified as NONE to distinguish this from an
+  ///   RR addition.  If no such RRs exist, then this Update RR will be
+  ///   silently ignored by the primary master.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `record` - the record to delete from a RRSet, the name, type and rdata must match the
+  ///              record to delete
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `signer` - the signer, with private key, to use to sign the request
+  ///
+  /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
+  /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+  pub fn delete_by_rdata(&self,
+                         mut record: Record,
+                         zone_origin: domain::Name)
+                         -> Oneshot<ClientResult<Message>> {
+    assert!(zone_origin.zone_of(record.get_name()));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.add_zone(zone);
+
+    // the class must be none for delete
+    record.dns_class(DNSClass::NONE);
+    // the TTL shoudl be 0
+    record.ttl(0);
+    message.add_update(record);
+
+    // Extended dns
+    let mut edns: Edns = Edns::new();
+
+    edns.set_max_payload(1500);
+    edns.set_version(0);
+
+    message.set_edns(edns);
+    self.send(message)
+  }
+
+  /// Deletes an entire rrset, optionally require the rrset to exist.
+  ///
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
+  /// ```text
+  /// 2.4.1 - RRset Exists (Value Independent)
+  ///
+  ///   At least one RR with a specified NAME and TYPE (in the zone and class
+  ///   specified in the Zone Section) must exist.
+  ///
+  ///   For this prerequisite, a requestor adds to the section a single RR
+  ///   whose NAME and TYPE are equal to that of the zone RRset whose
+  ///   existence is required.  RDLENGTH is zero and RDATA is therefore
+  ///   empty.  CLASS must be specified as ANY to differentiate this
+  ///   condition from that of an actual RR whose RDLENGTH is naturally zero
+  ///   (0) (e.g., NULL).  TTL is specified as zero (0).
+  ///
+  /// 2.5.2 - Delete An RRset
+  ///
+  ///   One RR is added to the Update Section whose NAME and TYPE are those
+  ///   of the RRset to be deleted.  TTL must be specified as zero (0) and is
+  ///   otherwise not used by the primary master.  CLASS must be specified as
+  ///   ANY.  RDLENGTH must be zero (0) and RDATA must therefore be empty.
+  ///   If no such RRset exists, then this Update RR will be silently ignored
+  ///   by the primary master.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `record` - the record to delete from a RRSet, the name, and type must match the
+  ///              record set to delete
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `signer` - the signer, with private key, to use to sign the request
+  ///
+  /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
+  /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+  pub fn delete_rrset(&self,
+                      mut record: Record,
+                      zone_origin: domain::Name)
+                      -> Oneshot<ClientResult<Message>> {
+    assert!(zone_origin.zone_of(record.get_name()));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.add_zone(zone);
+
+    // the class must be none for an rrset delete
+    record.dns_class(DNSClass::ANY);
+    // the TTL shoudl be 0
+    record.ttl(0);
+    // the rdata must be null to delete all rrsets
+    record.rdata(RData::NULL(NULL::new()));
+    message.add_update(record);
+
+    // Extended dns
+    let mut edns: Edns = Edns::new();
+
+    edns.set_max_payload(1500);
+    edns.set_version(0);
+
+    message.set_edns(edns);
+    self.send(message)
+  }
+
+  /// Deletes all records at the specified name
+  ///
+  /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
+  ///
+  /// ```text
+  /// 2.5.3 - Delete All RRsets From A Name
+  ///
+  ///   One RR is added to the Update Section whose NAME is that of the name
+  ///   to be cleansed of RRsets.  TYPE must be specified as ANY.  TTL must
+  ///   be specified as zero (0) and is otherwise not used by the primary
+  ///   master.  CLASS must be specified as ANY.  RDLENGTH must be zero (0)
+  ///   and RDATA must therefore be empty.  If no such RRsets exist, then
+  ///   this Update RR will be silently ignored by the primary master.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `name_of_records` - the name of all the record sets to delete
+  /// * `zone_origin` - the zone name to update, i.e. SOA name
+  /// * `dns_class` - the class of the SOA
+  /// * `signer` - the signer, with private key, to use to sign the request
+  ///
+  /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
+  /// operation attempts to delete all resource record sets the the specified name reguardless of
+  /// the record type.
+  pub fn delete_all(&self,
+                    name_of_records: domain::Name,
+                    zone_origin: domain::Name,
+                    dns_class: DNSClass)
+                    -> Oneshot<ClientResult<Message>> {
+    assert!(zone_origin.zone_of(&name_of_records));
+
+    // for updates, the query section is used for the zone
+    let mut zone: Query = Query::new();
+    zone.name(zone_origin).query_class(dns_class).query_type(RecordType::SOA);
+
+    // build the message
+    let mut message: Message = Message::new();
+    message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
+    message.add_zone(zone);
+
+    // the TTL shoudl be 0
+    // the rdata must be null to delete all rrsets
+    // the record type must be any
+    let mut record = Record::with(name_of_records, RecordType::ANY, 0);
+
+    // the class must be none for an rrset delete
+    record.dns_class(DNSClass::ANY);
+
+    message.add_update(record);
+
+    // Extended dns
+    let mut edns: Edns = Edns::new();
+
+    edns.set_max_payload(1500);
+    edns.set_version(0);
+
+    message.set_edns(edns);
+    self.send(message)
+  }
 }
 
 #[cfg(test)]
@@ -842,5 +1040,110 @@ pub mod test {
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
+  }
+
+  #[test]
+  fn test_delete_by_rdata() {
+    let mut io_loop = Core::new().unwrap();
+    let (client, origin) = create_sig0_ready_client(&io_loop);
+
+    // append a record
+    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::A,
+                                  Duration::minutes(5).num_seconds() as u32);
+    record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+
+    // first check the must_exist option
+    let result = io_loop.run(client.delete_by_rdata(record.clone(), origin.clone())).expect("oneshot canceled").expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    // next create to a non-existent RRset
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let mut record = record.clone();
+    record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    // verify record contents
+    let result = io_loop.run(client.delete_by_rdata(record.clone(), origin.clone())).expect("oneshot canceled").expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+    assert_eq!(result.get_answers().len(), 1);
+    assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(100,10,100,10) } else { false }));
+  }
+
+  #[test]
+  fn test_delete_rrset() {
+    let mut io_loop = Core::new().unwrap();
+    let (client, origin) = create_sig0_ready_client(&io_loop);
+
+    // append a record
+    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::A,
+                                  Duration::minutes(5).num_seconds() as u32);
+    record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+
+    // first check the must_exist option
+    let result = io_loop.run(client.delete_rrset(record.clone(), origin.clone())).expect("oneshot canceled").expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    // next create to a non-existent RRset
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let mut record = record.clone();
+    record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    // verify record contents
+    let result = io_loop.run(client.delete_rrset(record.clone(), origin.clone())).expect("oneshot canceled").expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
+    assert_eq!(result.get_answers().len(), 0);
+  }
+
+  #[test]
+  fn test_delete_all() {
+    let mut io_loop = Core::new().unwrap();
+    let (client, origin) = create_sig0_ready_client(&io_loop);
+
+    // append a record
+    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                  RecordType::A,
+                                  Duration::minutes(5).num_seconds() as u32);
+    record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+
+    // first check the must_exist option
+    let result = io_loop.run(client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN)).expect("oneshot canceled").expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    // next create to a non-existent RRset
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let mut record = record.clone();
+    record.rr_type(RecordType::AAAA);
+    record.rdata(RData::AAAA(Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8)));
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    // verify record contents
+    let result = io_loop.run(client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN)).expect("oneshot canceled").expect("delete failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), RecordType::A, false)).expect("oneshot canceled").expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
+    assert_eq!(result.get_answers().len(), 0);
+
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), RecordType::AAAA, false)).expect("oneshot canceled").expect("query failed");
+    assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
+    assert_eq!(result.get_answers().len(), 0);
   }
 }
