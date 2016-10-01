@@ -328,52 +328,24 @@ impl Message {
     }
     Ok(())
   }
-}
 
-/// to reduce errors in using the Message struct as an Update, this will do the call throughs
-///   to properly do that.
-pub trait UpdateMessage: Debug {
-  fn get_id(&self) -> u16;
-  fn add_zone(&mut self, query: Query);
-  fn add_pre_requisite(&mut self, record: Record);
-  fn add_all_pre_requisites(&mut self, vector: &[&Record]);
-  fn add_update(&mut self, record: Record);
-  fn add_all_updates(&mut self, vector: &[&Record]);
-  fn add_additional(&mut self, record: Record);
+  pub fn from_vec(buffer: &[u8]) -> DecodeResult<Message> {
+    let mut decoder = BinDecoder::new(buffer);
+    Message::read(&mut decoder)
+  }
 
-  fn get_zones(&self) -> &[Query];
-  fn get_pre_requisites(&self) -> &[Record];
-  fn get_updates(&self) -> &[Record];
-  fn get_additional(&self) -> &[Record];
+  pub fn to_vec(&self) -> Result<Vec<u8>, EncodeError> {
+    let mut buffer = Vec::with_capacity(512);
+    {
+      let mut encoder = BinEncoder::new(&mut buffer);
+      try!(self.emit(&mut encoder));
+    }
 
-  /// This is used to authenticate update messages.
-  ///
-  /// see `Message::get_sig0()` for more information.
-  fn get_sig0(&self) -> &[Record];
-
-  fn sign(&mut self, signer: &Signer, inception_time: u32);
-}
-
-/// to reduce errors in using the Message struct as an Update, this will do the call throughs
-///   to properly do that.
-impl UpdateMessage for Message {
-  fn get_id(&self) -> u16 { self.get_id() }
-  fn add_zone(&mut self, query: Query) { self.add_query(query); }
-  fn add_pre_requisite(&mut self, record: Record) { self.add_answer(record); }
-  fn add_all_pre_requisites(&mut self, vector: &[&Record]) { self.add_all_answers(vector); }
-  fn add_update(&mut self, record: Record) { self.add_name_server(record); }
-  fn add_all_updates(&mut self, vector: &[&Record]) { self.add_all_name_servers(vector); }
-  fn add_additional(&mut self, record: Record) { self.add_additional(record); }
-
-  fn get_zones(&self) -> &[Query] { self.get_queries() }
-  fn get_pre_requisites(&self) -> &[Record] { self.get_answers() }
-  fn get_updates(&self) -> &[Record] { self.get_name_servers() }
-  fn get_additional(&self) -> &[Record] { self.get_additional() }
-
-  fn get_sig0(&self) -> &[Record] { self.get_sig0() }
+    Ok(buffer)
+  }
 
   // TODO: where's the 'right' spot for this function
-  fn sign(&mut self, signer: &Signer, inception_time: u32) {
+  pub fn sign(&mut self, signer: &Signer, inception_time: u32) {
     debug!("signing message: {:?}", self);
     let signature: Vec<u8> = signer.sign_message(self);
     let key_tag: u16 = signer.calculate_key_tag();
@@ -423,9 +395,58 @@ impl UpdateMessage for Message {
   }
 }
 
+/// to reduce errors in using the Message struct as an Update, this will do the call throughs
+///   to properly do that.
+pub trait UpdateMessage: Debug {
+  fn get_id(&self) -> u16;
+  fn add_zone(&mut self, query: Query);
+  fn add_pre_requisite(&mut self, record: Record);
+  fn add_all_pre_requisites(&mut self, vector: &[&Record]);
+  fn add_update(&mut self, record: Record);
+  fn add_all_updates(&mut self, vector: &[&Record]);
+  fn add_additional(&mut self, record: Record);
+
+  fn get_zones(&self) -> &[Query];
+  fn get_pre_requisites(&self) -> &[Record];
+  fn get_updates(&self) -> &[Record];
+  fn get_additional(&self) -> &[Record];
+
+  /// This is used to authenticate update messages.
+  ///
+  /// see `Message::get_sig0()` for more information.
+  fn get_sig0(&self) -> &[Record];
+
+  fn sign(&mut self, signer: &Signer, inception_time: u32);
+}
+
+/// to reduce errors in using the Message struct as an Update, this will do the call throughs
+///   to properly do that.
+impl UpdateMessage for Message {
+  fn get_id(&self) -> u16 { self.get_id() }
+  fn add_zone(&mut self, query: Query) { self.add_query(query); }
+  fn add_pre_requisite(&mut self, record: Record) { self.add_answer(record); }
+  fn add_all_pre_requisites(&mut self, vector: &[&Record]) { self.add_all_answers(vector); }
+  fn add_update(&mut self, record: Record) { self.add_name_server(record); }
+  fn add_all_updates(&mut self, vector: &[&Record]) { self.add_all_name_servers(vector); }
+  fn add_additional(&mut self, record: Record) { self.add_additional(record); }
+
+  fn get_zones(&self) -> &[Query] { self.get_queries() }
+  fn get_pre_requisites(&self) -> &[Record] { self.get_answers() }
+  fn get_updates(&self) -> &[Record] { self.get_name_servers() }
+  fn get_additional(&self) -> &[Record] { self.get_additional() }
+
+  fn get_sig0(&self) -> &[Record] { self.get_sig0() }
+
+  // TODO: where's the 'right' spot for this function
+  fn sign(&mut self, signer: &Signer, inception_time: u32) { self.sign(signer, inception_time) }
+}
+
 impl BinSerializable<Message> for Message {
   fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
     let header = try!(Header::read(decoder));
+
+    // TODO/FIXME: return just header, and in the case of the rest of message getting an error.
+    //  this could improve error detection while decoding.
 
     // get the questions
     let count = header.get_query_count() as usize;

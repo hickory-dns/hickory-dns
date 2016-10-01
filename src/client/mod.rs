@@ -19,8 +19,10 @@
 
 mod client;
 mod client_connection;
+mod client_future;
 
 pub use self::client::Client;
 pub use self::client_connection::ClientConnection;
+pub use self::client_future::ClientFuture;
 #[cfg(test)]
 pub use self::client_connection::test::TestClientConnection;
