@@ -3,12 +3,16 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## unreleased
+### Added
+- ClientFuture, futures based client implementation, #32
+
 ### Fixed
 - Randomized ports for client connections and message ids, #23
 - OpCode::From for u8 removed, added OpCode::from_u8(), #36 
 
 ### Changed
 - Cleaned up the Server implementation to isolate connection handlers
+
 
 ## 0.7.3 2016-08-12
 ### Fixed
