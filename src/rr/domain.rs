@@ -185,6 +185,17 @@ impl Name {
     self.labels.iter().fold(dots, |acc, item| acc + item.len())
   }
 
+  /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
+  ///
+  /// # Examples
+  ///
+  /// ```rust
+  /// use trust_dns::rr::domain::Name;
+  ///
+  /// let name = Name::parse("example.com.", None).unwrap();
+  /// assert_eq!(name.base_name(), Name::new().label("com"));
+  /// assert_eq!(*name[0], String::from("example"));
+  /// ```
   pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {
     let mut name = Name::new();
     let mut label = String::new();
