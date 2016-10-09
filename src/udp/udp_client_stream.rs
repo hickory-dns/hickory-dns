@@ -168,6 +168,7 @@ fn test_udp_client_stream_ipv6() {
 }
 
 #[cfg(test)]
+#[allow(unused_variables)]
 fn udp_client_stream_test(server_addr: IpAddr) {
   use std::time::Duration;
   use std::thread;
@@ -181,7 +182,7 @@ fn udp_client_stream_test(server_addr: IpAddr) {
 
   TrustDnsLogger::enable_logging(LogLevel::Debug);
 
-  let mut succeeded = Arc::new(AtomicBool::new(false));
+  let succeeded = Arc::new(AtomicBool::new(false));
   let succeeded_clone = succeeded.clone();
   let test_killer = thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
     let succeeded = succeeded_clone.clone();
