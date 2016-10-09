@@ -134,9 +134,7 @@ impl Message {
     self
   }
   pub fn add_additional(&mut self, record: Record) -> &mut Self { self.additionals.push(record); self }
-  pub fn set_edns(&mut self, edns: Edns) {
-    self.edns = Some(edns);
-  }
+  pub fn set_edns(&mut self, edns: Edns) -> &mut Self { self.edns = Some(edns); self }
 
   pub fn add_sig0(&mut self, record: Record) -> &mut Self {
     assert_eq!(RecordType::SIG, record.get_rr_type());
@@ -230,6 +228,15 @@ impl Message {
   ///
   /// Returns the EDNS record if it was found in the additional section.
   pub fn get_edns(&self) -> Option<&Edns> { self.edns.as_ref() }
+
+  /// If edns is_none, this will create a new default Edns.
+  pub fn get_edns_mut(&mut self) -> &mut Edns {
+    if self.edns.is_none() {
+      self.edns = Some(Edns::new());
+    }
+
+    self.edns.as_mut().unwrap()
+  }
 
   /// # Return value
   ///

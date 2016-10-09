@@ -53,27 +53,36 @@ impl SecureClientHandle {
 // let ds_rrsigs: Vec<&Record> = ds_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
 impl ClientHandle for SecureClientHandle {
-  fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
-    self.client.send(message)
-  }
+  fn send(&self, mut message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
+    // dnssec only matters on queries.
+    if let OpCode::Query = message.get_op_code() {
+      let client = self.client.clone();
+      let trust_anchor = self.trust_anchor.clone();
 
-  fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType, dnssec: bool)
-    -> Box<Future<Item=Message, Error=ClientError>> {
-    let client = self.client.clone();
-    let trust_anchor = self.trust_anchor.clone();
+      {
+        let edns = message.get_edns_mut();
+        edns.set_dnssec_ok(true);
+      }
 
-    Box::new(self.client.query(name, query_class, query_type, true)
-               .and_then(move |message_response|{
-                 // group the record sets by name and type
-                 //  each rrset type needs to validated independently
+      message.authentic_data(true);
+      message.checking_disabled(false);
 
-                 VerifyRrsetsFuture::new(
-                   client,
-                   trust_anchor,
-                   message_response
+      return Box::new(
+        self.client.send(message)
+                   .and_then(move |message_response|{
+                     // group the record sets by name and type
+                     //  each rrset type needs to validated independently
+
+                     VerifyRrsetsFuture::new(
+                       client,
+                       trust_anchor,
+                       message_response
+                     )
+                   })
                  )
-               })
-             )
+    }
+
+    self.client.send(message)
   }
 }
 
@@ -116,6 +125,7 @@ impl Future for VerifyRrsetsFuture {
 
   fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
     // TODO: Can we do this in parallel?
+    // HINT: use select_all
     while let Some((name, record_type)) = self.rrset_types.pop() {
       let rrset: Vec<Record> = self.message_result.get_answers()
                                               .iter()

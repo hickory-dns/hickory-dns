@@ -269,18 +269,11 @@ pub trait ClientHandle {
     message.id(id).message_type(MessageType::Query).op_code(OpCode::Query).recursion_desired(true);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
-
-    if dnssec {
-      edns.set_dnssec_ok(true);
-      message.authentic_data(true);
-      message.checking_disabled(false);
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
     }
-
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
 
     // add the query
     let mut query: Query = Query::new();
@@ -344,12 +337,12 @@ pub trait ClientHandle {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
     self.send(message)
   }
 
@@ -412,12 +405,12 @@ pub trait ClientHandle {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
     self.send(message)
   }
 
@@ -496,12 +489,12 @@ pub trait ClientHandle {
     message.add_update(new);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
     self.send(message)
   }
 
@@ -563,12 +556,12 @@ pub trait ClientHandle {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
     self.send(message)
   }
 
@@ -632,12 +625,12 @@ pub trait ClientHandle {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
     self.send(message)
   }
 
@@ -693,12 +686,12 @@ pub trait ClientHandle {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
     self.send(message)
   }
 }
