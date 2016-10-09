@@ -23,8 +23,6 @@ use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::Signer;
 use ::rr::rdata::NULL;
 use ::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage};
-use ::udp::{UdpClientStream, UdpClientStreamHandle};
-use ::tcp::{TcpClientStream, TcpClientStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
@@ -32,7 +30,8 @@ type StreamHandle = Sender<Vec<u8>>;
 
 pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
   stream: S,
-  streamHandle: StreamHandle,
+  #[allow(dead_code)]
+  stream_handle: StreamHandle,
   new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, Complete<ClientResult<Message>>>,
   // TODO: Maybe make a typed version of ClientFuture for Updates?
@@ -40,8 +39,9 @@ pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
 }
 
 impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
+  #[allow(dead_code)]
   fn new(stream: Box<Future<Item=S, Error=io::Error>>,
-         streamHandle: StreamHandle,
+         stream_handle: StreamHandle,
          loop_handle: Handle,
          signer: Option<Signer>) -> ClientHandle {
     let (sender, rx) = channel(&loop_handle).expect("could not get channel!");
@@ -50,7 +50,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
       stream.map(move |stream| {
         ClientFuture{
           stream: stream,
-          streamHandle: streamHandle,
+          stream_handle: stream_handle,
           new_receiver: rx.fuse().peekable(),
           active_requests: HashMap::new(),
           signer: signer,
@@ -147,7 +147,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
           match message.to_vec() {
             Ok(buffer) => {
               debug!("sending message id: {}", query_id);
-              try!(self.streamHandle.send(buffer));
+              try!(self.stream_handle.send(buffer));
               // add to the map -after- the client send b/c we don't want to put it in the map if
               //  we ended up returning from the send.
               self.active_requests.insert(message.get_id(), complete);
@@ -215,6 +215,7 @@ struct ClientHandle {
 }
 
 impl ClientHandle {
+  #[allow(unused_variables)]
   fn send(&self, message: Message) -> Oneshot<ClientResult<Message>> {
     debug!("sending message");
     let complete: Complete<ClientResult<Message>>;
@@ -243,6 +244,7 @@ impl ClientHandle {
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type to lookup
   //  * `dnssec` - request RRSIG records to be returned in query response
+  #[allow(dead_code)]
   pub fn query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType, dnssec: bool)
     -> Oneshot<ClientResult<Message>> {
     debug!("querying: {} {:?}", name, query_type);
@@ -308,6 +310,7 @@ impl ClientHandle {
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
+  #[allow(dead_code)]
   pub fn create(&self,
                 record: Record,
                 zone_origin: domain::Name)
@@ -372,6 +375,7 @@ impl ClientHandle {
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be created.
+  #[allow(dead_code)] 
   pub fn append(&self,
                 record: Record,
                 zone_origin: domain::Name,
@@ -447,6 +451,7 @@ impl ClientHandle {
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
+  #[allow(dead_code)] 
   pub fn compare_and_swap(&self,
                           current: Record,
                           new: Record,
@@ -526,6 +531,7 @@ impl ClientHandle {
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+  #[allow(dead_code)] 
   pub fn delete_by_rdata(&self,
                          mut record: Record,
                          zone_origin: domain::Name)
@@ -593,6 +599,7 @@ impl ClientHandle {
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
+  #[allow(dead_code)] 
   pub fn delete_rrset(&self,
                       mut record: Record,
                       zone_origin: domain::Name)
@@ -651,6 +658,7 @@ impl ClientHandle {
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
   /// operation attempts to delete all resource record sets the the specified name reguardless of
   /// the record type.
+  #[allow(dead_code)] 
   pub fn delete_all(&self,
                     name_of_records: domain::Name,
                     zone_origin: domain::Name,

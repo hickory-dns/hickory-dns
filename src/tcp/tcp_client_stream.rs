@@ -5,21 +5,15 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std;
 use std::mem;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::io;
 use std::io::{Read, Write};
 
-use futures::{AndThen, Async, BoxFuture, Flatten, Future, Poll};
+use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
-use futures::task::park;
-use rand::Rng;
-use rand;
-use tokio_core;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::channel::{channel, Sender, Receiver};
-use tokio_core::io::{read_exact, ReadExact, write_all, WriteAll};
 use tokio_core::reactor::{Handle};
 
 pub type TcpClientStreamHandle = Sender<Vec<u8>>;
@@ -35,6 +29,7 @@ enum ReadTcpState {
 }
 
 pub struct TcpClientStream {
+  #[allow(dead_code)]
   name_server: SocketAddr,
   socket: TokioTcpStream,
   outbound_messages: Peekable<Fuse<Receiver<Vec<u8>>>>,
