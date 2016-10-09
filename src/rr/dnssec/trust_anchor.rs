@@ -16,8 +16,8 @@
 
 //! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
 
-use std::io::Cursor;
 use std::default::Default;
+use std::io::Cursor;
 
 use openssl::crypto::pkey::{PKey, Role};
 

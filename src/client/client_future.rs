@@ -11,6 +11,7 @@ use std::io;
 use chrono::UTC;
 use futures;
 use futures::{Async, Complete, Future, Oneshot, Poll, task};
+use futures::IntoFuture;
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use futures::task::park;
 use rand::Rng;
@@ -43,7 +44,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
   fn new(stream: Box<Future<Item=S, Error=io::Error>>,
          streamHandle: StreamHandle,
          loop_handle: Handle,
-         signer: Option<Signer>) -> ClientHandle {
+         signer: Option<Signer>) -> BasicClientHandle {
     let (sender, rx) = channel(&loop_handle).expect("could not get channel!");
 
     loop_handle.spawn(
@@ -61,7 +62,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
       })
     );
 
-    ClientHandle { message_sender: sender }
+    BasicClientHandle { message_sender: sender }
   }
 
   /// loop over active_requests and remove cancelled requests
@@ -210,27 +211,38 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
 }
 
 #[derive(Clone)]
-struct ClientHandle {
+pub struct BasicClientHandle {
   message_sender: Sender<(Message, Complete<ClientResult<Message>>)>,
 }
 
-impl ClientHandle {
-  fn send(&self, message: Message) -> Oneshot<ClientResult<Message>> {
+impl ClientHandle for BasicClientHandle {
+  fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
     debug!("sending message");
-    let complete: Complete<ClientResult<Message>>;
-    let oneshot: Oneshot<ClientResult<Message>>;
-
     let (complete, oneshot) = futures::oneshot();
 
-    match self.message_sender.send((message, complete)) {
+    let oneshot = match self.message_sender.send((message, complete)) {
       Ok(()) => oneshot,
       Err(e) => {
         let (complete, oneshot) = futures::oneshot();
         complete.complete(Err(e.into()));
         oneshot
       }
-    }
+    };
+
+    // conver the oneshot into a Box of a Future message and error.
+    Box::new(oneshot.map_err(|c| ClientError::from(c)).map(|result| result.into_future()).flatten())
   }
+}
+
+pub trait ClientHandle {
+  /// Send a message via the channel in the client
+  ///
+  /// # Arguments
+  ///
+  /// * `message` - the fully constructed Message to send, note that most implementations of
+  ///               will most likely be required to rewrite the QueryId, do no rely on that as
+  ///               being stable.
+  fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>>;
 
   /// A *classic* DNS query, i.e. does not perform and DNSSec operations
   ///
@@ -242,9 +254,12 @@ impl ClientHandle {
   /// * `name` - the label to lookup
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type to lookup
-  //  * `dnssec` - request RRSIG records to be returned in query response
-  pub fn query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType, dnssec: bool)
-    -> Oneshot<ClientResult<Message>> {
+  ///  * `dnssec` - request RRSIG records to be returned in query response
+  ///
+  /// TODO: The result of this should be generified to allow for Caches and SecureBasicClientHandle
+  ///  to all share a trait
+  fn query(&self, name: &domain::Name, query_class: DNSClass, query_type: RecordType, dnssec: bool)
+    -> Box<Future<Item=Message, Error=ClientError>> {
     debug!("querying: {} {:?}", name, query_type);
 
     // build the message
@@ -308,10 +323,10 @@ impl ClientHandle {
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
-  pub fn create(&self,
-                record: Record,
-                zone_origin: domain::Name)
-                -> Oneshot<ClientResult<Message>> {
+  fn create(&self,
+            record: Record,
+            zone_origin: domain::Name)
+            -> Box<Future<Item=Message, Error=ClientError>> {
     assert!(zone_origin.zone_of(record.get_name()));
 
     // for updates, the query section is used for the zone
@@ -372,11 +387,11 @@ impl ClientHandle {
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be created.
-  pub fn append(&self,
-                record: Record,
-                zone_origin: domain::Name,
-                must_exist: bool)
-                -> Oneshot<ClientResult<Message>> {
+  fn append(&self,
+            record: Record,
+            zone_origin: domain::Name,
+            must_exist: bool)
+            -> Box<Future<Item=Message, Error=ClientError>> {
     assert!(zone_origin.zone_of(record.get_name()));
 
     // for updates, the query section is used for the zone
@@ -447,11 +462,11 @@ impl ClientHandle {
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
-  pub fn compare_and_swap(&self,
-                          current: Record,
-                          new: Record,
-                          zone_origin: domain::Name)
-                          -> Oneshot<ClientResult<Message>> {
+  fn compare_and_swap(&self,
+                      current: Record,
+                      new: Record,
+                      zone_origin: domain::Name)
+                      -> Box<Future<Item=Message, Error=ClientError>> {
     assert!(zone_origin.zone_of(current.get_name()));
     assert!(zone_origin.zone_of(new.get_name()));
 
@@ -526,10 +541,10 @@ impl ClientHandle {
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-  pub fn delete_by_rdata(&self,
-                         mut record: Record,
-                         zone_origin: domain::Name)
-                         -> Oneshot<ClientResult<Message>> {
+  fn delete_by_rdata(&self,
+                     mut record: Record,
+                     zone_origin: domain::Name)
+                     -> Box<Future<Item=Message, Error=ClientError>> {
     assert!(zone_origin.zone_of(record.get_name()));
 
     // for updates, the query section is used for the zone
@@ -593,10 +608,10 @@ impl ClientHandle {
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-  pub fn delete_rrset(&self,
-                      mut record: Record,
-                      zone_origin: domain::Name)
-                      -> Oneshot<ClientResult<Message>> {
+  fn delete_rrset(&self,
+                  mut record: Record,
+                  zone_origin: domain::Name)
+                  -> Box<Future<Item=Message, Error=ClientError>> {
     assert!(zone_origin.zone_of(record.get_name()));
 
     // for updates, the query section is used for the zone
@@ -651,11 +666,11 @@ impl ClientHandle {
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
   /// operation attempts to delete all resource record sets the the specified name reguardless of
   /// the record type.
-  pub fn delete_all(&self,
-                    name_of_records: domain::Name,
-                    zone_origin: domain::Name,
-                    dns_class: DNSClass)
-                    -> Oneshot<ClientResult<Message>> {
+  fn delete_all(&self,
+                name_of_records: domain::Name,
+                zone_origin: domain::Name,
+                dns_class: DNSClass)
+                -> Box<Future<Item=Message, Error=ClientError>> {
     assert!(zone_origin.zone_of(&name_of_records));
 
     // for updates, the query section is used for the zone
@@ -703,7 +718,7 @@ pub mod test {
   use tokio_core::reactor::{Core, Handle};
   use tokio_core::channel::{channel, Sender, Receiver};
 
-  use super::{ClientFuture, ClientHandle, StreamHandle};
+  use super::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle};
   use ::op::{Message, ResponseCode};
   use ::authority::Catalog;
   use ::authority::authority_tests::{create_example, create_secure_example};
@@ -848,7 +863,7 @@ pub mod test {
   }
 
   #[cfg(test)]
-  fn test_query(client: &ClientHandle) -> futures::BoxFuture<(), ()> {
+  fn test_query(client: &BasicClientHandle) -> Box<Future<Item=(), Error=()>> {
     use std::net::Ipv4Addr;
     use std::cmp::Ordering;
     use ::rr::RData;
@@ -860,12 +875,8 @@ pub mod test {
 
     let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
 
-    client.query(&name, DNSClass::IN, RecordType::A, false)
+    Box::new(client.query(&name, DNSClass::IN, RecordType::A, false)
           .map(move |response| {
-            assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
-
-            let response = response.unwrap();
-
             println!("response records: {:?}", response);
             assert_eq!(response.get_queries().first().expect("expected query").get_name().cmp_with_case(&name, false), Ordering::Equal);
 
@@ -880,17 +891,17 @@ pub mod test {
               assert!(false);
             }
           })
-          .map_err(|_| {
-            assert!(false);
+          .map_err(|e| {
+            assert!(false, "query failed: {}", e);
           })
-          .boxed()
+        )
   }
 
   // update tests
   //
 
   /// create a client with a sig0 section
-  fn create_sig0_ready_client(io_loop: &Core) -> (ClientHandle, domain::Name) {
+  fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name) {
     use chrono::Duration;
     use ::rr::rdata::DNSKEY;
 
@@ -935,23 +946,23 @@ pub mod test {
     record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
 
 
-    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
-    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert_eq!(result.get_answers()[0], record);
 
     // trying to create again should error
     // TODO: it would be cool to make this
-    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
     let mut record = record.clone();
     record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
 
-    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::YXRRSet);
   }
 
@@ -967,15 +978,15 @@ pub mod test {
     record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
 
     // first check the must_exist option
-    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("append failed");
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("append failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
 
     // next append to a non-existent RRset
-    let result = io_loop.run(client.append(record.clone(), origin.clone(), false)).expect("oneshot canceled").expect("append failed");
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), false)).expect("append failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert_eq!(result.get_answers()[0], record);
@@ -984,10 +995,10 @@ pub mod test {
     let mut record = record.clone();
     record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
 
-    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 2);
 
@@ -995,10 +1006,10 @@ pub mod test {
     assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
 
     // show that appending the same thing again is ok, but doesn't add any records
-    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 2);
   }
@@ -1014,17 +1025,17 @@ pub mod test {
                                   Duration::minutes(5).num_seconds() as u32);
     record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
 
-    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     let current = record;
     let mut new = current.clone();
     new.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
 
-    let result = io_loop.run(client.compare_and_swap(current.clone(), new.clone(), origin.clone())).expect("oneshot canceled").expect("compare_and_swap failed");
+    let result = io_loop.run(client.compare_and_swap(current.clone(), new.clone(), origin.clone())).expect("compare_and_swap failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(new.get_name(), new.get_dns_class(), new.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(new.get_name(), new.get_dns_class(), new.get_rr_type(), false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
@@ -1033,10 +1044,10 @@ pub mod test {
     let mut new = new;
     new.rdata(RData::A(Ipv4Addr::new(102,12,102,12)));
 
-    let result = io_loop.run(client.compare_and_swap(current, new.clone(), origin.clone())).expect("oneshot canceled").expect("compare_and_swap failed");
+    let result = io_loop.run(client.compare_and_swap(current, new.clone(), origin.clone())).expect("compare_and_swap failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
 
-    let result = io_loop.run(client.query(new.get_name(), new.get_dns_class(), new.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(new.get_name(), new.get_dns_class(), new.get_rr_type(), false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
@@ -1054,23 +1065,23 @@ pub mod test {
     record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
 
     // first check the must_exist option
-    let result = io_loop.run(client.delete_by_rdata(record.clone(), origin.clone())).expect("oneshot canceled").expect("delete failed");
+    let result = io_loop.run(client.delete_by_rdata(record.clone(), origin.clone())).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // next create to a non-existent RRset
-    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     let mut record = record.clone();
     record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
-    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop.run(client.delete_by_rdata(record.clone(), origin.clone())).expect("oneshot canceled").expect("delete failed");
+    let result = io_loop.run(client.delete_by_rdata(record.clone(), origin.clone())).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(100,10,100,10) } else { false }));
@@ -1088,23 +1099,23 @@ pub mod test {
     record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
 
     // first check the must_exist option
-    let result = io_loop.run(client.delete_rrset(record.clone(), origin.clone())).expect("oneshot canceled").expect("delete failed");
+    let result = io_loop.run(client.delete_rrset(record.clone(), origin.clone())).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // next create to a non-existent RRset
-    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     let mut record = record.clone();
     record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
-    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop.run(client.delete_rrset(record.clone(), origin.clone())).expect("oneshot canceled").expect("delete failed");
+    let result = io_loop.run(client.delete_rrset(record.clone(), origin.clone())).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
     assert_eq!(result.get_answers().len(), 0);
   }
@@ -1121,28 +1132,28 @@ pub mod test {
     record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
 
     // first check the must_exist option
-    let result = io_loop.run(client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN)).expect("oneshot canceled").expect("delete failed");
+    let result = io_loop.run(client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN)).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // next create to a non-existent RRset
-    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     let mut record = record.clone();
     record.rr_type(RecordType::AAAA);
     record.rdata(RData::AAAA(Ipv6Addr::new(1, 2, 3, 4, 5, 6, 7, 8)));
-    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("oneshot canceled").expect("create failed");
+    let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop.run(client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN)).expect("oneshot canceled").expect("delete failed");
+    let result = io_loop.run(client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN)).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), RecordType::A, false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), RecordType::A, false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
     assert_eq!(result.get_answers().len(), 0);
 
-    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), RecordType::AAAA, false)).expect("oneshot canceled").expect("query failed");
+    let result = io_loop.run(client.query(record.get_name(), record.get_dns_class(), RecordType::AAAA, false)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
     assert_eq!(result.get_answers().len(), 0);
   }
