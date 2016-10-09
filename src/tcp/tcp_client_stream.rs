@@ -218,11 +218,12 @@ fn test_tcp_client_stream_ipv6() {
 }
 
 #[cfg(test)]
-const test_bytes: &'static [u8; 8] = b"DEADBEEF";
+const TEST_BYTES: &'static [u8; 8] = b"DEADBEEF";
 #[cfg(test)]
-const test_bytes_len: usize = 8;
+const TEST_BYTES_LEN: usize = 8;
 
 #[cfg(test)]
+#[allow(unused_variables)]
 fn tcp_client_stream_test(server_addr: IpAddr) {
   use std::time::Duration;
   use std::thread;
@@ -237,7 +238,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
 
   TrustDnsLogger::enable_logging(LogLevel::Debug);
 
-  let mut succeeded = Arc::new(AtomicBool::new(false));
+  let succeeded = Arc::new(AtomicBool::new(false));
   let succeeded_clone = succeeded.clone();
   let test_killer = thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
     let succeeded = succeeded_clone.clone();
@@ -265,20 +266,20 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
     socket.set_write_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
 
-    for i in 0..send_recv_times {
+    for _ in 0..send_recv_times {
       // wait for some bytes...
       let mut len_bytes = [0_u8; 2];
       println!("SERVER: reading length");
       socket.read_exact(&mut len_bytes).expect("SERVER: receive failed");
       let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
-      assert_eq!(length as usize, test_bytes_len);
+      assert_eq!(length as usize, TEST_BYTES_LEN);
 
-      let mut buffer = [0_u8; test_bytes_len];
+      let mut buffer = [0_u8; TEST_BYTES_LEN];
       println!("SERVER: reading bytes");
-      socket.read_exact(&mut buffer);
+      let _ = socket.read_exact(&mut buffer);
 
       // println!("read bytes iter: {}", i);
-      assert_eq!(&buffer, test_bytes);
+      assert_eq!(&buffer, TEST_BYTES);
 
       // bounce them right back...
       println!("SERVER: writing length: {}", length);
@@ -306,12 +307,12 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   for i in 0..send_recv_times {
     // test once
     println!("TEST: sending iter: {}", i);
-    sender.send(test_bytes.to_vec()).expect("send failed");
+    sender.send(TEST_BYTES.to_vec()).expect("send failed");
     let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect("future iteration run failed");
     stream = stream_tmp;
     let buffer = buffer.expect("no buffer received");
     println!("TEST: received iter: {} length: {}", i, buffer.len());
-    assert_eq!(&buffer, test_bytes);
+    assert_eq!(&buffer, TEST_BYTES);
   }
 
   succeeded.store(true, Ordering::Relaxed);

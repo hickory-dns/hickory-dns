@@ -704,24 +704,23 @@ pub mod test {
 
   use chrono::Duration;
   use futures;
-  use futures::{Async, Complete, Future, finished, Oneshot, Poll, task};
+  use futures::{Async, Future, finished, Poll};
   use futures::stream::{Fuse, Stream};
   use futures::task::park;
-  use openssl::crypto::pkey::{PKey, Role};
+  use openssl::crypto::pkey::PKey;
   use tokio_core::reactor::{Core, Handle};
-  use tokio_core::channel::{channel, Sender, Receiver};
+  use tokio_core::channel::{channel, Receiver};
 
   use super::{ClientFuture, ClientHandle, StreamHandle};
   use ::op::{Message, ResponseCode};
   use ::authority::Catalog;
-  use ::authority::authority_tests::{create_example, create_secure_example};
+  use ::authority::authority_tests::create_example;
   use ::rr::domain;
   use ::rr::{DNSClass, RData, Record, RecordType};
   use ::rr::dnssec::{Algorithm, Signer};
   use ::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
-  use ::error::*;
-  use ::udp::{UdpClientStream, UdpClientStreamHandle};
-  use ::tcp::{TcpClientStream, TcpClientStreamHandle};
+  use ::udp::UdpClientStream;
+  use ::tcp::TcpClientStream;
 
   pub struct TestClientStream {
     catalog: Catalog,
