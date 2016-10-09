@@ -20,10 +20,13 @@
 mod client;
 mod client_connection;
 mod client_future;
-//mod secure_client_future;
+mod secure_client_future;
 
 pub use self::client::Client;
 pub use self::client_connection::ClientConnection;
-pub use self::client_future::{ClientFuture, ClientHandle};
+pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle};
+pub use self::secure_client_future::SecureClientHandle;
 #[cfg(test)]
 pub use self::client_connection::test::TestClientConnection;
+#[cfg(test)]
+pub use self::client_future::test::TestClientStream;

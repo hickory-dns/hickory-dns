@@ -69,7 +69,7 @@ use ::rr::dnssec::Signer;
 ///
 /// By default Message is a Query. Use the Message::as_update() to create and update, or
 ///  Message::new_update()
-#[derive(Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq)]
 pub struct Message {
   header: Header, queries: Vec<Query>, answers: Vec<Record>, name_servers: Vec<Record>,
    additionals: Vec<Record>, sig0: Vec<Record>, edns: Option<Edns>
