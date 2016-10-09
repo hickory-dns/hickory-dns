@@ -6,7 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::mem;
-use std::net::SocketAddr;
+#[allow(unused_imports)]
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::io;
 use std::io::{Read, Write};
 
@@ -246,11 +247,11 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     }
 
     println!("timeout");
-    std::process::exit(-1)
+    ::std::process::exit(-1)
   });
 
   // TODO: need a timeout on listen
-  let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
+  let server = ::std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
   let server_addr = server.local_addr().unwrap();
 
   let send_recv_times = 4;
