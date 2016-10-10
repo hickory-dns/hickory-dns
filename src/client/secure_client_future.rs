@@ -7,12 +7,13 @@
 
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_set::Drain;
+use std::mem;
 use std::sync::Arc;
 
 use chrono::UTC;
 use futures;
 use futures::{Async, Complete, Future, Oneshot, Poll, task};
-use futures::IntoFuture;
+use futures::{collect, Collect, IntoFuture};
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use futures::task::park;
 use rand::Rng;
@@ -30,6 +31,8 @@ use ::udp::{UdpClientStream, UdpClientStreamHandle};
 use ::rr::dnssec::TrustAnchor;
 use ::tcp::{TcpClientStream, TcpClientStreamHandle};
 
+/// A ClientHandle which will return DNSSec validating futures.
+#[derive(Clone)]
 pub struct SecureClientHandle {
   client: BasicClientHandle,
   trust_anchor: Arc<TrustAnchor>,
@@ -48,15 +51,11 @@ impl SecureClientHandle {
   }
 }
 
-// let ds_response = try!(self.inner_query(&name, dnskey.get_dns_class(), RecordType::DS, true));
-// let ds_rrset: Vec<&Record> = ds_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::DS).collect();
-// let ds_rrsigs: Vec<&Record> = ds_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
-
 impl ClientHandle for SecureClientHandle {
   fn send(&self, mut message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
     // dnssec only matters on queries.
     if let OpCode::Query = message.get_op_code() {
-      let client = self.client.clone();
+      let client: SecureClientHandle = self.clone();
       let trust_anchor = self.trust_anchor.clone();
 
       {
@@ -86,18 +85,17 @@ impl ClientHandle for SecureClientHandle {
   }
 }
 
+/// A future to verify all RRSets in a returned Message.
 pub struct VerifyRrsetsFuture {
-  client: BasicClientHandle,
+  client: SecureClientHandle,
   trust_anchor: Arc<TrustAnchor>,
-  message_result: Message,
-  rrset_types: Vec<(domain::Name, RecordType)>,
+  message_result: Option<Message>,
+  rrsets: Collect<Vec<VerifyRrsetFuture>>,
 }
-
-//unsafe impl Send for VerifyRrsetsFuture {}
 
 impl VerifyRrsetsFuture {
   fn new(
-    client: BasicClientHandle,
+    client: SecureClientHandle,
     trust_anchor: Arc<TrustAnchor>,
     message_result: Message,
   ) -> VerifyRrsetsFuture {
@@ -110,11 +108,30 @@ impl VerifyRrsetsFuture {
       rrset_types.insert(rrset);
     }
 
+    // collect all the rrsets to verify
+    // TODO: is there a way to get rid of this clone() safely?
+    let mut rrsets = Vec::with_capacity(rrset_types.len());
+    for (name, record_type) in rrset_types {
+      let rrset: Vec<Record> = message_result.get_answers()
+                                             .iter()
+                                             .chain(message_result.get_name_servers())
+                                             .filter(|rr| rr.get_rr_type() == record_type &&
+                                                          rr.get_name() == &name)
+                                             .cloned()
+                                             .collect();
+
+      rrsets.push(VerifyRrsetFuture{ name: name, record_type: record_type, rrset: rrset });
+    }
+
+    // spawn a select_all over this vec, these are the individual RRSet validators
+    let rrsets_to_verify = collect(rrsets);
+
+    // return the full Message validator
     VerifyRrsetsFuture{
       client: client,
       trust_anchor: trust_anchor,
-      message_result: message_result,
-      rrset_types: rrset_types.into_iter().collect(),
+      message_result: Some(message_result),
+      rrsets: rrsets_to_verify,
     }
   }
 }
@@ -124,21 +141,40 @@ impl Future for VerifyRrsetsFuture {
   type Error = ClientError;
 
   fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-    // TODO: Can we do this in parallel?
-    // HINT: use select_all
-    while let Some((name, record_type)) = self.rrset_types.pop() {
-      let rrset: Vec<Record> = self.message_result.get_answers()
-                                              .iter()
-                                              .chain(self.message_result.get_name_servers())
-                                              .filter(|rr| rr.get_rr_type() == record_type && rr.get_name() == &name)
-                                              .cloned()
-                                              .collect();
+    if self.message_result.is_none() {
+      return Err(ClientErrorKind::Message("message is none").into())
     }
 
+    // TODO: Can we do this in parallel?
+    // HINT: use select_all
+    match self.rrsets.poll() {
+      Ok(Async::NotReady) => Ok(Async::NotReady),
+      // all rrsets verified! woop!
+      Ok(Async::Ready(_)) => {
+        let message_result = mem::replace(&mut self.message_result, None);
+        Ok(Async::Ready(message_result.unwrap())) // validated not none above...
+      },
+      // TODO, should we return the Message on errors? Allow the consumer to decide what to do
+      //       on a validation failure?
+      // any error, is an error for all
+      Err(e) => Err(e),
+    }
+  }
+}
 
-    // FIXME: make message_result Option so that we can return and not clone.
-    Ok(Async::Ready(self.message_result.clone()))
-    // Err(ClientErrorKind::Message("unimplemented").into())
+/// A future for verifying a Rrset
+struct VerifyRrsetFuture {
+  name: domain::Name,
+  record_type: RecordType,
+  rrset: Vec<Record>,
+}
+
+impl Future for VerifyRrsetFuture {
+  type Item = ();
+  type Error = ClientError;
+
+  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+    Ok(Async::Ready(()))
   }
 }
 
