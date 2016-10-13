@@ -31,6 +31,7 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 
 type StreamHandle = Sender<Vec<u8>>;
 
+#[must_use = "futures do nothing unless polled"]
 pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
   stream: S,
   streamHandle: StreamHandle,
@@ -211,6 +212,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
 }
 
 #[derive(Clone)]
+#[must_use = "futures do nothing unless polled"]
 pub struct BasicClientHandle {
   message_sender: Sender<(Message, Complete<ClientResult<Message>>)>,
 }
@@ -254,11 +256,10 @@ pub trait ClientHandle {
   /// * `name` - the label to lookup
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type to lookup
-  ///  * `dnssec` - request RRSIG records to be returned in query response
   ///
   /// TODO: The result of this should be generified to allow for Caches and SecureBasicClientHandle
   ///  to all share a trait
-  fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType, dnssec: bool)
+  fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType)
     -> Box<Future<Item=Message, Error=ClientError>> {
     debug!("querying: {} {:?}", name, query_type);
 
@@ -868,7 +869,7 @@ pub mod test {
 
     let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
 
-    Box::new(client.query(name.clone(), DNSClass::IN, RecordType::A, false)
+    Box::new(client.query(name.clone(), DNSClass::IN, RecordType::A)
           .map(move |response| {
             println!("response records: {:?}", response);
             assert_eq!(response.get_queries().first().expect("expected query").get_name().cmp_with_case(&name, false), Ordering::Equal);
@@ -941,7 +942,7 @@ pub mod test {
 
     let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
-    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
+    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert_eq!(result.get_answers()[0], record);
@@ -979,7 +980,7 @@ pub mod test {
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
+    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert_eq!(result.get_answers()[0], record);
@@ -991,7 +992,7 @@ pub mod test {
     let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
+    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 2);
 
@@ -1002,7 +1003,7 @@ pub mod test {
     let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
+    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 2);
   }
@@ -1028,7 +1029,7 @@ pub mod test {
     let result = io_loop.run(client.compare_and_swap(current.clone(), new.clone(), origin.clone())).expect("compare_and_swap failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(new.get_name().clone(), new.get_dns_class(), new.get_rr_type(), false)).expect("query failed");
+    let result = io_loop.run(client.query(new.get_name().clone(), new.get_dns_class(), new.get_rr_type())).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
@@ -1040,7 +1041,7 @@ pub mod test {
     let result = io_loop.run(client.compare_and_swap(current, new.clone(), origin.clone())).expect("compare_and_swap failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
 
-    let result = io_loop.run(client.query(new.get_name().clone(), new.get_dns_class(), new.get_rr_type(), false)).expect("query failed");
+    let result = io_loop.run(client.query(new.get_name().clone(), new.get_dns_class(), new.get_rr_type())).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
@@ -1074,7 +1075,7 @@ pub mod test {
     let result = io_loop.run(client.delete_by_rdata(record.clone(), origin.clone())).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
+    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
     assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(100,10,100,10) } else { false }));
@@ -1108,7 +1109,7 @@ pub mod test {
     let result = io_loop.run(client.delete_rrset(record.clone(), origin.clone())).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type(), false)).expect("query failed");
+    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
     assert_eq!(result.get_answers().len(), 0);
   }
@@ -1142,11 +1143,11 @@ pub mod test {
     let result = io_loop.run(client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN)).expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), RecordType::A, false)).expect("query failed");
+    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), RecordType::A)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
     assert_eq!(result.get_answers().len(), 0);
 
-    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), RecordType::AAAA, false)).expect("query failed");
+    let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), RecordType::AAAA)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
     assert_eq!(result.get_answers().len(), 0);
   }

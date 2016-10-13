@@ -107,6 +107,10 @@ impl Message {
   pub fn authentic_data(&mut self, authentic_data: bool) -> &mut Self {self.header.authentic_data(authentic_data); self}
   pub fn checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {self.header.checking_disabled(checking_disabled); self}
   pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self { self.header.response_code(response_code); self }
+
+  /// TODO: given that only a single query is ever accepted by almost all DNS servers,
+  ///       it's unclear how it could be useful to have more than one here? change this to set
+  ///       a single query?
   pub fn add_query(&mut self, query: Query) -> &mut Self { self.queries.push(query); self }
   pub fn add_all_queries(&mut self, queries: &[Query]) -> &mut Self {
     for q in queries {

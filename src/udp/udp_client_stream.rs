@@ -20,6 +20,7 @@ use tokio_core::reactor::{Handle};
 
 pub type UdpClientStreamHandle = Sender<Vec<u8>>;
 
+#[must_use = "futures do nothing unless polled"]
 pub struct UdpClientStream {
   // TODO: this shouldn't be stored, it's only necessary for the client to setup Ipv4 or Ipv6
   //   binding
@@ -123,6 +124,7 @@ impl Stream for UdpClientStream {
   }
 }
 
+#[must_use = "futures do nothing unless polled"]
 struct NextRandomUdpSocket {
   bind_address: IpAddr,
 }

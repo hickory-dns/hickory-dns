@@ -34,6 +34,7 @@ enum ReadTcpState {
   Bytes{ pos: usize, bytes: Vec<u8> },
 }
 
+#[must_use = "futures do nothing unless polled"]
 pub struct TcpClientStream {
   name_server: SocketAddr,
   socket: TokioTcpStream,

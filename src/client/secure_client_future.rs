@@ -5,15 +5,16 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::cell::RefCell;
 use std::collections::{HashMap, HashSet};
 use std::collections::hash_set::Drain;
 use std::mem;
-use std::sync::Arc;
+use std::rc::Rc;
 
 use chrono::UTC;
 use futures;
-use futures::{Async, Complete, Future, Oneshot, Poll, task};
-use futures::{collect, Collect, IntoFuture};
+use futures::{AndThen, Async, Complete, Future, Oneshot, Poll, task};
+use futures::{collect, Collect, failed, finished, IntoFuture, select_all, SelectAll, SelectAllNext};
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use futures::task::park;
 use rand::Rng;
@@ -22,6 +23,7 @@ use tokio_core::reactor::Handle;
 use tokio_core::channel::{channel, Sender, Receiver};
 
 use ::client::{BasicClientHandle, ClientHandle};
+use ::client::select_any::select_any;
 use ::error::*;
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::Signer;
@@ -32,10 +34,11 @@ use ::rr::dnssec::TrustAnchor;
 use ::tcp::{TcpClientStream, TcpClientStreamHandle};
 
 /// A ClientHandle which will return DNSSec validating futures.
-#[derive(Clone)]
 pub struct SecureClientHandle {
   client: BasicClientHandle,
-  trust_anchor: Arc<TrustAnchor>,
+  trust_anchor: Rc<TrustAnchor>,
+  request_depth: usize,
+  active_validations: Rc<RefCell<HashSet<(domain::Name, RecordType, DNSClass)>>>,
 }
 
 impl SecureClientHandle {
@@ -46,17 +49,34 @@ impl SecureClientHandle {
   pub fn with_trust_anchor(client: BasicClientHandle, trust_anchor: TrustAnchor) -> SecureClientHandle {
     SecureClientHandle {
       client: client,
-      trust_anchor: Arc::new(trust_anchor),
+      trust_anchor: Rc::new(trust_anchor),
+      request_depth: 0,
+      active_validations: Rc::new(RefCell::new(HashSet::new()))
+    }
+  }
+
+  fn clone_with_context(&self) -> Self {
+    SecureClientHandle {
+      client: self.client.clone(),
+      trust_anchor: self.trust_anchor.clone(),
+      request_depth: self.request_depth + 1,
+      active_validations: self.active_validations.clone()
     }
   }
 }
 
 impl ClientHandle for SecureClientHandle {
   fn send(&self, mut message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
+    // backstop, this might need to be configurable at some point
+    if self.request_depth > 20 {
+      return Box::new(failed(ClientErrorKind::Message("exceeded max validation depth").into()))
+    }
+
     // dnssec only matters on queries.
     if let OpCode::Query = message.get_op_code() {
-      let client: SecureClientHandle = self.clone();
-      let trust_anchor = self.trust_anchor.clone();
+      let client: SecureClientHandle = self.clone_with_context();
+      let active_validations = self.active_validations.clone();
+      let request_depth = self.request_depth;
 
       {
         let edns = message.get_edns_mut();
@@ -65,18 +85,29 @@ impl ClientHandle for SecureClientHandle {
 
       message.authentic_data(true);
       message.checking_disabled(false);
+      let dns_class = message.get_queries().first().map_or(DNSClass::IN, |q| q.get_query_class());
 
       return Box::new(
         self.client.send(message)
                    .and_then(move |message_response|{
                      // group the record sets by name and type
                      //  each rrset type needs to validated independently
-
+                     debug!("validating message_response: {}", message_response.get_id());
                      VerifyRrsetsFuture::new(
                        client,
-                       trust_anchor,
-                       message_response
+                       message_response,
+                       dns_class,
                      )
+                   })
+                   .then(move |verify| {
+                     // TODO: this feels dirty, is there a cleaner way?
+                     // if our request depth is zero then this is the top of the stack, clear
+                     //  active_validations
+                     if request_depth == 0 {
+                       active_validations.borrow_mut().clear();
+                     }
+
+                     verify
                    })
                  )
     }
@@ -88,16 +119,15 @@ impl ClientHandle for SecureClientHandle {
 /// A future to verify all RRSets in a returned Message.
 pub struct VerifyRrsetsFuture {
   client: SecureClientHandle,
-  trust_anchor: Arc<TrustAnchor>,
   message_result: Option<Message>,
-  rrsets: Collect<Vec<VerifyRrsetFuture>>,
+  rrsets: Collect<Vec<Box<Future<Item=(), Error=ClientError>>>>,
 }
 
 impl VerifyRrsetsFuture {
   fn new(
-    client: SecureClientHandle,
-    trust_anchor: Arc<TrustAnchor>,
+    mut client: SecureClientHandle,
     message_result: Message,
+    dns_class: DNSClass,
   ) -> VerifyRrsetsFuture {
     let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
     for rrset in message_result.get_answers()
@@ -112,6 +142,14 @@ impl VerifyRrsetsFuture {
     // TODO: is there a way to get rid of this clone() safely?
     let mut rrsets = Vec::with_capacity(rrset_types.len());
     for (name, record_type) in rrset_types {
+      // if there is already an active validation going on, assume the other validation will
+      //  complete properly or error if it is invalid
+      let request_key = (name.clone(), record_type, dns_class);
+      if client.active_validations.borrow().contains(&request_key) {
+        debug!("skipping active validation: {}, {:?}, {:?}", name, record_type, dns_class);
+        continue
+      }
+
       let rrset: Vec<Record> = message_result.get_answers()
                                              .iter()
                                              .chain(message_result.get_name_servers())
@@ -120,7 +158,24 @@ impl VerifyRrsetsFuture {
                                              .cloned()
                                              .collect();
 
-      rrsets.push(VerifyRrsetFuture{ name: name, record_type: record_type, rrset: rrset });
+      let rrsigs: Vec<Record> = message_result.get_answers()
+                                              .iter()
+                                              .chain(message_result.get_name_servers())
+                                              .filter(|rr| rr.get_rr_type() == RecordType::RRSIG)
+                                              .filter(|rr| if let &RData::SIG(ref rrsig) = rr.get_rdata() {
+                                                rrsig.get_type_covered() == record_type
+                                              } else {
+                                                false
+                                              })
+                                              .cloned()
+                                              .collect();
+
+      // TODO: support non-IN classes?
+      debug!("verifying: {}, record_type: {:?}", name, record_type);
+      rrsets.push(verify_rrset(client.clone_with_context(), name, record_type, dns_class, rrset, rrsigs));
+      client.active_validations.borrow_mut().insert(request_key);
+      // rrsets.push(VerifyRrsetFuture{ client: client.clone(), name: name, record_type: record_type,
+      //             record_class: DNSClass::IN, rrset: rrset, rrsigs: rrsigs });
     }
 
     // spawn a select_all over this vec, these are the individual RRSet validators
@@ -129,12 +184,12 @@ impl VerifyRrsetsFuture {
     // return the full Message validator
     VerifyRrsetsFuture{
       client: client,
-      trust_anchor: trust_anchor,
       message_result: Some(message_result),
       rrsets: rrsets_to_verify,
     }
   }
 }
+
 
 impl Future for VerifyRrsetsFuture {
   type Item = Message;
@@ -162,21 +217,77 @@ impl Future for VerifyRrsetsFuture {
   }
 }
 
-/// A future for verifying a Rrset
-struct VerifyRrsetFuture {
-  name: domain::Name,
-  record_type: RecordType,
-  rrset: Vec<Record>,
-}
+fn verify_rrset(client: SecureClientHandle,
+                name: domain::Name,
+                record_type: RecordType,
+                record_class: DNSClass,
+                rrset: Vec<Record>,
+                rrsigs: Vec<Record>,)
+                -> Box<Future<Item=(), Error=ClientError>> {
+  match record_type {
+    RecordType::DNSKEY => {
+      debug!("dnskey validation {}, record_type: {:?}", name, record_type);
+      //Box::new(finished(()))
+      Box::new(failed(ClientErrorKind::Message("DNSKEY unimplemented").into()))
+    },
+    RecordType::DS => {
+      debug!("ds validation {}, record_type: {:?}", name, record_type);
+      //Box::new(finished(()))
+      Box::new(failed(ClientErrorKind::Message("DS unimplemented").into()))
+    },
+    _ => {
+      debug!("default validation {}, record_type: {:?}", name, record_type);
+      // we can validate with any of the rrsigs...
+      //  i.e. the first that validates is good enough
+      //  FIXME: could there be a cert downgrade attack here?
+      //         we could check for the strongest RRSIG and only use that...
+      //         though, since the entire package isn't signed any RRSIG could have been injected,
+      //         right? meaning if there is an attack on any of the acceptable algorithms, we'd be
+      //         succeptable until that algorithm is removed as an option.
+      //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
+      let select = select_any(rrsigs.into_iter().map(|rrsig| {
+        if let &RData::SIG(ref sig) = rrsig.get_rdata() {
+          client.query(sig.get_signer_name().clone(), record_class, RecordType::DNSKEY)
+                .and_then(|message| failed::<Message, _>(ClientErrorKind::Message("RETURN DNSKEY unimplemented").into()))
+        } else {
+          panic!("programmer error, only RRSIG expected here");
+        }
+      }))
+      // getting here means at least one of the rrsigs succeeded...
+      .map(|(_,_,_)| ())
+      .map_err(|(e, _)| e);
+      //.and_then(|_| failed::<(), _>(ClientErrorKind::Message("RRSIG validation unimplemented").into()));
 
-impl Future for VerifyRrsetFuture {
-  type Item = ();
-  type Error = ClientError;
-
-  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-    Ok(Async::Ready(()))
+      Box::new(select)
+    },
   }
 }
+
+
+// /// A future for verifying a Rrset
+// struct VerifyRrsetSelect {
+//   select: SelectAll<Box<Future<Item=(), Error=ClientError>>>
+// }
+//
+// impl Future for VerifyRrsetSelect {
+//   type Item = ();
+//   type Error = ClientError;
+//
+//   fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+//     match self.select.poll() {
+//       Ok(Async::NotReady) => Ok(Async::NotReady),
+//       Ok(Async::Ready((_,_,_))) => Ok(Async::Ready(())),
+//       Err((_,_, left)) => {
+//         if left.is_empty() { return Err(ClientErrorKind::Message("All RRSIGS failed to validate").into()) }
+//
+//         debug!("did not validate an RRSIG, will try others");
+//         // select all on the next batch
+//         mem::replace(&mut self.select, select_all(left));
+//         Ok(Async::NotReady)
+//       }
+//     }
+//   }
+// }
 
 // pub struct VerifyRrsigFuture {
 //   client: ClientHandle,
@@ -272,6 +383,10 @@ pub mod test {
 
   #[test]
   fn test_secure_query_example_nonet() {
+    use log::LogLevel;
+    use ::logger::TrustDnsLogger;
+    TrustDnsLogger::enable_logging(LogLevel::Debug);
+
     let authority = create_secure_example();
 
     let public_key = {
@@ -320,7 +435,7 @@ pub mod test {
   #[cfg(test)]
   fn test_secure_query_example(client: SecureClientHandle, mut io_loop: Core) {
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A, true)).expect("query failed");
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A)).expect("query failed");
 
     println!("response records: {:?}", response);
     assert!(response.get_edns().expect("edns not here").is_dnssec_ok());

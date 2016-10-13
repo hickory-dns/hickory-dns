@@ -21,6 +21,7 @@ mod client;
 mod client_connection;
 mod client_future;
 mod secure_client_future;
+mod select_any;
 
 pub use self::client::Client;
 pub use self::client_connection::ClientConnection;
