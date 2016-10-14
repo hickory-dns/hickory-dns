@@ -254,8 +254,8 @@ fn verify_rrset(client: SecureClientHandle,
         }
       }))
       // getting here means at least one of the rrsigs succeeded...
-      .map(|(_,_,_)| ())
-      .map_err(|(e, _)| e);
+      .map(|(_,_)| ());
+      //.map_err(|e| e);
       //.and_then(|_| failed::<(), _>(ClientErrorKind::Message("RRSIG validation unimplemented").into()));
 
       Box::new(select)
