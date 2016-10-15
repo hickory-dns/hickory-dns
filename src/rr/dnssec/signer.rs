@@ -23,7 +23,7 @@ use ::op::Message;
 use ::rr::dnssec::{Algorithm, DigestType};
 use ::rr::{DNSClass, Name, Record, RecordType, RData};
 use ::serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
-use ::rr::rdata::{sig, DNSKEY};
+use ::rr::rdata::{DNSKEY, sig, SIG};
 
 
 /// Use for performing signing and validation of DNSSec based components.
@@ -496,14 +496,18 @@ impl Signer {
 
   pub fn hash_rrset_with_rrsig(&self, rrsig: &Record, records: &[Record]) -> Vec<u8> {
     if let &RData::SIG(ref sig) = rrsig.get_rdata() {
-      self.hash_rrset(rrsig.get_name(), rrsig.get_dns_class(),
-                      sig.get_num_labels(), sig.get_type_covered(), sig.get_algorithm(),
-                      sig.get_original_ttl(), sig.get_sig_expiration(), sig.get_sig_inception(),
-                      sig.get_key_tag(), sig.get_signer_name(), records)
+      self.hash_rrset_with_sig(rrsig.get_name(), rrsig.get_dns_class(), sig, records)
     } else {
       error!("rdata is not of type SIG: {:?}", rrsig.get_rdata());
       vec![]
     }
+  }
+
+  pub fn hash_rrset_with_sig(&self, name: &Name, dns_class: DNSClass, sig: &SIG, records: &[Record]) -> Vec<u8> {
+    self.hash_rrset(name, dns_class,
+                    sig.get_num_labels(), sig.get_type_covered(), sig.get_algorithm(),
+                    sig.get_original_ttl(), sig.get_sig_expiration(), sig.get_sig_inception(),
+                    sig.get_key_tag(), sig.get_signer_name(), records)
   }
 
   fn determine_name(name: &Name, num_labels: u8) -> Option<Name> {

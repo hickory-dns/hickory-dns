@@ -17,6 +17,7 @@ use futures::{AndThen, Async, Complete, Future, Oneshot, Poll, task};
 use futures::{collect, Collect, failed, finished, IntoFuture, select_all, SelectAll, SelectAllNext};
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use futures::task::park;
+use openssl::crypto::pkey::Role;
 use rand::Rng;
 use rand;
 use tokio_core::reactor::Handle;
@@ -28,7 +29,7 @@ use ::error::*;
 use ::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::{Signer, TrustAnchor};
-use ::rr::rdata::{dnskey, DNSKEY, DS, NULL};
+use ::rr::rdata::{dnskey, DNSKEY, DS, NULL, SIG};
 use ::tcp::{TcpClientStream, TcpClientStreamHandle};
 use ::udp::{UdpClientStream, UdpClientStreamHandle};
 use ::serialize::binary::{BinEncoder, BinSerializable};
@@ -226,7 +227,7 @@ fn verify_rrset(client: SecureClientHandle,
                 -> Box<Future<Item=(), Error=ClientError>> {
   match record_type {
     RecordType::DNSKEY => verify_dnskey_rrset(client, name, record_type, record_class, rrset, rrsigs),
-    RecordType::DS => verify_ds_rrset(client, name, record_type, record_class, rrset, rrsigs),
+    //RecordType::DS => verify_ds_rrset(client, name, record_type, record_class, rrset, rrsigs),
     _ => verify_default_rrset(client, name, record_type, record_class, rrset, rrsigs),
   }
 }
@@ -254,6 +255,7 @@ fn verify_dnskey_rrset(
             None
           })
           .all(|rdata| client.trust_anchor.contains(rdata.get_public_key())) {
+    debug!("validated dnskey as trust_anchor");
     return Box::new(finished(()))
   }
 
@@ -267,6 +269,8 @@ fn verify_dnskey_rrset(
                   } else {
                     None
                   })
+                  // TODO: right now all DNSKEYs must be validated
+                  //       we should remove invalid ones from the response.
                   .all(|key_rdata|
                     ds_message.get_answers()
                               .iter()
@@ -276,6 +280,7 @@ fn verify_dnskey_rrset(
                               } else {
                                 None
                               })
+                              // must be convered by at least one DS record
                               .any(|ds_rdata| is_key_covered_by(&name, key_rdata, ds_rdata))
                   ) {
             debug!("validated dnskey: {}", name);
@@ -345,6 +350,8 @@ fn verify_default_rrset(
   rrsigs: Vec<Record>,)
   -> Box<Future<Item=(), Error=ClientError>>
 {
+  // the record set is going to be shared across a bunch of futures, Rc for that.
+  let rrset = Rc::new(rrset);
   debug!("default validation {}, record_type: {:?}", name, record_type);
   // we can validate with any of the rrsigs...
   //  i.e. the first that validates is good enough
@@ -354,21 +361,67 @@ fn verify_default_rrset(
   //         right? meaning if there is an attack on any of the acceptable algorithms, we'd be
   //         succeptable until that algorithm is removed as an option.
   //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
-  let select = select_any(rrsigs.into_iter().map(|rrsig| {
-    if let &RData::SIG(ref sig) = rrsig.get_rdata() {
-      // FIXME: split DNSKEY evaluation, such that bad DNSKEYS can be ignored, and others used
-      client.query(sig.get_signer_name().clone(), record_class, RecordType::DNSKEY)
-            .and_then(|message| failed::<Message, _>(ClientErrorKind::Message("RRSIG unimplemented").into()))
-    } else {
-      panic!("programmer error, only RRSIG expected here");
-    }
-  }))
-  // getting here means at least one of the rrsigs succeeded...
-  .map(|(_,_)| ());
-  //.map_err(|e| e);
-  //.and_then(|_| failed::<(), _>(ClientErrorKind::Message("RRSIG validation unimplemented").into()));
+  let verifications = rrsigs.into_iter()
+                            .filter(|rrsig| rrsig.get_rr_type() == RecordType::RRSIG)
+                            .map(|rrsig|
+                                if let &RData::SIG(ref sig) = rrsig.get_rdata() {
+                                    // setting up the context explicitly.
+                                    (rrset.clone(),
+                                    name.clone(),
+                                    record_class.clone(),
+                                    record_type.clone(),
+                                    client.clone_with_context(),
+                                    sig.clone())
+                                } else {
+                                    panic!("expected a SIG here: {:?}", rrsig.get_rdata());
+                                }
+                            )
+                            .map(|(rrset, name, record_class, record_type, client, sig)| {
+                                client.query(sig.get_signer_name().clone(), record_class, RecordType::DNSKEY)
+                                      .and_then(move |message|
+                                          message.get_answers()
+                                                 .iter()
+                                                 .filter(|r| r.get_rr_type() == RecordType::DNSKEY)
+                                                 .find(|r|
+                                                     if let &RData::DNSKEY(ref dnskey) = r.get_rdata() {
+                                                         verify_rrset_with_dnskey(dnskey, &sig, &name, record_class, &rrset)
+                                                     } else {
+                                                         panic!("expected a DNSKEY here: {:?}", r.get_rdata());
+                                                     }
+                                                 )
+                                                 .map(|_| ())
+                                                 .ok_or(ClientErrorKind::Message("validation failed").into())
+                                      )
+                            });
+
+
+  let select = select_any(verifications)
+                          // getting here means at least one of the rrsigs succeeded...
+                          .map(move |(_,_)| ());
+                          //.map_err(|e| e);
+                          //.and_then(|_| failed::<(), _>(ClientErrorKind::Message("RRSIG validation unimplemented").into()));
 
   Box::new(select)
+}
+
+fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
+                            sig: &SIG,
+                            name: &domain::Name,
+                            record_class: DNSClass,
+                            rrset: &[Record]) -> bool {
+  if dnskey.is_revoke() { debug!("revoked"); return false } // TODO: does this need to be validated? RFC 5011
+  if !dnskey.is_zone_key() { return false }
+  if *dnskey.get_algorithm() != sig.get_algorithm() { return false }
+
+  let pkey = dnskey.get_algorithm().public_key_from_vec(dnskey.get_public_key());
+  if let Err(e) = pkey { debug!("error getting key from vec: {}", e); return false }
+  let pkey = pkey.unwrap();
+  if !pkey.can(Role::Verify) { debug!("pkey can't verify"); return false }
+
+  let signer: Signer = Signer::new_verifier(*dnskey.get_algorithm(), pkey, sig.get_signer_name().clone());
+  let rrset_hash: Vec<u8> = signer.hash_rrset_with_sig(name, record_class, sig, rrset);
+
+  signer.verify(&rrset_hash, sig.get_sig())
 }
 
 // /// A future for verifying a Rrset
@@ -518,6 +571,10 @@ pub mod test {
   #[test]
   #[ignore]
   fn test_secure_query_example_udp() {
+      use log::LogLevel;
+      use ::logger::TrustDnsLogger;
+      TrustDnsLogger::enable_logging(LogLevel::Debug);
+
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
@@ -530,6 +587,10 @@ pub mod test {
   #[test]
   #[ignore]
   fn test_secure_query_example_tcp() {
+      use log::LogLevel;
+      use ::logger::TrustDnsLogger;
+      TrustDnsLogger::enable_logging(LogLevel::Debug);
+
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
