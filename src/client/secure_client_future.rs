@@ -25,13 +25,13 @@ use tokio_core::channel::{channel, Sender, Receiver};
 use ::client::{BasicClientHandle, ClientHandle};
 use ::client::select_any::select_any;
 use ::error::*;
-use ::rr::{domain, DNSClass, RData, Record, RecordType};
-use ::rr::dnssec::Signer;
-use ::rr::rdata::NULL;
 use ::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage};
-use ::udp::{UdpClientStream, UdpClientStreamHandle};
-use ::rr::dnssec::TrustAnchor;
+use ::rr::{domain, DNSClass, RData, Record, RecordType};
+use ::rr::dnssec::{Signer, TrustAnchor};
+use ::rr::rdata::{dnskey, DNSKEY, DS, NULL};
 use ::tcp::{TcpClientStream, TcpClientStreamHandle};
+use ::udp::{UdpClientStream, UdpClientStreamHandle};
+use ::serialize::binary::{BinEncoder, BinSerializable};
 
 /// A ClientHandle which will return DNSSec validating futures.
 pub struct SecureClientHandle {
@@ -225,44 +225,151 @@ fn verify_rrset(client: SecureClientHandle,
                 rrsigs: Vec<Record>,)
                 -> Box<Future<Item=(), Error=ClientError>> {
   match record_type {
-    RecordType::DNSKEY => {
-      debug!("dnskey validation {}, record_type: {:?}", name, record_type);
-      //Box::new(finished(()))
-      Box::new(failed(ClientErrorKind::Message("DNSKEY unimplemented").into()))
-    },
-    RecordType::DS => {
-      debug!("ds validation {}, record_type: {:?}", name, record_type);
-      //Box::new(finished(()))
-      Box::new(failed(ClientErrorKind::Message("DS unimplemented").into()))
-    },
-    _ => {
-      debug!("default validation {}, record_type: {:?}", name, record_type);
-      // we can validate with any of the rrsigs...
-      //  i.e. the first that validates is good enough
-      //  FIXME: could there be a cert downgrade attack here?
-      //         we could check for the strongest RRSIG and only use that...
-      //         though, since the entire package isn't signed any RRSIG could have been injected,
-      //         right? meaning if there is an attack on any of the acceptable algorithms, we'd be
-      //         succeptable until that algorithm is removed as an option.
-      //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
-      let select = select_any(rrsigs.into_iter().map(|rrsig| {
-        if let &RData::SIG(ref sig) = rrsig.get_rdata() {
-          client.query(sig.get_signer_name().clone(), record_class, RecordType::DNSKEY)
-                .and_then(|message| failed::<Message, _>(ClientErrorKind::Message("RETURN DNSKEY unimplemented").into()))
-        } else {
-          panic!("programmer error, only RRSIG expected here");
-        }
-      }))
-      // getting here means at least one of the rrsigs succeeded...
-      .map(|(_,_)| ());
-      //.map_err(|e| e);
-      //.and_then(|_| failed::<(), _>(ClientErrorKind::Message("RRSIG validation unimplemented").into()));
-
-      Box::new(select)
-    },
+    RecordType::DNSKEY => verify_dnskey_rrset(client, name, record_type, record_class, rrset, rrsigs),
+    RecordType::DS => verify_ds_rrset(client, name, record_type, record_class, rrset, rrsigs),
+    _ => verify_default_rrset(client, name, record_type, record_class, rrset, rrsigs),
   }
 }
 
+fn verify_dnskey_rrset(
+  client: SecureClientHandle,
+  name: domain::Name,
+  record_type: RecordType,
+  record_class: DNSClass,
+  rrset: Vec<Record>,
+  rrsigs: Vec<Record>,)
+  -> Box<Future<Item=(), Error=ClientError>>
+{
+  debug!("dnskey validation {}, record_type: {:?}", name, record_type);
+
+  // check the DNSKEYS against the trust_anchor, if it's approved allow it.
+  // FIXME: this requires all DNSKEYS in order to succeed, really, any one should be allowed, but
+  //        only that one allowed for validating RRSETS.
+  // TODO: filter only supported DNSKEY signature types.
+  if rrset.iter()
+          .filter(|rr| rr.get_rr_type() == RecordType::DNSKEY)
+          .filter_map(|rr| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
+            Some(rdata)
+          } else {
+            None
+          })
+          .all(|rdata| client.trust_anchor.contains(rdata.get_public_key())) {
+    return Box::new(finished(()))
+  }
+
+  // need to get DS records for each DNSKEY
+  let valid_dnskey = client.query(name.clone(), record_class, RecordType::DS)
+        .and_then(move |ds_message| {
+          if rrset.iter()
+                  .filter(|rr| rr.get_rr_type() == RecordType::DNSKEY)
+                  .filter_map(|rr| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
+                    Some(rdata)
+                  } else {
+                    None
+                  })
+                  .all(|key_rdata|
+                    ds_message.get_answers()
+                              .iter()
+                              .filter(|ds| ds.get_rr_type() == RecordType::DS)
+                              .filter_map(|ds| if let &RData::DS(ref ds_rdata) = ds.get_rdata() {
+                                Some(ds_rdata)
+                              } else {
+                                None
+                              })
+                              .any(|ds_rdata| is_key_covered_by(&name, key_rdata, ds_rdata))
+                  ) {
+            debug!("validated dnskey: {}", name);
+            Ok(())
+          } else {
+            Err(ClientErrorKind::Message("Could not validate all DNSKEYs").into())
+          }
+        });
+
+  Box::new(valid_dnskey)
+}
+
+fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> bool {
+  // 5.1.4.  The Digest Field
+  //
+  //    The DS record refers to a DNSKEY RR by including a digest of that
+  //    DNSKEY RR.
+  //
+  //    The digest is calculated by concatenating the canonical form of the
+  //    fully qualified owner name of the DNSKEY RR with the DNSKEY RDATA,
+  //    and then applying the digest algorithm.
+  //
+  //      digest = digest_algorithm( DNSKEY owner name | DNSKEY RDATA);
+  //
+  //       "|" denotes concatenation
+  //
+  //      DNSKEY RDATA = Flags | Protocol | Algorithm | Public Key.
+  //
+  //    The size of the digest may vary depending on the digest algorithm and
+  //    DNSKEY RR size.  As of the time of this writing, the only defined
+  //    digest algorithm is SHA-1, which produces a 20 octet digest.
+  let mut buf: Vec<u8> = Vec::new();
+  {
+    let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+    encoder.set_canonical_names(true);
+    if let Err(e) = name.emit(&mut encoder)
+                        .and_then(|_| dnskey::emit(&mut encoder, key)) {
+      warn!("error serializing dnskey: {}", e);
+      return false
+    }
+  }
+
+  let hash: Vec<u8> = ds.get_digest_type().hash(&buf);
+  &hash as &[u8] == ds.get_digest()
+}
+
+fn verify_ds_rrset(
+  client: SecureClientHandle,
+  name: domain::Name,
+  record_type: RecordType,
+  record_class: DNSClass,
+  rrset: Vec<Record>,
+  rrsigs: Vec<Record>,)
+  -> Box<Future<Item=(), Error=ClientError>>
+{
+  debug!("ds validation {}, record_type: {:?}", name, record_type);
+  //Box::new(finished(()))
+  Box::new(failed(ClientErrorKind::Message("DS unimplemented").into()))
+}
+
+fn verify_default_rrset(
+  client: SecureClientHandle,
+  name: domain::Name,
+  record_type: RecordType,
+  record_class: DNSClass,
+  rrset: Vec<Record>,
+  rrsigs: Vec<Record>,)
+  -> Box<Future<Item=(), Error=ClientError>>
+{
+  debug!("default validation {}, record_type: {:?}", name, record_type);
+  // we can validate with any of the rrsigs...
+  //  i.e. the first that validates is good enough
+  //  FIXME: could there be a cert downgrade attack here?
+  //         we could check for the strongest RRSIG and only use that...
+  //         though, since the entire package isn't signed any RRSIG could have been injected,
+  //         right? meaning if there is an attack on any of the acceptable algorithms, we'd be
+  //         succeptable until that algorithm is removed as an option.
+  //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
+  let select = select_any(rrsigs.into_iter().map(|rrsig| {
+    if let &RData::SIG(ref sig) = rrsig.get_rdata() {
+      // FIXME: split DNSKEY evaluation, such that bad DNSKEYS can be ignored, and others used
+      client.query(sig.get_signer_name().clone(), record_class, RecordType::DNSKEY)
+            .and_then(|message| failed::<Message, _>(ClientErrorKind::Message("RRSIG unimplemented").into()))
+    } else {
+      panic!("programmer error, only RRSIG expected here");
+    }
+  }))
+  // getting here means at least one of the rrsigs succeeded...
+  .map(|(_,_)| ());
+  //.map_err(|e| e);
+  //.and_then(|_| failed::<(), _>(ClientErrorKind::Message("RRSIG validation unimplemented").into()));
+
+  Box::new(select)
+}
 
 // /// A future for verifying a Rrset
 // struct VerifyRrsetSelect {
