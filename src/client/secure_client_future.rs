@@ -34,6 +34,14 @@ use ::tcp::{TcpClientStream, TcpClientStreamHandle};
 use ::udp::{UdpClientStream, UdpClientStreamHandle};
 use ::serialize::binary::{BinEncoder, BinSerializable};
 
+#[derive(Debug)]
+struct Rrset {
+    pub name: domain::Name,
+    pub record_type: RecordType,
+    pub record_class: DNSClass,
+    pub records: Vec<Record>,
+}
+
 /// A ClientHandle which will return DNSSec validating futures.
 pub struct SecureClientHandle {
   client: BasicClientHandle,
@@ -121,7 +129,7 @@ impl ClientHandle for SecureClientHandle {
 pub struct VerifyRrsetsFuture {
   client: SecureClientHandle,
   message_result: Option<Message>,
-  rrsets: Collect<Vec<Box<Future<Item=(), Error=ClientError>>>>,
+  rrsets: Collect<Vec<Box<Future<Item=Rrset, Error=ClientError>>>>,
 }
 
 impl VerifyRrsetsFuture {
@@ -173,7 +181,8 @@ impl VerifyRrsetsFuture {
 
       // TODO: support non-IN classes?
       debug!("verifying: {}, record_type: {:?}", name, record_type);
-      rrsets.push(verify_rrset(client.clone_with_context(), name, record_type, dns_class, rrset, rrsigs));
+      let rrset = Rrset { name: name, record_type: record_type, record_class: dns_class, records: rrset };
+      rrsets.push(verify_rrset(client.clone_with_context(), rrset, rrsigs));
       client.active_validations.borrow_mut().insert(request_key);
       // rrsets.push(VerifyRrsetFuture{ client: client.clone(), name: name, record_type: record_type,
       //             record_class: DNSClass::IN, rrset: rrset, rrsigs: rrsigs });
@@ -219,35 +228,29 @@ impl Future for VerifyRrsetsFuture {
 }
 
 fn verify_rrset(client: SecureClientHandle,
-                name: domain::Name,
-                record_type: RecordType,
-                record_class: DNSClass,
-                rrset: Vec<Record>,
+                rrset: Rrset,
                 rrsigs: Vec<Record>,)
-                -> Box<Future<Item=(), Error=ClientError>> {
-  match record_type {
-    RecordType::DNSKEY => verify_dnskey_rrset(client, name, record_type, record_class, rrset, rrsigs),
+                -> Box<Future<Item=Rrset, Error=ClientError>> {
+  match rrset.record_type {
+    RecordType::DNSKEY => verify_dnskey_rrset(client, rrset, rrsigs),
     //RecordType::DS => verify_ds_rrset(client, name, record_type, record_class, rrset, rrsigs),
-    _ => verify_default_rrset(client, name, record_type, record_class, rrset, rrsigs),
+    _ => verify_default_rrset(client, rrset, rrsigs),
   }
 }
 
 fn verify_dnskey_rrset(
   client: SecureClientHandle,
-  name: domain::Name,
-  record_type: RecordType,
-  record_class: DNSClass,
-  rrset: Vec<Record>,
+  rrset: Rrset,
   rrsigs: Vec<Record>,)
-  -> Box<Future<Item=(), Error=ClientError>>
+  -> Box<Future<Item=Rrset, Error=ClientError>>
 {
-  debug!("dnskey validation {}, record_type: {:?}", name, record_type);
+  debug!("dnskey validation {}, record_type: {:?}", rrset.name, rrset.record_type);
 
   // check the DNSKEYS against the trust_anchor, if it's approved allow it.
   // FIXME: this requires all DNSKEYS in order to succeed, really, any one should be allowed, but
   //        only that one allowed for validating RRSETS.
   // TODO: filter only supported DNSKEY signature types.
-  if rrset.iter()
+  if rrset.records.iter()
           .filter(|rr| rr.get_rr_type() == RecordType::DNSKEY)
           .filter_map(|rr| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
             Some(rdata)
@@ -256,13 +259,13 @@ fn verify_dnskey_rrset(
           })
           .all(|rdata| client.trust_anchor.contains(rdata.get_public_key())) {
     debug!("validated dnskey as trust_anchor");
-    return Box::new(finished(()))
+    return Box::new(finished((rrset)))
   }
 
   // need to get DS records for each DNSKEY
-  let valid_dnskey = client.query(name.clone(), record_class, RecordType::DS)
+  let valid_dnskey = client.query(rrset.name.clone(), rrset.record_class, RecordType::DS)
         .and_then(move |ds_message| {
-          if rrset.iter()
+          if rrset.records.iter()
                   .filter(|rr| rr.get_rr_type() == RecordType::DNSKEY)
                   .filter_map(|rr| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
                     Some(rdata)
@@ -281,10 +284,10 @@ fn verify_dnskey_rrset(
                                 None
                               })
                               // must be convered by at least one DS record
-                              .any(|ds_rdata| is_key_covered_by(&name, key_rdata, ds_rdata))
+                              .any(|ds_rdata| is_key_covered_by(&rrset.name, key_rdata, ds_rdata))
                   ) {
-            debug!("validated dnskey: {}", name);
-            Ok(())
+            debug!("validated dnskey: {}", rrset.name);
+            Ok(rrset)
           } else {
             Err(ClientErrorKind::Message("Could not validate all DNSKEYs").into())
           }
@@ -334,7 +337,7 @@ fn verify_ds_rrset(
   record_class: DNSClass,
   rrset: Vec<Record>,
   rrsigs: Vec<Record>,)
-  -> Box<Future<Item=(), Error=ClientError>>
+  -> Box<Future<Item=Rrset, Error=ClientError>>
 {
   debug!("ds validation {}, record_type: {:?}", name, record_type);
   //Box::new(finished(()))
@@ -343,16 +346,13 @@ fn verify_ds_rrset(
 
 fn verify_default_rrset(
   client: SecureClientHandle,
-  name: domain::Name,
-  record_type: RecordType,
-  record_class: DNSClass,
-  rrset: Vec<Record>,
+  rrset: Rrset,
   rrsigs: Vec<Record>,)
-  -> Box<Future<Item=(), Error=ClientError>>
+  -> Box<Future<Item=Rrset, Error=ClientError>>
 {
   // the record set is going to be shared across a bunch of futures, Rc for that.
   let rrset = Rc::new(rrset);
-  debug!("default validation {}, record_type: {:?}", name, record_type);
+  debug!("default validation {}, record_type: {:?}", rrset.name, rrset.record_type);
   // we can validate with any of the rrsigs...
   //  i.e. the first that validates is good enough
   //  FIXME: could there be a cert downgrade attack here?
@@ -362,34 +362,32 @@ fn verify_default_rrset(
   //         succeptable until that algorithm is removed as an option.
   //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
   let verifications = rrsigs.into_iter()
+                            // FIXME: filter_map and don't clone sig
                             .filter(|rrsig| rrsig.get_rr_type() == RecordType::RRSIG)
                             .map(|rrsig|
                                 if let &RData::SIG(ref sig) = rrsig.get_rdata() {
                                     // setting up the context explicitly.
                                     (rrset.clone(),
-                                    name.clone(),
-                                    record_class.clone(),
-                                    record_type.clone(),
-                                    client.clone_with_context(),
-                                    sig.clone())
+                                     client.clone_with_context(),
+                                     sig.clone())
                                 } else {
                                     panic!("expected a SIG here: {:?}", rrsig.get_rdata());
                                 }
                             )
-                            .map(|(rrset, name, record_class, record_type, client, sig)| {
-                                client.query(sig.get_signer_name().clone(), record_class, RecordType::DNSKEY)
+                            .map(|(rrset, client, sig)| {
+                                client.query(sig.get_signer_name().clone(), rrset.record_class, RecordType::DNSKEY)
                                       .and_then(move |message|
                                           message.get_answers()
                                                  .iter()
                                                  .filter(|r| r.get_rr_type() == RecordType::DNSKEY)
                                                  .find(|r|
                                                      if let &RData::DNSKEY(ref dnskey) = r.get_rdata() {
-                                                         verify_rrset_with_dnskey(dnskey, &sig, &name, record_class, &rrset)
+                                                         verify_rrset_with_dnskey(dnskey, &sig, &rrset)
                                                      } else {
                                                          panic!("expected a DNSKEY here: {:?}", r.get_rdata());
                                                      }
                                                  )
-                                                 .map(|_| ())
+                                                 .map(|_| rrset)
                                                  .ok_or(ClientErrorKind::Message("validation failed").into())
                                       )
                             });
@@ -397,18 +395,17 @@ fn verify_default_rrset(
 
   let select = select_any(verifications)
                           // getting here means at least one of the rrsigs succeeded...
-                          .map(move |(_,_)| ());
-                          //.map_err(|e| e);
-                          //.and_then(|_| failed::<(), _>(ClientErrorKind::Message("RRSIG validation unimplemented").into()));
+                          .map(move |(rrset, rest)| {
+                              drop(rest); // drop all others, should free up Rc
+                              Rc::try_unwrap(rrset).expect("unable to unwrap Rc")
+                          });
 
   Box::new(select)
 }
 
 fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
                             sig: &SIG,
-                            name: &domain::Name,
-                            record_class: DNSClass,
-                            rrset: &[Record]) -> bool {
+                            rrset: &Rrset) -> bool {
   if dnskey.is_revoke() { debug!("revoked"); return false } // TODO: does this need to be validated? RFC 5011
   if !dnskey.is_zone_key() { return false }
   if *dnskey.get_algorithm() != sig.get_algorithm() { return false }
@@ -419,14 +416,14 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
   if !pkey.can(Role::Verify) { debug!("pkey can't verify"); return false }
 
   let signer: Signer = Signer::new_verifier(*dnskey.get_algorithm(), pkey, sig.get_signer_name().clone());
-  let rrset_hash: Vec<u8> = signer.hash_rrset_with_sig(name, record_class, sig, rrset);
+  let rrset_hash: Vec<u8> = signer.hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records);
 
   signer.verify(&rrset_hash, sig.get_sig())
 }
 
 // /// A future for verifying a Rrset
 // struct VerifyRrsetSelect {
-//   select: SelectAll<Box<Future<Item=(), Error=ClientError>>>
+//   select: SelectAll<Box<Future<Item=Rrset, Error=ClientError>>>
 // }
 //
 // impl Future for VerifyRrsetSelect {
