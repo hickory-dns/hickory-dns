@@ -269,16 +269,9 @@ fn verify_dnskey_rrset(
 
         if !anchored_keys.is_empty() {
             let mut rrset = rrset;
+            preserve(&mut rrset.records, anchored_keys);
 
-            let mut anchored_iter = anchored_keys.into_iter().rev();
-            let mut i = anchored_iter.next();
-            for j in (0..rrset.records.len()).rev() {
-                if i.map_or(false, |i| i > j) { i = anchored_iter.next(); }
-                // if the key is not in the set of anchored_keys, remove it
-                if i.map_or(true, |i| i != j) { rrset.records.remove(j); }
-            }
-
-            debug!("validated dnskey as trust_anchor: {}", rrset.records.len());
+            debug!("validated dnskey with trust_anchor: {}, {}", rrset.name, rrset.records.len());
             return Box::new(finished((rrset)))
         }
     }
@@ -286,16 +279,15 @@ fn verify_dnskey_rrset(
   // need to get DS records for each DNSKEY
   let valid_dnskey = client.query(rrset.name.clone(), rrset.record_class, RecordType::DS)
         .and_then(move |ds_message| {
-          if rrset.records.iter()
-                  .filter(|rr| rr.get_rr_type() == RecordType::DNSKEY)
-                  .filter_map(|rr| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
-                    Some(rdata)
+           let valid_keys = rrset.records.iter()
+                  .enumerate()
+                  .filter(|&(_,rr)| rr.get_rr_type() == RecordType::DNSKEY)
+                  .filter_map(|(i,rr)| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
+                    Some((i, rdata))
                   } else {
                     None
                   })
-                  // TODO: right now all DNSKEYs must be validated
-                  //       we should remove invalid ones from the response.
-                  .all(|key_rdata|
+                  .filter(|&(_, key_rdata)|
                     ds_message.get_answers()
                               .iter()
                               .filter(|ds| ds.get_rr_type() == RecordType::DS)
@@ -306,8 +298,15 @@ fn verify_dnskey_rrset(
                               })
                               // must be convered by at least one DS record
                               .any(|ds_rdata| is_key_covered_by(&rrset.name, key_rdata, ds_rdata))
-                  ) {
-            debug!("validated dnskey: {}", rrset.name);
+                  )
+                  .map(|(i, _)| i)
+                  .collect::<Vec<usize>>();
+
+          if !valid_keys.is_empty() {
+            let mut rrset = rrset;
+            preserve(&mut rrset.records, valid_keys);
+
+            debug!("validated dnskey: {}, {}", rrset.name, rrset.records.len());
             Ok(rrset)
           } else {
             Err(ClientErrorKind::Message("Could not validate all DNSKEYs").into())
@@ -315,6 +314,61 @@ fn verify_dnskey_rrset(
         });
 
   Box::new(valid_dnskey)
+}
+
+/// Preseves the specified indexes in vec, all others will be removed
+///
+/// # Arguments
+///
+/// * `vec` - vec to mutate
+/// * `indexes` - ordered list of indexes to remove
+fn preserve<T, I>(vec: &mut Vec<T>, indexes: I) where
+  I: IntoIterator<Item=usize>,
+  //<I as IntoIterator>::Item: usize,
+  <I as IntoIterator>::IntoIter: DoubleEndedIterator
+ {
+    // this removes all indexes theat were not part of the anchored keys
+    let mut indexes_iter = indexes.into_iter().rev();
+    let mut i = indexes_iter.next();
+    for j in (0..vec.len()).rev() {
+        // check the next indext to preserve
+        if i.map_or(false, |i| i > j) { i = indexes_iter.next(); }
+        // if the key is not in the set of anchored_keys, remove it
+        if i.map_or(true, |i| i != j) { vec.remove(j); }
+    }
+}
+
+#[test]
+fn test_preserve() {
+    let mut vec = vec![1,2,3];
+    let indexes = vec![];
+    preserve(&mut vec, indexes);
+    assert_eq!(vec, vec![]);
+
+    let mut vec = vec![1,2,3];
+    let indexes = vec![0];
+    preserve(&mut vec, indexes);
+    assert_eq!(vec, vec![1]);
+
+    let mut vec = vec![1,2,3];
+    let indexes = vec![1];
+    preserve(&mut vec, indexes);
+    assert_eq!(vec, vec![2]);
+
+    let mut vec = vec![1,2,3];
+    let indexes = vec![2];
+    preserve(&mut vec, indexes);
+    assert_eq!(vec, vec![3]);
+
+    let mut vec = vec![1,2,3];
+    let indexes = vec![0,2];
+    preserve(&mut vec, indexes);
+    assert_eq!(vec, vec![1,3]);
+
+    let mut vec = vec![1,2,3];
+    let indexes = vec![0,1,2];
+    preserve(&mut vec, indexes);
+    assert_eq!(vec, vec![1,2,3]);
 }
 
 fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> bool {
@@ -356,20 +410,6 @@ fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> bool {
   }
 }
 
-fn verify_ds_rrset(
-  client: SecureClientHandle,
-  name: domain::Name,
-  record_type: RecordType,
-  record_class: DNSClass,
-  rrset: Vec<Record>,
-  rrsigs: Vec<Record>,)
-  -> Box<Future<Item=Rrset, Error=ClientError>>
-{
-  debug!("ds validation {}, record_type: {:?}", name, record_type);
-  //Box::new(finished(()))
-  Box::new(failed(ClientErrorKind::Message("DS unimplemented").into()))
-}
-
 fn verify_default_rrset(
   client: SecureClientHandle,
   rrset: Rrset,
@@ -391,34 +431,34 @@ fn verify_default_rrset(
                             // this filter is technically unnecessary, can probably remove it...
                             .filter(|rrsig| rrsig.get_rr_type() == RecordType::RRSIG)
                             .map(|rrsig|
-                                if let RData::SIG(sig) = rrsig.unwrap_rdata() {
-                                    // setting up the context explicitly.
-                                    sig
-                                } else {
-                                    panic!("expected a SIG here");
-                                }
+                              if let RData::SIG(sig) = rrsig.unwrap_rdata() {
+                                // setting up the context explicitly.
+                                sig
+                              } else {
+                                panic!("expected a SIG here");
+                              }
                             )
                             .map(|sig| {
-                                let rrset = rrset.clone();
-                                let client = client.clone_with_context();
+                              let rrset = rrset.clone();
+                              let client = client.clone_with_context();
 
-                                client.query(sig.get_signer_name().clone(), rrset.record_class, RecordType::DNSKEY)
-                                      .and_then(move |message|
-                                          message.get_answers()
-                                                 .iter()
-                                                 .filter(|r| r.get_rr_type() == RecordType::DNSKEY)
-                                                 .find(|r|
-                                                     if let &RData::DNSKEY(ref dnskey) = r.get_rdata() {
-                                                         verify_rrset_with_dnskey(dnskey, &sig, &rrset)
-                                                     } else {
-                                                         panic!("expected a DNSKEY here: {:?}", r.get_rdata());
-                                                     }
-                                                 )
-                                                 .map(|_| rrset)
-                                                 .ok_or(ClientErrorKind::Message("validation failed").into())
-                                      )
+                              client.query(sig.get_signer_name().clone(), rrset.record_class, RecordType::DNSKEY)
+                                    .and_then(move |message|
+                                      // FIXME: only use validated DNSKEYs
+                                      message.get_answers()
+                                             .iter()
+                                             .filter(|r| r.get_rr_type() == RecordType::DNSKEY)
+                                             .find(|r|
+                                               if let &RData::DNSKEY(ref dnskey) = r.get_rdata() {
+                                                 verify_rrset_with_dnskey(dnskey, &sig, &rrset)
+                                               } else {
+                                                 panic!("expected a DNSKEY here: {:?}", r.get_rdata());
+                                               }
+                                             )
+                                             .map(|_| rrset)
+                                             .ok_or(ClientErrorKind::Message("validation failed").into())
+                                    )
                             });
-
 
   let select = select_any(verifications)
                           // getting here means at least one of the rrsigs succeeded...
@@ -445,7 +485,12 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
   let signer: Signer = Signer::new_verifier(*dnskey.get_algorithm(), pkey, sig.get_signer_name().clone());
   let rrset_hash: Vec<u8> = signer.hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records);
 
-  signer.verify(&rrset_hash, sig.get_sig())
+  if signer.verify(&rrset_hash, sig.get_sig()) {
+      debug!("verified rrset: {}, type: {:?}", rrset.name, rrset.record_type);
+      true
+  } else {
+      false
+  }
 }
 
 // /// A future for verifying a Rrset
