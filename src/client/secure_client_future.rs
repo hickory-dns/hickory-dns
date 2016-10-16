@@ -244,23 +244,44 @@ fn verify_dnskey_rrset(
   rrsigs: Vec<Record>,)
   -> Box<Future<Item=Rrset, Error=ClientError>>
 {
-  debug!("dnskey validation {}, record_type: {:?}", rrset.name, rrset.record_type);
+    debug!("dnskey validation {}, record_type: {:?}", rrset.name, rrset.record_type);
 
-  // check the DNSKEYS against the trust_anchor, if it's approved allow it.
-  // FIXME: this requires all DNSKEYS in order to succeed, really, any one should be allowed, but
-  //        only that one allowed for validating RRSETS.
-  // TODO: filter only supported DNSKEY signature types.
-  if rrset.records.iter()
-          .filter(|rr| rr.get_rr_type() == RecordType::DNSKEY)
-          .filter_map(|rr| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
-            Some(rdata)
-          } else {
-            None
-          })
-          .all(|rdata| client.trust_anchor.contains(rdata.get_public_key())) {
-    debug!("validated dnskey as trust_anchor");
-    return Box::new(finished((rrset)))
-  }
+    // check the DNSKEYS against the trust_anchor, if it's approved allow it.
+    {
+        let anchored_keys = rrset.records.iter()
+              .enumerate()
+              .filter(|&(_, rr)| rr.get_rr_type() == RecordType::DNSKEY)
+              .filter_map(|(i, rr)| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
+                  Some((i, rdata))
+              } else {
+                  None
+              })
+              .filter_map(|(i, rdata)|
+                  if client.trust_anchor.contains(rdata.get_public_key()) {
+                      debug!("in trust_anchor");
+                      Some(i)
+                  } else {
+                      debug!("not in trust_anchor");
+                      None
+                  }
+              )
+              .collect::<Vec<usize>>();
+
+        if !anchored_keys.is_empty() {
+            let mut rrset = rrset;
+
+            let mut anchored_iter = anchored_keys.into_iter().rev();
+            let mut i = anchored_iter.next();
+            for j in (0..rrset.records.len()).rev() {
+                if i.map_or(false, |i| i > j) { i = anchored_iter.next(); }
+                // if the key is not in the set of anchored_keys, remove it
+                if i.map_or(true, |i| i != j) { rrset.records.remove(j); }
+            }
+
+            debug!("validated dnskey as trust_anchor: {}", rrset.records.len());
+            return Box::new(finished((rrset)))
+        }
+    }
 
   // need to get DS records for each DNSKEY
   let valid_dnskey = client.query(rrset.name.clone(), rrset.record_class, RecordType::DS)
@@ -327,7 +348,12 @@ fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> bool {
   }
 
   let hash: Vec<u8> = ds.get_digest_type().hash(&buf);
-  &hash as &[u8] == ds.get_digest()
+  if &hash as &[u8] == ds.get_digest() {
+      debug!("key is covered by");
+      true
+  } else {
+      false
+  }
 }
 
 fn verify_ds_rrset(
@@ -362,19 +388,20 @@ fn verify_default_rrset(
   //         succeptable until that algorithm is removed as an option.
   //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
   let verifications = rrsigs.into_iter()
-                            // FIXME: filter_map and don't clone sig
+                            // this filter is technically unnecessary, can probably remove it...
                             .filter(|rrsig| rrsig.get_rr_type() == RecordType::RRSIG)
                             .map(|rrsig|
-                                if let &RData::SIG(ref sig) = rrsig.get_rdata() {
+                                if let RData::SIG(sig) = rrsig.unwrap_rdata() {
                                     // setting up the context explicitly.
-                                    (rrset.clone(),
-                                     client.clone_with_context(),
-                                     sig.clone())
+                                    sig
                                 } else {
-                                    panic!("expected a SIG here: {:?}", rrsig.get_rdata());
+                                    panic!("expected a SIG here");
                                 }
                             )
-                            .map(|(rrset, client, sig)| {
+                            .map(|sig| {
+                                let rrset = rrset.clone();
+                                let client = client.clone_with_context();
+
                                 client.query(sig.get_signer_name().clone(), rrset.record_class, RecordType::DNSKEY)
                                       .and_then(move |message|
                                           message.get_answers()

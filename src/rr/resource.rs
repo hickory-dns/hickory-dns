@@ -146,6 +146,7 @@ impl Record {
   pub fn get_ttl(&self) -> u32 { self.ttl }
   pub fn get_rdata(&self) -> &RData { &self.rdata }
   pub fn get_rdata_mut(&mut self) -> &mut RData { &mut self.rdata }
+  pub fn unwrap_rdata(self) -> RData { self.rdata }
 }
 
 impl BinSerializable<Record> for Record {
