@@ -43,6 +43,9 @@ struct Rrset {
 }
 
 /// A ClientHandle which will return DNSSec validating futures.
+///
+/// This wraps a ClientHandle, changing the implementation `send()` to validate all
+///  message responses for Query operations. Update operations are not validated.
 pub struct SecureClientHandle {
   client: BasicClientHandle,
   trust_anchor: Rc<TrustAnchor>,
@@ -51,10 +54,23 @@ pub struct SecureClientHandle {
 }
 
 impl SecureClientHandle {
+  /// Create a new SecureClientHandle wrapping the speicified client.
+  ///
+  /// This uses the compiled in TrustAnchor default trusted keys.
+  ///
+  /// # Arguments
+  /// * `client` - client to use for all connections to a remote server.
   pub fn new(client: BasicClientHandle) -> SecureClientHandle {
     Self::with_trust_anchor(client, TrustAnchor::default())
   }
 
+  /// Create a new SecureClientHandle wrapping the speicified client.
+  ///
+  /// This allows a custom TrustAnchor to be define.
+  ///
+  /// # Arguments
+  /// * `client` - client to use for all connections to a remote server.
+  /// * `trust_anchor` - custom DNSKEYs that will be trusted, can be used to pin trusted keys.
   pub fn with_trust_anchor(client: BasicClientHandle, trust_anchor: TrustAnchor) -> SecureClientHandle {
     SecureClientHandle {
       client: client,
@@ -64,6 +80,9 @@ impl SecureClientHandle {
     }
   }
 
+  /// An internal function used to clone the client, but maintain some information back to the
+  ///  original client, such as the set of active_validations such that infinite recurssion does
+  ///  not occur.
   fn clone_with_context(&self) -> Self {
     SecureClientHandle {
       client: self.client.clone(),
@@ -133,8 +152,10 @@ pub struct VerifyRrsetsFuture {
 }
 
 impl VerifyRrsetsFuture {
+  /// this pulls all records returned in a Message respons and returns a future which will
+  ///  validate all of them.
   fn new(
-    mut client: SecureClientHandle,
+    client: SecureClientHandle,
     message_result: Message,
     dns_class: DNSClass,
   ) -> VerifyRrsetsFuture {
@@ -212,6 +233,7 @@ impl Future for VerifyRrsetsFuture {
 
     // TODO: Can we do this in parallel?
     // HINT: use select_all
+    // FIXME: strip unvalidated records from the message
     match self.rrsets.poll() {
       Ok(Async::NotReady) => Ok(Async::NotReady),
       // all rrsets verified! woop!
@@ -227,54 +249,87 @@ impl Future for VerifyRrsetsFuture {
   }
 }
 
+/// Generic entrypoint to verify any RRSET against the provided signatures.
+///
+/// Generally, the RRSET will be validated by `verify_default_rrset()`. There are additional
+///  checks that happen after the RRSET is successfully validated. In the case of DNSKEYs this
+///  triggers `verify_dnskey_rrset()`. If it's an NSEC record, then the NSEC record will be
+///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
+///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
+///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
 fn verify_rrset(client: SecureClientHandle,
                 rrset: Rrset,
                 rrsigs: Vec<Record>,)
                 -> Box<Future<Item=Rrset, Error=ClientError>> {
-  match rrset.record_type {
-    RecordType::DNSKEY => verify_dnskey_rrset(client, rrset, rrsigs),
-    //RecordType::DS => verify_ds_rrset(client, name, record_type, record_class, rrset, rrsigs),
-    _ => verify_default_rrset(client, rrset, rrsigs),
+  // Special case for unsigned DNSKEYs, it's valid for a DNSKEY to be bare in the zone if
+  //  it's a trust_anchor, though some DNS servers choose to self-sign in this case,
+  //  for self-signed KEYS they will drop through to the standard validation logic.
+  if rrsigs.is_empty() {
+    debug!("unsigned key: {}, {:?}", rrset.name, rrset.record_type);
+    if let RecordType::DNSKEY = rrset.record_type {
+      return verify_dnskey_rrset(client.clone_with_context(), rrset)
+    }
   }
+
+  // standard validation path
+  Box::new(verify_default_rrset(client.clone_with_context(), rrset, rrsigs)
+        .and_then(|rrset|
+          // POST validation
+          match rrset.record_type {
+            RecordType::NSEC => Box::new(failed(ClientErrorKind::Message("NSEC not implemented").into())),
+            RecordType::DNSKEY => verify_dnskey_rrset(client, rrset),
+            // RecordType::DS => verify_ds_rrset(client, name, record_type, record_class, rrset, rrsigs),
+            _ => Box::new(finished(rrset)),
+          }
+        )
+        .map_err(|e| {
+          debug!("rrset failed validation: {}", e);
+          e
+        })
+      )
 }
 
+/// Verifies a dnskey rrset
+///
+/// This first checks to see if the key is in the set of trust_anchors. If so then it's returned
+///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
+///  against the DS record.
 fn verify_dnskey_rrset(
   client: SecureClientHandle,
-  rrset: Rrset,
-  rrsigs: Vec<Record>,)
+  rrset: Rrset)
   -> Box<Future<Item=Rrset, Error=ClientError>>
 {
-    debug!("dnskey validation {}, record_type: {:?}", rrset.name, rrset.record_type);
+  debug!("dnskey validation {}, record_type: {:?}", rrset.name, rrset.record_type);
 
-    // check the DNSKEYS against the trust_anchor, if it's approved allow it.
-    {
-        let anchored_keys = rrset.records.iter()
-              .enumerate()
-              .filter(|&(_, rr)| rr.get_rr_type() == RecordType::DNSKEY)
-              .filter_map(|(i, rr)| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
-                  Some((i, rdata))
-              } else {
-                  None
-              })
-              .filter_map(|(i, rdata)|
-                  if client.trust_anchor.contains(rdata.get_public_key()) {
-                      debug!("in trust_anchor");
-                      Some(i)
-                  } else {
-                      debug!("not in trust_anchor");
-                      None
-                  }
-              )
-              .collect::<Vec<usize>>();
-
-        if !anchored_keys.is_empty() {
-            let mut rrset = rrset;
-            preserve(&mut rrset.records, anchored_keys);
-
-            debug!("validated dnskey with trust_anchor: {}, {}", rrset.name, rrset.records.len());
-            return Box::new(finished((rrset)))
+  // check the DNSKEYS against the trust_anchor, if it's approved allow it.
+  {
+    let anchored_keys = rrset.records.iter()
+      .enumerate()
+      .filter(|&(_, rr)| rr.get_rr_type() == RecordType::DNSKEY)
+      .filter_map(|(i, rr)| if let &RData::DNSKEY(ref rdata) = rr.get_rdata() {
+        Some((i, rdata))
+      } else {
+        None
+      })
+      .filter_map(|(i, rdata)| {
+        if client.trust_anchor.contains(rdata.get_public_key()) {
+          debug!("in trust_anchor");
+          Some(i)
+        } else {
+          debug!("not in trust_anchor");
+          None
         }
+      })
+      .collect::<Vec<usize>>();
+
+    if !anchored_keys.is_empty() {
+      let mut rrset = rrset;
+      preserve(&mut rrset.records, anchored_keys);
+
+      debug!("validated dnskey with trust_anchor: {}, {}", rrset.name, rrset.records.len());
+      return Box::new(finished((rrset)))
     }
+  }
 
   // need to get DS records for each DNSKEY
   let valid_dnskey = client.query(rrset.name.clone(), rrset.record_class, RecordType::DS)
@@ -371,25 +426,33 @@ fn test_preserve() {
     assert_eq!(vec, vec![1,2,3]);
 }
 
+/// Validates that a given DNSKEY is covered by the DS record.
+///
+/// # Return
+///
+/// true if and only if the DNSKEY is covered by the DS record.
+///
+/// ```text
+/// 5.1.4.  The Digest Field
+///
+///    The DS record refers to a DNSKEY RR by including a digest of that
+///    DNSKEY RR.
+///
+///    The digest is calculated by concatenating the canonical form of the
+///    fully qualified owner name of the DNSKEY RR with the DNSKEY RDATA,
+///    and then applying the digest algorithm.
+///
+///      digest = digest_algorithm( DNSKEY owner name | DNSKEY RDATA);
+///
+///       "|" denotes concatenation
+///
+///      DNSKEY RDATA = Flags | Protocol | Algorithm | Public Key.
+///
+///    The size of the digest may vary depending on the digest algorithm and
+///    DNSKEY RR size.  As of the time of this writing, the only defined
+///    digest algorithm is SHA-1, which produces a 20 octet digest.
+/// ```
 fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> bool {
-  // 5.1.4.  The Digest Field
-  //
-  //    The DS record refers to a DNSKEY RR by including a digest of that
-  //    DNSKEY RR.
-  //
-  //    The digest is calculated by concatenating the canonical form of the
-  //    fully qualified owner name of the DNSKEY RR with the DNSKEY RDATA,
-  //    and then applying the digest algorithm.
-  //
-  //      digest = digest_algorithm( DNSKEY owner name | DNSKEY RDATA);
-  //
-  //       "|" denotes concatenation
-  //
-  //      DNSKEY RDATA = Flags | Protocol | Algorithm | Public Key.
-  //
-  //    The size of the digest may vary depending on the digest algorithm and
-  //    DNSKEY RR size.  As of the time of this writing, the only defined
-  //    digest algorithm is SHA-1, which produces a 20 octet digest.
   let mut buf: Vec<u8> = Vec::new();
   {
     let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
@@ -410,6 +473,11 @@ fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> bool {
   }
 }
 
+/// Verifies that a given RRSET is validly signed by any of the specified RRSIGs.
+///
+/// Invalid RRSIGs will be ignored. RRSIGs will only be validated against DNSKEYs which can
+///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
+///  then the RRSET will be valid.
 fn verify_default_rrset(
   client: SecureClientHandle,
   rrset: Rrset,
@@ -458,8 +526,15 @@ fn verify_default_rrset(
                                              .map(|_| rrset)
                                              .ok_or(ClientErrorKind::Message("validation failed").into())
                                     )
-                            });
+                            })
+                            .collect::<Vec<_>>();
 
+  // if there are no available verifications, then we are in a failed state.
+  if verifications.is_empty() {
+    return Box::new(failed(ClientErrorKind::Msg(format!("no RRSIGs available for validation: {}, {:?}", rrset.name, rrset.record_type)).into()));
+  }
+
+  // as long as any of the verifcations is good, then the RRSET is valid.
   let select = select_any(verifications)
                           // getting here means at least one of the rrsigs succeeded...
                           .map(move |(rrset, rest)| {
@@ -470,6 +545,7 @@ fn verify_default_rrset(
   Box::new(select)
 }
 
+/// Verifies the given SIG of the RRSET with the DNSKEY. 
 fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
                             sig: &SIG,
                             rrset: &Rrset) -> bool {
@@ -492,96 +568,6 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
       false
   }
 }
-
-// /// A future for verifying a Rrset
-// struct VerifyRrsetSelect {
-//   select: SelectAll<Box<Future<Item=Rrset, Error=ClientError>>>
-// }
-//
-// impl Future for VerifyRrsetSelect {
-//   type Item = ();
-//   type Error = ClientError;
-//
-//   fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-//     match self.select.poll() {
-//       Ok(Async::NotReady) => Ok(Async::NotReady),
-//       Ok(Async::Ready((_,_,_))) => Ok(Async::Ready(())),
-//       Err((_,_, left)) => {
-//         if left.is_empty() { return Err(ClientErrorKind::Message("All RRSIGS failed to validate").into()) }
-//
-//         debug!("did not validate an RRSIG, will try others");
-//         // select all on the next batch
-//         mem::replace(&mut self.select, select_all(left));
-//         Ok(Async::NotReady)
-//       }
-//     }
-//   }
-// }
-
-// pub struct VerifyRrsigFuture {
-//   client: ClientHandle,
-//   trust_anchor: Rc<TrustAnchor>,
-//
-//   result: Message,
-//   toProveStack: Box<SecureClientFuture>,
-// }
-//
-// impl Future for VerifyRrsigFuture {
-//   type Item = Message;
-//   type Error = ClientError;
-//
-//   fn poll(&mut self) -> Poll<Item, Self::Error> {
-//     Async::Ready(self.result)
-//   }
-// }
-//
-// pub struct VerifyDnsKeyFuture {
-//   client: ClientHandle,
-//   trust_anchor: TrustAnchor,
-//
-//   result: Message,
-//   toProveStack: Box<SecureClientFuture>,
-// }
-//
-// impl Future for VerifyDnsKeyFuture {
-//   type Item = Message;
-//   type Error = ClientError;
-//
-//   fn poll(&mut self) -> Poll<Item, Self::Error> {
-//     Async::Ready(self.result)
-//   }
-// }
-//
-// pub struct VerifyNsecRrsetsFuture {
-//   client: ClientHandle,
-//   trust_anchor: AsRef<TrustAnchor>,
-//   message_result: Message,
-//   rrset_types: HashSet<(domain::Name, RecordType)>,
-// }
-//
-// impl Future for VerifyNsecRrsetsFuture {
-//   type Item = Message;
-//   type Error = ClientError;
-//
-//   fn poll(&mut self) -> Poll<Item, Self::Error> {
-//     Async::Ready(self.result)
-//   }
-// }
-//
-//
-// pub struct VerifyNsecFuture {
-//
-// }
-//
-// impl Future for VerifyNsecFuture {
-//   type Item = Message;
-//   type Error = ClientError;
-//
-//   fn poll(&mut self) -> Poll<Item, Self::Error> {
-//     Async::Ready(self.result)
-//   }
-// }
-
 
 #[cfg(test)]
 pub mod test {
