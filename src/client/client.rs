@@ -26,7 +26,7 @@ use ::rr::{DNSClass, RecordType, Record, RData};
 use ::rr::rdata::NULL;
 use ::rr::domain;
 use ::rr::dnssec::{Signer, TrustAnchor};
-use ::op::{ Message, MessageType, OpCode, Query, Edns, ResponseCode, UpdateMessage };
+use ::op::{ Message, MessageType, OpCode, Query, ResponseCode, UpdateMessage };
 use ::serialize::binary::*;
 use ::client::ClientConnection;
 

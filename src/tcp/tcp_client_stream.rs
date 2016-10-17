@@ -5,21 +5,15 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std;
 use std::mem;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::io;
 use std::io::{Read, Write};
 
-use futures::{AndThen, Async, BoxFuture, Flatten, Future, Poll};
+use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
-use futures::task::park;
-use rand::Rng;
-use rand;
-use tokio_core;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::channel::{channel, Sender, Receiver};
-use tokio_core::io::{read_exact, ReadExact, write_all, WriteAll};
 use tokio_core::reactor::{Handle};
 
 pub type TcpClientStreamHandle = Sender<Vec<u8>>;
@@ -36,7 +30,6 @@ enum ReadTcpState {
 
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpClientStream {
-  name_server: SocketAddr,
   socket: TokioTcpStream,
   outbound_messages: Peekable<Fuse<Receiver<Vec<u8>>>>,
   send_state: Option<WriteTcpState>,
@@ -56,7 +49,6 @@ impl TcpClientStream {
     let stream: Box<Future<Item=TcpClientStream, Error=io::Error>> = Box::new(tcp
       .map(move |tcp_stream| {
         TcpClientStream {
-          name_server: name_server,
           socket: tcp_stream,
           outbound_messages: outbound_messages.fuse().peekable(),
           send_state: None,
@@ -207,6 +199,9 @@ impl Stream for TcpClientStream {
   }
 }
 
+#[cfg(test)] use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+
+
 #[test]
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a mesage buffer reads the wrong length. It works for 2 iterations
@@ -223,26 +218,24 @@ fn test_tcp_client_stream_ipv6() {
 }
 
 #[cfg(test)]
-const test_bytes: &'static [u8; 8] = b"DEADBEEF";
+const TEST_BYTES: &'static [u8; 8] = b"DEADBEEF";
 #[cfg(test)]
-const test_bytes_len: usize = 8;
+const TEST_BYTES_LEN: usize = 8;
 
 #[cfg(test)]
 fn tcp_client_stream_test(server_addr: IpAddr) {
+  use std;
   use std::time::Duration;
-  use std::thread;
+  use std::{thread, process};
   use std::io::{Read, Write};
   use std::sync::Arc;
   use std::sync::atomic::{AtomicBool,Ordering};
 
   use tokio_core::reactor::Core;
 
-  use log::LogLevel;
-  use ::logger::TrustDnsLogger;
-
-  let mut succeeded = Arc::new(AtomicBool::new(false));
+  let succeeded = Arc::new(AtomicBool::new(false));
   let succeeded_clone = succeeded.clone();
-  let test_killer = thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
+  thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
     let succeeded = succeeded_clone.clone();
     for _ in 0..5 {
       thread::sleep(Duration::from_secs(1));
@@ -250,8 +243,8 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     }
 
     println!("timeout");
-    std::process::exit(-1)
-  });
+    process::exit(-1)
+  }).unwrap();
 
   // TODO: need a timeout on listen
   let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -261,23 +254,23 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
 
   // an in and out server
   let server_handle = thread::Builder::new().name("test_tcp_client_stream_ipv4:server".to_string()).spawn(move || {
-    let (mut socket, addr) = server.accept().expect("accept failed");
+    let (mut socket, _) = server.accept().expect("accept failed");
 
     socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
     socket.set_write_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
 
-    for i in 0..send_recv_times {
+    for _ in 0..send_recv_times {
       // wait for some bytes...
       let mut len_bytes = [0_u8; 2];
       socket.read_exact(&mut len_bytes).expect("SERVER: receive failed");
       let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
-      assert_eq!(length as usize, test_bytes_len);
+      assert_eq!(length as usize, TEST_BYTES_LEN);
 
-      let mut buffer = [0_u8; test_bytes_len];
-      socket.read_exact(&mut buffer);
+      let mut buffer = [0_u8; TEST_BYTES_LEN];
+      socket.read_exact(&mut buffer).unwrap();
 
       // println!("read bytes iter: {}", i);
-      assert_eq!(&buffer, test_bytes);
+      assert_eq!(&buffer, TEST_BYTES);
 
       // bounce them right back...
       socket.write_all(&len_bytes).expect("SERVER: send length failed");
@@ -297,13 +290,13 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
 
   let mut stream: TcpClientStream = io_loop.run(stream).ok().expect("run failed to get stream");
 
-  for i in 0..send_recv_times {
+  for _ in 0..send_recv_times {
     // test once
-    sender.send(test_bytes.to_vec()).expect("send failed");
+    sender.send(TEST_BYTES.to_vec()).expect("send failed");
     let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect("future iteration run failed");
     stream = stream_tmp;
     let buffer = buffer.expect("no buffer received");
-    assert_eq!(&buffer, test_bytes);
+    assert_eq!(&buffer, TEST_BYTES);
   }
 
   succeeded.store(true, Ordering::Relaxed);

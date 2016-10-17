@@ -172,7 +172,7 @@ fn test_udp_client_stream_ipv6() {
 #[cfg(test)]
 fn udp_client_stream_test(server_addr: IpAddr) {
   use std::time::Duration;
-  use std::thread;
+  use std::{process, thread};
 
   use tokio_core::reactor::Core;
 
@@ -183,9 +183,9 @@ fn udp_client_stream_test(server_addr: IpAddr) {
 
   TrustDnsLogger::enable_logging(LogLevel::Debug);
 
-  let mut succeeded = Arc::new(AtomicBool::new(false));
+  let succeeded = Arc::new(AtomicBool::new(false));
   let succeeded_clone = succeeded.clone();
-  let test_killer = thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
+  thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
     let succeeded = succeeded_clone.clone();
     for _ in 0..15 {
       thread::sleep(Duration::from_secs(1));
@@ -193,8 +193,8 @@ fn udp_client_stream_test(server_addr: IpAddr) {
     }
 
     println!("timeout");
-    std::process::exit(-1)
-  });
+    process::exit(-1)
+  }).unwrap();
 
   let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
   server.set_read_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...

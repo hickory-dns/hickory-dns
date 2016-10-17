@@ -6,32 +6,20 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::cell::RefCell;
-use std::collections::{HashMap, HashSet};
-use std::collections::hash_set::Drain;
+use std::collections::HashSet;
 use std::mem;
 use std::rc::Rc;
 
-use chrono::UTC;
-use futures;
-use futures::{AndThen, Async, Complete, Future, Oneshot, Poll, task};
-use futures::{collect, Collect, failed, finished, IntoFuture, select_all, SelectAll, SelectAllNext};
-use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
-use futures::task::park;
+use futures::*;
 use openssl::crypto::pkey::Role;
-use rand::Rng;
-use rand;
-use tokio_core::reactor::Handle;
-use tokio_core::channel::{channel, Sender, Receiver};
 
 use ::client::{BasicClientHandle, ClientHandle};
 use ::client::select_any::select_any;
 use ::error::*;
-use ::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage};
+use ::op::{Message, OpCode};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::{Signer, TrustAnchor};
-use ::rr::rdata::{dnskey, DNSKEY, DS, NULL, SIG};
-use ::tcp::{TcpClientStream, TcpClientStreamHandle};
-use ::udp::{UdpClientStream, UdpClientStreamHandle};
+use ::rr::rdata::{dnskey, DNSKEY, DS, SIG};
 use ::serialize::binary::{BinEncoder, BinSerializable};
 
 #[derive(Debug)]
@@ -146,7 +134,6 @@ impl ClientHandle for SecureClientHandle {
 
 /// A future to verify all RRSets in a returned Message.
 pub struct VerifyRrsetsFuture {
-  client: SecureClientHandle,
   message_result: Option<Message>,
   rrsets: Collect<Vec<Box<Future<Item=Rrset, Error=ClientError>>>>,
 }
@@ -214,7 +201,6 @@ impl VerifyRrsetsFuture {
 
     // return the full Message validator
     VerifyRrsetsFuture{
-      client: client,
       message_result: Some(message_result),
       rrsets: rrsets_to_verify,
     }
@@ -545,7 +531,7 @@ fn verify_default_rrset(
   Box::new(select)
 }
 
-/// Verifies the given SIG of the RRSET with the DNSKEY. 
+/// Verifies the given SIG of the RRSET with the DNSKEY.
 fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
                             sig: &SIG,
                             rrset: &Rrset) -> bool {
@@ -571,30 +557,19 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
 
 #[cfg(test)]
 pub mod test {
-  use std::fmt;
-  use std::io;
   use std::net::*;
 
-  use chrono::Duration;
-  use futures;
-  use futures::{Async, Complete, Future, finished, Oneshot, Poll, task};
-  use futures::stream::{Fuse, Stream};
-  use futures::task::park;
-  use openssl::crypto::pkey::{PKey, Role};
-  use tokio_core::reactor::{Core, Handle};
-  use tokio_core::channel::{channel, Sender, Receiver};
+  use tokio_core::reactor::Core;
 
-  use ::client::{ClientFuture, BasicClientHandle, ClientHandle, SecureClientHandle, TestClientStream};
-  use ::error::*;
-  use ::op::{Message, ResponseCode};
+  use ::client::{ClientFuture, ClientHandle, SecureClientHandle, TestClientStream};
   use ::authority::Catalog;
-  use ::authority::authority_tests::{create_example, create_secure_example};
+  use ::authority::authority_tests::create_secure_example;
   use ::rr::domain;
-  use ::rr::{DNSClass, RData, Record, RecordType};
-  use ::rr::dnssec::{Algorithm, Signer, TrustAnchor};
-  use ::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
-  use ::udp::{UdpClientStream, UdpClientStreamHandle};
-  use ::tcp::{TcpClientStream, TcpClientStreamHandle};
+  use ::rr::{DNSClass, RData, RecordType};
+  use ::rr::dnssec::TrustAnchor;
+  use ::tcp::TcpClientStream;
+  use ::udp::UdpClientStream;
+
 
   #[test]
   fn test_secure_query_example_nonet() {
@@ -615,7 +590,7 @@ pub mod test {
     let mut trust_anchor = TrustAnchor::new();
     trust_anchor.insert_trust_anchor(public_key);
 
-    let mut io_loop = Core::new().unwrap();
+    let io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog, io_loop.handle());
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
@@ -626,11 +601,11 @@ pub mod test {
   #[test]
   #[ignore]
   fn test_secure_query_example_udp() {
-      use log::LogLevel;
-      use ::logger::TrustDnsLogger;
-      TrustDnsLogger::enable_logging(LogLevel::Debug);
+    use log::LogLevel;
+    use ::logger::TrustDnsLogger;
+    TrustDnsLogger::enable_logging(LogLevel::Debug);
 
-    let mut io_loop = Core::new().unwrap();
+    let io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
@@ -646,7 +621,7 @@ pub mod test {
       use ::logger::TrustDnsLogger;
       TrustDnsLogger::enable_logging(LogLevel::Debug);
 
-    let mut io_loop = Core::new().unwrap();
+    let io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);

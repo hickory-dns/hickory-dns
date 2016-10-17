@@ -10,7 +10,7 @@ use std::io;
 
 use chrono::UTC;
 use futures;
-use futures::{Async, Complete, Future, Oneshot, Poll, task};
+use futures::{Async, Complete, Future, Poll, task};
 use futures::IntoFuture;
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use futures::task::park;
@@ -23,9 +23,7 @@ use ::error::*;
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::Signer;
 use ::rr::rdata::NULL;
-use ::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage};
-use ::udp::{UdpClientStream, UdpClientStreamHandle};
-use ::tcp::{TcpClientStream, TcpClientStreamHandle};
+use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
@@ -34,7 +32,7 @@ type StreamHandle = Sender<Vec<u8>>;
 #[must_use = "futures do nothing unless polled"]
 pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
   stream: S,
-  streamHandle: StreamHandle,
+  stream_handle: StreamHandle,
   new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, Complete<ClientResult<Message>>>,
   // TODO: Maybe make a typed version of ClientFuture for Updates?
@@ -43,7 +41,7 @@ pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
 
 impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
   pub fn new(stream: Box<Future<Item=S, Error=io::Error>>,
-         streamHandle: StreamHandle,
+         stream_handle: StreamHandle,
          loop_handle: Handle,
          signer: Option<Signer>) -> BasicClientHandle {
     let (sender, rx) = channel(&loop_handle).expect("could not get channel!");
@@ -52,7 +50,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
       stream.map(move |stream| {
         ClientFuture{
           stream: stream,
-          streamHandle: streamHandle,
+          stream_handle: stream_handle,
           new_receiver: rx.fuse().peekable(),
           active_requests: HashMap::new(),
           signer: signer,
@@ -149,7 +147,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
           match message.to_vec() {
             Ok(buffer) => {
               debug!("sending message id: {}", query_id);
-              try!(self.streamHandle.send(buffer));
+              try!(self.stream_handle.send(buffer));
               // add to the map -after- the client send b/c we don't want to put it in the map if
               //  we ended up returning from the send.
               self.active_requests.insert(message.get_id(), complete);
@@ -704,25 +702,23 @@ pub mod test {
   use std::net::*;
 
   use chrono::Duration;
-  use futures;
-  use futures::{Async, Complete, Future, finished, Oneshot, Poll, task};
+  use futures::{Async, Future, finished, Poll};
   use futures::stream::{Fuse, Stream};
   use futures::task::park;
-  use openssl::crypto::pkey::{PKey, Role};
+  use openssl::crypto::pkey::PKey;
   use tokio_core::reactor::{Core, Handle};
-  use tokio_core::channel::{channel, Sender, Receiver};
+  use tokio_core::channel::{channel, Receiver};
 
   use super::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle};
   use ::op::{Message, ResponseCode};
   use ::authority::Catalog;
-  use ::authority::authority_tests::{create_example, create_secure_example};
+  use ::authority::authority_tests::{create_example};
   use ::rr::domain;
   use ::rr::{DNSClass, RData, Record, RecordType};
   use ::rr::dnssec::{Algorithm, Signer};
   use ::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
-  use ::error::*;
-  use ::udp::{UdpClientStream, UdpClientStreamHandle};
-  use ::tcp::{TcpClientStream, TcpClientStreamHandle};
+  use ::udp::UdpClientStream;
+  use ::tcp::TcpClientStream;
 
   pub struct TestClientStream {
     catalog: Catalog,
