@@ -16,7 +16,7 @@ use openssl::crypto::pkey::Role;
 use ::client::{BasicClientHandle, ClientHandle};
 use ::client::select_any::select_any;
 use ::error::*;
-use ::op::{Message, OpCode};
+use ::op::{Message, OpCode, Query, ResponseCode};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::{Signer, TrustAnchor};
 use ::rr::rdata::{dnskey, DNSKEY, DS, SIG};
@@ -90,6 +90,9 @@ impl ClientHandle for SecureClientHandle {
 
     // dnssec only matters on queries.
     if let OpCode::Query = message.get_op_code() {
+      // This will panic on no queries, that is a very odd type of request, isn't it?
+      // TODO: there should only be one
+      let query = message.get_queries().first().cloned().unwrap();
       let client: SecureClientHandle = self.clone_with_context();
       let active_validations = self.active_validations.clone();
       let request_depth = self.request_depth;
@@ -115,7 +118,25 @@ impl ClientHandle for SecureClientHandle {
                        dns_class,
                      )
                    })
-                   .then(move |verify| {
+                   .and_then(move |verified_message| {
+                     // at this point all of the message is verified.
+                     //  This is where NSEC (and possibly NSEC3) validation occurs
+                     // As of now, only NSEC is supported.
+                     if verified_message.get_response_code() == ResponseCode::NXDomain ||
+                        verified_message.get_answers().is_empty() {
+
+                        let nsecs = verified_message.get_name_servers()
+                                                      .iter()
+                                                      .filter(|rr| rr.get_rr_type() == RecordType::NSEC)
+                                                      .collect::<Vec<_>>();
+
+                        if !verify_nsec(&query, nsecs) {
+                          return Err(ClientErrorKind::Message("could not validate nxdomain with NSEC").into())
+                        }
+                      }
+                      Ok(verified_message)
+                   })
+                   .then(move |verified_message| {
                      // TODO: this feels dirty, is there a cleaner way?
                      // if our request depth is zero then this is the top of the stack, clear
                      //  active_validations
@@ -123,7 +144,7 @@ impl ClientHandle for SecureClientHandle {
                        active_validations.borrow_mut().clear();
                      }
 
-                     verify
+                     verified_message
                    })
                  )
     }
@@ -262,7 +283,6 @@ fn verify_rrset(client: SecureClientHandle,
         .and_then(|rrset|
           // POST validation
           match rrset.record_type {
-            RecordType::NSEC => Box::new(failed(ClientErrorKind::Message("NSEC not implemented").into())),
             RecordType::DNSKEY => verify_dnskey_rrset(client, rrset),
             // RecordType::DS => verify_ds_rrset(client, name, record_type, record_class, rrset, rrsigs),
             _ => Box::new(finished(rrset)),
@@ -555,15 +575,98 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
   }
 }
 
+/// Verifies NSEC records
+///
+/// ```text
+/// RFC 4035             DNSSEC Protocol Modifications            March 2005
+///
+/// 5.4.  Authenticated Denial of Existence
+///
+///  A resolver can use authenticated NSEC RRs to prove that an RRset is
+///  not present in a signed zone.  Security-aware name servers should
+///  automatically include any necessary NSEC RRs for signed zones in
+///  their responses to security-aware resolvers.
+///
+///  Denial of existence is determined by the following rules:
+///
+///  o  If the requested RR name matches the owner name of an
+///     authenticated NSEC RR, then the NSEC RR's type bit map field lists
+///     all RR types present at that owner name, and a resolver can prove
+///     that the requested RR type does not exist by checking for the RR
+///     type in the bit map.  If the number of labels in an authenticated
+///     NSEC RR's owner name equals the Labels field of the covering RRSIG
+///     RR, then the existence of the NSEC RR proves that wildcard
+///     expansion could not have been used to match the request.
+///
+///  o  If the requested RR name would appear after an authenticated NSEC
+///     RR's owner name and before the name listed in that NSEC RR's Next
+///     Domain Name field according to the canonical DNS name order
+///     defined in [RFC4034], then no RRsets with the requested name exist
+///     in the zone.  However, it is possible that a wildcard could be
+///     used to match the requested RR owner name and type, so proving
+///     that the requested RRset does not exist also requires proving that
+///     no possible wildcard RRset exists that could have been used to
+///     generate a positive response.
+///
+///  In addition, security-aware resolvers MUST authenticate the NSEC
+///  RRsets that comprise the non-existence proof as described in Section
+///  5.3.
+///
+///  To prove the non-existence of an RRset, the resolver must be able to
+///  verify both that the queried RRset does not exist and that no
+///  relevant wildcard RRset exists.  Proving this may require more than
+///  one NSEC RRset from the zone.  If the complete set of necessary NSEC
+///  RRsets is not present in a response (perhaps due to message
+///  truncation), then a security-aware resolver MUST resend the query in
+///  order to attempt to obtain the full collection of NSEC RRs necessary
+///  to verify the non-existence of the requested RRset.  As with all DNS
+///  operations, however, the resolver MUST bound the work it puts into
+///  answering any particular query.
+///
+///  Since a validated NSEC RR proves the existence of both itself and its
+///  corresponding RRSIG RR, a validator MUST ignore the settings of the
+///  NSEC and RRSIG bits in an NSEC RR.
+/// ```
+fn verify_nsec(query: &Query, nsecs: Vec<&Record>) -> bool {
+  // first look for a record with the same name
+  //  if they are, then the query_type should not exist in the NSEC record.
+  //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
+  //    WTF? is that bad server, bad record
+  if nsecs.iter().any(|r| query.get_name() == r.get_name() && {
+    if let &RData::NSEC(ref rdata) = r.get_rdata() {
+      !rdata.get_type_bit_maps().contains(&query.get_query_type())
+    } else {
+      panic!("expected NSEC was {:?}", r.get_rr_type()) // valid panic, never should happen
+    }
+  }) { return true }
+
+  // based on the WTF? above, we will ignore any NSEC records of the same name
+  if nsecs.iter()
+          .filter(|r| query.get_name() != r.get_name())
+          .any(|r| query.get_name() > r.get_name() && {
+    if let &RData::NSEC(ref rdata) = r.get_rdata() {
+      query.get_name() < rdata.get_next_domain_name()
+    } else {
+      panic!("expected NSEC was {:?}", r.get_rr_type()) // valid panic, never should happen
+    }
+  }) { return true }
+
+  // TODO: need to validate ANY or *.domain record existance, which doesn't make sense since
+  //  that would have been returned in the request
+  // if we got here, then there are no matching NSEC records, no validation
+  false
+}
+
 #[cfg(test)]
 pub mod test {
   use std::net::*;
 
   use tokio_core::reactor::Core;
 
-  use ::client::{ClientFuture, ClientHandle, SecureClientHandle, TestClientStream};
   use ::authority::Catalog;
   use ::authority::authority_tests::create_secure_example;
+  use ::client::{ClientFuture, ClientHandle, SecureClientHandle, TestClientStream};
+  use ::op::ResponseCode;
   use ::rr::domain;
   use ::rr::{DNSClass, RData, RecordType};
   use ::rr::dnssec::TrustAnchor;
@@ -573,6 +676,96 @@ pub mod test {
 
   #[test]
   fn test_secure_query_example_nonet() {
+    with_nonet(test_secure_query_example);
+  }
+
+  #[test]
+  #[ignore]
+  fn test_secure_query_example_udp() {
+    with_udp(test_secure_query_example);
+  }
+
+  #[test]
+  #[ignore]
+  fn test_secure_query_example_tcp() {
+    with_tcp(test_secure_query_example);
+  }
+
+  #[cfg(test)]
+  fn test_secure_query_example(client: SecureClientHandle, mut io_loop: Core) {
+    let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A)).expect("query failed");
+
+    println!("response records: {:?}", response);
+    assert!(response.get_edns().expect("edns not here").is_dnssec_ok());
+
+    let record = &response.get_answers()[0];
+    assert_eq!(record.get_name(), &name);
+    assert_eq!(record.get_rr_type(), RecordType::A);
+    assert_eq!(record.get_dns_class(), DNSClass::IN);
+
+    if let &RData::A(ref address) = record.get_rdata() {
+      assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
+    } else {
+      assert!(false);
+    }
+  }
+
+  #[test]
+  fn test_nsec_query_example_nonet() {
+    with_nonet(test_nsec_query_example);
+  }
+
+  #[test]
+  #[ignore]
+  fn test_nsec_query_example_udp() {
+    with_udp(test_nsec_query_example);
+  }
+
+  #[test]
+  #[ignore]
+  fn test_nsec_query_example_tcp() {
+    with_tcp(test_nsec_query_example);
+  }
+
+  #[cfg(test)]
+  fn test_nsec_query_example(client: SecureClientHandle, mut io_loop: Core) {
+    let name = domain::Name::with_labels(vec!["none".to_string(), "example".to_string(), "com".to_string()]);
+
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A)).expect("query failed");
+    assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
+  }
+
+  // FIXME: NSEC response code wrong in Trust-DNS? Issue #53
+  // #[test]
+  // fn test_nsec_query_type_nonet() {
+  //   with_nonet(test_nsec_query_type);
+  // }
+
+  #[test]
+  #[ignore]
+  fn test_nsec_query_type_udp() {
+    with_udp(test_nsec_query_type);
+  }
+
+  #[test]
+  #[ignore]
+  fn test_nsec_query_type_tcp() {
+    with_tcp(test_nsec_query_type);
+  }
+
+  #[cfg(test)]
+  fn test_nsec_query_type(client: SecureClientHandle, mut io_loop: Core) {
+    let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::NS)).expect("query failed");
+
+    assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    assert!(response.get_answers().is_empty());
+  }
+
+  #[cfg(test)]
+  fn with_nonet<F>(test: F) where F: Fn(SecureClientHandle, Core) {
     use log::LogLevel;
     use ::logger::TrustDnsLogger;
     TrustDnsLogger::enable_logging(LogLevel::Debug);
@@ -595,12 +788,11 @@ pub mod test {
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
-    test_secure_query_example(secure_client, io_loop);
+    test(secure_client, io_loop);
   }
 
-  #[test]
-  #[ignore]
-  fn test_secure_query_example_udp() {
+  #[cfg(test)]
+  fn with_udp<F>(test: F) where F: Fn(SecureClientHandle, Core) {
     use log::LogLevel;
     use ::logger::TrustDnsLogger;
     TrustDnsLogger::enable_logging(LogLevel::Debug);
@@ -611,12 +803,11 @@ pub mod test {
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
     let secure_client = SecureClientHandle::new(client);
 
-    test_secure_query_example(secure_client, io_loop);
+    test(secure_client, io_loop);
   }
 
-  #[test]
-  #[ignore]
-  fn test_secure_query_example_tcp() {
+  #[cfg(test)]
+  fn with_tcp<F>(test: F) where F: Fn(SecureClientHandle, Core) {
       use log::LogLevel;
       use ::logger::TrustDnsLogger;
       TrustDnsLogger::enable_logging(LogLevel::Debug);
@@ -627,26 +818,6 @@ pub mod test {
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
     let secure_client = SecureClientHandle::new(client);
 
-    test_secure_query_example(secure_client, io_loop);
-  }
-
-  #[cfg(test)]
-  fn test_secure_query_example(client: SecureClientHandle, mut io_loop: Core) {
-    let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A)).expect("query failed");
-
-    println!("response records: {:?}", response);
-    assert!(response.get_edns().expect("edns not here").is_dnssec_ok());
-
-    let record = &response.get_answers()[0];
-    assert_eq!(record.get_name(), &name);
-    assert_eq!(record.get_rr_type(), RecordType::A);
-    assert_eq!(record.get_dns_class(), DNSClass::IN);
-
-    if let &RData::A(ref address) = record.get_rdata() {
-      assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-    } else {
-      assert!(false);
-    }
+    test(secure_client, io_loop);
   }
 }
