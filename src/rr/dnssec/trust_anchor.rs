@@ -33,6 +33,7 @@ pub struct TrustAnchor {
 impl Default for TrustAnchor {
   fn default() -> TrustAnchor {
     let rsa = RSA::public_key_from_pem(ROOT_ANCHOR.as_bytes()).expect("Error parsing Kjqmt7v.pem");
+    assert_eq!(rsa.size().unwrap(), 256);
 
     let alg = Algorithm::RSASHA256;
 

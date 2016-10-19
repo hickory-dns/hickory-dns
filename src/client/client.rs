@@ -198,6 +198,9 @@ impl<C: ClientConnection> Client<C> {
 
             // FYI mapping the error to bool here, this code is going away after futures land
             if signer.verify(&rrset_hash, sig.get_sig()).map(|_| true).unwrap_or(false) {
+              debug!("verified: {}:{:?} with: {}:{:?}", name, query_type, rrsig.get_name(),
+                     if let &RData::SIG(ref sig) = rrsig.get_rdata() { sig.get_type_covered() } else { RecordType::NULL });
+
               if sig.get_signer_name() == name && query_type == RecordType::DNSKEY {
                 // this is self signed... let's skip to DS validation
                 let mut proof: Vec<Record> = try!(self.verify_dnskey(dnskey));
@@ -1139,6 +1142,10 @@ mod test {
 
   #[cfg(test)]
   fn test_secure_query_example<C: ClientConnection>(client: Client<C>) {
+    use log::LogLevel;
+    use ::logger::TrustDnsLogger;
+    TrustDnsLogger::enable_logging(LogLevel::Debug);
+
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
 
