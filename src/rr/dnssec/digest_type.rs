@@ -15,7 +15,7 @@
  */
 use openssl::crypto::hash;
 
-use ::rr::dnssec::Algorithm;
+use ::rr::dnssec::{Algorithm, DnsSecResult};
 use ::error::*;
 
 // 0	Reserved	-	[RFC3658]
@@ -54,8 +54,8 @@ impl DigestType {
     }
   }
 
-  pub fn hash(&self, data: &[u8]) -> Vec<u8> {
-    hash::hash(self.to_hash(), data)
+  pub fn hash(&self, data: &[u8]) -> DnsSecResult<Vec<u8>> {
+    hash::hash(self.to_hash(), data).map_err(|e| e.into())
   }
 }
 

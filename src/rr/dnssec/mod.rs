@@ -18,6 +18,7 @@
 
 mod algorithm;
 mod digest_type;
+mod error;
 mod nsec3;
 mod signer;
 mod supported_algorithm;
@@ -29,3 +30,9 @@ pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::signer::Signer;
 pub use self::supported_algorithm::SupportedAlgorithms;
 pub use self::trust_anchor::TrustAnchor;
+
+pub use self::error::Error as DnsSecError;
+pub use self::error::ErrorKind as DnsSecErrorKind;
+pub use self::error::ChainErr as DnsSecChainErr;
+
+pub type DnsSecResult<T> = Result<T, DnsSecError>;

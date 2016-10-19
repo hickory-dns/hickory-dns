@@ -16,7 +16,8 @@
 
 use std::string::FromUtf8Error;
 
-use openssl::ssl::error::SslError;
+use openssl::error::ErrorStack as SslErrorStack;
+use ::rr::dnssec::{DnsSecError, DnsSecErrorKind};
 
 use ::rr::Name;
 
@@ -34,7 +35,9 @@ error_chain! {
   // `rustup_dist::Error`.
   //
   // This section can be empty.
-  links {}
+  links {
+    DnsSecError, DnsSecErrorKind, DnsSec;
+  }
 
   // Automatic conversions between this error chain and other
   // error types not defined by the `error_chain!`. These will be
@@ -44,7 +47,7 @@ error_chain! {
   // This section can be empty.
   foreign_links {
     FromUtf8Error, UTF8, "utf8 error";
-    SslError, SSL, "ssl error";
+    SslErrorStack, SSL, "ssl error";
   }
 
   // Define additional `ErrorKind` variants. The syntax here is

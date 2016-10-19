@@ -16,14 +16,13 @@
 
 //! Allows for the root trust_anchor to either be added to or replaced for dns_sec validation.
 
-use std::io::Cursor;
 use std::default::Default;
 
-use openssl::crypto::pkey::{PKey, Role};
+use openssl::crypto::rsa::RSA;
 
 use ::rr::dnssec::Algorithm;
 
-const ROOT_ANCHOR: &'static str = include_str!("Kjqmt7v.pem");
+const ROOT_ANCHOR: &'static [u8; 3027] = include_bytes!("Kjqmt7v.pem");
 
 // TODO: these should also store some information, or more specifically, metadata from the signed
 //  public certificate.
@@ -33,14 +32,11 @@ pub struct TrustAnchor {
 
 impl Default for TrustAnchor {
   fn default() -> TrustAnchor {
-    let mut cursor = Cursor::new(ROOT_ANCHOR);
-    let pkey = PKey::public_key_from_pem(&mut cursor).expect("Error parsing Kjqmt7v.pem");
-    assert!(pkey.can(Role::Verify));
-    assert!(pkey.can(Role::Encrypt));
+    let rsa = RSA::public_key_from_pem(ROOT_ANCHOR).expect("Error parsing Kjqmt7v.pem");
 
     let alg = Algorithm::RSASHA256;
 
-    TrustAnchor{ pkeys: vec![alg.public_key_to_vec(&pkey)] }
+    TrustAnchor{ pkeys: vec![alg.public_key_to_vec(&rsa)] }
   }
 }
 

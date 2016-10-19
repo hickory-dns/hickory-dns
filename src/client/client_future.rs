@@ -699,7 +699,7 @@ pub mod test {
   use futures::{Async, Complete, Future, finished, Oneshot, Poll, task};
   use futures::stream::{Fuse, Stream};
   use futures::task::park;
-  use openssl::crypto::pkey::{PKey, Role};
+  use openssl::crypto::rsa::RSA;
   use tokio_core::reactor::{Core, Handle};
   use tokio_core::channel::{channel, Sender, Receiver};
 
@@ -898,11 +898,10 @@ pub mod test {
     authority.set_allow_update(true);
     let origin = authority.get_origin().clone();
 
-    let mut pkey = PKey::new();
-    pkey.gen(512);
+    let rsa = RSA::generate(512).unwrap();
 
     let signer = Signer::new(Algorithm::RSASHA256,
-                             pkey,
+                             rsa,
                              domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
                              Duration::max_value());
 

@@ -17,7 +17,7 @@ use std::io::Write;
 use openssl::crypto::hash;
 
 use ::error::*;
-use ::rr::dnssec::DigestType;
+use ::rr::dnssec::{DigestType, DnsSecResult};
 use ::rr::Name;
 use ::serialize::binary::{BinEncoder, BinSerializable};
 
@@ -136,7 +136,7 @@ impl Nsec3HashAlgorithm {
   //    3.  If the owner name is a wildcard name, the owner name is in its
   //        original unexpanded form, including the "*" label (no wildcard
   //        substitution);
-  pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> Vec<u8> {
+  pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> DnsSecResult<Vec<u8>> {
     match *self {
       // if there ever is more than just SHA1 support, this should be a genericized method
       Nsec3HashAlgorithm::SHA1 => {
@@ -153,16 +153,19 @@ impl Nsec3HashAlgorithm {
   }
 
   // until there is another supported algorithm, just hardcoded to this.
-  fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> Vec<u8> {
-    let mut hasher: hash::Hasher = hash::Hasher::new(DigestType::SHA1.to_hash());
-
-    if iterations > 0 {
-      hasher.write_all(&Self::sha1_recursive_hash(salt, bytes, iterations - 1)).expect("hasher failed");
-    } else {
-      hasher.write_all(&bytes).expect("hasher failed");
-    }
-    hasher.write_all(salt).expect("hasher failed");
-    hasher.finish()
+  fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> DnsSecResult<Vec<u8>> {
+    hash::Hasher::new(DigestType::SHA1.to_hash())
+                 .map_err(|e| e.into())
+                 .and_then(|mut hasher| {
+                   if iterations > 0 {
+                     let hash = try!(Self::sha1_recursive_hash(salt, bytes, iterations - 1));
+                     try!(hasher.write_all(&hash));
+                   } else {
+                     try!(hasher.write_all(&bytes));
+                   }
+                   try!(hasher.write_all(salt));
+                   hasher.finish().map_err(|e| e.into())
+                 })
   }
 }
 
@@ -180,9 +183,9 @@ fn test_hash() {
   let name = Name::new().label("www").label("example").label("com");
   let salt: Vec<u8> = vec![1,2,3,4];
 
-  assert_eq!(Nsec3HashAlgorithm::SHA1.hash(&salt, &name, 0).len(), 20);
-  assert_eq!(Nsec3HashAlgorithm::SHA1.hash(&salt, &name, 1).len(), 20);
-  assert_eq!(Nsec3HashAlgorithm::SHA1.hash(&salt, &name, 3).len(), 20);
+  assert_eq!(Nsec3HashAlgorithm::SHA1.hash(&salt, &name, 0).unwrap().len(), 20);
+  assert_eq!(Nsec3HashAlgorithm::SHA1.hash(&salt, &name, 1).unwrap().len(), 20);
+  assert_eq!(Nsec3HashAlgorithm::SHA1.hash(&salt, &name, 3).unwrap().len(), 20);
 }
 
 #[test]
@@ -228,6 +231,6 @@ fn hash_with_base32(name: &str) -> String {
   // NSEC3PARAM 1 0 12 aabbccdd
   let known_name = Name::parse(name, Some(&Name::new())).unwrap();
   let known_salt = [0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8,];
-  let hash = Nsec3HashAlgorithm::SHA1.hash(&known_salt, &known_name, 12);
+  let hash = Nsec3HashAlgorithm::SHA1.hash(&known_salt, &known_name, 12).unwrap();
   base32hex::encode(&hash).to_lowercase()
 }
