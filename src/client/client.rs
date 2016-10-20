@@ -181,7 +181,10 @@ impl<C: ClientConnection> Client<C> {
       // TODO: need to verify inception and experation...
       if let &RData::SIG(ref sig) = rrsig.get_rdata() {
         // get DNSKEY from signer_name
-        let key_response = try!(self.inner_query(sig.get_signer_name(), query_class, RecordType::DNSKEY, true));
+        let key_response = self.inner_query(sig.get_signer_name(), query_class, RecordType::DNSKEY, true);
+        if key_response.is_err() { debug!("error querying for: {}, {:?}, {}", sig.get_signer_name(), RecordType::DNSKEY, key_response.unwrap_err()); continue }
+        let key_response = key_response.unwrap();
+
         let key_rrset: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::DNSKEY).collect();
         let key_rrsigs: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
@@ -191,10 +194,14 @@ impl<C: ClientConnection> Client<C> {
             if !rdata.is_zone_key() { continue }
             if *rdata.get_algorithm() != sig.get_algorithm() { continue }
 
-            let pkey = try!(rdata.get_algorithm().public_key_from_vec(rdata.get_public_key()));
+            let pkey = rdata.get_algorithm().public_key_from_vec(rdata.get_public_key());
+            if pkey.is_err() { debug!("could not translate public_key_from_vec: {}", pkey.unwrap_err()); continue }
+            let pkey = pkey.unwrap();
 
             let signer: Signer = Signer::new_verifier(*rdata.get_algorithm(), pkey, sig.get_signer_name().clone());
-            let rrset_hash: Vec<u8> = try!(signer.hash_rrset_with_rrsig(rrsig, &rrset));
+            let rrset_hash = signer.hash_rrset_with_rrsig(rrsig, &rrset);
+            if rrset_hash.is_err() { debug!("could not hash_rrset_with_rrsig: {}, {}", name, rrset_hash.unwrap_err()); continue }
+            let rrset_hash: Vec<u8> = rrset_hash.unwrap();
 
             // FYI mapping the error to bool here, this code is going away after futures land
             if signer.verify(&rrset_hash, sig.get_sig()).map(|_| true).unwrap_or(false) {
@@ -203,12 +210,18 @@ impl<C: ClientConnection> Client<C> {
 
               if sig.get_signer_name() == name && query_type == RecordType::DNSKEY {
                 // this is self signed... let's skip to DS validation
-                let mut proof: Vec<Record> = try!(self.verify_dnskey(dnskey));
+                let proof = self.verify_dnskey(dnskey);
+                if proof.is_err() { debug!("could not verify dnskey: {}, {}", dnskey.get_name(), proof.unwrap_err()); continue }
+                let mut proof: Vec<Record> = proof.unwrap();
+
                 // TODO: this is verified, cache it
                 proof.push((*dnskey).clone());
                 return Ok(proof);
               } else {
-                let mut proof = try!(self.recursive_query_verify(sig.get_signer_name(), key_rrset.clone(), key_rrsigs, RecordType::DNSKEY, query_class));
+                let proof = self.recursive_query_verify(sig.get_signer_name(), key_rrset.clone(), key_rrsigs.clone(), RecordType::DNSKEY, query_class);
+                if proof.is_err() { debug!("could not recursive_query_verify: {}, {}", sig.get_signer_name(), proof.unwrap_err()); continue }
+                let mut proof: Vec<Record> = proof.unwrap();
+
                 // TODO: this is verified, cache it
                 proof.push((*dnskey).clone());
                 return Ok(proof);
@@ -268,23 +281,26 @@ impl<C: ClientConnection> Client<C> {
         {
           let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
           encoder.set_canonical_names(true);
-          try!(name.emit(&mut encoder));
-          try!(dnskey.get_rdata().emit(&mut encoder));
+          if let Err(e) = name.emit(&mut encoder) { error!("could not emit name: {}, {}", name, e); continue };
+          if let Err(e) = dnskey.get_rdata().emit(&mut encoder) { error!("could not emit dnskey.rdate: {}, {}", name, e); continue };
         }
 
-        return ds_rdata.get_digest_type()
+        let ds_verify = ds_rdata.get_digest_type()
                        .hash(&buf)
                        .map_err(|e| e.into())
                        .and_then(|hash|
           if &hash as &[u8] == ds_rdata.get_digest() {
             // continue to verify the chain...
-            let mut proof: Vec<Record> = try!(self.recursive_query_verify(&name, ds_rrset.clone(), ds_rrsigs, RecordType::DNSKEY, dnskey.get_dns_class()));
+            let mut proof: Vec<Record> = try!(self.recursive_query_verify(&name, ds_rrset.clone(), ds_rrsigs.clone(), RecordType::DNSKEY, dnskey.get_dns_class()));
             proof.push(dnskey.clone());
             return Ok(proof)
           } else {
             return Err(ClientErrorKind::NoDS.into())
           }
-        )
+        );
+
+        if ds_verify.is_ok() { return ds_verify }
+        else { debug!("verify with DS failed: {}", name) }
 
       } else {
         panic!("expected DS: {:?}", ds.get_rr_type()); // valid panic, never should happen
