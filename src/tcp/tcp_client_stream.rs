@@ -224,26 +224,21 @@ const TEST_BYTES_LEN: usize = 8;
 
 #[cfg(test)]
 fn tcp_client_stream_test(server_addr: IpAddr) {
-  use std;
-  use std::time::Duration;
-  use std::{thread, process};
   use std::io::{Read, Write};
-  use std::sync::Arc;
-  use std::sync::atomic::{AtomicBool,Ordering};
-
   use tokio_core::reactor::Core;
 
-  let succeeded = Arc::new(AtomicBool::new(false));
+  use std;
+  let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
   let succeeded_clone = succeeded.clone();
-  thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
+  std::thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
     let succeeded = succeeded_clone.clone();
-    for _ in 0..5 {
-      thread::sleep(Duration::from_secs(1));
-      if succeeded.load(Ordering::Relaxed) { return }
+    for _ in 0..15 {
+      std::thread::sleep(std::time::Duration::from_secs(1));
+      if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
     }
 
     println!("timeout");
-    process::exit(-1)
+    std::process::exit(-1)
   }).unwrap();
 
   // TODO: need a timeout on listen
@@ -253,11 +248,11 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   let send_recv_times = 4;
 
   // an in and out server
-  let server_handle = thread::Builder::new().name("test_tcp_client_stream_ipv4:server".to_string()).spawn(move || {
+  let server_handle = std::thread::Builder::new().name("test_tcp_client_stream_ipv4:server".to_string()).spawn(move || {
     let (mut socket, _) = server.accept().expect("accept failed");
 
-    socket.set_read_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
-    socket.set_write_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
+    socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
+    socket.set_write_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
 
     for _ in 0..send_recv_times {
       // wait for some bytes...
@@ -276,7 +271,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
       socket.write_all(&len_bytes).expect("SERVER: send length failed");
       socket.write_all(&buffer).expect("SERVER: send buffer failed");
       // println!("wrote bytes iter: {}", i);
-      thread::yield_now();
+      std::thread::yield_now();
     }
   }).unwrap();
 
@@ -299,6 +294,6 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     assert_eq!(&buffer, TEST_BYTES);
   }
 
-  succeeded.store(true, Ordering::Relaxed);
+  succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
   server_handle.join().expect("server thread failed");
 }

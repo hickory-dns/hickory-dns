@@ -770,6 +770,20 @@ pub mod test {
     use ::logger::TrustDnsLogger;
     TrustDnsLogger::enable_logging(LogLevel::Debug);
 
+    use std;
+    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let succeeded_clone = succeeded.clone();
+    std::thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
+      let succeeded = succeeded_clone.clone();
+      for _ in 0..15 {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
+      }
+
+      println!("timeout");
+      std::process::exit(-1)
+    }).unwrap();
+
     let authority = create_secure_example();
 
     let public_key = {
@@ -797,6 +811,20 @@ pub mod test {
     use ::logger::TrustDnsLogger;
     TrustDnsLogger::enable_logging(LogLevel::Debug);
 
+    use std;
+    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let succeeded_clone = succeeded.clone();
+    std::thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
+      let succeeded = succeeded_clone.clone();
+      for _ in 0..15 {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
+      }
+
+      println!("timeout");
+      std::process::exit(-1)
+    }).unwrap();
+
     let io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
@@ -808,9 +836,23 @@ pub mod test {
 
   #[cfg(test)]
   fn with_tcp<F>(test: F) where F: Fn(SecureClientHandle, Core) {
-      use log::LogLevel;
-      use ::logger::TrustDnsLogger;
-      TrustDnsLogger::enable_logging(LogLevel::Debug);
+    use log::LogLevel;
+    use ::logger::TrustDnsLogger;
+    TrustDnsLogger::enable_logging(LogLevel::Debug);
+
+    use std;
+    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let succeeded_clone = succeeded.clone();
+    std::thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
+      let succeeded = succeeded_clone.clone();
+      for _ in 0..15 {
+        std::thread::sleep(std::time::Duration::from_secs(1));
+        if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
+      }
+
+      println!("timeout");
+      std::process::exit(-1)
+    }).unwrap();
 
     let io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();

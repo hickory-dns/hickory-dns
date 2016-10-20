@@ -171,41 +171,37 @@ fn test_udp_client_stream_ipv6() {
 
 #[cfg(test)]
 fn udp_client_stream_test(server_addr: IpAddr) {
-  use std::time::Duration;
-  use std::{process, thread};
-
   use tokio_core::reactor::Core;
 
   use log::LogLevel;
   use ::logger::TrustDnsLogger;
-  use std::sync::Arc;
-  use std::sync::atomic::{AtomicBool,Ordering};
 
   TrustDnsLogger::enable_logging(LogLevel::Debug);
 
-  let succeeded = Arc::new(AtomicBool::new(false));
+  use std;
+  let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
   let succeeded_clone = succeeded.clone();
-  thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
+  std::thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
     let succeeded = succeeded_clone.clone();
     for _ in 0..15 {
-      thread::sleep(Duration::from_secs(1));
-      if succeeded.load(Ordering::Relaxed) { return }
+      std::thread::sleep(std::time::Duration::from_secs(1));
+      if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
     }
 
     println!("timeout");
-    process::exit(-1)
+    std::process::exit(-1)
   }).unwrap();
 
   let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
-  server.set_read_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
-  server.set_write_timeout(Some(Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
+  server.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
+  server.set_write_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
   let server_addr = server.local_addr().unwrap();
 
   let test_bytes: &'static [u8; 8] = b"DEADBEEF";
   let send_recv_times = 4;
 
   // an in and out server
-  let server_handle = thread::Builder::new().name("test_udp_client_stream_ipv4:server".to_string()).spawn(move || {
+  let server_handle = std::thread::Builder::new().name("test_udp_client_stream_ipv4:server".to_string()).spawn(move || {
     let mut buffer = [0_u8; 512];
 
     for _ in 0..send_recv_times {
