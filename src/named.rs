@@ -40,17 +40,18 @@ extern crate chrono;
 
 use std::fs;
 use std::fs::File;
-use std::path::{Path, PathBuf};
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::net::ToSocketAddrs;
+use std::path::{Path, PathBuf};
+use std::io::{Read, Write};
 
 use chrono::{Duration};
+use docopt::Docopt;
+use log::LogLevel;
 use mio::tcp::TcpListener;
 use mio::udp::UdpSocket;
-use log::LogLevel;
-use docopt::Docopt;
-use openssl::crypto::pkey::PKey;
+use openssl::crypto::rsa::RSA;
 
 use trust_dns::logger;
 use trust_dns::version;
@@ -157,8 +158,11 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
         Err(e) => return Err(format!("error opening private key file: {:?}: {}", key_path, e)),
       };
 
-      match PKey::private_rsa_key_from_pem(&mut file) {
-        Ok(pkey) => pkey,
+      let mut rsa_bytes = Vec::with_capacity(256);
+      try!(file.read_to_end(&mut rsa_bytes).map_err(|e| format!("could not read rsa key from: {:?}: {}", key_path, e)));
+
+      match RSA::private_key_from_pem(&rsa_bytes) {
+        Ok(rsa) => rsa,
         Err(e) => return Err(format!("error reading private key file: {:?}: {}", key_path, e)),
       }
     } else {
@@ -170,15 +174,15 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
         Err(e) => return Err(format!("error creating private key file: {:?}: {}", key_path, e))
       };
 
-      let mut pkey: PKey = PKey::new();
-      pkey.gen(2048);
+      let rsa: RSA = try!(RSA::generate(2048).map_err(|e| format!("could not generate rsa key: {}", e)));
+      let rsa_bytes = try!(rsa.private_key_to_pem().map_err(|e| format!("could not get rsa pem bytes: {}", e)));
 
-      if let Err(e) = pkey.write_pem(&mut file) {
+      if let Err(e) = file.write_all(&rsa_bytes) {
         fs::remove_file(&key_path).ok(); // ignored
         return Err(format!("error writing private key file: {:?}: {}", key_path, e))
       }
 
-      pkey
+      rsa
     };
 
     // add the key to the zone

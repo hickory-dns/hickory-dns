@@ -15,10 +15,10 @@
 use std::cell::RefCell;
 use std::collections::HashSet;
 use std::sync::Arc as Rc;
+use std::convert::From;
 
 use chrono::UTC;
 use data_encoding::base32hex;
-use openssl::crypto::pkey::Role;
 use rand;
 
 use ::error::*;
@@ -181,7 +181,10 @@ impl<C: ClientConnection> Client<C> {
       // TODO: need to verify inception and experation...
       if let &RData::SIG(ref sig) = rrsig.get_rdata() {
         // get DNSKEY from signer_name
-        let key_response = try!(self.inner_query(sig.get_signer_name(), query_class, RecordType::DNSKEY, true));
+        let key_response = self.inner_query(sig.get_signer_name(), query_class, RecordType::DNSKEY, true);
+        if key_response.is_err() { debug!("error querying for: {}, {:?}, {}", sig.get_signer_name(), RecordType::DNSKEY, key_response.unwrap_err()); continue }
+        let key_response = key_response.unwrap();
+
         let key_rrset: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::DNSKEY).collect();
         let key_rrsigs: Vec<&Record> = key_response.get_answers().iter().filter(|rr| rr.get_rr_type() == RecordType::RRSIG).collect();
 
@@ -191,21 +194,34 @@ impl<C: ClientConnection> Client<C> {
             if !rdata.is_zone_key() { continue }
             if *rdata.get_algorithm() != sig.get_algorithm() { continue }
 
-            let pkey = try!(rdata.get_algorithm().public_key_from_vec(rdata.get_public_key()));
-            if !pkey.can(Role::Verify) { debug!("pkey can't verify, {:?}", dnskey.get_name()); continue }
+            let pkey = rdata.get_algorithm().public_key_from_vec(rdata.get_public_key());
+            if pkey.is_err() { debug!("could not translate public_key_from_vec: {}", pkey.unwrap_err()); continue }
+            let pkey = pkey.unwrap();
 
             let signer: Signer = Signer::new_verifier(*rdata.get_algorithm(), pkey, sig.get_signer_name().clone());
-            let rrset_hash: Vec<u8> = signer.hash_rrset_with_rrsig(rrsig, &rrset);
+            let rrset_hash = signer.hash_rrset_with_rrsig(rrsig, &rrset);
+            if rrset_hash.is_err() { debug!("could not hash_rrset_with_rrsig: {}, {}", name, rrset_hash.unwrap_err()); continue }
+            let rrset_hash: Vec<u8> = rrset_hash.unwrap();
 
-            if signer.verify(&rrset_hash, sig.get_sig()) {
+            // FYI mapping the error to bool here, this code is going away after futures land
+            if signer.verify(&rrset_hash, sig.get_sig()).map(|_| true).unwrap_or(false) {
+              debug!("verified: {}:{:?} with: {}:{:?}", name, query_type, rrsig.get_name(),
+                     if let &RData::SIG(ref sig) = rrsig.get_rdata() { sig.get_type_covered() } else { RecordType::NULL });
+
               if sig.get_signer_name() == name && query_type == RecordType::DNSKEY {
                 // this is self signed... let's skip to DS validation
-                let mut proof: Vec<Record> = try!(self.verify_dnskey(dnskey));
+                let proof = self.verify_dnskey(dnskey);
+                if proof.is_err() { debug!("could not verify dnskey: {}, {}", dnskey.get_name(), proof.unwrap_err()); continue }
+                let mut proof: Vec<Record> = proof.unwrap();
+
                 // TODO: this is verified, cache it
                 proof.push((*dnskey).clone());
                 return Ok(proof);
               } else {
-                let mut proof = try!(self.recursive_query_verify(sig.get_signer_name(), key_rrset.clone(), key_rrsigs, RecordType::DNSKEY, query_class));
+                let proof = self.recursive_query_verify(sig.get_signer_name(), key_rrset.clone(), key_rrsigs.clone(), RecordType::DNSKEY, query_class);
+                if proof.is_err() { debug!("could not recursive_query_verify: {}, {}", sig.get_signer_name(), proof.unwrap_err()); continue }
+                let mut proof: Vec<Record> = proof.unwrap();
+
                 // TODO: this is verified, cache it
                 proof.push((*dnskey).clone());
                 return Ok(proof);
@@ -265,17 +281,27 @@ impl<C: ClientConnection> Client<C> {
         {
           let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
           encoder.set_canonical_names(true);
-          try!(name.emit(&mut encoder));
-          try!(dnskey.get_rdata().emit(&mut encoder));
+          if let Err(e) = name.emit(&mut encoder) { error!("could not emit name: {}, {}", name, e); continue };
+          if let Err(e) = dnskey.get_rdata().emit(&mut encoder) { error!("could not emit dnskey.rdate: {}, {}", name, e); continue };
         }
 
-        let hash: Vec<u8> = ds_rdata.get_digest_type().hash(&buf);
-        if &hash as &[u8] == ds_rdata.get_digest() {
-          // continue to verify the chain...
-          let mut proof: Vec<Record> = try!(self.recursive_query_verify(&name, ds_rrset.clone(), ds_rrsigs, RecordType::DNSKEY, dnskey.get_dns_class()));
-          proof.push(dnskey.clone());
-          return Ok(proof)
-        }
+        let ds_verify = ds_rdata.get_digest_type()
+                       .hash(&buf)
+                       .map_err(|e| e.into())
+                       .and_then(|hash|
+          if &hash as &[u8] == ds_rdata.get_digest() {
+            // continue to verify the chain...
+            let mut proof: Vec<Record> = try!(self.recursive_query_verify(&name, ds_rrset.clone(), ds_rrsigs.clone(), RecordType::DNSKEY, dnskey.get_dns_class()));
+            proof.push(dnskey.clone());
+            return Ok(proof)
+          } else {
+            return Err(ClientErrorKind::NoDS.into())
+          }
+        );
+
+        if ds_verify.is_ok() { return ds_verify }
+        else { debug!("verify with DS failed: {}", name) }
+
       } else {
         panic!("expected DS: {:?}", ds.get_rr_type()); // valid panic, never should happen
       }
@@ -448,7 +474,7 @@ impl<C: ClientConnection> Client<C> {
         while search_name.num_labels() >= zone_name.num_labels() {
 
           // TODO: cache hashes across nsec3 validations
-          let hash = rdata.get_hash_algorithm().hash(rdata.get_salt(), &search_name, rdata.get_iterations());
+          let hash = try!(rdata.get_hash_algorithm().hash(rdata.get_salt(), &search_name, rdata.get_iterations()));
           let hash_label = base32hex::encode(&hash).to_lowercase();
           let hash_name = zone_name.prepend_label(Rc::new(hash_label));
 
@@ -585,7 +611,7 @@ impl<C: ClientConnection> Client<C> {
     message.set_edns(edns);
 
     // after all other updates to the message, sign it.
-    message.sign(signer, UTC::now().timestamp() as u32);
+    try!(message.sign(signer, UTC::now().timestamp() as u32));
 
     self.send_message(&message)
   }
@@ -664,7 +690,7 @@ impl<C: ClientConnection> Client<C> {
     message.set_edns(edns);
 
     // after all other updates to the message, sign it.
-    message.sign(signer, UTC::now().timestamp() as u32);
+    try!(message.sign(signer, UTC::now().timestamp() as u32));
 
     self.send_message(&message)
   }
@@ -759,7 +785,7 @@ impl<C: ClientConnection> Client<C> {
     message.set_edns(edns);
 
     // after all other updates to the message, sign it.
-    message.sign(signer, UTC::now().timestamp() as u32);
+    try!(message.sign(signer, UTC::now().timestamp() as u32));
 
     self.send_message(&message)
   }
@@ -836,7 +862,7 @@ impl<C: ClientConnection> Client<C> {
     message.set_edns(edns);
 
     // after all other updates to the message, sign it.
-    message.sign(signer, UTC::now().timestamp() as u32);
+    try!(message.sign(signer, UTC::now().timestamp() as u32));
 
     self.send_message(&message)
   }
@@ -915,7 +941,7 @@ impl<C: ClientConnection> Client<C> {
     message.set_edns(edns);
 
     // after all other updates to the message, sign it.
-    message.sign(signer, UTC::now().timestamp() as u32);
+    try!(message.sign(signer, UTC::now().timestamp() as u32));
 
     self.send_message(&message)
   }
@@ -986,7 +1012,7 @@ impl<C: ClientConnection> Client<C> {
     message.set_edns(edns);
 
     // after all other updates to the message, sign it.
-    message.sign(signer, UTC::now().timestamp() as u32);
+    try!(message.sign(signer, UTC::now().timestamp() as u32));
 
     self.send_message(&message)
   }
@@ -1021,7 +1047,7 @@ mod test {
   use std::net::*;
 
   use chrono::Duration;
-  use openssl::crypto::pkey::PKey;
+  use openssl::crypto::rsa::RSA;
 
   use ::authority::Catalog;
   use ::authority::authority_tests::{create_example, create_secure_example};
@@ -1132,6 +1158,10 @@ mod test {
 
   #[cfg(test)]
   fn test_secure_query_example<C: ClientConnection>(client: Client<C>) {
+    use log::LogLevel;
+    use ::logger::TrustDnsLogger;
+    TrustDnsLogger::enable_logging(LogLevel::Debug);
+
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
 
@@ -1317,11 +1347,10 @@ mod test {
     authority.set_allow_update(true);
     let origin = authority.get_origin().clone();
 
-    let mut pkey = PKey::new();
-    pkey.gen(512);
+    let rsa = RSA::generate(512).unwrap();
 
     let signer = Signer::new(Algorithm::RSASHA256,
-                             pkey,
+                             rsa,
                              domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
                              Duration::max_value());
 

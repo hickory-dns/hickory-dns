@@ -15,11 +15,10 @@
  */
 use std::str::FromStr;
 
-use openssl::crypto::pkey::{PKey, Role};
 use openssl::crypto::rsa::RSA;
 use openssl::bn::BigNum;
 
-use ::rr::dnssec::DigestType;
+use ::rr::dnssec::{DigestType, DnsSecResult};
 use ::serialize::binary::*;
 use ::error::*;
 
@@ -109,24 +108,24 @@ pub enum Algorithm {
 }
 
 impl Algorithm {
-  pub fn sign(&self, private_key: &PKey, data: &[u8]) -> Vec<u8> {
-    assert!(private_key.can(Role::Sign), "This key cannot be used for signing");
-
+  pub fn sign(&self, private_key: &RSA, data: &[u8]) -> DnsSecResult<Vec<u8>> {
+    let digest_type = DigestType::from(*self);
     // calculate the hash...
-    let hash = DigestType::from(*self).hash(data);
+    digest_type.hash(data)
+               .and_then(|ref hash| private_key.sign(digest_type.to_hash(), hash)
+                                               .map_err(|e| e.into()))
 
-    // then sign and return
-    private_key.sign(&hash)
+
   }
 
-  pub fn verify(&self, public_key: &PKey, data: &[u8], signature: &[u8]) -> bool {
-    assert!(public_key.can(Role::Verify), "This key cannot be used to verify signature");
+  pub fn verify(&self, public_key: &RSA, data: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    let digest_type = DigestType::from(*self);
 
     // calculate the hash on the local data
-    let hash = DigestType::from(*self).hash(data);
-
-    // verify the remotely sent signature
-    public_key.verify(&hash, signature)
+    digest_type.hash(data)
+               // verify the remotely sent signature
+               .and_then(|ref hash| public_key.verify(digest_type.to_hash(), hash, signature)
+                                              .map_err(|e| e.into()))
   }
 
   /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
@@ -151,7 +150,7 @@ impl Algorithm {
     }
   }
 
-  pub fn public_key_from_vec(&self, public_key: &[u8]) -> DecodeResult<PKey> {
+  pub fn public_key_from_vec(&self, public_key: &[u8]) -> DecodeResult<RSA> {
     match *self {
       Algorithm::RSASHA1 |
       Algorithm::RSASHA1NSEC3SHA1 |
@@ -196,18 +195,15 @@ impl Algorithm {
         }
         let len = len; // demut
 
-        let mut pkey = PKey::new();
         let e = try!(BigNum::new_from_slice(&public_key[(num_exp_len_octs as usize)..(len as usize + num_exp_len_octs)]));
         let n = try!(BigNum::new_from_slice(&public_key[(len as usize +num_exp_len_octs)..]));
 
-        let rsa = try!(RSA::from_public_components(n, e));
-        pkey.set_rsa(&rsa);
-        Ok(pkey)
+        RSA::from_public_components(n, e).map_err(|e| e.into())
       }
     }
   }
 
-  pub fn public_key_to_vec(&self, public_key: &PKey) -> Vec<u8> {
+  pub fn public_key_to_vec(&self, public_key: &RSA) -> Vec<u8> {
     match *self {
       Algorithm::RSASHA1 |
       Algorithm::RSASHA1NSEC3SHA1 |
@@ -216,9 +212,8 @@ impl Algorithm {
         let mut bytes: Vec<u8> = Vec::new();
 
         // this is to get us access to the exponent and the modulus
-        let rsa: RSA = public_key.get_rsa();
-        let e: Vec<u8> = rsa.e().expect("PKey should have been initialized").to_vec();
-        let n: Vec<u8> = rsa.n().expect("PKey should have been initialized").to_vec();
+        let e: Vec<u8> = public_key.e().expect("RSA should have been initialized").to_vec();
+        let n: Vec<u8> = public_key.n().expect("RSA should have been initialized").to_vec();
 
         if e.len() > 255 {
           bytes.push(0);
@@ -294,50 +289,19 @@ impl From<Algorithm> for u8 {
 #[cfg(test)]
 mod test {
   use super::Algorithm;
-  use openssl::crypto::pkey;
-  use openssl::crypto::pkey::Role;
+  use openssl::crypto::rsa;
 
   #[test]
   fn test_hashing() {
     let bytes = b"www.example.com";
-    let mut pkey = pkey::PKey::new();
-    pkey.gen(2048);
+    let rsa = rsa::RSA::generate(2048).unwrap();
 
     for algorithm in &[Algorithm::RSASHA1,
                        Algorithm::RSASHA256,
                        Algorithm::RSASHA1NSEC3SHA1,
                        Algorithm::RSASHA512] {
-      let sig = algorithm.sign(&pkey, bytes);
-      assert!(algorithm.verify(&pkey, bytes, &sig));
+      let sig = algorithm.sign(&rsa, bytes).unwrap();
+      assert!(algorithm.verify(&rsa, bytes, &sig).is_ok());
     }
-  }
-
-  #[test]
-  fn test_binary_public_key() {
-    let bytes = b"www.example.com".to_vec();
-    let mut pkey = pkey::PKey::new();
-    pkey.gen(2048);
-
-    let crypt = pkey.encrypt(&bytes);
-    let decrypt = pkey.decrypt(&crypt);
-
-    assert_eq!(bytes, decrypt);
-    println!("pkey: {:?}", pkey.save_pub());
-
-    let algorithm = Algorithm::RSASHA256;
-
-    let bin_key = algorithm.public_key_to_vec(&pkey);
-    let new_key = algorithm.public_key_from_vec(&bin_key).expect("couldn't read bin_key");
-
-    assert!(new_key.can(Role::Encrypt));
-    assert!(new_key.can(Role::Verify));
-    assert!(!new_key.can(Role::Decrypt));
-    assert!(!new_key.can(Role::Sign));
-
-
-    let crypt = new_key.encrypt(&bytes);
-    let decrypt = pkey.decrypt(&crypt);
-
-    assert_eq!(bytes, decrypt);
   }
 }

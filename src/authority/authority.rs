@@ -17,7 +17,6 @@ use std::collections::BTreeMap;
 use std::cmp::Ordering;
 
 use chrono::UTC;
-use openssl::crypto::pkey::Role;
 
 use ::authority::{Journal, RRSet, UpdateResult, ZoneType};
 use ::error::{PersistenceErrorKind, PersistenceResult};
@@ -479,20 +478,17 @@ impl Authority {
                     }
 
                     let pkey = pkey.unwrap();
-                    if pkey.can(Role::Verify) {
-                      let signer: Signer = Signer::new_verifier(*key.get_algorithm(), pkey, sig.get_signer_name().clone());
+                    let signer: Signer = Signer::new_verifier(*key.get_algorithm(), pkey, sig.get_signer_name().clone());
 
-                      if signer.verify_message(update_message, sig.get_sig()) {
-                        info!("verified sig: {:?} with key: {:?}", sig, key);
-                        true
-                      } else {
-                        debug!("did not verify sig: {:?} with key: {:?}", sig, key);
-                        false
-                      }
-                    } else {
-                      warn!("{}: can not be used to verify", name);
-                      false
-                    }
+                    signer.verify_message(update_message, sig.get_sig())
+                          .map(|_| {
+                            info!("verified sig: {:?} with key: {:?}", sig, key);
+                            true
+                          })
+                          .unwrap_or_else(|_| {
+                            debug!("did not verify sig: {:?} with key: {:?}", sig, key);
+                            false
+                          })
                   })
             }) {
       return Ok(());
@@ -1032,7 +1028,22 @@ impl Authority {
                                      // TODO: this is a nasty clone... the issue is that the vec
                                      //  from get_records is of Vec<&R>, but we really want &[R]
                                      &rr_set.get_records(false).into_iter().cloned().collect::<Vec<Record>>());
+
+        // TODO, maybe chain these with some ETL operations instead?
+        if hash.is_err() {
+          error!("could not hash rrset to sign: {}", hash.unwrap_err());
+          continue;
+        }
+        let hash = hash.unwrap();
+
         let signature = signer.sign(&hash);
+
+        if signature.is_err() {
+          error!("could not sign hash of rrset: {}", signature.unwrap_err());
+          continue;
+        }
+        let signature = signature.unwrap();
+
         let mut rrsig = rrsig_temp.clone();
         rrsig.rdata(RData::SIG(SIG::new(
           // type_covered: RecordType,
@@ -1130,13 +1141,12 @@ pub mod authority_tests {
 
   pub fn create_secure_example() -> Authority {
     use chrono::Duration;
-    use openssl::crypto::pkey::PKey;
+    use openssl::crypto::rsa::RSA;
     use ::rr::dnssec::{Algorithm, Signer};
 
     let mut authority: Authority = create_example();
-    let mut pkey = PKey::new();
-    pkey.gen(512);
-    let signer = Signer::new(Algorithm::RSASHA256, pkey, authority.get_origin().clone(), Duration::weeks(1));
+    let rsa = RSA::generate(2048).unwrap();
+    let signer = Signer::new(Algorithm::RSASHA256, rsa, authority.get_origin().clone(), Duration::weeks(1));
 
     authority.add_secure_key(signer);
     authority.secure_zone();

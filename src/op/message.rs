@@ -18,14 +18,14 @@
 
 use std::fmt::Debug;
 
-use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
+use ::error::*;
 use ::rr::resource::Record;
 use ::rr::domain::Name;
 use ::rr::{RData, RecordType, DNSClass};
 use ::rr::rdata::SIG;
+use ::rr::dnssec::{DnsSecResult, Signer};
 use ::serialize::binary::{BinEncoder, BinDecoder, BinSerializable, EncodeMode};
-use ::error::*;
-use ::rr::dnssec::Signer;
+use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
 
 /// The basic request and response datastructure, used for all DNS protocols.
 ///
@@ -345,9 +345,10 @@ impl Message {
   }
 
   // TODO: where's the 'right' spot for this function
-  pub fn sign(&mut self, signer: &Signer, inception_time: u32) {
+  // TODO: probably a bad idea to expose consumers to the SslErrorStack...
+  pub fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> {
     debug!("signing message: {:?}", self);
-    let signature: Vec<u8> = signer.sign_message(self);
+    let signature: Vec<u8> = try!(signer.sign_message(self));
     let key_tag: u16 = signer.calculate_key_tag();
 
     // this is based on RFCs 2535, 2931 and 3007
@@ -392,6 +393,7 @@ impl Message {
     debug!("sig0: {:?}", sig0);
 
     self.add_sig0(sig0);
+    Ok(())
   }
 }
 
@@ -416,7 +418,7 @@ pub trait UpdateMessage: Debug {
   /// see `Message::get_sig0()` for more information.
   fn get_sig0(&self) -> &[Record];
 
-  fn sign(&mut self, signer: &Signer, inception_time: u32);
+  fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()>;
 }
 
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -438,7 +440,7 @@ impl UpdateMessage for Message {
   fn get_sig0(&self) -> &[Record] { self.get_sig0() }
 
   // TODO: where's the 'right' spot for this function
-  fn sign(&mut self, signer: &Signer, inception_time: u32) { self.sign(signer, inception_time) }
+  fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> { self.sign(signer, inception_time) }
 }
 
 impl BinSerializable<Message> for Message {

@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#![recursion_limit = "1024"]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
 //!
@@ -34,7 +35,6 @@ extern crate data_encoding;
 #[macro_use] extern crate log;
 extern crate mio;
 extern crate openssl;
-extern crate openssl_sys;
 extern crate rand;
 extern crate rusqlite;
 extern crate rustc_serialize;
