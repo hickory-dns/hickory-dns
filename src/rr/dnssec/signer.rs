@@ -17,41 +17,40 @@
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 
 use chrono::Duration;
-use openssl::crypto::pkey::{PKey, Role};
+use openssl::crypto::rsa::RSA;
 
 use ::op::Message;
-use ::rr::dnssec::{Algorithm, DigestType};
 use ::rr::{DNSClass, Name, Record, RecordType, RData};
-use ::serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
+use ::rr::dnssec::{Algorithm, DigestType, DnsSecErrorKind, DnsSecResult};
 use ::rr::rdata::{DNSKEY, sig, SIG};
-
+use ::serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
 /// Use for performing signing and validation of DNSSec based components.
 pub struct Signer {
   algorithm: Algorithm,
-  pkey: PKey,
+  rsa: RSA,
   signer_name: Name,
   sig_duration: Duration,
 }
 
 impl Signer {
   /// Version of Signer for verifying RRSIGs and SIG0 records.
-  pub fn new_verifier(algorithm: Algorithm, pkey: PKey, signer_name: Name) -> Self {
-    Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, sig_duration: Duration::zero() }
+  pub fn new_verifier(algorithm: Algorithm, rsa: RSA, signer_name: Name) -> Self {
+    Signer{ algorithm: algorithm, rsa: rsa, signer_name: signer_name, sig_duration: Duration::zero() }
   }
 
   /// Version of Signer for signing RRSIGs and SIG0 records.
-  pub fn new(algorithm: Algorithm, pkey: PKey, signer_name: Name, sig_duration: Duration) -> Self {
-    Signer{ algorithm: algorithm, pkey: pkey, signer_name: signer_name, sig_duration: sig_duration }
+  pub fn new(algorithm: Algorithm, rsa: RSA, signer_name: Name, sig_duration: Duration) -> Self {
+    Signer{ algorithm: algorithm, rsa: rsa, signer_name: signer_name, sig_duration: sig_duration }
   }
 
   pub fn get_algorithm(&self) -> Algorithm { self.algorithm }
   pub fn get_sig_duration(&self) -> Duration { self.sig_duration }
   pub fn get_signer_name(&self) -> &Name { &self.signer_name }
-  pub fn get_pkey(&self) -> &PKey { &self.pkey }
+  pub fn get_rsa(&self) -> &RSA { &self.rsa }
 
   pub fn get_public_key(&self) -> Vec<u8> {
-    self.algorithm.public_key_to_vec(&self.pkey)
+    self.algorithm.public_key_to_vec(&self.rsa)
   }
 
   /// Creates a Record that represents the public key for this Signer
@@ -130,7 +129,7 @@ impl Signer {
     return (ac & 0xFFFF) as u16; // this is unnecessary, no?
   }
 
-  fn hash_message(&self, message: &Message) -> Vec<u8> {
+  fn hash_message(&self, message: &Message) -> DnsSecResult<Vec<u8>> {
     // TODO: should perform the serialization and sign block by block to reduce the max memory
     //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
     //  more important
@@ -197,10 +196,9 @@ impl Signer {
   ///  being verified.
   ///
   ///  ---
-  pub fn sign_message(&self, message: &Message) -> Vec<u8> {
-    assert!(self.pkey.can(Role::Sign)); // this is bad code, not expected in regular runtime
-    let hash = self.hash_message(message);
-    self.sign(&hash)
+  pub fn sign_message(&self, message: &Message) -> DnsSecResult<Vec<u8>> {
+    self.hash_message(message)
+        .and_then(|hash| self.sign(&hash))
   }
 
   /// Verifies a message with the against the given signature
@@ -213,10 +211,9 @@ impl Signer {
   /// # Return value
   ///
   /// `true` if the message could be validated against the signature, `false` otherwise
-  pub fn verify_message(&self, message: &Message, signature: &[u8]) -> bool {
-    assert!(self.pkey.can(Role::Verify)); // this is bad code, not expected in regular runtime
-    let hash = self.hash_message(message);
-    self.verify(&hash, signature)
+  pub fn verify_message(&self, message: &Message, signature: &[u8]) -> DnsSecResult<()> {
+    self.hash_message(message)
+        .and_then(|hash| self.verify(&hash, signature))
   }
 
   // RFC 4035             DNSSEC Protocol Modifications            March 2005
@@ -419,7 +416,7 @@ impl Signer {
   pub fn hash_rrset(&self, name: &Name, dns_class: DNSClass, num_labels: u8,
                     type_covered: RecordType, algorithm: Algorithm, original_ttl: u32,
                     sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: &Name,
-                    records: &[Record]) -> Vec<u8> {
+                    records: &[Record]) -> DnsSecResult<Vec<u8>> {
     // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
     let mut rrset: Vec<&Record> = Vec::new();
 
@@ -438,9 +435,7 @@ impl Signer {
     let name: Name = if let Some(name) = Self::determine_name(name, num_labels) {
       name
     } else {
-      // TODO: this should be an error
-      warn!("could not determine name from {}", name);
-      return vec![]
+      return Err(DnsSecErrorKind::Msg(format!("could not determine name from {}", name)).into())
     };
 
     let mut buf: Vec<u8> = Vec::new();
@@ -494,16 +489,15 @@ impl Signer {
     DigestType::from(self.algorithm).hash(&buf)
   }
 
-  pub fn hash_rrset_with_rrsig(&self, rrsig: &Record, records: &[Record]) -> Vec<u8> {
+  pub fn hash_rrset_with_rrsig(&self, rrsig: &Record, records: &[Record]) -> DnsSecResult<Vec<u8>> {
     if let &RData::SIG(ref sig) = rrsig.get_rdata() {
       self.hash_rrset_with_sig(rrsig.get_name(), rrsig.get_dns_class(), sig, records)
     } else {
-      error!("rdata is not of type SIG: {:?}", rrsig.get_rdata());
-      vec![]
+      return Err(DnsSecErrorKind::Msg(format!("could not determine name from {}", rrsig.get_name())).into())
     }
   }
 
-  pub fn hash_rrset_with_sig(&self, name: &Name, dns_class: DNSClass, sig: &SIG, records: &[Record]) -> Vec<u8> {
+  pub fn hash_rrset_with_sig(&self, name: &Name, dns_class: DNSClass, sig: &SIG, records: &[Record]) -> DnsSecResult<Vec<u8>> {
     self.hash_rrset(name, dns_class,
                     sig.get_num_labels(), sig.get_type_covered(), sig.get_algorithm(),
                     sig.get_original_ttl(), sig.get_sig_expiration(), sig.get_sig_inception(),
@@ -557,9 +551,8 @@ impl Signer {
   /// # Return value
   ///
   /// The signature, ready to be stored in an `RData::RRSIG`.
-  pub fn sign(&self, hash: &[u8]) -> Vec<u8> {
-    assert!(self.pkey.can(Role::Sign)); // this is bad code, not expected in regular runtime
-    self.pkey.sign_with_hash(&hash, DigestType::from(self.algorithm).to_hash())
+  pub fn sign(&self, hash: &[u8]) -> DnsSecResult<Vec<u8>> {
+    self.rsa.sign(DigestType::from(self.algorithm).to_hash(), &hash).map_err(|e| e.into())
   }
 
   /// Verifies the hash matches the signature with the current `key`.
@@ -574,14 +567,8 @@ impl Signer {
   ///
   /// True if and only if the signature is valid for the hash. This will always return
   /// false if the `key`.
-  pub fn verify(&self, hash: &[u8], signature: &[u8]) -> bool {
-    if !self.pkey.can(Role::Verify) {
-      // this doesn't panic b/c the public key might just have been bad, and so this would fail
-      //  in a bad data situation, therefore false instead of panic
-      debug!("pkey can not be used to verify");
-      return false;
-    }
-    self.pkey.verify_with_hash(hash, signature, DigestType::from(self.algorithm).to_hash())
+  pub fn verify(&self, hash: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    self.rsa.verify(DigestType::from(self.algorithm).to_hash(), hash, signature).map_err(|e| e.into())
   }
 }
 
@@ -596,26 +583,25 @@ fn test_sign_and_verify_message_sig0() {
   query.name(origin.clone());
   question.add_query(query);
 
-  let mut pkey = PKey::new();
-  pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
+  let rsa = RSA::generate(512).unwrap();
+  let signer = Signer::new(Algorithm::RSASHA256, rsa, Name::root(), Duration::max_value());
 
-  let sig = signer.sign_message(&question);
+  let sig = signer.sign_message(&question).unwrap();
   println!("sig: {:?}", sig);
 
   assert!(!sig.is_empty());
-  assert!(signer.verify_message(&question, &sig));
+  assert!(signer.verify_message(&question, &sig).is_ok());
 
   // now test that the sig0 record works correctly.
   assert!(question.get_sig0().is_empty());
-  question.sign(&signer, 0);
+  question.sign(&signer, 0).expect("should have signed");
   assert!(!question.get_sig0().is_empty());
 
   let sig = signer.sign_message(&question);
   println!("sig after sign: {:?}", sig);
 
   if let &RData::SIG(ref sig) = question.get_sig0()[0].get_rdata() {
-    assert!(signer.verify_message(&question, sig.get_sig()));
+    assert!(signer.verify_message(&question, sig.get_sig()).is_ok());
   }
 }
 
@@ -624,9 +610,8 @@ fn test_hash_rrset() {
   use ::rr::{Name, RecordType};
   use ::rr::rdata::SIG;
 
-  let mut pkey = PKey::new();
-  pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
+  let rsa = RSA::generate(512).unwrap();
+  let signer = Signer::new(Algorithm::RSASHA256, rsa, Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -634,7 +619,7 @@ fn test_hash_rrset() {
   let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(),
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone()];
 
-  let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset);
+  let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
   assert!(!hash.is_empty());
 
   let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(), // different type
@@ -643,7 +628,7 @@ fn test_hash_rrset() {
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(),
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone()];
 
-  let filtered_hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset);
+  let filtered_hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
   assert!(!filtered_hash.is_empty());
   assert_eq!(hash, filtered_hash);
 }
@@ -654,9 +639,8 @@ fn test_sign_and_verify_rrset() {
   use ::rr::Name;
   use ::rr::rdata::SIG;
 
-  let mut pkey = PKey::new();
-  pkey.gen(512);
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
+  let rsa = RSA::generate(512).unwrap();
+  let signer = Signer::new(Algorithm::RSASHA256, rsa, Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -664,18 +648,17 @@ fn test_sign_and_verify_rrset() {
   let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(),
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone()];
 
-  let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset);
-  let sig = signer.sign(&hash);
+  let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
+  let sig = signer.sign(&hash).unwrap();
 
-  assert!(signer.verify(&hash, &sig));
+  assert!(signer.verify(&hash, &sig).is_ok());
 }
 
 #[test]
 fn test_calculate_key_tag() {
-  let mut pkey = PKey::new();
-  pkey.gen(512);
-  println!("pkey: {:?}", pkey.save_pub());
-  let signer = Signer::new(Algorithm::RSASHA256, pkey, Name::root(), Duration::max_value());
+  let rsa = RSA::generate(512).unwrap();
+  println!("pkey: {:?}", rsa.public_key_to_pem().unwrap());
+  let signer = Signer::new(Algorithm::RSASHA256, rsa, Name::root(), Duration::max_value());
   let key_tag = signer.calculate_key_tag();
 
   println!("key_tag: {}", key_tag);

@@ -139,7 +139,11 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
           if let OpCode::Update = message.get_op_code() {
             if let Some(ref signer) = self.signer {
               // TODO: it's too bad this happens here...
-              message.sign(signer, UTC::now().timestamp() as u32);
+              if let Err(e) = message.sign(signer, UTC::now().timestamp() as u32) {
+                warn!("could not sign message: {}", e);
+                complete.complete(Err(e.into()));
+                continue // to the next message...
+              }
             }
           }
 
@@ -705,7 +709,7 @@ pub mod test {
   use futures::{Async, Future, finished, Poll};
   use futures::stream::{Fuse, Stream};
   use futures::task::park;
-  use openssl::crypto::pkey::PKey;
+  use openssl::crypto::rsa::RSA;
   use tokio_core::reactor::{Core, Handle};
   use tokio_core::channel::{channel, Receiver};
 
@@ -899,11 +903,10 @@ pub mod test {
     authority.set_allow_update(true);
     let origin = authority.get_origin().clone();
 
-    let mut pkey = PKey::new();
-    pkey.gen(512);
+    let rsa = RSA::generate(512).unwrap();
 
     let signer = Signer::new(Algorithm::RSASHA256,
-                             pkey,
+                             rsa,
                              domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
                              Duration::max_value());
 

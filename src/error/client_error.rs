@@ -19,9 +19,11 @@ use std::sync::Arc;
 
 use backtrace::Backtrace;
 use futures::Canceled;
+use openssl::error::ErrorStack as SslErrorStack;
 
 use ::op::ResponseCode;
 use ::rr::{Name, Record};
+use ::rr::dnssec::{DnsSecError, DnsSecErrorKind};
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -40,6 +42,7 @@ error_chain! {
     links {
       super::decode_error::Error, super::decode_error::ErrorKind, Decode;
       super::encode_error::Error, super::encode_error::ErrorKind, Encode;
+      DnsSecError, DnsSecErrorKind, DnsSec;
     }
 
     // Automatic conversions between this error chain and other
@@ -50,6 +53,7 @@ error_chain! {
     // This section can be empty.
     foreign_links {
       IoError, Io, "io error";
+      SslErrorStack, SSL, "ssl error";
     }
 
     // Define additional `ErrorKind` variants. The syntax here is

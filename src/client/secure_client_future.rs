@@ -11,7 +11,6 @@ use std::mem;
 use std::rc::Rc;
 
 use futures::*;
-use openssl::crypto::pkey::Role;
 
 use ::client::{BasicClientHandle, ClientHandle};
 use ::client::select_any::select_any;
@@ -358,7 +357,8 @@ fn verify_dnskey_rrset(
                                 None
                               })
                               // must be convered by at least one DS record
-                              .any(|ds_rdata| is_key_covered_by(&rrset.name, key_rdata, ds_rdata))
+                              .any(|ds_rdata| is_key_covered_by(&rrset.name, key_rdata, ds_rdata)
+                                                               .unwrap_or(false))
                   )
                   .map(|(i, _)| i)
                   .collect::<Vec<usize>>();
@@ -458,7 +458,7 @@ fn test_preserve() {
 ///    DNSKEY RR size.  As of the time of this writing, the only defined
 ///    digest algorithm is SHA-1, which produces a 20 octet digest.
 /// ```
-fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> bool {
+fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> ClientResult<bool> {
   let mut buf: Vec<u8> = Vec::new();
   {
     let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
@@ -466,17 +466,20 @@ fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> bool {
     if let Err(e) = name.emit(&mut encoder)
                         .and_then(|_| dnskey::emit(&mut encoder, key)) {
       warn!("error serializing dnskey: {}", e);
-      return false
+      return Err(ClientErrorKind::Msg(format!("error serializing dnskey: {}", e)).into())
     }
   }
 
-  let hash: Vec<u8> = ds.get_digest_type().hash(&buf);
-  if &hash as &[u8] == ds.get_digest() {
-      debug!("key is covered by");
-      true
-  } else {
-      false
-  }
+  ds.get_digest_type()
+    .hash(&buf)
+    .map_err(|e| e.into())
+    .map(|hash|
+      if &hash as &[u8] == ds.get_digest() {
+        return true
+      } else {
+        return false
+      }
+    )
 }
 
 /// Verifies that a given RRSET is validly signed by any of the specified RRSIGs.
@@ -524,7 +527,7 @@ fn verify_default_rrset(
                                              .filter(|r| r.get_rr_type() == RecordType::DNSKEY)
                                              .find(|r|
                                                if let &RData::DNSKEY(ref dnskey) = r.get_rdata() {
-                                                 verify_rrset_with_dnskey(dnskey, &sig, &rrset)
+                                                 verify_rrset_with_dnskey(dnskey, &sig, &rrset).is_ok()
                                                } else {
                                                  panic!("expected a DNSKEY here: {:?}", r.get_rdata());
                                                }
@@ -554,25 +557,22 @@ fn verify_default_rrset(
 /// Verifies the given SIG of the RRSET with the DNSKEY.
 fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
                             sig: &SIG,
-                            rrset: &Rrset) -> bool {
-  if dnskey.is_revoke() { debug!("revoked"); return false } // TODO: does this need to be validated? RFC 5011
-  if !dnskey.is_zone_key() { return false }
-  if *dnskey.get_algorithm() != sig.get_algorithm() { return false }
+                            rrset: &Rrset) -> ClientResult<()> {
+  if dnskey.is_revoke() { debug!("revoked"); return Err(ClientErrorKind::Message("revoked").into()) } // TODO: does this need to be validated? RFC 5011
+  if !dnskey.is_zone_key() { return Err(ClientErrorKind::Message("is not a zone key").into()) }
+  if *dnskey.get_algorithm() != sig.get_algorithm() { return Err(ClientErrorKind::Message("mismatched algorithm").into()) }
 
   let pkey = dnskey.get_algorithm().public_key_from_vec(dnskey.get_public_key());
-  if let Err(e) = pkey { debug!("error getting key from vec: {}", e); return false }
+  if let Err(e) = pkey { debug!("error getting key from vec: {}", e); return Err(ClientErrorKind::Message("error getting key from vec").into()) }
   let pkey = pkey.unwrap();
-  if !pkey.can(Role::Verify) { debug!("pkey can't verify"); return false }
 
   let signer: Signer = Signer::new_verifier(*dnskey.get_algorithm(), pkey, sig.get_signer_name().clone());
-  let rrset_hash: Vec<u8> = signer.hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records);
 
-  if signer.verify(&rrset_hash, sig.get_sig()) {
-      debug!("verified rrset: {}, type: {:?}", rrset.name, rrset.record_type);
-      true
-  } else {
-      false
-  }
+  signer.hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)
+        .map_err(|e| e.into())
+        .and_then(|rrset_hash| signer.verify(&rrset_hash, sig.get_sig())
+                                     .map(|_| {debug!("verified rrset: {}, type: {:?}", rrset.name, rrset.record_type); () })
+                                     .map_err(|e| e.into()))
 }
 
 /// Verifies NSEC records
