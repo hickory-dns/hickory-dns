@@ -17,6 +17,7 @@
 //! Basic protocol message for DNS
 
 use std::fmt::Debug;
+use std::mem;
 
 use ::error::*;
 use ::rr::resource::Record;
@@ -128,6 +129,17 @@ impl Message {
     }
     self
   }
+
+  /// Sets the answers to the specified set of Records.
+  ///
+  /// # Panics
+  ///
+  /// Will panic if answer records are already associated to the message.
+  pub fn insert_answers(&mut self, records: Vec<Record>) {
+    assert!(self.answers.is_empty());
+    self.answers = records;
+  }
+
   pub fn add_name_server(&mut self, record: Record) -> &mut Self { self.name_servers.push(record); self }
   pub fn add_all_name_servers(&mut self, vector: &[&Record]) -> &mut Self {
     for &r in vector {
@@ -137,7 +149,29 @@ impl Message {
     }
     self
   }
+
+  /// Sets the name_servers to the specified set of Records.
+  ///
+  /// # Panics
+  ///
+  /// Will panic if name_servers records are already associated to the message.
+  pub fn insert_name_servers(&mut self, records: Vec<Record>) {
+    assert!(self.name_servers.is_empty());
+    self.name_servers = records;
+  }
+
   pub fn add_additional(&mut self, record: Record) -> &mut Self { self.additionals.push(record); self }
+
+  /// Sets the additional to the specified set of Records.
+  ///
+  /// # Panics
+  ///
+  /// Will panic if additional records are already associated to the message.
+  pub fn insert_additionals(&mut self, records: Vec<Record>) {
+    assert!(self.additionals.is_empty());
+    self.additionals = records;
+  }
+
   pub fn set_edns(&mut self, edns: Edns) -> &mut Self { self.edns = Some(edns); self }
 
   pub fn add_sig0(&mut self, record: Record) -> &mut Self {
@@ -189,6 +223,8 @@ impl Message {
   /// ```
   pub fn get_answers(&self) -> &[Record] { &self.answers }
 
+  pub fn take_answers(&mut self) -> Vec<Record> { mem::replace(&mut self.answers, vec![]) }
+
   /// ```text
   /// Authority       Carries RRs which describe other authoritative servers.
   ///                 May optionally carry the SOA RR for the authoritative
@@ -196,11 +232,15 @@ impl Message {
   /// ```
   pub fn get_name_servers(&self) -> &[Record] { &self.name_servers }
 
+  pub fn take_name_servers(&mut self) -> Vec<Record> { mem::replace(&mut self.name_servers, vec![]) }
+
   /// ```text
   /// Additional      Carries RRs which may be helpful in using the RRs in the
   ///                 other sections.
   /// ```
-  pub fn get_additional(&self) -> &[Record] { &self.additionals }
+  pub fn get_additionals(&self) -> &[Record] { &self.additionals }
+
+  pub fn take_additionals(&mut self) -> Vec<Record> { mem::replace(&mut self.additionals, vec![]) }
 
   /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
   ///
@@ -422,7 +462,7 @@ pub trait UpdateMessage: Debug {
   fn get_zones(&self) -> &[Query];
   fn get_pre_requisites(&self) -> &[Record];
   fn get_updates(&self) -> &[Record];
-  fn get_additional(&self) -> &[Record];
+  fn get_additionals(&self) -> &[Record];
 
   /// This is used to authenticate update messages.
   ///
@@ -446,7 +486,7 @@ impl UpdateMessage for Message {
   fn get_zones(&self) -> &[Query] { self.get_queries() }
   fn get_pre_requisites(&self) -> &[Record] { self.get_answers() }
   fn get_updates(&self) -> &[Record] { self.get_name_servers() }
-  fn get_additional(&self) -> &[Record] { self.get_additional() }
+  fn get_additionals(&self) -> &[Record] { self.get_additionals() }
 
   fn get_sig0(&self) -> &[Record] { self.get_sig0() }
 
