@@ -125,3 +125,9 @@ impl From<Canceled> for Error {
     Error(ErrorKind::Canceled(c), (None, Arc::new(Backtrace::new())))
   }
 }
+
+impl Clone for Error {
+  fn clone(&self) -> Self {
+    ErrorKind::Msg(format!("ClientError: {}", self)).into()
+  }
+}

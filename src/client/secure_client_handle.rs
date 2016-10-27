@@ -12,7 +12,7 @@ use std::rc::Rc;
 
 use futures::{Async, done, failed, finished, Future, Poll};
 
-use ::client::{BasicClientHandle, ClientHandle};
+use ::client::{BasicClientHandle, ClientHandle, MemoizeClientHandle};
 use ::client::select_all::{select_all, SelectAll};
 use ::client::select_ok::select_ok;
 use ::error::*;
@@ -36,7 +36,7 @@ struct Rrset {
 ///  message responses for Query operations. Update operation responses are not validated by
 ///  this process.
 pub struct SecureClientHandle {
-  client: BasicClientHandle,
+  client: MemoizeClientHandle<BasicClientHandle>,
   trust_anchor: Rc<TrustAnchor>,
   request_depth: usize,
 }
@@ -61,7 +61,7 @@ impl SecureClientHandle {
   /// * `trust_anchor` - custom DNSKEYs that will be trusted, can be used to pin trusted keys.
   pub fn with_trust_anchor(client: BasicClientHandle, trust_anchor: TrustAnchor) -> SecureClientHandle {
     SecureClientHandle {
-      client: client,
+      client: MemoizeClientHandle::new(client),
       trust_anchor: Rc::new(trust_anchor),
       request_depth: 0,
     }
@@ -152,7 +152,14 @@ fn verify_rrsets(
   for rrset in message_result.get_answers()
                              .iter()
                              .chain(message_result.get_name_servers())
-                             .filter(|rr| rr.get_rr_type() != RecordType::RRSIG)
+                             .filter(|rr| rr.get_rr_type() != RecordType::RRSIG &&
+                             // if we are at a depth greater than 1, we are only interested in proving evaluation chains
+                             //   this means that only DNSKEY and DS are intersting at that point.
+                             //   this protects against looping over things like NS records and DNSKEYs in responses.
+                             // TODO: is there a cleaner way to prevent cycles in the evaluations?
+                                          (client.request_depth <= 1 ||
+                                           rr.get_rr_type() == RecordType::DNSKEY ||
+                                           rr.get_rr_type() == RecordType::DS))
                              .map(|rr| (rr.get_name().clone(), rr.get_rr_type())) {
     rrset_types.insert(rrset);
   }
@@ -169,6 +176,8 @@ fn verify_rrsets(
     return Box::new(failed(ClientErrorKind::Message("no results to verify").into()))
   }
 
+
+
   // collect all the rrsets to verify
   // TODO: is there a way to get rid of this clone() safely?
   let mut rrsets: Vec<Box<Future<Item=Rrset, Error=ClientError>>> = Vec::with_capacity(rrset_types.len());
@@ -177,7 +186,7 @@ fn verify_rrsets(
     let rrset: Vec<Record> = message_result.get_answers()
                                            .iter()
                                            .chain(message_result.get_name_servers())
-                                           //.chain(message_result.get_additionals())
+                                           .chain(message_result.get_additionals())
                                            .filter(|rr| rr.get_rr_type() == record_type &&
                                                         rr.get_name() == &name)
                                            .cloned()
@@ -186,7 +195,7 @@ fn verify_rrsets(
     let rrsigs: Vec<Record> = message_result.get_answers()
                                             .iter()
                                             .chain(message_result.get_name_servers())
-                                            //.chain(message_result.get_additionals())
+                                            .chain(message_result.get_additionals())
                                             .filter(|rr| rr.get_rr_type() == RecordType::RRSIG)
                                             .filter(|rr| if let &RData::SIG(ref rrsig) = rr.get_rdata() {
                                               rrsig.get_type_covered() == record_type
@@ -263,22 +272,20 @@ impl Future for VerifyRrsetsFuture {
                                     .filter(|record| self.verified_rrsets.contains(&(record.get_name().clone(), record.get_rr_type())))
                                     .collect::<Vec<Record>>();
 
-
         let name_servers = message_result.take_name_servers()
                                          .into_iter()
                                          .filter(|record| self.verified_rrsets.contains(&(record.get_name().clone(), record.get_rr_type())))
                                          .collect::<Vec<Record>>();
 
-        // FIXME: add additional validation...
-        // let additionals = message_result.take_additionals()
-        //                                 .into_iter()
-        //                                 .filter(|record| self.verified_rrsets.contains(&(record.get_name().clone(), record.get_rr_type())))
-        //                                 .collect::<Vec<Record>>();
+        let additionals = message_result.take_additionals()
+                                        .into_iter()
+                                        .filter(|record| self.verified_rrsets.contains(&(record.get_name().clone(), record.get_rr_type())))
+                                        .collect::<Vec<Record>>();
 
         // add the filtered records back to the message
         message_result.insert_answers(answers);
         message_result.insert_name_servers(name_servers);
-        // message_result.insert_additionals(additionals);
+        message_result.insert_additionals(additionals);
 
         // breaks out of the loop... and returns the filtered Message.
         return Ok(Async::Ready(message_result))
@@ -353,7 +360,6 @@ fn verify_dnskey_rrset(
           debug!("in trust_anchor");
           Some(i)
         } else {
-          debug!("not in trust_anchor");
           None
         }
       })

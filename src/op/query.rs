@@ -46,7 +46,7 @@ use ::error::*;
 ///     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
 ///
 /// ```
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Query {
   name: Name, query_type: RecordType, query_class: DNSClass
 }
