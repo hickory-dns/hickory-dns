@@ -2,15 +2,17 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## unreleased
+## unreleased (0.8.0)
 ### Added
+- SecureClientHandle, for future based DNSSec validation.
 - ClientFuture, futures based client implementation, #32
 
 ### Fixed
 - Randomized ports for client connections and message ids, #23
-- OpCode::From for u8 removed, added OpCode::from_u8(), #36 
+- OpCode::From for u8 removed, added OpCode::from_u8(), #36
 
 ### Changed
+- Upgraded OpenSSL to 0.8.* #50
 - Cleaned up the Server implementation to isolate connection handlers
 
 

@@ -26,7 +26,7 @@ use ::rr::{DNSClass, RecordType, Record, RData};
 use ::rr::rdata::NULL;
 use ::rr::domain;
 use ::rr::dnssec::{Signer, TrustAnchor};
-use ::op::{ Message, MessageType, OpCode, Query, Edns, ResponseCode, UpdateMessage };
+use ::op::{ Message, MessageType, OpCode, Query, ResponseCode, UpdateMessage };
 use ::serialize::binary::*;
 use ::client::ClientConnection;
 
@@ -521,18 +521,21 @@ impl<C: ClientConnection> Client<C> {
     message.id(id).message_type(MessageType::Query).op_code(OpCode::Query).recursion_desired(true);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
+
+      if secure {
+        edns.set_dnssec_ok(true);
+      }
+
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
     if secure {
-      edns.set_dnssec_ok(true);
       message.authentic_data(true);
       message.checking_disabled(false);
     }
-
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
 
     // add the query
     let mut query: Query = Query::new();
@@ -597,18 +600,12 @@ impl<C: ClientConnection> Client<C> {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
 
-    // if secure {
-    //   edns.set_dnssec_ok(true);
-    //   message.authentic_data(true);
-    //   message.checking_disabled(false);
-    // }
-
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
     // after all other updates to the message, sign it.
     try!(message.sign(signer, UTC::now().timestamp() as u32));
@@ -676,18 +673,12 @@ impl<C: ClientConnection> Client<C> {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
 
-    // if secure {
-    //   edns.set_dnssec_ok(true);
-    //   message.authentic_data(true);
-    //   message.checking_disabled(false);
-    // }
-
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
     // after all other updates to the message, sign it.
     try!(message.sign(signer, UTC::now().timestamp() as u32));
@@ -771,18 +762,12 @@ impl<C: ClientConnection> Client<C> {
     message.add_update(new);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
+    {
+      let edns = message.get_edns_mut();
 
-    // if secure {
-    //   edns.set_dnssec_ok(true);
-    //   message.authentic_data(true);
-    //   message.checking_disabled(false);
-    // }
-
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
     // after all other updates to the message, sign it.
     try!(message.sign(signer, UTC::now().timestamp() as u32));
@@ -848,18 +833,11 @@ impl<C: ClientConnection> Client<C> {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
-
-    // if secure {
-    //   edns.set_dnssec_ok(true);
-    //   message.authentic_data(true);
-    //   message.checking_disabled(false);
-    // }
-
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
     // after all other updates to the message, sign it.
     try!(message.sign(signer, UTC::now().timestamp() as u32));
@@ -927,18 +905,11 @@ impl<C: ClientConnection> Client<C> {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
-
-    // if secure {
-    //   edns.set_dnssec_ok(true);
-    //   message.authentic_data(true);
-    //   message.checking_disabled(false);
-    // }
-
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
     // after all other updates to the message, sign it.
     try!(message.sign(signer, UTC::now().timestamp() as u32));
@@ -998,18 +969,11 @@ impl<C: ClientConnection> Client<C> {
     message.add_update(record);
 
     // Extended dns
-    let mut edns: Edns = Edns::new();
-
-    // if secure {
-    //   edns.set_dnssec_ok(true);
-    //   message.authentic_data(true);
-    //   message.checking_disabled(false);
-    // }
-
-    edns.set_max_payload(1500);
-    edns.set_version(0);
-
-    message.set_edns(edns);
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
 
     // after all other updates to the message, sign it.
     try!(message.sign(signer, UTC::now().timestamp() as u32));

@@ -15,12 +15,15 @@
  */
 
 use std::io::Error as IoError;
+use std::sync::Arc;
+
+use backtrace::Backtrace;
+use futures::Canceled;
 use openssl::error::ErrorStack as SslErrorStack;
 
 use ::op::ResponseCode;
 use ::rr::{Name, Record};
 use ::rr::dnssec::{DnsSecError, DnsSecErrorKind};
-
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -57,6 +60,11 @@ error_chain! {
     // the same as `quick_error!`, but the `from()` and `cause()`
     // syntax is not supported.
     errors {
+      Canceled(c: Canceled) {
+        description("future was canceled")
+        display("future was canceled: {:?}", c)
+      }
+
       Message(msg: &'static str) {
         description(msg)
         display("{}", msg)
@@ -110,4 +118,16 @@ error_chain! {
         display("verified secure non-existence: {:?}", proof)
       }
     }
+}
+
+impl From<Canceled> for Error {
+  fn from(c: Canceled) -> Self {
+    Error(ErrorKind::Canceled(c), (None, Arc::new(Backtrace::new())))
+  }
+}
+
+impl Clone for Error {
+  fn clone(&self) -> Self {
+    ErrorKind::Msg(format!("ClientError: {}", self)).into()
+  }
 }

@@ -55,7 +55,7 @@ use super::response_code::ResponseCode;
 ///
 /// ```
 ///
-#[derive(Debug, PartialEq, PartialOrd)]
+#[derive(Clone, Debug, PartialEq, PartialOrd)]
 pub struct Header {
   id: u16, message_type: MessageType, op_code: OpCode,
   authoritative: bool, truncation: bool, recursion_desired: bool, recursion_available: bool,
