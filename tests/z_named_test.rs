@@ -171,6 +171,7 @@ fn test_ipv4_only_toml_startup() {
 //   })
 // }
 
+#[ignore]
 #[test]
 fn test_ipv4_and_ipv6_toml_startup() {
   named_test_harness("ipv4_and_ipv6.toml", |port| {
