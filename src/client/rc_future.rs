@@ -54,4 +54,31 @@ where F: Future,
   }
 }
 
-// FIXME: need tests
+#[cfg(test)]
+use futures::{failed, finished};
+
+#[test]
+fn test_rc_future() {
+  let future = finished::<usize, usize>(1_usize);
+
+  let rc = rc_future(future);
+
+  let i = rc.clone().wait().ok().unwrap();
+  assert_eq!(i, 1);
+
+  let i = rc.wait().ok().unwrap();
+  assert_eq!(i, 1);
+}
+
+#[test]
+fn test_rc_future_failed() {
+  let future = failed::<usize, usize>(2);
+
+  let rc = rc_future(future);
+
+  let i = rc.clone().wait().err().unwrap();
+  assert_eq!(i, 2);
+
+  let i = rc.wait().err().unwrap();
+  assert_eq!(i, 2);
+}

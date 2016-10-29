@@ -56,3 +56,52 @@ impl<H> ClientHandle for MemoizeClientHandle<H> where H: ClientHandle {
     return Box::new(rc_future.clone());
   }
 }
+
+#[cfg(test)]
+mod test {
+  use std::cell::Cell;
+  use ::client::*;
+  use ::error::*;
+  use ::op::*;
+  use ::rr::*;
+  use futures::*;
+
+  struct TestClient { i: Cell<u16> }
+
+  impl ClientHandle for TestClient {
+    fn send(&self, _: Message) -> Box<Future<Item=Message, Error=ClientError>> {
+      let mut message = Message::new();
+      let i = self.i.get();
+
+      message.id(i);
+      self.i.set(i + 1);
+
+      Box::new(finished(message))
+    }
+  }
+
+  #[test]
+  fn test_memoized() {
+    let client = MemoizeClientHandle::new(TestClient{i: Cell::new(0)});
+
+    let mut test1 = Message::new();
+    test1.add_query(Query::new().query_type(RecordType::A).clone());
+
+    let mut test2 = Message::new();
+    test2.add_query(Query::new().query_type(RecordType::AAAA).clone());
+
+    let result = client.send(test1.clone()).wait().ok().unwrap();
+    assert_eq!(result.get_id(), 0);
+
+    let result = client.send(test2.clone()).wait().ok().unwrap();
+    assert_eq!(result.get_id(), 1);
+
+    // should get the same result for each...
+    let result = client.send(test1).wait().ok().unwrap();
+    assert_eq!(result.get_id(), 0);
+
+    let result = client.send(test2).wait().ok().unwrap();
+    assert_eq!(result.get_id(), 1);
+  }
+
+}
