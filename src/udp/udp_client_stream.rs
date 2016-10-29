@@ -188,8 +188,7 @@ fn udp_client_stream_test(server_addr: IpAddr) {
       if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
     }
 
-    println!("timeout");
-    std::process::exit(-1)
+    panic!("timeout");
   }).unwrap();
 
   let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
@@ -232,5 +231,6 @@ fn udp_client_stream_test(server_addr: IpAddr) {
     assert_eq!(&buffer.expect("no buffer received"), test_bytes);
   }
 
+  succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
   server_handle.join().expect("server thread failed");
 }

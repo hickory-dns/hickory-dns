@@ -237,8 +237,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
       if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
     }
 
-    println!("timeout");
-    std::process::exit(-1)
+    panic!("timeout");
   }).unwrap();
 
   // TODO: need a timeout on listen

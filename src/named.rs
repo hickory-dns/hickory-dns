@@ -41,7 +41,7 @@ extern crate chrono;
 use std::fs;
 use std::fs::File;
 use std::collections::BTreeMap;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::{Ipv4Addr, Ipv6Addr, IpAddr, SocketAddr};
 use std::net::ToSocketAddrs;
 use std::path::{Path, PathBuf};
 use std::io::{Read, Write};
@@ -218,7 +218,7 @@ pub fn main() {
 
   let config_path = Path::new(args.flag_config.as_ref().map(|s| s as &str).unwrap_or("/etc/named.toml"));
   info!("loading configuration from: {:?}", config_path);
-  let config = Config::read_config(config_path).unwrap();
+  let config = Config::read_config(config_path).expect(&format!("could not read config: {:?}", config_path));
   let zone_dir: &Path = args.flag_zonedir.as_ref().map(|s| Path::new(s)).unwrap_or(config.get_directory());
 
   let mut catalog: Catalog = Catalog::new();
@@ -233,18 +233,17 @@ pub fn main() {
   }
 
   // TODO support all the IPs asked to listen on...
-  let listen_addr_v4: Ipv4Addr = *config.get_listen_addrs_ipv4().first().unwrap_or(&Ipv4Addr::new(0,0,0,0));
-  let listen_addr_v6: Ipv6Addr = *config.get_listen_addrs_ipv6().first().unwrap_or(&Ipv6Addr::new(0,0,0,0, 0,0,0,0));
+  let mut v4addr = config.get_listen_addrs_ipv4();
+  let mut v6addr = config.get_listen_addrs_ipv6();
+  let mut listen_addrs : Vec<IpAddr> = v4addr.into_iter().map(|x| IpAddr::V4(x)).chain(v6addr.into_iter().map(|x| IpAddr::V6(x))).collect();
   let listen_port: u16 = args.flag_port.unwrap_or(config.get_listen_port());
 
-  let addr_v4 = (listen_addr_v4, listen_port).to_socket_addrs().unwrap().next().unwrap();
-  let addr_v6 = (listen_addr_v6, listen_port).to_socket_addrs().unwrap().next().unwrap();
-
-  let udp_sockets: Vec<UdpSocket> = vec![UdpSocket::bound(&addr_v4).unwrap(),
-                                         UdpSocket::bound(&addr_v6).unwrap()];
-  let tcp_listeners: Vec<TcpListener> = vec![TcpListener::bind(&addr_v4).unwrap(),
-                                             TcpListener::bind(&addr_v6).unwrap()];
-
+  if listen_addrs.len() == 0 {
+    listen_addrs.push(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
+  }
+  let sockaddrs : Vec<SocketAddr> = listen_addrs.into_iter().flat_map(|x| (x, listen_port).to_socket_addrs().unwrap()).collect();
+  let udp_sockets : Vec<UdpSocket> = sockaddrs.iter().map(|x| UdpSocket::bound(x).expect(&format!("could not bind to udp: {}", x))).collect();
+  let tcp_listeners : Vec<TcpListener> = sockaddrs.iter().map(|x| TcpListener::bind(x).expect(&format!("could not bind to tcp: {}", x))).collect();
 
   // now, run the server, based on the config
   let mut server = Server::new(catalog);
@@ -260,6 +259,7 @@ pub fn main() {
   }
 
   banner();
+  println!("awaiting connections...");
   if let Err(e) = server.listen() {
     error!("failed to listen: {}", e);
   }
@@ -268,14 +268,15 @@ pub fn main() {
   //server.listen().unwrap();
 
   // we're exiting for some reason...
-  info!("Trust-DNS {} stopping", trust_dns::version());
+  println!("Trust-DNS {} stopping", trust_dns::version());
 }
 
 fn banner() {
+  println!("");
   println!("   o                    o           o             ");
   println!("   |                    |           |             ");
   println!("  -o-  o-o  o  o  o-o  -o-  o-o   o-O  o-o   o-o  ");
   println!("   |   |    |  |   \\    |        |  |  |  |   \\   ");
   println!("   o   o    o--o  o-o   o         o-o  o  o  o-o  ");
-  println!("                                                  ");
+  println!("");
 }
