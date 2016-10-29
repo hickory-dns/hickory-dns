@@ -1,0 +1,78 @@
+##
+## This is an example configuration file for the TRust-DNS named server.
+##
+## The format is in TOML: https://github.com/toml-lang/toml which was chosen
+##  as the configuration format for TRust-DNS. While Trust-DNS is inteaded to
+##  be a drop-in replacement for BIND9, it will not support the named.conf files
+##  directly. At some point, there will be a binary tool for converting the
+##  BIND9 configuration files over to TRust-DNS TOML.
+##
+## Many of these options are available as both command line options and
+##  configuration options in these files. In that case, the command line option
+##  will take presidence.
+##
+## Comments with two hash marks, ##, document the config parameter
+## Comments with one hash mark, #, is an example line and should be the default
+##
+## The root options are similar to the options in 'options { .. }' in named.conf
+
+## listen_addrs: address on which to listen for incoming connections
+##  this can be a list of ipv4 or ipv6 addresses
+# listen_addrs_ipv4 = ["0.0.0.0"]
+
+# listen_addrs_ipv6 = ["::0"]
+
+## listen_port: port on which to list
+# listen_port = 53
+
+## log_level: Trace, Debug, Info, Warn, Error
+# log_level = "Info"
+
+## directory: path on the host filesystem to where zone files are stored.
+# directory = "/var/named"
+
+## Default zones, these should be present on all nameservers, except in rare
+##  configuration cases
+[[zones]]
+zone = "localhost"
+zone_type = "Master"
+file = "default/localhost.zone"
+
+[[zones]]
+zone = "0.0.127.in-addr.arpa"
+zone_type = "Master"
+file = "default/127.0.0.1.zone"
+
+[[zones]]
+zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
+zsone_type = "Master"
+file = "default/ipv6_1.zone"
+
+[[zones]]
+zone = "255.in-addr.arpa"
+zone_type = "Master"
+file = "default/255.zone"
+
+[[zones]]
+zone = "0.in-addr.arpa"
+zone_type = "Master"
+file = "default/0.zone"
+
+[[zones]]
+## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
+zone = "example.com"
+
+## zone_type: Master, Slave, Hint, Forward
+zone_type = "Master"
+
+## file: this is relative to the directory above
+file = "example.com.zone"
+
+## if false, updates will not be allowed, default false
+# allow_update = false
+
+## if true, looks to see if a chained pem file exists at $file.pem
+## these keys will also be registered as authorities for update,
+## meaning that SIG(0) updates can be established by initially using these
+## keys.
+# enable_dnssec = false

@@ -1,0 +1,7 @@
+listen_addrs_ipv4 = ["0.0.0.0"]
+listen_addrs_ipv6 = ["::0"]
+
+[[zones]]
+zone = "example.com"
+zone_type = "Master"
+file = "example.com.zone"

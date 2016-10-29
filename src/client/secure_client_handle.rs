@@ -868,8 +868,7 @@ pub mod test {
         if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
       }
 
-      println!("timeout");
-      std::process::exit(-1)
+      panic!("timeout");
     }).unwrap();
 
     let authority = create_secure_example();
@@ -891,6 +890,7 @@ pub mod test {
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
     test(secure_client, io_loop);
+    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
   }
 
   #[cfg(test)]
@@ -909,8 +909,7 @@ pub mod test {
         if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
       }
 
-      println!("timeout");
-      std::process::exit(-1)
+      panic!("timeout");
     }).unwrap();
 
     let io_loop = Core::new().unwrap();
@@ -920,6 +919,7 @@ pub mod test {
     let secure_client = SecureClientHandle::new(client);
 
     test(secure_client, io_loop);
+    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
   }
 
   #[cfg(test)]
@@ -938,8 +938,7 @@ pub mod test {
         if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
       }
 
-      println!("timeout");
-      std::process::exit(-1)
+      panic!("timeout");
     }).unwrap();
 
     let io_loop = Core::new().unwrap();
@@ -949,5 +948,6 @@ pub mod test {
     let secure_client = SecureClientHandle::new(client);
 
     test(secure_client, io_loop);
+    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
   }
 }
