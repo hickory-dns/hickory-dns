@@ -5,7 +5,7 @@ use std::io::{BufRead, BufReader, stdout, Write};
 use std::mem;
 use std::net::*;
 use std::process::{Command, Stdio};
-use std::thread::{Builder, park};
+use std::thread::{Builder};
 use std::panic::{catch_unwind, UnwindSafe};
 
 use tokio_core::reactor::Core;
@@ -13,7 +13,6 @@ use tokio_core::reactor::Core;
 use trust_dns::client::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::*;
-use trust_dns::udp::*;
 
 fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + UnwindSafe {
   // find a random port to listen on
@@ -87,7 +86,7 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
 
   println!("test completed");
   succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
-  killer_join.join();
+  killer_join.join().expect("join failed");
 
   assert!(result.is_ok(), "test failed");
 }
