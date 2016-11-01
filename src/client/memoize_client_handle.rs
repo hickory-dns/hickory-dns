@@ -15,6 +15,7 @@ use ::client::rc_future::{rc_future, RcFuture};
 use ::error::*;
 use ::op::{Message, Query};
 
+#[derive(Clone)]
 pub struct MemoizeClientHandle<H: ClientHandle> {
   client: H,
   active_queries: Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item=Message, Error=ClientError>>>>>>,
@@ -25,15 +26,6 @@ impl<H> MemoizeClientHandle<H> where H: ClientHandle {
     MemoizeClientHandle { client: client, active_queries: Rc::new(RefCell::new(HashMap::new())) }
   }
 
-}
-
-impl<H> Clone for MemoizeClientHandle<H> where H: ClientHandle + Clone {
-  fn clone(&self) -> Self {
-    MemoizeClientHandle {
-      client: self.client.clone(),
-      active_queries: self.active_queries.clone(),
-    }
-  }
 }
 
 impl<H> ClientHandle for MemoizeClientHandle<H> where H: ClientHandle {
@@ -66,6 +58,7 @@ mod test {
   use ::rr::*;
   use futures::*;
 
+  #[derive(Clone)]
   struct TestClient { i: Cell<u16> }
 
   impl ClientHandle for TestClient {

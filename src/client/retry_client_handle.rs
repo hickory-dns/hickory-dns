@@ -11,6 +11,7 @@ use ::client::ClientHandle;
 use ::error::*;
 use ::op::Message;
 
+#[derive(Clone)]
 pub struct RetryClientHandle<H: ClientHandle> {
   client: H,
   attempts: usize,
@@ -22,7 +23,7 @@ impl<H> RetryClientHandle<H> where H: ClientHandle {
   }
 }
 
-impl<H> ClientHandle for RetryClientHandle<H> where H: ClientHandle + Clone + 'static {
+impl<H> ClientHandle for RetryClientHandle<H> where H: ClientHandle + 'static {
   fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
     // need to clone here so that the retry can resend if necessary...
     //  obviously it would be nice to be lazy about this...

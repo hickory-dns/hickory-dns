@@ -238,7 +238,7 @@ impl ClientHandle for BasicClientHandle {
   }
 }
 
-pub trait ClientHandle {
+pub trait ClientHandle: Clone {
   /// Send a message via the channel in the client
   ///
   /// # Arguments
