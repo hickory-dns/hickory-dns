@@ -117,6 +117,11 @@ error_chain! {
         description("verified secure non-existence")
         display("verified secure non-existence: {:?}", proof)
       }
+
+      Timeout {
+        description("request timeout")
+        display("request timed out")
+      }
     }
 }
 

@@ -74,7 +74,6 @@ impl<H> Future for RetrySendFuture<H> where H: ClientHandle {
 #[cfg(test)]
 mod test {
   use std::cell::Cell;
-  use super::RetryClientHandle;
   use ::client::*;
   use ::error::*;
   use ::op::*;
