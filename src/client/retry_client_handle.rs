@@ -85,14 +85,16 @@ mod test {
   impl ClientHandle for TestClient {
     fn send(&self, _: Message) -> Box<Future<Item=Message, Error=ClientError>> {
       let i = self.attempts.get();
-      self.attempts.set(i + 1);
 
-      if self.retries - i == 0 && self.last_succeed {
-        let mut message = Message::new();
-        message.id(i);
-        return Box::new(finished(message))
+      if i > self.retries || self.retries - i == 0 {
+        if self.last_succeed {
+          let mut message = Message::new();
+          message.id(i);
+          return Box::new(finished(message))
+        }
       }
 
+      self.attempts.set(i + 1);
       return Box::new(failed(ClientErrorKind::Message("last retry set to fail").into()))
     }
   }
