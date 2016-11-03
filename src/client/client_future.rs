@@ -165,11 +165,8 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
     // loop over new_receiver for all outbound requests
     loop {
       // get next query_id
-      // FIXME: remove try! attempt to receive more messages below and clear
-      //  completes. i.e. is it a valid case where the receiver has been closed
-      //  but completes are still awaiting responses?
-      let query_id: Option<u16> = match try!(self.new_receiver.peek()) {
-        Async::Ready(Some(_)) => {
+      let query_id: Option<u16> = match self.new_receiver.peek() {
+        Ok(Async::Ready(Some(_))) => {
           debug!("got message from receiver");
 
           // we have a new message to send
@@ -178,16 +175,20 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
             Async::NotReady => break,
           }
         },
-        _ => None,
+        Ok(_) => None,
+        Err(e) => {
+          warn!("receiver was shutdown? {}", e);
+          break
+        },
       };
 
       // finally pop the reciever
-      match try!(self.new_receiver.poll()) {
-        Async::Ready(Some((mut message, complete))) => {
+      match self.new_receiver.poll() {
+        Ok(Async::Ready(Some((mut message, complete)))) => {
           // if there was a message, and the above succesion was succesful,
           //  register the new message, if not do not register, and set the complete to error.
           // getting a random query id, this mitigates potential cache poisoning.
-          // FIXME: for SIG0 we can't change the message id after signing.
+          // TODO: for SIG0 we can't change the message id after signing.
           let query_id = query_id.expect("query_id should have been set above");
           message.id(query_id);
 
@@ -229,7 +230,11 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
             },
           }
         },
-        Async::Ready(None) | Async::NotReady => break,
+        Ok(_) => break,
+        Err(e) => {
+          warn!("receiver was shutdown? {}", e);
+          break
+        },
       }
     }
 
@@ -261,7 +266,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
 
     // Clean shutdown happens when all pending requests are done and the
     // incoming channel has been closed (e.g. you'll never receive another
-    // request).
+    // request). try! will early return the error...
     let done = if let Async::Ready(None) = try!(self.new_receiver.peek()) { true } else { false };
     if self.active_requests.is_empty() && done {
       return Ok(().into()); // we are done

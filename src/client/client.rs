@@ -1245,7 +1245,7 @@ mod test {
     test_nsec_query_example(client);
   }
 
-
+  #[allow(deprecated)]
   #[cfg(test)]
   fn test_nsec_query_example<C: ClientConnection>(client: Client<C>) {
     let name = domain::Name::with_labels(vec!["none".to_string(), "example".to_string(), "com".to_string()]);

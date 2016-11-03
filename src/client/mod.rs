@@ -24,8 +24,6 @@ mod memoize_client_handle;
 mod rc_future;
 mod retry_client_handle;
 mod secure_client_handle;
-mod select_all;
-mod select_ok;
 
 #[allow(deprecated)]
 pub use self::client::Client;

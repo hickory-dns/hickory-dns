@@ -10,11 +10,9 @@ use std::collections::HashSet;
 use std::mem;
 use std::rc::Rc;
 
-use futures::{Async, done, failed, finished, Future, Poll};
+use futures::*;
 
 use ::client::ClientHandle;
-use ::client::select_all::{select_all, SelectAll};
-use ::client::select_ok::select_ok;
 use ::error::*;
 use ::op::{Message, OpCode, Query};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
@@ -122,7 +120,7 @@ impl<H> ClientHandle for SecureClientHandle<H> where H: ClientHandle + 'static {
                                                    .collect::<Vec<_>>();
 
                        if !verify_nsec(&query, nsecs) {
-                         // FIXME change this to remove the NSECs, like we do for the others?
+                         // TODO change this to remove the NSECs, like we do for the others?
                          return Err(ClientErrorKind::Message("could not validate nxdomain with NSEC").into())
                        }
                      }
@@ -267,7 +265,7 @@ impl Future for VerifyRrsetsFuture {
         let mut message_result = mem::replace(&mut self.message_result, None).unwrap();
 
         // take all the rrsets from the Message, filter down each set to the validated rrsets
-        // FIXME: does the section in the message matter here?
+        // TODO: does the section in the message matter here?
         //       we could probably end up with record_types in any section.
         //       track the section in the rrset evaluation?
         let answers = message_result.take_answers()
@@ -590,11 +588,12 @@ fn verify_default_rrset<H>(
 
   // we can validate with any of the rrsigs...
   //  i.e. the first that validates is good enough
-  //  FIXME: could there be a cert downgrade attack here?
+  //  TODO: could there be a cert downgrade attack here with a MITM stripping stronger RRSIGs?
   //         we could check for the strongest RRSIG and only use that...
   //         though, since the entire package isn't signed any RRSIG could have been injected,
   //         right? meaning if there is an attack on any of the acceptable algorithms, we'd be
   //         succeptable until that algorithm is removed as an option.
+  //        dns over TLS will mitigate this.
   //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
   let verifications = rrsigs.into_iter()
                             // this filter is technically unnecessary, can probably remove it...
@@ -831,7 +830,7 @@ pub mod test {
     assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
   }
 
-  // FIXME: NSEC response code wrong in Trust-DNS? Issue #53
+  // TODO: NSEC response code wrong in Trust-DNS? Issue #53
   // #[test]
   // fn test_nsec_query_type_nonet() {
   //   with_nonet(test_nsec_query_type);
