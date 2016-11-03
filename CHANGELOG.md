@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## unreleased (0.8.0)
+## 0.8.0
 ### Added
 - SecureClientHandle, for future based DNSSec validation.
 - ClientFuture, futures based client implementation, #32
