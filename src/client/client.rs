@@ -31,11 +31,13 @@ use ::serialize::binary::*;
 use ::client::ClientConnection;
 
 /// The Client is abstracted over either trust_dns::tcp::TcpClientConnection or
-///  trust_dns::udp::UdpClientConnection, usage of TCP or UDP is up to the user. Some DNS servers
+///  trust_dns::udp::UdpClientConnection
+///
+/// Usage of TCP or UDP is up to the user. Some DNS servers
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
 ///
-/// *note* As of 0.8.0, Client as been deprecated in favor of ClientFuture
-#[deprecated]
+/// *note* As of 0.8.0, Client as been deprecated in favor of `trust_dns::client::ClientFuture`
+#[deprecated = "see trust_dns::client::ClientFuture"]
 pub struct Client<C: ClientConnection> {
   client_connection: RefCell<C>,
   trust_anchor: TrustAnchor,

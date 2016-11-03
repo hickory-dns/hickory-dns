@@ -28,12 +28,13 @@ struct Rrset {
     pub records: Vec<Record>,
 }
 
-/// A ClientHandle which will return DNSSec validating futures.
+/// Performs DNSSec validation of all DNS responses from the wrapped ClientHandle
 ///
 /// This wraps a ClientHandle, changing the implementation `send()` to validate all
 ///  message responses for Query operations. Update operation responses are not validated by
 ///  this process.
 #[derive(Clone)]
+#[must_use = "queries can only be sent through a ClientHandle"]
 pub struct SecureClientHandle<H: ClientHandle + 'static> {
   client: H,
   trust_anchor: Rc<TrustAnchor>,

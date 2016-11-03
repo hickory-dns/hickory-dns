@@ -30,6 +30,10 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 
 type StreamHandle = Sender<Vec<u8>>;
 
+/// A DNS Client implemented over futures-rs.
+///
+/// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
+///  implementations.
 #[must_use = "futures do nothing unless polled"]
 pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
   stream: S,
@@ -284,8 +288,12 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
   }
 }
 
+/// Root ClientHandle implementaton returned by ClientFuture
+///
+/// This can be used directly to perform queries. See `trust_dns::client::SecureClientHandle` for
+///  a DNSSEc chain validator.
 #[derive(Clone)]
-#[must_use = "futures do nothing unless polled"]
+#[must_use = "queries can only be sent through a ClientHandle"]
 pub struct BasicClientHandle {
   message_sender: Sender<(Message, Complete<ClientResult<Message>>)>,
 }
@@ -309,6 +317,8 @@ impl ClientHandle for BasicClientHandle {
   }
 }
 
+/// A trait for implementing high level functions of DNS.
+#[must_use = "queries can only be sent through a ClientHandle"]
 pub trait ClientHandle: Clone {
   /// Send a message via the channel in the client
   ///
@@ -319,7 +329,7 @@ pub trait ClientHandle: Clone {
   ///               being stable.
   fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>>;
 
-  /// A *classic* DNS query, i.e. does not perform and DNSSec operations
+  /// A *classic* DNS query
   ///
   /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
   ///        the caller.
@@ -329,9 +339,6 @@ pub trait ClientHandle: Clone {
   /// * `name` - the label to lookup
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type to lookup
-  ///
-  /// TODO: The result of this should be generified to allow for Caches and SecureBasicClientHandle
-  ///  to all share a trait
   fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType)
     -> Box<Future<Item=Message, Error=ClientError>> {
     debug!("querying: {} {:?}", name, query_type);

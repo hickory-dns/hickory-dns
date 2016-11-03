@@ -11,7 +11,11 @@ use ::client::ClientHandle;
 use ::error::*;
 use ::op::Message;
 
+/// Can be used to reattempt a queries if they fail
+///
+/// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
+#[must_use = "queries can only be sent through a ClientHandle"]
 pub struct RetryClientHandle<H: ClientHandle> {
   client: H,
   attempts: usize,
