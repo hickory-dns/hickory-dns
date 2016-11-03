@@ -33,6 +33,10 @@ Using the client is safe. The client is currently hardcoded to a 5 second,
  is broken, and I may never plan to support it. I have some alternative ideas
  for private data in the zone.
 
+*New* ClientFuture is a brand new rewrite of the old Client. It has all the
+ same features as the old Client, but is written with the wonderful futures-rs
+ library.
+
 ### Unique client side implementations
 
 These are not unique to this client, but are high level functions that hide
