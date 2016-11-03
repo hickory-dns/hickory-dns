@@ -5,8 +5,9 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io;
+use std::time::Duration;
 
 use chrono::UTC;
 use futures;
@@ -16,7 +17,7 @@ use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use futures::task::park;
 use rand::Rng;
 use rand;
-use tokio_core::reactor::Handle;
+use tokio_core::reactor::{Handle, Timeout};
 use tokio_core::channel::{channel, Sender, Receiver};
 
 use ::error::*;
@@ -29,27 +30,66 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 
 type StreamHandle = Sender<Vec<u8>>;
 
+/// A DNS Client implemented over futures-rs.
+///
+/// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
+///  implementations.
 #[must_use = "futures do nothing unless polled"]
 pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
   stream: S,
+  reactor_handle: Handle,
+  timeout_duration: Duration,
   stream_handle: StreamHandle,
   new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
-  active_requests: HashMap<u16, Complete<ClientResult<Message>>>,
+  active_requests: HashMap<u16, (Complete<ClientResult<Message>>, Timeout)>,
   // TODO: Maybe make a typed version of ClientFuture for Updates?
   signer: Option<Signer>,
 }
 
 impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
+  /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
+  ///
+  /// # Arguments
+  ///
+  /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
+  ///              (see TcpClientStream or UdpClientStream)
+  /// * `loop_handle` - A Handle to the Tokio reactor Core, this is the Core on which the
+  ///                   the Stream will be spawned
+  /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
+  /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
   pub fn new(stream: Box<Future<Item=S, Error=io::Error>>,
-         stream_handle: StreamHandle,
-         loop_handle: Handle,
-         signer: Option<Signer>) -> BasicClientHandle {
+             stream_handle: StreamHandle,
+             loop_handle: Handle,
+             signer: Option<Signer>) -> BasicClientHandle {
+    Self::with_timeout(stream, stream_handle, loop_handle, Duration::from_secs(5), signer)
+  }
+
+  /// Spawns a new ClientFuture Stream.
+  ///
+  /// # Arguments
+  ///
+  /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
+  ///              (see TcpClientStream or UdpClientStream)
+  /// * `loop_handle` - A Handle to the Tokio reactor Core, this is the Core on which the
+  ///                   the Stream will be spawned
+  /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
+  ///                        wait for a response before canceling the request.
+  /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
+  /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
+  pub fn with_timeout(stream: Box<Future<Item=S, Error=io::Error>>,
+                      stream_handle: StreamHandle,
+                      loop_handle: Handle,
+                      timeout_duration: Duration,
+                      signer: Option<Signer>) -> BasicClientHandle {
     let (sender, rx) = channel(&loop_handle).expect("could not get channel!");
 
+    let loop_handle_clone = loop_handle.clone();
     loop_handle.spawn(
       stream.map(move |stream| {
         ClientFuture{
           stream: stream,
+          reactor_handle: loop_handle_clone,
+          timeout_duration: timeout_duration,
           stream_handle: stream_handle,
           new_receiver: rx.fuse().peekable(),
           active_requests: HashMap::new(),
@@ -68,16 +108,36 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
   ///  this should free up space if we already had 4096 active requests
   fn drop_cancelled(&mut self) {
     // TODO: should we have a timeout here? or always expect the caller to do this?
-    let mut canceled = Vec::new();
-    for (&id, req) in self.active_requests.iter_mut() {
+    let mut canceled = HashSet::new();
+    for (&id, &mut(ref mut req, ref mut timeout)) in self.active_requests.iter_mut() {
       if let Ok(Async::Ready(())) = req.poll_cancel() {
-        canceled.push(id);
+        canceled.insert(id);
+      }
+
+      // check for timeouts...
+      match timeout.poll() {
+        Ok(Async::Ready(_)) => {
+          warn!("request timeout: {}", id);
+          canceled.insert(id);
+        },
+        Ok(Async::NotReady) => (),
+        Err(e) => {
+          error!("unexpected error from timeout: {}", e);
+          canceled.insert(id);
+        }
       }
     }
 
     // drop all the canceled requests
     for id in canceled {
-      self.active_requests.remove(&id);
+      if let Some((req, _)) = self.active_requests.remove(&id) {
+        // TODO, perhaps there is a different reason timeout? but there shouldn't be...
+        //  being lazy and always returning timeout in this case (if it was canceled then the
+        //  then the otherside isn't really paying attention anyway)
+
+        // complete the request, it's failed...
+        req.complete(Err(ClientErrorKind::Timeout.into()));
+      }
     }
   }
 
@@ -109,11 +169,8 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
     // loop over new_receiver for all outbound requests
     loop {
       // get next query_id
-      // FIXME: remove try! attempt to receive more messages below and clear
-      //  completes. i.e. is it a valid case where the receiver has been closed
-      //  but completes are still awaiting responses?
-      let query_id: Option<u16> = match try!(self.new_receiver.peek()) {
-        Async::Ready(Some(_)) => {
+      let query_id: Option<u16> = match self.new_receiver.peek() {
+        Ok(Async::Ready(Some(_))) => {
           debug!("got message from receiver");
 
           // we have a new message to send
@@ -122,16 +179,20 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
             Async::NotReady => break,
           }
         },
-        _ => None,
+        Ok(_) => None,
+        Err(e) => {
+          warn!("receiver was shutdown? {}", e);
+          break
+        },
       };
 
       // finally pop the reciever
-      match try!(self.new_receiver.poll()) {
-        Async::Ready(Some((mut message, complete))) => {
+      match self.new_receiver.poll() {
+        Ok(Async::Ready(Some((mut message, complete)))) => {
           // if there was a message, and the above succesion was succesful,
           //  register the new message, if not do not register, and set the complete to error.
           // getting a random query id, this mitigates potential cache poisoning.
-          // FIXME: for SIG0 we can't change the message id after signing.
+          // TODO: for SIG0 we can't change the message id after signing.
           let query_id = query_id.expect("query_id should have been set above");
           message.id(query_id);
 
@@ -147,6 +208,16 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
             }
           }
 
+          // store a Timeout for this message before sending
+          let timeout = match Timeout::new(self.timeout_duration, &self.reactor_handle) {
+            Ok(timeout) => timeout,
+            Err(e) => {
+              warn!("could not create timer: {}", e);
+              complete.complete(Err(e.into()));
+              continue // to the next message...
+            }
+          };
+
           // send the message
           match message.to_vec() {
             Ok(buffer) => {
@@ -154,7 +225,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
               try!(self.stream_handle.send(buffer));
               // add to the map -after- the client send b/c we don't want to put it in the map if
               //  we ended up returning from the send.
-              self.active_requests.insert(message.get_id(), complete);
+              self.active_requests.insert(message.get_id(), (complete, timeout));
             },
             Err(e) => {
               debug!("error message id: {} error: {}", query_id, e);
@@ -163,7 +234,11 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
             },
           }
         },
-        Async::Ready(None) | Async::NotReady => break,
+        Ok(_) => break,
+        Err(e) => {
+          warn!("receiver was shutdown? {}", e);
+          break
+        },
       }
     }
 
@@ -180,7 +255,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
           match Message::from_vec(&buffer) {
             Ok(message) => {
               match self.active_requests.remove(&message.get_id()) {
-                Some(complete) => complete.complete(Ok(message)),
+                Some((complete, _)) => complete.complete(Ok(message)),
                 None => debug!("unexpected request_id: {}", message.get_id()),
               }
             },
@@ -195,7 +270,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
 
     // Clean shutdown happens when all pending requests are done and the
     // incoming channel has been closed (e.g. you'll never receive another
-    // request).
+    // request). try! will early return the error...
     let done = if let Async::Ready(None) = try!(self.new_receiver.peek()) { true } else { false };
     if self.active_requests.is_empty() && done {
       return Ok(().into()); // we are done
@@ -213,8 +288,12 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
   }
 }
 
+/// Root ClientHandle implementaton returned by ClientFuture
+///
+/// This can be used directly to perform queries. See `trust_dns::client::SecureClientHandle` for
+///  a DNSSEc chain validator.
 #[derive(Clone)]
-#[must_use = "futures do nothing unless polled"]
+#[must_use = "queries can only be sent through a ClientHandle"]
 pub struct BasicClientHandle {
   message_sender: Sender<(Message, Complete<ClientResult<Message>>)>,
 }
@@ -238,7 +317,9 @@ impl ClientHandle for BasicClientHandle {
   }
 }
 
-pub trait ClientHandle {
+/// A trait for implementing high level functions of DNS.
+#[must_use = "queries can only be sent through a ClientHandle"]
+pub trait ClientHandle: Clone {
   /// Send a message via the channel in the client
   ///
   /// # Arguments
@@ -248,7 +329,7 @@ pub trait ClientHandle {
   ///               being stable.
   fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>>;
 
-  /// A *classic* DNS query, i.e. does not perform and DNSSec operations
+  /// A *classic* DNS query
   ///
   /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
   ///        the caller.
@@ -258,9 +339,6 @@ pub trait ClientHandle {
   /// * `name` - the label to lookup
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type to lookup
-  ///
-  /// TODO: The result of this should be generified to allow for Caches and SecureBasicClientHandle
-  ///  to all share a trait
   fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType)
     -> Box<Future<Item=Message, Error=ClientError>> {
     debug!("querying: {} {:?}", name, query_type);
@@ -701,6 +779,7 @@ pub trait ClientHandle {
 
 #[cfg(test)]
 pub mod test {
+  use std;
   use std::fmt;
   use std::io;
   use std::net::*;
@@ -714,6 +793,7 @@ pub mod test {
   use tokio_core::channel::{channel, Receiver};
 
   use super::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle};
+  use ::error::*;
   use ::op::{Message, ResponseCode};
   use ::authority::Catalog;
   use ::authority::authority_tests::{create_example};
@@ -1149,5 +1229,71 @@ pub mod test {
     let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), RecordType::AAAA)).expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
     assert_eq!(result.get_answers().len(), 0);
+  }
+
+  // need to do something with the message channel, otherwise the ClientFuture will think there
+  //  is no one listening to messages and shutdown...
+  #[allow(dead_code)]
+  pub struct NeverReturnsClientStream {
+    outbound_messages: Fuse<Receiver<Vec<u8>>>,
+  }
+
+  impl NeverReturnsClientStream {
+    pub fn new(loop_handle: Handle) -> (Box<Future<Item=Self, Error=io::Error>>, StreamHandle) {
+      let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
+
+      let stream: Box<Future<Item=NeverReturnsClientStream, Error=io::Error>> = Box::new(finished(
+        NeverReturnsClientStream {
+          outbound_messages: outbound_messages.fuse()
+        }
+      ));
+
+      (stream, message_sender)
+    }
+  }
+
+  impl Stream for NeverReturnsClientStream {
+    type Item = Vec<u8>;
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+      // always not ready...
+      park().unpark();
+      Ok(Async::NotReady)
+    }
+  }
+
+  impl fmt::Debug for NeverReturnsClientStream {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+      write!(f, "TestClientStream catalog")
+    }
+  }
+
+  #[test]
+  fn test_timeout_query_nonet() {
+    let authority = create_example();
+    let mut catalog = Catalog::new();
+    catalog.upsert(authority.get_origin().clone(), authority);
+
+    let mut io_loop = Core::new().unwrap();
+    let (stream, sender) = NeverReturnsClientStream::new(io_loop.handle());
+    let client = ClientFuture::with_timeout(stream, sender, io_loop.handle(),
+                                            std::time::Duration::from_millis(1), None);
+
+    let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+
+    if let &ClientErrorKind::Timeout = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A)).unwrap_err().kind() {
+      ()
+    } else {
+      assert!(false);
+    }
+
+
+    // test that we don't have any thing funky with registering new timeouts, etc...
+    if let &ClientErrorKind::Timeout = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::AAAA)).unwrap_err().kind() {
+      ()
+    } else {
+      assert!(false);
+    }
   }
 }

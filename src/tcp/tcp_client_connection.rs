@@ -67,10 +67,10 @@ impl ClientConnection for TcpClientConnection {
     self.error = None;
     // TODO: b/c of OSX this needs to be a reregister (since deregister is not working)
     // ideally it should be a register with the later deregister...
-    try!(self.event_loop.reregister(self.handler.as_ref().expect("never none").get_stream(), RESPONSE, EventSet::all(), PollOpt::all()));
+    try!(self.event_loop.reregister(self.handler.as_ref().expect("never none 70").get_stream(), RESPONSE, EventSet::all(), PollOpt::all()));
     // this is the request message, needs to be set each time
     // TODO: it would be cool to reuse this buffer.
-    let mut handler = mem::replace(&mut self.handler, None).expect("never none");
+    let mut handler = mem::replace(&mut self.handler, None).expect("never none 73");
     handler.set_buffer(buffer);
     let mut client_handler = ClientHandler{ handler: handler, error: None };
     let result = self.event_loop.run(&mut client_handler);
@@ -79,7 +79,7 @@ impl ClientConnection for TcpClientConnection {
     try!(result);
 
     if self.error.is_some() { return Err(mem::replace(&mut self.error, None).unwrap()) }
-    Ok(self.handler.as_mut().expect("never none").remove_buffer())
+    Ok(self.handler.as_mut().expect("never none 82").remove_buffer())
     //debug!("client deregistering");
     // TODO: when this line is added OSX starts failing, but we should have it...
 //    try!(self.event_loop.deregister(&response.stream));
@@ -88,7 +88,7 @@ impl ClientConnection for TcpClientConnection {
 
 impl fmt::Debug for TcpClientConnection {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-    write!(f, "TcpClientConnection: {:?}", self.handler.as_ref().expect("never none").get_stream())
+    write!(f, "TcpClientConnection: {:?}", self.handler.as_ref().expect("never none 91").get_stream())
   }
 }
 

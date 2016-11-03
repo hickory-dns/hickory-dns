@@ -10,13 +10,11 @@ use std::collections::HashSet;
 use std::mem;
 use std::rc::Rc;
 
-use futures::{Async, done, failed, finished, Future, Poll};
+use futures::*;
 
-use ::client::{BasicClientHandle, ClientHandle, MemoizeClientHandle};
-use ::client::select_all::{select_all, SelectAll};
-use ::client::select_ok::select_ok;
+use ::client::ClientHandle;
 use ::error::*;
-use ::op::{Message, OpCode, Query, ResponseCode};
+use ::op::{Message, OpCode, Query};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::{Signer, TrustAnchor};
 use ::rr::rdata::{dnskey, DNSKEY, DS, SIG};
@@ -30,25 +28,27 @@ struct Rrset {
     pub records: Vec<Record>,
 }
 
-/// A ClientHandle which will return DNSSec validating futures.
+/// Performs DNSSec validation of all DNS responses from the wrapped ClientHandle
 ///
 /// This wraps a ClientHandle, changing the implementation `send()` to validate all
 ///  message responses for Query operations. Update operation responses are not validated by
 ///  this process.
-pub struct SecureClientHandle {
-  client: MemoizeClientHandle<BasicClientHandle>,
+#[derive(Clone)]
+#[must_use = "queries can only be sent through a ClientHandle"]
+pub struct SecureClientHandle<H: ClientHandle + 'static> {
+  client: H,
   trust_anchor: Rc<TrustAnchor>,
   request_depth: usize,
 }
 
-impl SecureClientHandle {
+impl<H> SecureClientHandle<H> where H: ClientHandle + 'static {
   /// Create a new SecureClientHandle wrapping the speicified client.
   ///
   /// This uses the compiled in TrustAnchor default trusted keys.
   ///
   /// # Arguments
   /// * `client` - client to use for all connections to a remote server.
-  pub fn new(client: BasicClientHandle) -> SecureClientHandle {
+  pub fn new(client: H) -> SecureClientHandle<H> {
     Self::with_trust_anchor(client, TrustAnchor::default())
   }
 
@@ -59,9 +59,9 @@ impl SecureClientHandle {
   /// # Arguments
   /// * `client` - client to use for all connections to a remote server.
   /// * `trust_anchor` - custom DNSKEYs that will be trusted, can be used to pin trusted keys.
-  pub fn with_trust_anchor(client: BasicClientHandle, trust_anchor: TrustAnchor) -> SecureClientHandle {
+  pub fn with_trust_anchor(client: H, trust_anchor: TrustAnchor) -> SecureClientHandle<H> {
     SecureClientHandle {
-      client: MemoizeClientHandle::new(client),
+      client: client,
       trust_anchor: Rc::new(trust_anchor),
       request_depth: 0,
     }
@@ -79,7 +79,7 @@ impl SecureClientHandle {
   }
 }
 
-impl ClientHandle for SecureClientHandle {
+impl<H> ClientHandle for SecureClientHandle<H> where H: ClientHandle + 'static {
   fn send(&self, mut message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
     // backstop, this might need to be configurable at some point
     if self.request_depth > 20 {
@@ -91,7 +91,7 @@ impl ClientHandle for SecureClientHandle {
       // This will panic on no queries, that is a very odd type of request, isn't it?
       // TODO: there should only be one
       let query = message.get_queries().first().cloned().unwrap();
-      let client: SecureClientHandle = self.clone_with_context();
+      let client: SecureClientHandle<H> = self.clone_with_context();
 
       {
         let edns = message.get_edns_mut();
@@ -114,18 +114,19 @@ impl ClientHandle for SecureClientHandle {
                      // at this point all of the message is verified.
                      //  This is where NSEC (and possibly NSEC3) validation occurs
                      // As of now, only NSEC is supported.
-                     if verified_message.get_response_code() == ResponseCode::NXDomain {
-                        let nsecs = verified_message.get_name_servers()
-                                                      .iter()
-                                                      .filter(|rr| rr.get_rr_type() == RecordType::NSEC)
-                                                      .collect::<Vec<_>>();
+                     if verified_message.get_answers().is_empty() {
+                       let nsecs = verified_message.get_name_servers()
+                                                   .iter()
+                                                   .filter(|rr| rr.get_rr_type() == RecordType::NSEC)
+                                                   .collect::<Vec<_>>();
 
-                        if !verify_nsec(&query, nsecs) {
-                          // FIXME change this to remove the NSECs, like we do for the others?
-                          return Err(ClientErrorKind::Message("could not validate nxdomain with NSEC").into())
-                        }
-                      }
-                      Ok(verified_message)
+                       if !verify_nsec(&query, nsecs) {
+                         // TODO change this to remove the NSECs, like we do for the others?
+                         return Err(ClientErrorKind::Message("could not validate nxdomain with NSEC").into())
+                       }
+                     }
+
+                     Ok(verified_message)
                    })
                  )
     }
@@ -143,11 +144,12 @@ struct VerifyRrsetsFuture {
 
 /// this pulls all records returned in a Message respons and returns a future which will
 ///  validate all of them.
-fn verify_rrsets(
-  client: SecureClientHandle,
+fn verify_rrsets<H>(
+  client: SecureClientHandle<H>,
   message_result: Message,
   dns_class: DNSClass,
-) -> Box<Future<Item=Message, Error=ClientError>> {
+) -> Box<Future<Item=Message, Error=ClientError>>
+where H: ClientHandle {
   let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
   for rrset in message_result.get_answers()
                              .iter()
@@ -264,7 +266,7 @@ impl Future for VerifyRrsetsFuture {
         let mut message_result = mem::replace(&mut self.message_result, None).unwrap();
 
         // take all the rrsets from the Message, filter down each set to the validated rrsets
-        // FIXME: does the section in the message matter here?
+        // TODO: does the section in the message matter here?
         //       we could probably end up with record_types in any section.
         //       track the section in the rrset evaluation?
         let answers = message_result.take_answers()
@@ -302,10 +304,11 @@ impl Future for VerifyRrsetsFuture {
 ///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
 ///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
 ///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
-fn verify_rrset(client: SecureClientHandle,
+fn verify_rrset<H>(client: SecureClientHandle<H>,
                 rrset: Rrset,
-                rrsigs: Vec<Record>,)
-                -> Box<Future<Item=Rrset, Error=ClientError>> {
+                rrsigs: Vec<Record>)
+                -> Box<Future<Item=Rrset, Error=ClientError>>
+                where H: ClientHandle {
   // Special case for unsigned DNSKEYs, it's valid for a DNSKEY to be bare in the zone if
   //  it's a trust_anchor, though some DNS servers choose to self-sign in this case,
   //  for self-signed KEYS they will drop through to the standard validation logic.
@@ -338,10 +341,11 @@ fn verify_rrset(client: SecureClientHandle,
 /// This first checks to see if the key is in the set of trust_anchors. If so then it's returned
 ///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
 ///  against the DS record.
-fn verify_dnskey_rrset(
-  client: SecureClientHandle,
+fn verify_dnskey_rrset<H>(
+  client: SecureClientHandle<H>,
   rrset: Rrset)
   -> Box<Future<Item=Rrset, Error=ClientError>>
+  where H: ClientHandle
 {
   debug!("dnskey validation {}, record_type: {:?}", rrset.name, rrset.record_type);
 
@@ -423,7 +427,6 @@ fn verify_dnskey_rrset(
 /// * `indexes` - ordered list of indexes to remove
 fn preserve<T, I>(vec: &mut Vec<T>, indexes: I) where
   I: IntoIterator<Item=usize>,
-  //<I as IntoIterator>::Item: usize,
   <I as IntoIterator>::IntoIter: DoubleEndedIterator
  {
     // this removes all indexes theat were not part of the anchored keys
@@ -525,11 +528,12 @@ fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> ClientResult
 /// Invalid RRSIGs will be ignored. RRSIGs will only be validated against DNSKEYs which can
 ///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
 ///  then the RRSET will be valid.
-fn verify_default_rrset(
-  client: SecureClientHandle,
+fn verify_default_rrset<H>(
+  client: SecureClientHandle<H>,
   rrset: Rrset,
   rrsigs: Vec<Record>,)
   -> Box<Future<Item=Rrset, Error=ClientError>>
+  where H: ClientHandle
 {
   // the record set is going to be shared across a bunch of futures, Rc for that.
   let rrset = Rc::new(rrset);
@@ -585,11 +589,12 @@ fn verify_default_rrset(
 
   // we can validate with any of the rrsigs...
   //  i.e. the first that validates is good enough
-  //  FIXME: could there be a cert downgrade attack here?
+  //  TODO: could there be a cert downgrade attack here with a MITM stripping stronger RRSIGs?
   //         we could check for the strongest RRSIG and only use that...
   //         though, since the entire package isn't signed any RRSIG could have been injected,
   //         right? meaning if there is an attack on any of the acceptable algorithms, we'd be
   //         succeptable until that algorithm is removed as an option.
+  //        dns over TLS will mitigate this.
   //  TODO: strip RRSIGS to accepted algorithms and make algorithms configurable.
   let verifications = rrsigs.into_iter()
                             // this filter is technically unnecessary, can probably remove it...
@@ -752,7 +757,7 @@ pub mod test {
 
   use ::authority::Catalog;
   use ::authority::authority_tests::create_secure_example;
-  use ::client::{ClientFuture, ClientHandle, SecureClientHandle, TestClientStream};
+  use ::client::{BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle, SecureClientHandle, TestClientStream};
   use ::op::ResponseCode;
   use ::rr::domain;
   use ::rr::{DNSClass, RData, RecordType};
@@ -779,7 +784,8 @@ pub mod test {
   }
 
   #[cfg(test)]
-  fn test_secure_query_example(client: SecureClientHandle, mut io_loop: Core) {
+  fn test_secure_query_example<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+  where H: ClientHandle + 'static {
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A)).expect("query failed");
 
@@ -817,14 +823,15 @@ pub mod test {
   }
 
   #[cfg(test)]
-  fn test_nsec_query_example(client: SecureClientHandle, mut io_loop: Core) {
+  fn test_nsec_query_example<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+  where H: ClientHandle + 'static {
     let name = domain::Name::with_labels(vec!["none".to_string(), "example".to_string(), "com".to_string()]);
 
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A)).expect("query failed");
     assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
   }
 
-  // FIXME: NSEC response code wrong in Trust-DNS? Issue #53
+  // TODO: NSEC response code wrong in Trust-DNS? Issue #53
   // #[test]
   // fn test_nsec_query_type_nonet() {
   //   with_nonet(test_nsec_query_type);
@@ -843,7 +850,8 @@ pub mod test {
   }
 
   #[cfg(test)]
-  fn test_nsec_query_type(client: SecureClientHandle, mut io_loop: Core) {
+  fn test_nsec_query_type<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+  where H: ClientHandle + 'static {
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
 
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::NS)).expect("query failed");
@@ -852,8 +860,50 @@ pub mod test {
     assert!(response.get_answers().is_empty());
   }
 
+  #[test]
+  #[ignore]
+  fn test_dnssec_rollernet_td_udp() {
+    with_udp(dnssec_rollernet_td_test);
+  }
+
+  #[test]
+  #[ignore]
+  fn test_dnssec_rollernet_td_tcp() {
+    with_udp(dnssec_rollernet_td_test);
+  }
+
+  #[test]
+  #[ignore]
+  fn test_dnssec_rollernet_td_tcp_mixed_case() {
+    with_tcp(dnssec_rollernet_td_mixed_case_test);
+  }
+
+  fn dnssec_rollernet_td_test<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+  where H: ClientHandle + 'static {
+    let name = domain::Name::parse("rollernet.us.", None).unwrap();
+
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::DS)).expect("query failed");
+
+    assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    // rollernet doesn't have any DS records...
+    //  would have failed validation
+    assert!(response.get_answers().is_empty());
+  }
+
+  fn dnssec_rollernet_td_mixed_case_test<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+  where H: ClientHandle + 'static {
+    let name = domain::Name::parse("RollErnet.Us.", None).unwrap();
+
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::DS)).expect("query failed");
+
+    assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    // rollernet doesn't have any DS records...
+    //  would have failed validation
+    assert!(response.get_answers().is_empty());
+  }
+
   #[cfg(test)]
-  fn with_nonet<F>(test: F) where F: Fn(SecureClientHandle, Core) {
+  fn with_nonet<F>(test: F) where F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Core) {
     use log::LogLevel;
     use ::logger::TrustDnsLogger;
     TrustDnsLogger::enable_logging(LogLevel::Debug);
@@ -887,6 +937,7 @@ pub mod test {
     let io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog, io_loop.handle());
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
     test(secure_client, io_loop);
@@ -894,7 +945,7 @@ pub mod test {
   }
 
   #[cfg(test)]
-  fn with_udp<F>(test: F) where F: Fn(SecureClientHandle, Core) {
+  fn with_udp<F>(test: F) where F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Core) {
     use log::LogLevel;
     use ::logger::TrustDnsLogger;
     TrustDnsLogger::enable_logging(LogLevel::Debug);
@@ -916,6 +967,7 @@ pub mod test {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
     test(secure_client, io_loop);
@@ -923,7 +975,7 @@ pub mod test {
   }
 
   #[cfg(test)]
-  fn with_tcp<F>(test: F) where F: Fn(SecureClientHandle, Core) {
+  fn with_tcp<F>(test: F) where F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Core) {
     use log::LogLevel;
     use ::logger::TrustDnsLogger;
     TrustDnsLogger::enable_logging(LogLevel::Debug);
@@ -945,6 +997,7 @@ pub mod test {
     let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
     test(secure_client, io_loop);

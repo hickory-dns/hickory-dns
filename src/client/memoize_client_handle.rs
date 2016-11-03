@@ -15,25 +15,24 @@ use ::client::rc_future::{rc_future, RcFuture};
 use ::error::*;
 use ::op::{Message, Query};
 
+/// Will return memoized (cached) responses to queries
+///
+/// This wraps a ClientHandle, changing the implementation `send()` to store the response against
+///  the Message.Query that was sent. This should reduce network traffic especially during things
+///  like DNSSec validation. *Warning* this will currently cache for the life of the Client.
+#[derive(Clone)]
+#[must_use = "queries can only be sent through a ClientHandle"]
 pub struct MemoizeClientHandle<H: ClientHandle> {
   client: H,
   active_queries: Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item=Message, Error=ClientError>>>>>>,
 }
 
 impl<H> MemoizeClientHandle<H> where H: ClientHandle {
+  /// Returns a new handle wrapping the specified client
   pub fn new(client: H) -> MemoizeClientHandle<H> {
     MemoizeClientHandle { client: client, active_queries: Rc::new(RefCell::new(HashMap::new())) }
   }
 
-}
-
-impl<H> Clone for MemoizeClientHandle<H> where H: ClientHandle + Clone {
-  fn clone(&self) -> Self {
-    MemoizeClientHandle {
-      client: self.client.clone(),
-      active_queries: self.active_queries.clone(),
-    }
-  }
 }
 
 impl<H> ClientHandle for MemoizeClientHandle<H> where H: ClientHandle {
@@ -66,6 +65,7 @@ mod test {
   use ::rr::*;
   use futures::*;
 
+  #[derive(Clone)]
   struct TestClient { i: Cell<u16> }
 
   impl ClientHandle for TestClient {

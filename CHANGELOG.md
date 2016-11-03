@@ -10,11 +10,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Fixed
 - Randomized ports for client connections and message ids, #23
 - OpCode::From for u8 removed, added OpCode::from_u8(), #36
+- Fix for named startup related to ipv6, #56
 
 ### Changed
 - Upgraded OpenSSL to 0.8.* #50
 - Cleaned up the Server implementation to isolate connection handlers
-
+- Deprecated old Client will possibly remove in the future
 
 ## 0.7.3 2016-08-12
 ### Fixed

@@ -22,15 +22,17 @@ mod client_connection;
 mod client_future;
 mod memoize_client_handle;
 mod rc_future;
+mod retry_client_handle;
 mod secure_client_handle;
-mod select_all;
-mod select_ok;
 
+#[allow(deprecated)]
 pub use self::client::Client;
 pub use self::client_connection::ClientConnection;
 pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle};
 pub use self::memoize_client_handle::MemoizeClientHandle;
+pub use self::retry_client_handle::RetryClientHandle;
 pub use self::secure_client_handle::SecureClientHandle;
+
 #[cfg(test)]
 pub use self::client_connection::test::TestClientConnection;
 #[cfg(test)]

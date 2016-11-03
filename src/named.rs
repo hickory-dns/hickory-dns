@@ -41,7 +41,7 @@ extern crate chrono;
 use std::fs;
 use std::fs::File;
 use std::collections::BTreeMap;
-use std::net::{Ipv4Addr, Ipv6Addr, IpAddr, SocketAddr};
+use std::net::{Ipv4Addr, IpAddr, SocketAddr};
 use std::net::ToSocketAddrs;
 use std::path::{Path, PathBuf};
 use std::io::{Read, Write};
@@ -233,8 +233,8 @@ pub fn main() {
   }
 
   // TODO support all the IPs asked to listen on...
-  let mut v4addr = config.get_listen_addrs_ipv4();
-  let mut v6addr = config.get_listen_addrs_ipv6();
+  let v4addr = config.get_listen_addrs_ipv4();
+  let v6addr = config.get_listen_addrs_ipv6();
   let mut listen_addrs : Vec<IpAddr> = v4addr.into_iter().map(|x| IpAddr::V4(x)).chain(v6addr.into_iter().map(|x| IpAddr::V6(x))).collect();
   let listen_port: u16 = args.flag_port.unwrap_or(config.get_listen_port());
 

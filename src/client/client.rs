@@ -31,19 +31,26 @@ use ::serialize::binary::*;
 use ::client::ClientConnection;
 
 /// The Client is abstracted over either trust_dns::tcp::TcpClientConnection or
-///  trust_dns::udp::UdpClientConnection, usage of TCP or UDP is up to the user. Some DNS servers
+///  trust_dns::udp::UdpClientConnection
+///
+/// Usage of TCP or UDP is up to the user. Some DNS servers
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
+///
+/// *note* As of 0.8.0, Client as been deprecated in favor of `trust_dns::client::ClientFuture`
+#[deprecated = "see trust_dns::client::ClientFuture"]
 pub struct Client<C: ClientConnection> {
   client_connection: RefCell<C>,
   trust_anchor: TrustAnchor,
 }
 
+#[allow(deprecated)]
 impl<C: ClientConnection> Client<C> {
   /// Creates a new DNS client with the specified connection type
   ///
   /// # Arguments
   ///
   /// * `client_connection` - the client_connection to use for all communication
+  #[allow(deprecated)]
   pub fn new(client_connection: C) -> Client<C> {
     Client{ client_connection: RefCell::new(client_connection),
             trust_anchor: TrustAnchor::default() }
@@ -56,6 +63,7 @@ impl<C: ClientConnection> Client<C> {
   /// * `client_connection` - the client_connection to use for all communication
   /// * `trust_anchor` - the set of trusted DNSKEY public_keys, by default this only contains the
   ///                    root public_key.
+  #[allow(deprecated)]
   pub fn with_trust_anchor(client_connection: C, trust_anchor: TrustAnchor) -> Client<C> {
     Client{ client_connection: RefCell::new(client_connection),
             trust_anchor: trust_anchor }
@@ -1015,6 +1023,7 @@ mod test {
 
   use ::authority::Catalog;
   use ::authority::authority_tests::{create_example, create_secure_example};
+  #[allow(deprecated)]
   use ::client::{Client, ClientConnection, TestClientConnection};
   use ::op::ResponseCode;
   use ::rr::{DNSClass, Record, RecordType, domain, RData};
@@ -1053,6 +1062,7 @@ mod test {
     test_query(client);
   }
 
+  #[allow(deprecated)]
   #[cfg(test)]
   fn test_query<C: ClientConnection>(client: Client<C>) {
     use std::cmp::Ordering;
@@ -1120,6 +1130,7 @@ mod test {
     test_secure_query_example(client);
   }
 
+  #[allow(deprecated)]
   #[cfg(test)]
   fn test_secure_query_example<C: ClientConnection>(client: Client<C>) {
     use log::LogLevel;
@@ -1236,7 +1247,7 @@ mod test {
     test_nsec_query_example(client);
   }
 
-
+  #[allow(deprecated)]
   #[cfg(test)]
   fn test_nsec_query_example<C: ClientConnection>(client: Client<C>) {
     let name = domain::Name::with_labels(vec!["none".to_string(), "example".to_string(), "com".to_string()]);
@@ -1302,6 +1313,7 @@ mod test {
   //   assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
   // }
 
+  #[allow(deprecated)]
   #[cfg(test)]
   fn create_sig0_ready_client<'a>(catalog: &'a mut Catalog) -> (Client<TestClientConnection<'a>>, Signer, domain::Name) {
     use chrono::Duration;

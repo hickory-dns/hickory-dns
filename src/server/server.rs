@@ -427,6 +427,7 @@ mod server_tests {
   use ::rr::*;
   use super::Server;
   use ::op::*;
+  #[allow(deprecated)]
   use ::client::{Client, ClientConnection};
   use ::udp::UdpClientConnection;
   use ::tcp::TcpClientConnection;
