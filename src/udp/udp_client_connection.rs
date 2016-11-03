@@ -83,12 +83,13 @@ impl ClientConnection for UdpClientConnection {
   fn send(&mut self, buffer: Vec<u8>) -> ClientResult<Vec<u8>> {
     debug!("client reregistering");
     // TODO: b/c of OSX this needs to be a reregister (since deregister is not working)
-    try!(self.event_loop.reregister(self.socket.as_ref().expect("never none"), RESPONSE, EventSet::readable(), PollOpt::all()));
+    try!(self.event_loop.reregister(self.socket.as_ref().expect("never none 86"), RESPONSE, EventSet::readable(), PollOpt::all()));
     debug!("client sending");
-    try!(self.socket.as_ref().expect("never none").send_to(&buffer, &self.name_server));
+    try!(self.socket.as_ref().expect("never none 88").send_to(&buffer, &self.name_server));
     debug!("client sent data");
 
-    let mut response: Response = Response::new(mem::replace(&mut self.socket, None).expect("never none"));
+    // get the response to return
+    let mut response: Response = Response::new(mem::replace(&mut self.socket, None).expect("never none 92"));
 
     // run_once should be enough, if something else nepharious hits the socket, what?
     try!(self.event_loop.run(&mut response));

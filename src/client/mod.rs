@@ -27,6 +27,7 @@ mod secure_client_handle;
 mod select_all;
 mod select_ok;
 
+#[allow(deprecated)]
 pub use self::client::Client;
 pub use self::client_connection::ClientConnection;
 pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle};

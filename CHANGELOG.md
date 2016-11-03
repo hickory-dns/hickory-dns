@@ -14,7 +14,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 - Upgraded OpenSSL to 0.8.* #50
 - Cleaned up the Server implementation to isolate connection handlers
-
+- Deprecated old Client will possibly remove in the future
 
 ## 0.7.3 2016-08-12
 ### Fixed

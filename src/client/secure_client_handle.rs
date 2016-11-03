@@ -16,7 +16,7 @@ use ::client::ClientHandle;
 use ::client::select_all::{select_all, SelectAll};
 use ::client::select_ok::select_ok;
 use ::error::*;
-use ::op::{Message, OpCode, Query, ResponseCode};
+use ::op::{Message, OpCode, Query};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::{Signer, TrustAnchor};
 use ::rr::rdata::{dnskey, DNSKEY, DS, SIG};
@@ -115,18 +115,19 @@ impl<H> ClientHandle for SecureClientHandle<H> where H: ClientHandle + 'static {
                      // at this point all of the message is verified.
                      //  This is where NSEC (and possibly NSEC3) validation occurs
                      // As of now, only NSEC is supported.
-                     if verified_message.get_response_code() == ResponseCode::NXDomain {
-                        let nsecs = verified_message.get_name_servers()
-                                                      .iter()
-                                                      .filter(|rr| rr.get_rr_type() == RecordType::NSEC)
-                                                      .collect::<Vec<_>>();
+                     if verified_message.get_answers().is_empty() {
+                       let nsecs = verified_message.get_name_servers()
+                                                   .iter()
+                                                   .filter(|rr| rr.get_rr_type() == RecordType::NSEC)
+                                                   .collect::<Vec<_>>();
 
-                        if !verify_nsec(&query, nsecs) {
-                          // FIXME change this to remove the NSECs, like we do for the others?
-                          return Err(ClientErrorKind::Message("could not validate nxdomain with NSEC").into())
-                        }
-                      }
-                      Ok(verified_message)
+                       if !verify_nsec(&query, nsecs) {
+                         // FIXME change this to remove the NSECs, like we do for the others?
+                         return Err(ClientErrorKind::Message("could not validate nxdomain with NSEC").into())
+                       }
+                     }
+
+                     Ok(verified_message)
                    })
                  )
     }
@@ -856,6 +857,48 @@ pub mod test {
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::NS)).expect("query failed");
 
     assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    assert!(response.get_answers().is_empty());
+  }
+
+  #[test]
+  #[ignore]
+  fn test_dnssec_rollernet_td_udp() {
+    with_udp(dnssec_rollernet_td_test);
+  }
+
+  #[test]
+  #[ignore]
+  fn test_dnssec_rollernet_td_tcp() {
+    with_udp(dnssec_rollernet_td_test);
+  }
+
+  #[test]
+  #[ignore]
+  fn test_dnssec_rollernet_td_tcp_mixed_case() {
+    with_tcp(dnssec_rollernet_td_mixed_case_test);
+  }
+
+  fn dnssec_rollernet_td_test<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+  where H: ClientHandle + 'static {
+    let name = domain::Name::parse("rollernet.us.", None).unwrap();
+
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::DS)).expect("query failed");
+
+    assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    // rollernet doesn't have any DS records...
+    //  would have failed validation
+    assert!(response.get_answers().is_empty());
+  }
+
+  fn dnssec_rollernet_td_mixed_case_test<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+  where H: ClientHandle + 'static {
+    let name = domain::Name::parse("RollErnet.Us.", None).unwrap();
+
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::DS)).expect("query failed");
+
+    assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    // rollernet doesn't have any DS records...
+    //  would have failed validation
     assert!(response.get_answers().is_empty());
   }
 
