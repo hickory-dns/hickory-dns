@@ -28,7 +28,8 @@ use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
-type StreamHandle = Sender<Vec<u8>>;
+/// A reference to a Sender of bytes returned from the creation of a UdpClientStream or TcpClientStream
+pub type StreamHandle = Sender<Vec<u8>>;
 
 /// A DNS Client implemented over futures-rs.
 ///
