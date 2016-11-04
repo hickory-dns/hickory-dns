@@ -40,29 +40,6 @@ build = "build.rs"
 name = "trust_dns"
 path = "src/lib.rs"
 
-[[bin]]
-name = "named"
-path = "src/named.rs"
-
-
-[profile.dev]
-opt-level = 0  # Controls the --opt-level the compiler builds with
-debug = true   # Controls whether the compiler passes `-g`
-rpath = false  # Controls whether the compiler passes `-C rpath`
-lto = false    # Controls `-C lto` for binaries and staticlibs
-debug-assertions = true  # Controls whether debug assertions are enabled
-codegen-units = 1 # Controls whether the compiler passes `-C codegen-units`
-                  # `codegen-units` is ignored when `lto = true`
-
-# The testing profile, used for `cargo test`
-[profile.test]
-opt-level = 0
-debug = true
-rpath = false
-lto = false
-debug-assertions = true
-codegen-units = 1
-
 [dependencies]
 backtrace = "^0.2.1"
 chrono = "^0.2.21"
