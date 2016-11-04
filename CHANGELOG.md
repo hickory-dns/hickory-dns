@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.8.1
+### Fixed
+- Fix build on rustc 1.11, #66
+
 ## 0.8.0
 ### Added
 - SecureClientHandle, for future based DNSSec validation.
