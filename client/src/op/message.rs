@@ -82,6 +82,16 @@ impl Message {
       name_servers: Vec::new(), additionals: Vec::new(), sig0: Vec::new(), edns: None }
   }
 
+  pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Message {
+    let mut message: Message = Message::new();
+    message.message_type(MessageType::Response);
+    message.id(id);
+    message.response_code(response_code);
+    message.op_code(op_code);
+
+    message
+  }
+
   pub fn truncate(&self) -> Self {
     let mut truncated: Message = Message::new();
     truncated.id(self.get_id());

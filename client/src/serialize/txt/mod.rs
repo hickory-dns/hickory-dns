@@ -19,6 +19,3 @@ mod master;
 pub use self::master::Parser;
 pub use self::master_lex::Lexer;
 pub use self::master_lex::Token;
-
-#[cfg(test)]
-mod txt_tests;

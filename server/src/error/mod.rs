@@ -14,25 +14,19 @@
  * limitations under the License.
  */
 
-//! Module for `Catalog` of `Authority` zones which are responsible for storing `RRSet` records.
+//! All defined errors for Trust-DNS
 
-use ::op::ResponseCode;
+mod config_error;
+mod persistence_error;
 
-pub type UpdateResult<T> = Result<T, ResponseCode>;
+pub use self::config_error::Error as ConfigError;
+pub use self::persistence_error::Error as PersistenceError;
 
-#[derive(RustcDecodable, PartialEq, Eq, Debug, Clone, Copy)]
-pub enum ZoneType { Master, Slave, Hint, Forward }
+pub use self::config_error::ErrorKind as ConfigErrorKind;
+pub use self::persistence_error::ErrorKind as PersistenceErrorKind;
 
-mod authority;
-mod catalog;
-mod persistence;
-mod rr_set;
+pub use self::config_error::ChainErr as ConfigChainErr;
+pub use self::persistence_error::ChainErr as PersistenceChainErr;
 
-pub use self::authority::Authority;
-pub use self::authority::RrKey;
-pub use self::catalog::Catalog;
-pub use self::rr_set::RRSet;
-pub use self::persistence::Journal;
-
-#[cfg(test)]
-pub use self::authority::authority_tests;
+pub type ConfigResult<T> = Result<T, ConfigError>;
+pub type PersistenceResult<T> = Result<T, PersistenceError>;

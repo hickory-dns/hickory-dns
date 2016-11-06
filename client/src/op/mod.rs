@@ -17,17 +17,19 @@
 //! Operations to send with a `Client` or server, e.g. `Query`, `Message`, or `UpdateMessage` can
 //! be used to gether to either query or update resource records sets.
 
-pub mod op_code;
-pub mod response_code;
-pub mod message;
-pub mod header;
-pub mod query;
 mod edns;
+pub mod header;
+pub mod message;
+pub mod op_code;
+pub mod query;
+pub mod request_handler;
+pub mod response_code;
 
-pub use self::message::{Message, UpdateMessage};
-pub use self::query::Query;
+pub use self::edns::Edns;
 pub use self::header::Header;
 pub use self::header::MessageType;
+pub use self::message::{Message, UpdateMessage};
 pub use self::op_code::OpCode;
+pub use self::query::Query;
+pub use self::request_handler::RequestHandler;
 pub use self::response_code::ResponseCode;
-pub use self::edns::Edns;

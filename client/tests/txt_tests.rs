@@ -1,10 +1,13 @@
+extern crate trust_dns;
+extern crate trust_dns_server;
+
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
-use ::rr::*;
-use ::authority::ZoneType;
+use trust_dns::rr::*;
+use trust_dns::serialize::txt::*;
+use trust_dns_server::authority::*;
 
-use super::*;
 
 
 #[test]
@@ -38,10 +41,11 @@ short 70 A      26.3.0.104
 venera  A       10.1.0.52
       A       128.9.0.32");
 
-  let authority = Parser::new().parse(lexer, Some(Name::new().label("isi").label("edu")), ZoneType::Master, false);
-  if authority.is_err() { panic!("failed to parse: {:?}", authority.err()) }
+  let records = Parser::new().parse(lexer, Some(Name::new().label("isi").label("edu")));
+  if records.is_err() { panic!("failed to parse: {:?}", records.err()) }
 
-  let authority = authority.unwrap();
+  let (origin, records) = records.unwrap();
+  let authority = Authority::new(origin, records, ZoneType::Master, false);
 
   // not validating everything, just one of each...
 

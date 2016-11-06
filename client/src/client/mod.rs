@@ -28,12 +28,7 @@ mod secure_client_handle;
 #[allow(deprecated)]
 pub use self::client::Client;
 pub use self::client_connection::ClientConnection;
-pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle};
+pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle};
 pub use self::memoize_client_handle::MemoizeClientHandle;
 pub use self::retry_client_handle::RetryClientHandle;
 pub use self::secure_client_handle::SecureClientHandle;
-
-#[cfg(test)]
-pub use self::client_connection::test::TestClientConnection;
-#[cfg(test)]
-pub use self::client_future::test::TestClientStream;

@@ -36,27 +36,23 @@ extern crate data_encoding;
 extern crate mio;
 extern crate openssl;
 extern crate rand;
-extern crate rusqlite;
 extern crate rustc_serialize;
 extern crate time;
 #[macro_use] extern crate tokio_core;
-extern crate toml;
 
 pub mod error;
 pub mod logger;
 pub mod rr;
-pub mod authority;
 pub mod op;
 pub mod udp;
 pub mod tcp;
 pub mod client;
-pub mod server;
 pub mod serialize;
-pub mod config;
 
 /// this exposes a version function which gives access to the access
 include!(concat!(env!("OUT_DIR"), "/version.rs"));
 
+// TODO switch env_logger and remove this
 #[test]
 fn enable_logging_for_tests() {
   use log::LogLevel;

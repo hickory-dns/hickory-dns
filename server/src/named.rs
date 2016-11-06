@@ -30,13 +30,14 @@
 //!    -p PORT, --port=PORT    Override the listening port
 //! ```
 
-extern crate trust_dns;
-extern crate rustc_serialize;
+extern crate chrono;
 extern crate docopt;
 #[macro_use] extern crate log;
 extern crate mio;
 extern crate openssl;
-extern crate chrono;
+extern crate rustc_serialize;
+extern crate trust_dns;
+extern crate trust_dns_server;
 
 use std::fs;
 use std::fs::File;
@@ -53,14 +54,16 @@ use mio::tcp::TcpListener;
 use mio::udp::UdpSocket;
 use openssl::crypto::rsa::RSA;
 
+use trust_dns::error::ParseResult;
 use trust_dns::logger;
 use trust_dns::version;
-use trust_dns::authority::{Authority, Catalog, Journal};
-use trust_dns::config::{Config, ZoneConfig};
-use trust_dns::serialize::txt::Parser;
+use trust_dns::serialize::txt::{Lexer, Parser};
 use trust_dns::rr::Name;
-use trust_dns::server::Server;
 use trust_dns::rr::dnssec::{Algorithm, Signer};
+
+use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
+use trust_dns_server::config::{Config, ZoneConfig};
+use trust_dns_server::server::Server;
 
 // the Docopt usage string.
 //  http://docopt.org
@@ -87,6 +90,19 @@ struct Args {
   pub flag_config: Option<String>,
   pub flag_zonedir: Option<String>,
   pub flag_port: Option<u16>,
+}
+
+fn parse_file(file: File, origin: Option<Name>, zone_type: ZoneType, allow_update: bool) -> ParseResult<Authority> {
+  let mut file = file;
+  let mut buf = String::new();
+
+  // TODO, this should really use something to read line by line or some other method to
+  //  keep the usage down. and be a custom lexer...
+  try!(file.read_to_string(&mut buf));
+  let lexer = Lexer::new(&buf);
+  let (origin, records) = try!(Parser::new().parse(lexer, origin));
+
+  Ok(Authority::new(origin, records, zone_type, allow_update))
 }
 
 fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
@@ -120,7 +136,7 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
       Err(e) => return Err(format!("error opening zone file: {:?}: {}", zone_path, e)),
     };
 
-    let mut authority: Authority = match Parser::parse_file(zone_file, Some(zone_name.clone()), zone.get_zone_type(), zone.is_update_allowed()) {
+    let mut authority: Authority = match parse_file(zone_file, Some(zone_name.clone()), zone.get_zone_type(), zone.is_update_allowed()) {
       Ok(a) => a,
       Err(e) => return Err(format!("error reading zone: {:?}: {}", zone_path, e)),
     };

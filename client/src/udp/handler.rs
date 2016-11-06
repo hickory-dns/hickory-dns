@@ -18,9 +18,8 @@ use std::io;
 use std::sync::Arc;
 
 use mio::udp::UdpSocket;
-use mio::EventSet; // not * b/c don't want confusion with std::net
+use mio::EventSet;
 
-use ::authority::Catalog;
 use ::op::*;
 use ::serialize::binary::*;
 
@@ -42,7 +41,7 @@ impl UdpHandler {
     UdpHandler{ state: UdpState::Writing, addr: server_addr, message: request, buffer: bytes}
   }
 
-  pub fn new_server(socket: &UdpSocket, catalog: Arc<Catalog>) -> Option<Self> {
+  pub fn new_server<H>(socket: &UdpSocket, catalog: Arc<H>) -> Option<Self> where H: RequestHandler {
     //let mut buf: Vec<u8> = Vec::with_capacity(512);
     let mut buf: [u8; 4096] = [0u8; 4096];
     let recv_result = socket.recv_from(&mut buf);
@@ -58,7 +57,7 @@ impl UdpHandler {
         let response = match request {
           Err(ref decode_error) => {
             warn!("unable to decode request from client: {:?}: {}", addr, decode_error);
-            Catalog::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr)
+            Message::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr)
           },
           Ok(ref req) => catalog.handle_request(req), // this is a buf if the unwrap() fails
         };
@@ -101,7 +100,7 @@ impl UdpHandler {
       //  otherwise we'll blow the stack, which is ok, there's something horribly wrong in that
       //  case with the code.
       error!("error encoding response to client: {}", encode_error);
-      Self::serialize_msg(buf, &Catalog::error_msg(response.get_id(), response.get_op_code(), ResponseCode::ServFail))
+      Self::serialize_msg(buf, &Message::error_msg(response.get_id(), response.get_op_code(), ResponseCode::ServFail))
     } else {
       buf
     }

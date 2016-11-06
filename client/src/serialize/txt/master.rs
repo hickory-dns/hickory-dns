@@ -14,12 +14,9 @@
  * limitations under the License.
  */
 use std::collections::BTreeMap;
-use std::io::Read;
-use std::fs::File;
 
 use ::error::*;
-use ::rr::{ Name, RecordType, Record, DNSClass, RData};
-use ::authority::{Authority, RrKey, ZoneType, RRSet};
+use ::rr::{ Name, RecordType, Record, DNSClass, RData, RrKey, RrSet};
 
 use super::master_lex::{Lexer, Token};
 
@@ -130,21 +127,10 @@ impl Parser {
     Parser
   }
 
-  pub fn parse_file(file: File, origin: Option<Name>, zone_type: ZoneType, allow_update: bool) -> ParseResult<Authority> {
-    let mut file = file;
-    let mut buf = String::new();
-
-    // TODO, this should really use something to read line by line or some other method to
-    //  keep the usage down. and be a custom lexer...
-    try!(file.read_to_string(&mut buf));
-    let lexer = Lexer::new(&buf);
-    Self::new().parse(lexer, origin, zone_type, allow_update)
-  }
-
   // TODO: change this function to load into an Authority, using the update_records() method
-  pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>, zone_type: ZoneType, allow_update: bool) -> ParseResult<Authority> {
+  pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>) -> ParseResult<(Name, BTreeMap<RrKey, RrSet>)> {
     let mut lexer = lexer;
-    let mut records: BTreeMap<RrKey, RRSet> = BTreeMap::new();
+    let mut records: BTreeMap<RrKey, RrSet> = BTreeMap::new();
 
     let mut origin: Option<Name> = origin;
     let mut current_name: Option<Name> = None;
@@ -283,7 +269,7 @@ impl Parser {
 
               match rtype.unwrap() {
                 RecordType::SOA => {
-                  let mut set = RRSet::new(record.get_name(), record.get_rr_type(), 0);
+                  let mut set = RrSet::new(record.get_name(), record.get_rr_type(), 0);
                   set.insert(record, 0);
                   if records.insert(key, set).is_some() {
                     return Err(ParseErrorKind::Message("SOA is already specified").into());
@@ -291,7 +277,7 @@ impl Parser {
                 },
                 _ => {
                   // add a Vec if it's not there, then add the record to the list
-                  let mut set = records.entry(key).or_insert(RRSet::new(record.get_name(), record.get_rr_type(), 0));
+                  let mut set = records.entry(key).or_insert(RrSet::new(record.get_name(), record.get_rr_type(), 0));
                   set.insert(record, 0);
                 },
               }
@@ -306,7 +292,8 @@ impl Parser {
 
     //
     // build the Authority and return.
-    Ok(Authority::new(try!(origin.ok_or(ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified")))), records, zone_type, allow_update))
+    let origin = try!(origin.ok_or(ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))));
+    Ok((origin, records))
   }
 
   /// parses the string following the rules from:

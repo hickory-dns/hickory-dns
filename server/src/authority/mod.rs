@@ -14,22 +14,19 @@
  * limitations under the License.
  */
 
-//! Resource record related components, e.g. `Name` aka label, `Record`, `RData`, ...
+//! Module for `Catalog` of `Authority` zones which are responsible for storing `RRSet` records.
 
-pub mod dns_class;
-pub mod dnssec;
-pub mod domain;
-pub mod rdata;
-pub mod record_data;
-pub mod record_type;
-pub mod resource;
-mod rr_key;
-mod rr_set;
+use trust_dns::op::ResponseCode;
 
-pub use self::domain::Name;
-pub use self::dns_class::DNSClass;
-pub use self::record_data::RData;
-pub use self::record_type::RecordType;
-pub use self::resource::Record;
-pub use self::rr_key::RrKey;
-pub use self::rr_set::RrSet;
+pub type UpdateResult<T> = Result<T, ResponseCode>;
+
+#[derive(RustcDecodable, PartialEq, Eq, Debug, Clone, Copy)]
+pub enum ZoneType { Master, Slave, Hint, Forward }
+
+pub mod authority;
+mod catalog;
+pub mod persistence;
+
+pub use self::authority::Authority;
+pub use self::catalog::Catalog;
+pub use self::persistence::Journal;

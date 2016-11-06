@@ -27,9 +27,11 @@ use rustc_serialize::Decodable;
 
 use toml::{Decoder, Value};
 
-use ::error::{ConfigErrorKind, ConfigResult, ConfigError, ParseResult};
-use ::rr::Name;
+use trust_dns::error::ParseResult;
+use trust_dns::rr::Name;
+
 use ::authority::ZoneType;
+use ::error::{ConfigErrorKind, ConfigResult, ConfigError};
 
 static DEFAULT_PORT: u16 = 53;
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)

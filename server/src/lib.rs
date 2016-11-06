@@ -26,16 +26,30 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
-extern crate log;
+extern crate chrono;
+#[macro_use] extern crate error_chain;
+#[macro_use] extern crate log;
+extern crate mio;
+extern crate openssl;
+extern crate rusqlite;
+extern crate rustc_serialize;
+extern crate time;
+extern crate toml;
 extern crate trust_dns;
 
-use trust_dns::logger;
+pub mod authority;
+pub mod config;
+pub mod error;
+pub mod server;
+
+pub use self::server::Server;
 
 /// this exposes a version function which gives access to the access
 include!(concat!(env!("OUT_DIR"), "/version.rs"));
 
 #[test]
 fn enable_logging_for_tests() {
+  use trust_dns::logger;
   use log::LogLevel;
   logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 }

@@ -23,11 +23,12 @@ use mio::{Token, Evented, EventLoop, Handler, EventSet, PollOpt};
 use mio::tcp::{TcpListener, TcpStream};
 use mio::udp::UdpSocket;
 
+use trust_dns::op::{Message, OpCode, ResponseCode, RequestHandler};
+use trust_dns::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
+use trust_dns::tcp::{TcpHandler, TcpState};
+use trust_dns::udp::{UdpHandler, UdpState};
+
 use ::authority::Catalog;
-use ::op::{Message, OpCode, ResponseCode};
-use ::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
-use ::tcp::{TcpHandler, TcpState};
-use ::udp::{UdpHandler, UdpState};
 
 // TODO, might be cool to store buffers for later usage...
 pub struct Server {
@@ -100,7 +101,7 @@ impl Server {
     match request {
       Err(ref decode_error) => {
         warn!("unable to decode request from client: {:?}: {}", stream, decode_error);
-        Catalog::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr)
+        Message::error_msg(0/* id is in the message... */, OpCode::Query/* right default? */, ResponseCode::FormErr)
       },
       Ok(ref req) => catalog.handle_request(req),
     }
@@ -117,7 +118,7 @@ impl Server {
 
     if let Err(encode_error) = encode_result {
       error!("error encoding response to client: {}", encode_error);
-      let err_msg = Catalog::error_msg(response.get_id(), response.get_op_code(), ResponseCode::ServFail);
+      let err_msg = Message::error_msg(response.get_id(), response.get_op_code(), ResponseCode::ServFail);
 
       buffer.clear();
       let mut encoder: BinEncoder = BinEncoder::new(buffer);
@@ -414,122 +415,5 @@ impl Handler for Server {
     warn!("server interrupted, shutting down");
     event_loop.shutdown();
     //    self.error = Some(Err(io::Error::new(io::ErrorKind::Interrupted, format!("interrupted"))));
-  }
-}
-
-#[cfg(test)]
-mod server_tests {
-  use std::thread;
-  use mio::udp::UdpSocket;
-  use std::net::{SocketAddr, SocketAddrV4, Ipv4Addr};
-  use ::authority::Catalog;
-  use ::authority::authority_tests::create_example;
-  use ::rr::*;
-  use super::Server;
-  use ::op::*;
-  #[allow(deprecated)]
-  use ::client::{Client, ClientConnection};
-  use ::udp::UdpClientConnection;
-  use ::tcp::TcpClientConnection;
-  use mio::tcp::TcpListener;
-
-  #[test]
-  fn test_server_www_udp() {
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 0));
-    let udp_socket = UdpSocket::bound(&addr).unwrap();
-
-    let ipaddr = udp_socket.local_addr().unwrap();
-    println!("udp_socket on port: {}", ipaddr);
-
-    thread::Builder::new().name("test_server:udp:server".to_string()).spawn(move || server_thread_udp(udp_socket)).unwrap();
-
-    let client_conn = UdpClientConnection::new(ipaddr).unwrap();
-    let client_thread = thread::Builder::new().name("test_server:udp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
-
-    let client_result = client_thread.join();
-    //    let server_result = server_thread.join();
-
-    assert!(client_result.is_ok(), "client failed: {:?}", client_result);
-    //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
-  }
-
-  #[test]
-  #[ignore]
-  fn test_server_www_tcp() {
-    use mio::tcp::TcpListener;
-
-    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 0));
-    let tcp_listener = TcpListener::bind(&addr).unwrap();
-
-    let ipaddr = tcp_listener.local_addr().unwrap();
-    println!("tcp_listner on port: {}", ipaddr);
-
-    thread::Builder::new().name("test_server:tcp:server".to_string()).spawn(move || server_thread_tcp(tcp_listener)).unwrap();
-
-    let client_conn = TcpClientConnection::new(ipaddr).unwrap();
-    let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
-
-    let client_result = client_thread.join();
-    //    let server_result = server_thread.join();
-
-    assert!(client_result.is_ok(), "client failed: {:?}", client_result);
-    //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
-  }
-
-  #[allow(dead_code)]
-  fn client_thread_www<C: ClientConnection>(conn: C) {
-    let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-    println!("about to query server: {:?}", conn);
-    let client = Client::new(conn);
-
-    let response = client.query(&name, DNSClass::IN, RecordType::A).expect("error querying");
-
-    assert!(response.get_response_code() == ResponseCode::NoError, "got an error: {:?}", response.get_response_code());
-
-    let record = &response.get_answers()[0];
-    assert_eq!(record.get_name(), &name);
-    assert_eq!(record.get_rr_type(), RecordType::A);
-    assert_eq!(record.get_dns_class(), DNSClass::IN);
-
-    if let &RData::A(ref address) = record.get_rdata() {
-      assert_eq!(address, &Ipv4Addr::new(93,184,216,34))
-    } else {
-      assert!(false);
-    }
-
-    let mut ns: Vec<_> = response.get_name_servers().to_vec();
-    ns.sort();
-
-    assert_eq!(ns.len(), 2);
-    assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
-    assert_eq!(ns.first().unwrap().get_rdata(), &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) );
-    assert_eq!(ns.last().unwrap().get_rr_type(), RecordType::NS);
-    assert_eq!(ns.last().unwrap().get_rdata(), &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) );
-  }
-
-  fn new_catalog() -> Catalog {
-    let example = create_example();
-    let origin = example.get_origin().clone();
-
-    let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), example);
-    catalog
-  }
-
-  fn server_thread_udp(udp_socket: UdpSocket) {
-    let catalog = new_catalog();
-
-    let mut server = Server::new(catalog);
-    server.register_socket(udp_socket);
-
-    server.listen().unwrap();
-  }
-
-  fn server_thread_tcp(tcp_listener: TcpListener) {
-    let catalog = new_catalog();
-    let mut server = Server::new(catalog);
-    server.register_listener(tcp_listener);
-
-    server.listen().unwrap();
   }
 }
