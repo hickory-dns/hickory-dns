@@ -21,7 +21,7 @@ cd kcov-master/build
 cmake ..
 make
 sudo make install
-cd ${trust_dns_dir}
+cd ../..
 
 # run kcov on all tests, rerunning all tests with coverage report
 mkdir -p target
