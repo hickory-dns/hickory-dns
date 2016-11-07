@@ -22,7 +22,7 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
     server_addr.port()
   };
 
-  let mut named = Command::new("target/debug/named")
+  let mut named = Command::new("../target/debug/named")
                           .stdout(Stdio::piped())
                           .arg(&format!("--config=tests/named_test_configs/{}", toml))
                           .arg("--zonedir=tests/named_test_configs")
