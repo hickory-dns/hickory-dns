@@ -29,7 +29,7 @@ mkdir -p target
 SRC_PATHS=client/src,server/src
 EXCLUDE_PATHS=client/src/error,server/src/error
 
-for target/debug/trust_dns*-* target/debug/*_tests-* ; do
+for i in target/debug/trust_dns*-* target/debug/*_tests-* ; do
   if [ -f $i ] && [ -x $i ]; then
     kcov --collect-only target/kcov $i
   fi
