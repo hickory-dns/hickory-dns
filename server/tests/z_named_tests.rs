@@ -1,6 +1,7 @@
 extern crate trust_dns;
 extern crate tokio_core;
 
+use std::env;
 use std::io::{BufRead, BufReader, stdout, Write};
 use std::mem;
 use std::net::*;
@@ -22,10 +23,13 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
     server_addr.port()
   };
 
-  let mut named = Command::new("../target/debug/named")
+  let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+  println!("using server src path: {}", server_path);
+
+  let mut named = Command::new(&format!("{}/../target/debug/named", server_path))
                           .stdout(Stdio::piped())
-                          .arg(&format!("--config=tests/named_test_configs/{}", toml))
-                          .arg("--zonedir=tests/named_test_configs")
+                          .arg(&format!("--config={}/tests/named_test_configs/{}", server_path, toml))
+                          .arg(&format!("--zonedir={}/tests/named_test_configs", server_path))
                           .arg(&format!("--port={}", test_port))
                           .spawn()
                           .expect("failed to start named");

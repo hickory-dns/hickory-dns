@@ -12,8 +12,11 @@ esac
 rustc --version | grep beta && exit 0;
 rustc --version | grep nightly && exit 0;
 
+rm -rf kcov-master master.tar.gz*
+
 # install kcov
-sudo apt-get install libcurl4-openssl-dev libelf-dev libdw-dev
+# sudo apt-get install libcurl4-openssl-dev libelf-dev libdw-dev
+apt-get install cmake libcurl4-openssl-dev libelf-dev libdw-dev
 wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz
 tar xzf master.tar.gz
 mkdir kcov-master/build
@@ -26,19 +29,21 @@ cd ../..
 # run kcov on all tests, rerunning all tests with coverage report
 mkdir -p target
 
+# needed to tell some config tests where the server root directory is
+export TDNS_SERVER_SRC_ROOT=./server
+
 SRC_PATHS=client/src,server/src
 EXCLUDE_PATHS=client/src/error,server/src/error
 
 for i in target/debug/trust_dns*-* target/debug/*_tests-* ; do
   if [ -f $i ] && [ -x $i ]; then
-    kcov --collect-only target/kcov $i
+    # submit the report... what's the executable since there are many?
+    echo "executing kcov on $i"
+    kcov --report-only \
+         --coveralls-id=$TRAVIS_JOB_ID \
+         --exclude-pattern=/.cargo \
+         --include-paths=${SRC_PATHS} \
+         --exclude-paths=${} \
+         target/kcov $i
   fi
 done
-
-# submit the report... what's the executable since there are many?
-kcov --report-only \
-     --coveralls-id=$TRAVIS_JOB_ID \
-     --exclude-pattern=/.cargo \
-     --include-paths=${SRC_PATHS} \
-     --exclude-paths=${} \
-     target/kcov client/target/debug/trust_dns-*

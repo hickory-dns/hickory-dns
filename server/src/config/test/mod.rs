@@ -13,6 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::env;
 use std::path::{Path, PathBuf};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
@@ -23,11 +24,12 @@ use super::*;
 
 #[test]
 fn test_read_config() {
-  let mut path: PathBuf = PathBuf::from(".");
-  path.push("src");
-  path.push("config");
-  path.push("test");
-  path.push("example.toml");
+  let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+  let path: PathBuf = PathBuf::from(server_path).join("src/config/test/example.toml");
+
+  if !path.exists() {
+    assert!(false, "can't locate example.toml and other configs: {:?}", path)
+  }
 
   println!("reading config");
   let config: Config = Config::read_config(&path).unwrap();
