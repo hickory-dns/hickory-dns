@@ -40,11 +40,13 @@ for i in target/debug/trust_dns*-* target/debug/*_tests-* ; do
   if [ -f $i ] && [ -x $i ]; then
     # submit the report... what's the executable since there are many?
     echo "executing kcov on $i"
-    kcov --report-only \
-         --coveralls-id=${TRAVIS_JOB_ID} \
-         --exclude-pattern=/.cargo \
-         --include-paths=${SRC_PATHS} \
-         --exclude-paths=${EXCLUDE_PATHS} \
-         target/kcov $i
+    kcov --exclude-pattern=/.cargo \
+         --include-path=${SRC_PATHS} \
+         --exclude-path=${EXCLUDE_PATHS} \
+         target/kcov-$i $i
   fi
 done
+
+echo "merging and uploading to coveralls.io"
+kcov --coveralls-id=${TRAVIS_JOB_ID} \
+     --merge target/kcov-*
