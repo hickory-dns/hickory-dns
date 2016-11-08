@@ -41,10 +41,10 @@ for i in target/debug/trust_dns*-* target/debug/*_tests-* ; do
     # submit the report... what's the executable since there are many?
     echo "executing kcov on $i"
     kcov --report-only \
-         --coveralls-id=$TRAVIS_JOB_ID \
+         --coveralls-id=${TRAVIS_JOB_ID} \
          --exclude-pattern=/.cargo \
          --include-paths=${SRC_PATHS} \
-         --exclude-paths=${} \
+         --exclude-paths=${EXCLUDE_PATHS} \
          target/kcov $i
   fi
 done
