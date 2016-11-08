@@ -43,7 +43,7 @@ for i in target/debug/trust_dns*-* target/debug/*_tests-* ; do
     kcov --exclude-pattern=/.cargo \
          --include-path=${SRC_PATHS} \
          --exclude-path=${EXCLUDE_PATHS} \
-         target/kcov-$i $i
+         target/kcov-$(basename $i) $i
   fi
 done
 
