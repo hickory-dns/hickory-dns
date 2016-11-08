@@ -16,7 +16,7 @@ rm -rf kcov-master master.tar.gz*
 
 # install kcov
 # sudo apt-get install libcurl4-openssl-dev libelf-dev libdw-dev
-apt-get install cmake libcurl4-openssl-dev libelf-dev libdw-dev
+sudo apt-get install cmake libcurl4-openssl-dev libelf-dev libdw-dev
 wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz
 tar xzf master.tar.gz
 mkdir kcov-master/build
@@ -31,6 +31,7 @@ mkdir -p target
 
 # needed to tell some config tests where the server root directory is
 export TDNS_SERVER_SRC_ROOT=./server
+export COVERALLS_PARALLEL=true
 
 SRC_PATHS=client/src,server/src
 EXCLUDE_PATHS=client/src/error,server/src/error
