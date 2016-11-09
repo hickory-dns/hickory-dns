@@ -1,3 +1,5 @@
+sudo: required
+dist: trusty
 language: rust
 os:
   - linux
@@ -9,9 +11,7 @@ rust:
 matrix:
   allow_failure:
     - rust: nightly
-after_success: |
-  sudo apt-get install libcurl4-openssl-dev libelf-dev libdw-dev &&
-  wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz &&
-  tar xzf master.tar.gz && mkdir kcov-master/build && cd kcov-master/build && cmake .. && make &&
-  sudo make install && cd ../.. &&
-  kcov --coveralls-id=$TRAVIS_JOB_ID --exclude-pattern=/.cargo target/kcov target/debug/trust_dns-*
+script: scripts/run_tests.sh
+after_success: scripts/run_kcov.sh
+notifications:
+  webhooks: https://coveralls.io/webhook?repo_token=0fXi81cx3Khi8g0Q0mGqsABePoEdJfMcf

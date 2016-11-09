@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## unreleased (0.9.0)
+### Changed
+- Split Server and Client into separate crates, #43
+- Moved many integration tests to `tests` from `src`, #52
+
 ## 0.8.1
 ### Fixed
 - Fix build on rustc 1.11, #66
