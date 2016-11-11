@@ -96,6 +96,10 @@ pub struct ZoneConfig {
 }
 
 impl ZoneConfig {
+  pub fn new(zone: String, zone_type: ZoneType, file: String, allow_update: Option<bool>, enable_dnssec: Option<bool>) -> Self {
+    ZoneConfig{zone: zone, zone_type: zone_type, file: file, allow_update: allow_update, enable_dnssec: enable_dnssec }
+  }
+
   // TODO this is a little ugly for the parse, b/c there is no terminal char
   pub fn get_zone(&self) -> ParseResult<Name> { Name::parse(&self.zone, Some(&Name::new())) }
   pub fn get_zone_type(&self) -> ZoneType { self.zone_type }
@@ -103,6 +107,3 @@ impl ZoneConfig {
   pub fn is_update_allowed(&self) -> bool { self.allow_update.unwrap_or(false) }
   pub fn is_dnssec_enabled(&self) -> bool { self.enable_dnssec.unwrap_or(false) }
 }
-
-#[cfg(test)]
-mod test;

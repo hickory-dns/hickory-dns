@@ -13,19 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+extern crate log;
+extern crate trust_dns_server;
+
 use std::env;
 use std::path::{Path, PathBuf};
 use std::net::{Ipv4Addr, Ipv6Addr};
 
 use log::LogLevel;
 
-use ::authority::ZoneType;
-use super::*;
+use trust_dns_server::authority::ZoneType;
+use trust_dns_server::config::*;
 
 #[test]
 fn test_read_config() {
   let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
-  let path: PathBuf = PathBuf::from(server_path).join("src/config/test/example.toml");
+  let path: PathBuf = PathBuf::from(server_path).join("tests/named_test_configs/example.toml");
 
   if !path.exists() {
     assert!(false, "can't locate example.toml and other configs: {:?}", path)
@@ -40,11 +43,12 @@ fn test_read_config() {
   assert_eq!(config.get_log_level(), LogLevel::Info);
   assert_eq!(config.get_directory(), Path::new("/var/named"));
   assert_eq!(config.get_zones(), [
-    ZoneConfig { zone: "localhost".into(), zone_type: ZoneType::Master, file: "default/localhost.zone".into(), allow_update: None, enable_dnssec: None },
-    ZoneConfig { zone: "0.0.127.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/127.0.0.1.zone".into(), allow_update: None, enable_dnssec: None },
-    ZoneConfig { zone: "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa".into(), zone_type: ZoneType::Master, file: "default/ipv6_1.zone".into(), allow_update: None, enable_dnssec: None },
-    ZoneConfig { zone: "255.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/255.zone".into(), allow_update: None, enable_dnssec: None },
-    ZoneConfig { zone: "0.in-addr.arpa".into(), zone_type: ZoneType::Master, file: "default/0.zone".into(), allow_update: None, enable_dnssec: None }
+    ZoneConfig::new("localhost".into(), ZoneType::Master, "default/localhost.zone".into(), None, None),
+    ZoneConfig::new("0.0.127.in-addr.arpa".into(), ZoneType::Master, "default/127.0.0.1.zone".into(), None, None),
+    ZoneConfig::new("0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa".into(), ZoneType::Master, "default/ipv6_1.zone".into(), None, None),
+    ZoneConfig::new("255.in-addr.arpa".into(), ZoneType::Master, "default/255.zone".into(), None, None),
+    ZoneConfig::new("0.in-addr.arpa".into(), ZoneType::Master, "default/0.zone".into(), None, None),
+    ZoneConfig::new("example.com".into(), ZoneType::Master, "example.com.zone".into(), None, None),
   ]);
 }
 
