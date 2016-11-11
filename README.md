@@ -25,30 +25,29 @@ ground up.
 
 ## Client
 
-Using the client is safe. The client is currently hardcoded to a 5 second,
- timeout. I'll make this configurable if people ask for that, please file a
- request for any features. Please send feedback! It currently does not cache
+Using the ClientFuture is safe. ClientFuture is a brand new rewrite of the old
+ Client. It has all the same features as the old Client, but is written with the
+ wonderful futures-rs library. Please send feedback! It currently does not cache
  responses, if this is a feature you'd like earlier rather than later, post a
  request. The validation of DNSSec is complete including NSEC. As of now NSEC3
  is broken, and I may never plan to support it. I have some alternative ideas
- for private data in the zone.
-
-*New* ClientFuture is a brand new rewrite of the old Client. It has all the
- same features as the old Client, but is written with the wonderful futures-rs
- library.
+ for private data in the zone. The old Client has been deprecated, so please
+ use the ClientFuture. If this is an inconvenience, I may add a convenience
+ wrapper around ClientFuture that would match the old Client; if this is something
+ you would like to see, please file an issue.
 
 ### Unique client side implementations
 
-These are not unique to this client, but are high level functions that hide
-the details in DNS from the caller
+These are standards supported by the DNS protocol. The client implements them
+ as high level interfaces, which is a bit more rare.
 
-* secure_query - DNSSec validation
-* create - atomic create of a record, with authenticated request
-* append - verify existence of a record and append to it
-* compare_and_swap - atomic (depends on server) compare and swap
-* delete_by_rdata - delete a specific record
-* delete_rrset - delete an entire record set
-* delete_all - delete all records sets with a given name
+* [secure_query]() - DNSSec validation
+* [create](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.create) - atomic create of a record, with authenticated request
+* [append](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.append) - verify existence of a record and append to it
+* [compare_and_swap](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.compare_and_swap) - atomic (depends on server) compare and swap
+* [delete_by_rdata](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.delete_by_rdata) - delete a specific record
+* [delete_rrset](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.delete_rrset) - delete an entire record set
+* [delete_all](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.delete_all) - delete all records sets with a given name
 
 ## Server
 
@@ -56,9 +55,10 @@ The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
  There currently is no way to limit TCP and AXFR operations, so it is still not
  recommended to put into production as TCP can be used to DOS the service.
  Master file parsing is complete and supported. There is currently no forking
- option, and the server is not yet threaded. There is still a lot of work to do
- before a server can be trusted with this externally. Running it behind a firewall
- on a private network would be safe.
+ option, and the server is not yet threaded (although it is implemented with
+ async IO, so threading may not be a huge benefit). There is still a lot of work
+ to do before a server can be trusted with this externally. Running it behind a
+ firewall on a private network would be safe.
 
 Zone signing support is complete, to insert a key store a pem encoded rsa file
  in the same directory as the initial zone file with the `.key` suffix. *Note*:
@@ -133,7 +133,7 @@ presume that the trust-dns repos have already been synced to the local system:
 ## Prerequisites
 
 -   openssl development libraries
--   sqlite3 development libraries
+-   sqlite3 development libraries (server only)
 
 ### Mac OS X: using homebrew
 
@@ -157,20 +157,21 @@ presume that the trust-dns repos have already been synced to the local system:
 -   Unit tests
 
     These are good for running on local systems. They will create sockets for
-    local tests, but will not attempt to access remote systems.
+    local tests, but will not attempt to access remote systems. Tests can also
+    be run from the crate directory, i.e. `client` or `server` and `cargo test`
 
 ```
-  $ cargo test
+  $ scripts/runtests.sh
 ```
 
--   Functional tests
+-   Functional/Integration tests
 
     These will try to use some local system tools for compatibility testing,
     and also make some remote requests to verify compatibility with other DNS
     systems. These can not currently be run on Travis for example.
 
 ```
-  $ cargo test -- --ignored
+  $ scripts/runtests.sh -- --ignored
 ```
 
 -   Benchmarks
@@ -179,7 +180,7 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Building
 
--   Production build
+-   Production build, first change directories into either the crate directory, `client` or `server`
 
 ```
   $ cargo build --release
@@ -194,13 +195,13 @@ so this should allow it to work with most internal loads.
 -   Verify the version
 
 ```
-  $ target/release/named --version
+  $ server/target/release/named --version
 ```
 
 -   Get help
 
 ```
-  $ target/release/named --help
+  $ server/target/release/named --help
 ```
 
 # FAQ

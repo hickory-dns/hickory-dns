@@ -7,6 +7,6 @@ for i in client server; do
   pushd $i
   echo "executing cargo on $i"
   cargo build --verbose
-  cargo test --verbose
+  cargo test --verbose $@
   popd
 done
