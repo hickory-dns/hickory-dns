@@ -7,7 +7,7 @@ use futures::task::park;
 use tokio_core::reactor::*;
 use tokio_core::channel::*;
 
-use trust_dns::client::StreamHandle;
+use trust_dns::client::{ClientStreamHandle, StreamHandle};
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
 
@@ -19,14 +19,14 @@ pub struct TestClientStream {
 }
 
 impl TestClientStream {
-  pub fn new(catalog: Catalog, loop_handle: Handle) -> (Box<Future<Item=Self, Error=io::Error>>, StreamHandle) {
+  pub fn new(catalog: Catalog, loop_handle: Handle) -> (Box<Future<Item=Self, Error=io::Error>>, Box<ClientStreamHandle>) {
     let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
 
     let stream: Box<Future<Item=TestClientStream, Error=io::Error>> = Box::new(finished(
       TestClientStream { catalog: catalog, outbound_messages: outbound_messages.fuse() }
     ));
 
-    (stream, message_sender)
+    (stream, Box::new(message_sender))
   }
 }
 

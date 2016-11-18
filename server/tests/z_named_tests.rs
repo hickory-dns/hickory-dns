@@ -67,7 +67,7 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
     output.clear();
     named_out.read_line(&mut output).expect("could not read stdout");
     stdout().write(output.as_bytes()).unwrap();
-    if output == "awaiting connections...\n" { found = true; break }
+    if output.ends_with("awaiting connections...\n") { found = true; break }
   }
 
   stdout().flush().unwrap();

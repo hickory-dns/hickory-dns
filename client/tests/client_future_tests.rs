@@ -18,14 +18,14 @@ use openssl::crypto::rsa::RSA;
 use tokio_core::reactor::{Core, Handle};
 use tokio_core::channel::{channel, Receiver};
 
-use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle};
+use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle, ClientStreamHandle};
 use trust_dns::error::*;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, RData, Record, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, Signer};
 use trust_dns::rr::rdata::*;
-use trust_dns::udp::UdpClientStream;
+use trust_dns::udp::{UdpClientStream, UdpClientStreamHandle};
 use trust_dns::tcp::TcpClientStream;
 use trust_dns_server::authority::Catalog;
 use trust_dns_server::authority::authority::{create_example};
@@ -402,7 +402,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   }
 
   impl NeverReturnsClientStream {
-    pub fn new(loop_handle: Handle) -> (Box<Future<Item=Self, Error=io::Error>>, StreamHandle) {
+    pub fn new(loop_handle: Handle) -> (Box<Future<Item=Self, Error=io::Error>>, Box<ClientStreamHandle>) {
       let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
 
       let stream: Box<Future<Item=NeverReturnsClientStream, Error=io::Error>> = Box::new(finished(
@@ -411,7 +411,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
         }
       ));
 
-      (stream, message_sender)
+      (stream, Box::new(message_sender))
     }
   }
 

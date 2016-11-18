@@ -24,4 +24,3 @@ pub use self::handler::TcpHandler;
 pub use self::handler::TcpState;
 pub use self::tcp_client_connection::TcpClientConnection;
 pub use self::tcp_client_stream::TcpClientStream;
-pub use self::tcp_client_stream::TcpClientStreamHandle;

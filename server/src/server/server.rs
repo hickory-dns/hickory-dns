@@ -31,12 +31,14 @@ use trust_dns::udp::{UdpHandler, UdpState};
 use ::authority::Catalog;
 
 // TODO, might be cool to store buffers for later usage...
+#[deprecated]
 pub struct Server {
   handlers: HashMap<Token, DnsHandlerType>,
   next_token: Cell<usize>,
   catalog: Arc<Catalog>, // should the catalog just be static?
 }
 
+#[allow(deprecated)]
 impl Server {
   pub fn new(catalog: Catalog) -> Server {
     Server {
@@ -357,6 +359,7 @@ impl DnsHandler for TcpHandler {
   }
 }
 
+#[allow(deprecated)]
 impl Handler for Server {
   type Timeout = Token; // Timeouts are registered with tokens.
   type Message = ();

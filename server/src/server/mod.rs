@@ -15,7 +15,14 @@
  */
 
 //! `Server` component for hosting a domain name servers operations.
- 
-mod server;
 
+mod request_stream;
+mod server;
+mod server_future;
+
+pub use self::request_stream::Request;
+pub use self::request_stream::RequestStream;
+pub use self::request_stream::ResponseHandle;
+#[allow(deprecated)]
 pub use self::server::Server;
+pub use self::server_future::ServerFuture;

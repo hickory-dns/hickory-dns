@@ -18,58 +18,38 @@ use tokio_core;
 use tokio_core::channel::{channel, Sender, Receiver};
 use tokio_core::reactor::{Handle};
 
-pub type UdpClientStreamHandle = Sender<Vec<u8>>;
+use ::client::ClientStreamHandle;
+use ::udp::{UdpStream, UdpStreamHandle};
 
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpClientStream {
-  // TODO: this shouldn't be stored, it's only necessary for the client to setup Ipv4 or Ipv6
-  //   binding
-  // destination address for all requests
   name_server: SocketAddr,
-  //
-  socket: tokio_core::net::UdpSocket,
-  outbound_messages: Peekable<Fuse<Receiver<Vec<u8>>>>,
-}
-
-lazy_static!{
-  static ref IPV4_ZERO: Ipv4Addr = Ipv4Addr::new(0,0,0,0);
-  static ref IPV6_ZERO: Ipv6Addr = Ipv6Addr::new(0,0,0,0,0,0,0,0);
+  udp_stream: UdpStream,
 }
 
 impl UdpClientStream {
   /// it is expected that the resolver wrapper will be responsible for creating and managing
   ///  new UdpClients such that each new client would have a random port (reduce chance of cache
   ///  poisoning)
-  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=UdpClientStream, Error=io::Error>>, UdpClientStreamHandle) {
-    let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
+  ///
+  /// # Return
+  ///
+  /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
+  ///  handle which can be used to send messages into the stream.
+  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=UdpClientStream, Error=io::Error>>, Box<ClientStreamHandle>) {
+    let (stream_future, sender) = UdpStream::new(name_server, loop_handle);
 
-    // TODO: allow the bind address to be specified...
-    // constructs a future for getting the next randomly bound port to a UdpSocket
-    let next_socket = Self::next_bound_local_address(&name_server);
-
-    // This set of futures collapses the next udp socket into a stream which can be used for
-    //  sending and receiving udp packets.
-    let stream: Box<Future<Item=UdpClientStream, Error=io::Error>> = Box::new(next_socket
-      .map(move |socket| { tokio_core::net::UdpSocket::from_socket(socket, &loop_handle).expect("something wrong with the handle?") })
-      .map(move |socket| {
+    let new_future: Box<Future<Item=UdpClientStream, Error=io::Error>> =
+      Box::new(stream_future.map(move |udp_stream| {
         UdpClientStream {
           name_server: name_server,
-          socket: socket,
-          outbound_messages: outbound_messages.fuse().peekable(),
+          udp_stream: udp_stream,
         }
       }));
 
-    (stream, message_sender)
-  }
+    let sender = Box::new(UdpClientStreamHandle{ name_server: name_server, sender: sender });
 
-  /// Creates a future for randomly binding to a local socket address for client connections.
-  fn next_bound_local_address(name_server: &SocketAddr) -> NextRandomUdpSocket {
-    let zero_addr: IpAddr = match *name_server {
-      SocketAddr::V4(..) => IpAddr::V4(*IPV4_ZERO),
-      SocketAddr::V6(..) => IpAddr::V6(*IPV6_ZERO),
-    };
-
-    NextRandomUdpSocket{ bind_address: zero_addr }
+    (new_future, sender)
   }
 }
 
@@ -78,83 +58,27 @@ impl Stream for UdpClientStream {
   type Error = io::Error;
 
   fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-    // this will not accept incoming data while there is data to send
-    //  makes this self throttling.
-    loop {
-      // first try to send
-      match try!(self.outbound_messages.peek()) {
-        Async::Ready(Some(buffer)) => {
-          match self.socket.poll_write() {
-            Async::NotReady => {
-              return Ok(Async::NotReady)
-            },
-            Async::Ready(_) => {
-              // will return if the socket will block
-              try_nb!(self.socket.send_to(buffer, &self.name_server));
-            },
-          }
-        },
-        // all others will drop through to the poll()
-        _ => (),
+    match try_ready!(self.udp_stream.poll()) {
+      Some((buffer, src_addr)) => {
+        if src_addr != self.name_server {
+          debug!("{} does not match name_server: {}", src_addr, self.name_server)
+        }
+
+        Ok(Async::Ready(Some(buffer)))
       }
-
-      // now pop the request and check if we should break or continue.
-      match try!(self.outbound_messages.poll()) {
-        // already handled above, here to make sure the poll() pops the next message
-        Async::Ready(Some(_)) => (),
-        // now we get to drop through to the receives...
-        // TODO: should we also return None if there are no more messages to send?
-        Async::NotReady | Async::Ready(None) => break,
-      }
+      None => Ok(Async::Ready(None)),
     }
-
-    // For QoS, this will only accept one message and output that
-    // recieve all inbound messages
-
-    // TODO: this should match edns settings
-    let mut buf = [0u8; 2048];
-
-    // TODO: should we drop this packet if it's not from the same src as dest?
-    let (len, src) = try_nb!(self.socket.recv_from(&mut buf));
-    if src != self.name_server {
-      debug!("{} does not match name_server: {}", src, self.name_server)
-    }
-
-    Ok(Async::Ready(Some(buf.iter().take(len).cloned().collect())))
   }
 }
 
-#[must_use = "futures do nothing unless polled"]
-struct NextRandomUdpSocket {
-  bind_address: IpAddr,
+pub struct UdpClientStreamHandle {
+  name_server: SocketAddr,
+  sender: UdpStreamHandle,
 }
 
-impl Future for NextRandomUdpSocket {
-  type Item = std::net::UdpSocket;
-  type Error = io::Error;
-
-  /// polls until there is an available next random UDP port.
-  ///
-  /// if there is no port available after 10 attempts, returns NotReady
-  fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-    let mut rand = rand::thread_rng();
-
-    for attempt in 0..10 {
-      let zero_addr = SocketAddr::new(self.bind_address, rand.gen_range(1025_u16, u16::max_value()));
-
-      match std::net::UdpSocket::bind(&zero_addr) {
-        Ok(socket) => {
-          return Ok(Async::Ready(socket))
-        },
-        Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
-      }
-    }
-
-    warn!("could not get next random port, delaying");
-
-    park().unpark();
-    // returning NotReady here, perhaps the next poll there will be some more socket available.
-    Ok(Async::NotReady)
+impl ClientStreamHandle for UdpClientStreamHandle {
+  fn send(&self, buffer: Vec<u8>) -> io::Result<()> {
+    self.sender.send((buffer, self.name_server))
   }
 }
 

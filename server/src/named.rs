@@ -63,6 +63,7 @@ use trust_dns::rr::dnssec::{Algorithm, Signer};
 
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 use trust_dns_server::config::{Config, ZoneConfig};
+#[allow(deprecated)]
 use trust_dns_server::server::Server;
 
 // the Docopt usage string.
@@ -275,7 +276,7 @@ pub fn main() {
   }
 
   banner();
-  println!("awaiting connections...");
+  info!("awaiting connections...");
   if let Err(e) = server.listen() {
     error!("failed to listen: {}", e);
   }
@@ -284,7 +285,7 @@ pub fn main() {
   //server.listen().unwrap();
 
   // we're exiting for some reason...
-  println!("Trust-DNS {} stopping", trust_dns::version());
+  info!("Trust-DNS {} stopping", trust_dns::version());
 }
 
 fn banner() {

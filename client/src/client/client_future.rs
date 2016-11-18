@@ -21,15 +21,26 @@ use tokio_core::reactor::{Handle, Timeout};
 use tokio_core::channel::{channel, Sender, Receiver};
 
 use ::error::*;
+use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::Signer;
 use ::rr::rdata::NULL;
-use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
+use ::udp::UdpClientStreamHandle;
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
 /// A reference to a Sender of bytes returned from the creation of a UdpClientStream or TcpClientStream
 pub type StreamHandle = Sender<Vec<u8>>;
+
+pub trait ClientStreamHandle {
+  fn send(&self, buffer: Vec<u8>) -> io::Result<()>;
+}
+
+impl ClientStreamHandle for StreamHandle {
+  fn send(&self, buffer: Vec<u8>) -> io::Result<()> {
+    Sender::send(self, buffer)
+  }
+}
 
 /// A DNS Client implemented over futures-rs.
 ///
@@ -40,7 +51,8 @@ pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
   stream: S,
   reactor_handle: Handle,
   timeout_duration: Duration,
-  stream_handle: StreamHandle,
+  // TODO genericize and remove this Box
+  stream_handle: Box<ClientStreamHandle>,
   new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, (Complete<ClientResult<Message>>, Timeout)>,
   // TODO: Maybe make a typed version of ClientFuture for Updates?
@@ -59,7 +71,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
   /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
   /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
   pub fn new(stream: Box<Future<Item=S, Error=io::Error>>,
-             stream_handle: StreamHandle,
+             stream_handle: Box<ClientStreamHandle>,
              loop_handle: Handle,
              signer: Option<Signer>) -> BasicClientHandle {
     Self::with_timeout(stream, stream_handle, loop_handle, Duration::from_secs(5), signer)
@@ -78,7 +90,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
   /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
   /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
   pub fn with_timeout(stream: Box<Future<Item=S, Error=io::Error>>,
-                      stream_handle: StreamHandle,
+                      stream_handle: Box<ClientStreamHandle>,
                       loop_handle: Handle,
                       timeout_duration: Duration,
                       signer: Option<Signer>) -> BasicClientHandle {

@@ -16,7 +16,7 @@ use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::channel::{channel, Sender, Receiver};
 use tokio_core::reactor::{Handle};
 
-pub type TcpClientStreamHandle = Sender<Vec<u8>>;
+use ::client::ClientStreamHandle;
 
 enum WriteTcpState {
   LenBytes{ pos: usize, length: [u8; 2], bytes: Vec<u8> },
@@ -40,7 +40,7 @@ impl TcpClientStream {
   /// it is expected that the resolver wrapper will be responsible for creating and managing
   ///  new TcpClients such that each new client would have a random port (reduce chance of cache
   ///  poisoning)
-  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=TcpClientStream, Error=io::Error>>, TcpClientStreamHandle) {
+  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=TcpClientStream, Error=io::Error>>, Box<ClientStreamHandle>) {
     let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
     let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
 
@@ -56,7 +56,7 @@ impl TcpClientStream {
         }
       }));
 
-    (stream, message_sender)
+    (stream, Box::new(message_sender))
   }
 }
 

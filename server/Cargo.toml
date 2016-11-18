@@ -6,14 +6,17 @@ authors = ["Benjamin Fry <benjaminfry@me.com>"]
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-TRust-DNS is a safe and secure DNS server and client with DNSec support.
- Eventually this could be a replacement for BIND9. DNSSec on the client side,
- with NSEC validation for negative records, is complete. The client and
- server both support dynamic DNS with authenticated requests.
+TRust-DNS is a safe and secure DNS server with DNSec support.
+ Eventually this could be a replacement for BIND9. The DNSSec support allows
+ for live signing of all records, in it does not currently support
+ records signed offline. The server supports dynamic DNS with SIG0 authenticated
+ requests. TRust-DNS is based on the Tokio and Futures libraries, which means
+ it should be easily integrated into other software that also use those
+ libraries.
 """
 
 # These URLs point to more information about the repository
-documentation = "https://docs.rs/trust-dns"
+documentation = "https://docs.rs/trust-dns-server"
 homepage = "http://www.trust-dns.org/index.html"
 repository = "https://github.com/bluejekyll/trust-dns"
 
