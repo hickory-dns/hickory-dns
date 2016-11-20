@@ -13,7 +13,7 @@ use tokio_core::reactor::Core;
 
 use trust_dns::client::*;
 use trust_dns::rr::*;
-use trust_dns::tcp::*;
+use trust_dns::tcp::TcpClientStream;
 
 fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + UnwindSafe {
   // find a random port to listen on

@@ -3,12 +3,13 @@ extern crate trust_dns;
 extern crate trust_dns_server;
 
 use std::thread;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
 
 use trust_dns::client::*;
 use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::udp::UdpClientConnection;
+use trust_dns::tcp::TcpClientConnection;
 
 use trust_dns_server::ServerFuture;
 use trust_dns_server::authority::*;
@@ -27,6 +28,26 @@ fn test_server_www_udp() {
 
   let client_conn = UdpClientConnection::new(ipaddr).unwrap();
   let client_thread = thread::Builder::new().name("test_server:udp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
+
+  let client_result = client_thread.join();
+  //    let server_result = server_thread.join();
+
+  assert!(client_result.is_ok(), "client failed: {:?}", client_result);
+  //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
+}
+
+#[test]
+fn test_server_www_tcp() {
+  let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 0));
+  let tcp_listener = TcpListener::bind(&addr).unwrap();
+
+  let ipaddr = tcp_listener.local_addr().unwrap();
+  println!("tcp_listner on port: {}", ipaddr);
+
+  thread::Builder::new().name("test_server:tcp:server".to_string()).spawn(move || server_thread_tcp(tcp_listener)).unwrap();
+
+  let client_conn = TcpClientConnection::new(ipaddr).unwrap();
+  let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
 
   let client_result = client_thread.join();
   //    let server_result = server_thread.join();
@@ -77,8 +98,16 @@ fn new_catalog() -> Catalog {
 fn server_thread_udp(udp_socket: UdpSocket) {
   let catalog = new_catalog();
 
-  let mut server = ServerFuture::new(catalog).expect("new server failed");
+  let mut server = ServerFuture::new(catalog).expect("new udp server failed");
   server.register_socket(udp_socket);
+
+  server.listen().unwrap();
+}
+
+fn server_thread_tcp(tcp_listener: TcpListener) {
+  let catalog = new_catalog();
+  let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
+  server.register_listener(tcp_listener);
 
   server.listen().unwrap();
 }

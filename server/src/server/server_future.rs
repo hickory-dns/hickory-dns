@@ -10,10 +10,12 @@ use std::sync::Arc;
 
 use futures::{Async, Future, Poll};
 use futures::stream::Stream;
+use tokio_core;
 use tokio_core::reactor::Core;
 
 use trust_dns::op::RequestHandler;
 use trust_dns::udp::UdpStream;
+use trust_dns::tcp::TcpStream;
 
 use ::server::{Request, RequestStream, ResponseHandle};
 use ::authority::Catalog;
@@ -35,19 +37,51 @@ impl ServerFuture {
   /// register a UDP socket. Should be bound before calling this function.
   pub fn register_socket(&mut self, socket: std::net::UdpSocket) {
     // create the new UdpStream
-    let (udp_stream, stream_handle) = UdpStream::with_bound(socket, self.io_loop.handle());
-    let request_stream = RequestStream::new(udp_stream, stream_handle);
+    let (buf_stream, stream_handle) = UdpStream::with_bound(socket, self.io_loop.handle());
+    let request_stream = RequestStream::new(buf_stream, stream_handle);
     let catalog = self.catalog.clone();
 
-    self.io_loop.handle().spawn(request_stream.for_each(move |(request, response_handle)| {
-      Self::handle_request(request, response_handle, catalog.clone())
-    }).map_err(|e| debug!("error in request_stream handler? {}", e)));
+    // this spawns a ForEach future which handles all the requests into a Catalog.
+    self.io_loop.handle().spawn(
+      // TODO dedup with below into generic func
+      request_stream.for_each(move |(request, response_handle)| {
+        Self::handle_request(request, response_handle, catalog.clone())
+      })
+      .map_err(|e| debug!("error in UDP request_stream handler: {}", e))
+    );
   }
 
   /// register a TcpListener to the Server. This should already be bound to either an IPv6 or an
   ///  IPv4 address.
   pub fn register_listener(&mut self, listener: std::net::TcpListener) {
+    let handle = self.io_loop.handle();
+    let catalog = self.catalog.clone();
+    // TODO: this is an awkward interface with socketaddr...
+    let addr = listener.local_addr().expect("listener is not bound?");
+    let listener = tokio_core::net::TcpListener::from_listener(listener, &addr, &handle).expect("could not register listener");
 
+    // for each incoming request...
+    self.io_loop.handle().spawn(
+      listener.incoming()
+              .for_each(move |(tcp_stream, src_addr)| {
+                debug!("accepted request from: {}", src_addr);
+                // take the created stream...
+                let (buf_stream, stream_handle) = TcpStream::with_tcp_stream(tcp_stream, handle.clone());
+                let request_stream = RequestStream::new(buf_stream, stream_handle);
+                let catalog = catalog.clone();
+
+                // and spawn to the io_loop
+                handle.spawn(
+                  request_stream.for_each(move |(request, response_handle)| {
+                    Self::handle_request(request, response_handle, catalog.clone())
+                  })
+                  .map_err(|e| debug!("error in TCP request_stream handler: {}", e))
+                );
+
+                Ok(())
+              })
+              .map_err(|e| debug!("error in inbound tcp_stream: {}", e))
+    );
   }
 
   /// TODO how to do threads? should we do a bunch of listener threads and then query threads?

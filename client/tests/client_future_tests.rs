@@ -18,14 +18,14 @@ use openssl::crypto::rsa::RSA;
 use tokio_core::reactor::{Core, Handle};
 use tokio_core::channel::{channel, Receiver};
 
-use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle, ClientStreamHandle};
+use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle, ClientStreamHandle};
 use trust_dns::error::*;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, RData, Record, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, Signer};
 use trust_dns::rr::rdata::*;
-use trust_dns::udp::{UdpClientStream, UdpClientStreamHandle};
+use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns_server::authority::Catalog;
 use trust_dns_server::authority::authority::{create_example};

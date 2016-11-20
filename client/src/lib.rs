@@ -56,18 +56,30 @@ use futures::stream::Stream;
 use tokio_core::channel::Sender;
 
 use op::Message;
+use client::ClientStreamHandle;
 
-/// A stream of serialize DNS Messages
-pub type BufferStream = Stream<Item=(Vec<u8>, SocketAddr), Error=io::Error>;
+/// A stream of serialized DNS Messages
+pub type BufStream = Stream<Item=(Vec<u8>, SocketAddr), Error=io::Error>;
 
 /// A sender to which serialized DNS Messages can be sent
-pub type BufferStreamHandle = Sender<(Vec<u8>, SocketAddr)>;
+pub type BufStreamHandle = Sender<(Vec<u8>, SocketAddr)>;
 
 /// A stream of messsages
 pub type MessageStream = Stream<Item=Message, Error=io::Error>;
 
 /// A sender to which a Message can be sent
 pub type MessageStreamHandle = Sender<Message>;
+
+pub struct BufClientStreamHandle {
+  name_server: SocketAddr,
+  sender: BufStreamHandle,
+}
+
+impl ClientStreamHandle for BufClientStreamHandle {
+  fn send(&self, buffer: Vec<u8>) -> io::Result<()> {
+    self.sender.send((buffer, self.name_server))
+  }
+}
 
 /// this exposes a version function which gives access to the access
 include!(concat!(env!("OUT_DIR"), "/version.rs"));

@@ -5,21 +5,16 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::SocketAddr;
 use std::io;
 
 use futures::{Async, Future, Poll};
-use futures::stream::{Fuse, Peekable, Stream};
-use futures::task::park;
-use rand::Rng;
-use rand;
-use tokio_core;
-use tokio_core::channel::{channel, Sender, Receiver};
+use futures::stream::Stream;
 use tokio_core::reactor::{Handle};
 
+use ::BufClientStreamHandle;
 use ::client::ClientStreamHandle;
-use ::udp::{UdpStream, UdpStreamHandle};
+use ::udp::UdpStream;
 
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpClientStream {
@@ -47,7 +42,7 @@ impl UdpClientStream {
         }
       }));
 
-    let sender = Box::new(UdpClientStreamHandle{ name_server: name_server, sender: sender });
+    let sender = Box::new(BufClientStreamHandle{ name_server: name_server, sender: sender });
 
     (new_future, sender)
   }
@@ -71,16 +66,8 @@ impl Stream for UdpClientStream {
   }
 }
 
-pub struct UdpClientStreamHandle {
-  name_server: SocketAddr,
-  sender: UdpStreamHandle,
-}
 
-impl ClientStreamHandle for UdpClientStreamHandle {
-  fn send(&self, buffer: Vec<u8>) -> io::Result<()> {
-    self.sender.send((buffer, self.name_server))
-  }
-}
+#[cfg(test)] use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
 #[test]
 fn test_udp_client_stream_ipv4() {

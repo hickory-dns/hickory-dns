@@ -25,6 +25,4 @@ pub use self::handler::UdpHandler;
 pub use self::handler::UdpState;
 pub use self::udp_client_connection::UdpClientConnection;
 pub use self::udp_client_stream::UdpClientStream;
-pub use self::udp_client_stream::UdpClientStreamHandle;
 pub use self::udp_stream::UdpStream;
-pub use self::udp_stream::UdpStreamHandle;

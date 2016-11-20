@@ -7,7 +7,7 @@ use futures::task::park;
 use tokio_core::reactor::*;
 use tokio_core::channel::*;
 
-use trust_dns::client::{ClientStreamHandle, StreamHandle};
+use trust_dns::client::ClientStreamHandle;
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
 

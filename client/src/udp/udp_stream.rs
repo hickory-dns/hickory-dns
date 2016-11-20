@@ -15,15 +15,15 @@ use futures::task::park;
 use rand::Rng;
 use rand;
 use tokio_core;
-use tokio_core::channel::{channel, Sender, Receiver};
+use tokio_core::channel::{channel, Receiver};
 use tokio_core::reactor::{Handle};
+
+use ::BufStreamHandle;
 
 lazy_static!{
   static ref IPV4_ZERO: Ipv4Addr = Ipv4Addr::new(0,0,0,0);
   static ref IPV6_ZERO: Ipv6Addr = Ipv6Addr::new(0,0,0,0,0,0,0,0);
 }
-
-pub type UdpStreamHandle = Sender<(Vec<u8>, SocketAddr)>;
 
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream {
@@ -46,7 +46,7 @@ impl UdpStream {
   ///
   /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
   ///  handle which can be used to send messages into the stream.
-  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=UdpStream, Error=io::Error>>, UdpStreamHandle) {
+  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=UdpStream, Error=io::Error>>, BufStreamHandle) {
     let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
 
     // TODO: allow the bind address to be specified...
@@ -81,7 +81,7 @@ impl UdpStream {
   ///
   /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
   ///  handle which can be used to send messages into the stream.
-  pub fn with_bound(socket: std::net::UdpSocket, loop_handle: Handle) -> (UdpStream, UdpStreamHandle) {
+  pub fn with_bound(socket: std::net::UdpSocket, loop_handle: Handle) -> (Self, BufStreamHandle) {
     let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
 
     // TODO: consider making this return a Result...
@@ -190,7 +190,7 @@ impl Future for NextRandomUdpSocket {
 #[test]
 fn test_next_random_socket() {
   let mut io_loop = tokio_core::reactor::Core::new().unwrap();
-  let (stream, sender) = UdpStream::new(SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::new(127,0,0,1)), 52), io_loop.handle());
+  let (stream, _) = UdpStream::new(SocketAddr::new(std::net::IpAddr::V4(std::net::Ipv4Addr::new(127,0,0,1)), 52), io_loop.handle());
   drop(io_loop.run(stream).ok().expect("failed to get next socket address"));
 }
 

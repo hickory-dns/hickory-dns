@@ -4,7 +4,7 @@ use std::net::SocketAddr;
 use futures::{Async, Poll};
 use futures::stream::Stream;
 
-use trust_dns::BufferStreamHandle;
+use trust_dns::BufStreamHandle;
 use trust_dns::op::Message;
 use trust_dns::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
 
@@ -21,17 +21,16 @@ pub struct Request{
 ///  can be returned.
 pub struct RequestStream<S> {
   stream: S,
-  stream_handle: BufferStreamHandle,
+  stream_handle: BufStreamHandle,
 }
 
 impl<S> RequestStream<S> {
-  pub fn new(stream: S, stream_handle: BufferStreamHandle) -> Self {
+  pub fn new(stream: S, stream_handle: BufStreamHandle) -> Self {
     RequestStream{ stream: stream, stream_handle: stream_handle }
   }
 }
 
-impl<S> Stream for RequestStream<S>
-where S: Stream<Item=(Vec<u8>, SocketAddr), Error=io::Error> {
+impl<S> Stream for RequestStream<S> where S: Stream<Item=(Vec<u8>, SocketAddr), Error=io::Error> {
   type Item = (Request, ResponseHandle);
   type Error = io::Error;
 
@@ -40,6 +39,9 @@ where S: Stream<Item=(Vec<u8>, SocketAddr), Error=io::Error> {
       match try_ready!(self.stream.poll()) {
         None => return Ok(Async::Ready(None)),
         Some((buffer, addr)) => {
+          // TODO: rather than decoding the message here, this RequestStream should instead
+          //       forward the request to another sender such that we could pull serialization off
+          //       the IO thread.
           // decode any messages that are ready
           let mut decoder = BinDecoder::new(&buffer);
           match Message::read(&mut decoder) {
@@ -62,7 +64,7 @@ where S: Stream<Item=(Vec<u8>, SocketAddr), Error=io::Error> {
 
 pub struct ResponseHandle {
   dst: SocketAddr,
-  stream_handle: BufferStreamHandle, // FIXME, needs to be genric with TcpListener...
+  stream_handle: BufStreamHandle,
 }
 
 impl ResponseHandle {

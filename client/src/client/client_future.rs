@@ -25,7 +25,6 @@ use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::Signer;
 use ::rr::rdata::NULL;
-use ::udp::UdpClientStreamHandle;
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
