@@ -7,6 +7,7 @@
 use std;
 use std::io;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures::{Async, Future, Poll};
 use futures::stream::Stream;
@@ -17,7 +18,7 @@ use trust_dns::op::RequestHandler;
 use trust_dns::udp::UdpStream;
 use trust_dns::tcp::TcpStream;
 
-use ::server::{Request, RequestStream, ResponseHandle};
+use ::server::{Request, RequestStream, ResponseHandle, TimeoutStream};
 use ::authority::Catalog;
 
 // TODO, would be nice to have a Slab for buffers here...
@@ -34,8 +35,8 @@ impl ServerFuture {
     })
   }
 
-  /// register a UDP socket. Should be bound before calling this function.
-  pub fn register_socket(&mut self, socket: std::net::UdpSocket) {
+  /// Register a UDP socket. Should be bound before calling this function.
+  pub fn register_socket(&self, socket: std::net::UdpSocket) {
     // create the new UdpStream
     let (buf_stream, stream_handle) = UdpStream::with_bound(socket, self.io_loop.handle());
     let request_stream = RequestStream::new(buf_stream, stream_handle);
@@ -51,9 +52,19 @@ impl ServerFuture {
     );
   }
 
-  /// register a TcpListener to the Server. This should already be bound to either an IPv6 or an
+  /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
   ///  IPv4 address.
-  pub fn register_listener(&mut self, listener: std::net::TcpListener) {
+  ///
+  /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+  ///  to not make this too low depending on use cases.
+  ///
+  /// # Arguments
+  /// * `listener` - a bound and listenting TCP socket
+  /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+  ///               requests within this time period will be closed. In the future it should be
+  ///               possible to create long-lived queries, but these should be from trusted sources
+  ///               only, this would require some type of whitelisting.
+  pub fn register_listener(&self, listener: std::net::TcpListener, timeout: Duration) {
     let handle = self.io_loop.handle();
     let catalog = self.catalog.clone();
     // TODO: this is an awkward interface with socketaddr...
@@ -67,7 +78,8 @@ impl ServerFuture {
                 debug!("accepted request from: {}", src_addr);
                 // take the created stream...
                 let (buf_stream, stream_handle) = TcpStream::with_tcp_stream(tcp_stream, handle.clone());
-                let request_stream = RequestStream::new(buf_stream, stream_handle);
+                let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
+                let request_stream = RequestStream::new(timeout_stream, stream_handle);
                 let catalog = catalog.clone();
 
                 // and spawn to the io_loop
@@ -75,7 +87,7 @@ impl ServerFuture {
                   request_stream.for_each(move |(request, response_handle)| {
                     Self::handle_request(request, response_handle, catalog.clone())
                   })
-                  .map_err(|e| debug!("error in TCP request_stream handler: {}", e))
+                  .map_err(move |e| debug!("error in TCP request_stream src: {:?} error: {}", src_addr, e))
                 );
 
                 Ok(())

@@ -2,8 +2,9 @@ extern crate mio;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
-use std::thread;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
+use std::thread;
+use std::time::Duration;
 
 use trust_dns::client::*;
 use trust_dns::op::*;
@@ -107,7 +108,7 @@ fn server_thread_udp(udp_socket: UdpSocket) {
 fn server_thread_tcp(tcp_listener: TcpListener) {
   let catalog = new_catalog();
   let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
-  server.register_listener(tcp_listener);
+  server.register_listener(tcp_listener, Duration::from_secs(30));
 
   server.listen().unwrap();
 }
