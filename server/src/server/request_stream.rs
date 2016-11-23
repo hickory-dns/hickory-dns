@@ -25,6 +25,11 @@ pub struct RequestStream<S> {
 }
 
 impl<S> RequestStream<S> {
+  /// Creates a new RequestStream
+  ///
+  /// # Arguments
+  /// * `stream` - Stream from which requests will be read
+  /// * `stream_handle` - Handle to which responses will be posted
   pub fn new(stream: S, stream_handle: BufStreamHandle) -> Self {
     RequestStream{ stream: stream, stream_handle: stream_handle }
   }
@@ -34,6 +39,11 @@ impl<S> Stream for RequestStream<S> where S: Stream<Item=(Vec<u8>, SocketAddr), 
   type Item = (Request, ResponseHandle);
   type Error = io::Error;
 
+  /// Polls the underlying Stream for readyness.
+  ///
+  /// # Returns
+  /// When `Async::Ready(Some(_))` is returned, it contains the deserialized request and a handle
+  ///  back to the underlying stream to which a response can be sent.
   fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
     loop {
       match try_ready!(self.stream.poll()) {
@@ -46,6 +56,7 @@ impl<S> Stream for RequestStream<S> where S: Stream<Item=(Vec<u8>, SocketAddr), 
           let mut decoder = BinDecoder::new(&buffer);
           match Message::read(&mut decoder) {
             Ok(message) => {
+              debug!("received message: {}", message.get_id());
               let request = Request{ message: message, src: addr};
               let response_handle = ResponseHandle{ dst: addr, stream_handle: self.stream_handle.clone() };
               return Ok(Async::Ready(Some((request, response_handle))));
@@ -62,13 +73,17 @@ impl<S> Stream for RequestStream<S> where S: Stream<Item=(Vec<u8>, SocketAddr), 
   }
 }
 
+/// A handler for wraping a BufStreamHandle, which will properly serialize the message and add the
+///  associated destination.
 pub struct ResponseHandle {
   dst: SocketAddr,
   stream_handle: BufStreamHandle,
 }
 
 impl ResponseHandle {
+  /// Serializes and sends a message to to the wrapped handle
   pub fn send(&self, response: Message) -> io::Result<()> {
+    debug!("sending message: {}", response.get_id());
     let mut buffer = Vec::with_capacity(512);
     let encode_result = {
       let mut encoder: BinEncoder = BinEncoder::new(&mut buffer);

@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::mem;
-use std::net::SocketAddr;
+use std::net::{Shutdown, SocketAddr};
 use std::io;
 use std::io::{Read, Write};
 
@@ -21,6 +21,7 @@ use ::BufStreamHandle;
 enum WriteTcpState {
   LenBytes{ pos: usize, length: [u8; 2], bytes: Vec<u8> },
   Bytes{ pos: usize, bytes: Vec<u8> },
+  Flushing,
 }
 
 enum ReadTcpState {
@@ -101,6 +102,9 @@ impl Stream for TcpStream {
             let wrote = try_nb!(self.socket.write(&bytes[*pos..]));
             *pos += wrote;
           },
+          Some(WriteTcpState::Flushing) => {
+            try_nb!(self.socket.flush());
+          },
           _ => (),
         }
 
@@ -120,9 +124,15 @@ impl Stream for TcpStream {
             if pos < bytes.len() {
               mem::replace(&mut self.send_state, Some(WriteTcpState::Bytes{ pos: pos, bytes: bytes }));
             } else {
-              mem::replace(&mut self.send_state, None);
+              // At this point we successfully delivered the entire message.
+              //  flush
+              mem::replace(&mut self.send_state, Some(WriteTcpState::Flushing));
             }
           },
+          Some(WriteTcpState::Flushing) => {
+            // At this point we successfully delivered the entire message.
+            mem::replace(&mut self.send_state, None);
+          }
           None => (),
         };
       } else {
@@ -142,11 +152,13 @@ impl Stream for TcpStream {
             let len: [u8; 2] = [(buffer.len() >> 8 & 0xFF) as u8,
                                 (buffer.len() & 0xFF) as u8];
 
+            debug!("sending message len: {} to: {}", buffer.len(), dst);
             self.send_state = Some(WriteTcpState::LenBytes{ pos: 0, length: len, bytes: buffer });
           },
           // now we get to drop through to the receives...
           // TODO: should we also return None if there are no more messages to send?
-          Async::NotReady | Async::Ready(None) => { debug!("no messages to send"); break },
+          Async::NotReady => break,
+          Async::Ready(None) => { debug!("no messages to send"); break },
         }
       }
     }
@@ -160,10 +172,21 @@ impl Stream for TcpStream {
       //  if Some(_) is returned, then that will be used as the next state.
       let new_state: Option<ReadTcpState> = match self.read_state {
         ReadTcpState::LenBytes { ref mut pos, ref mut bytes } => {
-          debug!("in ReadTcpState::LenBytes: {}", pos);
-
           // debug!("reading length {}", bytes.len());
           let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
+          if read == 0 {
+            // the Stream was closed!
+            debug!("zero bytes read, stream closed?");
+            try!(self.socket.shutdown(Shutdown::Both));
+
+            if *pos == 0 {
+              // Since this is the start of the next message, we have a clean end
+              return Ok(Async::Ready(None))
+            } else {
+              return Err(io::Error::new(io::ErrorKind::BrokenPipe, "closed while reading length"));
+            }
+          }
+          debug!("in ReadTcpState::LenBytes: {}", pos);
           *pos += read;
 
           if *pos < bytes.len() {
@@ -180,8 +203,17 @@ impl Stream for TcpStream {
           }
         },
         ReadTcpState::Bytes { ref mut pos, ref mut bytes } => {
-          debug!("in ReadTcpState::Bytes: {}", bytes.len());
           let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
+          if read == 0 {
+            // the Stream was closed!
+            debug!("zero bytes read for message, stream closed?");
+
+            // Since this is the start of the next message, we have a clean end
+            try!(self.socket.shutdown(Shutdown::Both));
+            return Err(io::Error::new(io::ErrorKind::BrokenPipe, "closed while reading message"));
+          }
+
+          debug!("in ReadTcpState::Bytes: {}", bytes.len());
           *pos += read;
 
           if *pos < bytes.len() {

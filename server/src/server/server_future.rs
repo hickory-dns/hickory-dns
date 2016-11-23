@@ -28,6 +28,7 @@ pub struct ServerFuture {
 }
 
 impl ServerFuture {
+  /// Creates a new ServerFuture with the specified Catalog of Zones.
   pub fn new(catalog: Catalog) -> io::Result<ServerFuture> {
     Ok(ServerFuture {
       io_loop: try!(Core::new()),

@@ -33,7 +33,6 @@
 extern crate chrono;
 extern crate docopt;
 #[macro_use] extern crate log;
-extern crate mio;
 extern crate openssl;
 extern crate rustc_serialize;
 extern crate trust_dns;
@@ -42,16 +41,13 @@ extern crate trust_dns_server;
 use std::fs;
 use std::fs::File;
 use std::collections::BTreeMap;
-use std::net::{Ipv4Addr, IpAddr, SocketAddr};
-use std::net::ToSocketAddrs;
+use std::net::{Ipv4Addr, IpAddr, SocketAddr, TcpListener, ToSocketAddrs, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::io::{Read, Write};
 
 use chrono::{Duration};
 use docopt::Docopt;
 use log::LogLevel;
-use mio::tcp::TcpListener;
-use mio::udp::UdpSocket;
 use openssl::crypto::rsa::RSA;
 
 use trust_dns::error::ParseResult;
@@ -63,8 +59,7 @@ use trust_dns::rr::dnssec::{Algorithm, Signer};
 
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 use trust_dns_server::config::{Config, ZoneConfig};
-#[allow(deprecated)]
-use trust_dns_server::server::Server;
+use trust_dns_server::server::ServerFuture;
 
 // the Docopt usage string.
 //  http://docopt.org
@@ -254,17 +249,19 @@ pub fn main() {
   let v6addr = config.get_listen_addrs_ipv6();
   let mut listen_addrs : Vec<IpAddr> = v4addr.into_iter().map(|x| IpAddr::V4(x)).chain(v6addr.into_iter().map(|x| IpAddr::V6(x))).collect();
   let listen_port: u16 = args.flag_port.unwrap_or(config.get_listen_port());
+  let tcp_request_timeout = config.get_tcp_request_timeout();
 
   if listen_addrs.len() == 0 {
     listen_addrs.push(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
   }
   let sockaddrs : Vec<SocketAddr> = listen_addrs.into_iter().flat_map(|x| (x, listen_port).to_socket_addrs().unwrap()).collect();
-  let udp_sockets : Vec<UdpSocket> = sockaddrs.iter().map(|x| UdpSocket::bound(x).expect(&format!("could not bind to udp: {}", x))).collect();
+  let udp_sockets : Vec<UdpSocket> = sockaddrs.iter().map(|x| UdpSocket::bind(x).expect(&format!("could not bind to udp: {}", x))).collect();
   let tcp_listeners : Vec<TcpListener> = sockaddrs.iter().map(|x| TcpListener::bind(x).expect(&format!("could not bind to tcp: {}", x))).collect();
 
   // now, run the server, based on the config
-  let mut server = Server::new(catalog);
+  let mut server = ServerFuture::new(catalog).expect("error creating ServerFuture");
 
+  // load all the listeners
   for udp_socket in udp_sockets {
     info!("listening for UDP on {:?}", udp_socket);
     server.register_socket(udp_socket);
@@ -272,7 +269,7 @@ pub fn main() {
 
   for tcp_listener in tcp_listeners {
     info!("listening for TCP on {:?}", tcp_listener);
-    server.register_listener(tcp_listener);
+    server.register_listener(tcp_listener, tcp_request_timeout);
   }
 
   banner();
@@ -280,9 +277,6 @@ pub fn main() {
   if let Err(e) = server.listen() {
     error!("failed to listen: {}", e);
   }
-
-  //let mut server = Server::new((listen_addr, listen_port), catalog).unwrap();
-  //server.listen().unwrap();
 
   // we're exiting for some reason...
   info!("Trust-DNS {} stopping", trust_dns::version());

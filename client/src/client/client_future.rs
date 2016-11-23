@@ -312,7 +312,6 @@ pub struct BasicClientHandle {
 
 impl ClientHandle for BasicClientHandle {
   fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
-    debug!("sending message");
     let (complete, oneshot) = futures::oneshot();
 
     let oneshot = match self.message_sender.send((message, complete)) {

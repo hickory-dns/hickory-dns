@@ -13,14 +13,24 @@ pub struct TimeoutStream<S> {
   stream: S,
   reactor_handle: Handle,
   timeout_duration: Duration,
-  timeout: Timeout,
+  timeout: Option<Timeout>,
 }
 
 impl<S> TimeoutStream<S> {
   pub fn new(stream: S, timeout_duration: Duration, reactor_handle: Handle) -> io::Result<Self> {
     // store a Timeout for this message before sending
-    let timeout = try!(Timeout::new(timeout_duration, &reactor_handle));
+
+    let timeout = try!(Self::timeout(timeout_duration, &reactor_handle));
+
     Ok(TimeoutStream{ stream: stream, reactor_handle: reactor_handle, timeout_duration: timeout_duration, timeout: timeout })
+  }
+
+  fn timeout(timeout_duration: Duration, reactor_handle: &Handle) -> io::Result<Option<Timeout>> {
+    if timeout_duration > Duration::from_millis(0) {
+      Ok(Some(try!(Timeout::new(timeout_duration, reactor_handle))))
+    } else {
+      Ok(None)
+    }
   }
 }
 
@@ -34,15 +44,20 @@ where S: Stream<Item=I, Error=io::Error> {
     match self.stream.poll() {
       r @ Ok(Async::Ready(_)) | r @ Err(_) => {
         // reset the timeout to wait for the next request...
-        let timeout = try!(Timeout::new(self.timeout_duration, &self.reactor_handle));
+        let timeout = try!(Self::timeout(self.timeout_duration, &self.reactor_handle));
         drop(mem::replace(&mut self.timeout, timeout));
 
         return r
       },
       Ok(Async::NotReady) => {
-        // otherwise poll the timeout
-        match try_ready!(self.timeout.poll()) {
-          () => return Err(io::Error::new(io::ErrorKind::TimedOut, format!("nothing ready in {:?}", self.timeout_duration))),
+        if self.timeout.is_none() { return Ok(Async::NotReady) }
+
+        // otherwise check if the timeout has expired.
+        match try_ready!(self.timeout.as_mut().unwrap().poll()) {
+          () => {
+            debug!("timeout on stream");
+            return Err(io::Error::new(io::ErrorKind::TimedOut, format!("nothing ready in {:?}", self.timeout_duration)))
+          },
         }
       }
     }
