@@ -25,6 +25,13 @@
 ## listen_port: port on which to list
 # listen_port = 53
 
+## tcp_request_timeout: TCP request timeout in seconds. Allows TCP connections
+##  to timeout if there are no requests from a client in the specified amount of
+##  time. This is not a socket level timeout, so trickles of data will not count,
+##  a full request must be received for it to not count against the timeout.
+##  Specifying a timeout of 0 will disable it.
+# tcp_request_timeout = 5
+
 ## log_level: Trace, Debug, Info, Warn, Error
 # log_level = "Info"
 

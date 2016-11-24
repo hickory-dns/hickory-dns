@@ -19,6 +19,7 @@ extern crate trust_dns_server;
 use std::env;
 use std::path::{Path, PathBuf};
 use std::net::{Ipv4Addr, Ipv6Addr};
+use std::time::Duration;
 
 use log::LogLevel;
 
@@ -40,6 +41,7 @@ fn test_read_config() {
   assert_eq!(config.get_listen_port(), 53);
   assert_eq!(config.get_listen_addrs_ipv4(), vec![]);
   assert_eq!(config.get_listen_addrs_ipv6(), vec![]);
+  assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(5));
   assert_eq!(config.get_log_level(), LogLevel::Info);
   assert_eq!(config.get_directory(), Path::new("/var/named"));
   assert_eq!(config.get_zones(), [
@@ -68,6 +70,9 @@ fn test_parse_toml() {
 
   let config: Config = "listen_addrs_ipv6 = [\"::0\", \"::1\"]".parse().unwrap();
   assert_eq!(config.get_listen_addrs_ipv6(), vec![Ipv6Addr::new(0,0,0,0,0,0,0,0), Ipv6Addr::new(0,0,0,0,0,0,0,1)]);
+
+  let config: Config = "tcp_request_timeout = 25".parse().unwrap();
+  assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(25));
 
   let config: Config = "log_level = \"Debug\"".parse().unwrap();
   assert_eq!(config.get_log_level(), LogLevel::Debug);

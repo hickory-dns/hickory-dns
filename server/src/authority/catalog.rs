@@ -36,7 +36,7 @@ impl RequestHandler for Catalog {
   ///
   /// * `request` - the requested action to perform.
   fn handle_request(&self, request: &Message) -> Message {
-    info!("id: {} type: {:?} op_code: {:?}", request.get_id(), request.get_message_type(), request.get_op_code());
+    info!("request id: {} type: {:?} op_code: {:?}", request.get_id(), request.get_message_type(), request.get_op_code());
     debug!("request: {:?}", request);
 
     let mut resp_edns_opt: Option<Edns> = None;

@@ -28,7 +28,7 @@ impl<H> RetryClientHandle<H> where H: ClientHandle {
 }
 
 impl<H> ClientHandle for RetryClientHandle<H> where H: ClientHandle + 'static {
-  fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
+  fn send(&mut self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
     // need to clone here so that the retry can resend if necessary...
     //  obviously it would be nice to be lazy about this...
     let future = self.client.send(message.clone());
@@ -87,7 +87,7 @@ mod test {
   struct TestClient { last_succeed: bool, retries: u16, attempts: Cell<u16> }
 
   impl ClientHandle for TestClient {
-    fn send(&self, _: Message) -> Box<Future<Item=Message, Error=ClientError>> {
+    fn send(&mut self, _: Message) -> Box<Future<Item=Message, Error=ClientError>> {
       let i = self.attempts.get();
 
       if i > self.retries || self.retries - i == 0 {
@@ -105,7 +105,7 @@ mod test {
 
   #[test]
   fn test_retry() {
-    let client = RetryClientHandle::new(TestClient{last_succeed: true, retries: 1, attempts: Cell::new(0)}, 2);
+    let mut client = RetryClientHandle::new(TestClient{last_succeed: true, retries: 1, attempts: Cell::new(0)}, 2);
     let test1 = Message::new();
     let result = client.send(test1).wait().ok().expect("should have succeeded");
     assert_eq!(result.get_id(), 1); // this is checking the number of iterations the TestCient ran
@@ -113,7 +113,7 @@ mod test {
 
   #[test]
   fn test_error() {
-    let client = RetryClientHandle::new(TestClient{last_succeed: false, retries: 1, attempts: Cell::new(0)}, 2);
+    let mut client = RetryClientHandle::new(TestClient{last_succeed: false, retries: 1, attempts: Cell::new(0)}, 2);
     let test1 = Message::new();
     assert!(client.send(test1).wait().is_err());
 

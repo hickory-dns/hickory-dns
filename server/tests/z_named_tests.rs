@@ -1,3 +1,5 @@
+extern crate futures;
+extern crate log;
 extern crate trust_dns;
 extern crate tokio_core;
 
@@ -13,7 +15,7 @@ use tokio_core::reactor::Core;
 
 use trust_dns::client::*;
 use trust_dns::rr::*;
-use trust_dns::tcp::*;
+use trust_dns::tcp::TcpClientStream;
 
 fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + UnwindSafe {
   // find a random port to listen on
@@ -28,6 +30,7 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
 
   let mut named = Command::new(&format!("{}/../target/debug/named", server_path))
                           .stdout(Stdio::piped())
+                          //.arg("-d")
                           .arg(&format!("--config={}/tests/named_test_configs/{}", server_path, toml))
                           .arg(&format!("--zonedir={}/tests/named_test_configs", server_path))
                           .arg(&format!("--port={}", test_port))
@@ -66,8 +69,9 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
   for _ in 0..1000 {
     output.clear();
     named_out.read_line(&mut output).expect("could not read stdout");
+    stdout().write(b"SRV: ").unwrap();
     stdout().write(output.as_bytes()).unwrap();
-    if output == "awaiting connections...\n" { found = true; break }
+    if output.ends_with("awaiting connections...\n") { found = true; break }
   }
 
   stdout().flush().unwrap();
@@ -80,6 +84,7 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
     while !succeeded.load(std::sync::atomic::Ordering::Relaxed) {
       output.clear();
       named_out.read_line(&mut output).expect("could not read stdout");
+      stdout().write(b"SRV: ").unwrap();
       stdout().write(output.as_bytes()).unwrap();
     }
   }).expect("no thread available");
@@ -98,12 +103,15 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
-fn test_query(io_loop: &mut Core, client: BasicClientHandle) -> bool {
+fn query(io_loop: &mut Core, client: &mut BasicClientHandle) -> bool {
   let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
 
+  println!("sending request");
   let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
+  println!("got response: {}", response.is_ok());
   if response.is_err() { return false }
   let response = response.unwrap();
+
 
   let record = &response.get_answers()[0];
 
@@ -116,14 +124,24 @@ fn test_query(io_loop: &mut Core, client: BasicClientHandle) -> bool {
 
 #[test]
 fn test_example_toml_startup() {
+  use trust_dns::logger;
+  use log::LogLevel;
+  logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
+
   named_test_harness("example.toml", |port| {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
-    assert!(test_query(&mut io_loop, client));
-    assert!(true);
+    assert!(query(&mut io_loop, &mut client));
+
+    // just tests that multiple queries work
+    let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
+    let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+
+    assert!(query(&mut io_loop, &mut client));
   })
 }
 
@@ -133,25 +151,24 @@ fn test_ipv4_only_toml_startup() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
     // ipv4 should succeed
-    assert!(test_query(&mut io_loop, client));
+    assert!(query(&mut io_loop, &mut client));
 
     let addr: SocketAddr = ("::1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
     // ipv6 should fail
-    assert!(!test_query(&mut io_loop, client));
-
-    assert!(true);
+    assert!(!query(&mut io_loop, &mut client));
   })
 }
 
 // TODO: this is commented out b/c at least on macOS, ipv4 will route properly to ipv6 only
 //  listeners over the [::ffff:127.0.0.1] interface
 //
+// #[ignore]
 // #[test]
 // fn test_ipv6_only_toml_startup() {
 //   named_test_harness("ipv6_only.toml", |port| {
@@ -161,14 +178,14 @@ fn test_ipv4_only_toml_startup() {
 //     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 //
 //     // ipv4 should fail
-//     assert!(!test_query(&mut io_loop, client));
+//     assert!(!query(&mut io_loop, client));
 //
 //     let addr: SocketAddr = ("::1", port).to_socket_addrs().unwrap().next().unwrap();
 //     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
 //     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 //
 //     // ipv6 should succeed
-//     assert!(test_query(&mut io_loop, client));
+//     assert!(query(&mut io_loop, client));
 //
 //     assert!(true);
 //   })
@@ -181,17 +198,17 @@ fn test_ipv4_and_ipv6_toml_startup() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
     // ipv4 should succeed
-    assert!(test_query(&mut io_loop, client));
+    assert!(query(&mut io_loop, &mut client));
 
     let addr: SocketAddr = ("::1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
     // ipv6 should succeed
-    assert!(test_query(&mut io_loop, client));
+    assert!(query(&mut io_loop, &mut client));
 
     assert!(true);
   })

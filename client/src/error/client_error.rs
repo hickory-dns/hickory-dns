@@ -15,10 +15,9 @@
  */
 
 use std::io::Error as IoError;
-use std::sync::Arc;
 
-use backtrace::Backtrace;
 use futures::Canceled;
+use futures::sync::mpsc::SendError;
 use openssl::error::ErrorStack as SslErrorStack;
 
 use ::op::ResponseCode;
@@ -60,6 +59,11 @@ error_chain! {
     // the same as `quick_error!`, but the `from()` and `cause()`
     // syntax is not supported.
     errors {
+      NoError {
+        description("no error specified")
+        display("no error specified")
+      }
+
       Canceled(c: Canceled) {
         description("future was canceled")
         display("future was canceled: {:?}", c)
@@ -125,9 +129,22 @@ error_chain! {
     }
 }
 
+
+impl From<()> for Error {
+  fn from(_: ()) -> Self {
+    ErrorKind::NoError.into()
+  }
+}
+
 impl From<Canceled> for Error {
   fn from(c: Canceled) -> Self {
-    Error(ErrorKind::Canceled(c), (None, Arc::new(Backtrace::new())))
+    ErrorKind::Canceled(c).into()
+  }
+}
+
+impl<T> From<SendError<T>> for Error {
+  fn from(e: SendError<T>) -> Self {
+    ErrorKind::Msg(format!("error sending to mpsc: {}", e)).into()
   }
 }
 

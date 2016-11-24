@@ -2,27 +2,25 @@ extern crate mio;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
 use std::thread;
-use std::net::{SocketAddr, SocketAddrV4, Ipv4Addr};
+use std::time::Duration;
 
-use mio::tcp::TcpListener;
-use mio::udp::UdpSocket;
-
-#[allow(deprecated)]
 use trust_dns::client::*;
-use trust_dns::tcp::TcpClientConnection;
-use trust_dns::udp::UdpClientConnection;
 use trust_dns::op::*;
 use trust_dns::rr::*;
-#[allow(deprecated)]
-use trust_dns_server::Server;
+use trust_dns::udp::UdpClientConnection;
+use trust_dns::tcp::TcpClientConnection;
+
+use trust_dns_server::ServerFuture;
 use trust_dns_server::authority::*;
 use trust_dns_server::authority::authority::create_example;
+
 
 #[test]
 fn test_server_www_udp() {
   let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 0));
-  let udp_socket = UdpSocket::bound(&addr).unwrap();
+  let udp_socket = UdpSocket::bind(&addr).unwrap();
 
   let ipaddr = udp_socket.local_addr().unwrap();
   println!("udp_socket on port: {}", ipaddr);
@@ -40,10 +38,7 @@ fn test_server_www_udp() {
 }
 
 #[test]
-#[ignore]
 fn test_server_www_tcp() {
-  use mio::tcp::TcpListener;
-
   let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 0));
   let tcp_listener = TcpListener::bind(&addr).unwrap();
 
@@ -62,7 +57,6 @@ fn test_server_www_tcp() {
   //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
 }
 
-#[allow(dead_code)]
 fn client_thread_www<C: ClientConnection>(conn: C) {
   let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
   println!("about to query server: {:?}", conn);
@@ -105,7 +99,7 @@ fn new_catalog() -> Catalog {
 fn server_thread_udp(udp_socket: UdpSocket) {
   let catalog = new_catalog();
 
-  let mut server = Server::new(catalog);
+  let mut server = ServerFuture::new(catalog).expect("new udp server failed");
   server.register_socket(udp_socket);
 
   server.listen().unwrap();
@@ -113,8 +107,8 @@ fn server_thread_udp(udp_socket: UdpSocket) {
 
 fn server_thread_tcp(tcp_listener: TcpListener) {
   let catalog = new_catalog();
-  let mut server = Server::new(catalog);
-  server.register_listener(tcp_listener);
+  let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
+  server.register_listener(tcp_listener, Duration::from_secs(30));
 
   server.listen().unwrap();
 }

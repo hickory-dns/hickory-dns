@@ -16,15 +16,15 @@
 
 //! Configuration module for the server binary, `named`.
 
-use std::io::Read;
 use std::fs::File;
+use std::io::Read;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::time::Duration;
 
 use log::LogLevel;
 use rustc_serialize::Decodable;
-
 use toml::{Decoder, Value};
 
 use trust_dns::error::ParseResult;
@@ -33,14 +33,16 @@ use trust_dns::rr::Name;
 use ::authority::ZoneType;
 use ::error::{ConfigErrorKind, ConfigResult, ConfigError};
 
-static DEFAULT_PORT: u16 = 53;
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)
+static DEFAULT_PORT: u16 = 53;
+static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
 
 #[derive(RustcDecodable, Debug)]
 pub struct Config {
   listen_addrs_ipv4: Vec<String>,
   listen_addrs_ipv6: Vec<String>,
   listen_port: Option<u16>,
+  tcp_request_timeout: Option<u64>,
   log_level: Option<String>,
   directory: Option<String>,
   zones: Vec<ZoneConfig>,
@@ -58,6 +60,7 @@ impl Config {
   pub fn get_listen_addrs_ipv4(&self) -> Vec<Ipv4Addr> { self.listen_addrs_ipv4.iter().map(|s| s.parse().unwrap()).collect() }
   pub fn get_listen_addrs_ipv6(&self) -> Vec<Ipv6Addr> { self.listen_addrs_ipv6.iter().map(|s| s.parse().unwrap()).collect() }
   pub fn get_listen_port(&self) -> u16 { self.listen_port.unwrap_or(DEFAULT_PORT) }
+  pub fn get_tcp_request_timeout(&self) -> Duration { Duration::from_secs(self.tcp_request_timeout.unwrap_or(DEFAULT_TCP_REQUEST_TIMEOUT)) }
   pub fn get_log_level(&self) -> LogLevel {
     if let Some(ref level_str) = self.log_level {
       match level_str as &str {

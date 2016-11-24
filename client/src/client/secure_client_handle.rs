@@ -80,7 +80,7 @@ impl<H> SecureClientHandle<H> where H: ClientHandle + 'static {
 }
 
 impl<H> ClientHandle for SecureClientHandle<H> where H: ClientHandle + 'static {
-  fn send(&self, mut message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
+  fn send(&mut self, mut message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
     // backstop, this might need to be configurable at some point
     if self.request_depth > 20 {
       return Box::new(failed(ClientErrorKind::Message("exceeded max validation depth").into()))
@@ -342,7 +342,7 @@ fn verify_rrset<H>(client: SecureClientHandle<H>,
 ///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
 ///  against the DS record.
 fn verify_dnskey_rrset<H>(
-  client: SecureClientHandle<H>,
+  mut client: SecureClientHandle<H>,
   rrset: Rrset)
   -> Box<Future<Item=Rrset, Error=ClientError>>
   where H: ClientHandle
@@ -609,7 +609,7 @@ fn verify_default_rrset<H>(
                             )
                             .map(|sig| {
                               let rrset = rrset.clone();
-                              let client = client.clone_with_context();
+                              let mut client = client.clone_with_context();
 
                               client.query(sig.get_signer_name().clone(), rrset.record_class, RecordType::DNSKEY)
                                     .and_then(move |message|

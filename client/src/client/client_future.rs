@@ -10,26 +10,36 @@ use std::io;
 use std::time::Duration;
 
 use chrono::UTC;
-use futures;
 use futures::{Async, Complete, Future, Poll, task};
 use futures::IntoFuture;
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
+use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
+use futures::sync::oneshot;
 use futures::task::park;
 use rand::Rng;
 use rand;
 use tokio_core::reactor::{Handle, Timeout};
-use tokio_core::channel::{channel, Sender, Receiver};
 
 use ::error::*;
+use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
 use ::rr::dnssec::Signer;
 use ::rr::rdata::NULL;
-use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
 /// A reference to a Sender of bytes returned from the creation of a UdpClientStream or TcpClientStream
-pub type StreamHandle = Sender<Vec<u8>>;
+pub type StreamHandle = UnboundedSender<Vec<u8>>;
+
+pub trait ClientStreamHandle {
+  fn send(&mut self, buffer: Vec<u8>) -> io::Result<()>;
+}
+
+impl ClientStreamHandle for StreamHandle {
+  fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
+    UnboundedSender::send(self, buffer).map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
+  }
+}
 
 /// A DNS Client implemented over futures-rs.
 ///
@@ -40,8 +50,9 @@ pub struct ClientFuture<S: Stream<Item=Vec<u8>, Error=io::Error>> {
   stream: S,
   reactor_handle: Handle,
   timeout_duration: Duration,
-  stream_handle: StreamHandle,
-  new_receiver: Peekable<StreamFuse<Receiver<(Message, Complete<ClientResult<Message>>)>>>,
+  // TODO genericize and remove this Box
+  stream_handle: Box<ClientStreamHandle>,
+  new_receiver: Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<ClientResult<Message>>)>>>,
   active_requests: HashMap<u16, (Complete<ClientResult<Message>>, Timeout)>,
   // TODO: Maybe make a typed version of ClientFuture for Updates?
   signer: Option<Signer>,
@@ -59,7 +70,7 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
   /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
   /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
   pub fn new(stream: Box<Future<Item=S, Error=io::Error>>,
-             stream_handle: StreamHandle,
+             stream_handle: Box<ClientStreamHandle>,
              loop_handle: Handle,
              signer: Option<Signer>) -> BasicClientHandle {
     Self::with_timeout(stream, stream_handle, loop_handle, Duration::from_secs(5), signer)
@@ -78,11 +89,11 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> ClientFuture<S> {
   /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
   /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
   pub fn with_timeout(stream: Box<Future<Item=S, Error=io::Error>>,
-                      stream_handle: StreamHandle,
+                      stream_handle: Box<ClientStreamHandle>,
                       loop_handle: Handle,
                       timeout_duration: Duration,
                       signer: Option<Signer>) -> BasicClientHandle {
-    let (sender, rx) = channel(&loop_handle).expect("could not get channel!");
+    let (sender, rx) = unbounded();
 
     let loop_handle_clone = loop_handle.clone();
     loop_handle.spawn(
@@ -181,8 +192,8 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
           }
         },
         Ok(_) => None,
-        Err(e) => {
-          warn!("receiver was shutdown? {}", e);
+        Err(()) => {
+          warn!("receiver was shutdown?");
           break
         },
       };
@@ -236,8 +247,8 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
           }
         },
         Ok(_) => break,
-        Err(e) => {
-          warn!("receiver was shutdown? {}", e);
+        Err(()) => {
+          warn!("receiver was shutdown?");
           break
         },
       }
@@ -296,25 +307,25 @@ impl<S: Stream<Item=Vec<u8>, Error=io::Error> + 'static> Future for ClientFuture
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
 pub struct BasicClientHandle {
-  message_sender: Sender<(Message, Complete<ClientResult<Message>>)>,
+  message_sender: UnboundedSender<(Message, Complete<ClientResult<Message>>)>,
 }
 
 impl ClientHandle for BasicClientHandle {
-  fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
-    debug!("sending message");
-    let (complete, oneshot) = futures::oneshot();
+  fn send(&mut self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
+    let (complete, receiver) = oneshot::channel();
+    let message_sender: &mut _ = &mut self.message_sender;
 
-    let oneshot = match self.message_sender.send((message, complete)) {
-      Ok(()) => oneshot,
+    let receiver = match message_sender.send((message, complete)) {
+      Ok(()) => receiver,
       Err(e) => {
-        let (complete, oneshot) = futures::oneshot();
+        let (complete, receiver) = oneshot::channel();
         complete.complete(Err(e.into()));
-        oneshot
+        receiver
       }
     };
 
     // conver the oneshot into a Box of a Future message and error.
-    Box::new(oneshot.map_err(|c| ClientError::from(c)).map(|result| result.into_future()).flatten())
+    Box::new(receiver.map_err(|c| ClientError::from(c)).map(|result| result.into_future()).flatten())
   }
 }
 
@@ -328,7 +339,7 @@ pub trait ClientHandle: Clone {
   /// * `message` - the fully constructed Message to send, note that most implementations of
   ///               will most likely be required to rewrite the QueryId, do no rely on that as
   ///               being stable.
-  fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>>;
+  fn send(&mut self, message: Message) -> Box<Future<Item=Message, Error=ClientError>>;
 
   /// A *classic* DNS query
   ///
@@ -340,7 +351,7 @@ pub trait ClientHandle: Clone {
   /// * `name` - the label to lookup
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type to lookup
-  fn query(&self, name: domain::Name, query_class: DNSClass, query_type: RecordType)
+  fn query(&mut self, name: domain::Name, query_class: DNSClass, query_type: RecordType)
     -> Box<Future<Item=Message, Error=ClientError>> {
     debug!("querying: {} {:?}", name, query_type);
 
@@ -398,7 +409,7 @@ pub trait ClientHandle: Clone {
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
-  fn create(&self,
+  fn create(&mut self,
             record: Record,
             zone_origin: domain::Name)
             -> Box<Future<Item=Message, Error=ClientError>> {
@@ -462,7 +473,7 @@ pub trait ClientHandle: Clone {
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be created.
-  fn append(&self,
+  fn append(&mut self,
             record: Record,
             zone_origin: domain::Name,
             must_exist: bool)
@@ -537,7 +548,7 @@ pub trait ClientHandle: Clone {
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
-  fn compare_and_swap(&self,
+  fn compare_and_swap(&mut self,
                       current: Record,
                       new: Record,
                       zone_origin: domain::Name)
@@ -616,7 +627,7 @@ pub trait ClientHandle: Clone {
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-  fn delete_by_rdata(&self,
+  fn delete_by_rdata(&mut self,
                      mut record: Record,
                      zone_origin: domain::Name)
                      -> Box<Future<Item=Message, Error=ClientError>> {
@@ -683,7 +694,7 @@ pub trait ClientHandle: Clone {
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-  fn delete_rrset(&self,
+  fn delete_rrset(&mut self,
                   mut record: Record,
                   zone_origin: domain::Name)
                   -> Box<Future<Item=Message, Error=ClientError>> {
@@ -741,7 +752,7 @@ pub trait ClientHandle: Clone {
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
   /// operation attempts to delete all resource record sets the the specified name reguardless of
   /// the record type.
-  fn delete_all(&self,
+  fn delete_all(&mut self,
                 name_of_records: domain::Name,
                 zone_origin: domain::Name,
                 dns_class: DNSClass)

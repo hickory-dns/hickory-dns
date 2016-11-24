@@ -40,7 +40,7 @@ fn test_secure_query_example_tcp() {
   with_tcp(test_secure_query_example);
 }
 
-fn test_secure_query_example<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
 where H: ClientHandle + 'static {
   let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
   let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A)).expect("query failed");
@@ -78,7 +78,7 @@ fn test_nsec_query_example_tcp() {
   with_tcp(test_nsec_query_example);
 }
 
-fn test_nsec_query_example<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
 where H: ClientHandle + 'static {
   let name = domain::Name::with_labels(vec!["none".to_string(), "example".to_string(), "com".to_string()]);
 
@@ -104,7 +104,7 @@ fn test_nsec_query_type_tcp() {
   with_tcp(test_nsec_query_type);
 }
 
-fn test_nsec_query_type<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
 where H: ClientHandle + 'static {
   let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
 
@@ -132,7 +132,7 @@ fn test_dnssec_rollernet_td_tcp_mixed_case() {
   with_tcp(dnssec_rollernet_td_mixed_case_test);
 }
 
-fn dnssec_rollernet_td_test<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
 where H: ClientHandle + 'static {
   let name = domain::Name::parse("rollernet.us.", None).unwrap();
 
@@ -144,7 +144,7 @@ where H: ClientHandle + 'static {
   assert!(response.get_answers().is_empty());
 }
 
-fn dnssec_rollernet_td_mixed_case_test<H>(client: SecureClientHandle<H>, mut io_loop: Core)
+fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
 where H: ClientHandle + 'static {
   let name = domain::Name::parse("RollErnet.Us.", None).unwrap();
 
@@ -183,7 +183,7 @@ fn with_nonet<F>(test: F) where F: Fn(SecureClientHandle<MemoizeClientHandle<Bas
   trust_anchor.insert_trust_anchor(public_key);
 
   let io_loop = Core::new().unwrap();
-  let (stream, sender) = TestClientStream::new(catalog, io_loop.handle());
+  let (stream, sender) = TestClientStream::new(catalog);
   let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
   let client = MemoizeClientHandle::new(client);
   let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);

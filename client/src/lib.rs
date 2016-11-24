@@ -49,6 +49,40 @@ pub mod tcp;
 pub mod client;
 pub mod serialize;
 
+use std::io;
+use std::net::SocketAddr;
+
+use futures::sync::mpsc::UnboundedSender;
+use futures::stream::Stream;
+
+use op::Message;
+use client::ClientStreamHandle;
+
+/// A stream of serialized DNS Messages
+pub type BufStream = Stream<Item=(Vec<u8>, SocketAddr), Error=io::Error>;
+
+/// A sender to which serialized DNS Messages can be sent
+pub type BufStreamHandle = UnboundedSender<(Vec<u8>, SocketAddr)>;
+
+/// A stream of messsages
+pub type MessageStream = Stream<Item=Message, Error=io::Error>;
+
+/// A sender to which a Message can be sent
+pub type MessageStreamHandle = UnboundedSender<Message>;
+
+pub struct BufClientStreamHandle {
+  name_server: SocketAddr,
+  sender: BufStreamHandle,
+}
+
+impl ClientStreamHandle for BufClientStreamHandle {
+  fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
+    let name_server: SocketAddr = self.name_server;
+    let sender: &mut _ = &mut self.sender;
+    sender.send((buffer, name_server)).map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
+  }
+}
+
 /// this exposes a version function which gives access to the access
 include!(concat!(env!("OUT_DIR"), "/version.rs"));
 
