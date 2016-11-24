@@ -36,23 +36,26 @@ impl<H> MemoizeClientHandle<H> where H: ClientHandle {
 }
 
 impl<H> ClientHandle for MemoizeClientHandle<H> where H: ClientHandle {
-  // TODO: should send be &mut so that we don't need RefCell here?
-  fn send(&self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
+  fn send(&mut self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
     let query = message.get_queries().first().expect("no query!").clone();
 
     if let Some(rc_future) = self.active_queries.borrow().get(&query) {
-      // TODO check TTLs?
+      // FIXME check TTLs?
       return Box::new(rc_future.clone());
     }
 
-    // TODO: it should be safe to loop here until the entry.or_insert_with returns...
     // check if there are active queries
-    let mut map = self.active_queries.borrow_mut();
-    let rc_future = map.entry(query).or_insert_with(move ||{
-      rc_future(self.client.send(message))
-    });
+    {
+      let map = self.active_queries.borrow();
+      let request = map.get(&query);
+      if request.is_some() { return Box::new(request.unwrap().clone()) }
+    }
 
-    return Box::new(rc_future.clone());
+    let request = rc_future(self.client.send(message));
+    let mut map = self.active_queries.borrow_mut();
+    map.insert(query, request.clone());
+
+    return Box::new(request);
   }
 }
 
@@ -69,7 +72,7 @@ mod test {
   struct TestClient { i: Cell<u16> }
 
   impl ClientHandle for TestClient {
-    fn send(&self, _: Message) -> Box<Future<Item=Message, Error=ClientError>> {
+    fn send(&mut self, _: Message) -> Box<Future<Item=Message, Error=ClientError>> {
       let mut message = Message::new();
       let i = self.i.get();
 
@@ -82,7 +85,7 @@ mod test {
 
   #[test]
   fn test_memoized() {
-    let client = MemoizeClientHandle::new(TestClient{i: Cell::new(0)});
+    let mut client = MemoizeClientHandle::new(TestClient{i: Cell::new(0)});
 
     let mut test1 = Message::new();
     test1.add_query(Query::new().query_type(RecordType::A).clone());

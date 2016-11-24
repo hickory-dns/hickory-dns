@@ -12,8 +12,8 @@ use std::io::{Read, Write};
 
 use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
+use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use tokio_core::net::TcpStream as TokioTcpStream;
-use tokio_core::channel::{channel, Receiver};
 use tokio_core::reactor::{Handle};
 
 use ::BufStreamHandle;
@@ -32,7 +32,7 @@ enum ReadTcpState {
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpStream {
   socket: TokioTcpStream,
-  outbound_messages: Peekable<Fuse<Receiver<(Vec<u8>, SocketAddr)>>>,
+  outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
   send_state: Option<WriteTcpState>,
   read_state: ReadTcpState,
 }
@@ -42,7 +42,7 @@ impl TcpStream {
   ///  new TcpClients such that each new client would have a random port (reduce chance of cache
   ///  poisoning)
   pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=TcpStream, Error=io::Error>>, BufStreamHandle) {
-    let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
+    let (message_sender, outbound_messages) = unbounded();
     let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
@@ -63,8 +63,8 @@ impl TcpStream {
   /// Initializes a TcpStream with an existing tokio_core::net::TcpStream.
   ///
   /// This is intended for use with a TcpListener and Incoming.
-  pub fn with_tcp_stream(stream: TokioTcpStream, loop_handle: Handle) -> (Self, BufStreamHandle) {
-    let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
+  pub fn with_tcp_stream(stream: TokioTcpStream) -> (Self, BufStreamHandle) {
+    let (message_sender, outbound_messages) = unbounded();
 
     let stream = TcpStream {
       socket: stream,
@@ -137,7 +137,7 @@ impl Stream for TcpStream {
         };
       } else {
         // then see if there is more to send
-        match try!(self.outbound_messages.poll()) {
+        match try!(self.outbound_messages.poll().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
           // already handled above, here to make sure the poll() pops the next message
           Async::Ready(Some((buffer, dst))) => {
             // if there is no peer, this connection should die...
@@ -334,7 +334,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   // the tests should run within 5 seconds... right?
   // TODO: add timeout here, so that test never hangs...
   // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-  let (stream, sender) = TcpStream::new(server_addr, io_loop.handle());
+  let (stream, mut sender) = TcpStream::new(server_addr, io_loop.handle());
 
   let mut stream: TcpStream = io_loop.run(stream).ok().expect("run failed to get stream");
 

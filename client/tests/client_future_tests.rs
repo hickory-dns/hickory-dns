@@ -13,10 +13,10 @@ use std::cmp::Ordering;
 use chrono::Duration;
 use futures::{Async, Future, finished, Poll};
 use futures::stream::{Fuse, Stream};
+use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task::park;
 use openssl::crypto::rsa::RSA;
-use tokio_core::reactor::{Core, Handle};
-use tokio_core::channel::{channel, Receiver};
+use tokio_core::reactor::Core;
 
 use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle, ClientStreamHandle};
 use trust_dns::error::*;
@@ -40,11 +40,11 @@ fn test_query_nonet() {
   catalog.upsert(authority.get_origin().clone(), authority);
 
   let mut io_loop = Core::new().unwrap();
-  let (stream, sender) = TestClientStream::new(catalog, io_loop.handle());
-  let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+  let (stream, sender) = TestClientStream::new(catalog);
+  let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
-  io_loop.run(test_query(&client)).unwrap();
-  io_loop.run(test_query(&client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
 }
 
 #[test]
@@ -56,11 +56,11 @@ fn test_query_udp_ipv4() {
   let mut io_loop = Core::new().unwrap();
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-  let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+  let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
   // TODO: timeouts on these requests so that the test doesn't hang
-  io_loop.run(test_query(&client)).unwrap();
-  io_loop.run(test_query(&client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
 }
 
 #[test]
@@ -72,11 +72,11 @@ fn test_query_udp_ipv6() {
   let mut io_loop = Core::new().unwrap();
   let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
   let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-  let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+  let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
   // TODO: timeouts on these requests so that the test doesn't hang
-  io_loop.run(test_query(&client)).unwrap();
-  io_loop.run(test_query(&client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
 }
 
 #[test]
@@ -88,11 +88,11 @@ fn test_query_tcp_ipv4() {
   let mut io_loop = Core::new().unwrap();
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-  let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+  let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
   // TODO: timeouts on these requests so that the test doesn't hang
-  io_loop.run(test_query(&client)).unwrap();
-  io_loop.run(test_query(&client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
 }
 
 #[test]
@@ -104,15 +104,15 @@ fn test_query_tcp_ipv6() {
   let mut io_loop = Core::new().unwrap();
   let addr: SocketAddr = ("2001:4860:4860::8888",53).to_socket_addrs().unwrap().next().unwrap();
   let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-  let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+  let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
   // TODO: timeouts on these requests so that the test doesn't hang
-  io_loop.run(test_query(&client)).unwrap();
-  io_loop.run(test_query(&client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
+  io_loop.run(test_query(&mut client)).unwrap();
 }
 
 #[cfg(test)]
-fn test_query(client: &BasicClientHandle) -> Box<Future<Item=(), Error=()>> {
+fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item=(), Error=()>> {
   let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
 
   Box::new(client.query(name.clone(), DNSClass::IN, RecordType::A)
@@ -164,7 +164,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     let mut catalog = Catalog::new();
     catalog.upsert(authority.get_origin().clone(), authority);
 
-    let (stream, sender) = TestClientStream::new(catalog, io_loop.handle());
+    let (stream, sender) = TestClientStream::new(catalog);
     let client = ClientFuture::new(stream, sender, io_loop.handle(), Some(signer));
 
     (client, origin)
@@ -173,7 +173,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   #[test]
   fn test_create() {
     let mut io_loop = Core::new().unwrap();
-    let (client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // create a record
     let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
@@ -205,7 +205,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   #[test]
   fn test_append() {
     let mut io_loop = Core::new().unwrap();
-    let (client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
     let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
@@ -253,7 +253,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   #[test]
   fn test_compare_and_swap() {
     let mut io_loop = Core::new().unwrap();
-    let (client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // create a record
     let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
@@ -292,7 +292,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   #[test]
   fn test_delete_by_rdata() {
     let mut io_loop = Core::new().unwrap();
-    let (client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
     let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
@@ -326,7 +326,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   #[test]
   fn test_delete_rrset() {
     let mut io_loop = Core::new().unwrap();
-    let (client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
     let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
@@ -359,7 +359,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   #[test]
   fn test_delete_all() {
     let mut io_loop = Core::new().unwrap();
-    let (client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
     let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
@@ -398,12 +398,12 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   //  is no one listening to messages and shutdown...
   #[allow(dead_code)]
   pub struct NeverReturnsClientStream {
-    outbound_messages: Fuse<Receiver<Vec<u8>>>,
+    outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
   }
 
   impl NeverReturnsClientStream {
-    pub fn new(loop_handle: Handle) -> (Box<Future<Item=Self, Error=io::Error>>, Box<ClientStreamHandle>) {
-      let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
+    pub fn new() -> (Box<Future<Item=Self, Error=io::Error>>, Box<ClientStreamHandle>) {
+      let (message_sender, outbound_messages) = unbounded();
 
       let stream: Box<Future<Item=NeverReturnsClientStream, Error=io::Error>> = Box::new(finished(
         NeverReturnsClientStream {
@@ -439,8 +439,8 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     catalog.upsert(authority.get_origin().clone(), authority);
 
     let mut io_loop = Core::new().unwrap();
-    let (stream, sender) = NeverReturnsClientStream::new(io_loop.handle());
-    let client = ClientFuture::with_timeout(stream, sender, io_loop.handle(),
+    let (stream, sender) = NeverReturnsClientStream::new();
+    let mut client = ClientFuture::with_timeout(stream, sender, io_loop.handle(),
     std::time::Duration::from_millis(1), None);
 
     let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);

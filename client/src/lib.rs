@@ -52,8 +52,8 @@ pub mod serialize;
 use std::io;
 use std::net::SocketAddr;
 
+use futures::sync::mpsc::UnboundedSender;
 use futures::stream::Stream;
-use tokio_core::channel::Sender;
 
 use op::Message;
 use client::ClientStreamHandle;
@@ -62,13 +62,13 @@ use client::ClientStreamHandle;
 pub type BufStream = Stream<Item=(Vec<u8>, SocketAddr), Error=io::Error>;
 
 /// A sender to which serialized DNS Messages can be sent
-pub type BufStreamHandle = Sender<(Vec<u8>, SocketAddr)>;
+pub type BufStreamHandle = UnboundedSender<(Vec<u8>, SocketAddr)>;
 
 /// A stream of messsages
 pub type MessageStream = Stream<Item=Message, Error=io::Error>;
 
 /// A sender to which a Message can be sent
-pub type MessageStreamHandle = Sender<Message>;
+pub type MessageStreamHandle = UnboundedSender<Message>;
 
 pub struct BufClientStreamHandle {
   name_server: SocketAddr,
@@ -76,8 +76,10 @@ pub struct BufClientStreamHandle {
 }
 
 impl ClientStreamHandle for BufClientStreamHandle {
-  fn send(&self, buffer: Vec<u8>) -> io::Result<()> {
-    self.sender.send((buffer, self.name_server))
+  fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
+    let name_server: SocketAddr = self.name_server;
+    let sender: &mut _ = &mut self.sender;
+    sender.send((buffer, name_server)).map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
   }
 }
 

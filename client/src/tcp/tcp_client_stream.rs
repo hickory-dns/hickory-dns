@@ -144,7 +144,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   // the tests should run within 5 seconds... right?
   // TODO: add timeout here, so that test never hangs...
   // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-  let (stream, sender) = TcpClientStream::new(server_addr, io_loop.handle());
+  let (stream, mut sender) = TcpClientStream::new(server_addr, io_loop.handle());
 
   let mut stream: TcpClientStream = io_loop.run(stream).ok().expect("run failed to get stream");
 

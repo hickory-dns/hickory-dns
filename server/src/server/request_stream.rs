@@ -82,7 +82,7 @@ pub struct ResponseHandle {
 
 impl ResponseHandle {
   /// Serializes and sends a message to to the wrapped handle
-  pub fn send(&self, response: Message) -> io::Result<()> {
+  pub fn send(&mut self, response: Message) -> io::Result<()> {
     debug!("sending message: {}", response.get_id());
     let mut buffer = Vec::with_capacity(512);
     let encode_result = {
@@ -92,6 +92,6 @@ impl ResponseHandle {
 
     try!(encode_result.map_err(|e| io::Error::new(io::ErrorKind::Other, format!("error encoding message: {}", e))));
 
-    self.stream_handle.send((buffer, self.dst))
+    self.stream_handle.send((buffer, self.dst)).map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
   }
 }

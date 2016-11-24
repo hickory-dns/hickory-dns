@@ -3,9 +3,8 @@ use std::io;
 
 use futures::{Async, Future, finished, Poll};
 use futures::stream::{Fuse, Stream};
+use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task::park;
-use tokio_core::reactor::*;
-use tokio_core::channel::*;
 
 use trust_dns::client::ClientStreamHandle;
 use trust_dns::op::*;
@@ -15,12 +14,12 @@ use trust_dns_server::authority::Catalog;
 
 pub struct TestClientStream {
   catalog: Catalog,
-  outbound_messages: Fuse<Receiver<Vec<u8>>>,
+  outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
 }
 
 impl TestClientStream {
-  pub fn new(catalog: Catalog, loop_handle: Handle) -> (Box<Future<Item=Self, Error=io::Error>>, Box<ClientStreamHandle>) {
-    let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
+  pub fn new(catalog: Catalog) -> (Box<Future<Item=Self, Error=io::Error>>, Box<ClientStreamHandle>) {
+    let (message_sender, outbound_messages) = unbounded();
 
     let stream: Box<Future<Item=TestClientStream, Error=io::Error>> = Box::new(finished(
       TestClientStream { catalog: catalog, outbound_messages: outbound_messages.fuse() }
@@ -35,7 +34,7 @@ impl Stream for TestClientStream {
   type Error = io::Error;
 
   fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-    match try!(self.outbound_messages.poll()) {
+    match try!(self.outbound_messages.poll().map_err(|_| io::Error::new(io::ErrorKind::Interrupted, "Server stopping due to interruption"))) {
       // already handled above, here to make sure the poll() pops the next message
       Async::Ready(Some(bytes)) => {
         let mut decoder = BinDecoder::new(&bytes);

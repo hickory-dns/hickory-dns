@@ -11,6 +11,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 - Split Server and Client into separate crates, #43
 - Moved many integration tests to `tests` from `src`, #52
+- Migrated all handles to new futures::sync::mpsc impls
 
 ### Fixed
 - Flush TcpStream after fully sending Message

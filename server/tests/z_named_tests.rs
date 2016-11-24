@@ -103,7 +103,7 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
-fn query(io_loop: &mut Core, client: BasicClientHandle) -> bool {
+fn query(io_loop: &mut Core, client: &mut BasicClientHandle) -> bool {
   let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
 
   println!("sending request");
@@ -132,16 +132,16 @@ fn test_example_toml_startup() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
-    assert!(query(&mut io_loop, client));
+    assert!(query(&mut io_loop, &mut client));
 
     // just tests that multiple queries work
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
-    assert!(query(&mut io_loop, client));
+    assert!(query(&mut io_loop, &mut client));
   })
 }
 
@@ -151,17 +151,17 @@ fn test_ipv4_only_toml_startup() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
     // ipv4 should succeed
-    assert!(query(&mut io_loop, client));
+    assert!(query(&mut io_loop, &mut client));
 
     let addr: SocketAddr = ("::1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
     // ipv6 should fail
-    assert!(!query(&mut io_loop, client));
+    assert!(!query(&mut io_loop, &mut client));
   })
 }
 
@@ -198,17 +198,17 @@ fn test_ipv4_and_ipv6_toml_startup() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
     // ipv4 should succeed
-    assert!(query(&mut io_loop, client));
+    assert!(query(&mut io_loop, &mut client));
 
     let addr: SocketAddr = ("::1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
     // ipv6 should succeed
-    assert!(query(&mut io_loop, client));
+    assert!(query(&mut io_loop, &mut client));
 
     assert!(true);
   })

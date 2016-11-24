@@ -11,11 +11,11 @@ use std::io;
 
 use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
+use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task::park;
 use rand::Rng;
 use rand;
 use tokio_core;
-use tokio_core::channel::{channel, Receiver};
 use tokio_core::reactor::{Handle};
 
 use ::BufStreamHandle;
@@ -28,7 +28,7 @@ lazy_static!{
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream {
   socket: tokio_core::net::UdpSocket,
-  outbound_messages: Peekable<Fuse<Receiver<(Vec<u8>, SocketAddr)>>>,
+  outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
 }
 
 impl UdpStream {
@@ -47,7 +47,7 @@ impl UdpStream {
   /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
   ///  handle which can be used to send messages into the stream.
   pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=UdpStream, Error=io::Error>>, BufStreamHandle) {
-    let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
+    let (message_sender, outbound_messages) = unbounded();
 
     // TODO: allow the bind address to be specified...
     // constructs a future for getting the next randomly bound port to a UdpSocket
@@ -82,7 +82,7 @@ impl UdpStream {
   /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
   ///  handle which can be used to send messages into the stream.
   pub fn with_bound(socket: std::net::UdpSocket, loop_handle: Handle) -> (Self, BufStreamHandle) {
-    let (message_sender, outbound_messages) = channel(&loop_handle).expect("somethings wrong with the event loop");
+    let (message_sender, outbound_messages) = unbounded();
 
     // TODO: consider making this return a Result...
     let socket = tokio_core::net::UdpSocket::from_socket(socket, &loop_handle).expect("could not register socket to loop");
@@ -115,7 +115,7 @@ impl Stream for UdpStream {
     //  makes this self throttling.
     loop {
       // first try to send
-      match try!(self.outbound_messages.peek()) {
+      match try!(self.outbound_messages.peek().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
         Async::Ready(Some(&(ref buffer, addr))) => {
           match self.socket.poll_write() {
             Async::NotReady => {
@@ -132,7 +132,7 @@ impl Stream for UdpStream {
       }
 
       // now pop the request and check if we should break or continue.
-      match try!(self.outbound_messages.poll()) {
+      match try!(self.outbound_messages.poll().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
         // already handled above, here to make sure the poll() pops the next message
         Async::Ready(Some(_)) => (),
         // now we get to drop through to the receives...
@@ -261,7 +261,7 @@ fn udp_stream_test(server_addr: std::net::IpAddr) {
   };
 
   let socket = std::net::UdpSocket::bind(client_addr).expect("could not create socket"); // some random address...
-  let (mut stream, sender) = UdpStream::with_bound(socket, io_loop.handle());
+  let (mut stream, mut sender) = UdpStream::with_bound(socket, io_loop.handle());
   //let mut stream: UdpStream = io_loop.run(stream).ok().unwrap();
 
   for _ in 0..send_recv_times {

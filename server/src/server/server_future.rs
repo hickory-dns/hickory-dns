@@ -78,7 +78,7 @@ impl ServerFuture {
               .for_each(move |(tcp_stream, src_addr)| {
                 debug!("accepted request from: {}", src_addr);
                 // take the created stream...
-                let (buf_stream, stream_handle) = TcpStream::with_tcp_stream(tcp_stream, handle.clone());
+                let (buf_stream, stream_handle) = TcpStream::with_tcp_stream(tcp_stream);
                 let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
                 let request_stream = RequestStream::new(timeout_stream, stream_handle);
                 let catalog = catalog.clone();
@@ -107,7 +107,7 @@ impl ServerFuture {
     Err(io::Error::new(io::ErrorKind::Interrupted, "Server stopping due to interruption"))
   }
 
-  fn handle_request(request: Request, response_handle: ResponseHandle, catalog: Arc<Catalog>) -> io::Result<()> {
+  fn handle_request(request: Request, mut response_handle: ResponseHandle, catalog: Arc<Catalog>) -> io::Result<()> {
     let response = catalog.handle_request(&request.message);
     response_handle.send(response)
   }
