@@ -211,8 +211,14 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
 ///
 /// `Note`: Tries to avoid panics, in favor of always starting.
 pub fn main() {
+    ocap_main(std::env::args());
+}
+
+
+fn ocap_main(argv: std::env::Args) {
   // read any command line options
   let args: Args = Docopt::new(USAGE)
+                        .map(|d| d.argv(argv))
                         .and_then(|d| d.help(true).version(Some(version().into())).decode())
                         .unwrap_or_else(|e| e.exit());
 
