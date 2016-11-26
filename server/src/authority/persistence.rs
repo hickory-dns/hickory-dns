@@ -31,6 +31,7 @@ impl Journal {
     Ok(Journal { conn: conn, version: try!(version) })
   }
 
+  #[req_safe(ocap)]
   pub fn from_file(journal_file: &Path) -> PersistenceResult<Journal> {
     let result = Self::new(try!(Connection::open(journal_file)));
     match result {

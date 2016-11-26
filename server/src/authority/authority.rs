@@ -964,6 +964,7 @@ impl Authority {
   }
 
   /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
+  #[req_safe(ocap)]
   fn sign_zone(&mut self) {
     debug!("signing zone: {}", self.origin);
     let inception = UTC::now();

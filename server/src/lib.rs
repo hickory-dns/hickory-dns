@@ -14,6 +14,9 @@
  * limitations under the License.
  */
 #![recursion_limit = "1024"]
+#![feature(plugin)]
+#![plugin(tag_safe)]
+#![warn(not_tagged_safe)]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
 //!
@@ -26,12 +29,14 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
+#[tagged_safe(ocap="taming_chrono.txt")]
 extern crate chrono;
 #[macro_use] extern crate error_chain;
 #[macro_use] extern crate futures;
 #[macro_use] extern crate log;
 extern crate mio;
 extern crate openssl;
+#[tagged_safe(ocap="taming_rusqlite.txt")]
 extern crate rusqlite;
 extern crate rustc_serialize;
 extern crate time;
