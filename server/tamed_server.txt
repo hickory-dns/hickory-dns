@@ -1,0 +1,2 @@
+true
+trust_dns_server::authority::Journal::from_file

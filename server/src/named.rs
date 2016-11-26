@@ -43,6 +43,7 @@ extern crate docopt;
 extern crate openssl;
 extern crate rustc_serialize;
 extern crate trust_dns;
+#[tagged_safe(ocap="tamed_server.txt")]
 extern crate trust_dns_server;
 
 use std::fs;
