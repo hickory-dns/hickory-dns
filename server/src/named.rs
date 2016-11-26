@@ -30,6 +30,13 @@
 //!    -p PORT, --port=PORT    Override the listening port
 //! ```
 
+#![feature(plugin)]
+#![plugin(tag_safe)]
+#![deny(not_tagged_safe)]
+
+#[tagged_safe(ocap="tamed_std.txt")]
+extern crate std as _std;
+
 extern crate chrono;
 extern crate docopt;
 #[macro_use] extern crate log;
@@ -215,6 +222,7 @@ pub fn main() {
 }
 
 
+#[req_safe(ocap)]
 fn ocap_main(argv: std::env::Args) {
   // read any command line options
   let args: Args = Docopt::new(USAGE)

@@ -60,6 +60,8 @@ openssl = "^0.8.3"
 rand = "^0.3"
 rustc-serialize = "^0.3.18"
 rusqlite = "^0.7.3"
+# tag_safe = "0.2.0"
+tag_safe = { git = 'https://github.com/thepowersgang/tag_safe.git', branch='redesign' }
 time = "^0.1"
 tokio-core = "^0.1"
 toml = "^0.1"

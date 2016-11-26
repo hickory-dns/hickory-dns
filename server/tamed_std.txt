@@ -1,0 +1,2 @@
+true
+std::io::_print
