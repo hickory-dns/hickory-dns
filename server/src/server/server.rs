@@ -219,6 +219,7 @@ impl DnsHandler for TcpListener {
   }
 }
 
+#[allow(unreachable_code)] // this has been deprecated
 impl DnsHandler for (UdpSocket, VecDeque<UdpHandler>) {
   fn handle(&mut self, events: EventSet, catalog: &Arc<Catalog>) -> (Option<EventSet>, Option<(DnsHandlerType, EventSet)>) {
     let ref socket = self.0;

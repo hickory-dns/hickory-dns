@@ -63,6 +63,7 @@ use trust_dns_server::server::ServerFuture;
 
 // the Docopt usage string.
 //  http://docopt.org
+// TODO: add option for specifying list of addresses instead of just port.
 const USAGE: &'static str = "
 Usage: named [options]
        named (-h | --help | --version)
@@ -273,7 +274,7 @@ pub fn main() {
   }
 
   banner();
-  info!("awaiting connections...");
+  println!("awaiting connections...");
   if let Err(e) = server.listen() {
     error!("failed to listen: {}", e);
   }
@@ -283,11 +284,11 @@ pub fn main() {
 }
 
 fn banner() {
-  println!("");
-  println!("   o                    o           o             ");
-  println!("   |                    |           |             ");
-  println!("  -o-  o-o  o  o  o-o  -o-  o-o   o-O  o-o   o-o  ");
-  println!("   |   |    |  |   \\    |        |  |  |  |   \\   ");
-  println!("   o   o    o--o  o-o   o         o-o  o  o  o-o  ");
-  println!("");
+  info!("");
+  info!("    o                      o            o             ");
+  info!("    |                      |            |             ");
+  info!("  --O--  o-o  o  o  o-o  --O--  o-o   o-O  o-o   o-o  ");
+  info!("    |    |    |  |   \\     |         |  |  |  |   \\   ");
+  info!("    o    o    o--o  o-o    o          o-o  o  o  o-o  ");
+  info!("");
 }
