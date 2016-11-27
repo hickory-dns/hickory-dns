@@ -6,7 +6,7 @@ cd ${trust_dns_dir:?}
 for i in client server; do
   pushd $i
   echo "executing cargo on $i"
-  cargo build --verbose
-  cargo test --verbose $@
+  cargo build
+  cargo test
   popd
 done
