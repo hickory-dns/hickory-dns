@@ -34,7 +34,7 @@
 #![plugin(tag_safe)]
 #![deny(not_tagged_safe)]
 
-#[tagged_safe(ocap="tamed_std.txt")]
+#[tagged_safe(ocap="ocap_taming/std.txt")]
 extern crate std as _std;
 
 extern crate chrono;
@@ -43,7 +43,7 @@ extern crate docopt;
 extern crate openssl;
 extern crate rustc_serialize;
 extern crate trust_dns;
-#[tagged_safe(ocap="tamed_server.txt")]
+#[tagged_safe(ocap="ocap_taming/server.txt")]
 extern crate trust_dns_server;
 
 use std::fs;

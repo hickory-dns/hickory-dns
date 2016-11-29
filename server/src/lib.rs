@@ -29,14 +29,14 @@
 //! * Secure dynamic update
 //! * New features for securing public information
 
-#[tagged_safe(ocap="taming_chrono.txt")]
+#[tagged_safe(ocap="ocap_taming/chrono.txt")]
 extern crate chrono;
 #[macro_use] extern crate error_chain;
 #[macro_use] extern crate futures;
 #[macro_use] extern crate log;
 extern crate mio;
 extern crate openssl;
-#[tagged_safe(ocap="taming_rusqlite.txt")]
+#[tagged_safe(ocap="ocap_taming/rusqlite.txt")]
 extern crate rusqlite;
 extern crate rustc_serialize;
 extern crate time;
