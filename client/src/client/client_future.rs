@@ -376,6 +376,104 @@ pub trait ClientHandle: Clone {
     self.send(message)
   }
 
+  /// Send NOTIFY message
+  ///
+  /// Sends a NOTIFY message to the remote system
+  ///
+  /// [RFC 1996](https://tools.ietf.org/html/rfc1996), DNS NOTIFY, August 1996
+  ///
+  ///
+  /// ```text
+  /// 1. Rationale and Scope
+  ///
+  ///   1.1. Slow propagation of new and changed data in a DNS zone can be
+  ///   due to a zone's relatively long refresh times.  Longer refresh times
+  ///   are beneficial in that they reduce load on the master servers, but
+  ///   that benefit comes at the cost of long intervals of incoherence among
+  ///   authority servers whenever the zone is updated.
+  ///
+  ///   1.2. The DNS NOTIFY transaction allows master servers to inform slave
+  ///   servers when the zone has changed -- an interrupt as opposed to poll
+  ///   model -- which it is hoped will reduce propagation delay while not
+  ///   unduly increasing the masters' load.  This specification only allows
+  ///   slaves to be notified of SOA RR changes, but the architechture of
+  ///   NOTIFY is intended to be extensible to other RR types.
+  ///
+  ///   1.3. This document intentionally gives more definition to the roles
+  ///   of "Master," "Slave" and "Stealth" servers, their enumeration in NS
+  ///   RRs, and the SOA MNAME field.  In that sense, this document can be
+  ///   considered an addendum to [RFC1035].
+  ///
+  /// ```
+  ///
+  /// The below section describes how the Notify message should be constructed. The function
+  ///  implmentation accepts a Record, but the actual data of the record should be ignored by the
+  ///  server, i.e. the server should make a request subsequent to receiving this Notification for
+  ///  the authority record, but could be used to decide to request an update or not:
+  ///
+  /// ```text
+  ///   3.7. A NOTIFY request has QDCOUNT>0, ANCOUNT>=0, AUCOUNT>=0,
+  ///   ADCOUNT>=0.  If ANCOUNT>0, then the answer section represents an
+  ///   unsecure hint at the new RRset for this <QNAME,QCLASS,QTYPE>.  A
+  ///   slave receiving such a hint is free to treat equivilence of this
+  ///   answer section with its local data as a "no further work needs to be
+  ///   done" indication.  If ANCOUNT=0, or ANCOUNT>0 and the answer section
+  ///   differs from the slave's local data, then the slave should query its
+  ///   known masters to retrieve the new data.
+  /// ```
+  ///
+  /// Client's should be ready to handle, or be aware of, a server response of NOTIMP:
+  ///
+  /// ```text
+  ///   3.12. If a NOTIFY request is received by a slave who does not
+  ///   implement the NOTIFY opcode, it will respond with a NOTIMP
+  ///   (unimplemented feature error) message.  A master server who receives
+  ///   such a NOTIMP should consider the NOTIFY transaction complete for
+  ///   that slave.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - the label which is being notified
+  /// * `query_class` - most likely this should always be DNSClass::IN
+  /// * `query_type` - record type which has been updated
+  /// * `record` - the new version of the record being notified
+  fn notify(&mut self, name: domain::Name, query_class: DNSClass, query_type: RecordType, record: Option<Record>)
+    -> Box<Future<Item=Message, Error=ClientError>> {
+    debug!("notifying: {} {:?}", name, query_type);
+
+    // build the message
+    let mut message: Message = Message::new();
+    let id: u16 = rand::random();
+    // TODO make recursion a parameter
+    message.id(id)
+           // 3.3. NOTIFY is similar to QUERY in that it has a request message with
+           // the header QR flag "clear" and a response message with QR "set".  The
+           // response message contains no useful information, but its reception by
+           // the master is an indication that the slave has received the NOTIFY
+           // and that the master can remove the slave from any retry queue for
+           // this NOTIFY event.
+           .message_type(MessageType::Query)
+           .op_code(OpCode::Notify);
+
+    // Extended dns
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
+
+    // add the query
+    let mut query: Query = Query::new();
+    query.name(name.clone()).query_class(query_class).query_type(query_type);
+    message.add_query(query);
+
+    // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7
+    if let Some(record) = record { message.add_answer(record); }
+
+    self.send(message)
+  }
+
   /// Sends a record to create on the server, this will fail if the record exists (atomicity
   ///  depends on the server)
   ///
@@ -405,7 +503,7 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguments
   ///
-  /// * `record` - the name of the record to create
+  /// * `record` - the record to create
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
