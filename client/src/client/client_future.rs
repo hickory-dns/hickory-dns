@@ -445,7 +445,6 @@ pub trait ClientHandle: Clone {
     // build the message
     let mut message: Message = Message::new();
     let id: u16 = rand::random();
-    // TODO make recursion a parameter
     message.id(id)
            // 3.3. NOTIFY is similar to QUERY in that it has a request message with
            // the header QR flag "clear" and a response message with QR "set".  The
