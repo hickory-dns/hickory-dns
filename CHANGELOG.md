@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## unreleased (0.9.0)
+## 0.9.0
 ### Added
 - new ServerFuture tokio and futures based server, #61
 - UdpStream & TcpSteam to support stream of messages with src address
