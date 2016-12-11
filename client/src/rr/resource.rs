@@ -21,12 +21,13 @@ use std::cmp::Ordering;
 
 use ::serialize::binary::*;
 use ::error::*;
+use ::rr::dns_class::DNSClass;
+use ::rr::domain;
+use ::rr::IntoRecordSet;
 use ::rr::rdata::NULL;
-use super::record_data::RData;
-use super::record_type::RecordType;
-use super::dns_class::DNSClass;
-use super::domain;
-
+use ::rr::RData;
+use ::rr::RecordType;
+use ::rr::RecordSet;
 
 /// Resource records are storage value in DNS, into which all key/value pair data is stored.
 ///
@@ -147,6 +148,12 @@ impl Record {
   pub fn get_rdata(&self) -> &RData { &self.rdata }
   pub fn get_rdata_mut(&mut self) -> &mut RData { &mut self.rdata }
   pub fn unwrap_rdata(self) -> RData { self.rdata }
+}
+
+impl IntoRecordSet for Record {
+  fn into_record_set(self) -> RecordSet {
+    RecordSet::from(self)
+  }
 }
 
 impl BinSerializable<Record> for Record {
@@ -321,7 +328,7 @@ mod tests {
   use std::cmp::Ordering;
 
   use super::*;
-
+  #[allow(unused)]
   use ::serialize::binary::*;
   use ::rr::record_data::RData;
   use ::rr::record_type::RecordType;

@@ -16,7 +16,7 @@
 use std::collections::BTreeMap;
 
 use ::error::*;
-use ::rr::{ Name, RecordType, Record, DNSClass, RData, RrKey, RrSet};
+use ::rr::{ Name, IntoRecordSet, RecordType, Record, DNSClass, RData, RrKey, RecordSet };
 
 use super::master_lex::{Lexer, Token};
 
@@ -128,9 +128,9 @@ impl Parser {
   }
 
   // TODO: change this function to load into an Authority, using the update_records() method
-  pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>) -> ParseResult<(Name, BTreeMap<RrKey, RrSet>)> {
+  pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
     let mut lexer = lexer;
-    let mut records: BTreeMap<RrKey, RrSet> = BTreeMap::new();
+    let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
 
     let mut origin: Option<Name> = origin;
     let mut current_name: Option<Name> = None;
@@ -269,15 +269,14 @@ impl Parser {
 
               match rtype.unwrap() {
                 RecordType::SOA => {
-                  let mut set = RrSet::new(record.get_name(), record.get_rr_type(), 0);
-                  set.insert(record, 0);
+                  let set = record.into_record_set();
                   if records.insert(key, set).is_some() {
                     return Err(ParseErrorKind::Message("SOA is already specified").into());
                   }
                 },
                 _ => {
                   // add a Vec if it's not there, then add the record to the list
-                  let mut set = records.entry(key).or_insert(RrSet::new(record.get_name(), record.get_rr_type(), 0));
+                  let mut set = records.entry(key).or_insert(RecordSet::new(record.get_name(), record.get_rr_type(), 0));
                   set.insert(record, 0);
                 },
               }

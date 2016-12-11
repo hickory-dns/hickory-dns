@@ -22,7 +22,7 @@ use tokio_core::reactor::{Handle, Timeout};
 
 use ::error::*;
 use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
-use ::rr::{domain, DNSClass, RData, Record, RecordType};
+use ::rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use ::rr::dnssec::Signer;
 use ::rr::rdata::NULL;
 
@@ -376,6 +376,101 @@ pub trait ClientHandle: Clone {
     self.send(message)
   }
 
+  /// Sends a NOTIFY message to the remote system
+  ///
+  /// [RFC 1996](https://tools.ietf.org/html/rfc1996), DNS NOTIFY, August 1996
+  ///
+  ///
+  /// ```text
+  /// 1. Rationale and Scope
+  ///
+  ///   1.1. Slow propagation of new and changed data in a DNS zone can be
+  ///   due to a zone's relatively long refresh times.  Longer refresh times
+  ///   are beneficial in that they reduce load on the master servers, but
+  ///   that benefit comes at the cost of long intervals of incoherence among
+  ///   authority servers whenever the zone is updated.
+  ///
+  ///   1.2. The DNS NOTIFY transaction allows master servers to inform slave
+  ///   servers when the zone has changed -- an interrupt as opposed to poll
+  ///   model -- which it is hoped will reduce propagation delay while not
+  ///   unduly increasing the masters' load.  This specification only allows
+  ///   slaves to be notified of SOA RR changes, but the architechture of
+  ///   NOTIFY is intended to be extensible to other RR types.
+  ///
+  ///   1.3. This document intentionally gives more definition to the roles
+  ///   of "Master," "Slave" and "Stealth" servers, their enumeration in NS
+  ///   RRs, and the SOA MNAME field.  In that sense, this document can be
+  ///   considered an addendum to [RFC1035].
+  ///
+  /// ```
+  ///
+  /// The below section describes how the Notify message should be constructed. The function
+  ///  implmentation accepts a Record, but the actual data of the record should be ignored by the
+  ///  server, i.e. the server should make a request subsequent to receiving this Notification for
+  ///  the authority record, but could be used to decide to request an update or not:
+  ///
+  /// ```text
+  ///   3.7. A NOTIFY request has QDCOUNT>0, ANCOUNT>=0, AUCOUNT>=0,
+  ///   ADCOUNT>=0.  If ANCOUNT>0, then the answer section represents an
+  ///   unsecure hint at the new RRset for this <QNAME,QCLASS,QTYPE>.  A
+  ///   slave receiving such a hint is free to treat equivilence of this
+  ///   answer section with its local data as a "no further work needs to be
+  ///   done" indication.  If ANCOUNT=0, or ANCOUNT>0 and the answer section
+  ///   differs from the slave's local data, then the slave should query its
+  ///   known masters to retrieve the new data.
+  /// ```
+  ///
+  /// Client's should be ready to handle, or be aware of, a server response of NOTIMP:
+  ///
+  /// ```text
+  ///   3.12. If a NOTIFY request is received by a slave who does not
+  ///   implement the NOTIFY opcode, it will respond with a NOTIMP
+  ///   (unimplemented feature error) message.  A master server who receives
+  ///   such a NOTIMP should consider the NOTIFY transaction complete for
+  ///   that slave.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - the label which is being notified
+  /// * `query_class` - most likely this should always be DNSClass::IN
+  /// * `query_type` - record type which has been updated
+  /// * `rrset` - the new version of the record(s) being notified
+  fn notify<R>(&mut self, name: domain::Name, query_class: DNSClass, query_type: RecordType, rrset: Option<R>)
+    -> Box<Future<Item=Message, Error=ClientError>> where R: IntoRecordSet {
+    debug!("notifying: {} {:?}", name, query_type);
+
+    // build the message
+    let mut message: Message = Message::new();
+    let id: u16 = rand::random();
+    message.id(id)
+           // 3.3. NOTIFY is similar to QUERY in that it has a request message with
+           // the header QR flag "clear" and a response message with QR "set".  The
+           // response message contains no useful information, but its reception by
+           // the master is an indication that the slave has received the NOTIFY
+           // and that the master can remove the slave from any retry queue for
+           // this NOTIFY event.
+           .message_type(MessageType::Query)
+           .op_code(OpCode::Notify);
+
+    // Extended dns
+    {
+      let edns = message.get_edns_mut();
+      edns.set_max_payload(1500);
+      edns.set_version(0);
+    }
+
+    // add the query
+    let mut query: Query = Query::new();
+    query.name(name.clone()).query_class(query_class).query_type(query_type);
+    message.add_query(query);
+
+    // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7
+    if let Some(rrset) = rrset { message.add_answers(rrset.into_record_set()); }
+
+    self.send(message)
+  }
+
   /// Sends a record to create on the server, this will fail if the record exists (atomicity
   ///  depends on the server)
   ///
@@ -405,29 +500,32 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguments
   ///
-  /// * `record` - the name of the record to create
+  /// * `rrset` - the record(s) to create
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
-  fn create(&mut self,
-            record: Record,
-            zone_origin: domain::Name)
-            -> Box<Future<Item=Message, Error=ClientError>> {
-    assert!(zone_origin.zone_of(record.get_name()));
+  fn create<R>(&mut self,
+               rrset: R,
+               zone_origin: domain::Name)
+               -> Box<Future<Item=Message, Error=ClientError>>
+               where R: IntoRecordSet {
+    // TODO: assert non-empty rrset?
+    let rrset = rrset.into_record_set();
+    assert!(zone_origin.zone_of(rrset.get_name()));
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+    zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
     message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
 
-    let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
+    let mut prerequisite = Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
     prerequisite.dns_class(DNSClass::NONE);
     message.add_pre_requisite(prerequisite);
-    message.add_update(record);
+    message.add_updates(rrset);
 
     // Extended dns
     {
@@ -467,22 +565,24 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguments
   ///
-  /// * `record` - the record to append to an RRSet
+  /// * `rrset` - the record(s) to append to an RRSet
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   /// * `must_exist` - if true, the request will fail if the record does not exist
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be created.
-  fn append(&mut self,
-            record: Record,
-            zone_origin: domain::Name,
-            must_exist: bool)
-            -> Box<Future<Item=Message, Error=ClientError>> {
-    assert!(zone_origin.zone_of(record.get_name()));
+  fn append<R>(&mut self,
+               rrset: R,
+               zone_origin: domain::Name,
+               must_exist: bool)
+               -> Box<Future<Item=Message, Error=ClientError>>
+               where R: IntoRecordSet {
+    let rrset = rrset.into_record_set();
+    assert!(zone_origin.zone_of(rrset.get_name()));
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+    zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
@@ -490,12 +590,12 @@ pub trait ClientHandle: Clone {
     message.add_zone(zone);
 
     if must_exist {
-      let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
+      let mut prerequisite = Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
       prerequisite.dns_class(DNSClass::ANY);
       message.add_pre_requisite(prerequisite);
     }
 
-    message.add_update(record);
+    message.add_updates(rrset);
 
     // Extended dns
     {
@@ -543,16 +643,21 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguements
   ///
-  /// * `current` - the current current which must exist for the swap to complete
-  /// * `new` - the new record with which to replace the current record
+  /// * `current` - the current rrset which must exist for the swap to complete
+  /// * `new` - the new rrset with which to replace the current rrset
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
-  fn compare_and_swap(&mut self,
-                      current: Record,
-                      new: Record,
-                      zone_origin: domain::Name)
-                      -> Box<Future<Item=Message, Error=ClientError>> {
+  fn compare_and_swap<C,N>(&mut self,
+                           current: C,
+                           new: N,
+                           zone_origin: domain::Name)
+                           -> Box<Future<Item=Message, Error=ClientError>>
+                           where C: IntoRecordSet,
+                                 N: IntoRecordSet {
+    let current = current.into_record_set();
+    let new = new.into_record_set();
+
     assert!(zone_origin.zone_of(current.get_name()));
     assert!(zone_origin.zone_of(new.get_name()));
 
@@ -567,19 +672,19 @@ pub trait ClientHandle: Clone {
 
     // make sure the record is what is expected
     let mut prerequisite = current.clone();
-    prerequisite.ttl(0);
-    message.add_pre_requisite(prerequisite);
+    prerequisite.set_ttl(0);
+    message.add_pre_requisites(prerequisite);
 
     // add the delete for the old record
     let mut delete = current;
     // the class must be none for delete
-    delete.dns_class(DNSClass::NONE);
-    // the TTL shoudl be 0
-    delete.ttl(0);
-    message.add_update(delete);
+    delete.set_dns_class(DNSClass::NONE);
+    // the TTL should be 0
+    delete.set_ttl(0);
+    message.add_updates(delete);
 
     // insert the new record...
-    message.add_update(new);
+    message.add_updates(new);
 
     // Extended dns
     {
@@ -620,22 +725,24 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguments
   ///
-  /// * `record` - the record to delete from a RRSet, the name, type and rdata must match the
+  /// * `rrset` - the record(s) to delete from a RRSet, the name, type and rdata must match the
   ///              record to delete
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-  fn delete_by_rdata(&mut self,
-                     mut record: Record,
-                     zone_origin: domain::Name)
-                     -> Box<Future<Item=Message, Error=ClientError>> {
-    assert!(zone_origin.zone_of(record.get_name()));
+  fn delete_by_rdata<R>(&mut self,
+                        rrset: R,
+                        zone_origin: domain::Name)
+                        -> Box<Future<Item=Message, Error=ClientError>>
+                        where R: IntoRecordSet {
+    let mut rrset = rrset.into_record_set();
+    assert!(zone_origin.zone_of(rrset.get_name()));
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+    zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
@@ -643,10 +750,10 @@ pub trait ClientHandle: Clone {
     message.add_zone(zone);
 
     // the class must be none for delete
-    record.dns_class(DNSClass::NONE);
+    rrset.set_dns_class(DNSClass::NONE);
     // the TTL shoudl be 0
-    record.ttl(0);
-    message.add_update(record);
+    rrset.set_ttl(0);
+    message.add_updates(rrset);
 
     // Extended dns
     {
@@ -687,8 +794,7 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguments
   ///
-  /// * `record` - the record to delete from a RRSet, the name, and type must match the
-  ///              record set to delete
+  /// * `record` - The name, class and record_type will be used to match and delete the RecordSet
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   /// * `signer` - the signer, with private key, to use to sign the request
   ///

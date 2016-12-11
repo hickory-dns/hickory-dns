@@ -32,4 +32,8 @@ pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::resource::Record;
 pub use self::rr_key::RrKey;
-pub use self::rr_set::RrSet;
+pub use self::rr_set::IntoRecordSet;
+pub use self::rr_set::RecordSet;
+
+#[deprecated = "will be removed post 0.9.x, use RecordSet"]
+pub type RrSet = RecordSet;

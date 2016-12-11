@@ -192,6 +192,7 @@ fn bind_process() -> (NamedProcess, u16) {
 }
 
 #[bench]
+#[ignore]
 fn bind_udp_bench(b: &mut Bencher) {
   let (named, server_port) = bind_process();
 
@@ -207,6 +208,7 @@ fn bind_udp_bench(b: &mut Bencher) {
 }
 
 #[bench]
+#[ignore]
 fn bind_tcp_bench(b: &mut Bencher) {
   let (named, server_port) = bind_process();
 
