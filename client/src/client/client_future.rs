@@ -725,22 +725,24 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguments
   ///
-  /// * `record` - the record to delete from a RRSet, the name, type and rdata must match the
+  /// * `rrset` - the record(s) to delete from a RRSet, the name, type and rdata must match the
   ///              record to delete
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-  fn delete_by_rdata(&mut self,
-                     mut record: Record,
-                     zone_origin: domain::Name)
-                     -> Box<Future<Item=Message, Error=ClientError>> {
-    assert!(zone_origin.zone_of(record.get_name()));
+  fn delete_by_rdata<R>(&mut self,
+                        rrset: R,
+                        zone_origin: domain::Name)
+                        -> Box<Future<Item=Message, Error=ClientError>>
+                        where R: IntoRecordSet {
+    let mut rrset = rrset.into_record_set();
+    assert!(zone_origin.zone_of(rrset.get_name()));
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+    zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
@@ -748,10 +750,10 @@ pub trait ClientHandle: Clone {
     message.add_zone(zone);
 
     // the class must be none for delete
-    record.dns_class(DNSClass::NONE);
+    rrset.set_dns_class(DNSClass::NONE);
     // the TTL shoudl be 0
-    record.ttl(0);
-    message.add_update(record);
+    rrset.set_ttl(0);
+    message.add_updates(rrset);
 
     // Extended dns
     {
@@ -792,8 +794,7 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguments
   ///
-  /// * `record` - the record to delete from a RRSet, the name, and type must match the
-  ///              record set to delete
+  /// * `record` - The name, class and record_type will be used to match and delete the RecordSet
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   /// * `signer` - the signer, with private key, to use to sign the request
   ///

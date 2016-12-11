@@ -476,32 +476,80 @@ fn test_delete_by_rdata() {
   let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
   // append a record
-  let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
-  RecordType::A,
-  Duration::minutes(5).num_seconds() as u32);
-  record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+  let mut record1 = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                 RecordType::A, Duration::minutes(5).num_seconds() as u32);
+  record1.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
 
   // first check the must_exist option
-  let result = io_loop.run(client.delete_by_rdata(record.clone(), origin.clone())).expect("delete failed");
+  let result = io_loop.run(client.delete_by_rdata(record1.clone(), origin.clone())).expect("delete failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
   // next create to a non-existent RRset
-  let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
+  let result = io_loop.run(client.create(record1.clone(), origin.clone())).expect("create failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-  let mut record = record.clone();
-  record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
-  let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
+  let mut record2 = record1.clone();
+  record2.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+  let result = io_loop.run(client.append(record2.clone(), origin.clone(), true)).expect("create failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
   // verify record contents
-  let result = io_loop.run(client.delete_by_rdata(record.clone(), origin.clone())).expect("delete failed");
+  let result = io_loop.run(client.delete_by_rdata(record2.clone(), origin.clone())).expect("delete failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-  let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
+  let result = io_loop.run(client.query(record1.get_name().clone(), record1.get_dns_class(), record1.get_rr_type())).expect("query failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
   assert_eq!(result.get_answers().len(), 1);
-  assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(100,10,100,10) } else { false }));
+  assert!(result.get_answers().iter().any(|rr| *rr == record1));
+}
+
+#[test]
+fn test_delete_by_rdata_multi() {
+  let mut io_loop = Core::new().unwrap();
+  let (mut client, origin) = create_sig0_ready_client(&io_loop);
+
+  // append a record
+  let mut rrset = RecordSet::with_ttl(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                      RecordType::A,
+                                      Duration::minutes(5).num_seconds() as u32);
+
+  let record1 = rrset.new_record(RData::A(Ipv4Addr::new(100,10,100,10))).clone();
+  let record2 = rrset.new_record(RData::A(Ipv4Addr::new(100,10,100,11))).clone();
+  let record3 = rrset.new_record(RData::A(Ipv4Addr::new(100,10,100,12))).clone();
+  let record4 = rrset.new_record(RData::A(Ipv4Addr::new(100,10,100,13))).clone();
+  let rrset = rrset;
+
+  // first check the must_exist option
+  let result = io_loop.run(client.delete_by_rdata(rrset.clone(), origin.clone())).expect("delete failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+  // next create to a non-existent RRset
+  let result = io_loop.run(client.create(rrset.clone(), origin.clone())).expect("create failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+  // append a record
+  let mut rrset = RecordSet::with_ttl(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                      RecordType::A,
+                                      Duration::minutes(5).num_seconds() as u32);
+
+  let record1 = rrset.new_record(record1.get_rdata().clone()).clone();
+  let record3 = rrset.new_record(record3.get_rdata().clone()).clone();
+  let rrset = rrset;
+
+  let result = io_loop.run(client.append(rrset.clone(), origin.clone(), true)).expect("create failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+  // verify record contents
+  let result = io_loop.run(client.delete_by_rdata(rrset.clone(), origin.clone())).expect("delete failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+  let result = io_loop.run(client.query(record1.get_name().clone(), record1.get_dns_class(), record1.get_rr_type())).expect("query failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+  assert_eq!(result.get_answers().len(), 2);
+  assert!(!result.get_answers().iter().any(|rr| *rr == record1));
+  assert!(result.get_answers().iter().any(|rr| *rr == record2));
+  assert!(!result.get_answers().iter().any(|rr| *rr == record3));
+  assert!(result.get_answers().iter().any(|rr| *rr == record4));
 }
 
 #[test]
