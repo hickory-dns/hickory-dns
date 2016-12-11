@@ -18,7 +18,7 @@ use std::collections::BTreeMap;
 use chrono::UTC;
 
 use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
-use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RrSet};
+use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
 use trust_dns::rr::rdata::{NSEC, SIG};
 use trust_dns::rr::dnssec::Signer;
 
@@ -34,7 +34,7 @@ pub struct Authority {
   origin: Name,
   class: DNSClass,
   journal: Option<Journal>,
-  records: BTreeMap<RrKey, RrSet>,
+  records: BTreeMap<RrKey, RecordSet>,
   zone_type: ZoneType,
   allow_update: bool,
   // Private key mapped to the Record of the DNSKey
@@ -59,7 +59,7 @@ impl Authority {
   /// # Return value
   ///
   /// The new `Authority`.
-  pub fn new(origin: Name, records: BTreeMap<RrKey, RrSet>, zone_type: ZoneType, allow_update: bool) -> Authority {
+  pub fn new(origin: Name, records: BTreeMap<RrKey, RecordSet>, zone_type: ZoneType, allow_update: bool) -> Authority {
     Authority{ origin: origin, class: DNSClass::IN,  journal: None, records: records, zone_type: zone_type,
       allow_update: allow_update, secure_keys: Vec::new() }
   }
@@ -163,7 +163,7 @@ impl Authority {
   }
 
   /// Get all the
-  pub fn get_records(&self) -> &BTreeMap<RrKey, RrSet> {
+  pub fn get_records(&self) -> &BTreeMap<RrKey, RecordSet> {
     &self.records
   }
 
@@ -727,7 +727,7 @@ impl Authority {
     assert_eq!(self.class, record.get_dns_class());
 
     let rr_key = RrKey::new(record.get_name(), record.get_rr_type());
-    let records: &mut RrSet = self.records.entry(rr_key).or_insert(RrSet::new(record.get_name(), record.get_rr_type(), serial));
+    let records: &mut RecordSet = self.records.entry(rr_key).or_insert(RecordSet::new(record.get_name(), record.get_rr_type(), serial));
 
     records.insert(record, serial)
   }

@@ -22,7 +22,7 @@ use tokio_core::reactor::{Handle, Timeout};
 
 use ::error::*;
 use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
-use ::rr::{domain, DNSClass, RData, Record, RecordType};
+use ::rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use ::rr::dnssec::Signer;
 use ::rr::rdata::NULL;
 
@@ -376,8 +376,6 @@ pub trait ClientHandle: Clone {
     self.send(message)
   }
 
-  /// Send NOTIFY message
-  ///
   /// Sends a NOTIFY message to the remote system
   ///
   /// [RFC 1996](https://tools.ietf.org/html/rfc1996), DNS NOTIFY, August 1996
@@ -438,8 +436,8 @@ pub trait ClientHandle: Clone {
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type which has been updated
   /// * `record` - the new version of the record being notified
-  fn notify(&mut self, name: domain::Name, query_class: DNSClass, query_type: RecordType, record: Option<Record>)
-    -> Box<Future<Item=Message, Error=ClientError>> {
+  fn notify<R>(&mut self, name: domain::Name, query_class: DNSClass, query_type: RecordType, record: Option<R>)
+    -> Box<Future<Item=Message, Error=ClientError>> where R: IntoRecordSet {
     debug!("notifying: {} {:?}", name, query_type);
 
     // build the message
@@ -468,7 +466,7 @@ pub trait ClientHandle: Clone {
     message.add_query(query);
 
     // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7
-    if let Some(record) = record { message.add_answer(record); }
+    if let Some(record) = record { message.add_answers(record.into_record_set()); }
 
     self.send(message)
   }
@@ -506,25 +504,28 @@ pub trait ClientHandle: Clone {
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
-  fn create(&mut self,
-            record: Record,
-            zone_origin: domain::Name)
-            -> Box<Future<Item=Message, Error=ClientError>> {
-    assert!(zone_origin.zone_of(record.get_name()));
+  fn create<R>(&mut self,
+               rrset: R,
+               zone_origin: domain::Name)
+               -> Box<Future<Item=Message, Error=ClientError>>
+               where R: IntoRecordSet {
+    // TODO: assert non-empty rrset?
+    let rrset = rrset.into_record_set();
+    assert!(zone_origin.zone_of(rrset.get_name()));
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+    zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
     message.id(rand::random()).message_type(MessageType::Query).op_code(OpCode::Update).recursion_desired(false);
     message.add_zone(zone);
 
-    let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
+    let mut prerequisite = Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
     prerequisite.dns_class(DNSClass::NONE);
     message.add_pre_requisite(prerequisite);
-    message.add_update(record);
+    message.add_updates(rrset);
 
     // Extended dns
     {

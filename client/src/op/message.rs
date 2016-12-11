@@ -123,6 +123,7 @@ impl Message {
   ///       it's unclear how it could be useful to have more than one here? change this to set
   ///       a single query?
   pub fn add_query(&mut self, query: Query) -> &mut Self { self.queries.push(query); self }
+  #[deprecated = "will be removed post 0.9.x"]
   pub fn add_all_queries(&mut self, queries: &[Query]) -> &mut Self {
     for q in queries {
       // TODO: the clone here should really be performed (or not) by the caller
@@ -130,13 +131,33 @@ impl Message {
     }
     self
   }
+  pub fn add_queries<Q, I>(&mut self, queries: Q) -> &mut Self
+  where Q: IntoIterator<Item=Query, IntoIter=I>,
+        I: Iterator<Item=Query> {
+    for query in queries {
+      self.add_query(query);
+    }
+
+    self
+  }
+
   pub fn add_answer(&mut self, record: Record) -> &mut Self { self.answers.push(record); self }
+  #[deprecated = "will be removed post 0.9.x"]
   pub fn add_all_answers(&mut self, vector: &[&Record]) -> &mut Self {
     for &r in vector {
       // TODO: in order to get rid of this clone, we need an owned Message for decoding, and a
       //  reference Message for encoding.
       self.add_answer(r.clone());
     }
+    self
+  }
+  pub fn add_answers<R, I>(&mut self, records: R) -> &mut Self
+  where R: IntoIterator<Item=Record, IntoIter=I>,
+        I: Iterator<Item=Record> {
+    for record in records {
+      self.add_answer(record);
+    }
+
     self
   }
 
@@ -151,12 +172,22 @@ impl Message {
   }
 
   pub fn add_name_server(&mut self, record: Record) -> &mut Self { self.name_servers.push(record); self }
+  #[deprecated = "will be removed post 0.9.x"]
   pub fn add_all_name_servers(&mut self, vector: &[&Record]) -> &mut Self {
     for &r in vector {
       // TODO: in order to get rid of this clone, we need an owned Message for decoding, and a
       //  reference Message for encoding.
       self.add_name_server(r.clone());
     }
+    self
+  }
+  pub fn add_name_servers<R, I>(&mut self, records: R) -> &mut Self
+  where R: IntoIterator<Item=Record, IntoIter=I>,
+        I: Iterator<Item=Record> {
+    for record in records {
+      self.add_name_server(record);
+    }
+
     self
   }
 
@@ -466,7 +497,11 @@ pub trait UpdateMessage: Debug {
   fn add_pre_requisite(&mut self, record: Record);
   fn add_all_pre_requisites(&mut self, vector: &[&Record]);
   fn add_update(&mut self, record: Record);
+  #[deprecated = "will be removed post 0.9.x"]
   fn add_all_updates(&mut self, vector: &[&Record]);
+  fn add_updates<R,I>(&mut self, records: R)
+    where R: IntoIterator<Item=Record, IntoIter=I>,
+          I: Iterator<Item=Record>;
   fn add_additional(&mut self, record: Record);
 
   fn get_zones(&self) -> &[Query];
@@ -488,9 +523,14 @@ impl UpdateMessage for Message {
   fn get_id(&self) -> u16 { self.get_id() }
   fn add_zone(&mut self, query: Query) { self.add_query(query); }
   fn add_pre_requisite(&mut self, record: Record) { self.add_answer(record); }
-  fn add_all_pre_requisites(&mut self, vector: &[&Record]) { self.add_all_answers(vector); }
+  fn add_all_pre_requisites(&mut self, vector: &[&Record]) { self.add_answers(vector.into_iter().map(|r| (*r).clone())); }
   fn add_update(&mut self, record: Record) { self.add_name_server(record); }
-  fn add_all_updates(&mut self, vector: &[&Record]) { self.add_all_name_servers(vector); }
+  fn add_all_updates(&mut self, vector: &[&Record]) { self.add_name_servers(vector.into_iter().map(|r| (*r).clone())); }
+  fn add_updates<R,I>(&mut self, records: R)
+    where R: IntoIterator<Item=Record, IntoIter=I>,
+          I: Iterator<Item=Record> {
+    self.add_name_servers(records);
+  }
   fn add_additional(&mut self, record: Record) { self.add_additional(record); }
 
   fn get_zones(&self) -> &[Query] { self.get_queries() }

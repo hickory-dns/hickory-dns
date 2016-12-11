@@ -31,7 +31,7 @@ use trust_dns::udp::{UdpHandler, UdpState};
 use ::authority::Catalog;
 
 // TODO, might be cool to store buffers for later usage...
-#[deprecated]
+#[deprecated = "will be removed post 0.9.x"]
 pub struct Server {
   handlers: HashMap<Token, DnsHandlerType>,
   next_token: Cell<usize>,

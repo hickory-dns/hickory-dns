@@ -826,6 +826,7 @@ mod tests {
   use std::str::FromStr;
 
   use super::*;
+  #[allow(unused)]
   use ::serialize::binary::*;
   use ::serialize::binary::bin_tests::test_emit_data_set;
   use ::rr::domain::Name;

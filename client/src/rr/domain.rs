@@ -519,6 +519,7 @@ mod tests {
   use std::cmp::Ordering;
 
   use ::serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
+  #[allow(unused)]
   use ::serialize::binary::*;
 
   fn get_data() -> Vec<(Name, Vec<u8>)> {

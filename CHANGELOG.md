@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - new ServerFuture tokio and futures based server, #61
 - UdpStream & TcpSteam to support stream of messages with src address
 - TimeoutStream to wrap TcpStreams to help guard against malicious clients
+- Added Notify support to ClientFuture
 
 ### Changed
 - Split Server and Client into separate crates, #43

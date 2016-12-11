@@ -225,7 +225,7 @@ impl Catalog {
     response.id(request.get_id());
     response.op_code(OpCode::Query);
     response.message_type(MessageType::Response);
-    response.add_all_queries(request.get_queries());
+    response.add_queries(request.get_queries().into_iter().cloned());
 
     // TODO: the spec is very unclear on what to do with multiple queries
     //  we will search for each, in the future, maybe make this threaded to respond even faster.
@@ -239,18 +239,19 @@ impl Catalog {
         if !records.is_empty() {
           response.response_code(ResponseCode::NoError);
           response.authoritative(true);
-          response.add_all_answers(&records);
+          response.add_answers(records.into_iter().cloned());
 
           // get the NS records
           let ns = authority.get_ns(is_dnssec);
           if ns.is_empty() { warn!("there are no NS records for: {:?}", authority.get_origin()); }
           else {
-            response.add_all_name_servers(&ns);
+            response.add_name_servers(ns.into_iter().cloned());
           }
         } else {
           if is_dnssec {
             // get NSEC records
-            response.add_all_name_servers(&authority.get_nsec_records(query.get_name(), is_dnssec));
+            let nsecs = authority.get_nsec_records(query.get_name(), is_dnssec);
+            response.add_name_servers(nsecs.into_iter().cloned());
           }
 
           // in the not found case it's standard to return the SOA in the authority section
@@ -259,7 +260,7 @@ impl Catalog {
           let soa = authority.get_soa_secure(is_dnssec);
           if soa.is_empty() { warn!("there is no SOA record for: {:?}", authority.get_origin()); }
           else {
-            response.add_all_name_servers(&soa);
+            response.add_name_servers(soa.into_iter().cloned());
           }
         }
       } else {
