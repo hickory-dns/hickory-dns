@@ -435,8 +435,8 @@ pub trait ClientHandle: Clone {
   /// * `name` - the label which is being notified
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type which has been updated
-  /// * `record` - the new version of the record being notified
-  fn notify<R>(&mut self, name: domain::Name, query_class: DNSClass, query_type: RecordType, record: Option<R>)
+  /// * `rrset` - the new version of the record(s) being notified
+  fn notify<R>(&mut self, name: domain::Name, query_class: DNSClass, query_type: RecordType, rrset: Option<R>)
     -> Box<Future<Item=Message, Error=ClientError>> where R: IntoRecordSet {
     debug!("notifying: {} {:?}", name, query_type);
 
@@ -466,7 +466,7 @@ pub trait ClientHandle: Clone {
     message.add_query(query);
 
     // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7
-    if let Some(record) = record { message.add_answers(record.into_record_set()); }
+    if let Some(rrset) = rrset { message.add_answers(rrset.into_record_set()); }
 
     self.send(message)
   }
@@ -500,7 +500,7 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguments
   ///
-  /// * `record` - the record to create
+  /// * `rrset` - the record(s) to create
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
@@ -565,22 +565,24 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguments
   ///
-  /// * `record` - the record to append to an RRSet
+  /// * `rrset` - the record(s) to append to an RRSet
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   /// * `must_exist` - if true, the request will fail if the record does not exist
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be created.
-  fn append(&mut self,
-            record: Record,
-            zone_origin: domain::Name,
-            must_exist: bool)
-            -> Box<Future<Item=Message, Error=ClientError>> {
-    assert!(zone_origin.zone_of(record.get_name()));
+  fn append<R>(&mut self,
+               rrset: R,
+               zone_origin: domain::Name,
+               must_exist: bool)
+               -> Box<Future<Item=Message, Error=ClientError>>
+               where R: IntoRecordSet {
+    let rrset = rrset.into_record_set();
+    assert!(zone_origin.zone_of(rrset.get_name()));
 
     // for updates, the query section is used for the zone
     let mut zone: Query = Query::new();
-    zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+    zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
 
     // build the message
     let mut message: Message = Message::new();
@@ -588,12 +590,12 @@ pub trait ClientHandle: Clone {
     message.add_zone(zone);
 
     if must_exist {
-      let mut prerequisite = Record::with(record.get_name().clone(), record.get_rr_type(), 0);
+      let mut prerequisite = Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
       prerequisite.dns_class(DNSClass::ANY);
       message.add_pre_requisite(prerequisite);
     }
 
-    message.add_update(record);
+    message.add_updates(rrset);
 
     // Extended dns
     {

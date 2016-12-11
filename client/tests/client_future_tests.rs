@@ -198,6 +198,7 @@ fn test_create() {
   RecordType::A,
   Duration::minutes(5).num_seconds() as u32);
   record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+  let record = record;
 
 
   let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
@@ -230,19 +231,24 @@ fn test_create_multiple() {
                                 RecordType::A,
                                 Duration::minutes(5).num_seconds() as u32);
                                 record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+  let record = record;
 
-  let mut rrset = record.clone().into_record_set();
   let mut record2 = record.clone();
   record2.rdata(RData::A(Ipv4Addr::new(100,10,100,11)));
+  let record2 = record2;
+
+  let mut rrset = record.clone().into_record_set();
   rrset.insert(record2.clone(), 0);
+  let rrset = rrset;
 
   let result = io_loop.run(client.create(rrset.clone(), origin.clone())).expect("create failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
   let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
   assert_eq!(result.get_answers().len(), 2);
-  assert_eq!(result.get_answers()[0], record);
-  assert_eq!(result.get_answers()[1], record2);
+
+  assert!(result.get_answers().iter().any(|rr| *rr == record));
+  assert!(result.get_answers().iter().any(|rr| *rr == record2));
 
   // trying to create again should error
   // TODO: it would be cool to make this
@@ -267,6 +273,7 @@ fn test_append() {
   RecordType::A,
   Duration::minutes(5).num_seconds() as u32);
   record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+  let record = record;
 
   // first check the must_exist option
   let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("append failed");
@@ -283,18 +290,19 @@ fn test_append() {
   assert_eq!(result.get_answers()[0], record);
 
   // will fail if already set and not the same value.
-  let mut record = record.clone();
-  record.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+  let mut record2 = record.clone();
+  record2.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+  let record2 = record2;
 
-  let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
+  let result = io_loop.run(client.append(record2.clone(), origin.clone(), true)).expect("create failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
   let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
   assert_eq!(result.get_answers().len(), 2);
 
-  assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(100,10,100,10) } else { false }));
-  assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
+  assert!(result.get_answers().iter().any(|rr| *rr == record));
+  assert!(result.get_answers().iter().any(|rr| *rr == record2));
 
   // show that appending the same thing again is ok, but doesn't add any records
   let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
@@ -303,6 +311,62 @@ fn test_append() {
   let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
   assert_eq!(result.get_answers().len(), 2);
+}
+
+#[test]
+fn test_append_multiple() {
+  let mut io_loop = Core::new().unwrap();
+  let (mut client, origin) = create_sig0_ready_client(&io_loop);
+
+  // append a record
+  let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+  RecordType::A,
+  Duration::minutes(5).num_seconds() as u32);
+  record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+
+  // first check the must_exist option
+  let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("append failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
+
+  // next append to a non-existent RRset
+  let result = io_loop.run(client.append(record.clone(), origin.clone(), false)).expect("append failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+  // verify record contents
+  let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+  assert_eq!(result.get_answers().len(), 1);
+  assert_eq!(result.get_answers()[0], record);
+
+  // will fail if already set and not the same value.
+  let mut record2 = record.clone();
+  record2.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+  let mut record3 = record.clone();
+  record3.rdata(RData::A(Ipv4Addr::new(101,11,101,12)));
+
+  // build the append set
+  let mut rrset = record2.clone().into_record_set();
+  rrset.insert(record3.clone(), 0);
+
+  let result = io_loop.run(client.append(rrset, origin.clone(), true)).expect("create failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+  let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+  assert_eq!(result.get_answers().len(), 3);
+
+  assert!(result.get_answers().iter().any(|rr| *rr == record));
+  assert!(result.get_answers().iter().any(|rr| *rr == record2));
+  assert!(result.get_answers().iter().any(|rr| *rr == record3));
+
+  // show that appending the same thing again is ok, but doesn't add any records
+  // TODO: technically this is a test for the Server, not client...
+  let result = io_loop.run(client.append(record.clone(), origin.clone(), true)).expect("create failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+  let result = io_loop.run(client.query(record.get_name().clone(), record.get_dns_class(), record.get_rr_type())).expect("query failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+  assert_eq!(result.get_answers().len(), 3);
 }
 
 #[test]
@@ -315,6 +379,7 @@ fn test_compare_and_swap() {
   RecordType::A,
   Duration::minutes(5).num_seconds() as u32);
   record.rdata(RData::A(Ipv4Addr::new(100,10,100,10)));
+  let record = record;
 
   let result = io_loop.run(client.create(record.clone(), origin.clone())).expect("create failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
@@ -322,6 +387,7 @@ fn test_compare_and_swap() {
   let current = record;
   let mut new = current.clone();
   new.rdata(RData::A(Ipv4Addr::new(101,11,101,11)));
+  let new = new;
 
   let result = io_loop.run(client.compare_and_swap(current.clone(), new.clone(), origin.clone())).expect("compare_and_swap failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
@@ -334,6 +400,7 @@ fn test_compare_and_swap() {
   // check the it fails if tried again.
   let mut new = new;
   new.rdata(RData::A(Ipv4Addr::new(102,12,102,12)));
+  let new = new;
 
   let result = io_loop.run(client.compare_and_swap(current, new.clone(), origin.clone())).expect("compare_and_swap failed");
   assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);

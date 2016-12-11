@@ -77,11 +77,21 @@ impl RecordSet {
     self.record_type
   }
 
+  /// Sets the DNSClass to the specified value
+  pub fn set_dns_class(&mut self, dns_class: DNSClass) {
+    self.dns_class = dns_class;
+  }
+
   /// # Return value
   ///
   /// `DNSClass` of the RecordSet
   pub fn get_dns_class(&self) -> DNSClass {
     self.dns_class
+  }
+
+  /// Sets the TTL, in seconds, to the specified value
+  pub fn set_ttl(&mut self, ttl: u32) {
+    self.ttl = ttl;
   }
 
   /// # Return value

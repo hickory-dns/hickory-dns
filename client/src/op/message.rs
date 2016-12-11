@@ -495,7 +495,11 @@ pub trait UpdateMessage: Debug {
   fn get_id(&self) -> u16;
   fn add_zone(&mut self, query: Query);
   fn add_pre_requisite(&mut self, record: Record);
+  #[deprecated = "will be removed post 0.9.x"]
   fn add_all_pre_requisites(&mut self, vector: &[&Record]);
+  fn add_pre_requisites<R,I>(&mut self, records: R)
+    where R: IntoIterator<Item=Record, IntoIter=I>,
+          I: Iterator<Item=Record>;
   fn add_update(&mut self, record: Record);
   #[deprecated = "will be removed post 0.9.x"]
   fn add_all_updates(&mut self, vector: &[&Record]);
@@ -524,6 +528,11 @@ impl UpdateMessage for Message {
   fn add_zone(&mut self, query: Query) { self.add_query(query); }
   fn add_pre_requisite(&mut self, record: Record) { self.add_answer(record); }
   fn add_all_pre_requisites(&mut self, vector: &[&Record]) { self.add_answers(vector.into_iter().map(|r| (*r).clone())); }
+  fn add_pre_requisites<R,I>(&mut self, records: R)
+    where R: IntoIterator<Item=Record, IntoIter=I>,
+          I: Iterator<Item=Record> {
+    self.add_answers(records);
+  }
   fn add_update(&mut self, record: Record) { self.add_name_server(record); }
   fn add_all_updates(&mut self, vector: &[&Record]) { self.add_name_servers(vector.into_iter().map(|r| (*r).clone())); }
   fn add_updates<R,I>(&mut self, records: R)
