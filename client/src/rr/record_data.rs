@@ -758,9 +758,33 @@ impl RData {
       RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
     }
   }
+
+  pub fn to_record_type(&self) -> RecordType {
+    match *self {
+      RData::A(..) => RecordType::A,
+      RData::AAAA(..) => RecordType::AAAA,
+      RData::CNAME(..) => RecordType::CNAME,
+      RData::DS(..) => RecordType::DS,
+      RData::KEY(..) => RecordType::KEY,
+      RData::DNSKEY(..) => RecordType::DNSKEY,
+      RData::MX(..) => RecordType::MX,
+      RData::NS(..) => RecordType::NS,
+      RData::NSEC(..) => RecordType::NSEC,
+      RData::NSEC3(..) => RecordType::NSEC3,
+      RData::NSEC3PARAM(..) => RecordType::NSEC3PARAM,
+      RData::NULL(..) => RecordType::NULL,
+      RData::OPT(..) => RecordType::OPT,
+      RData::PTR(..) => RecordType::PTR,
+      RData::SIG(..) => RecordType::SIG,
+      RData::SOA(..) => RecordType::SOA,
+      RData::SRV(..) => RecordType::SRV,
+      RData::TXT(..) => RecordType::TXT,
+    }
+  }
 }
 
 // TODO: this is kinda broken right now since it can't cover all types.
+#[deprecated]
 #[cfg(test)]
 impl<'a> From<&'a RData> for RecordType {
   fn from(rdata: &'a RData) -> Self {

@@ -310,12 +310,12 @@ impl Authority {
     //                return (NXRRSET)
     for require in pre_requisites {
       if require.get_ttl() != 0 {
-        debug!("ttl must be 0 for: {:?}", require);
+        warn!("ttl must be 0 for: {:?}", require);
         return Err(ResponseCode::FormErr);
       }
 
       if !self.origin.zone_of(require.get_name()) {
-        debug!("{} is not a zone_of {}", require.get_name(), self.origin);
+        warn!("{} is not a zone_of {}", require.get_name(), self.origin);
         return Err(ResponseCode::NotZone);
       }
 

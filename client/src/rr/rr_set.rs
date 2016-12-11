@@ -42,6 +42,24 @@ impl RecordSet {
           ttl: 0, records: Vec::new(), rrsigs: Vec::new(), serial: serial}
   }
 
+  /// Creates a new Resource Record Set.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - The label for the `RecordSet`
+  /// * `record_type` - `RecordType` of this `RecordSet`, all records in the `RecordSet` must be of the
+  ///                   specified `RecordType`.
+  /// * `ttl` - time-to-live for the `RecordSet` in seconds.
+  ///
+  /// # Return value
+  ///
+  /// The newly created Resource Record Set
+  /// TODO: make all cloned params pass by value
+  pub fn with_ttl(name: Name, record_type: RecordType, ttl: u32) -> Self {
+    RecordSet{name: name, record_type: record_type, dns_class: DNSClass::IN,
+              ttl: ttl, records: Vec::new(), rrsigs: Vec::new(), serial: 0}
+  }
+
   /// Creates a new Resource Record Set from a Record
   ///
   /// # Arguments
@@ -78,8 +96,13 @@ impl RecordSet {
   }
 
   /// Sets the DNSClass to the specified value
+  ///
+  /// This will traverse every record and associate with it the specified dns_class
   pub fn set_dns_class(&mut self, dns_class: DNSClass) {
     self.dns_class = dns_class;
+    for r in self.records.iter_mut() {
+      r.dns_class(dns_class);
+    }
   }
 
   /// # Return value
@@ -90,8 +113,13 @@ impl RecordSet {
   }
 
   /// Sets the TTL, in seconds, to the specified value
+  ///
+  /// This will traverse every record and associate with it the specified ttl
   pub fn set_ttl(&mut self, ttl: u32) {
     self.ttl = ttl;
+    for r in self.records.iter_mut() {
+      r.ttl(ttl);
+    }
   }
 
   /// # Return value
@@ -147,6 +175,19 @@ impl RecordSet {
   fn updated(&mut self, serial: u32) {
     self.serial = serial;
     self.rrsigs.clear(); // on updates, the rrsigs are invalid
+  }
+
+  /// creates a new Record as part of this RecordSet, adding the associated RData
+  pub fn new_record(&mut self, rdata: RData) -> &Record {
+    assert_eq!(self.record_type, rdata.to_record_type());
+
+    let mut record = Record::with(self.name.clone(),
+                                  self.record_type,
+                                  self.ttl);
+    record.rdata(rdata.clone()); // TODO: remove clone()? this is only needed for the record return
+    self.insert(record, 0);
+
+    self.records.iter().find(|r| *r.get_rdata() == rdata).expect("insert failed? 172")
   }
 
   /// Inserts a new Resource Record into the Set.

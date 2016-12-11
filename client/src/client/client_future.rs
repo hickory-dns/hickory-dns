@@ -643,16 +643,21 @@ pub trait ClientHandle: Clone {
   ///
   /// # Arguements
   ///
-  /// * `current` - the current current which must exist for the swap to complete
-  /// * `new` - the new record with which to replace the current record
+  /// * `current` - the current rrset which must exist for the swap to complete
+  /// * `new` - the new rrset with which to replace the current rrset
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
-  fn compare_and_swap(&mut self,
-                      current: Record,
-                      new: Record,
-                      zone_origin: domain::Name)
-                      -> Box<Future<Item=Message, Error=ClientError>> {
+  fn compare_and_swap<C,N>(&mut self,
+                           current: C,
+                           new: N,
+                           zone_origin: domain::Name)
+                           -> Box<Future<Item=Message, Error=ClientError>>
+                           where C: IntoRecordSet,
+                                 N: IntoRecordSet {
+    let current = current.into_record_set();
+    let new = new.into_record_set();
+
     assert!(zone_origin.zone_of(current.get_name()));
     assert!(zone_origin.zone_of(new.get_name()));
 
@@ -667,19 +672,19 @@ pub trait ClientHandle: Clone {
 
     // make sure the record is what is expected
     let mut prerequisite = current.clone();
-    prerequisite.ttl(0);
-    message.add_pre_requisite(prerequisite);
+    prerequisite.set_ttl(0);
+    message.add_pre_requisites(prerequisite);
 
     // add the delete for the old record
     let mut delete = current;
     // the class must be none for delete
-    delete.dns_class(DNSClass::NONE);
-    // the TTL shoudl be 0
-    delete.ttl(0);
-    message.add_update(delete);
+    delete.set_dns_class(DNSClass::NONE);
+    // the TTL should be 0
+    delete.set_ttl(0);
+    message.add_updates(delete);
 
     // insert the new record...
-    message.add_update(new);
+    message.add_updates(new);
 
     // Extended dns
     {

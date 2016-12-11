@@ -1,5 +1,6 @@
 extern crate chrono;
 extern crate futures;
+extern crate log;
 extern crate openssl;
 extern crate tokio_core;
 extern crate trust_dns;
@@ -222,7 +223,7 @@ fn test_create() {
 }
 
 #[test]
-fn test_create_multiple() {
+fn test_create_multi() {
   let mut io_loop = Core::new().unwrap();
   let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
@@ -314,7 +315,7 @@ fn test_append() {
 }
 
 #[test]
-fn test_append_multiple() {
+fn test_append_multi() {
   let mut io_loop = Core::new().unwrap();
   let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
@@ -371,6 +372,10 @@ fn test_append_multiple() {
 
 #[test]
 fn test_compare_and_swap() {
+  use log::LogLevel;
+  use trust_dns;
+  trust_dns::logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
+
   let mut io_loop = Core::new().unwrap();
   let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
@@ -395,20 +400,74 @@ fn test_compare_and_swap() {
   let result = io_loop.run(client.query(new.get_name().clone(), new.get_dns_class(), new.get_rr_type())).expect("query failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
   assert_eq!(result.get_answers().len(), 1);
-  assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
+  assert!(result.get_answers().iter().any(|rr| *rr == new));
+  assert!(!result.get_answers().iter().any(|rr| *rr == current));
 
   // check the it fails if tried again.
-  let mut new = new;
-  new.rdata(RData::A(Ipv4Addr::new(102,12,102,12)));
-  let new = new;
+  let mut not = new.clone();
+  not.rdata(RData::A(Ipv4Addr::new(102,12,102,12)));
+  let not = not;
 
-  let result = io_loop.run(client.compare_and_swap(current, new.clone(), origin.clone())).expect("compare_and_swap failed");
+  let result = io_loop.run(client.compare_and_swap(current, not.clone(), origin.clone())).expect("compare_and_swap failed");
   assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
 
   let result = io_loop.run(client.query(new.get_name().clone(), new.get_dns_class(), new.get_rr_type())).expect("query failed");
   assert_eq!(result.get_response_code(), ResponseCode::NoError);
   assert_eq!(result.get_answers().len(), 1);
-  assert!(result.get_answers().iter().any(|rr| if let &RData::A(ref ip) = rr.get_rdata() { *ip ==  Ipv4Addr::new(101,11,101,11) } else { false }));
+  assert!(result.get_answers().iter().any(|rr| *rr == new));
+  assert!(!result.get_answers().iter().any(|rr| *rr == not));
+}
+
+#[test]
+fn test_compare_and_swap_multi() {
+  use log::LogLevel;
+  use trust_dns;
+  trust_dns::logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
+
+  let mut io_loop = Core::new().unwrap();
+  let (mut client, origin) = create_sig0_ready_client(&io_loop);
+
+  // create a record
+  let mut current = RecordSet::with_ttl(domain::Name::with_labels(vec!["new".to_string(), "example".to_string(), "com".to_string()]),
+                                        RecordType::A,
+                                        Duration::minutes(5).num_seconds() as u32);
+
+  let current1 = current.new_record(RData::A(Ipv4Addr::new(100,10,100,10))).clone();
+  let current2 = current.new_record(RData::A(Ipv4Addr::new(100,10,100,11))).clone();
+  let current = current;
+
+  let result = io_loop.run(client.create(current.clone(), origin.clone())).expect("create failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+  let mut new = RecordSet::with_ttl(current.get_name().clone(), current.get_record_type(), current.get_ttl());
+  let new1 = new.new_record(RData::A(Ipv4Addr::new(100,10,101,10))).clone();
+  let new2 = new.new_record(RData::A(Ipv4Addr::new(100,10,101,11))).clone();
+  let new = new;
+
+  let result = io_loop.run(client.compare_and_swap(current.clone(), new.clone(), origin.clone())).expect("compare_and_swap failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+
+  let result = io_loop.run(client.query(new.get_name().clone(), new.get_dns_class(), new.get_record_type())).expect("query failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+  assert_eq!(result.get_answers().len(), 2);
+  assert!(result.get_answers().iter().any(|rr| *rr == new1));
+  assert!(result.get_answers().iter().any(|rr| *rr == new2));
+  assert!(!result.get_answers().iter().any(|rr| *rr == current1));
+  assert!(!result.get_answers().iter().any(|rr| *rr == current2));
+
+  // check the it fails if tried again.
+  let mut not = new1.clone();
+  not.rdata(RData::A(Ipv4Addr::new(102,12,102,12)));
+  let not = not;
+
+  let result = io_loop.run(client.compare_and_swap(current, not.clone(), origin.clone())).expect("compare_and_swap failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
+
+  let result = io_loop.run(client.query(new.get_name().clone(), new.get_dns_class(), new.get_record_type())).expect("query failed");
+  assert_eq!(result.get_response_code(), ResponseCode::NoError);
+  assert_eq!(result.get_answers().len(), 2);
+  assert!(result.get_answers().iter().any(|rr| *rr == new1));
+  assert!(!result.get_answers().iter().any(|rr| *rr == not));
 }
 
 #[test]
