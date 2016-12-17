@@ -8,11 +8,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - UdpStream & TcpSteam to support stream of messages with src address
 - TimeoutStream to wrap TcpStreams to help guard against malicious clients
 - Added Notify support to ClientFuture
+- Added IntoRecordSet and conversion impls for RecordSet and Record
 
 ### Changed
 - Split Server and Client into separate crates, #43
 - Moved many integration tests to `tests` from `src`, #52
 - Migrated all handles to new futures::sync::mpsc impls
+- Modified all requisite client methods for IntoRecordSet.
+- All client methods now support multiple records per query, update, notify and delete
 
 ### Fixed
 - Flush TcpStream after fully sending Message

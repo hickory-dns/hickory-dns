@@ -300,6 +300,7 @@ impl DnsHandler for (UdpSocket, VecDeque<UdpHandler>) {
 }
 
 impl DnsHandler for TcpHandler {
+  #[allow(deprecated)]
   fn handle(&mut self, events: EventSet, catalog: &Arc<Catalog>) -> (Option<EventSet>, Option<(DnsHandlerType, EventSet)>) {
     if events.is_error() {
       warn!("closing, error from: {:?}", self.get_stream());

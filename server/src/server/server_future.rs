@@ -38,6 +38,8 @@ impl ServerFuture {
 
   /// Register a UDP socket. Should be bound before calling this function.
   pub fn register_socket(&self, socket: std::net::UdpSocket) {
+    debug!("registered udp: {:?}", socket);
+
     // create the new UdpStream
     let (buf_stream, stream_handle) = UdpStream::with_bound(socket, self.io_loop.handle());
     let request_stream = RequestStream::new(buf_stream, stream_handle);
@@ -71,6 +73,7 @@ impl ServerFuture {
     // TODO: this is an awkward interface with socketaddr...
     let addr = listener.local_addr().expect("listener is not bound?");
     let listener = tokio_core::net::TcpListener::from_listener(listener, &addr, &handle).expect("could not register listener");
+    debug!("registered tcp: {:?}", listener);
 
     // for each incoming request...
     self.io_loop.handle().spawn(
