@@ -57,6 +57,7 @@ impl<'a> fmt::Debug for TestClientConnection<'a> {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_query_nonet() {
   let authority = create_example();
   let mut catalog = Catalog::new();
@@ -69,6 +70,7 @@ fn test_query_nonet() {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_query_udp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = UdpClientConnection::new(addr).unwrap();
@@ -79,6 +81,7 @@ fn test_query_udp() {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_query_tcp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = TcpClientConnection::new(addr).unwrap();
@@ -113,6 +116,7 @@ fn test_query<C: ClientConnection>(client: Client<C>) {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_secure_query_example_nonet() {
   let authority = create_secure_example();
 
@@ -134,6 +138,7 @@ fn test_secure_query_example_nonet() {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_secure_query_example_udp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = UdpClientConnection::new(addr).unwrap();
@@ -144,6 +149,7 @@ fn test_secure_query_example_udp() {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_secure_query_example_tcp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = TcpClientConnection::new(addr).unwrap();
@@ -178,6 +184,7 @@ fn test_secure_query_example<C: ClientConnection>(client: Client<C>) {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_dnssec_rollernet_td_udp() {
   let c = Client::new(UdpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap());
   c.secure_query(
@@ -189,6 +196,7 @@ fn test_dnssec_rollernet_td_udp() {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_dnssec_rollernet_td_tcp() {
   let c = Client::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap());
   c.secure_query(
@@ -200,6 +208,7 @@ fn test_dnssec_rollernet_td_tcp() {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_dnssec_rollernet_td_tcp_mixed_case() {
   let c = Client::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap());
   c.secure_query(
@@ -210,6 +219,7 @@ fn test_dnssec_rollernet_td_tcp_mixed_case() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_nsec_query_example_nonet() {
   let authority = create_secure_example();
 
@@ -231,6 +241,7 @@ fn test_nsec_query_example_nonet() {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_nsec_query_example_udp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = UdpClientConnection::new(addr).unwrap();
@@ -240,6 +251,7 @@ fn test_nsec_query_example_udp() {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_nsec_query_example_tcp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = TcpClientConnection::new(addr).unwrap();
@@ -261,6 +273,7 @@ fn test_nsec_query_example<C: ClientConnection>(client: Client<C>) {
 
 #[test]
 #[ignore]
+#[allow(deprecated)]
 fn test_nsec_query_type() {
   let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
 

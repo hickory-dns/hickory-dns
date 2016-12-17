@@ -62,6 +62,7 @@ fn test_server_www_tcp() {
   //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
 }
 
+#[allow(deprecated)]
 #[allow(dead_code)]
 fn client_thread_www<C: ClientConnection>(conn: C) {
   let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
@@ -102,6 +103,7 @@ fn new_catalog() -> Catalog {
   catalog
 }
 
+#[allow(deprecated)]
 fn server_thread_udp(udp_socket: UdpSocket) {
   let catalog = new_catalog();
 
@@ -111,6 +113,7 @@ fn server_thread_udp(udp_socket: UdpSocket) {
   server.listen().unwrap();
 }
 
+#[allow(deprecated)]
 fn server_thread_tcp(tcp_listener: TcpListener) {
   let catalog = new_catalog();
   let mut server = Server::new(catalog);

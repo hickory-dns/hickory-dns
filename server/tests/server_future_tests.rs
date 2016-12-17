@@ -57,6 +57,7 @@ fn test_server_www_tcp() {
   //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
 }
 
+#[allow(deprecated)] // TODO: for now...
 fn client_thread_www<C: ClientConnection>(conn: C) {
   let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
   println!("about to query server: {:?}", conn);

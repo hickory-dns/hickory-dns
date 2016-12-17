@@ -274,7 +274,7 @@ pub fn main() {
   }
 
   banner();
-  println!("awaiting connections...");
+  info!("awaiting connections...");
   if let Err(e) = server.listen() {
     error!("failed to listen: {}", e);
   }
