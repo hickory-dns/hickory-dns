@@ -499,7 +499,6 @@ dependencies = [
  "rustc-serialize 0.3.22 (registry+https://github.com/rust-lang/crates.io-index)",
  "time 0.1.35 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "trust-dns-server 0.9.0",
 ]
 
 [[package]]
