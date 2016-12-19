@@ -15,7 +15,10 @@
  */
 use std::io::Error as IoError;
 
+#[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
+#[cfg(not(feature = "openssl"))]
+use self::not_openssl::SslErrorStack;
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -54,4 +57,25 @@ error_chain! {
         display("{}", msg)
       }
     }
+}
+
+#[cfg(not(feature = "openssl"))]
+pub mod not_openssl {
+  use std;
+
+  #[derive(Debug)]
+  pub struct SslErrorStack;
+
+  impl std::fmt::Display for SslErrorStack {
+    fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+      Ok(())
+    }
+  }
+
+
+  impl std::error::Error for SslErrorStack {
+    fn description(&self) -> &str {
+      "openssl feature not enabled"
+    }
+  }
 }

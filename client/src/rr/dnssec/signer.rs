@@ -15,17 +15,24 @@
  */
 
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
-
+#[cfg(feature = "openssl")]
 use chrono::Duration;
+#[cfg(feature = "openssl")]
 use openssl::crypto::rsa::RSA;
 
+#[cfg(feature = "openssl")]
 use ::op::Message;
+#[cfg(feature = "openssl")]
 use ::rr::{DNSClass, Name, Record, RecordType, RData};
+#[cfg(feature = "openssl")]
 use ::rr::dnssec::{Algorithm, DigestType, DnsSecErrorKind, DnsSecResult};
+#[cfg(feature = "openssl")]
 use ::rr::rdata::{DNSKEY, sig, SIG};
+#[cfg(feature = "openssl")]
 use ::serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
 /// Use for performing signing and validation of DNSSec based components.
+#[cfg(feature = "openssl")]
 pub struct Signer {
   algorithm: Algorithm,
   rsa: RSA,
@@ -33,6 +40,10 @@ pub struct Signer {
   sig_duration: Duration,
 }
 
+#[cfg(not(feature = "openssl"))]
+pub struct Signer;
+
+#[cfg(feature = "openssl")]
 impl Signer {
   /// Version of Signer for verifying RRSIGs and SIG0 records.
   pub fn new_verifier(algorithm: Algorithm, rsa: RSA, signer_name: Name) -> Self {
@@ -573,6 +584,7 @@ impl Signer {
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_sign_and_verify_message_sig0() {
   use ::rr::Name;
   use ::op::{Message, Query, UpdateMessage};
@@ -606,6 +618,7 @@ fn test_sign_and_verify_message_sig0() {
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_hash_rrset() {
   use ::rr::{Name, RecordType};
   use ::rr::rdata::SIG;
@@ -634,6 +647,7 @@ fn test_hash_rrset() {
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_sign_and_verify_rrset() {
   use ::rr::RecordType;
   use ::rr::Name;
@@ -655,6 +669,7 @@ fn test_sign_and_verify_rrset() {
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_calculate_key_tag() {
   let rsa = RSA::generate(512).unwrap();
   println!("pkey: {:?}", rsa.public_key_to_pem().unwrap());

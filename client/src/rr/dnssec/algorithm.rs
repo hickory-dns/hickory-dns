@@ -15,10 +15,13 @@
  */
 use std::str::FromStr;
 
+#[cfg(feature = "openssl")]
 use openssl::crypto::rsa::RSA;
+#[cfg(feature = "openssl")]
 use openssl::bn::BigNum;
 
-use ::rr::dnssec::{DigestType, DnsSecResult};
+#[cfg(feature = "openssl")]
+use ::rr::dnssec::DigestType;
 use ::serialize::binary::*;
 use ::error::*;
 
@@ -108,6 +111,7 @@ pub enum Algorithm {
 }
 
 impl Algorithm {
+  #[cfg(feature = "openssl")]
   pub fn sign(&self, private_key: &RSA, data: &[u8]) -> DnsSecResult<Vec<u8>> {
     let digest_type = DigestType::from(*self);
     // calculate the hash...
@@ -118,6 +122,7 @@ impl Algorithm {
 
   }
 
+  #[cfg(feature = "openssl")]
   pub fn verify(&self, public_key: &RSA, data: &[u8], signature: &[u8]) -> DnsSecResult<()> {
     let digest_type = DigestType::from(*self);
 
@@ -150,6 +155,7 @@ impl Algorithm {
     }
   }
 
+  #[cfg(feature = "openssl")]
   pub fn public_key_from_vec(&self, public_key: &[u8]) -> DecodeResult<RSA> {
     match *self {
       Algorithm::RSASHA1 |
@@ -203,6 +209,12 @@ impl Algorithm {
     }
   }
 
+  #[cfg(not(feature = "openssl"))]
+  pub fn public_key_from_vec(&self, _: &[u8]) -> DecodeResult<()> {
+    Err(DecodeErrorKind::Message("openssl feature not enabled").into())
+  }
+
+  #[cfg(feature = "openssl")]
   pub fn public_key_to_vec(&self, public_key: &RSA) -> Vec<u8> {
     match *self {
       Algorithm::RSASHA1 |
@@ -287,8 +299,10 @@ impl From<Algorithm> for u8 {
 }
 
 #[cfg(test)]
+#[cfg(feature = "openssl")]
 mod test {
   use super::Algorithm;
+  #[cfg(feature = "openssl")]
   use openssl::crypto::rsa;
 
   #[test]

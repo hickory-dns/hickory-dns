@@ -18,11 +18,14 @@ use std::io::Error as IoError;
 
 use futures::Canceled;
 use futures::sync::mpsc::SendError;
+#[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
+#[cfg(not(feature = "openssl"))]
+use ::error::dnssec_error::not_openssl::SslErrorStack;
 
 use ::op::ResponseCode;
 use ::rr::{Name, Record};
-use ::rr::dnssec::{DnsSecError, DnsSecErrorKind};
+use ::error::{DnsSecError, DnsSecErrorKind};
 
 error_chain! {
     // The type defined for this error. These are the conventional
