@@ -13,12 +13,17 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(feature = "openssl")]
 use std::io::Write;
+#[cfg(feature = "openssl")]
 use openssl::crypto::hash;
 
 use ::error::*;
-use ::rr::dnssec::{DigestType, DnsSecResult};
+#[cfg(feature = "openssl")]
+use ::rr::dnssec::DigestType;
+#[cfg(feature = "openssl")]
 use ::rr::Name;
+#[cfg(feature = "openssl")]
 use ::serialize::binary::{BinEncoder, BinSerializable};
 
 // RFC 5155                         NSEC3                        March 2008
@@ -136,6 +141,7 @@ impl Nsec3HashAlgorithm {
   //    3.  If the owner name is a wildcard name, the owner name is in its
   //        original unexpanded form, including the "*" label (no wildcard
   //        substitution);
+  #[cfg(feature = "openssl")]
   pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> DnsSecResult<Vec<u8>> {
     match *self {
       // if there ever is more than just SHA1 support, this should be a genericized method
@@ -153,6 +159,7 @@ impl Nsec3HashAlgorithm {
   }
 
   // until there is another supported algorithm, just hardcoded to this.
+  #[cfg(feature = "openssl")]
   fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> DnsSecResult<Vec<u8>> {
     hash::Hasher::new(DigestType::SHA1.to_hash())
                  .map_err(|e| e.into())
@@ -178,6 +185,7 @@ impl From<Nsec3HashAlgorithm> for u8 {
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_hash() {
 
   let name = Name::new().label("www").label("example").label("com");
@@ -189,6 +197,7 @@ fn test_hash() {
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_known_hashes() {
   // H(example)       = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom
   assert_eq!(hash_with_base32("example"), "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom");
@@ -225,6 +234,7 @@ fn test_known_hashes() {
 }
 
 #[cfg(test)]
+#[cfg(feature = "openssl")]
 fn hash_with_base32(name: &str) -> String {
   use data_encoding::base32hex;
 

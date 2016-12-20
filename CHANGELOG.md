@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.9.1
+### Changed
+- OpenSSL is now an optional feature for the client
+
 ## 0.9.0
 ### Added
 - new ServerFuture tokio and futures based server, #61

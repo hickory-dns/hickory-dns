@@ -16,8 +16,11 @@
 
 use std::string::FromUtf8Error;
 
+#[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
-use ::rr::dnssec::{DnsSecError, DnsSecErrorKind};
+#[cfg(not(feature = "openssl"))]
+use ::error::dnssec_error::not_openssl::SslErrorStack;
+use ::error::{DnsSecError, DnsSecErrorKind};
 
 use ::rr::Name;
 

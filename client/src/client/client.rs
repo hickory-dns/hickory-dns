@@ -13,11 +13,15 @@
 // limitations under the License.
 
 use std::cell::RefCell;
+#[cfg(feature = "openssl")]
 use std::collections::HashSet;
+#[cfg(feature = "openssl")]
 use std::sync::Arc as Rc;
+#[cfg(feature = "openssl")]
 use std::convert::From;
 
 use chrono::UTC;
+#[cfg(feature = "openssl")]
 use data_encoding::base32hex;
 use rand;
 
@@ -25,8 +29,12 @@ use ::error::*;
 use ::rr::{DNSClass, RecordType, Record, RData};
 use ::rr::rdata::NULL;
 use ::rr::domain;
-use ::rr::dnssec::{Signer, TrustAnchor};
-use ::op::{ Message, MessageType, OpCode, Query, ResponseCode, UpdateMessage };
+use ::rr::dnssec::Signer;
+#[cfg(feature = "openssl")]
+use ::rr::dnssec::TrustAnchor;
+use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
+#[cfg(feature = "openssl")]
+use ::op::ResponseCode;
 use ::serialize::binary::*;
 use ::client::ClientConnection;
 
@@ -40,6 +48,7 @@ use ::client::ClientConnection;
 #[deprecated = "see trust_dns::client::ClientFuture"]
 pub struct Client<C: ClientConnection> {
   client_connection: RefCell<C>,
+  #[cfg(feature = "openssl")]
   trust_anchor: TrustAnchor,
 }
 
@@ -51,10 +60,22 @@ impl<C: ClientConnection> Client<C> {
   ///
   /// * `client_connection` - the client_connection to use for all communication
   #[allow(deprecated)]
+  #[cfg(feature = "openssl")]
   pub fn new(client_connection: C) -> Client<C> {
-    Client{ client_connection: RefCell::new(client_connection),
-            trust_anchor: TrustAnchor::default() }
+    Self::with_trust_anchor(client_connection, TrustAnchor::default())
   }
+
+  /// Creates a new DNS client with the specified connection type
+  ///
+  /// # Arguments
+  ///
+  /// * `client_connection` - the client_connection to use for all communication
+  #[allow(deprecated)]
+  #[cfg(not(feature = "openssl"))]
+  pub fn new(client_connection: C) -> Client<C> {
+    Client{ client_connection: RefCell::new(client_connection) }
+  }
+
 
   /// This variant allows for the trust_anchor to be replaced
   ///
@@ -64,6 +85,7 @@ impl<C: ClientConnection> Client<C> {
   /// * `trust_anchor` - the set of trusted DNSKEY public_keys, by default this only contains the
   ///                    root public_key.
   #[allow(deprecated)]
+  #[cfg(feature = "openssl")]
   pub fn with_trust_anchor(client_connection: C, trust_anchor: TrustAnchor) -> Client<C> {
     Client{ client_connection: RefCell::new(client_connection),
             trust_anchor: trust_anchor }
@@ -89,6 +111,7 @@ impl<C: ClientConnection> Client<C> {
   /// * `query_name` - the label to lookup
   /// * `query_class` - most likely this should always be DNSClass::IN
   /// * `query_type` - record type to lookup
+  #[cfg(feature = "openssl")]
   pub fn secure_query(&self, query_name: &domain::Name, query_class: DNSClass, query_type: RecordType) -> ClientResult<Message> {
     // TODO: if we knew we were talking with a DNS server that supported multiple queries, these
     //  could be a single multiple query request...
@@ -164,6 +187,7 @@ impl<C: ClientConnection> Client<C> {
 
   /// Verifies a record set against the supplied signatures, looking up the DNSKey chain.
   /// returns the chain of proof or an error if there is none.
+  #[cfg(feature = "openssl")]
   fn recursive_query_verify(&self, name: &domain::Name, rrset: Vec<&Record>, rrsigs: Vec<&Record>,
     query_type: RecordType, query_class: DNSClass) -> ClientResult<Vec<Record>> {
 
@@ -252,6 +276,7 @@ impl<C: ClientConnection> Client<C> {
 
   /// attempts to verify the DNSKey against the DS of the parent.
   /// returns the chain of proof or an error if there is none.
+  #[cfg(feature = "openssl")]
   fn verify_dnskey(&self, dnskey: &Record) -> ClientResult<Vec<Record>> {
     let name: &domain::Name = dnskey.get_name();
 
@@ -366,6 +391,7 @@ impl<C: ClientConnection> Client<C> {
   //  Since a validated NSEC RR proves the existence of both itself and its
   //  corresponding RRSIG RR, a validator MUST ignore the settings of the
   //  NSEC and RRSIG bits in an NSEC RR.
+  #[cfg(feature = "openssl")]
   fn verify_nsec(&self, query_name: &domain::Name, query_type: RecordType,
                  _: DNSClass, nsecs: Vec<&Record>) -> ClientResult<()> {
     // first look for a record with the same name
@@ -465,6 +491,7 @@ impl<C: ClientConnection> Client<C> {
   //    encloser proof for X" means that the algorithm above (or an
   //    equivalent algorithm) proves that X does not exist by proving that an
   //    ancestor of X is its closest encloser.
+  #[cfg(feature = "openssl")]
   fn verify_nsec3(&self, query_name: &domain::Name, query_type: RecordType,
                   _: DNSClass, soa: Option<&Record>,
                   nsec3s: Vec<&Record>) -> ClientResult<()> {

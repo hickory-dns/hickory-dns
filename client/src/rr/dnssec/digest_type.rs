@@ -13,9 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+#[cfg(feature = "openssl")]
 use openssl::crypto::hash;
 
-use ::rr::dnssec::{Algorithm, DnsSecResult};
+use ::rr::dnssec::Algorithm;
 use ::error::*;
 
 // 0	Reserved	-	[RFC3658]
@@ -45,6 +46,7 @@ impl DigestType {
     }
   }
 
+  #[cfg(feature = "openssl")]
   pub fn to_hash(&self) -> hash::Type {
     match *self {
       DigestType::SHA1 => hash::Type::SHA1,
@@ -54,8 +56,14 @@ impl DigestType {
     }
   }
 
+  #[cfg(feature = "openssl")]
   pub fn hash(&self, data: &[u8]) -> DnsSecResult<Vec<u8>> {
     hash::hash(self.to_hash(), data).map_err(|e| e.into())
+  }
+
+  #[cfg(not(feature = "openssl"))]
+  pub fn hash(&self, _: &[u8]) -> DnsSecResult<Vec<u8>> {
+    Err(DnsSecErrorKind::Message("openssl feature not enabled").into())
   }
 }
 

@@ -18,10 +18,13 @@
 
 use std::default::Default;
 
+#[cfg(feature = "openssl")]
 use openssl::crypto::rsa::RSA;
 
+#[cfg(feature = "openssl")]
 use ::rr::dnssec::Algorithm;
 
+#[cfg(feature = "openssl")]
 const ROOT_ANCHOR: &'static str = include_str!("Kjqmt7v.pem");
 
 // TODO: these should also store some information, or more specifically, metadata from the signed
@@ -31,6 +34,7 @@ pub struct TrustAnchor {
 }
 
 impl Default for TrustAnchor {
+  #[cfg(feature = "openssl")]
   fn default() -> TrustAnchor {
     let rsa = RSA::public_key_from_pem(ROOT_ANCHOR.as_bytes()).expect("Error parsing Kjqmt7v.pem");
     assert_eq!(rsa.size().unwrap(), 256);
@@ -38,6 +42,11 @@ impl Default for TrustAnchor {
     let alg = Algorithm::RSASHA256;
 
     TrustAnchor{ pkeys: vec![alg.public_key_to_vec(&rsa)] }
+  }
+
+  #[cfg(not(feature = "openssl"))]
+  fn default() -> TrustAnchor {
+    TrustAnchor{ pkeys: vec![] }
   }
 }
 

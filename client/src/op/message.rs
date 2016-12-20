@@ -20,11 +20,12 @@ use std::fmt::Debug;
 use std::mem;
 
 use ::error::*;
-use ::rr::resource::Record;
-use ::rr::domain::Name;
-use ::rr::{RData, RecordType, DNSClass};
+use ::rr::{Record, RecordType};
+#[cfg(feature = "openssl")]
+use ::rr::{DNSClass, Name, RData};
+#[cfg(feature = "openssl")]
 use ::rr::rdata::SIG;
-use ::rr::dnssec::{DnsSecResult, Signer};
+use ::rr::dnssec::Signer;
 use ::serialize::binary::{BinEncoder, BinDecoder, BinSerializable, EncodeMode};
 use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
 
@@ -437,7 +438,7 @@ impl Message {
   }
 
   // TODO: where's the 'right' spot for this function
-  // TODO: probably a bad idea to expose consumers to the SslErrorStack...
+  #[cfg(feature = "openssl")]
   pub fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> {
     debug!("signing message: {:?}", self);
     let signature: Vec<u8> = try!(signer.sign_message(self));
@@ -486,6 +487,11 @@ impl Message {
 
     self.add_sig0(sig0);
     Ok(())
+  }
+
+  #[cfg(not(feature = "openssl"))]
+  pub fn sign(&mut self, _: &Signer, _: u32) -> DnsSecResult<()> {
+    Err(DnsSecErrorKind::Message("openssl feature not enabled").into())
   }
 }
 
@@ -550,7 +556,8 @@ impl UpdateMessage for Message {
   fn get_sig0(&self) -> &[Record] { self.get_sig0() }
 
   // TODO: where's the 'right' spot for this function
-  fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> { self.sign(signer, inception_time) }
+
+  fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> { Message::sign(self, signer, inception_time) }
 }
 
 impl BinSerializable<Message> for Message {
