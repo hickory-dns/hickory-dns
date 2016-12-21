@@ -63,4 +63,4 @@ rusqlite = "^0.7.3"
 time = "^0.1"
 tokio-core = "^0.1"
 toml = "^0.1"
-trust-dns = { version = "0.9.0", path = "../client" }
+trust-dns = { version = "^0.9", path = "../client" }
