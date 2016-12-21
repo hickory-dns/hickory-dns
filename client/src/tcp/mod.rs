@@ -16,13 +16,18 @@
 
 //! TCP protocol related components for DNS.
 
+#[cfg(feature = "mio_client")]
 mod handler;
+#[cfg(feature = "mio_client")]
 mod tcp_client_connection;
 mod tcp_client_stream;
 mod tcp_stream;
 
+#[cfg(feature = "mio_client")]
 pub use self::handler::TcpHandler;
+#[cfg(feature = "mio_client")]
 pub use self::handler::TcpState;
+#[cfg(feature = "mio_client")]
 pub use self::tcp_client_connection::TcpClientConnection;
 pub use self::tcp_client_stream::TcpClientStream;
 pub use self::tcp_stream::TcpStream;
