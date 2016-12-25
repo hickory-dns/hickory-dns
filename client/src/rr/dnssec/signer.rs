@@ -17,8 +17,6 @@
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(feature = "openssl")]
 use chrono::Duration;
-#[cfg(feature = "openssl")]
-use openssl::crypto::rsa::RSA;
 
 #[cfg(feature = "openssl")]
 use ::op::Message;
@@ -26,16 +24,215 @@ use ::op::Message;
 use ::rr::{DNSClass, Name, Record, RecordType, RData};
 #[cfg(feature = "openssl")]
 use ::rr::dnssec::{Algorithm, DigestType, DnsSecErrorKind, DnsSecResult};
+use ::rr::dnssec::KeyPair;
 #[cfg(feature = "openssl")]
-use ::rr::rdata::{DNSKEY, sig, SIG};
+use ::rr::rdata::{sig, SIG};
 #[cfg(feature = "openssl")]
 use ::serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
 /// Use for performing signing and validation of DNSSec based components.
+///
+/// [RFC 4035](https://tools.ietf.org/html/rfc4035), DNSSEC Protocol Modifications, March 2005
+///
+/// ```text
+/// 5.3.  Authenticating an RRset with an RRSIG RR
+///
+///    A validator can use an RRSIG RR and its corresponding DNSKEY RR to
+///    attempt to authenticate RRsets.  The validator first checks the RRSIG
+///    RR to verify that it covers the RRset, has a valid time interval, and
+///    identifies a valid DNSKEY RR.  The validator then constructs the
+///    canonical form of the signed data by appending the RRSIG RDATA
+///    (excluding the Signature Field) with the canonical form of the
+///    covered RRset.  Finally, the validator uses the public key and
+///    signature to authenticate the signed data.  Sections 5.3.1, 5.3.2,
+///    and 5.3.3 describe each step in detail.
+///
+/// 5.3.1.  Checking the RRSIG RR Validity
+///
+///    A security-aware resolver can use an RRSIG RR to authenticate an
+///    RRset if all of the following conditions hold:
+///
+///    o  The RRSIG RR and the RRset MUST have the same owner name and the
+///       same class.
+///
+///    o  The RRSIG RR's Signer's Name field MUST be the name of the zone
+///       that contains the RRset.
+///
+///    o  The RRSIG RR's Type Covered field MUST equal the RRset's type.
+///
+///    o  The number of labels in the RRset owner name MUST be greater than
+///       or equal to the value in the RRSIG RR's Labels field.
+///
+///    o  The validator's notion of the current time MUST be less than or
+///       equal to the time listed in the RRSIG RR's Expiration field.
+///
+///    o  The validator's notion of the current time MUST be greater than or
+///       equal to the time listed in the RRSIG RR's Inception field.
+///
+///    o  The RRSIG RR's Signer's Name, Algorithm, and Key Tag fields MUST
+///       match the owner name, algorithm, and key tag for some DNSKEY RR in
+///       the zone's apex DNSKEY RRset.
+///
+///    o  The matching DNSKEY RR MUST be present in the zone's apex DNSKEY
+///       RRset, and MUST have the Zone Flag bit (DNSKEY RDATA Flag bit 7)
+///       set.
+///
+///    It is possible for more than one DNSKEY RR to match the conditions
+///    above.  In this case, the validator cannot predetermine which DNSKEY
+///    RR to use to authenticate the signature, and it MUST try each
+///    matching DNSKEY RR until either the signature is validated or the
+///    validator has run out of matching public keys to try.
+///
+///    Note that this authentication process is only meaningful if the
+///    validator authenticates the DNSKEY RR before using it to validate
+///    signatures.  The matching DNSKEY RR is considered to be authentic if:
+///
+///    o  the apex DNSKEY RRset containing the DNSKEY RR is considered
+///       authentic; or
+///
+///    o  the RRset covered by the RRSIG RR is the apex DNSKEY RRset itself,
+///       and the DNSKEY RR either matches an authenticated DS RR from the
+///       parent zone or matches a trust anchor.
+///
+/// 5.3.2.  Reconstructing the Signed Data
+///
+///    Once the RRSIG RR has met the validity requirements described in
+///    Section 5.3.1, the validator has to reconstruct the original signed
+///    data.  The original signed data includes RRSIG RDATA (excluding the
+///    Signature field) and the canonical form of the RRset.  Aside from
+///    being ordered, the canonical form of the RRset might also differ from
+///    the received RRset due to DNS name compression, decremented TTLs, or
+///    wildcard expansion.  The validator should use the following to
+///    reconstruct the original signed data:
+///
+///          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
+///
+///             "|" denotes concatenation
+///
+///             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
+///                with the Signature field excluded and the Signer's Name
+///                in canonical form.
+///
+///             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
+///
+///                name is calculated according to the function below
+///
+///                class is the RRset's class
+///
+///                type is the RRset type and all RRs in the class
+///
+///                OrigTTL is the value from the RRSIG Original TTL field
+///
+///                All names in the RDATA field are in canonical form
+///
+///                The set of all RR(i) is sorted into canonical order.
+///
+///             To calculate the name:
+///                let rrsig_labels = the value of the RRSIG Labels field
+///
+///                let fqdn = RRset's fully qualified domain name in
+///                                canonical form
+///
+///                let fqdn_labels = Label count of the fqdn above.
+///
+///                if rrsig_labels = fqdn_labels,
+///                    name = fqdn
+///
+///                if rrsig_labels < fqdn_labels,
+///                   name = "*." | the rightmost rrsig_label labels of the
+///                                 fqdn
+///
+///                if rrsig_labels > fqdn_labels
+///                   the RRSIG RR did not pass the necessary validation
+///                   checks and MUST NOT be used to authenticate this
+///                   RRset.
+///
+///    The canonical forms for names and RRsets are defined in [RFC4034].
+///
+///    NSEC RRsets at a delegation boundary require special processing.
+///    There are two distinct NSEC RRsets associated with a signed delegated
+///    name.  One NSEC RRset resides in the parent zone, and specifies which
+///    RRsets are present at the parent zone.  The second NSEC RRset resides
+///    at the child zone and identifies which RRsets are present at the apex
+///    in the child zone.  The parent NSEC RRset and child NSEC RRset can
+///    always be distinguished as only a child NSEC RR will indicate that an
+///    SOA RRset exists at the name.  When reconstructing the original NSEC
+///    RRset for the delegation from the parent zone, the NSEC RRs MUST NOT
+///    be combined with NSEC RRs from the child zone.  When reconstructing
+///    the original NSEC RRset for the apex of the child zone, the NSEC RRs
+///    MUST NOT be combined with NSEC RRs from the parent zone.
+///
+///    Note that each of the two NSEC RRsets at a delegation point has a
+///    corresponding RRSIG RR with an owner name matching the delegated
+///    name, and each of these RRSIG RRs is authoritative data associated
+///    with the same zone that contains the corresponding NSEC RRset.  If
+///    necessary, a resolver can tell these RRSIG RRs apart by checking the
+///    Signer's Name field.
+///
+/// 5.3.3.  Checking the Signature
+///
+///    Once the resolver has validated the RRSIG RR as described in Section
+///    5.3.1 and reconstructed the original signed data as described in
+///    Section 5.3.2, the validator can attempt to use the cryptographic
+///    signature to authenticate the signed data, and thus (finally!)
+///    authenticate the RRset.
+///
+///    The Algorithm field in the RRSIG RR identifies the cryptographic
+///    algorithm used to generate the signature.  The signature itself is
+///    contained in the Signature field of the RRSIG RDATA, and the public
+///    key used to verify the signature is contained in the Public Key field
+///    of the matching DNSKEY RR(s) (found in Section 5.3.1).  [RFC4034]
+///    provides a list of algorithm types and provides pointers to the
+///    documents that define each algorithm's use.
+///
+///    Note that it is possible for more than one DNSKEY RR to match the
+///    conditions in Section 5.3.1.  In this case, the validator can only
+///    determine which DNSKEY RR is correct by trying each matching public
+///    key until the validator either succeeds in validating the signature
+///    or runs out of keys to try.
+///
+///    If the Labels field of the RRSIG RR is not equal to the number of
+///    labels in the RRset's fully qualified owner name, then the RRset is
+///    either invalid or the result of wildcard expansion.  The resolver
+///    MUST verify that wildcard expansion was applied properly before
+///    considering the RRset to be authentic.  Section 5.3.4 describes how
+///    to determine whether a wildcard was applied properly.
+///
+///    If other RRSIG RRs also cover this RRset, the local resolver security
+///    policy determines whether the resolver also has to test these RRSIG
+///    RRs and how to resolve conflicts if these RRSIG RRs lead to differing
+///    results.
+///
+///    If the resolver accepts the RRset as authentic, the validator MUST
+///    set the TTL of the RRSIG RR and each RR in the authenticated RRset to
+///    a value no greater than the minimum of:
+///
+///    o  the RRset's TTL as received in the response;
+///
+///    o  the RRSIG RR's TTL as received in the response;
+///
+///    o  the value in the RRSIG RR's Original TTL field; and
+///
+///    o  the difference of the RRSIG RR's Signature Expiration time and the
+///       current time.
+///
+/// 5.3.4.  Authenticating a Wildcard Expanded RRset Positive Response
+///
+///    If the number of labels in an RRset's owner name is greater than the
+///    Labels field of the covering RRSIG RR, then the RRset and its
+///    covering RRSIG RR were created as a result of wildcard expansion.
+///    Once the validator has verified the signature, as described in
+///    Section 5.3, it must take additional steps to verify the non-
+///    existence of an exact match or closer wildcard match for the query.
+///    Section 5.4 discusses these steps.
+///
+///    Note that the response received by the resolver should include all
+///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
+/// ```
 #[cfg(feature = "openssl")]
 pub struct Signer {
+  key: KeyPair,
   algorithm: Algorithm,
-  rsa: RSA,
   signer_name: Name,
   sig_duration: Duration,
 }
@@ -46,39 +243,23 @@ pub struct Signer;
 #[cfg(feature = "openssl")]
 impl Signer {
   /// Version of Signer for verifying RRSIGs and SIG0 records.
-  pub fn new_verifier(algorithm: Algorithm, rsa: RSA, signer_name: Name) -> Self {
-    Signer{ algorithm: algorithm, rsa: rsa, signer_name: signer_name, sig_duration: Duration::zero() }
+  pub fn new_verifier(algorithm: Algorithm, key: KeyPair, signer_name: Name) -> Self {
+    Signer{ key: key, algorithm: algorithm, signer_name: signer_name, sig_duration: Duration::zero() }
   }
 
   /// Version of Signer for signing RRSIGs and SIG0 records.
-  pub fn new(algorithm: Algorithm, rsa: RSA, signer_name: Name, sig_duration: Duration) -> Self {
-    Signer{ algorithm: algorithm, rsa: rsa, signer_name: signer_name, sig_duration: sig_duration }
+  pub fn new(algorithm: Algorithm, key: KeyPair, signer_name: Name, sig_duration: Duration) -> Self {
+    Signer{ key: key, algorithm: algorithm, signer_name: signer_name, sig_duration: sig_duration }
   }
 
   pub fn get_algorithm(&self) -> Algorithm { self.algorithm }
+  pub fn get_key(&self) -> &KeyPair { &self.key }
   pub fn get_sig_duration(&self) -> Duration { self.sig_duration }
   pub fn get_signer_name(&self) -> &Name { &self.signer_name }
-  pub fn get_rsa(&self) -> &RSA { &self.rsa }
-
-  pub fn get_public_key(&self) -> Vec<u8> {
-    self.algorithm.public_key_to_vec(&self.rsa)
-  }
-
-  /// Creates a Record that represents the public key for this Signer
-  pub fn to_dnskey(&self, name: Name, ttl: u32) -> Record {
-    let mut record = Record::with(name.clone(), RecordType::DNSKEY, ttl);
-    record.rdata(RData::DNSKEY(
-      DNSKEY::new(true, true, false,
-        self.algorithm,
-        self.get_public_key())
-    ));
-
-    record
-  }
 
   /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
   ///
-  /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+  /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
   ///
   /// ```text
   /// RFC 2535                DNS Security Extensions               March 1999
@@ -132,7 +313,7 @@ impl Signer {
   pub fn calculate_key_tag(&self) -> u16 {
     let mut ac: usize = 0;
 
-    for (i,k) in self.get_public_key().iter().enumerate() {
+    for (i,k) in self.key.to_vec().iter().enumerate() {
       ac += if i & 0x0001 == 0x0001 { *k as usize } else { (*k as usize) << 8 };
     }
 
@@ -159,6 +340,8 @@ impl Signer {
   /// # Arguments
   ///
   /// * `message` - the message to sign
+  ///
+  /// [rfc2535](https://tools.ietf.org/html/rfc2535#section-4.1.8.1), Domain Name System Security Extensions, 1999
   ///
   /// ```text
   /// 4.1.8.1 Calculating Transaction and Request SIGs
@@ -216,8 +399,8 @@ impl Signer {
   ///
   /// # Arguments
   ///
-  /// `message` - the message to verify
-  /// `signature` - the signature to use for validation
+  /// * `message` - the message to verify
+  /// * `signature` - the signature to use for validation
   ///
   /// # Return value
   ///
@@ -227,203 +410,24 @@ impl Signer {
         .and_then(|hash| self.verify(&hash, signature))
   }
 
-  // RFC 4035             DNSSEC Protocol Modifications            March 2005
-  //
-  // 5.3.  Authenticating an RRset with an RRSIG RR
-  //
-  //    A validator can use an RRSIG RR and its corresponding DNSKEY RR to
-  //    attempt to authenticate RRsets.  The validator first checks the RRSIG
-  //    RR to verify that it covers the RRset, has a valid time interval, and
-  //    identifies a valid DNSKEY RR.  The validator then constructs the
-  //    canonical form of the signed data by appending the RRSIG RDATA
-  //    (excluding the Signature Field) with the canonical form of the
-  //    covered RRset.  Finally, the validator uses the public key and
-  //    signature to authenticate the signed data.  Sections 5.3.1, 5.3.2,
-  //    and 5.3.3 describe each step in detail.
-  //
-  // 5.3.1.  Checking the RRSIG RR Validity
-  //
-  //    A security-aware resolver can use an RRSIG RR to authenticate an
-  //    RRset if all of the following conditions hold:
-  //
-  //    o  The RRSIG RR and the RRset MUST have the same owner name and the
-  //       same class.
-  //
-  //    o  The RRSIG RR's Signer's Name field MUST be the name of the zone
-  //       that contains the RRset.
-  //
-  //    o  The RRSIG RR's Type Covered field MUST equal the RRset's type.
-  //
-  //    o  The number of labels in the RRset owner name MUST be greater than
-  //       or equal to the value in the RRSIG RR's Labels field.
-  //
-  //    o  The validator's notion of the current time MUST be less than or
-  //       equal to the time listed in the RRSIG RR's Expiration field.
-  //
-  //    o  The validator's notion of the current time MUST be greater than or
-  //       equal to the time listed in the RRSIG RR's Inception field.
-  //
-  //    o  The RRSIG RR's Signer's Name, Algorithm, and Key Tag fields MUST
-  //       match the owner name, algorithm, and key tag for some DNSKEY RR in
-  //       the zone's apex DNSKEY RRset.
-  //
-  //    o  The matching DNSKEY RR MUST be present in the zone's apex DNSKEY
-  //       RRset, and MUST have the Zone Flag bit (DNSKEY RDATA Flag bit 7)
-  //       set.
-  //
-  //    It is possible for more than one DNSKEY RR to match the conditions
-  //    above.  In this case, the validator cannot predetermine which DNSKEY
-  //    RR to use to authenticate the signature, and it MUST try each
-  //    matching DNSKEY RR until either the signature is validated or the
-  //    validator has run out of matching public keys to try.
-  //
-  //    Note that this authentication process is only meaningful if the
-  //    validator authenticates the DNSKEY RR before using it to validate
-  //    signatures.  The matching DNSKEY RR is considered to be authentic if:
-  //
-  //    o  the apex DNSKEY RRset containing the DNSKEY RR is considered
-  //       authentic; or
-  //
-  //    o  the RRset covered by the RRSIG RR is the apex DNSKEY RRset itself,
-  //       and the DNSKEY RR either matches an authenticated DS RR from the
-  //       parent zone or matches a trust anchor.
-  //
-  // 5.3.2.  Reconstructing the Signed Data
-  //
-  //    Once the RRSIG RR has met the validity requirements described in
-  //    Section 5.3.1, the validator has to reconstruct the original signed
-  //    data.  The original signed data includes RRSIG RDATA (excluding the
-  //    Signature field) and the canonical form of the RRset.  Aside from
-  //    being ordered, the canonical form of the RRset might also differ from
-  //    the received RRset due to DNS name compression, decremented TTLs, or
-  //    wildcard expansion.  The validator should use the following to
-  //    reconstruct the original signed data:
-  //
-  //          signed_data = RRSIG_RDATA | RR(1) | RR(2)...  where
-  //
-  //             "|" denotes concatenation
-  //
-  //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
-  //                with the Signature field excluded and the Signer's Name
-  //                in canonical form.
-  //
-  //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
-  //
-  //                name is calculated according to the function below
-  //
-  //                class is the RRset's class
-  //
-  //                type is the RRset type and all RRs in the class
-  //
-  //                OrigTTL is the value from the RRSIG Original TTL field
-  //
-  //                All names in the RDATA field are in canonical form
-  //
-  //                The set of all RR(i) is sorted into canonical order.
-  //
-  //             To calculate the name:
-  //                let rrsig_labels = the value of the RRSIG Labels field
-  //
-  //                let fqdn = RRset's fully qualified domain name in
-  //                                canonical form
-  //
-  //                let fqdn_labels = Label count of the fqdn above.
-  //
-  //                if rrsig_labels = fqdn_labels,
-  //                    name = fqdn
-  //
-  //                if rrsig_labels < fqdn_labels,
-  //                   name = "*." | the rightmost rrsig_label labels of the
-  //                                 fqdn
-  //
-  //                if rrsig_labels > fqdn_labels
-  //                   the RRSIG RR did not pass the necessary validation
-  //                   checks and MUST NOT be used to authenticate this
-  //                   RRset.
-  //
-  //    The canonical forms for names and RRsets are defined in [RFC4034].
-  //
-  //    NSEC RRsets at a delegation boundary require special processing.
-  //    There are two distinct NSEC RRsets associated with a signed delegated
-  //    name.  One NSEC RRset resides in the parent zone, and specifies which
-  //    RRsets are present at the parent zone.  The second NSEC RRset resides
-  //    at the child zone and identifies which RRsets are present at the apex
-  //    in the child zone.  The parent NSEC RRset and child NSEC RRset can
-  //    always be distinguished as only a child NSEC RR will indicate that an
-  //    SOA RRset exists at the name.  When reconstructing the original NSEC
-  //    RRset for the delegation from the parent zone, the NSEC RRs MUST NOT
-  //    be combined with NSEC RRs from the child zone.  When reconstructing
-  //    the original NSEC RRset for the apex of the child zone, the NSEC RRs
-  //    MUST NOT be combined with NSEC RRs from the parent zone.
-  //
-  //    Note that each of the two NSEC RRsets at a delegation point has a
-  //    corresponding RRSIG RR with an owner name matching the delegated
-  //    name, and each of these RRSIG RRs is authoritative data associated
-  //    with the same zone that contains the corresponding NSEC RRset.  If
-  //    necessary, a resolver can tell these RRSIG RRs apart by checking the
-  //    Signer's Name field.
-  //
-  // 5.3.3.  Checking the Signature
-  //
-  //    Once the resolver has validated the RRSIG RR as described in Section
-  //    5.3.1 and reconstructed the original signed data as described in
-  //    Section 5.3.2, the validator can attempt to use the cryptographic
-  //    signature to authenticate the signed data, and thus (finally!)
-  //    authenticate the RRset.
-  //
-  //    The Algorithm field in the RRSIG RR identifies the cryptographic
-  //    algorithm used to generate the signature.  The signature itself is
-  //    contained in the Signature field of the RRSIG RDATA, and the public
-  //    key used to verify the signature is contained in the Public Key field
-  //    of the matching DNSKEY RR(s) (found in Section 5.3.1).  [RFC4034]
-  //    provides a list of algorithm types and provides pointers to the
-  //    documents that define each algorithm's use.
-  //
-  //    Note that it is possible for more than one DNSKEY RR to match the
-  //    conditions in Section 5.3.1.  In this case, the validator can only
-  //    determine which DNSKEY RR is correct by trying each matching public
-  //    key until the validator either succeeds in validating the signature
-  //    or runs out of keys to try.
-  //
-  //    If the Labels field of the RRSIG RR is not equal to the number of
-  //    labels in the RRset's fully qualified owner name, then the RRset is
-  //    either invalid or the result of wildcard expansion.  The resolver
-  //    MUST verify that wildcard expansion was applied properly before
-  //    considering the RRset to be authentic.  Section 5.3.4 describes how
-  //    to determine whether a wildcard was applied properly.
-  //
-  //    If other RRSIG RRs also cover this RRset, the local resolver security
-  //    policy determines whether the resolver also has to test these RRSIG
-  //    RRs and how to resolve conflicts if these RRSIG RRs lead to differing
-  //    results.
-  //
-  //    If the resolver accepts the RRset as authentic, the validator MUST
-  //    set the TTL of the RRSIG RR and each RR in the authenticated RRset to
-  //    a value no greater than the minimum of:
-  //
-  //    o  the RRset's TTL as received in the response;
-  //
-  //    o  the RRSIG RR's TTL as received in the response;
-  //
-  //    o  the value in the RRSIG RR's Original TTL field; and
-  //
-  //    o  the difference of the RRSIG RR's Signature Expiration time and the
-  //       current time.
-  //
-  // 5.3.4.  Authenticating a Wildcard Expanded RRset Positive Response
-  //
-  //    If the number of labels in an RRset's owner name is greater than the
-  //    Labels field of the covering RRSIG RR, then the RRset and its
-  //    covering RRSIG RR were created as a result of wildcard expansion.
-  //    Once the validator has verified the signature, as described in
-  //    Section 5.3, it must take additional steps to verify the non-
-  //    existence of an exact match or closer wildcard match for the query.
-  //    Section 5.4 discusses these steps.
-  //
-  //    Note that the response received by the resolver should include all
-  //    NSEC RRs needed to authenticate the response (see Section 3.1.3).
-  //
-  /// name is the the name of the records in the rrset
+  /// Computes the hash of the given record set
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - RRset record name
+  /// * `dns_class` - DNSClass, i.e. IN, of the records
+  /// * `num_labels` - number of labels in the name, needed to deal with `*.example.com`
+  /// * `type_covered` - RecordType of the RRSet being hashed
+  /// * `algorithm` - The Algorithm type used for the hashing
+  /// * `original_ttl` - Original TTL is the TTL as specified in the SOA zones RRSet associated record
+  /// * `sig_expiration` - the epoch seconds of when this hashed signature will expire
+  /// * `key_inception` - the epoch seconds of when this hashed signature will be valid
+  /// * `signer_name` - label of the etity responsible for signing this hash
+  /// * `records` - RRSet to hash
+  ///
+  /// # Returns
+  ///
+  /// the binary hash of the specified RRSet and associated information
   pub fn hash_rrset(&self, name: &Name, dns_class: DNSClass, num_labels: u8,
                     type_covered: RecordType, algorithm: Algorithm, original_ttl: u32,
                     sig_expiration: u32, sig_inception: u32, key_tag: u16, signer_name: &Name,
@@ -500,6 +504,16 @@ impl Signer {
     DigestType::from(self.algorithm).hash(&buf)
   }
 
+  /// hashes the RRSet with information provided from the RRSig record
+  ///
+  /// # Arguments
+  ///
+  /// * `rrsig` - SIG or RRSIG record, which was produced from the RRSet
+  /// * `records` - RRSet records to sign with the information in the `rrsig`
+  ///
+  /// # Return
+  ///
+  /// binary hash of the RRSet with the information from the RRSIG record
   pub fn hash_rrset_with_rrsig(&self, rrsig: &Record, records: &[Record]) -> DnsSecResult<Vec<u8>> {
     if let &RData::SIG(ref sig) = rrsig.get_rdata() {
       self.hash_rrset_with_sig(rrsig.get_name(), rrsig.get_dns_class(), sig, records)
@@ -508,6 +522,18 @@ impl Signer {
     }
   }
 
+  /// hashes the RRSet with information provided from the RRSig record
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - labels of the record to sign
+  /// * `dns_class` - DNSClass of the RRSet, i.e. IN
+  /// * `sig` - SIG or RRSIG record, which was produced from the RRSet
+  /// * `records` - RRSet records to sign with the information in the `rrsig`
+  ///
+  /// # Return
+  ///
+  /// binary hash of the RRSet with the information from the RRSIG record
   pub fn hash_rrset_with_sig(&self, name: &Name, dns_class: DNSClass, sig: &SIG, records: &[Record]) -> DnsSecResult<Vec<u8>> {
     self.hash_rrset(name, dns_class,
                     sig.get_num_labels(), sig.get_type_covered(), sig.get_algorithm(),
@@ -563,7 +589,7 @@ impl Signer {
   ///
   /// The signature, ready to be stored in an `RData::RRSIG`.
   pub fn sign(&self, hash: &[u8]) -> DnsSecResult<Vec<u8>> {
-    self.rsa.sign(DigestType::from(self.algorithm).to_hash(), &hash).map_err(|e| e.into())
+    self.key.sign(self.algorithm, &hash).map_err(|e| e.into())
   }
 
   /// Verifies the hash matches the signature with the current `key`.
@@ -579,13 +605,14 @@ impl Signer {
   /// True if and only if the signature is valid for the hash. This will always return
   /// false if the `key`.
   pub fn verify(&self, hash: &[u8], signature: &[u8]) -> DnsSecResult<()> {
-    self.rsa.verify(DigestType::from(self.algorithm).to_hash(), hash, signature).map_err(|e| e.into())
+    self.key.verify(self.algorithm, hash, signature).map_err(|e| e.into())
   }
 }
 
 #[test]
 #[cfg(feature = "openssl")]
 fn test_sign_and_verify_message_sig0() {
+  use openssl::crypto::rsa::RSA;
   use ::rr::Name;
   use ::op::{Message, Query, UpdateMessage};
 
@@ -596,7 +623,8 @@ fn test_sign_and_verify_message_sig0() {
   question.add_query(query);
 
   let rsa = RSA::generate(512).unwrap();
-  let signer = Signer::new(Algorithm::RSASHA256, rsa, Name::root(), Duration::max_value());
+  let key = KeyPair::from_rsa(rsa);
+  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
 
   let sig = signer.sign_message(&question).unwrap();
   println!("sig: {:?}", sig);
@@ -620,11 +648,13 @@ fn test_sign_and_verify_message_sig0() {
 #[test]
 #[cfg(feature = "openssl")]
 fn test_hash_rrset() {
+  use openssl::crypto::rsa::RSA;
   use ::rr::{Name, RecordType};
   use ::rr::rdata::SIG;
 
   let rsa = RSA::generate(512).unwrap();
-  let signer = Signer::new(Algorithm::RSASHA256, rsa, Name::root(), Duration::max_value());
+  let key = KeyPair::from_rsa(rsa);
+  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -649,12 +679,14 @@ fn test_hash_rrset() {
 #[test]
 #[cfg(feature = "openssl")]
 fn test_sign_and_verify_rrset() {
+  use openssl::crypto::rsa::RSA;
   use ::rr::RecordType;
   use ::rr::Name;
   use ::rr::rdata::SIG;
 
   let rsa = RSA::generate(512).unwrap();
-  let signer = Signer::new(Algorithm::RSASHA256, rsa, Name::root(), Duration::max_value());
+  let key = KeyPair::from_rsa(rsa);
+  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -671,9 +703,12 @@ fn test_sign_and_verify_rrset() {
 #[test]
 #[cfg(feature = "openssl")]
 fn test_calculate_key_tag() {
+  use openssl::crypto::rsa::RSA;
   let rsa = RSA::generate(512).unwrap();
   println!("pkey: {:?}", rsa.public_key_to_pem().unwrap());
-  let signer = Signer::new(Algorithm::RSASHA256, rsa, Name::root(), Duration::max_value());
+
+  let key = KeyPair::from_rsa(rsa);
+  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
   let key_tag = signer.calculate_key_tag();
 
   println!("key_tag: {}", key_tag);

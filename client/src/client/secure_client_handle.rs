@@ -16,9 +16,9 @@ use ::client::ClientHandle;
 use ::error::*;
 use ::op::{Message, OpCode, Query};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
+use ::rr::dnssec::{KeyPair, TrustAnchor};
 #[cfg(feature = "openssl")]
 use ::rr::dnssec::Signer;
-use ::rr::dnssec::TrustAnchor;
 use ::rr::rdata::{dnskey, DNSKEY, DS, SIG};
 use ::serialize::binary::{BinEncoder, BinSerializable};
 
@@ -657,7 +657,7 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
   if !dnskey.is_zone_key() { return Err(ClientErrorKind::Message("is not a zone key").into()) }
   if *dnskey.get_algorithm() != sig.get_algorithm() { return Err(ClientErrorKind::Message("mismatched algorithm").into()) }
 
-  let pkey = dnskey.get_algorithm().public_key_from_vec(dnskey.get_public_key());
+  let pkey = KeyPair::from_vec(dnskey.get_public_key(), *dnskey.get_algorithm());
   if let Err(e) = pkey { debug!("error getting key from vec: {}", e); return Err(ClientErrorKind::Message("error getting key from vec").into()) }
   let pkey = pkey.unwrap();
 

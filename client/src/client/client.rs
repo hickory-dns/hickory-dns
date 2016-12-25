@@ -29,7 +29,7 @@ use ::error::*;
 use ::rr::{DNSClass, RecordType, Record, RData};
 use ::rr::rdata::NULL;
 use ::rr::domain;
-use ::rr::dnssec::Signer;
+use ::rr::dnssec::{KeyPair, Signer};
 #[cfg(feature = "openssl")]
 use ::rr::dnssec::TrustAnchor;
 use ::op::{Message, MessageType, OpCode, Query, UpdateMessage};
@@ -226,7 +226,7 @@ impl<C: ClientConnection> Client<C> {
             if !rdata.is_zone_key() { continue }
             if *rdata.get_algorithm() != sig.get_algorithm() { continue }
 
-            let pkey = rdata.get_algorithm().public_key_from_vec(rdata.get_public_key());
+            let pkey = KeyPair::from_vec(rdata.get_public_key(), *rdata.get_algorithm());
             if pkey.is_err() { debug!("could not translate public_key_from_vec: {}", pkey.unwrap_err()); continue }
             let pkey = pkey.unwrap();
 

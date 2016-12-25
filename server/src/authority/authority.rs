@@ -20,7 +20,7 @@ use chrono::UTC;
 use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
 use trust_dns::rr::rdata::{NSEC, SIG};
-use trust_dns::rr::dnssec::Signer;
+use trust_dns::rr::dnssec::{KeyPair, Signer};
 
 use ::authority::{Journal, UpdateResult, ZoneType};
 use ::error::{PersistenceErrorKind, PersistenceResult};
@@ -72,7 +72,7 @@ impl Authority {
   pub fn add_secure_key(&mut self, signer: Signer) {
     // also add the key to the zone
     let zone_ttl = self.get_minimum_ttl();
-    let dnskey = signer.to_dnskey(self.origin.clone(), zone_ttl);
+    let dnskey = signer.get_key().to_dnskey(self.origin.clone(), zone_ttl, signer.get_algorithm());
 
     // TODO: also generate the CDS and CDNSKEY
     let serial = self.get_serial();
@@ -438,7 +438,7 @@ impl Authority {
               keys.iter()
                   .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.get_rdata() { Some(key) } else { None })
                   .any(|key| {
-                    let pkey = key.get_algorithm().public_key_from_vec(key.get_public_key());
+                    let pkey = KeyPair::from_vec(key.get_public_key(), *key.get_algorithm());
                     if let Err(error) = pkey {
                       warn!("public key {:?} of {} could not be used: {}", key, name, error);
                       return false
@@ -1105,7 +1105,8 @@ pub fn create_secure_example() -> Authority {
 
   let mut authority: Authority = create_example();
   let rsa = RSA::generate(2048).unwrap();
-  let signer = Signer::new(Algorithm::RSASHA256, rsa, authority.get_origin().clone(), Duration::weeks(1));
+  let key = KeyPair::from_rsa(rsa);
+  let signer = Signer::new(Algorithm::RSASHA256, key, authority.get_origin().clone(), Duration::weeks(1));
 
   authority.add_secure_key(signer);
   authority.secure_zone();

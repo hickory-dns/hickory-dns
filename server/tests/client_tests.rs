@@ -14,7 +14,7 @@ use trust_dns::client::{Client, ClientConnection};
 use trust_dns::error::*;
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
-use trust_dns::rr::dnssec::{Algorithm, Signer, TrustAnchor};
+use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
 use trust_dns::rr::rdata::*;
 use trust_dns::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
 use trust_dns::tcp::TcpClientConnection;
@@ -120,16 +120,18 @@ fn test_query<C: ClientConnection>(client: Client<C>) {
 fn test_secure_query_example_nonet() {
   let authority = create_secure_example();
 
-  let public_key = {
+  let trust_anchor = {
     let signers = authority.get_secure_keys();
-    signers.first().expect("expected a key in the authority").get_public_key()
+    let public_key = signers.first().expect("expected a key in the authority").get_key();
+
+    let mut trust_anchor = TrustAnchor::new();
+    trust_anchor.insert_trust_anchor(public_key.to_vec());
+
+    trust_anchor
   };
 
   let mut catalog = Catalog::new();
   catalog.upsert(authority.get_origin().clone(), authority);
-
-  let mut trust_anchor = TrustAnchor::new();
-  trust_anchor.insert_trust_anchor(public_key);
 
   let client = Client::with_trust_anchor(TestClientConnection::new(&catalog), trust_anchor);
 
@@ -223,16 +225,18 @@ fn test_dnssec_rollernet_td_tcp_mixed_case() {
 fn test_nsec_query_example_nonet() {
   let authority = create_secure_example();
 
-  let public_key = {
+  let trust_anchor = {
     let signers = authority.get_secure_keys();
-    signers.first().expect("expected a key in the authority").get_public_key()
+    let public_key = signers.first().expect("expected a key in the authority").get_key();
+
+    let mut trust_anchor = TrustAnchor::new();
+    trust_anchor.insert_trust_anchor(public_key.to_vec());
+
+    trust_anchor
   };
 
   let mut catalog = Catalog::new();
   catalog.upsert(authority.get_origin().clone(), authority);
-
-  let mut trust_anchor = TrustAnchor::new();
-  trust_anchor.insert_trust_anchor(public_key);
 
   let client = Client::with_trust_anchor(TestClientConnection::new(&catalog), trust_anchor);
 
@@ -332,8 +336,9 @@ fn create_sig0_ready_client<'a>(catalog: &'a mut Catalog) -> (Client<TestClientC
   let origin = authority.get_origin().clone();
 
   let rsa = RSA::generate(512).unwrap();
+  let key = KeyPair::from_rsa(rsa);
 
-  let signer = Signer::new(Algorithm::RSASHA256, rsa,
+  let signer = Signer::new(Algorithm::RSASHA256, key,
     domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
     Duration::max_value());
 
@@ -341,7 +346,7 @@ fn create_sig0_ready_client<'a>(catalog: &'a mut Catalog) -> (Client<TestClientC
   let mut auth_key = Record::with(domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
   RecordType::KEY,
   Duration::minutes(5).num_seconds() as u32);
-  auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_public_key())));
+  auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_key().to_vec())));
   authority.upsert(auth_key, 0);
 
   catalog.upsert(authority.get_origin().clone(), authority);

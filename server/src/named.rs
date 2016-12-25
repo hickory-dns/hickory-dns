@@ -55,7 +55,7 @@ use trust_dns::logger;
 use trust_dns::version;
 use trust_dns::serialize::txt::{Lexer, Parser};
 use trust_dns::rr::Name;
-use trust_dns::rr::dnssec::{Algorithm, Signer};
+use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 use trust_dns_server::config::{Config, ZoneConfig};
@@ -162,7 +162,7 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
 
   // load any keys for the Zone, if it is a dynamic update zone, then keys are required
   if zone.is_dnssec_enabled() {
-    let pkey = if key_path.exists() {
+    let rsa = if key_path.exists() {
       info!("reading key: {:?}", key_path);
 
       // TODO: validate owndership
@@ -197,6 +197,8 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
 
       rsa
     };
+
+    let pkey = KeyPair::from_rsa(rsa);
 
     // add the key to the zone
     // TODO: allow the duration of signatutes to be customized
