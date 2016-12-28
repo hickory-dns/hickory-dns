@@ -6,7 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 #[cfg(feature = "openssl")]
-use openssl::crypto::rsa::RSA as OpenSslRsa;
+use openssl::rsa::Rsa as OpenSslRsa;
+#[cfg(feature = "openssl")]
+use openssl::sign::{Signer, Verifier};
+#[cfg(feature = "openssl")]
+use openssl::pkey::PKey;
 #[cfg(feature = "openssl")]
 use openssl::bn::BigNum;
 
@@ -16,18 +20,19 @@ use ::rr::dnssec::{Algorithm, DigestType};
 use ::rr::rdata::DNSKEY;
 
 /// A public and private key pair.
-#[derive(Debug)]
 pub enum KeyPair {
   #[cfg(feature = "openssl")]
-  RSA { rsa: OpenSslRsa },
+  RSA { pkey: PKey },
+  #[cfg(feature = "openssl")]
+  ECDSA {},
 }
 
 impl KeyPair {
-  pub fn from_rsa(rsa: OpenSslRsa) -> Self {
-    KeyPair::RSA{rsa: rsa}
+  pub fn from_rsa(rsa: OpenSslRsa) -> DnsSecResult<Self> {
+    PKey::from_rsa(rsa).map(|pkey| KeyPair::RSA{pkey: pkey}).map_err(|e| e.into())
   }
 
-  pub fn from_vec(public_key: &[u8], algorithm: Algorithm) -> DecodeResult<Self> {
+  pub fn from_vec(public_key: &[u8], algorithm: Algorithm) -> DnsSecResult<Self> {
     match algorithm {
       #[cfg(feature = "openssl")]
       Algorithm::RSASHA1 |
@@ -64,7 +69,7 @@ impl KeyPair {
         //
         //  Note: This changes the algorithm number for RSA KEY RRs to be the
         //  same as the new algorithm number for RSA/SHA1 SIGs.
-        if public_key.len() < 3 || public_key.len() > (4096 + 3) { return Err(DecodeErrorKind::Message("bad public key").into()) }
+        if public_key.len() < 3 || public_key.len() > (4096 + 3) { return Err(DnsSecErrorKind::Message("bad public key").into()) }
         let mut num_exp_len_octs = 1;
         let mut len: u16 = public_key[0] as u16;
         if len == 0 {
@@ -73,13 +78,17 @@ impl KeyPair {
         }
         let len = len; // demut
 
-        let e = try!(BigNum::new_from_slice(&public_key[(num_exp_len_octs as usize)..(len as usize + num_exp_len_octs)]));
-        let n = try!(BigNum::new_from_slice(&public_key[(len as usize +num_exp_len_octs)..]));
+        let e = try!(BigNum::from_slice(&public_key[(num_exp_len_octs as usize)..(len as usize + num_exp_len_octs)]));
+        let n = try!(BigNum::from_slice(&public_key[(len as usize +num_exp_len_octs)..]));
 
         OpenSslRsa::from_public_components(n, e)
                    .map_err(|e| e.into())
-                   .map(|rsa| Self::from_rsa(rsa))
+                   .and_then(|rsa| Self::from_rsa(rsa))
       },
+      #[cfg(feature = "openssl")]
+      Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
+        Ok(KeyPair::ECDSA{})
+      }
       // _ => Err(DecodeErrorKind::Message("openssl feature not enabled").into()),
     }
   }
@@ -87,8 +96,9 @@ impl KeyPair {
   pub fn to_vec(&self) -> Vec<u8> {
     match *self {
       #[cfg(feature = "openssl")]
-      KeyPair::RSA{ref rsa} => {
+      KeyPair::RSA{ref pkey} => {
         let mut bytes: Vec<u8> = Vec::new();
+        let rsa: OpenSslRsa = pkey.rsa().expect("pkey should have been initialized with RSA");
 
         // this is to get us access to the exponent and the modulus
         let e: Vec<u8> = rsa.e().expect("RSA should have been initialized").to_vec();
@@ -105,6 +115,11 @@ impl KeyPair {
         bytes.extend_from_slice(&e);
         bytes.extend_from_slice(&n);
 
+        bytes
+      },
+      #[cfg(feature = "openssl")]
+      KeyPair::ECDSA{} => {
+        let mut bytes: Vec<u8> = Vec::new();
         bytes
       },
       // _ => vec![],
@@ -147,8 +162,15 @@ impl KeyPair {
   pub fn sign(&self, algorithm: Algorithm, hash: &[u8]) -> DnsSecResult<Vec<u8>> {
     match *self {
       #[cfg(feature = "openssl")]
-      KeyPair::RSA{ref rsa} => {
-        rsa.sign(DigestType::from(algorithm).to_hash(), &hash).map_err(|e| e.into())
+      KeyPair::RSA{ref pkey} => {
+        let mut signer = Signer::new(DigestType::from(algorithm).to_hash(), &pkey).unwrap();
+        try!(signer.update(&hash));
+        signer.finish().map_err(|e| e.into())
+      },
+      #[cfg(feature = "openssl")]
+      KeyPair::ECDSA{} => {
+        // FIXME
+        Err(DnsSecErrorKind::Message("not implemented").into())
       }
     }
   }
@@ -168,9 +190,38 @@ impl KeyPair {
   pub fn verify(&self, algorithm: Algorithm, hash: &[u8], signature: &[u8]) -> DnsSecResult<()> {
     match *self {
       #[cfg(feature = "openssl")]
-      KeyPair::RSA{ref rsa} => {
-        rsa.verify(DigestType::from(algorithm).to_hash(), hash, signature).map_err(|e| e.into())
+      KeyPair::RSA{ref pkey} => {
+        let mut verifier = Verifier::new(DigestType::from(algorithm).to_hash(), &pkey).unwrap();
+        try!(verifier.update(hash));
+        verifier.finish(signature)
+                .map_err(|e| e.into())
+                .and_then(|b| if b { Ok(()) }
+                              else { Err(DnsSecErrorKind::Message("could not verify").into()) })
+      },
+      #[cfg(feature = "openssl")]
+      KeyPair::ECDSA{} => {
+        // FIXME
+        Err(DnsSecErrorKind::Message("not implemented").into())
       }
     }
+  }
+}
+
+#[cfg(feature = "openssl")]
+#[test]
+fn test_hashing() {
+  use ::rr::dnssec::Algorithm;
+  use openssl::rsa;
+
+  let bytes = b"www.example.com";
+  let rsa = rsa::Rsa::generate(2048).unwrap();
+  let key = KeyPair::from_rsa(rsa).unwrap();
+
+  for algorithm in &[Algorithm::RSASHA1,
+                     Algorithm::RSASHA256,
+                     Algorithm::RSASHA1NSEC3SHA1,
+                     Algorithm::RSASHA512] {
+    let sig = key.sign(*algorithm, bytes).unwrap();
+    assert!(key.verify(*algorithm, bytes, &sig).is_ok(), "algorithm: {:?}", algorithm);
   }
 }

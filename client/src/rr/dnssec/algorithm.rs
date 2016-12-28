@@ -15,89 +15,85 @@
  */
 use std::str::FromStr;
 
-#[cfg(feature = "openssl")]
-use openssl::crypto::rsa::RSA;
-#[cfg(feature = "openssl")]
-use openssl::bn::BigNum;
-
-#[cfg(feature = "openssl")]
-use ::rr::dnssec::DigestType;
 use ::serialize::binary::*;
 use ::error::*;
 
-// RFC 6944             DNSSEC DNSKEY Algorithm Status           April 2013
-//
-// 2.2.  Algorithm Implementation Status Assignment Rationale
-//
-// RSASHA1 has an implementation status of Must Implement, consistent
-// with [RFC4034].  RSAMD5 has an implementation status of Must Not
-// Implement because of known weaknesses in MD5.
-//
-// The status of RSASHA1-NSEC3-SHA1 is set to Recommended to Implement
-// as many deployments use NSEC3.  The status of RSA/SHA-256 and RSA/
-// SHA-512 are also set to Recommended to Implement as major deployments
-// (such as the root zone) use these algorithms [ROOTDPS].  It is
-// believed that RSA/SHA-256 or RSA/SHA-512 algorithms will replace
-// older algorithms (e.g., RSA/SHA-1) that have a perceived weakness.
-//
-// Likewise, ECDSA with the two identified curves (ECDSAP256SHA256 and
-// ECDSAP384SHA384) is an algorithm that may see widespread use due to
-// the perceived similar level of security offered with smaller key size
-// compared to the key sizes of algorithms such as RSA.  Therefore,
-// ECDSAP256SHA256 and ECDSAP384SHA384 are Recommended to Implement.
-//
-// All other algorithms used in DNSSEC specified without an
-// implementation status are currently set to Optional.
-//
-// 2.3.  DNSSEC Implementation Status Table
-//
-// The DNSSEC algorithm implementation status table is listed below.
-// Only the algorithms already specified for use with DNSSEC at the time
-// of writing are listed.
-//
-//  +------------+------------+-------------------+-------------------+
-//  |    Must    |  Must Not  |    Recommended    |      Optional     |
-//  |  Implement | Implement  |   to Implement    |                   |
-//  +------------+------------+-------------------+-------------------+
-//  |            |            |                   |                   |
-//  |   RSASHA1  |   RSAMD5   |   RSASHA256       |   Any             |
-//  |            |            |   RSASHA1-NSEC3   |   registered      |
-//  |            |            |    -SHA1          |   algorithm       |
-//  |            |            |   RSASHA512       |   not listed in   |
-//  |            |            |   ECDSAP256SHA256 |   this table      |
-//  |            |            |   ECDSAP384SHA384 |                   |
-//  +------------+------------+-------------------+-------------------+
-//
-//    This table does not list the Reserved values in the IANA registry
-//    table or the values for INDIRECT (252), PRIVATE (253), and PRIVATEOID
-//    (254).  These values may relate to more than one algorithm and are
-//    therefore up to the implementer's discretion.  As noted, any
-//    algorithm not listed in the table is Optional.  As of this writing,
-//    the Optional algorithms are DSASHA1, DH, DSA-NSEC3-SHA1, and GOST-
-//    ECC, but in general, anything not explicitly listed is Optional.
-//
-// 2.4.  Specifying New Algorithms and Updating the Status of Existing
-//       Entries
-//
-//    [RFC6014] establishes a parallel procedure for adding a registry
-//    entry for a new algorithm other than a standards track document.
-//    Because any algorithm not listed in the foregoing table is Optional,
-//    algorithms entered into the registry using the [RFC6014] procedure
-//    are automatically Optional.
-//
-//    It has turned out to be useful for implementations to refer to a
-//    single document that specifies the implementation status of every
-//    algorithm.  Accordingly, when a new algorithm is to be registered
-//    with a status other than Optional, this document shall be made
-//    obsolete by a new document that adds the new algorithm to the table
-//    in Section 2.3.  Similarly, if the status of any algorithm in the
-//    table in Section 2.3 changes, a new document shall make this document
-//    obsolete; that document shall include a replacement of the table in
-//    Section 2.3.  This way, the goal of having one authoritative document
-//    to specify all the status values is achieved.
-//
-//    This document cannot be updated, only made obsolete and replaced by a
-//    successor document.
+/// [RFC 6944](https://tools.ietf.org/html/rfc6944), DNSSEC DNSKEY Algorithm Status, April 2013
+///
+/// ```text
+///
+/// 2.2.  Algorithm Implementation Status Assignment Rationale
+///
+/// RSASHA1 has an implementation status of Must Implement, consistent
+/// with [RFC4034].  RSAMD5 has an implementation status of Must Not
+/// Implement because of known weaknesses in MD5.
+///
+/// The status of RSASHA1-NSEC3-SHA1 is set to Recommended to Implement
+/// as many deployments use NSEC3.  The status of RSA/SHA-256 and RSA/
+/// SHA-512 are also set to Recommended to Implement as major deployments
+/// (such as the root zone) use these algorithms [ROOTDPS].  It is
+/// believed that RSA/SHA-256 or RSA/SHA-512 algorithms will replace
+/// older algorithms (e.g., RSA/SHA-1) that have a perceived weakness.
+///
+/// Likewise, ECDSA with the two identified curves (ECDSAP256SHA256 and
+/// ECDSAP384SHA384) is an algorithm that may see widespread use due to
+/// the perceived similar level of security offered with smaller key size
+/// compared to the key sizes of algorithms such as RSA.  Therefore,
+/// ECDSAP256SHA256 and ECDSAP384SHA384 are Recommended to Implement.
+///
+/// All other algorithms used in DNSSEC specified without an
+/// implementation status are currently set to Optional.
+///
+/// 2.3.  DNSSEC Implementation Status Table
+///
+/// The DNSSEC algorithm implementation status table is listed below.
+/// Only the algorithms already specified for use with DNSSEC at the time
+/// of writing are listed.
+///
+///  +------------+------------+-------------------+-------------------+
+///  |    Must    |  Must Not  |    Recommended    |      Optional     |
+///  |  Implement | Implement  |   to Implement    |                   |
+///  +------------+------------+-------------------+-------------------+
+///  |            |            |                   |                   |
+///  |   RSASHA1  |   RSAMD5   |   RSASHA256       |   Any             |
+///  |            |            |   RSASHA1-NSEC3   |   registered      |
+///  |            |            |    -SHA1          |   algorithm       |
+///  |            |            |   RSASHA512       |   not listed in   |
+///  |            |            |   ECDSAP256SHA256 |   this table      |
+///  |            |            |   ECDSAP384SHA384 |                   |
+///  +------------+------------+-------------------+-------------------+
+///
+///    This table does not list the Reserved values in the IANA registry
+///    table or the values for INDIRECT (252), PRIVATE (253), and PRIVATEOID
+///    (254).  These values may relate to more than one algorithm and are
+///    therefore up to the implementer's discretion.  As noted, any
+///    algorithm not listed in the table is Optional.  As of this writing,
+///    the Optional algorithms are DSASHA1, DH, DSA-NSEC3-SHA1, and GOST-
+///    ECC, but in general, anything not explicitly listed is Optional.
+///
+/// 2.4.  Specifying New Algorithms and Updating the Status of Existing
+///       Entries
+///
+///    [RFC6014] establishes a parallel procedure for adding a registry
+///    entry for a new algorithm other than a standards track document.
+///    Because any algorithm not listed in the foregoing table is Optional,
+///    algorithms entered into the registry using the [RFC6014] procedure
+///    are automatically Optional.
+///
+///    It has turned out to be useful for implementations to refer to a
+///    single document that specifies the implementation status of every
+///    algorithm.  Accordingly, when a new algorithm is to be registered
+///    with a status other than Optional, this document shall be made
+///    obsolete by a new document that adds the new algorithm to the table
+///    in Section 2.3.  Similarly, if the status of any algorithm in the
+///    table in Section 2.3 changes, a new document shall make this document
+///    obsolete; that document shall include a replacement of the table in
+///    Section 2.3.  This way, the goal of having one authoritative document
+///    to specify all the status values is achieved.
+///
+///    This document cannot be updated, only made obsolete and replaced by a
+///    successor document.
+/// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum Algorithm {
   /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
@@ -106,33 +102,13 @@ pub enum Algorithm {
   /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
   RSASHA1NSEC3SHA1,
   RSASHA512,
-//  ECDSAP256SHA256, // not yet supported
-//  ECDSAP384SHA384,
+  /// [rfc6605](https://tools.ietf.org/html/rfc6605)
+  ECDSAP256SHA256,
+  /// [rfc6605](https://tools.ietf.org/html/rfc6605)
+  ECDSAP384SHA384,
 }
 
 impl Algorithm {
-  #[cfg(feature = "openssl")]
-  pub fn sign(&self, private_key: &RSA, data: &[u8]) -> DnsSecResult<Vec<u8>> {
-    let digest_type = DigestType::from(*self);
-    // calculate the hash...
-    digest_type.hash(data)
-               .and_then(|ref hash| private_key.sign(digest_type.to_hash(), hash)
-                                               .map_err(|e| e.into()))
-
-
-  }
-
-  #[cfg(feature = "openssl")]
-  pub fn verify(&self, public_key: &RSA, data: &[u8], signature: &[u8]) -> DnsSecResult<()> {
-    let digest_type = DigestType::from(*self);
-
-    // calculate the hash on the local data
-    digest_type.hash(data)
-               // verify the remotely sent signature
-               .and_then(|ref hash| public_key.verify(digest_type.to_hash(), hash, signature)
-                                              .map_err(|e| e.into()))
-  }
-
   /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
   pub fn from_u8(value: u8) -> DecodeResult<Self> {
     match value {
@@ -140,8 +116,8 @@ impl Algorithm {
       7  => Ok(Algorithm::RSASHA1NSEC3SHA1),
       8  => Ok(Algorithm::RSASHA256),
       10 => Ok(Algorithm::RSASHA512),
-//      13 => Algorithm::ECDSAP256SHA256,
-//      14 => Algorithm::ECDSAP384SHA384,
+      13 => Ok(Algorithm::ECDSAP256SHA256),
+      14 => Ok(Algorithm::ECDSAP384SHA384),
       _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
     }
   }
@@ -150,96 +126,9 @@ impl Algorithm {
   pub fn hash_len(&self) -> usize {
     match *self {
       Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
-      Algorithm::RSASHA256 => 32, // 256 bits
+      Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 => 32, // 256 bits
+      Algorithm::ECDSAP384SHA384 => 48,
       Algorithm::RSASHA512 => 64, // 512 bites
-    }
-  }
-
-  #[cfg(feature = "openssl")]
-  pub fn public_key_from_vec(&self, public_key: &[u8]) -> DecodeResult<RSA> {
-    match *self {
-      Algorithm::RSASHA1 |
-      Algorithm::RSASHA1NSEC3SHA1 |
-      Algorithm::RSASHA256 |
-      Algorithm::RSASHA512 => {
-        // RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
-        //
-        //       2. RSA Public KEY Resource Records
-        //
-        //  RSA public keys are stored in the DNS as KEY RRs using algorithm
-        //  number 5 [RFC2535].  The structure of the algorithm specific portion
-        //  of the RDATA part of such RRs is as shown below.
-        //
-        //        Field             Size
-        //        -----             ----
-        //        exponent length   1 or 3 octets (see text)
-        //        exponent          as specified by length field
-        //        modulus           remaining space
-        //
-        //  For interoperability, the exponent and modulus are each limited to
-        //  4096 bits in length.  The public key exponent is a variable length
-        //  unsigned integer.  Its length in octets is represented as one octet
-        //  if it is in the range of 1 to 255 and by a zero octet followed by a
-        //  two octet unsigned length if it is longer than 255 bytes.  The public
-        //  key modulus field is a multiprecision unsigned integer.  The length
-        //  of the modulus can be determined from the RDLENGTH and the preceding
-        //  RDATA fields including the exponent.  Leading zero octets are
-        //  prohibited in the exponent and modulus.
-        //
-        //  Note: KEY RRs for use with RSA/SHA1 DNS signatures MUST use this
-        //  algorithm number (rather than the algorithm number specified in the
-        //  obsoleted RFC 2537).
-        //
-        //  Note: This changes the algorithm number for RSA KEY RRs to be the
-        //  same as the new algorithm number for RSA/SHA1 SIGs.
-        if public_key.len() < 3 || public_key.len() > (4096 + 3) { return Err(DecodeErrorKind::Message("bad public key").into()) }
-        let mut num_exp_len_octs = 1;
-        let mut len: u16 = public_key[0] as u16;
-        if len == 0 {
-          num_exp_len_octs = 3;
-          len = ((public_key[1] as u16) << 8) | (public_key[2] as u16)
-        }
-        let len = len; // demut
-
-        let e = try!(BigNum::new_from_slice(&public_key[(num_exp_len_octs as usize)..(len as usize + num_exp_len_octs)]));
-        let n = try!(BigNum::new_from_slice(&public_key[(len as usize +num_exp_len_octs)..]));
-
-        RSA::from_public_components(n, e).map_err(|e| e.into())
-      }
-    }
-  }
-
-  #[cfg(not(feature = "openssl"))]
-  pub fn public_key_from_vec(&self, _: &[u8]) -> DecodeResult<()> {
-    Err(DecodeErrorKind::Message("openssl feature not enabled").into())
-  }
-
-  #[cfg(feature = "openssl")]
-  pub fn public_key_to_vec(&self, public_key: &RSA) -> Vec<u8> {
-    match *self {
-      Algorithm::RSASHA1 |
-      Algorithm::RSASHA1NSEC3SHA1 |
-      Algorithm::RSASHA256 |
-      Algorithm::RSASHA512 => {
-        let mut bytes: Vec<u8> = Vec::new();
-
-        // this is to get us access to the exponent and the modulus
-        let e: Vec<u8> = public_key.e().expect("RSA should have been initialized").to_vec();
-        let n: Vec<u8> = public_key.n().expect("RSA should have been initialized").to_vec();
-
-        if e.len() > 255 {
-          bytes.push(0);
-          bytes.push((e.len() >> 8) as u8);
-          bytes.push(e.len() as u8);
-        } else {
-          bytes.push(e.len() as u8);
-        }
-
-        bytes.extend_from_slice(&e);
-        bytes.extend_from_slice(&n);
-
-        bytes
-      }
     }
   }
 }
@@ -265,8 +154,8 @@ impl FromStr for Algorithm {
       "RSASHA256" => Ok(Algorithm::RSASHA256),
       "RSASHA1-NSEC3-SHA1" => Ok(Algorithm::RSASHA1NSEC3SHA1),
       "RSASHA512" => Ok(Algorithm::RSASHA512),
-//      "ECDSAP256SHA256" => Algorithm::ECDSAP256SHA256,
-//      "ECDSAP384SHA384" => Algorithm::ECDSAP384SHA384,
+      "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
+      "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
       _ => Err(DecodeErrorKind::Msg(format!("unrecognized string {}", s)).into()),
     }
   }
@@ -279,8 +168,8 @@ impl From<Algorithm> for &'static str {
       Algorithm::RSASHA256 => "RSASHA256",
       Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
       Algorithm::RSASHA512 => "RSASHA512",
-//      ECDSAP256SHA256 => "ECDSAP256SHA256",
-//      ECDSAP384SHA384 => "ECDSAP384SHA384",
+      Algorithm::ECDSAP256SHA256 => "ECDSAP256SHA256",
+      Algorithm::ECDSAP384SHA384 => "ECDSAP384SHA384",
     }
   }
 }
@@ -292,30 +181,20 @@ impl From<Algorithm> for u8 {
       Algorithm::RSASHA1NSEC3SHA1 => 7,
       Algorithm::RSASHA256 => 8,
       Algorithm::RSASHA512 => 10,
-//      ECDSAP256SHA256 => 13,
-//      ECDSAP384SHA384 => 14,
+      Algorithm::ECDSAP256SHA256 => 13,
+      Algorithm::ECDSAP384SHA384 => 14,
     }
   }
 }
 
-#[cfg(test)]
-#[cfg(feature = "openssl")]
-mod test {
-  use super::Algorithm;
-  #[cfg(feature = "openssl")]
-  use openssl::crypto::rsa;
-
-  #[test]
-  fn test_hashing() {
-    let bytes = b"www.example.com";
-    let rsa = rsa::RSA::generate(2048).unwrap();
-
-    for algorithm in &[Algorithm::RSASHA1,
-                       Algorithm::RSASHA256,
-                       Algorithm::RSASHA1NSEC3SHA1,
-                       Algorithm::RSASHA512] {
-      let sig = algorithm.sign(&rsa, bytes).unwrap();
-      assert!(algorithm.verify(&rsa, bytes, &sig).is_ok());
-    }
+#[test]
+fn test_into() {
+  for algorithm in &[Algorithm::RSASHA1,
+                     Algorithm::RSASHA256,
+                     Algorithm::RSASHA1NSEC3SHA1,
+                     Algorithm::RSASHA512,
+                     Algorithm::ECDSAP256SHA256,
+                     Algorithm::ECDSAP384SHA384] {
+    assert_eq!(*algorithm, Algorithm::from_u8(Into::<u8>::into(*algorithm)).unwrap())
   }
 }

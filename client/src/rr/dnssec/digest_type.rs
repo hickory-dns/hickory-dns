@@ -14,17 +14,21 @@
  * limitations under the License.
  */
 #[cfg(feature = "openssl")]
-use openssl::crypto::hash;
+use openssl::hash;
+#[cfg(feature = "openssl")]
+use openssl::hash::MessageDigest;
 
 use ::rr::dnssec::Algorithm;
 use ::error::*;
 
-// 0	Reserved	-	[RFC3658]
-// 1	SHA-1	MANDATORY	[RFC3658]
-// 2	SHA-256	MANDATORY	[RFC4509]
-// 3	GOST R 34.11-94	OPTIONAL	[RFC5933]
-// 4	SHA-384	OPTIONAL	[RFC6605]
-// 5-255	Unassigned	-
+/// ```text
+/// 0	Reserved	-	[RFC3658]
+/// 1	SHA-1	MANDATORY	[RFC3658]
+/// 2	SHA-256	MANDATORY	[RFC4509]
+/// 3	GOST R 34.11-94	OPTIONAL	[RFC5933]
+/// 4	SHA-384	OPTIONAL	[RFC6605]
+/// 5-255	Unassigned	-
+/// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum DigestType {
   SHA1, // [RFC3658]
@@ -47,12 +51,12 @@ impl DigestType {
   }
 
   #[cfg(feature = "openssl")]
-  pub fn to_hash(&self) -> hash::Type {
+  pub fn to_hash(&self) -> MessageDigest {
     match *self {
-      DigestType::SHA1 => hash::Type::SHA1,
-      DigestType::SHA256 => hash::Type::SHA256,
-      DigestType::SHA384 => hash::Type::SHA384,
-      DigestType::SHA512 => hash::Type::SHA512,
+      DigestType::SHA1 => MessageDigest::sha1(),
+      DigestType::SHA256 => MessageDigest::sha256(),
+      DigestType::SHA384 => MessageDigest::sha384(),
+      DigestType::SHA512 => MessageDigest::sha512(),
     }
   }
 
@@ -73,8 +77,8 @@ impl From<Algorithm> for DigestType {
       Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => DigestType::SHA1,
       Algorithm::RSASHA256 => DigestType::SHA256,
       Algorithm::RSASHA512 => DigestType::SHA512,
-//      Algorithm::ECDSAP256SHA256 => hash::Type::SHA256,
-//      Algorithm::ECDSAP384SHA384 => hash::Type::SHA384,
+      Algorithm::ECDSAP256SHA256 => DigestType::SHA256,
+      Algorithm::ECDSAP384SHA384 => DigestType::SHA384,
     }
   }
 }

@@ -1,3 +1,6 @@
+extern crate chrono;
+extern crate futures;
+extern crate openssl;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
@@ -9,7 +12,9 @@ use trust_dns::rr::*;
 use trust_dns::rr::rdata::*;
 
 use trust_dns_server::authority::*;
-use trust_dns_server::authority::authority::create_example;
+
+mod common;
+use common::authority::create_example;
 
 pub fn create_test() -> Authority {
   let origin: Name = Name::parse("test.com.", None).unwrap();

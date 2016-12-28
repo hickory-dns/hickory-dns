@@ -227,7 +227,7 @@ impl<C: ClientConnection> Client<C> {
             if *rdata.get_algorithm() != sig.get_algorithm() { continue }
 
             let pkey = KeyPair::from_vec(rdata.get_public_key(), *rdata.get_algorithm());
-            if pkey.is_err() { debug!("could not translate public_key_from_vec: {}", pkey.unwrap_err()); continue }
+            if pkey.is_err() { debug!("could not translate public_key_from_vec: {}", pkey.err().unwrap()); continue }
             let pkey = pkey.unwrap();
 
             let signer: Signer = Signer::new_verifier(*rdata.get_algorithm(), pkey, sig.get_signer_name().clone());

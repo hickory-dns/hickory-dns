@@ -18,10 +18,10 @@ use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 
 use trust_dns_server::authority::Catalog;
-use trust_dns_server::authority::authority::create_secure_example;
 
 mod common;
 use common::TestClientStream;
+use common::authority::create_secure_example;
 
 #[test]
 fn test_secure_query_example_nonet() {

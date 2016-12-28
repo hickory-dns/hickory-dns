@@ -12,11 +12,15 @@ use trust_dns::serialize::binary::*;
 
 use trust_dns_server::authority::Catalog;
 
+pub mod authority;
+
+#[allow(unused)]
 pub struct TestClientStream {
   catalog: Catalog,
   outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
 }
 
+#[allow(unused)]
 impl TestClientStream {
   pub fn new(catalog: Catalog) -> (Box<Future<Item=Self, Error=io::Error>>, Box<ClientStreamHandle>) {
     let (message_sender, outbound_messages) = unbounded();

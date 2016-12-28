@@ -48,7 +48,7 @@ use std::io::{Read, Write};
 use chrono::{Duration};
 use docopt::Docopt;
 use log::LogLevel;
-use openssl::crypto::rsa::RSA;
+use openssl::rsa::Rsa;
 
 use trust_dns::error::ParseResult;
 use trust_dns::logger;
@@ -174,7 +174,7 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
       let mut rsa_bytes = Vec::with_capacity(256);
       try!(file.read_to_end(&mut rsa_bytes).map_err(|e| format!("could not read rsa key from: {:?}: {}", key_path, e)));
 
-      match RSA::private_key_from_pem(&rsa_bytes) {
+      match Rsa::private_key_from_pem(&rsa_bytes) {
         Ok(rsa) => rsa,
         Err(e) => return Err(format!("error reading private key file: {:?}: {}", key_path, e)),
       }
@@ -187,7 +187,7 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
         Err(e) => return Err(format!("error creating private key file: {:?}: {}", key_path, e))
       };
 
-      let rsa: RSA = try!(RSA::generate(2048).map_err(|e| format!("could not generate rsa key: {}", e)));
+      let rsa: Rsa = try!(Rsa::generate(2048).map_err(|e| format!("could not generate rsa key: {}", e)));
       let rsa_bytes = try!(rsa.private_key_to_pem().map_err(|e| format!("could not get rsa pem bytes: {}", e)));
 
       if let Err(e) = file.write_all(&rsa_bytes) {
@@ -198,7 +198,7 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
       rsa
     };
 
-    let pkey = KeyPair::from_rsa(rsa);
+    let pkey = KeyPair::from_rsa(rsa).expect("error converting RSA to KeyPair");
 
     // add the key to the zone
     // TODO: allow the duration of signatutes to be customized

@@ -1,4 +1,5 @@
 extern crate chrono;
+extern crate futures;
 extern crate openssl;
 extern crate trust_dns;
 extern crate trust_dns_server;
@@ -7,7 +8,7 @@ use std::net::*;
 use std::fmt;
 
 use chrono::Duration;
-use openssl::crypto::rsa::RSA;
+use openssl::rsa::Rsa;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection};
@@ -21,7 +22,9 @@ use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
 
 use trust_dns_server::authority::Catalog;
-use trust_dns_server::authority::authority::{create_example, create_secure_example};
+
+mod common;
+use common::authority::{create_example, create_secure_example};
 
 pub struct TestClientConnection<'a> {
   catalog: &'a Catalog
@@ -335,8 +338,8 @@ fn create_sig0_ready_client<'a>(catalog: &'a mut Catalog) -> (Client<TestClientC
   authority.set_allow_update(true);
   let origin = authority.get_origin().clone();
 
-  let rsa = RSA::generate(512).unwrap();
-  let key = KeyPair::from_rsa(rsa);
+  let rsa = Rsa::generate(512).unwrap();
+  let key = KeyPair::from_rsa(rsa).unwrap();
 
   let signer = Signer::new(Algorithm::RSASHA256, key,
     domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),

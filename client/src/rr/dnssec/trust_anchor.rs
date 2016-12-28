@@ -19,10 +19,9 @@
 use std::default::Default;
 
 #[cfg(feature = "openssl")]
-use openssl::crypto::rsa::RSA;
+use openssl::rsa::Rsa;
 
-#[cfg(feature = "openssl")]
-use ::rr::dnssec::Algorithm;
+use ::rr::dnssec::KeyPair;
 
 #[cfg(feature = "openssl")]
 const ROOT_ANCHOR: &'static str = include_str!("Kjqmt7v.pem");
@@ -36,12 +35,10 @@ pub struct TrustAnchor {
 impl Default for TrustAnchor {
   #[cfg(feature = "openssl")]
   fn default() -> TrustAnchor {
-    let rsa = RSA::public_key_from_pem(ROOT_ANCHOR.as_bytes()).expect("Error parsing Kjqmt7v.pem");
-    assert_eq!(rsa.size().unwrap(), 256);
+    let rsa = Rsa::public_key_from_pem(ROOT_ANCHOR.as_bytes()).expect("Error parsing Kjqmt7v.pem");
+    let key = KeyPair::from_rsa(rsa).expect("Error creating KeyPair from RSA key");
 
-    let alg = Algorithm::RSASHA256;
-
-    TrustAnchor{ pkeys: vec![alg.public_key_to_vec(&rsa)] }
+    TrustAnchor{ pkeys: vec![key.to_vec()] }
   }
 
   #[cfg(not(feature = "openssl"))]
@@ -72,7 +69,8 @@ impl TrustAnchor {
 }
 
 #[test]
-fn dump_keys() {
+#[cfg(feature = "openssl")]
+fn test_kjqmt7v() {
   let trust = TrustAnchor::default();
   let test_kjqmt7v: Vec<u8> = vec![3, 1, 0, 1, 168, 0, 32, 169, 85, 102, 186, 66, 232, 134, 187,
                                    128, 76, 218, 132, 228, 126, 245, 109, 189, 122, 236, 97, 38,
@@ -95,4 +93,5 @@ fn dump_keys() {
                                    106, 67, 16, 62, 82, 77, 98, 135, 61];
 
   assert_eq!(trust.get(0), &test_kjqmt7v as &[u8]);
+  assert!(trust.contains(&test_kjqmt7v));
 }

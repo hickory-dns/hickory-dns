@@ -453,6 +453,7 @@ impl Signer {
       return Err(DnsSecErrorKind::Msg(format!("could not determine name from {}", name)).into())
     };
 
+    // TODO: rather than buffering here, use the Signer/Verifier? might mean fewer allocations...
     let mut buf: Vec<u8> = Vec::new();
 
     {
@@ -501,7 +502,9 @@ impl Signer {
       }
     }
 
-    DigestType::from(self.algorithm).hash(&buf)
+    // TODO: This used to return the hash, now it's a hashable record type?
+    // DigestType::from(self.algorithm).hash(&buf)
+    Ok(buf)
   }
 
   /// hashes the RRSet with information provided from the RRSig record
@@ -612,7 +615,7 @@ impl Signer {
 #[test]
 #[cfg(feature = "openssl")]
 fn test_sign_and_verify_message_sig0() {
-  use openssl::crypto::rsa::RSA;
+  use openssl::rsa::Rsa;
   use ::rr::Name;
   use ::op::{Message, Query, UpdateMessage};
 
@@ -622,8 +625,8 @@ fn test_sign_and_verify_message_sig0() {
   query.name(origin.clone());
   question.add_query(query);
 
-  let rsa = RSA::generate(512).unwrap();
-  let key = KeyPair::from_rsa(rsa);
+  let rsa = Rsa::generate(512).unwrap();
+  let key = KeyPair::from_rsa(rsa).unwrap();
   let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
 
   let sig = signer.sign_message(&question).unwrap();
@@ -648,12 +651,12 @@ fn test_sign_and_verify_message_sig0() {
 #[test]
 #[cfg(feature = "openssl")]
 fn test_hash_rrset() {
-  use openssl::crypto::rsa::RSA;
+  use openssl::rsa::Rsa;
   use ::rr::{Name, RecordType};
   use ::rr::rdata::SIG;
 
-  let rsa = RSA::generate(512).unwrap();
-  let key = KeyPair::from_rsa(rsa);
+  let rsa = Rsa::generate(512).unwrap();
+  let key = KeyPair::from_rsa(rsa).unwrap();
   let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
@@ -679,13 +682,13 @@ fn test_hash_rrset() {
 #[test]
 #[cfg(feature = "openssl")]
 fn test_sign_and_verify_rrset() {
-  use openssl::crypto::rsa::RSA;
+  use openssl::rsa::Rsa;
   use ::rr::RecordType;
   use ::rr::Name;
   use ::rr::rdata::SIG;
 
-  let rsa = RSA::generate(512).unwrap();
-  let key = KeyPair::from_rsa(rsa);
+  let rsa = Rsa::generate(512).unwrap();
+  let key = KeyPair::from_rsa(rsa).unwrap();
   let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
@@ -703,11 +706,11 @@ fn test_sign_and_verify_rrset() {
 #[test]
 #[cfg(feature = "openssl")]
 fn test_calculate_key_tag() {
-  use openssl::crypto::rsa::RSA;
-  let rsa = RSA::generate(512).unwrap();
+  use openssl::rsa::Rsa;
+  let rsa = Rsa::generate(512).unwrap();
   println!("pkey: {:?}", rsa.public_key_to_pem().unwrap());
 
-  let key = KeyPair::from_rsa(rsa);
+  let key = KeyPair::from_rsa(rsa).unwrap();
   let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
   let key_tag = signer.calculate_key_tag();
 
