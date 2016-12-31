@@ -87,7 +87,7 @@ impl KeyPair {
       },
       #[cfg(feature = "openssl")]
       Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
-        Ok(KeyPair::ECDSA{})
+        Err(DnsSecErrorKind::Message("unimplemented").into())
       }
       // _ => Err(DecodeErrorKind::Message("openssl feature not enabled").into()),
     }
@@ -119,8 +119,7 @@ impl KeyPair {
       },
       #[cfg(feature = "openssl")]
       KeyPair::ECDSA{} => {
-        let mut bytes: Vec<u8> = Vec::new();
-        bytes
+        Vec::new() // TODO: unimplemented
       },
       // _ => vec![],
     }
@@ -169,8 +168,7 @@ impl KeyPair {
       },
       #[cfg(feature = "openssl")]
       KeyPair::ECDSA{} => {
-        // FIXME
-        Err(DnsSecErrorKind::Message("not implemented").into())
+        Err(DnsSecErrorKind::Message("unimplemented").into())
       }
     }
   }

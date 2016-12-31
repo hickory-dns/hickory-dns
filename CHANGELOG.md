@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.9.3
+### Changed
+- updated to rust-openssl 0.9.x series
+
 ## 0.9.2
 ### Changed
 - mio_client is now an optional feature in favor of the futures-rs ClientFuture
