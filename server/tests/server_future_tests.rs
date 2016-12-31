@@ -1,4 +1,7 @@
+extern crate chrono;
+extern crate futures;
 extern crate mio;
+extern crate openssl;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
@@ -14,8 +17,9 @@ use trust_dns::tcp::TcpClientConnection;
 
 use trust_dns_server::ServerFuture;
 use trust_dns_server::authority::*;
-use trust_dns_server::authority::authority::create_example;
 
+mod common;
+use common::authority::create_example;
 
 #[test]
 fn test_server_www_udp() {

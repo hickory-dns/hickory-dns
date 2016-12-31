@@ -16,7 +16,7 @@ use futures::{Async, Future, finished, Poll};
 use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task::park;
-use openssl::crypto::rsa::RSA;
+use openssl::rsa::Rsa;
 use tokio_core::reactor::Core;
 
 use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle, ClientStreamHandle};
@@ -24,15 +24,16 @@ use trust_dns::error::*;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, IntoRecordSet, RData, Record, RecordType, RecordSet};
-use trust_dns::rr::dnssec::{Algorithm, Signer};
+use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::*;
 use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns_server::authority::Catalog;
-use trust_dns_server::authority::authority::{create_example};
 
 mod common;
 use common::TestClientStream;
+use common::authority::create_example;
+
 
 #[test]
 fn test_query_nonet() {
@@ -165,10 +166,11 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   authority.set_allow_update(true);
   let origin = authority.get_origin().clone();
 
-  let rsa = RSA::generate(512).unwrap();
+  let rsa = Rsa::generate(512).unwrap();
+  let key = KeyPair::from_rsa(rsa).unwrap();
 
   let signer = Signer::new(Algorithm::RSASHA256,
-                           rsa,
+                           key,
                            domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
                            Duration::max_value());
 
@@ -176,7 +178,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   let mut auth_key = Record::with(domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
                                   RecordType::KEY,
                                   Duration::minutes(5).num_seconds() as u32);
-  auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_public_key())));
+  auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_key().to_vec())));
   authority.upsert(auth_key, 0);
 
   // setup the catalog

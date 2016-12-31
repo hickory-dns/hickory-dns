@@ -18,6 +18,7 @@
 
 mod algorithm;
 mod digest_type;
+mod keypair;
 mod nsec3;
 mod signer;
 mod supported_algorithm;
@@ -25,6 +26,7 @@ mod trust_anchor;
 
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
+pub use self::keypair::KeyPair;
 pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::signer::Signer;
 pub use self::supported_algorithm::SupportedAlgorithms;

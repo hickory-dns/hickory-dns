@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-server"
-version = "0.9.0"
+version = "0.9.3"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -56,7 +56,7 @@ futures = "^0.1"
 lazy_static = "^0.2.1"
 log = "^0.3.5"
 mio = "^0.5.1"
-openssl = "^0.8.3"
+openssl = "^0.9"
 rand = "^0.3"
 rustc-serialize = "^0.3.18"
 rusqlite = "^0.7.3"

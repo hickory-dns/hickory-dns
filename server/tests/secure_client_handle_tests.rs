@@ -18,10 +18,10 @@ use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 
 use trust_dns_server::authority::Catalog;
-use trust_dns_server::authority::authority::create_secure_example;
 
 mod common;
 use common::TestClientStream;
+use common::authority::create_secure_example;
 
 #[test]
 fn test_secure_query_example_nonet() {
@@ -171,16 +171,18 @@ fn with_nonet<F>(test: F) where F: Fn(SecureClientHandle<MemoizeClientHandle<Bas
 
   let authority = create_secure_example();
 
-  let public_key = {
+  let trust_anchor = {
     let signers = authority.get_secure_keys();
-    signers.first().expect("expected a key in the authority").get_public_key()
+    let public_key = signers.first().expect("expected a key in the authority").get_key();
+
+    let mut trust_anchor = TrustAnchor::new();
+    trust_anchor.insert_trust_anchor(public_key.to_vec());
+
+    trust_anchor
   };
 
   let mut catalog = Catalog::new();
   catalog.upsert(authority.get_origin().clone(), authority);
-
-  let mut trust_anchor = TrustAnchor::new();
-  trust_anchor.insert_trust_anchor(public_key);
 
   let io_loop = Core::new().unwrap();
   let (stream, sender) = TestClientStream::new(catalog);

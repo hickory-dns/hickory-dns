@@ -16,7 +16,7 @@
 #[cfg(feature = "openssl")]
 use std::io::Write;
 #[cfg(feature = "openssl")]
-use openssl::crypto::hash;
+use openssl::hash;
 
 use ::error::*;
 #[cfg(feature = "openssl")]
