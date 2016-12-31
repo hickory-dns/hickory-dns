@@ -310,15 +310,15 @@ impl Signer {
   ///  return ac & 0xFFFF;
   ///  }
   /// ```
-  pub fn calculate_key_tag(&self) -> u16 {
+  pub fn calculate_key_tag(&self) -> DnsSecResult<u16> {
     let mut ac: usize = 0;
 
-    for (i,k) in self.key.to_vec().iter().enumerate() {
+    for (i,k) in try!(self.key.to_vec()).iter().enumerate() {
       ac += if i & 0x0001 == 0x0001 { *k as usize } else { (*k as usize) << 8 };
     }
 
     ac += (ac >> 16 ) & 0xFFFF;
-    return (ac & 0xFFFF) as u16; // this is unnecessary, no?
+    return Ok((ac & 0xFFFF) as u16); // this is unnecessary, no?
   }
 
   fn hash_message(&self, message: &Message) -> DnsSecResult<Vec<u8>> {
@@ -661,7 +661,7 @@ fn test_hash_rrset() {
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
-        5, 0, signer.calculate_key_tag(), origin.clone(), vec![]))).clone();
+        5, 0, signer.calculate_key_tag().unwrap(), origin.clone(), vec![]))).clone();
   let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(),
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone()];
 
@@ -693,7 +693,7 @@ fn test_sign_and_verify_rrset() {
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
-        5, 0, signer.calculate_key_tag(), origin.clone(), vec![]))).clone();
+        5, 0, signer.calculate_key_tag().unwrap(), origin.clone(), vec![]))).clone();
   let rrset = vec![Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(),
                    Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()) ).clone()];
 
@@ -712,7 +712,7 @@ fn test_calculate_key_tag() {
 
   let key = KeyPair::from_rsa(rsa).unwrap();
   let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
-  let key_tag = signer.calculate_key_tag();
+  let key_tag = signer.calculate_key_tag().unwrap();
 
   println!("key_tag: {}", key_tag);
   assert!(key_tag > 0);
