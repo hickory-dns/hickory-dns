@@ -5,6 +5,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ## 0.9.3
 ### Changed
 - updated to rust-openssl 0.9.x series
+- restructured dnssec code to better support alternate key formats
 
 ## 0.9.2
 ### Changed

@@ -28,6 +28,7 @@ pub enum KeyPair {
 }
 
 impl KeyPair {
+  #[cfg(feature = "openssl")]
   pub fn from_rsa(rsa: OpenSslRsa) -> DnsSecResult<Self> {
     PKey::from_rsa(rsa).map(|pkey| KeyPair::RSA{pkey: pkey}).map_err(|e| e.into())
   }
@@ -89,7 +90,8 @@ impl KeyPair {
       Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => {
         Err(DnsSecErrorKind::Message("unimplemented").into())
       }
-      // _ => Err(DecodeErrorKind::Message("openssl feature not enabled").into()),
+      #[cfg(not(feature = "openssl"))]
+      _ => Err(DnsSecErrorKind::Message("openssl feature not enabled").into()),
     }
   }
 
