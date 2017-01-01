@@ -38,9 +38,13 @@ extern crate mio;
 #[cfg(feature = "openssl")]
 extern crate openssl;
 extern crate rand;
+#[cfg(feature = "ring")]
+extern crate ring;
 extern crate rustc_serialize;
 extern crate time;
 #[macro_use] extern crate tokio_core;
+#[cfg(feature = "ring")]
+extern crate untrusted;
 
 pub mod error;
 pub mod logger;

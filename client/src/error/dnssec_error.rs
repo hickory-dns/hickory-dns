@@ -15,10 +15,10 @@
  */
 use std::io::Error as IoError;
 
-#[cfg(feature = "openssl")]
-use openssl::error::ErrorStack as SslErrorStack;
-#[cfg(not(feature = "openssl"))]
-use self::not_openssl::SslErrorStack;
+#[cfg(feature = "openssl")] use openssl::error::ErrorStack as SslErrorStack;
+#[cfg(not(feature = "openssl"))] use self::not_openssl::SslErrorStack;
+#[cfg(feature = "ring")] use ring::error::Unspecified;
+#[cfg(not(feature = "ring"))] use self::not_ring::Unspecified;
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -46,6 +46,7 @@ error_chain! {
     foreign_links {
       IoError, Io, "io error";
       SslErrorStack, SSL, "ssl error";
+      Unspecified, Ring, "undetailed error";
     }
 
     // Define additional `ErrorKind` variants. The syntax here is
@@ -76,6 +77,27 @@ pub mod not_openssl {
   impl std::error::Error for SslErrorStack {
     fn description(&self) -> &str {
       "openssl feature not enabled"
+    }
+  }
+}
+
+#[cfg(not(feature = "ring"))]
+pub mod not_openssl {
+  use std;
+
+  #[derive(Debug)]
+  pub struct Unspecified;
+
+  impl std::fmt::Display for Unspecified {
+    fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+      Ok(())
+    }
+  }
+
+
+  impl std::error::Error for Unspecified {
+    fn description(&self) -> &str {
+      "ring feature not enabled"
     }
   }
 }

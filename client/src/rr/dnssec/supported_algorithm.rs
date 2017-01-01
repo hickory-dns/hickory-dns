@@ -44,6 +44,7 @@ impl SupportedAlgorithms {
       Algorithm::RSASHA512 => 3,
       Algorithm::ECDSAP256SHA256 => 4,
       Algorithm::ECDSAP384SHA384 => 5,
+      Algorithm::ED25519 => 6,
     };
 
     assert!(bit_pos <= u8::max_value());
@@ -59,6 +60,7 @@ impl SupportedAlgorithms {
       3 => Some(Algorithm::RSASHA512),
       4 => Some(Algorithm::ECDSAP256SHA256),
       5 => Some(Algorithm::ECDSAP384SHA384),
+      6 => Some(Algorithm::ED25519),
       _ => None,
     }
   }

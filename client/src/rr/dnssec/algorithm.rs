@@ -18,6 +18,11 @@ use std::str::FromStr;
 use ::serialize::binary::*;
 use ::error::*;
 
+/// DNSSec signing and validation algorithms.
+///
+/// For [reference](http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml)
+///  the iana documents have all the officially registered algorithms.
+///
 /// [RFC 6944](https://tools.ietf.org/html/rfc6944), DNSSEC DNSKEY Algorithm Status, April 2013
 ///
 /// ```text
@@ -106,6 +111,8 @@ pub enum Algorithm {
   ECDSAP256SHA256,
   /// [rfc6605](https://tools.ietf.org/html/rfc6605)
   ECDSAP384SHA384,
+  /// [draft-ietf-curdle-dnskey-eddsa-03](https://tools.ietf.org/html/draft-ietf-curdle-dnskey-eddsa-03)
+  ED25519,
 }
 
 impl Algorithm {
@@ -118,6 +125,7 @@ impl Algorithm {
       10 => Ok(Algorithm::RSASHA512),
       13 => Ok(Algorithm::ECDSAP256SHA256),
       14 => Ok(Algorithm::ECDSAP384SHA384),
+      15 => Ok(Algorithm::ED25519), // FIXME: assuming IANA will give this as the next number...
       _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
     }
   }
@@ -126,7 +134,7 @@ impl Algorithm {
   pub fn hash_len(&self) -> usize {
     match *self {
       Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
-      Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 => 32, // 256 bits
+      Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 | Algorithm::ED25519 => 32, // 256 bits
       Algorithm::ECDSAP384SHA384 => 48,
       Algorithm::RSASHA512 => 64, // 512 bites
     }
@@ -156,6 +164,7 @@ impl FromStr for Algorithm {
       "RSASHA512" => Ok(Algorithm::RSASHA512),
       "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
       "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
+      "ED25519" => Ok(Algorithm::ED25519),
       _ => Err(DecodeErrorKind::Msg(format!("unrecognized string {}", s)).into()),
     }
   }
@@ -170,6 +179,7 @@ impl From<Algorithm> for &'static str {
       Algorithm::RSASHA512 => "RSASHA512",
       Algorithm::ECDSAP256SHA256 => "ECDSAP256SHA256",
       Algorithm::ECDSAP384SHA384 => "ECDSAP384SHA384",
+      Algorithm::ED25519 => "ED25519",
     }
   }
 }
@@ -183,6 +193,7 @@ impl From<Algorithm> for u8 {
       Algorithm::RSASHA512 => 10,
       Algorithm::ECDSAP256SHA256 => 13,
       Algorithm::ECDSAP384SHA384 => 14,
+      Algorithm::ED25519 => 15, // FIXME: assuming IANA will give this as the next number...
     }
   }
 }
@@ -194,7 +205,8 @@ fn test_into() {
                      Algorithm::RSASHA1NSEC3SHA1,
                      Algorithm::RSASHA512,
                      Algorithm::ECDSAP256SHA256,
-                     Algorithm::ECDSAP384SHA384] {
+                     Algorithm::ECDSAP384SHA384,
+                     Algorithm::ED25519] {
     assert_eq!(*algorithm, Algorithm::from_u8(Into::<u8>::into(*algorithm)).unwrap())
   }
 }

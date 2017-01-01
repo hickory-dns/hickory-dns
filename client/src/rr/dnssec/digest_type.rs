@@ -21,12 +21,15 @@ use openssl::hash::MessageDigest;
 use ::rr::dnssec::Algorithm;
 use ::error::*;
 
-/// ```text
+/// This is the digest format for the
+///
+///```text
 /// 0	Reserved	-	[RFC3658]
 /// 1	SHA-1	MANDATORY	[RFC3658]
 /// 2	SHA-256	MANDATORY	[RFC4509]
 /// 3	GOST R 34.11-94	OPTIONAL	[RFC5933]
 /// 4	SHA-384	OPTIONAL	[RFC6605]
+/// 5 ED25519 [RFC draft-ietf-curdle-dnskey-eddsa-03]
 /// 5-255	Unassigned	-
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
@@ -36,33 +39,36 @@ pub enum DigestType {
   // GOSTR34_11_94, // [RFC5933]
   SHA384, // [RFC6605]
   SHA512,
+  ED25519, // this is a passthrough digest as ED25519 is self-packaged
 }
 
 impl DigestType {
   /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
   pub fn from_u8(value: u8) -> DecodeResult<Self> {
     match value {
-      1  => Ok(DigestType::SHA1),
-      2  => Ok(DigestType::SHA256),
+      1 => Ok(DigestType::SHA1),
+      2 => Ok(DigestType::SHA256),
       //  3  => Ok(DigestType::GOSTR34_11_94),
-      4  => Ok(DigestType::SHA384),
+      4 => Ok(DigestType::SHA384),
+      5 => Ok(DigestType::ED25519),
       _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
     }
   }
 
   #[cfg(feature = "openssl")]
-  pub fn to_hash(&self) -> MessageDigest {
+  pub fn to_openssl_digest(&self) -> DnsSecResult<MessageDigest> {
     match *self {
-      DigestType::SHA1 => MessageDigest::sha1(),
-      DigestType::SHA256 => MessageDigest::sha256(),
-      DigestType::SHA384 => MessageDigest::sha384(),
-      DigestType::SHA512 => MessageDigest::sha512(),
+      DigestType::SHA1 => Ok(MessageDigest::sha1()),
+      DigestType::SHA256 => Ok(MessageDigest::sha256()),
+      DigestType::SHA384 => Ok(MessageDigest::sha384()),
+      DigestType::SHA512 => Ok(MessageDigest::sha512()),
+      _ => Err(DnsSecErrorKind::Msg(format!("digest not supported by openssl: {:?}", self)).into())
     }
   }
 
   #[cfg(feature = "openssl")]
   pub fn hash(&self, data: &[u8]) -> DnsSecResult<Vec<u8>> {
-    hash::hash(self.to_hash(), data).map_err(|e| e.into())
+    hash::hash(try!(self.to_openssl_digest()), data).map_err(|e| e.into())
   }
 
   #[cfg(not(feature = "openssl"))]
@@ -79,6 +85,7 @@ impl From<Algorithm> for DigestType {
       Algorithm::RSASHA512 => DigestType::SHA512,
       Algorithm::ECDSAP256SHA256 => DigestType::SHA256,
       Algorithm::ECDSAP384SHA384 => DigestType::SHA384,
+      Algorithm::ED25519 => DigestType::ED25519,
     }
   }
 }
@@ -90,6 +97,7 @@ impl From<DigestType> for u8 {
       DigestType::SHA256 => 2,
       // DigestType::GOSTR34_11_94 => 3,
       DigestType::SHA384 => 4,
+      DigestType::ED25519 => 5,
       DigestType::SHA512 => 255,
     }
   }
