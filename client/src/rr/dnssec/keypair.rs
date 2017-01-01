@@ -22,32 +22,48 @@ use ::rr::{Name, RData, Record, RecordType};
 use ::rr::dnssec::{Algorithm, DigestType};
 use ::rr::rdata::DNSKEY;
 
-/// A public and private key pair.
+/// A public and private key pair, the private portion is not required.
+///
+/// This supports all the various public/private keys which TRust-DNS is capable of using. Given
+///  differing features, some key types may not be available. The `openssl` will enable RSA and EC
+///  (P256 and P384). `ring` enables ED25519.
 pub enum KeyPair {
   #[cfg(feature = "openssl")]
-  RSA { pkey: PKey },
+  RSA( PKey ),
   #[cfg(feature = "openssl")]
-  EC { pkey: PKey },
+  EC( PKey ),
   #[cfg(feature = "ring")]
-  ED25519 ( Ed25519KeyPair )
+  ED25519( Ed25519KeyPair ),
 }
 
 impl KeyPair {
+  /// Creates an RSA type keypair.
   #[cfg(feature = "openssl")]
   pub fn from_rsa(rsa: OpenSslRsa) -> DnsSecResult<Self> {
-    PKey::from_rsa(rsa).map(|pkey| KeyPair::RSA{pkey: pkey}).map_err(|e| e.into())
+    PKey::from_rsa(rsa).map(|pkey| KeyPair::RSA(pkey)).map_err(|e| e.into())
   }
 
+  /// Creates an EC, elliptic curve, type keypair, only P256 or P384 are supported.
   #[cfg(feature = "openssl")]
   pub fn from_ec_key(ec_key: EcKey) -> DnsSecResult<Self> {
-    PKey::from_ec_key(ec_key).map(|pkey| KeyPair::EC{pkey: pkey}).map_err(|e| e.into())
+    PKey::from_ec_key(ec_key).map(|pkey| KeyPair::EC(pkey)).map_err(|e| e.into())
   }
 
+  /// Creates an ED25519 keypair.
   #[cfg(feature = "ring")]
   pub fn from_ed25519(ed_key: Ed25519KeyPair) -> Self {
-    KeyPair::ED25519( ed_key )
+    KeyPair::ED25519(ed_key)
   }
 
+  /// Converts an array of bytes into a KeyPair, interpreting it based on the algorithm type.
+  ///
+  /// Formats for the public key are described in rfc3110, rfc6605, and
+  ///  rfc-draft-ietf-curdle-dnskey-eddsa-03.
+  ///
+  /// # Arguments
+  ///
+  /// * `public_key` - the public key bytes formatted in BigEndian/NetworkByteOrder
+  /// * `algorithm` - the Algorithm which is used to interpret the key
   pub fn from_vec(public_key: &[u8], algorithm: Algorithm) -> DnsSecResult<Self> {
     match algorithm {
       #[cfg(feature = "openssl")]
@@ -136,10 +152,11 @@ impl KeyPair {
         //   for both of the above algorithms.
         EcGroup::from_curve_name(nid::SECP256K1)
                 .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
+                // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
                 .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, public_key, &mut ctx).map(|point| (group, point) ))
                 .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
                 .and_then(|ec_key| PKey::from_ec_key(ec_key) )
-                .map(|pkey| KeyPair::EC{ pkey: pkey })
+                .map(|pkey| KeyPair::EC(pkey))
                 .map_err(|e| e.into())
       },
       #[cfg(feature = "openssl")]
@@ -147,10 +164,11 @@ impl KeyPair {
         // see above Algorithm::ECDSAP256SHA256 for reference
         EcGroup::from_curve_name(nid::SECP384R1)
                 .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
+                // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
                 .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, public_key, &mut ctx).map(|point| (group, point) ))
                 .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
                 .and_then(|ec_key| PKey::from_ec_key(ec_key) )
-                .map(|pkey| KeyPair::EC{ pkey: pkey })
+                .map(|pkey| KeyPair::EC(pkey))
                 .map_err(|e| e.into())
       },
       #[cfg(feature = "ring")]
@@ -165,7 +183,7 @@ impl KeyPair {
         // **NOTE: not specified in the RFC is the byte order, assuming it is
         //  BigEndian/NetworkByteOrder.
 
-        // these are "little endian" encoded bytes... we need to special case
+        // these are LittleEndian encoded bytes... we need to special case
         //  serialzation/deserialization for endianess. why, Intel, why...
         let mut public_key = public_key.to_vec();
         public_key.reverse();
@@ -175,7 +193,7 @@ impl KeyPair {
                        .map_err(|e| e.into())
       }
       #[cfg(not(any(feature = "openssl", feature = "ring")))]
-      _ => Err(DecodeErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+      _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
     }
   }
 
@@ -187,7 +205,7 @@ impl KeyPair {
     match *self {
       // see from_vec() RSA sections for reference
       #[cfg(feature = "openssl")]
-      KeyPair::RSA{ref pkey} => {
+      KeyPair::RSA(ref pkey) => {
         let mut bytes: Vec<u8> = Vec::new();
         // TODO: make these expects a try! and Err()
         let rsa: OpenSslRsa = pkey.rsa().expect("pkey should have been initialized with RSA");
@@ -213,7 +231,7 @@ impl KeyPair {
       },
       // see from_vec() ECDSA sections for reference
       #[cfg(feature = "openssl")]
-      KeyPair::EC{ref pkey} => {
+      KeyPair::EC(ref pkey) => {
         // TODO: make these expects a try! and Err()
         let ec_key: EcKey = pkey.ec_key().expect("pkey should have been initialized with EC");
         ec_key.group()
@@ -232,7 +250,7 @@ impl KeyPair {
         Ok(pub_key)
       }
       #[cfg(not(any(feature = "openssl", feature = "ring")))]
-      _ => vec![],
+      _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
     }
   }
 
@@ -269,7 +287,7 @@ impl KeyPair {
   pub fn sign(&self, algorithm: Algorithm, message: &[u8]) -> DnsSecResult<Vec<u8>> {
     match *self {
       #[cfg(feature = "openssl")]
-      KeyPair::RSA{ref pkey} | KeyPair::EC{ref pkey} => {
+      KeyPair::RSA(ref pkey) | KeyPair::EC(ref pkey) => {
         let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
         let mut signer = Signer::new(digest_type, &pkey).unwrap();
         try!(signer.update(&message));
@@ -280,7 +298,7 @@ impl KeyPair {
         Ok(ed_key.sign(message).as_slice().to_vec())
       }
       #[cfg(not(any(feature = "openssl", feature = "ring")))]
-      _ => Err(DecodeErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+      _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
     }
   }
 
@@ -299,7 +317,7 @@ impl KeyPair {
   pub fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
     match *self {
       #[cfg(feature = "openssl")]
-      KeyPair::RSA{ref pkey} | KeyPair::EC{ref pkey} => {
+      KeyPair::RSA(ref pkey) | KeyPair::EC(ref pkey) => {
         let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
         let mut verifier = Verifier::new(digest_type, &pkey).unwrap();
         try!(verifier.update(message));
@@ -316,7 +334,7 @@ impl KeyPair {
         EdDSAParameters{}.verify(public_key, message, signature).map_err(|e| e.into())
       },
       #[cfg(not(any(feature = "openssl", feature = "ring")))]
-      _ => Err(DecodeErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+      _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
     }
   }
 }
@@ -410,3 +428,5 @@ fn test_ed25519() {
   assert!(key.verify(algorithm, bytes, &sig).is_ok(), "algorithm: {:?}", algorithm);
   assert!(!neg.verify(algorithm, bytes, &sig).is_ok(), "algorithm: {:?}", algorithm);
 }
+
+// TODO to_vec and from_vec tests...

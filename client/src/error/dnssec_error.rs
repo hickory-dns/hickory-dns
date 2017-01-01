@@ -82,7 +82,7 @@ pub mod not_openssl {
 }
 
 #[cfg(not(feature = "ring"))]
-pub mod not_openssl {
+pub mod not_ring {
   use std;
 
   #[derive(Debug)]
