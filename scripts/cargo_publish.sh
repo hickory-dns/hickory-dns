@@ -21,15 +21,12 @@ for i in client server; do
   pushd $i
   echo "$0: testing cargo on $i"
   cargo test
-  cargo publish
   popd
 done
 
-
-
 for i in client server; do
   pushd $i
-  echo "$0: testing cargo on $i"
+  echo "$0: publishing cargo on $i"
   cargo publish
   popd
 done
