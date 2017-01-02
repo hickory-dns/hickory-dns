@@ -178,7 +178,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
   let mut auth_key = Record::with(domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
                                   RecordType::KEY,
                                   Duration::minutes(5).num_seconds() as u32);
-  auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_key().to_vec())));
+  auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_key().to_vec().expect("to_vec failed"))));
   authority.upsert(auth_key, 0);
 
   // setup the catalog

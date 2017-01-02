@@ -176,7 +176,7 @@ fn with_nonet<F>(test: F) where F: Fn(SecureClientHandle<MemoizeClientHandle<Bas
     let public_key = signers.first().expect("expected a key in the authority").get_key();
 
     let mut trust_anchor = TrustAnchor::new();
-    trust_anchor.insert_trust_anchor(public_key.to_vec());
+    trust_anchor.insert_trust_anchor(public_key.to_vec().expect("to_vec failed"));
 
     trust_anchor
   };

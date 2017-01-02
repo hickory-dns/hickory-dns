@@ -128,7 +128,7 @@ fn test_secure_query_example_nonet() {
     let public_key = signers.first().expect("expected a key in the authority").get_key();
 
     let mut trust_anchor = TrustAnchor::new();
-    trust_anchor.insert_trust_anchor(public_key.to_vec());
+    trust_anchor.insert_trust_anchor(public_key.to_vec().expect("to_vec failed"));
 
     trust_anchor
   };
@@ -233,7 +233,7 @@ fn test_nsec_query_example_nonet() {
     let public_key = signers.first().expect("expected a key in the authority").get_key();
 
     let mut trust_anchor = TrustAnchor::new();
-    trust_anchor.insert_trust_anchor(public_key.to_vec());
+    trust_anchor.insert_trust_anchor(public_key.to_vec().expect("to_vec failed"));
 
     trust_anchor
   };
@@ -349,7 +349,7 @@ fn create_sig0_ready_client<'a>(catalog: &'a mut Catalog) -> (Client<TestClientC
   let mut auth_key = Record::with(domain::Name::with_labels(vec!["trusted".to_string(), "example".to_string(), "com".to_string()]),
   RecordType::KEY,
   Duration::minutes(5).num_seconds() as u32);
-  auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_key().to_vec())));
+  auth_key.rdata(RData::KEY(DNSKEY::new(false, false, false, signer.get_algorithm(), signer.get_key().to_vec().expect("to_vec failed"))));
   authority.upsert(auth_key, 0);
 
   catalog.upsert(authority.get_origin().clone(), authority);

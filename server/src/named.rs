@@ -203,7 +203,7 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
     // add the key to the zone
     // TODO: allow the duration of signatutes to be customized
     let signer = Signer::new(Algorithm::RSASHA256, pkey, authority.get_origin().clone(), Duration::weeks(52));
-    authority.add_secure_key(signer);
+    authority.add_secure_key(signer).expect("failed to add key to authority");
   }
 
 

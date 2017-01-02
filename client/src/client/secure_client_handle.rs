@@ -16,10 +16,11 @@ use ::client::ClientHandle;
 use ::error::*;
 use ::op::{Message, OpCode, Query};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
-use ::rr::dnssec::{KeyPair, TrustAnchor};
+use ::rr::dnssec::{Algorithm, KeyPair, SupportedAlgorithms, TrustAnchor};
 #[cfg(feature = "openssl")]
 use ::rr::dnssec::Signer;
 use ::rr::rdata::{dnskey, DNSKEY, DS, SIG};
+use ::rr::rdata::opt::EdnsOption;
 use ::serialize::binary::{BinEncoder, BinSerializable};
 
 #[derive(Debug)]
@@ -95,9 +96,26 @@ impl<H> ClientHandle for SecureClientHandle<H> where H: ClientHandle + 'static {
       let query = message.get_queries().first().cloned().unwrap();
       let client: SecureClientHandle<H> = self.clone_with_context();
 
+      #[cfg(any(feature = "openssl", feature = "ring"))]
       {
         let edns = message.get_edns_mut();
+
         edns.set_dnssec_ok(true);
+
+        let mut algorithms = SupportedAlgorithms::new();
+        #[cfg(feature = "openssl")] {
+          algorithms.set(Algorithm::RSASHA256);
+          algorithms.set(Algorithm::ECDSAP256SHA256);
+          algorithms.set(Algorithm::ECDSAP384SHA384);
+        }
+        #[cfg(feature = "ring")]
+        algorithms.set(Algorithm::ED25519);
+
+        let dau = EdnsOption::DAU(algorithms);
+        let dhu = EdnsOption::DHU(algorithms);
+
+        edns.set_option(dau);
+        edns.set_option(dhu);
       }
 
       message.authentic_data(true);

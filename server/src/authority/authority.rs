@@ -17,6 +17,7 @@ use std::collections::BTreeMap;
 
 use chrono::UTC;
 
+use trust_dns::error::*;
 use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
 use trust_dns::rr::rdata::{NSEC, SIG};
@@ -69,15 +70,17 @@ impl Authority {
   /// # Arguments
   ///
   /// * `signer` - Signer with associated private key
-  pub fn add_secure_key(&mut self, signer: Signer) {
+  pub fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
     // also add the key to the zone
     let zone_ttl = self.get_minimum_ttl();
-    let dnskey = signer.get_key().to_dnskey(self.origin.clone(), zone_ttl, signer.get_algorithm());
+    let dnskey = try!(signer.get_key()
+                            .to_dnskey(self.origin.clone(), zone_ttl, signer.get_algorithm()));
 
     // TODO: also generate the CDS and CDNSKEY
     let serial = self.get_serial();
     self.upsert(dnskey, serial);
     self.secure_keys.push(signer);
+    Ok(())
   }
 
   /// Recovers the zone from a Journal, returns an error on failure to recover the zone.
@@ -104,8 +107,7 @@ impl Authority {
     }
 
     // zone signing was off during load, now sign the zone.
-    self.sign_zone();
-    Ok(())
+    self.sign_zone().map_err(|e| e.into())
   }
 
   /// Persist the state of the current zone to the journal, does nothing if there is no associated
@@ -705,7 +707,10 @@ impl Authority {
 
     // update the serial...
     if auto_sign && updated {
-      self.secure_zone();
+      try!(self.secure_zone().map_err(|e| {
+        error!("failure securing zone: {}", e);
+        ResponseCode::ServFail
+      }))
     }
 
     Ok(updated)
@@ -894,7 +899,7 @@ impl Authority {
   }
 
   /// (Re)generates the nsec records, increments the serial number nad signs the zone
-  pub fn secure_zone(&mut self) {
+  pub fn secure_zone(&mut self) -> DnsSecResult<()> {
     // TODO: only call nsec_zone after adds/deletes
     // needs to be called before incrementing the soa serial, to make sur IXFR works properly
     self.nsec_zone();
@@ -904,7 +909,7 @@ impl Authority {
     self.increment_soa_serial();
 
     // TODO: should we auto sign here? or maybe up a level...
-    self.sign_zone();
+    self.sign_zone()
   }
 
   /// Creates all nsec records needed for the zone, replaces any existing records.
@@ -964,7 +969,7 @@ impl Authority {
   }
 
   /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
-  fn sign_zone(&mut self) {
+  fn sign_zone(&mut self) -> DnsSecResult<()> {
     debug!("signing zone: {}", self.origin);
     let inception = UTC::now();
     let zone_ttl = self.get_minimum_ttl();
@@ -990,7 +995,7 @@ impl Authority {
                                      rr_set.get_ttl(),
                                      expiration.timestamp() as u32,
                                      inception.timestamp() as u32,
-                                     signer.calculate_key_tag(),
+                                     try!(signer.calculate_key_tag()),
                                      signer.get_signer_name(),
                                      // TODO: this is a nasty clone... the issue is that the vec
                                      //  from get_records is of Vec<&R>, but we really want &[R]
@@ -1026,7 +1031,7 @@ impl Authority {
           // sig_inception: u32,
           inception.timestamp() as u32,
           // key_tag: u16,
-          signer.calculate_key_tag(),
+          try!(signer.calculate_key_tag()),
           // signer_name: Name,
           signer.get_signer_name().clone(),
           // sig: Vec<u8>
@@ -1037,5 +1042,7 @@ impl Authority {
         debug!("signed rr_set: {}", rr_set.get_name());
       }
     }
+
+    Ok(())
   }
 }
