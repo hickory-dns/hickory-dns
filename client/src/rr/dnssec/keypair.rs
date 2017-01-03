@@ -12,9 +12,7 @@
 #[cfg(feature = "openssl")] use openssl::ec::{EcGroup, EcKey, EcPoint, POINT_CONVERSION_UNCOMPRESSED};
 #[cfg(feature = "openssl")] use openssl::nid;
 
-#[cfg(feature = "ring")] use ring::signature::Ed25519KeyPair;
-#[cfg(feature = "ring")] use ring::signature::EdDSAParameters;
-#[cfg(feature = "ring")] use ring::signature::VerificationAlgorithm;
+#[cfg(feature = "ring")] use ring::signature::{Ed25519KeyPair, Ed25519KeyPairBytes, EdDSAParameters, VerificationAlgorithm};
 #[cfg(feature = "ring")] use untrusted::Input;
 
 use ::error::*;
@@ -33,8 +31,9 @@ pub enum KeyPair {
   #[cfg(feature = "openssl")]
   EC( PKey ),
   #[cfg(feature = "ring")]
-  ED25519( Ed25519KeyPair ),
+  ED25519( Ed25519KeyPairBytes ),
 }
+
 
 impl KeyPair {
   /// Creates an RSA type keypair.
@@ -51,7 +50,7 @@ impl KeyPair {
 
   /// Creates an ED25519 keypair.
   #[cfg(feature = "ring")]
-  pub fn from_ed25519(ed_key: Ed25519KeyPair) -> Self {
+  pub fn from_ed25519(ed_key: Ed25519KeyPairBytes) -> Self {
     KeyPair::ED25519(ed_key)
   }
 
@@ -182,15 +181,17 @@ impl KeyPair {
         //
         // **NOTE: not specified in the RFC is the byte order, assuming it is
         //  BigEndian/NetworkByteOrder.
+        if public_key.len() != 32 { return Err(DnsSecErrorKind::Msg(format!("expected 32 byte public_key: {}", public_key.len())).into()) }
 
         // these are LittleEndian encoded bytes... we need to special case
         //  serialzation/deserialization for endianess. why, Intel, why...
         let mut public_key = public_key.to_vec();
         public_key.reverse();
 
-        Ed25519KeyPair::from_bytes(&[], &public_key)
-                       .map(|ed_key| KeyPair::ED25519(ed_key) )
-                       .map_err(|e| e.into())
+        let mut ed_key_pair = Ed25519KeyPairBytes{ private_key: [0_u8; 32], public_key: [0_u8; 32]};
+
+        ed_key_pair.public_key.copy_from_slice(&public_key);
+        Ok(KeyPair::ED25519(ed_key_pair))
       }
       #[cfg(not(any(feature = "openssl", feature = "ring")))]
       _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
@@ -245,7 +246,7 @@ impl KeyPair {
       KeyPair::ED25519(ref ed_key) => {
         // this is "little endian" encoded bytes... we need to special case
         //  serialzation/deserialization for endianess. why, Intel, why...
-        let mut pub_key = ed_key.public_key_bytes().to_vec();
+        let mut pub_key = ed_key.public_key.to_vec();
         pub_key.reverse();
         Ok(pub_key)
       }
@@ -375,7 +376,9 @@ impl KeyPair {
       },
       #[cfg(feature = "ring")]
       KeyPair::ED25519(ref ed_key) => {
-        Ok(ed_key.sign(message).as_slice().to_vec())
+        Ed25519KeyPair::from_bytes(&ed_key.private_key, &ed_key.public_key)
+                       .map_err(|_| DnsSecErrorKind::Message("something is wrong with the keys").into())
+                       .map(|ed_key| ed_key.sign(message).as_slice().to_vec())
       }
       #[cfg(not(any(feature = "openssl", feature = "ring")))]
       _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
@@ -408,7 +411,7 @@ impl KeyPair {
       },
       #[cfg(feature = "ring")]
       KeyPair::ED25519(ref ed_key) => {
-        let public_key = Input::from(ed_key.public_key_bytes());
+        let public_key = Input::from(&ed_key.public_key);
         let message = Input::from(message);
         let signature = Input::from(signature);
         EdDSAParameters{}.verify(public_key, message, signature).map_err(|e| e.into())
@@ -422,7 +425,6 @@ impl KeyPair {
 #[cfg(feature = "openssl")]
 #[test]
 fn test_rsa_hashing() {
-  use ::rr::dnssec::Algorithm;
   use openssl::rsa;
 
   let bytes = b"www.example.com";
@@ -448,7 +450,6 @@ fn test_rsa_hashing() {
 #[cfg(feature = "openssl")]
 #[test]
 fn test_ec_hashing_p256() {
-  use ::rr::dnssec::Algorithm;
   use openssl::ec;
   let algorithm = Algorithm::ECDSAP256SHA256;
   let bytes = b"www.example.com";
@@ -471,7 +472,6 @@ fn test_ec_hashing_p256() {
 #[cfg(feature = "openssl")]
 #[test]
 fn test_ec_hashing_p384() {
-  use ::rr::dnssec::Algorithm;
   use openssl::ec;
   let algorithm = Algorithm::ECDSAP384SHA384;
   let bytes = b"www.example.com";
@@ -495,18 +495,71 @@ fn test_ec_hashing_p384() {
 #[test]
 fn test_ed25519() {
   use ring::rand;
-  use ::rr::dnssec::Algorithm;
 
   let algorithm = Algorithm::ED25519;
   let bytes = b"www.example.com";
 
   let rng = rand::SystemRandom::new();
-  let key = Ed25519KeyPair::generate(&rng).map(|key| KeyPair::from_ed25519(key)).expect("no ring");
-  let neg = Ed25519KeyPair::generate(&rng).map(|key| KeyPair::from_ed25519(key)).expect("no ring");
+  let key = Ed25519KeyPair::generate_serializable(&rng).map(|(_, key)| KeyPair::from_ed25519(key)).expect("no ring");
+  let neg = Ed25519KeyPair::generate_serializable(&rng).map(|(_, key)| KeyPair::from_ed25519(key)).expect("no ring");
 
   let sig = key.sign(algorithm, bytes).unwrap();
   assert!(key.verify(algorithm, bytes, &sig).is_ok(), "algorithm: {:?}", algorithm);
   assert!(!neg.verify(algorithm, bytes, &sig).is_ok(), "algorithm: {:?}", algorithm);
 }
 
-// TODO to_vec and from_vec tests...
+#[cfg(feature = "openssl")]
+#[test]
+fn test_to_from_vec_rsa() {
+  use openssl::rsa;
+
+  let key = rsa::Rsa::generate(2048)
+                     .map_err(|e| e.into())
+                     .and_then(|rsa| KeyPair::from_rsa(rsa))
+                     .unwrap();
+
+  assert!(key.to_vec().and_then(|bytes| KeyPair::from_vec(&bytes, Algorithm::RSASHA256)).is_ok());
+}
+
+#[cfg(feature = "openssl")]
+#[test]
+fn test_to_from_vec_ec_p256() {
+  use openssl::ec;
+
+  let algorithm = Algorithm::ECDSAP256SHA256;
+  let key = EcGroup::from_curve_name(nid::SECP256K1)
+                    .and_then(|group| ec::EcKey::generate(&group))
+                    .map_err(|e| e.into())
+                    .and_then(|ec_key| KeyPair::from_ec_key(ec_key))
+                    .unwrap();
+
+  assert!(key.to_vec().and_then(|bytes| KeyPair::from_vec(&bytes, algorithm)).is_ok());
+}
+
+#[cfg(feature = "openssl")]
+#[test]
+fn test_to_from_vec_ec_p384() {
+  use openssl::ec;
+
+  let algorithm = Algorithm::ECDSAP384SHA384;
+  let key = EcGroup::from_curve_name(nid::SECP384R1)
+                    .and_then(|group| ec::EcKey::generate(&group))
+                    .map_err(|e| e.into())
+                    .and_then(|ec_key| KeyPair::from_ec_key(ec_key))
+                    .unwrap();
+
+  assert!(key.to_vec().and_then(|bytes| KeyPair::from_vec(&bytes, algorithm)).is_ok());
+}
+
+#[cfg(feature = "ring")]
+#[test]
+fn test_to_from_vec_ed25519() {
+  use ring::rand;
+
+  let algorithm = Algorithm::ED25519;
+
+  let rng = rand::SystemRandom::new();
+  let key = Ed25519KeyPair::generate_serializable(&rng).map(|(_,key)| KeyPair::from_ed25519(key)).expect("no ring");
+
+  key.to_vec().and_then(|bytes| KeyPair::from_vec(&bytes, algorithm)).expect("failed");
+}
