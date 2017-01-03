@@ -19,6 +19,8 @@
 use ::serialize::binary::*;
 use ::error::*;
 use ::rr::dnssec::{Algorithm, DigestType};
+use ::rr::Name;
+use ::rr::rdata::DNSKEY;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5)
 ///
@@ -132,6 +134,23 @@ impl DS {
   ///    digest algorithm is SHA-1, which produces a 20 octet digest.
   /// ```
   pub fn get_digest(&self) -> &[u8] { &self.digest }
+
+  /// Validates that a given DNSKEY is covered by the DS record.
+  ///
+  /// # Return
+  ///
+  /// true if and only if the DNSKEY is covered by the DS record.
+  pub fn covers(&self, name: &Name, key: &DNSKEY) -> DnsSecResult<bool> {
+    key.to_digest(name, self.get_digest_type())
+       .map_err(|e| e.into())
+       .map(|hash|
+         if &hash as &[u8] == self.get_digest() {
+           return true
+         } else {
+           return false
+         }
+       )
+  }
 }
 
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DS> {
@@ -171,4 +190,17 @@ pub fn test() {
   let read_rdata = read(&mut decoder, bytes.len() as u16);
   assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
   assert_eq!(rdata, read_rdata.unwrap());
+}
+
+#[test]
+#[cfg(feature = "openssl")]
+pub fn test_covers() {
+  use ::rr::rdata::DNSKEY;
+
+  let name = Name::parse("www.example.com.", None).unwrap();
+
+  let dnskey_rdata = DNSKEY::new(true, true, false, Algorithm::RSASHA256, vec![1,2,3,4]);
+  let ds_rdata = DS::new(0, Algorithm::RSASHA256, DigestType::SHA256, dnskey_rdata.to_digest(&name, DigestType::SHA256).unwrap());
+
+  assert!(ds_rdata.covers(&name, &dnskey_rdata).unwrap());
 }

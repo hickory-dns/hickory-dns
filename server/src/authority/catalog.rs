@@ -62,7 +62,6 @@ impl RequestHandler for Catalog {
         return response
       }
 
-      // TODO: inform of supported DNSSec protocols...
       // TODO: add padding for private key hashing, need better knowledge of the length of the
       //   response.
       // resp_edns.set_option()
@@ -100,8 +99,25 @@ impl RequestHandler for Catalog {
     };
 
     if let Some(resp_edns) = resp_edns_opt {
-      response.set_edns(resp_edns);
+      // set edns DAU and DHU
+      // send along the algorithms which are supported by this authority
+      let mut algorithms = SupportedAlgorithms::new();
+      #[cfg(feature = "openssl")] {
+        algorithms.set(Algorithm::RSASHA256);
+        algorithms.set(Algorithm::ECDSAP256SHA256);
+        algorithms.set(Algorithm::ECDSAP384SHA384);
+      }
+      #[cfg(feature = "ring")]
+      algorithms.set(Algorithm::ED25519);
 
+      let dau = EdnsOption::DAU(algorithms);
+      let dhu = EdnsOption::DHU(algorithms);
+
+      resp_edns.set_option(dau);
+      resp_edns.set_option(dhu);
+
+
+      response.set_edns(resp_edns);
       // TODO: if DNSSec supported, sign the package with SIG0
       // get this servers private key ideally use pkcs11
       // sign response and then add SIG0 or TSIG to response
@@ -220,7 +236,10 @@ impl Catalog {
   /// # Arguments
   ///
   /// * `request` - the query message.
-  pub fn lookup(&self, request: &Message) -> Message {
+  /// * `request_algorithms` - algorithms which this authority supports
+  pub fn lookup(&self,
+                request: &Message,
+                request_algorithms: SupportedAlgorithms) -> (Message, SupportedAlgorithms) {
     let mut response: Message = Message::new();
     response.id(request.get_id());
     response.op_code(OpCode::Query);

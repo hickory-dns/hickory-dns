@@ -18,7 +18,8 @@
 
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::dnssec::Algorithm;
+use ::rr::dnssec::{Algorithm, DigestType};
+use ::rr::Name;
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
@@ -147,6 +148,49 @@ impl DNSKEY {
   ///    separate documents.
   /// ```
   pub fn get_public_key(&self) -> &[u8] { &self.public_key }
+
+  /// Creates a message digest for this DNSKEY record.
+  ///
+  /// ```text
+  /// 5.1.4.  The Digest Field
+  ///
+  ///    The DS record refers to a DNSKEY RR by including a digest of that
+  ///    DNSKEY RR.
+  ///
+  ///    The digest is calculated by concatenating the canonical form of the
+  ///    fully qualified owner name of the DNSKEY RR with the DNSKEY RDATA,
+  ///    and then applying the digest algorithm.
+  ///
+  ///      digest = digest_algorithm( DNSKEY owner name | DNSKEY RDATA);
+  ///
+  ///       "|" denotes concatenation
+  ///
+  ///      DNSKEY RDATA = Flags | Protocol | Algorithm | Public Key.
+  ///
+  ///    The size of the digest may vary depending on the digest algorithm and
+  ///    DNSKEY RR size.  As of the time of this writing, the only defined
+  ///    digest algorithm is SHA-1, which produces a 20 octet digest.
+  /// ```
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - the label of of the DNSKEY record.
+  /// * `digest_type` - the `DigestType` with which to create the message digest.
+  pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> DnsSecResult<Vec<u8>> {
+    let mut buf: Vec<u8> = Vec::new();
+    {
+      let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
+      encoder.set_canonical_names(true);
+      if let Err(e) = name.emit(&mut encoder)
+                          .and_then(|_| emit(&mut encoder, self)) {
+        warn!("error serializing dnskey: {}", e);
+        return Err(DnsSecErrorKind::Msg(format!("error serializing dnskey: {}", e)).into())
+      }
+    }
+
+    digest_type.hash(&buf)
+               .map_err(|e| e.into())
+  }
 }
 
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY> {
@@ -227,4 +271,6 @@ pub fn test() {
   let read_rdata = read(&mut decoder, bytes.len() as u16);
   assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
   assert_eq!(rdata, read_rdata.unwrap());
+  #[cfg(feature = "openssl")]
+  assert!(rdata.to_digest(&Name::parse("www.example.com.", None).unwrap(), DigestType::SHA256).is_ok());
 }

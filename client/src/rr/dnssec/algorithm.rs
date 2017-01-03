@@ -103,9 +103,9 @@ use ::error::*;
 pub enum Algorithm {
   /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
   RSASHA1,
-  RSASHA256,
   /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
   RSASHA1NSEC3SHA1,
+  RSASHA256,
   RSASHA512,
   /// [rfc6605](https://tools.ietf.org/html/rfc6605)
   ECDSAP256SHA256,
@@ -208,5 +208,29 @@ fn test_into() {
                      Algorithm::ECDSAP384SHA384,
                      Algorithm::ED25519] {
     assert_eq!(*algorithm, Algorithm::from_u8(Into::<u8>::into(*algorithm)).unwrap())
+  }
+}
+
+#[test]
+fn test_order() {
+  let mut algorithms = [Algorithm::RSASHA1,
+                        Algorithm::RSASHA256,
+                        Algorithm::RSASHA1NSEC3SHA1,
+                        Algorithm::RSASHA512,
+                        Algorithm::ECDSAP256SHA256,
+                        Algorithm::ECDSAP384SHA384,
+                        Algorithm::ED25519];
+
+  algorithms.sort();
+
+  for (got, expect) in algorithms.iter().zip(
+                            [Algorithm::RSASHA1,
+                             Algorithm::RSASHA1NSEC3SHA1,
+                             Algorithm::RSASHA256,
+                             Algorithm::RSASHA512,
+                             Algorithm::ECDSAP256SHA256,
+                             Algorithm::ECDSAP384SHA384,
+                             Algorithm::ED25519].iter()) {
+    assert_eq!(got, expect);
   }
 }
