@@ -14,8 +14,7 @@
  * limitations under the License.
  */
 
-//! Use `Client` along with `trust_dns::udp::UdpClientConnection` or
-//! `trust_dns::tcp::TcpClientConnection`.
+//! DNS Client associated classes for performing queries and other operations.
 
 #[cfg(feature = "mio_client")]
 mod client;

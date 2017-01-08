@@ -48,7 +48,6 @@ use std::io::{Read, Write};
 use chrono::{Duration};
 use docopt::Docopt;
 use log::LogLevel;
-use openssl::rsa::Rsa;
 
 use trust_dns::error::ParseResult;
 use trust_dns::logger;
@@ -58,7 +57,7 @@ use trust_dns::rr::Name;
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
-use trust_dns_server::config::{Config, ZoneConfig};
+use trust_dns_server::config::{Config, KeyConfig, ZoneConfig};
 use trust_dns_server::server::ServerFuture;
 
 // the Docopt usage string.
@@ -89,7 +88,7 @@ struct Args {
   pub flag_port: Option<u16>,
 }
 
-fn parse_file(file: File, origin: Option<Name>, zone_type: ZoneType, allow_update: bool) -> ParseResult<Authority> {
+fn parse_file(file: File, origin: Option<Name>, zone_type: ZoneType, allow_update: bool, is_dnssec_enabled: bool) -> ParseResult<Authority> {
   let mut file = file;
   let mut buf = String::new();
 
@@ -99,27 +98,22 @@ fn parse_file(file: File, origin: Option<Name>, zone_type: ZoneType, allow_updat
   let lexer = Lexer::new(&buf);
   let (origin, records) = try!(Parser::new().parse(lexer, origin));
 
-  Ok(Authority::new(origin, records, zone_type, allow_update))
+  Ok(Authority::new(origin, records, zone_type, allow_update, is_dnssec_enabled))
 }
 
-fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
-  let zone_name: Name = zone.get_zone().expect("bad zone name");
-  let zone_path: PathBuf = zone_dir.to_owned().join(zone.get_file());
+fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, String> {
+  let zone_name: Name = zone_config.get_zone().expect("bad zone name");
+  let zone_path: PathBuf = zone_dir.to_owned().join(zone_config.get_file());
   let journal_path: PathBuf = zone_path.with_extension("jrnl");
-  let key_path: PathBuf = zone_path.with_extension("key");
+  let original_key_path: PathBuf = zone_path.with_extension("key");
 
   // load the zone
-  let mut authority = if zone.is_update_allowed() && journal_path.exists() {
+  let mut authority = if zone_config.is_update_allowed() && journal_path.exists() {
     info!("recovering zone from journal: {:?}", journal_path);
-    let journal = match Journal::from_file(&journal_path) {
-      Ok(j) => j,
-      Err(e) => return Err(format!("error opening journal: {:?}: {}", journal_path, e)),
-    };
+    let journal = try!(Journal::from_file(&journal_path).map_err(|e| format!("error opening journal: {:?}: {}", journal_path, e)));
 
-    let mut authority = Authority::new(zone_name.clone(), BTreeMap::new(),  zone.get_zone_type(), zone.is_update_allowed());
-    if let Err(e) = authority.recover_with_journal(&journal) {
-      return Err(format!("error recovering from journal: {}", e))
-    }
+    let mut authority = Authority::new(zone_name.clone(), BTreeMap::new(),  zone_config.get_zone_type(), zone_config.is_update_allowed(), zone_config.is_dnssec_enabled());
+    try!(authority.recover_with_journal(&journal).map_err(|e| format!("error recovering from journal: {}", e)));
 
     authority.journal(journal);
     info!("recovered zone: {}", zone_name);
@@ -128,30 +122,24 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
   } else if zone_path.exists() {
     info!("loading zone file: {:?}", zone_path);
 
-    let zone_file = match File::open(&zone_path) {
-      Ok(f) => f,
-      Err(e) => return Err(format!("error opening zone file: {:?}: {}", zone_path, e)),
-    };
+    let zone_file = try!(File::open(&zone_path).map_err(|e| format!("error opening zone file: {:?}: {}", zone_path, e)));
 
-    let mut authority: Authority = match parse_file(zone_file, Some(zone_name.clone()), zone.get_zone_type(), zone.is_update_allowed()) {
-      Ok(a) => a,
-      Err(e) => return Err(format!("error reading zone: {:?}: {}", zone_path, e)),
-    };
+    let mut authority = try!(parse_file(zone_file,
+                                        Some(zone_name.clone()),
+                                        zone_config.get_zone_type(),
+                                        zone_config.is_update_allowed(),
+                                        zone_config.is_dnssec_enabled())
+                                       .map_err(|e| format!("error reading zone: {:?}: {}", zone_path, e)));
 
     // if dynamic update is enabled, enable the journal
-    if zone.is_update_allowed() {
+    if zone_config.is_update_allowed() {
       info!("enabling journal: {:?}", journal_path);
-      let journal = match Journal::from_file(&journal_path) {
-        Ok(j) => j,
-        Err(e) => return Err(format!("error creating journal {:?}: {}", journal_path, e)),
-      };
+      let journal = try!(Journal::from_file(&journal_path).map_err(|e| format!("error creating journal {:?}: {}", journal_path, e)));
 
       authority.journal(journal);
 
       // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
-      if let Err(e) = authority.persist_to_journal() {
-        return Err(format!("error persisting to journal {:?}: {}", journal_path, e))
-      }
+      try!(authority.persist_to_journal().map_err(|e| format!("error persisting to journal {:?}: {}", journal_path, e)));
     }
 
     info!("loaded zone: {}", zone_name);
@@ -161,53 +149,83 @@ fn load_zone(zone_dir: &Path, zone: &ZoneConfig) -> Result<Authority, String> {
   };
 
   // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-  if zone.is_dnssec_enabled() {
-    let rsa = if key_path.exists() {
-      info!("reading key: {:?}", key_path);
-
-      // TODO: validate owndership
-      let mut file = match File::open(&key_path) {
-        Ok(f) => f,
-        Err(e) => return Err(format!("error opening private key file: {:?}: {}", key_path, e)),
-      };
-
-      let mut rsa_bytes = Vec::with_capacity(256);
-      try!(file.read_to_end(&mut rsa_bytes).map_err(|e| format!("could not read rsa key from: {:?}: {}", key_path, e)));
-
-      match Rsa::private_key_from_pem(&rsa_bytes) {
-        Ok(rsa) => rsa,
-        Err(e) => return Err(format!("error reading private key file: {:?}: {}", key_path, e)),
-      }
+  if zone_config.is_dnssec_enabled() {
+    // old backward compatible logic, TODO: deprecated
+    if zone_config.get_keys().is_empty() {
+      // original RSA key construction
+      let key_config = KeyConfig::new(original_key_path.to_string_lossy().to_string(),
+                                      Algorithm::RSASHA256,
+                                      zone_name.clone().to_string(),
+                                      true,
+                                      true,
+                                      true);
+      let signer = try!(load_key(zone_name, &key_config).map_err(|e| format!("failed to load key: {:?} msg: {}", key_config.get_key_path(), e)));
+      info!("adding key to zone: {:?}, is_zsk: {}, is_auth: {}", key_config.get_key_path(), key_config.is_zone_signing_key(), key_config.is_zone_update_auth());
+      authority.add_secure_key(signer).expect("failed to add key to authority");
     } else {
-      info!("creating key: {:?}", key_path);
-
-      // TODO: establish proper ownership
-      let mut file = match File::create(&key_path) {
-        Ok(f) => f,
-        Err(e) => return Err(format!("error creating private key file: {:?}: {}", key_path, e))
-      };
-
-      let rsa: Rsa = try!(Rsa::generate(2048).map_err(|e| format!("could not generate rsa key: {}", e)));
-      let rsa_bytes = try!(rsa.private_key_to_pem().map_err(|e| format!("could not get rsa pem bytes: {}", e)));
-
-      if let Err(e) = file.write_all(&rsa_bytes) {
-        fs::remove_file(&key_path).ok(); // ignored
-        return Err(format!("error writing private key file: {:?}: {}", key_path, e))
+      for key_config in zone_config.get_keys() {
+        let signer = try!(load_key(zone_name.clone(), &key_config).map_err(|e| format!("failed to load key: {:?} msg: {}", key_config.get_key_path(), e)));
+        info!("adding key to zone: {:?}, is_zsk: {}, is_auth: {}", key_config.get_key_path(), key_config.is_zone_signing_key(), key_config.is_zone_update_auth());
+        authority.add_secure_key(signer).expect("failed to add key to authority");
       }
-
-      rsa
-    };
-
-    let pkey = KeyPair::from_rsa(rsa).expect("error converting RSA to KeyPair");
-
-    // add the key to the zone
-    // TODO: allow the duration of signatutes to be customized
-    let signer = Signer::new(Algorithm::RSASHA256, pkey, authority.get_origin().clone(), Duration::weeks(52));
-    authority.add_secure_key(signer).expect("failed to add key to authority");
+    }
   }
 
-
   Ok(authority)
+}
+
+/// set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
+/// these will be lookedup by $file.{key_name}.pem, for backward compatability
+/// with previous versions of TRust-DNS, if enable_dnssec is enabled but
+/// supported_algorithms is not specified, it will default to "RSASHA256" and
+/// look for the $file.pem for the key. To control key length, or other options
+/// keys of the specified formats can be generated in PEM format. Instructions
+/// for custom keys can be found elsewhere.
+///
+/// the currently supported set of supported_algorithms are
+/// ["RSASHA256", "RSASHA512", "ECDSAP256SHA256", "ECDSAP384SHA384", "ED25519"]
+///
+/// keys are listed in pairs of key_name and algorithm, the search path is the
+/// same directory has the zone $file:
+///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
+fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
+  let key_path = key_config.get_key_path();
+  let algorithm = try!(key_config.get_algorithm().map_err(|e| format!("bad algorithm: {}", e)));
+
+  let key: KeyPair = if key_path.exists() {
+    info!("reading key: {:?}", key_path);
+
+    // TODO: validate owndership
+    let mut file = try!(File::open(&key_path).map_err(|e| format!("error opening private key file: {:?}: {}", key_path, e)));
+
+    let mut key_bytes = Vec::with_capacity(256);
+    try!(file.read_to_end(&mut key_bytes).map_err(|e| format!("could not read rsa key from: {:?}: {}", key_path, e)));
+
+    try!(KeyPair::from_private_bytes(algorithm, &key_bytes).map_err(|e| format!("error reading private key file: {:?}: {}", key_path, e)))
+  } else if key_config.do_auto_generate() {
+    info!("creating key: {:?}", key_path);
+
+    // TODO: establish proper ownership
+    let mut file = try!(File::create(&key_path).map_err(|e| format!("error creating private key file: {:?}: {}", key_path, e)));
+
+    let key = try!(KeyPair::generate(algorithm).map_err(|e| format!("could not generate key: {}", e)));
+    let key_bytes: Vec<u8> = try!(key.to_private_bytes().map_err(|e| format!("could not get key bytes: {}", e)));
+
+    try!(file.write_all(&key_bytes)
+             .or_else(|_| fs::remove_file(&key_path))
+             .map_err(|e| format!("error writing private key file: {:?}: {}", key_path, e)));
+
+    key
+  } else {
+    return Err(format!("file not found: {:?}", key_path))
+  };
+
+  let name = try!(key_config.get_signer_name().map_err(|e| format!("error reading name: {}", e)))
+                 .unwrap_or(zone_name);
+
+  // add the key to the zone
+  // TODO: allow the duration of signatutes to be customized
+  Ok(Signer::new(Algorithm::RSASHA256, key, name, Duration::weeks(52), true, true))
 }
 
 /// Main method for running the named server.

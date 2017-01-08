@@ -322,9 +322,10 @@ fn test_journal() {
 
   // that record should have been recorded... let's reload the journal and see if we get it.
   let mut recovered_authority = Authority::new(authority.get_origin().clone(),
-  BTreeMap::new(),
-  ZoneType::Master,
-  false);
+                                               BTreeMap::new(),
+                                               ZoneType::Master,
+                                               false,
+                                               false);
   recovered_authority.recover_with_journal(authority.get_journal().expect("journal not Some")).expect("recovery");
 
   // assert that the correct set of records is there.
@@ -348,9 +349,10 @@ fn test_recovery() {
 
   let journal = authority.get_journal().unwrap();
   let mut recovered_authority = Authority::new(authority.get_origin().clone(),
-  BTreeMap::new(),
-  ZoneType::Master,
-  false);
+                                               BTreeMap::new(),
+                                               ZoneType::Master,
+                                               false,
+                                               false);
 
   recovered_authority.recover_with_journal(journal).expect("recovery");
 

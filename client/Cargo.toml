@@ -53,7 +53,7 @@ futures = "^0.1"
 lazy_static = "^0.2.1"
 log = "^0.3.5"
 mio = { version = "^0.5.1", optional = true }
-openssl = { version = "0.9.4", git = "https://github.com/bluejekyll/rust-openssl.git", optional = true }
+openssl = { version = "^0.9.5", optional = true }
 rand = "^0.3"
 # ring = { version = "^0.6", optional = true, features = ["rsa_signing"] }
 ring = { version = "^0.6", optional = true }

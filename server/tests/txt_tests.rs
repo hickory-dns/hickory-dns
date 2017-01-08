@@ -45,7 +45,7 @@ venera  A       10.1.0.52
   if records.is_err() { panic!("failed to parse: {:?}", records.err()) }
 
   let (origin, records) = records.unwrap();
-  let authority = Authority::new(origin, records, ZoneType::Master, false);
+  let authority = Authority::new(origin, records, ZoneType::Master, false, false);
 
   // not validating everything, just one of each...
 

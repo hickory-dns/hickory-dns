@@ -18,7 +18,7 @@ use common::authority::create_example;
 
 pub fn create_test() -> Authority {
   let origin: Name = Name::parse("test.com.", None).unwrap();
-  let mut records: Authority = Authority::new(origin.clone(), BTreeMap::new(), ZoneType::Master, false);
+  let mut records: Authority = Authority::new(origin.clone(), BTreeMap::new(), ZoneType::Master, false, false);
   records.upsert(Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None).unwrap(), Name::parse("noc.dns.icann.org.", None).unwrap(), 2015082403, 7200, 3600, 1209600, 3600 ))).clone(), 0);
 
   records.upsert(Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()) ).clone(), 0);

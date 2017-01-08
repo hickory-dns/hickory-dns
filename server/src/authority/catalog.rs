@@ -21,6 +21,8 @@ use std::sync::RwLock;
 
 use trust_dns::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage, RequestHandler, ResponseCode};
 use trust_dns::rr::{Name, RecordType};
+use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
+use trust_dns::rr::rdata::opt::EdnsOption;
 
 use ::authority::{Authority, ZoneType};
 
@@ -98,16 +100,13 @@ impl RequestHandler for Catalog {
       },
     };
 
-    if let Some(resp_edns) = resp_edns_opt {
+    if let Some(mut resp_edns) = resp_edns_opt {
       // set edns DAU and DHU
       // send along the algorithms which are supported by this authority
       let mut algorithms = SupportedAlgorithms::new();
-      #[cfg(feature = "openssl")] {
-        algorithms.set(Algorithm::RSASHA256);
-        algorithms.set(Algorithm::ECDSAP256SHA256);
-        algorithms.set(Algorithm::ECDSAP384SHA384);
-      }
-      #[cfg(feature = "ring")]
+      algorithms.set(Algorithm::RSASHA256);
+      algorithms.set(Algorithm::ECDSAP256SHA256);
+      algorithms.set(Algorithm::ECDSAP384SHA384);
       algorithms.set(Algorithm::ED25519);
 
       let dau = EdnsOption::DAU(algorithms);
@@ -115,7 +114,6 @@ impl RequestHandler for Catalog {
 
       resp_edns.set_option(dau);
       resp_edns.set_option(dhu);
-
 
       response.set_edns(resp_edns);
       // TODO: if DNSSec supported, sign the package with SIG0
@@ -236,10 +234,8 @@ impl Catalog {
   /// # Arguments
   ///
   /// * `request` - the query message.
-  /// * `request_algorithms` - algorithms which this authority supports
   pub fn lookup(&self,
-                request: &Message,
-                request_algorithms: SupportedAlgorithms) -> (Message, SupportedAlgorithms) {
+                request: &Message) -> Message {
     let mut response: Message = Message::new();
     response.id(request.get_id());
     response.op_code(OpCode::Query);

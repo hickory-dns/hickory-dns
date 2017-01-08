@@ -69,7 +69,7 @@ impl<H> SecureClientHandle<H> where H: ClientHandle + 'static {
       trust_anchor: Rc::new(trust_anchor),
       request_depth: 0,
       minimum_key_len: 0,
-      minimum_algorithm: Algorithm::RSASHA1,
+      minimum_algorithm: Algorithm::RSASHA256,
     }
   }
 
@@ -101,6 +101,7 @@ impl<H> ClientHandle for SecureClientHandle<H> where H: ClientHandle + 'static {
       let query = message.get_queries().first().cloned().unwrap();
       let client: SecureClientHandle<H> = self.clone_with_context();
 
+      // TODO: cache response of the server about understood algorithms
       #[cfg(any(feature = "openssl", feature = "ring"))]
       {
         let edns = message.get_edns_mut();
@@ -631,11 +632,11 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
   if !dnskey.is_zone_key() { return Err(ClientErrorKind::Message("is not a zone key").into()) }
   if *dnskey.get_algorithm() != sig.get_algorithm() { return Err(ClientErrorKind::Message("mismatched algorithm").into()) }
 
-  let pkey = KeyPair::from_vec(dnskey.get_public_key(), *dnskey.get_algorithm());
+  let pkey = KeyPair::from_public_bytes(dnskey.get_public_key(), *dnskey.get_algorithm());
   if let Err(e) = pkey { debug!("error getting key from vec: {}", e); return Err(ClientErrorKind::Message("error getting key from vec").into()) }
   let pkey = pkey.unwrap();
 
-  let signer: Signer = Signer::new_verifier(*dnskey.get_algorithm(), pkey, sig.get_signer_name().clone());
+  let signer: Signer = Signer::new_verifier(*dnskey.get_algorithm(), pkey, sig.get_signer_name().clone(), dnskey.is_zone_key(), false);
 
   signer.hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)
         .map_err(|e| e.into())

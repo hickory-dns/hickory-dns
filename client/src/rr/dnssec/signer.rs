@@ -235,6 +235,8 @@ pub struct Signer {
   algorithm: Algorithm,
   signer_name: Name,
   sig_duration: Duration,
+  is_zone_signing_key: bool,
+  is_zone_update_auth: bool,
 }
 
 #[cfg(not(feature = "openssl"))]
@@ -243,19 +245,26 @@ pub struct Signer;
 #[cfg(feature = "openssl")]
 impl Signer {
   /// Version of Signer for verifying RRSIGs and SIG0 records.
-  pub fn new_verifier(algorithm: Algorithm, key: KeyPair, signer_name: Name) -> Self {
-    Signer{ key: key, algorithm: algorithm, signer_name: signer_name, sig_duration: Duration::zero() }
+  pub fn new_verifier(algorithm: Algorithm, key: KeyPair, signer_name: Name,
+    is_zone_signing_key: bool, is_zone_update_auth: bool) -> Self {
+    Signer{ key: key, algorithm: algorithm, signer_name: signer_name,
+      sig_duration: Duration::zero(), is_zone_signing_key: is_zone_signing_key,
+      is_zone_update_auth: is_zone_update_auth }
   }
 
   /// Version of Signer for signing RRSIGs and SIG0 records.
-  pub fn new(algorithm: Algorithm, key: KeyPair, signer_name: Name, sig_duration: Duration) -> Self {
-    Signer{ key: key, algorithm: algorithm, signer_name: signer_name, sig_duration: sig_duration }
+  pub fn new(algorithm: Algorithm, key: KeyPair, signer_name: Name, sig_duration: Duration,
+    is_zone_signing_key: bool, is_zone_update_auth: bool) -> Self {
+    Signer{ key: key, algorithm: algorithm, signer_name: signer_name, sig_duration: sig_duration,
+      is_zone_signing_key: is_zone_signing_key, is_zone_update_auth: is_zone_update_auth }
   }
 
   pub fn get_algorithm(&self) -> Algorithm { self.algorithm }
   pub fn get_key(&self) -> &KeyPair { &self.key }
   pub fn get_sig_duration(&self) -> Duration { self.sig_duration }
   pub fn get_signer_name(&self) -> &Name { &self.signer_name }
+  pub fn is_zone_signing_key(&self) -> bool { self.is_zone_signing_key }
+  pub fn is_zone_update_auth(&self) -> bool { self.is_zone_update_auth }
 
   /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
   ///
@@ -313,7 +322,7 @@ impl Signer {
   pub fn calculate_key_tag(&self) -> DnsSecResult<u16> {
     let mut ac: usize = 0;
 
-    for (i,k) in try!(self.key.to_vec()).iter().enumerate() {
+    for (i,k) in try!(self.key.to_public_bytes()).iter().enumerate() {
       ac += if i & 0x0001 == 0x0001 { *k as usize } else { (*k as usize) << 8 };
     }
 
@@ -627,7 +636,7 @@ fn test_sign_and_verify_message_sig0() {
 
   let rsa = Rsa::generate(512).unwrap();
   let key = KeyPair::from_rsa(rsa).unwrap();
-  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
+  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value(), true, true);
 
   let sig = signer.sign_message(&question).unwrap();
   println!("sig: {:?}", sig);
@@ -657,7 +666,7 @@ fn test_hash_rrset() {
 
   let rsa = Rsa::generate(512).unwrap();
   let key = KeyPair::from_rsa(rsa).unwrap();
-  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
+  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value(), true, true);
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -689,7 +698,7 @@ fn test_sign_and_verify_rrset() {
 
   let rsa = Rsa::generate(512).unwrap();
   let key = KeyPair::from_rsa(rsa).unwrap();
-  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
+  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value(), true, true);
 
   let origin: Name = Name::parse("example.com.", None).unwrap();
   let rrsig = Record::new().name(origin.clone()).ttl(86400).rr_type(RecordType::NS).dns_class(DNSClass::IN).rdata(RData::SIG(SIG::new(RecordType::NS, Algorithm::RSASHA256, origin.num_labels(), 86400,
@@ -711,7 +720,7 @@ fn test_calculate_key_tag() {
   println!("pkey: {:?}", rsa.public_key_to_pem().unwrap());
 
   let key = KeyPair::from_rsa(rsa).unwrap();
-  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value());
+  let signer = Signer::new(Algorithm::RSASHA256, key, Name::root(), Duration::max_value(), true, true);
   let key_tag = signer.calculate_key_tag().unwrap();
 
   println!("key_tag: {}", key_tag);

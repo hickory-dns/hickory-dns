@@ -32,7 +32,17 @@ impl SupportedAlgorithms {
   }
 
   pub fn all() -> Self {
-    SupportedAlgorithms{ bit_map: 0b00001111 }
+    SupportedAlgorithms{ bit_map: 0b00111111 }
+  }
+
+  pub fn from_vec(algorithms: &[Algorithm]) -> Self {
+    let mut supported = SupportedAlgorithms::new();
+
+    for a in algorithms {
+      supported.set(*a);
+    }
+
+    supported
   }
 
   fn pos(algorithm: Algorithm) -> u8 {
@@ -92,17 +102,16 @@ impl SupportedAlgorithms {
 // }
 
 impl<'a> From<&'a [u8]> for SupportedAlgorithms {
-  fn from(value: &'a [u8]) -> Self {
+  fn from(values: &'a [u8]) -> Self {
     let mut supported = SupportedAlgorithms::new();
 
-    for a in value.iter().map(|i|Algorithm::from_u8(*i)) {
+    for a in values.iter().map(|i|Algorithm::from_u8(*i)) {
       if a.is_ok() {
         supported.set(a.unwrap());
       } else {
         warn!("unrecognized algorithm: {}", a.unwrap_err());
       }
     }
-
 
     supported
   }
@@ -156,8 +165,10 @@ fn test_has() {
   assert!(supported.has(Algorithm::RSASHA1));
   assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
 
+  let mut supported = SupportedAlgorithms::new();
+
   supported.set(Algorithm::RSASHA256);
-  assert!(supported.has(Algorithm::RSASHA1));
+  assert!(!supported.has(Algorithm::RSASHA1));
   assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
   assert!(supported.has(Algorithm::RSASHA256));
 }
@@ -165,7 +176,7 @@ fn test_has() {
 #[test]
 fn test_iterator() {
   let supported = SupportedAlgorithms::all();
-  assert_eq!(supported.iter().count(), 4);
+  assert_eq!(supported.iter().count(), 6);
 
   // it just so happens that the iterator has a fixed order...
   let supported = SupportedAlgorithms::all();

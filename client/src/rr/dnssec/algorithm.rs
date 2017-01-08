@@ -99,7 +99,7 @@ use ::error::*;
 ///    This document cannot be updated, only made obsolete and replaced by a
 ///    successor document.
 /// ```
-#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, RustcDecodable)]
 pub enum Algorithm {
   /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
   RSASHA1,
@@ -139,6 +139,18 @@ impl Algorithm {
       Algorithm::RSASHA512 => 64, // 512 bites
     }
   }
+
+  pub fn to_str(&self) -> &'static str {
+    match *self {
+      Algorithm::RSASHA1 => "RSASHA1",
+      Algorithm::RSASHA256 => "RSASHA256",
+      Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
+      Algorithm::RSASHA512 => "RSASHA512",
+      Algorithm::ECDSAP256SHA256 => "ECDSAP256SHA256",
+      Algorithm::ECDSAP384SHA384 => "ECDSAP384SHA384",
+      Algorithm::ED25519 => "ED25519",
+    }
+  }
 }
 
 impl BinSerializable<Algorithm> for Algorithm {
@@ -172,15 +184,7 @@ impl FromStr for Algorithm {
 
 impl From<Algorithm> for &'static str {
   fn from(a: Algorithm) -> &'static str {
-    match a {
-      Algorithm::RSASHA1 => "RSASHA1",
-      Algorithm::RSASHA256 => "RSASHA256",
-      Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
-      Algorithm::RSASHA512 => "RSASHA512",
-      Algorithm::ECDSAP256SHA256 => "ECDSAP256SHA256",
-      Algorithm::ECDSAP384SHA384 => "ECDSAP384SHA384",
-      Algorithm::ED25519 => "ED25519",
-    }
+    a.to_str()
   }
 }
 

@@ -10,7 +10,7 @@ dependencies = [
  "lazy_static 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "openssl 0.9.4 (git+https://github.com/bluejekyll/rust-openssl.git)",
+ "openssl 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.7.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.22 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -320,19 +320,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "openssl"
-version = "0.9.4"
-source = "git+https://github.com/bluejekyll/rust-openssl.git#444c00955a5622ff694eaefd75f047e7eabbad2a"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
- "openssl-sys 0.9.4 (git+https://github.com/bluejekyll/rust-openssl.git)",
+ "openssl-sys 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.4"
-source = "git+https://github.com/bluejekyll/rust-openssl.git#444c00955a5622ff694eaefd75f047e7eabbad2a"
+version = "0.9.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "gdi32-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -498,7 +498,7 @@ dependencies = [
  "lazy_static 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "mio 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "openssl 0.9.4 (git+https://github.com/bluejekyll/rust-openssl.git)",
+ "openssl 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.6.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustc-serialize 0.3.22 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -587,8 +587,8 @@ dependencies = [
 "checksum num-integer 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)" = "fb24d9bfb3f222010df27995441ded1e954f8f69cd35021f6bef02ca9552fb92"
 "checksum num-iter 0.1.32 (registry+https://github.com/rust-lang/crates.io-index)" = "287a1c9969a847055e1122ec0ea7a5c5d6f72aad97934e131c83d5c08ab4e45c"
 "checksum num-traits 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)" = "a16a42856a256b39c6d3484f097f6713e14feacd9bfb02290917904fae46c81c"
-"checksum openssl 0.9.4 (git+https://github.com/bluejekyll/rust-openssl.git)" = "<none>"
-"checksum openssl-sys 0.9.4 (git+https://github.com/bluejekyll/rust-openssl.git)" = "<none>"
+"checksum openssl 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)" = "6a324049c1cf6496421e033daf0a460bc17cc1de11b421568492e2b1fd57a710"
+"checksum openssl-sys 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)" = "4e38c5a9261a179e63757eee43a1ee63f9033a2e99b8147aa4c245857a995af7"
 "checksum pkg-config 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)" = "8cee804ecc7eaf201a4a207241472cc870e825206f6c031e3ee2a72fa425f2fa"
 "checksum rand 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)" = "022e0636ec2519ddae48154b028864bdce4eaf7d35226ab8e65c611be97b189d"
 "checksum regex 0.1.80 (registry+https://github.com/rust-lang/crates.io-index)" = "4fd4ace6a8cf7860714a2c2280d6c1f7e6a413486c13298bbc86fd3da019402f"

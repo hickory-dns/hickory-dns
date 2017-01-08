@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.9.4 (in progress)
+### Added
+- support for ECDSAP256SHA256, ECDSAP384SHA384 and ED25519 (client and server)
+- additional config options for keys to named, see `tests/named_test_configs/example.toml`
+
 ## 0.9.3
 ### Changed
 - updated to rust-openssl 0.9.x series

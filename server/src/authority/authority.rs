@@ -38,6 +38,7 @@ pub struct Authority {
   records: BTreeMap<RrKey, RecordSet>,
   zone_type: ZoneType,
   allow_update: bool,
+  is_dnssec_enabled: bool,
   // Private key mapped to the Record of the DNSKey
   //  TODO: these private_keys should be stored securely. Ideally, we have keys only stored per
   //   server instance, but that requires requesting updates from the parent zone, which may or
@@ -56,13 +57,15 @@ impl Authority {
   /// * `records` - The map of the initial set of records in the zone.
   /// * `zone_type` - The type of zone, i.e. is this authoritative?
   /// * `allow_update` - If true, then this zone accepts dynamic updates.
+  /// * `is_dnssec_enabled` - If true, then the zone will sign the zone with all registered keys,
+  ///                         (see `add_secure_key()`)
   ///
   /// # Return value
   ///
   /// The new `Authority`.
-  pub fn new(origin: Name, records: BTreeMap<RrKey, RecordSet>, zone_type: ZoneType, allow_update: bool) -> Authority {
+  pub fn new(origin: Name, records: BTreeMap<RrKey, RecordSet>, zone_type: ZoneType, allow_update: bool, is_dnssec_enabled: bool) -> Authority {
     Authority{ origin: origin, class: DNSClass::IN,  journal: None, records: records, zone_type: zone_type,
-      allow_update: allow_update, secure_keys: Vec::new() }
+      allow_update: allow_update, is_dnssec_enabled: is_dnssec_enabled, secure_keys: Vec::new() }
   }
 
   /// By adding a secure key, this will implicitly enable dnssec for the zone.
@@ -73,8 +76,8 @@ impl Authority {
   pub fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
     // also add the key to the zone
     let zone_ttl = self.get_minimum_ttl();
-    let dnskey = try!(signer.get_key()
-                            .to_dnskey(self.origin.clone(), zone_ttl, signer.get_algorithm()));
+    let dnskey = try!(signer.get_key().to_dnskey(signer.get_algorithm()));
+    let dnskey = Record::from_rdata(self.origin.clone(), zone_ttl, RecordType::DNSKEY, RData::DNSKEY(dnskey));
 
     // TODO: also generate the CDS and CDNSKEY
     let serial = self.get_serial();
@@ -107,7 +110,11 @@ impl Authority {
     }
 
     // zone signing was off during load, now sign the zone.
-    self.sign_zone().map_err(|e| e.into())
+    if self.is_dnssec_enabled {
+      self.sign_zone().map_err(|e| e.into())
+    } else {
+      Ok(())
+    }
   }
 
   /// Persist the state of the current zone to the journal, does nothing if there is no associated
@@ -440,14 +447,14 @@ impl Authority {
               keys.iter()
                   .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.get_rdata() { Some(key) } else { None })
                   .any(|key| {
-                    let pkey = KeyPair::from_vec(key.get_public_key(), *key.get_algorithm());
+                    let pkey = KeyPair::from_public_bytes(key.get_public_key(), *key.get_algorithm());
                     if let Err(error) = pkey {
                       warn!("public key {:?} of {} could not be used: {}", key, name, error);
                       return false
                     }
 
                     let pkey = pkey.unwrap();
-                    let signer: Signer = Signer::new_verifier(*key.get_algorithm(), pkey, sig.get_signer_name().clone());
+                    let signer: Signer = Signer::new_verifier(*key.get_algorithm(), pkey, sig.get_signer_name().clone(), false, true);
 
                     signer.verify_message(update_message, sig.get_sig())
                           .map(|_| {
@@ -570,9 +577,9 @@ impl Authority {
   /// # Arguments
   ///
   /// * `records` - set of record instructions for update following above rules
-  /// * `auto_sign` - if true, the zone will auto_sign (assuming there are signers present), this
-  ///                 should be disabled during recovery.
-  pub fn update_records(&mut self, records: &[Record], auto_sign: bool) -> UpdateResult<bool> {
+  /// * `auto_signing_and_increment` - if true, the zone will sign and increment the SOA, this
+  ///                                  should be disabled during recovery.
+  pub fn update_records(&mut self, records: &[Record], auto_signing_and_increment: bool) -> UpdateResult<bool> {
     let mut updated = false;
     let serial: u32 = self.get_serial();
 
@@ -706,11 +713,17 @@ impl Authority {
     }
 
     // update the serial...
-    if auto_sign && updated {
-      try!(self.secure_zone().map_err(|e| {
-        error!("failure securing zone: {}", e);
-        ResponseCode::ServFail
-      }))
+    if updated && auto_signing_and_increment {
+      if self.is_dnssec_enabled  {
+        try!(self.secure_zone().map_err(|e| {
+          error!("failure securing zone: {}", e);
+          ResponseCode::ServFail
+        }))
+      } else {
+        // the secure_zone() function increments the SOA during it's operation, if we're not
+        //  dnssec, then we need to do it here...
+        self.increment_soa_serial();
+      }
     }
 
     Ok(updated)
@@ -973,6 +986,11 @@ impl Authority {
     debug!("signing zone: {}", self.origin);
     let inception = UTC::now();
     let zone_ttl = self.get_minimum_ttl();
+
+    // TODO: should this be an error?
+    if self.secure_keys.is_empty() {
+      warn!("attempt to sign_zone for dnssec, but no keys available!")
+    }
 
     for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| {
       // do not sign zone DNSKEY's that's the job of the parent zone

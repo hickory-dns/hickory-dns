@@ -38,7 +38,7 @@ impl Default for TrustAnchor {
     let rsa = Rsa::public_key_from_pem(ROOT_ANCHOR.as_bytes()).expect("Error parsing Kjqmt7v.pem");
     let key = KeyPair::from_rsa(rsa).expect("Error creating KeyPair from RSA key");
 
-    TrustAnchor{ pkeys: vec![key.to_vec().expect("could not convert key to bytes")] }
+    TrustAnchor{ pkeys: vec![key.to_public_bytes().expect("could not convert key to bytes")] }
   }
 
   #[cfg(not(feature = "openssl"))]
