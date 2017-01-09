@@ -21,7 +21,7 @@ use trust_dns::error::*;
 use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
 use trust_dns::rr::rdata::{NSEC, SIG};
-use trust_dns::rr::dnssec::{KeyPair, Signer};
+use trust_dns::rr::dnssec::{KeyPair, Signer, SupportedAlgorithms};
 
 use ::authority::{Journal, UpdateResult, ZoneType};
 use ::error::{PersistenceErrorKind, PersistenceResult};
@@ -182,12 +182,12 @@ impl Authority {
   ///  should be used, see `get_soa_secure()`, which will optionally return RRSIGs.
   pub fn get_soa(&self) -> Option<&Record> {
     // SOA should be origin|SOA
-    self.lookup(&self.origin, RecordType::SOA, false).first().map(|v| *v)
+    self.lookup(&self.origin, RecordType::SOA, false, SupportedAlgorithms::new()).first().map(|v| *v)
   }
 
   /// Returns the SOA record for the zone
-  pub fn get_soa_secure(&self, is_secure: bool) -> Vec<&Record> {
-    self.lookup(&self.origin, RecordType::SOA, is_secure)
+  pub fn get_soa_secure(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
+    self.lookup(&self.origin, RecordType::SOA, is_secure, supported_algorithms)
   }
 
   /// Returns the minimum ttl (as used in the SOA record)
@@ -230,8 +230,8 @@ impl Authority {
     return serial;
   }
 
-  pub fn get_ns(&self, is_secure: bool) -> Vec<&Record> {
-    self.lookup(&self.origin, RecordType::NS, is_secure)
+  pub fn get_ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
+    self.lookup(&self.origin, RecordType::NS, is_secure, supported_algorithms)
   }
 
   /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
@@ -334,7 +334,7 @@ impl Authority {
             match require.get_rr_type() {
               // ANY      ANY      empty    Name is in use
               RecordType::ANY => {
-                if self.lookup(require.get_name(), RecordType::ANY, false).is_empty() {
+                if self.lookup(require.get_name(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::NXDomain);
                 } else {
                   continue;
@@ -342,7 +342,7 @@ impl Authority {
               },
               // ANY      rrset    empty    RRset exists (value independent)
               rrset @ _ => {
-                if self.lookup(require.get_name(), rrset, false).is_empty() {
+                if self.lookup(require.get_name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::NXRRSet);
                 } else {
                   continue;
@@ -358,7 +358,7 @@ impl Authority {
             match require.get_rr_type() {
               // NONE     ANY      empty    Name is not in use
               RecordType::ANY => {
-                if !self.lookup(require.get_name(), RecordType::ANY, false).is_empty() {
+                if !self.lookup(require.get_name(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::YXDomain);
                 } else {
                   continue;
@@ -366,7 +366,7 @@ impl Authority {
               },
               // NONE     rrset    empty    RRset does not exist
               rrset @ _ => {
-                if !self.lookup(require.get_name(), rrset, false).is_empty() {
+                if !self.lookup(require.get_name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::YXRRSet);
                 } else {
                   continue;
@@ -379,7 +379,7 @@ impl Authority {
         ,
         class @ _ if class == self.class =>
           // zone     rrset    rr       RRset exists (value dependent)
-          if self.lookup(require.get_name(), require.get_rr_type(), false)
+          if self.lookup(require.get_name(), require.get_rr_type(), false, SupportedAlgorithms::new())
                  .iter()
                  .filter(|rr| *rr == &require)
                  .next()
@@ -442,7 +442,7 @@ impl Authority {
             .filter_map(|sig0| if let &RData::SIG(ref sig) = sig0.get_rdata() { Some(sig) } else { None })
             .any(|sig| {
               let name = sig.get_signer_name();
-              let keys = self.lookup(name, RecordType::KEY, false);
+              let keys = self.lookup(name, RecordType::KEY, false, SupportedAlgorithms::new());
               debug!("found keys {:?}", keys);
               keys.iter()
                   .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.get_rdata() { Some(key) } else { None })
@@ -827,7 +827,7 @@ impl Authority {
   ///
   /// Returns a vectory containing the results of the query, it will be empty if not found. If
   ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-  pub fn search(&self, query: &Query, is_secure: bool) -> Vec<&Record> {
+  pub fn search(&self, query: &Query, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
     let record_type: RecordType = query.get_query_type();
 
     // if this is an AXFR zone transfer, verify that this is either the slave or master
@@ -842,7 +842,7 @@ impl Authority {
 
     // it would be better to stream this back, rather than packaging everything up in an array
     //  though for UDP it would still need to be bundled
-    let mut query_result: Vec<_> = self.lookup(query.get_name(), record_type, is_secure);
+    let mut query_result: Vec<_> = self.lookup(query.get_name(), record_type, is_secure, supported_algorithms);
 
     if RecordType::AXFR == record_type {
       if let Some(soa) = self.get_soa() {
@@ -874,7 +874,7 @@ impl Authority {
   /// # Return value
   ///
   /// None if there are no matching records, otherwise a `Vec` containing the found records.
-  pub fn lookup(&self, name: &Name, rtype: RecordType, is_secure: bool) -> Vec<&Record> {
+  pub fn lookup(&self, name: &Name, rtype: RecordType, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
     // on an SOA request always return the SOA, regardless of the name
     let name: &Name = if rtype == RecordType::SOA { &self.origin } else { name };
     let rr_key = RrKey::new(name, rtype);
@@ -885,12 +885,12 @@ impl Authority {
         self.records.values().filter(|rr_set| rtype == RecordType::ANY || rr_set.get_record_type() != RecordType::SOA)
                              .filter(|rr_set| rtype == RecordType::AXFR || rr_set.get_name() == name)
                              .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
-                               vec.append(&mut rr_set.get_records(is_secure));
+                               vec.append(&mut rr_set.get_records(is_secure, supported_algorithms));
                                vec
                              })
       },
       _ => {
-        self.records.get(&rr_key).map_or(vec![], |rr_set| rr_set.get_records(is_secure).into_iter().collect())
+        self.records.get(&rr_key).map_or(vec![], |rr_set| rr_set.get_records(is_secure, supported_algorithms).into_iter().collect())
       }
     };
 
@@ -904,11 +904,11 @@ impl Authority {
   /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
   ///            this
   /// * `is_secure` - if true then it will return RRSIG records as well
-  pub fn get_nsec_records(&self, name: &Name, is_secure: bool) -> Vec<&Record> {
+  pub fn get_nsec_records(&self, name: &Name, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
     self.records.values().filter(|rr_set| rr_set.get_record_type() == RecordType::NSEC)
                          .skip_while(|rr_set| name < rr_set.get_name())
                          .next()
-                         .map_or(vec![], |rr_set| rr_set.get_records(is_secure).into_iter().collect())
+                         .map_or(vec![], |rr_set| rr_set.get_records(is_secure, supported_algorithms).into_iter().collect())
   }
 
   /// (Re)generates the nsec records, increments the serial number nad signs the zone
@@ -1017,7 +1017,7 @@ impl Authority {
                                      signer.get_signer_name(),
                                      // TODO: this is a nasty clone... the issue is that the vec
                                      //  from get_records is of Vec<&R>, but we really want &[R]
-                                     &rr_set.get_records(false).into_iter().cloned().collect::<Vec<Record>>());
+                                     &rr_set.get_records(false, SupportedAlgorithms::new()).into_iter().cloned().collect::<Vec<Record>>());
 
         // TODO, maybe chain these with some ETL operations instead?
         if hash.is_err() {

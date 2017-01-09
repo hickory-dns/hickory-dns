@@ -342,6 +342,8 @@ fn verify_rrset<H>(client: SecureClientHandle<H>,
   if let RecordType::DNSKEY = rrset.record_type {
     if rrsigs.is_empty() {
       debug!("unsigned key: {}, {:?}", rrset.name, rrset.record_type);
+      // FIXME: validate that this DNSKEY is stronger than the one lower in the chain,
+      //  also, set the min algorithm to this algorithm to prevent downgrade attacks.
       return verify_dnskey_rrset(client.clone_with_context(), rrset)
     }
   }

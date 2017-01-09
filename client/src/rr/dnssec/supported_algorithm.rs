@@ -95,6 +95,12 @@ impl SupportedAlgorithms {
   }
 }
 
+impl Default for SupportedAlgorithms {
+  fn default() -> SupportedAlgorithms {
+    SupportedAlgorithms::from_vec(&[Algorithm::RSASHA256])
+  }
+}
+
 // impl<'a> SupportedAlgorithms {
 //   pub fn iter(&self) -> SupportedAlgorithmsIter<'a> {
 //     SupportedAlgorithmsIter::new(self)

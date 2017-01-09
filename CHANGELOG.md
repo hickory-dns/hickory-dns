@@ -6,6 +6,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - support for ECDSAP256SHA256, ECDSAP384SHA384 and ED25519 (client and server)
 - additional config options for keys to named, see `tests/named_test_configs/example.toml`
+- When EDNS option is present, return only the digest understood matching RRSETs
 
 ## 0.9.3
 ### Changed
