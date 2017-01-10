@@ -32,7 +32,17 @@ impl SupportedAlgorithms {
   }
 
   pub fn all() -> Self {
-    SupportedAlgorithms{ bit_map: 0b00001111 }
+    SupportedAlgorithms{ bit_map: 0b01111111 }
+  }
+
+  pub fn from_vec(algorithms: &[Algorithm]) -> Self {
+    let mut supported = SupportedAlgorithms::new();
+
+    for a in algorithms {
+      supported.set(*a);
+    }
+
+    supported
   }
 
   fn pos(algorithm: Algorithm) -> u8 {
@@ -44,6 +54,7 @@ impl SupportedAlgorithms {
       Algorithm::RSASHA512 => 3,
       Algorithm::ECDSAP256SHA256 => 4,
       Algorithm::ECDSAP384SHA384 => 5,
+      Algorithm::ED25519 => 6,
     };
 
     assert!(bit_pos <= u8::max_value());
@@ -59,6 +70,7 @@ impl SupportedAlgorithms {
       3 => Some(Algorithm::RSASHA512),
       4 => Some(Algorithm::ECDSAP256SHA256),
       5 => Some(Algorithm::ECDSAP384SHA384),
+      6 => Some(Algorithm::ED25519),
       _ => None,
     }
   }
@@ -83,6 +95,12 @@ impl SupportedAlgorithms {
   }
 }
 
+impl Default for SupportedAlgorithms {
+  fn default() -> SupportedAlgorithms {
+    SupportedAlgorithms::from_vec(&[Algorithm::RSASHA256])
+  }
+}
+
 // impl<'a> SupportedAlgorithms {
 //   pub fn iter(&self) -> SupportedAlgorithmsIter<'a> {
 //     SupportedAlgorithmsIter::new(self)
@@ -90,17 +108,16 @@ impl SupportedAlgorithms {
 // }
 
 impl<'a> From<&'a [u8]> for SupportedAlgorithms {
-  fn from(value: &'a [u8]) -> Self {
+  fn from(values: &'a [u8]) -> Self {
     let mut supported = SupportedAlgorithms::new();
 
-    for a in value.iter().map(|i|Algorithm::from_u8(*i)) {
+    for a in values.iter().map(|i|Algorithm::from_u8(*i)) {
       if a.is_ok() {
         supported.set(a.unwrap());
       } else {
         warn!("unrecognized algorithm: {}", a.unwrap_err());
       }
     }
-
 
     supported
   }
@@ -154,8 +171,10 @@ fn test_has() {
   assert!(supported.has(Algorithm::RSASHA1));
   assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
 
+  let mut supported = SupportedAlgorithms::new();
+
   supported.set(Algorithm::RSASHA256);
-  assert!(supported.has(Algorithm::RSASHA1));
+  assert!(!supported.has(Algorithm::RSASHA1));
   assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
   assert!(supported.has(Algorithm::RSASHA256));
 }
@@ -163,7 +182,7 @@ fn test_has() {
 #[test]
 fn test_iterator() {
   let supported = SupportedAlgorithms::all();
-  assert_eq!(supported.iter().count(), 4);
+  assert_eq!(supported.iter().count(), 7);
 
   // it just so happens that the iterator has a fixed order...
   let supported = SupportedAlgorithms::all();
@@ -172,6 +191,9 @@ fn test_iterator() {
   assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
   assert_eq!(iter.next(), Some(Algorithm::RSASHA1NSEC3SHA1));
   assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
+  assert_eq!(iter.next(), Some(Algorithm::ECDSAP256SHA256));
+  assert_eq!(iter.next(), Some(Algorithm::ECDSAP384SHA384));
+  assert_eq!(iter.next(), Some(Algorithm::ED25519));
 
   let mut supported = SupportedAlgorithms::new();
   supported.set(Algorithm::RSASHA256);
@@ -192,10 +214,17 @@ fn test_vec() {
 
   let mut supported = SupportedAlgorithms::new();
   supported.set(Algorithm::RSASHA256);
-  supported.has(Algorithm::RSASHA256);
-  supported.has(Algorithm::RSASHA1NSEC3SHA1);
+  supported.set(Algorithm::ECDSAP256SHA256);
+  supported.set(Algorithm::ECDSAP384SHA384);
+  supported.set(Algorithm::ED25519);
   let array: Vec<u8> = (&supported).into();
   let decoded: SupportedAlgorithms = (&array as &[_]).into();
 
   assert_eq!(supported, decoded);
+  assert!(!supported.has(Algorithm::RSASHA1));
+  assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
+  assert!(supported.has(Algorithm::RSASHA256));
+  assert!(supported.has(Algorithm::ECDSAP256SHA256));
+  assert!(supported.has(Algorithm::ECDSAP384SHA384));
+  assert!(supported.has(Algorithm::ED25519));
 }

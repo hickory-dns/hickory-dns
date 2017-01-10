@@ -161,7 +161,8 @@ impl Nsec3HashAlgorithm {
   // until there is another supported algorithm, just hardcoded to this.
   #[cfg(feature = "openssl")]
   fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> DnsSecResult<Vec<u8>> {
-    hash::Hasher::new(DigestType::SHA1.to_hash())
+    let digest_type = try!(DigestType::SHA1.to_openssl_digest());
+    hash::Hasher::new(digest_type)
                  .map_err(|e| e.into())
                  .and_then(|mut hasher| {
                    if iterations > 0 {

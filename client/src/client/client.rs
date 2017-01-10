@@ -39,7 +39,7 @@ use ::serialize::binary::*;
 use ::client::ClientConnection;
 
 /// The Client is abstracted over either trust_dns::tcp::TcpClientConnection or
-///  trust_dns::udp::UdpClientConnection
+///  trust_dns::udp::UdpClientConnection.
 ///
 /// Usage of TCP or UDP is up to the user. Some DNS servers
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
@@ -226,11 +226,11 @@ impl<C: ClientConnection> Client<C> {
             if !rdata.is_zone_key() { continue }
             if *rdata.get_algorithm() != sig.get_algorithm() { continue }
 
-            let pkey = KeyPair::from_vec(rdata.get_public_key(), *rdata.get_algorithm());
+            let pkey = KeyPair::from_public_bytes(rdata.get_public_key(), *rdata.get_algorithm());
             if pkey.is_err() { debug!("could not translate public_key_from_vec: {}", pkey.err().unwrap()); continue }
             let pkey = pkey.unwrap();
 
-            let signer: Signer = Signer::new_verifier(*rdata.get_algorithm(), pkey, sig.get_signer_name().clone());
+            let signer: Signer = Signer::new_verifier(*rdata.get_algorithm(), pkey, sig.get_signer_name().clone(), rdata.is_zone_key(), false);
             let rrset_hash = signer.hash_rrset_with_rrsig(rrsig, &rrset);
             if rrset_hash.is_err() { debug!("could not hash_rrset_with_rrsig: {}, {}", name, rrset_hash.unwrap_err()); continue }
             let rrset_hash: Vec<u8> = rrset_hash.unwrap();

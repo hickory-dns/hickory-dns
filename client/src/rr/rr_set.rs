@@ -9,6 +9,7 @@ use std::slice::Iter;
 use std::vec;
 
 use ::rr::{DNSClass, Name, Record, RecordType, RData};
+use ::rr::dnssec::{Algorithm, SupportedAlgorithms};
 
 /// Set of resource records associated to a name and type
 #[derive(Clone, Debug, PartialEq)]
@@ -105,9 +106,7 @@ impl RecordSet {
     }
   }
 
-  /// # Return value
-  ///
-  /// `DNSClass` of the RecordSet
+  /// Returns the `DNSClass` of the RecordSet
   pub fn get_dns_class(&self) -> DNSClass {
     self.dns_class
   }
@@ -122,6 +121,8 @@ impl RecordSet {
     }
   }
 
+  /// Returns the time-to-live for the record.
+  ///
   /// # Return value
   ///
   /// TTL, time-to-live, of the Resource Record Set, this is the maximum length of time that an
@@ -130,12 +131,31 @@ impl RecordSet {
     self.ttl
   }
 
-  /// # Return value
+  /// Returns a Vec of all records in the set.
   ///
-  /// Slice of all records in the set
-  pub fn get_records(&self, and_rrsigs: bool) -> Vec<&Record> {
+  /// # Arguments
+  ///
+  /// * `and_rrsigs` - if true, RRSIGs will be returned if they exist
+  /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
+  ///                            and then only the maximal RRSIG algorithm will be returned.
+  pub fn get_records(&self, and_rrsigs: bool, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
     if and_rrsigs {
-      self.records.iter().chain(self.rrsigs.iter()).collect()
+      let rrsigs = self.rrsigs.iter()
+                              .filter(|record| {
+                                if let &RData::SIG(ref rrsig) = record.get_rdata() {
+                                  supported_algorithms.has(rrsig.get_algorithm())
+                                } else {
+                                  false
+                                }
+                              })
+                              .max_by_key(|record| {
+                                if let &RData::SIG(ref rrsig) = record.get_rdata() {
+                                  rrsig.get_algorithm()
+                                } else {
+                                  Algorithm::RSASHA1
+                                }
+                              });
+      self.records.iter().chain(rrsigs).collect()
     } else {
       self.records.iter().collect()
     }
@@ -146,16 +166,12 @@ impl RecordSet {
     self.records.iter()
   }
 
-  /// # Return value
-  ///
-  /// True if there are no records in this set
+  /// Returns true if there are no records in this set
   pub fn is_empty(&self) -> bool {
     self.records.is_empty()
   }
 
-  /// # Return value
-  ///
-  /// The serial number at which the record was updated.
+  /// Returns the serial number at which the record was updated.
   pub fn get_serial(&self) -> u32 {
     self.serial
   }
@@ -383,20 +399,20 @@ mod test {
     let insert = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
-    assert_eq!(rr_set.get_records(false).len(), 1);
-    assert!(rr_set.get_records(false).contains(&&insert));
+    assert_eq!(rr_set.get_records(false, Default::default()).len(), 1);
+    assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
 
     // dups ignored
     assert!(!rr_set.insert(insert.clone(), 0));
-    assert_eq!(rr_set.get_records(false).len(), 1);
-    assert!(rr_set.get_records(false).contains(&&insert));
+    assert_eq!(rr_set.get_records(false, Default::default()).len(), 1);
+    assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
 
     // add one
     let insert1 = Record::new().name(name.clone()).ttl(86400).rr_type(record_type).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,25))).clone();
     assert!(rr_set.insert(insert1.clone(), 0));
-    assert_eq!(rr_set.get_records(false).len(), 2);
-    assert!(rr_set.get_records(false).contains(&&insert));
-    assert!(rr_set.get_records(false).contains(&&insert1));
+    assert_eq!(rr_set.get_records(false, Default::default()).len(), 2);
+    assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
+    assert!(rr_set.get_records(false, Default::default()).contains(&&insert1));
   }
 
   #[test]
@@ -410,19 +426,19 @@ mod test {
     let new_serial = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.net.", None).unwrap(), Name::parse("noc.dns.icann.net.", None).unwrap(), 2015082404, 7200, 3600, 1209600, 3600 ))).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
-    assert!(rr_set.get_records(false).contains(&&insert));
+    assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
     // same serial number
     assert!(!rr_set.insert(same_serial.clone(), 0));
-    assert!(rr_set.get_records(false).contains(&&insert));
-    assert!(!rr_set.get_records(false).contains(&&same_serial));
+    assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
+    assert!(!rr_set.get_records(false, Default::default()).contains(&&same_serial));
 
     assert!(rr_set.insert(new_serial.clone(), 0));
     assert!(!rr_set.insert(same_serial.clone(), 0));
     assert!(!rr_set.insert(insert.clone(), 0));
 
-    assert!(rr_set.get_records(false).contains(&&new_serial));
-    assert!(!rr_set.get_records(false).contains(&&insert));
-    assert!(!rr_set.get_records(false).contains(&&same_serial));
+    assert!(rr_set.get_records(false, Default::default()).contains(&&new_serial));
+    assert!(!rr_set.get_records(false, Default::default()).contains(&&insert));
+    assert!(!rr_set.get_records(false, Default::default()).contains(&&same_serial));
   }
 
   #[test]
@@ -438,12 +454,12 @@ mod test {
     let new_record = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::CNAME).dns_class(DNSClass::IN).rdata(RData::CNAME(new_cname.clone()) ).clone();
 
     assert!(rr_set.insert(insert.clone(), 0));
-    assert!(rr_set.get_records(false).contains(&&insert));
+    assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
 
     // update the record
     assert!(rr_set.insert(new_record.clone(), 0));
-    assert!(!rr_set.get_records(false).contains(&&insert));
-    assert!(rr_set.get_records(false).contains(&&new_record));
+    assert!(!rr_set.get_records(false, Default::default()).contains(&&insert));
+    assert!(rr_set.get_records(false, Default::default()).contains(&&new_record));
   }
 
   #[test]
@@ -474,7 +490,7 @@ mod test {
 
     assert!(rr_set.insert(insert.clone(), 0));
     assert!(!rr_set.remove(&insert, 0));
-    assert!(rr_set.get_records(false).contains(&&insert));
+    assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
   }
 
   #[test]
@@ -498,5 +514,36 @@ mod test {
 
     assert!(rr_set.remove(&ns2, 0));
     assert!(!rr_set.remove(&ns1, 0));
+  }
+
+  #[test]
+  fn test_get_filter() {
+    use ::rr::rdata::SIG;
+    use ::rr::dnssec::{Algorithm, SupportedAlgorithms};
+
+    let name = Name::root();
+    let rsasha256 = SIG::new(RecordType::A, Algorithm::RSASHA256, 0, 0, 0, 0, 0, Name::root(), vec![]);
+    let ecp256 = SIG::new(RecordType::A, Algorithm::ECDSAP256SHA256, 0, 0, 0, 0, 0, Name::root(), vec![]);
+    let ecp384 = SIG::new(RecordType::A, Algorithm::ECDSAP384SHA384, 0, 0, 0, 0, 0, Name::root(), vec![]);
+    let ed25519 = SIG::new(RecordType::A, Algorithm::ED25519, 0, 0, 0, 0, 0, Name::root(), vec![]);
+
+    let rrsig_rsa = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::RRSIG).dns_class(DNSClass::IN).rdata(RData::SIG(rsasha256)).clone();
+    let rrsig_ecp256 = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::RRSIG).dns_class(DNSClass::IN).rdata(RData::SIG(ecp256)).clone();
+    let rrsig_ecp384 = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::RRSIG).dns_class(DNSClass::IN).rdata(RData::SIG(ecp384)).clone();
+    let rrsig_ed25519 = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::RRSIG).dns_class(DNSClass::IN).rdata(RData::SIG(ed25519)).clone();
+
+    let a = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone();
+
+    let mut rrset = a.into_record_set();
+    rrset.insert_rrsig(rrsig_rsa);
+    rrset.insert_rrsig(rrsig_ecp256);
+    rrset.insert_rrsig(rrsig_ecp384);
+    rrset.insert_rrsig(rrsig_ed25519);
+
+    assert!(rrset.get_records(true, SupportedAlgorithms::all()).iter().any(|r| if let &RData::SIG(ref sig) = r.get_rdata() { sig.get_algorithm() == Algorithm::ED25519 } else { false }));
+
+    let mut supported_algorithms = SupportedAlgorithms::new();
+    supported_algorithms.set(Algorithm::ECDSAP384SHA384);
+    assert!(rrset.get_records(true, supported_algorithms).iter().any(|r| if let &RData::SIG(ref sig) = r.get_rdata() { sig.get_algorithm() == Algorithm::ECDSAP384SHA384 } else { false }));
   }
 }

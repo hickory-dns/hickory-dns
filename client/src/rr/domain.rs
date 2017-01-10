@@ -44,6 +44,18 @@ impl Name {
     Self::new()
   }
 
+  /// Returns true if there are no labels, i.e. it's empty.
+  ///
+  /// In DNS the root is represented by `.`
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use trust_dns::rr::domain::Name;
+  ///
+  /// let root = Name::root();
+  /// assert_eq!(&root.to_string(), ".");
+  /// ```
   pub fn is_root(&self) -> bool {
     self.labels.is_empty()
   }
@@ -98,6 +110,8 @@ impl Name {
 
   /// Creates a new Name with all labels lowercased
   ///
+  /// # Examples
+  ///
   /// ```
   /// use trust_dns::rr::domain::Name;
   /// use std::cmp::Ordering;
@@ -115,6 +129,8 @@ impl Name {
   }
 
   /// Trims off the first part of the name, to help with searching for the domain piece
+  ///
+  /// # Examples
   ///
   /// ```
   /// use trust_dns::rr::domain::Name;
@@ -134,6 +150,8 @@ impl Name {
   }
 
   /// Trims to the number of labels specified
+  ///
+  /// # Examples
   ///
   /// ```
   /// use trust_dns::rr::domain::Name;
@@ -169,6 +187,22 @@ impl Name {
     return true;
   }
 
+  /// Returns the number of labels in the name, discounting `*`.
+  ///
+  /// # Examples
+  ///
+  /// ```
+  /// use trust_dns::rr::domain::Name;
+  ///
+  /// let root = Name::root();
+  /// assert_eq!(root.num_labels(), 0);
+  ///
+  /// let example_com = Name::new().label("example").label("com");
+  /// assert_eq!(example_com.num_labels(), 2);
+  ///
+  /// let star_example_com = Name::new().label("*").label("example").label("com");
+  /// assert_eq!(star_example_com.num_labels(), 2);
+  /// ```
   pub fn num_labels(&self) -> u8 {
     // it is illegal to have more than 256 labels.
     let num = self.labels.len() as u8;
@@ -180,6 +214,9 @@ impl Name {
   }
 
   /// returns the length in bytes of the labels. '.' counts as 1
+  ///
+  /// This can be used as an estimate, when serializing labels, they will often be compressed
+  /// and/or escaped causing the exact length to be different.
   pub fn len(&self) -> usize {
     let dots = if self.labels.len() > 0 { self.labels.len() } else { 1 };
     self.labels.iter().fold(dots, |acc, item| acc + item.len())
@@ -256,6 +293,9 @@ impl Name {
     Ok(name)
   }
 
+  /// Emits the canonical version of the name to the encoder.
+  ///
+  /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
   pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> EncodeResult {
     let buf_len = encoder.len(); // lazily assert the size is less than 255...
     // lookup the label in the BinEncoder
@@ -336,6 +376,15 @@ impl Name {
     }
 
     self.labels.len().cmp(&other.labels.len())
+  }
+
+  /// Converts the Name labels to the String form.
+  ///
+  /// This converts the name to an unescaped format, that could be used with parse. The name is
+  ///  is followed by the final `.`, e.g. as in `www.example.com.`, which represents a fully
+  ///  qualified Name.
+  pub fn to_string(&self) -> String {
+    format!("{}", self)
   }
 }
 
@@ -441,6 +490,7 @@ impl BinSerializable<Name> for Name {
   }
 }
 
+/// FIXME: this needs to escape characters in the labels.
 impl fmt::Display for Name {
   fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
     for label in &*self.labels {

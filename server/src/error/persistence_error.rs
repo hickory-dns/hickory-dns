@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 use rusqlite;
 
-use trust_dns::error::{DecodeError, DecodeErrorKind, EncodeError, EncodeErrorKind};
+use trust_dns::error::*;
 
 error_chain! {
   // The type defined for this error. These are the conventional
@@ -24,6 +24,7 @@ error_chain! {
   // This section can be empty.
   links {
     DecodeError, DecodeErrorKind, Decode;
+    DnsSecError, DnsSecErrorKind, DnsSec;
     EncodeError, EncodeErrorKind, Encode;
   }
 

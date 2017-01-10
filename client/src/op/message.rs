@@ -442,7 +442,7 @@ impl Message {
   pub fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> {
     debug!("signing message: {:?}", self);
     let signature: Vec<u8> = try!(signer.sign_message(self));
-    let key_tag: u16 = signer.calculate_key_tag();
+    let key_tag: u16 = try!(signer.calculate_key_tag());
 
     // this is based on RFCs 2535, 2931 and 3007
 
