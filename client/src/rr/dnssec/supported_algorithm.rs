@@ -32,7 +32,7 @@ impl SupportedAlgorithms {
   }
 
   pub fn all() -> Self {
-    SupportedAlgorithms{ bit_map: 0b00111111 }
+    SupportedAlgorithms{ bit_map: 0b01111111 }
   }
 
   pub fn from_vec(algorithms: &[Algorithm]) -> Self {
@@ -182,7 +182,7 @@ fn test_has() {
 #[test]
 fn test_iterator() {
   let supported = SupportedAlgorithms::all();
-  assert_eq!(supported.iter().count(), 6);
+  assert_eq!(supported.iter().count(), 7);
 
   // it just so happens that the iterator has a fixed order...
   let supported = SupportedAlgorithms::all();
@@ -191,6 +191,9 @@ fn test_iterator() {
   assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
   assert_eq!(iter.next(), Some(Algorithm::RSASHA1NSEC3SHA1));
   assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
+  assert_eq!(iter.next(), Some(Algorithm::ECDSAP256SHA256));
+  assert_eq!(iter.next(), Some(Algorithm::ECDSAP384SHA384));
+  assert_eq!(iter.next(), Some(Algorithm::ED25519));
 
   let mut supported = SupportedAlgorithms::new();
   supported.set(Algorithm::RSASHA256);
@@ -211,10 +214,17 @@ fn test_vec() {
 
   let mut supported = SupportedAlgorithms::new();
   supported.set(Algorithm::RSASHA256);
-  supported.has(Algorithm::RSASHA256);
-  supported.has(Algorithm::RSASHA1NSEC3SHA1);
+  supported.set(Algorithm::ECDSAP256SHA256);
+  supported.set(Algorithm::ECDSAP384SHA384);
+  supported.set(Algorithm::ED25519);
   let array: Vec<u8> = (&supported).into();
   let decoded: SupportedAlgorithms = (&array as &[_]).into();
 
   assert_eq!(supported, decoded);
+  assert!(!supported.has(Algorithm::RSASHA1));
+  assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
+  assert!(supported.has(Algorithm::RSASHA256));
+  assert!(supported.has(Algorithm::ECDSAP256SHA256));
+  assert!(supported.has(Algorithm::ECDSAP384SHA384));
+  assert!(supported.has(Algorithm::ED25519));
 }

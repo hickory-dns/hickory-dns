@@ -194,7 +194,7 @@ impl KeyPair {
         ed_key_pair.public_key.copy_from_slice(&public_key);
         Ok(KeyPair::ED25519(ed_key_pair))
       }
-      #[cfg(not(any(feature = "openssl", feature = "ring")))]
+      #[cfg(not(all(feature = "openssl", feature = "ring")))]
       _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
     }
   }
@@ -251,8 +251,8 @@ impl KeyPair {
         pub_key.reverse();
         Ok(pub_key)
       }
-      #[cfg(not(any(feature = "openssl", feature = "ring")))]
-      _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+      // #[cfg(not(all(feature = "openssl", feature = "ring")))]
+      // _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
     }
   }
 
@@ -472,7 +472,7 @@ impl KeyPair {
 
         Ok(KeyPair::from_ed25519(Ed25519KeyPairBytes{private_key: private_key, public_key: public_key}))
       },
-      #[cfg(not(any(feature = "openssl", feature = "ring")))]
+      #[cfg(not(all(feature = "openssl", feature = "ring")))]
       _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
     }
   }
@@ -513,7 +513,7 @@ impl KeyPair {
                        .map_err(|e| e.into())
                        .map(|(_, key)| KeyPair::from_ed25519(key))
       },
-      #[cfg(not(any(feature = "openssl", feature = "ring")))]
+      #[cfg(not(all(feature = "openssl", feature = "ring")))]
       _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
     }
   }

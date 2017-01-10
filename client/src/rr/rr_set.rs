@@ -515,4 +515,35 @@ mod test {
     assert!(rr_set.remove(&ns2, 0));
     assert!(!rr_set.remove(&ns1, 0));
   }
+
+  #[test]
+  fn test_get_filter() {
+    use ::rr::rdata::SIG;
+    use ::rr::dnssec::{Algorithm, SupportedAlgorithms};
+
+    let name = Name::root();
+    let rsasha256 = SIG::new(RecordType::A, Algorithm::RSASHA256, 0, 0, 0, 0, 0, Name::root(), vec![]);
+    let ecp256 = SIG::new(RecordType::A, Algorithm::ECDSAP256SHA256, 0, 0, 0, 0, 0, Name::root(), vec![]);
+    let ecp384 = SIG::new(RecordType::A, Algorithm::ECDSAP384SHA384, 0, 0, 0, 0, 0, Name::root(), vec![]);
+    let ed25519 = SIG::new(RecordType::A, Algorithm::ED25519, 0, 0, 0, 0, 0, Name::root(), vec![]);
+
+    let rrsig_rsa = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::RRSIG).dns_class(DNSClass::IN).rdata(RData::SIG(rsasha256)).clone();
+    let rrsig_ecp256 = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::RRSIG).dns_class(DNSClass::IN).rdata(RData::SIG(ecp256)).clone();
+    let rrsig_ecp384 = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::RRSIG).dns_class(DNSClass::IN).rdata(RData::SIG(ecp384)).clone();
+    let rrsig_ed25519 = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::RRSIG).dns_class(DNSClass::IN).rdata(RData::SIG(ed25519)).clone();
+
+    let a = Record::new().name(name.clone()).ttl(3600).rr_type(RecordType::A).dns_class(DNSClass::IN).rdata(RData::A(Ipv4Addr::new(93,184,216,24))).clone();
+
+    let mut rrset = a.into_record_set();
+    rrset.insert_rrsig(rrsig_rsa);
+    rrset.insert_rrsig(rrsig_ecp256);
+    rrset.insert_rrsig(rrsig_ecp384);
+    rrset.insert_rrsig(rrsig_ed25519);
+
+    assert!(rrset.get_records(true, SupportedAlgorithms::all()).iter().any(|r| if let &RData::SIG(ref sig) = r.get_rdata() { sig.get_algorithm() == Algorithm::ED25519 } else { false }));
+
+    let mut supported_algorithms = SupportedAlgorithms::new();
+    supported_algorithms.set(Algorithm::ECDSAP384SHA384);
+    assert!(rrset.get_records(true, supported_algorithms).iter().any(|r| if let &RData::SIG(ref sig) = r.get_rdata() { sig.get_algorithm() == Algorithm::ECDSAP384SHA384 } else { false }));
+  }
 }
