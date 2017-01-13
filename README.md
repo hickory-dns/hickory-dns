@@ -41,7 +41,7 @@ Using the ClientFuture is safe. ClientFuture is a brand new rewrite of the old
 These are standards supported by the DNS protocol. The client implements them
  as high level interfaces, which is a bit more rare.
 
-* [secure_query]() - DNSSec validation
+* [secure_query](https://docs.rs/trust-dns/0.8.1/trust_dns/client/struct.Client.html#method.secure_query) - DNSSec validation
 * [create](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.create) - atomic create of a record, with authenticated request
 * [append](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.append) - verify existence of a record and append to it
 * [compare_and_swap](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.compare_and_swap) - atomic (depends on server) compare and swap
