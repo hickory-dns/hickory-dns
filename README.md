@@ -218,17 +218,6 @@ It is a default feature, so default-features will need to be set to false (this 
 trust-dns = { version = "*", default-features = false, features = ["openssl"] }
 ```
 
--  mio_client
-
-Also a default feature, this exables the old deprecated MIO based client. This will remove an independent dependency requirement on the MIO library (there is an implicit dependency on MIO via the tokio-rs library, that will not be removed). Disabling this feature will only compile in the futures-rs based client. The below example line will disable all default features and enable mio_client, remove `"mio_client"` to remove the direct dependency on MIO.
-
-```
-[dependencies]
-  ...
-trust-dns = { version = "*", default-features = false, features = ["mio_client"] }
-```
-
-
 # FAQ
 
 -   Why are you building another DNS server?

@@ -33,8 +33,6 @@ extern crate data_encoding;
 #[macro_use] extern crate futures;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
-#[cfg(feature = "mio_client")]
-extern crate mio;
 #[cfg(feature = "openssl")]
 extern crate openssl;
 extern crate rand;
