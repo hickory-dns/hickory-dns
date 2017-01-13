@@ -161,7 +161,7 @@ presume that the trust-dns repos have already been synced to the local system:
     be run from the crate directory, i.e. `client` or `server` and `cargo test`
 
 ```
-  $ scripts/runtests.sh
+  $ scripts/run_tests.sh
 ```
 
 -   Functional/Integration tests
@@ -171,7 +171,7 @@ presume that the trust-dns repos have already been synced to the local system:
     systems. These can not currently be run on Travis for example.
 
 ```
-  $ scripts/runtests.sh -- --ignored
+  $ scripts/run_tests.sh -- --ignored
 ```
 
 -   Benchmarks
