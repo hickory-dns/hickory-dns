@@ -15,14 +15,9 @@
 //! UDP based DNS client
 
 use std::io;
-use std::mem;
-use std::net::{SocketAddr, ToSocketAddrs};
-use std::fmt;
+use std::net::SocketAddr;
 
 use futures::Future;
-use futures::stream::Stream;
-use rand::Rng;
-use rand;
 use tokio_core::reactor::Core;
 
 use ::error::*;

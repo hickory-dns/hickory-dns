@@ -796,7 +796,6 @@ pub trait ClientHandle: Clone {
   ///
   /// * `record` - The name, class and record_type will be used to match and delete the RecordSet
   /// * `zone_origin` - the zone name to update, i.e. SOA name
-  /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
   /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
@@ -853,7 +852,6 @@ pub trait ClientHandle: Clone {
   /// * `name_of_records` - the name of all the record sets to delete
   /// * `zone_origin` - the zone name to update, i.e. SOA name
   /// * `dns_class` - the class of the SOA
-  /// * `signer` - the signer, with private key, to use to sign the request
   ///
   /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
   /// operation attempts to delete all resource record sets the the specified name reguardless of

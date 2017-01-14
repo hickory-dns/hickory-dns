@@ -16,11 +16,9 @@
 
 use std::net::SocketAddr;
 use std::io;
-use std::mem;
-use std::fmt;
 
 use futures::Future;
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::Core;
 
 use ::error::*;
 use ::client::{ClientConnection, ClientStreamHandle};

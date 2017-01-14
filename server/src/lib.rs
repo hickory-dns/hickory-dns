@@ -30,7 +30,6 @@ extern crate chrono;
 #[macro_use] extern crate error_chain;
 #[macro_use] extern crate futures;
 #[macro_use] extern crate log;
-extern crate mio;
 extern crate openssl;
 extern crate rusqlite;
 extern crate rustc_serialize;
@@ -44,8 +43,6 @@ pub mod config;
 pub mod error;
 pub mod server;
 
-#[allow(deprecated)]
-pub use self::server::Server;
 pub use self::server::ServerFuture;
 
 /// this exposes a version function which gives access to the access

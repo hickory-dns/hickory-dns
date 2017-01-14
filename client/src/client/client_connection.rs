@@ -15,13 +15,11 @@
 //! Trait for client connections
 
 use std::io;
-use std::fmt::Debug;
 
 use futures::Future;
 use tokio_core::reactor::Core;
 
 use ::client::ClientStreamHandle;
-use ::error::*;
 
 /// Trait for client connections
 pub trait ClientConnection: Sized {
