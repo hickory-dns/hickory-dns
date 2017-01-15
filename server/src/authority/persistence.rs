@@ -10,7 +10,6 @@ use std::path::Path;
 use time;
 use rusqlite;
 use rusqlite::Connection;
-use rusqlite::SqliteError;
 
 use trust_dns::rr::Record;
 use trust_dns::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
@@ -117,8 +116,8 @@ impl Journal {
                                             WHERE _rowid_ >= $1
                                             LIMIT 1"));
 
-    let record_opt: Option<Result<(i64, Record), SqliteError>> = try!(stmt.query_and_then(&[&row_id],
-                                                                      |row| -> Result<(i64, Record), SqliteError> {
+    let record_opt: Option<Result<(i64, Record), rusqlite::Error>> = try!(stmt.query_and_then(&[&row_id],
+                                                                      |row| -> Result<(i64, Record), rusqlite::Error> {
       let row_id: i64 = try!(row.get_checked(0));
       let record_bytes: Vec<u8> = try!(row.get_checked(1));
       let mut decoder = BinDecoder::new(&record_bytes);
@@ -163,10 +162,10 @@ impl Journal {
 
     assert_eq!(&tdns_schema, "tdns_schema");
 
-    let version: i64 = try!(conn.query_row_safe("SELECT version
-                                                  FROM tdns_schema",
-                                                  &[],
-                                                  |row| row.get(0)));
+    let version: i64 = try!(conn.query_row("SELECT version
+                                            FROM tdns_schema",
+                                            &[],
+                                            |row| row.get(0)));
 
     Ok(version)
   }
