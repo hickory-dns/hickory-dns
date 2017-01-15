@@ -49,7 +49,7 @@ backtrace = "^0.2.1"
 chrono = "^0.2.21"
 data-encoding = "^1.1.2"
 error-chain = "0.1.12"
-futures = "^0.1"
+futures = "^0.1.4"
 lazy_static = "^0.2.1"
 log = "^0.3.5"
 mio = { version = "^0.5.1", optional = true }
