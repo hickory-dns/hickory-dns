@@ -59,7 +59,7 @@ mio = "^0.5.1"
 openssl = "^0.9.5"
 rand = "^0.3"
 rustc-serialize = "^0.3.18"
-rusqlite = "^0.7.3"
+rusqlite = { version = "^0.8.0", features = ["bundled"] }
 time = "^0.1"
 tokio-core = "^0.1"
 toml = "^0.1"
