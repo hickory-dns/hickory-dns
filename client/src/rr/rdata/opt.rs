@@ -22,6 +22,11 @@ use ::serialize::binary::*;
 use ::error::*;
 use ::rr::dnssec::SupportedAlgorithms;
 
+/// The OPT record type is used for ExtendedDNS records.
+///
+/// These allow for additional information to be associated with the DNS request that otherwise
+/// would require changes to the DNS protocol.
+///
 /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6)
 ///
 /// ```text

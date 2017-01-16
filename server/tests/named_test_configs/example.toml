@@ -78,8 +78,41 @@ file = "example.com.zone"
 ## if false, updates will not be allowed, default false
 # allow_update = false
 
-## if true, looks to see if a chained pem file exists at $file.pem
+## if true, looks to see if a chained pem file exists at $file.pem (see
+## supported_algorithms below).
 ## these keys will also be registered as authorities for update,
 ## meaning that SIG(0) updates can be established by initially using these
-## keys.
+## keys. the zone will be signed with all specified keys, it may be desirable
+## to limit this set for performance reasons.
 # enable_dnssec = false
+
+## set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
+## these will be lookedup by $file.{key_name}.pem, for backward compatability
+## with previous versions of TRust-DNS, if enable_dnssec is enabled but
+## supported_algorithms is not specified, it will default to "RSASHA256" and
+## look for the $file.pem for the key. To control key length, or other options
+## keys of the specified formats can be generated in PEM format. Instructions
+## for custom keys can be found elsewhere.
+##
+## the currently supported set of supported_algorithms are
+## ["RSASHA256", "RSASHA512", "ECDSAP256SHA256", "ECDSAP384SHA384", "ED25519"]
+##
+## keys are listed in pairs of key_name and algorithm, the search path is the
+## same directory has the zone $file (this section would be relative to the
+## example.com zone):
+# [[zones.keys]]
+## relative to the zone $file
+# key = "my_rsa_2048.pem"
+## specify the algorithm
+# algorithm = "RSASHA256"
+## this key should be used to sign the zone
+# is_zone_signing_key = true
+## this key is authorized for dynamic update access to the zone via SIG0
+# is_zone_update_auth = true
+#
+# [[zones.keys]]
+# key = "/path/to/my_ed25519.pem
+# algorithm = "ED25519"
+## for keys that are not zone signing, the pem need only include the pubic_key
+# is_zone_signing_key = false
+# is_zone_update_auth = true

@@ -21,6 +21,8 @@ use std::sync::RwLock;
 
 use trust_dns::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage, RequestHandler, ResponseCode};
 use trust_dns::rr::{Name, RecordType};
+use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
+use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
 
 use ::authority::{Authority, ZoneType};
 
@@ -62,7 +64,6 @@ impl RequestHandler for Catalog {
         return response
       }
 
-      // TODO: inform of supported DNSSec protocols...
       // TODO: add padding for private key hashing, need better knowledge of the length of the
       //   response.
       // resp_edns.set_option()
@@ -99,9 +100,22 @@ impl RequestHandler for Catalog {
       },
     };
 
-    if let Some(resp_edns) = resp_edns_opt {
-      response.set_edns(resp_edns);
+    if let Some(mut resp_edns) = resp_edns_opt {
+      // set edns DAU and DHU
+      // send along the algorithms which are supported by this authority
+      let mut algorithms = SupportedAlgorithms::new();
+      algorithms.set(Algorithm::RSASHA256);
+      algorithms.set(Algorithm::ECDSAP256SHA256);
+      algorithms.set(Algorithm::ECDSAP384SHA384);
+      algorithms.set(Algorithm::ED25519);
 
+      let dau = EdnsOption::DAU(algorithms);
+      let dhu = EdnsOption::DHU(algorithms);
+
+      resp_edns.set_option(dau);
+      resp_edns.set_option(dhu);
+
+      response.set_edns(resp_edns);
       // TODO: if DNSSec supported, sign the package with SIG0
       // get this servers private key ideally use pkcs11
       // sign response and then add SIG0 or TSIG to response
@@ -220,7 +234,8 @@ impl Catalog {
   /// # Arguments
   ///
   /// * `request` - the query message.
-  pub fn lookup(&self, request: &Message) -> Message {
+  pub fn lookup(&self,
+                request: &Message) -> Message {
     let mut response: Message = Message::new();
     response.id(request.get_id());
     response.op_code(OpCode::Query);
@@ -233,16 +248,25 @@ impl Catalog {
       if let Some(ref_authority) = self.find_auth_recurse(query.get_name()) {
         let authority = &ref_authority.read().unwrap(); // poison errors should panic
         debug!("found authority: {:?}", authority.get_origin());
-        let is_dnssec = request.get_edns().map_or(false, |edns|edns.is_dnssec_ok());
+        let (is_dnssec, supported_algorithms) = request.get_edns()
+                                                       .map_or((false, SupportedAlgorithms::new()), |edns| {
+          let supported_algorithms = if let Some(&EdnsOption::DAU(algs)) = edns.get_option(&EdnsCode::DAU) {
+            algs
+          } else {
+            Default::default()
+          };
 
-        let records = authority.search(query, is_dnssec);
+          (edns.is_dnssec_ok(), supported_algorithms)
+        });
+
+        let records = authority.search(query, is_dnssec, supported_algorithms);
         if !records.is_empty() {
           response.response_code(ResponseCode::NoError);
           response.authoritative(true);
           response.add_answers(records.into_iter().cloned());
 
           // get the NS records
-          let ns = authority.get_ns(is_dnssec);
+          let ns = authority.get_ns(is_dnssec, supported_algorithms);
           if ns.is_empty() { warn!("there are no NS records for: {:?}", authority.get_origin()); }
           else {
             response.add_name_servers(ns.into_iter().cloned());
@@ -250,14 +274,14 @@ impl Catalog {
         } else {
           if is_dnssec {
             // get NSEC records
-            let nsecs = authority.get_nsec_records(query.get_name(), is_dnssec);
+            let nsecs = authority.get_nsec_records(query.get_name(), is_dnssec, supported_algorithms);
             response.add_name_servers(nsecs.into_iter().cloned());
           }
 
           // in the not found case it's standard to return the SOA in the authority section
           response.response_code(ResponseCode::NXDomain);
 
-          let soa = authority.get_soa_secure(is_dnssec);
+          let soa = authority.get_soa_secure(is_dnssec, supported_algorithms);
           if soa.is_empty() { warn!("there is no SOA record for: {:?}", authority.get_origin()); }
           else {
             response.add_name_servers(soa.into_iter().cloned());

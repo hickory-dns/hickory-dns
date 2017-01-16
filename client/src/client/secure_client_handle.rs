@@ -16,11 +16,11 @@ use ::client::ClientHandle;
 use ::error::*;
 use ::op::{Message, OpCode, Query};
 use ::rr::{domain, DNSClass, RData, Record, RecordType};
-use ::rr::dnssec::{KeyPair, TrustAnchor};
+use ::rr::dnssec::{Algorithm, KeyPair, SupportedAlgorithms, TrustAnchor};
 #[cfg(feature = "openssl")]
 use ::rr::dnssec::Signer;
-use ::rr::rdata::{dnskey, DNSKEY, DS, SIG};
-use ::serialize::binary::{BinEncoder, BinSerializable};
+use ::rr::rdata::{DNSKEY, SIG};
+use ::rr::rdata::opt::EdnsOption;
 
 #[derive(Debug)]
 struct Rrset {
@@ -41,6 +41,8 @@ pub struct SecureClientHandle<H: ClientHandle + 'static> {
   client: H,
   trust_anchor: Rc<TrustAnchor>,
   request_depth: usize,
+  minimum_key_len: usize,
+  minimum_algorithm: Algorithm, // used to prevent down grade attacks...
 }
 
 impl<H> SecureClientHandle<H> where H: ClientHandle + 'static {
@@ -66,6 +68,8 @@ impl<H> SecureClientHandle<H> where H: ClientHandle + 'static {
       client: client,
       trust_anchor: Rc::new(trust_anchor),
       request_depth: 0,
+      minimum_key_len: 0,
+      minimum_algorithm: Algorithm::RSASHA256,
     }
   }
 
@@ -77,6 +81,8 @@ impl<H> SecureClientHandle<H> where H: ClientHandle + 'static {
       client: self.client.clone(),
       trust_anchor: self.trust_anchor.clone(),
       request_depth: self.request_depth + 1,
+      minimum_key_len: self.minimum_key_len,
+      minimum_algorithm: self.minimum_algorithm,
     }
   }
 }
@@ -95,9 +101,28 @@ impl<H> ClientHandle for SecureClientHandle<H> where H: ClientHandle + 'static {
       let query = message.get_queries().first().cloned().unwrap();
       let client: SecureClientHandle<H> = self.clone_with_context();
 
+      // TODO: cache response of the server about understood algorithms
+      #[cfg(any(feature = "openssl", feature = "ring"))]
       {
         let edns = message.get_edns_mut();
+
         edns.set_dnssec_ok(true);
+
+        // send along the algorithms which are supported by this client
+        let mut algorithms = SupportedAlgorithms::new();
+        #[cfg(feature = "openssl")] {
+          algorithms.set(Algorithm::RSASHA256);
+          algorithms.set(Algorithm::ECDSAP256SHA256);
+          algorithms.set(Algorithm::ECDSAP384SHA384);
+        }
+        #[cfg(feature = "ring")]
+        algorithms.set(Algorithm::ED25519);
+
+        let dau = EdnsOption::DAU(algorithms);
+        let dhu = EdnsOption::DHU(algorithms);
+
+        edns.set_option(dau);
+        edns.set_option(dhu);
       }
 
       message.authentic_data(true);
@@ -317,6 +342,8 @@ fn verify_rrset<H>(client: SecureClientHandle<H>,
   if let RecordType::DNSKEY = rrset.record_type {
     if rrsigs.is_empty() {
       debug!("unsigned key: {}, {:?}", rrset.name, rrset.record_type);
+      // FIXME: validate that this DNSKEY is stronger than the one lower in the chain,
+      //  also, set the min algorithm to this algorithm to prevent downgrade attacks.
       return verify_dnskey_rrset(client.clone_with_context(), rrset)
     }
   }
@@ -401,8 +428,8 @@ fn verify_dnskey_rrset<H>(
                                 None
                               })
                               // must be convered by at least one DS record
-                              .any(|ds_rdata| is_key_covered_by(&rrset.name, key_rdata, ds_rdata)
-                                                               .unwrap_or(false))
+                              .any(|ds_rdata| ds_rdata.covers(&rrset.name, key_rdata)
+                                                      .unwrap_or(false))
                   )
                   .map(|(i, _)| i)
                   .collect::<Vec<usize>>();
@@ -473,56 +500,6 @@ fn test_preserve() {
     let indexes = vec![0,1,2];
     preserve(&mut vec, indexes);
     assert_eq!(vec, vec![1,2,3]);
-}
-
-/// Validates that a given DNSKEY is covered by the DS record.
-///
-/// # Return
-///
-/// true if and only if the DNSKEY is covered by the DS record.
-///
-/// ```text
-/// 5.1.4.  The Digest Field
-///
-///    The DS record refers to a DNSKEY RR by including a digest of that
-///    DNSKEY RR.
-///
-///    The digest is calculated by concatenating the canonical form of the
-///    fully qualified owner name of the DNSKEY RR with the DNSKEY RDATA,
-///    and then applying the digest algorithm.
-///
-///      digest = digest_algorithm( DNSKEY owner name | DNSKEY RDATA);
-///
-///       "|" denotes concatenation
-///
-///      DNSKEY RDATA = Flags | Protocol | Algorithm | Public Key.
-///
-///    The size of the digest may vary depending on the digest algorithm and
-///    DNSKEY RR size.  As of the time of this writing, the only defined
-///    digest algorithm is SHA-1, which produces a 20 octet digest.
-/// ```
-fn is_key_covered_by(name: &domain::Name, key: &DNSKEY, ds: &DS) -> ClientResult<bool> {
-  let mut buf: Vec<u8> = Vec::new();
-  {
-    let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
-    encoder.set_canonical_names(true);
-    if let Err(e) = name.emit(&mut encoder)
-                        .and_then(|_| dnskey::emit(&mut encoder, key)) {
-      warn!("error serializing dnskey: {}", e);
-      return Err(ClientErrorKind::Msg(format!("error serializing dnskey: {}", e)).into())
-    }
-  }
-
-  ds.get_digest_type()
-    .hash(&buf)
-    .map_err(|e| e.into())
-    .map(|hash|
-      if &hash as &[u8] == ds.get_digest() {
-        return true
-      } else {
-        return false
-      }
-    )
 }
 
 /// Verifies that a given RRSET is validly signed by any of the specified RRSIGs.
@@ -657,11 +634,11 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY,
   if !dnskey.is_zone_key() { return Err(ClientErrorKind::Message("is not a zone key").into()) }
   if *dnskey.get_algorithm() != sig.get_algorithm() { return Err(ClientErrorKind::Message("mismatched algorithm").into()) }
 
-  let pkey = KeyPair::from_vec(dnskey.get_public_key(), *dnskey.get_algorithm());
+  let pkey = KeyPair::from_public_bytes(dnskey.get_public_key(), *dnskey.get_algorithm());
   if let Err(e) = pkey { debug!("error getting key from vec: {}", e); return Err(ClientErrorKind::Message("error getting key from vec").into()) }
   let pkey = pkey.unwrap();
 
-  let signer: Signer = Signer::new_verifier(*dnskey.get_algorithm(), pkey, sig.get_signer_name().clone());
+  let signer: Signer = Signer::new_verifier(*dnskey.get_algorithm(), pkey, sig.get_signer_name().clone(), dnskey.is_zone_key(), false);
 
   signer.hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)
         .map_err(|e| e.into())

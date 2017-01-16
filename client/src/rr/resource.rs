@@ -104,6 +104,24 @@ impl Record {
     }
   }
 
+  /// Create a record with the specified initial values.
+  ///
+  /// # Arguments
+  ///
+  /// * `name` - name of the resource records
+  /// * `rr_type` - the record type
+  /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
+  /// * `rdata` - record data to associate with the Record
+  pub fn from_rdata(name: domain::Name, ttl: u32, record_type: RecordType, rdata: RData) -> Record {
+    Record {
+      name_labels: name,
+      rr_type: record_type,
+      dns_class: DNSClass::IN,
+      ttl: ttl,
+      rdata: rdata,
+    }
+  }
+
   /// ```text
   /// NAME            a domain name to which this resource record pertains.
   /// ```

@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 extern crate log;
+extern crate trust_dns;
 extern crate trust_dns_server;
 
 use std::env;
@@ -22,6 +23,9 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::time::Duration;
 
 use log::LogLevel;
+
+use trust_dns::rr::Name;
+use trust_dns::rr::dnssec::Algorithm;
 
 use trust_dns_server::authority::ZoneType;
 use trust_dns_server::config::*;
@@ -45,12 +49,12 @@ fn test_read_config() {
   assert_eq!(config.get_log_level(), LogLevel::Info);
   assert_eq!(config.get_directory(), Path::new("/var/named"));
   assert_eq!(config.get_zones(), [
-    ZoneConfig::new("localhost".into(), ZoneType::Master, "default/localhost.zone".into(), None, None),
-    ZoneConfig::new("0.0.127.in-addr.arpa".into(), ZoneType::Master, "default/127.0.0.1.zone".into(), None, None),
-    ZoneConfig::new("0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa".into(), ZoneType::Master, "default/ipv6_1.zone".into(), None, None),
-    ZoneConfig::new("255.in-addr.arpa".into(), ZoneType::Master, "default/255.zone".into(), None, None),
-    ZoneConfig::new("0.in-addr.arpa".into(), ZoneType::Master, "default/0.zone".into(), None, None),
-    ZoneConfig::new("example.com".into(), ZoneType::Master, "example.com.zone".into(), None, None),
+    ZoneConfig::new("localhost".into(), ZoneType::Master, "default/localhost.zone".into(), None, None, vec![]),
+    ZoneConfig::new("0.0.127.in-addr.arpa".into(), ZoneType::Master, "default/127.0.0.1.zone".into(), None, None, vec![]),
+    ZoneConfig::new("0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa".into(), ZoneType::Master, "default/ipv6_1.zone".into(), None, None, vec![]),
+    ZoneConfig::new("255.in-addr.arpa".into(), ZoneType::Master, "default/255.zone".into(), None, None, vec![]),
+    ZoneConfig::new("0.in-addr.arpa".into(), ZoneType::Master, "default/0.zone".into(), None, None, vec![]),
+    ZoneConfig::new("example.com".into(), ZoneType::Master, "example.com.zone".into(), None, None, vec![]),
   ]);
 }
 
@@ -79,4 +83,38 @@ fn test_parse_toml() {
 
   let config: Config = "directory = \"/dev/null\"".parse().unwrap();
   assert_eq!(config.get_directory(), Path::new("/dev/null"));
+
+  let config: Config = "
+[[zones]]
+zone = \"example.com\"
+zone_type = \"Master\"
+file = \"example.com.zone\"
+
+[[zones.keys]]
+key_path = \"/path/to/my_ed25519.pem\"
+algorithm = \"ED25519\"
+signer_name = \"ns.example.com.\"
+is_zone_signing_key = false
+is_zone_update_auth = true
+do_auto_generate = true
+
+[[zones.keys]]
+key_path = \"/path/to/my_rsa.pem\"
+algorithm = \"RSASHA256\"
+signer_name = \"ns.example.com.\"
+
+".parse().unwrap();
+  assert_eq!(config.get_zones()[0].get_keys()[0].get_key_path(), Path::new("/path/to/my_ed25519.pem"));
+  assert_eq!(config.get_zones()[0].get_keys()[0].get_algorithm().unwrap(), Algorithm::ED25519);
+  assert_eq!(config.get_zones()[0].get_keys()[0].get_signer_name().unwrap().unwrap(), Name::parse("ns.example.com.", None).unwrap());
+  assert_eq!(config.get_zones()[0].get_keys()[0].is_zone_signing_key(), false);
+  assert_eq!(config.get_zones()[0].get_keys()[0].is_zone_update_auth(), true);
+  assert_eq!(config.get_zones()[0].get_keys()[0].do_auto_generate(), true);
+
+  assert_eq!(config.get_zones()[0].get_keys()[1].get_key_path(), Path::new("/path/to/my_rsa.pem"));
+  assert_eq!(config.get_zones()[0].get_keys()[1].get_algorithm().unwrap(), Algorithm::RSASHA256);
+  assert_eq!(config.get_zones()[0].get_keys()[1].get_signer_name().unwrap().unwrap(), Name::parse("ns.example.com.", None).unwrap());
+  assert_eq!(config.get_zones()[0].get_keys()[1].is_zone_signing_key(), false);
+  assert_eq!(config.get_zones()[0].get_keys()[1].is_zone_update_auth(), false);
+  assert_eq!(config.get_zones()[0].get_keys()[1].do_auto_generate(), false);
 }

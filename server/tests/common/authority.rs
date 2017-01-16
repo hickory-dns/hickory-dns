@@ -11,7 +11,7 @@ pub fn create_example() -> Authority {
   use trust_dns::rr::rdata::*;
 
   let origin: Name = Name::parse("example.com.", None,).unwrap();
-  let mut records: Authority = Authority::new(origin.clone(), BTreeMap::new(), ZoneType::Master, false);
+  let mut records: Authority = Authority::new(origin.clone(), BTreeMap::new(), ZoneType::Master, false, false);
   // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
   records.upsert(Record::new().name(origin.clone()).ttl(3600).rr_type(RecordType::SOA).dns_class(DNSClass::IN).rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None).unwrap(), Name::parse("noc.dns.icann.org.", None).unwrap(), 2015082403, 7200, 3600, 1209600, 3600 ))).clone(), 0);
 
@@ -73,7 +73,7 @@ pub fn create_secure_example() -> Authority {
   let mut authority: Authority = create_example();
   let rsa = Rsa::generate(2048).unwrap();
   let key = KeyPair::from_rsa(rsa).unwrap();
-  let signer = Signer::new(Algorithm::RSASHA256, key, authority.get_origin().clone(), Duration::weeks(1));
+  let signer = Signer::new(Algorithm::RSASHA256, key, authority.get_origin().clone(), Duration::weeks(1), true, true);
 
   authority.add_secure_key(signer);
   authority.secure_zone();
