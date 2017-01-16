@@ -261,7 +261,7 @@ fn udp_stream_test(server_addr: std::net::IpAddr) {
   };
 
   let socket = std::net::UdpSocket::bind(client_addr).expect("could not create socket"); // some random address...
-  let (mut stream, mut sender) = UdpStream::with_bound(socket, io_loop.handle());
+  let (mut stream, sender) = UdpStream::with_bound(socket, io_loop.handle());
   //let mut stream: UdpStream = io_loop.run(stream).ok().unwrap();
 
   for _ in 0..send_recv_times {

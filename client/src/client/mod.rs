@@ -16,9 +16,7 @@
 
 //! DNS Client associated classes for performing queries and other operations.
 
-#[cfg(feature = "mio_client")]
 mod client;
-#[cfg(feature = "mio_client")]
 mod client_connection;
 mod client_future;
 mod memoize_client_handle;
@@ -27,9 +25,7 @@ mod retry_client_handle;
 mod secure_client_handle;
 
 #[allow(deprecated)]
-#[cfg(feature = "mio_client")]
-pub use self::client::Client;
-#[cfg(feature = "mio_client")]
+pub use self::client::{Client, SecureSyncClient, SyncClient};
 pub use self::client_connection::ClientConnection;
 pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle, ClientStreamHandle};
 pub use self::memoize_client_handle::MemoizeClientHandle;

@@ -14,17 +14,16 @@
 
 //! Trait for client connections
 
-use std::fmt::Debug;
+use std::io;
 
-use ::error::*;
+use futures::Future;
+use tokio_core::reactor::Core;
+
+use ::client::ClientStreamHandle;
 
 /// Trait for client connections
-pub trait ClientConnection: Sized+Debug {
-  /// Sends a serialized message to via this connection, returning the serialized response.
-  ///
-  /// # Arguments
-  ///
-  /// * `bytes` - the serialized Message
-  fn send(&mut self, bytes: Vec<u8>) -> ClientResult<Vec<u8>>;
-  // TODO: split connect, send and read...
+pub trait ClientConnection: Sized {
+  type MessageStream;
+
+  fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>);
 }

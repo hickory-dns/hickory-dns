@@ -16,18 +16,13 @@
 
 //! UDP protocol related components for DNS.
 
-#[cfg(feature = "mio_client")]
-mod handler;
-#[cfg(feature = "mio_client")]
+// mod handler;
 mod udp_client_connection;
 mod udp_client_stream;
 mod udp_stream;
 
-#[cfg(feature = "mio_client")]
-pub use self::handler::UdpHandler;
-#[cfg(feature = "mio_client")]
-pub use self::handler::UdpState;
-#[cfg(feature = "mio_client")]
+// pub use self::handler::UdpHandler;
+// pub use self::handler::UdpState;
 pub use self::udp_client_connection::UdpClientConnection;
 pub use self::udp_client_stream::UdpClientStream;
 pub use self::udp_stream::UdpStream;

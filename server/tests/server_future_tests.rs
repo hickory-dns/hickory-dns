@@ -1,13 +1,15 @@
 extern crate chrono;
 extern crate futures;
-extern crate mio;
 extern crate openssl;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
+use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
 use std::thread;
 use std::time::Duration;
+
+use futures::stream::Stream;
 
 use trust_dns::client::*;
 use trust_dns::op::*;
@@ -31,8 +33,7 @@ fn test_server_www_udp() {
 
   thread::Builder::new().name("test_server:udp:server".to_string()).spawn(move || server_thread_udp(udp_socket)).unwrap();
 
-  let client_conn = UdpClientConnection::new(ipaddr).unwrap();
-  let client_thread = thread::Builder::new().name("test_server:udp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
+  let client_thread = thread::Builder::new().name("test_server:udp:client".to_string()).spawn(move || client_thread_www(lazy_udp_client(ipaddr))).unwrap();
 
   let client_result = client_thread.join();
   //    let server_result = server_thread.join();
@@ -51,8 +52,7 @@ fn test_server_www_tcp() {
 
   thread::Builder::new().name("test_server:tcp:server".to_string()).spawn(move || server_thread_tcp(tcp_listener)).unwrap();
 
-  let client_conn = TcpClientConnection::new(ipaddr).unwrap();
-  let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(client_conn)).unwrap();
+  let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(lazy_tcp_client(ipaddr))).unwrap();
 
   let client_result = client_thread.join();
   //    let server_result = server_thread.join();
@@ -61,11 +61,19 @@ fn test_server_www_tcp() {
   //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
 }
 
+fn lazy_udp_client(ipaddr: SocketAddr) -> UdpClientConnection {
+  UdpClientConnection::new(ipaddr).unwrap()
+}
+
+fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
+  TcpClientConnection::new(ipaddr).unwrap()
+}
+
 #[allow(deprecated)] // TODO: for now...
-fn client_thread_www<C: ClientConnection>(conn: C) {
+fn client_thread_www<C: ClientConnection>(conn: C)
+where C::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
   let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-  println!("about to query server: {:?}", conn);
-  let client = Client::new(conn);
+  let client = SyncClient::new(conn);
 
   let response = client.query(&name, DNSClass::IN, RecordType::A).expect("error querying");
 
