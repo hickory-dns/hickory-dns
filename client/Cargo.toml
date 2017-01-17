@@ -57,4 +57,5 @@ ring = { version = "^0.6", optional = true }
 rustc-serialize = "^0.3.18"
 time = "^0.1"
 tokio-core = "^0.1"
+tokio-tls = "^0.1"
 untrusted = "^0.3"

@@ -44,13 +44,14 @@ extern crate time;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 
+pub mod client;
 pub mod error;
 pub mod logger;
-pub mod rr;
 pub mod op;
-pub mod udp;
+pub mod rr;
 pub mod tcp;
-pub mod client;
+pub mod tls;
+pub mod udp;
 pub mod serialize;
 
 use std::io;

@@ -6,13 +6,13 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::mem;
-use std::net::{Shutdown, SocketAddr};
+use std::net::SocketAddr;
 use std::io;
-use std::io::{Read, Write};
 
 use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
+use tokio_core::io::Io;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::{Handle};
 
@@ -30,40 +30,50 @@ enum ReadTcpState {
 }
 
 #[must_use = "futures do nothing unless polled"]
-pub struct TcpStream {
-  socket: TokioTcpStream,
+pub struct TcpStream<S> {
+  socket: S,
   outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
   send_state: Option<WriteTcpState>,
   read_state: ReadTcpState,
+  peer_addr: SocketAddr,
 }
 
-impl TcpStream {
+impl<S> TcpStream<S> {
+  pub fn peer_addr(&self) -> SocketAddr {
+    self.peer_addr
+  }
+}
+
+impl TcpStream<TokioTcpStream> {
   /// it is expected that the resolver wrapper will be responsible for creating and managing
   ///  new TcpClients such that each new client would have a random port (reduce chance of cache
   ///  poisoning)
-  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=TcpStream, Error=io::Error>>, BufStreamHandle) {
+  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=TcpStream<TokioTcpStream>, Error=io::Error>>, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
     let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
     //  sending and receiving tcp packets.
-    let stream: Box<Future<Item=TcpStream, Error=io::Error>> = Box::new(tcp
+    let stream: Box<Future<Item=TcpStream<TokioTcpStream>, Error=io::Error>> = Box::new(tcp
       .map(move |tcp_stream| {
         TcpStream {
           socket: tcp_stream,
           outbound_messages: outbound_messages.fuse().peekable(),
           send_state: None,
           read_state: ReadTcpState::LenBytes { pos: 0, bytes: [0u8; 2] },
+          peer_addr: name_server,
         }
       }));
 
     (stream, message_sender)
   }
+}
 
+impl<S: Io> TcpStream<S> {
   /// Initializes a TcpStream with an existing tokio_core::net::TcpStream.
   ///
   /// This is intended for use with a TcpListener and Incoming.
-  pub fn with_tcp_stream(stream: TokioTcpStream) -> (Self, BufStreamHandle) {
+  pub fn with_tcp_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
 
     let stream = TcpStream {
@@ -71,17 +81,14 @@ impl TcpStream {
       outbound_messages: outbound_messages.fuse().peekable(),
       send_state: None,
       read_state: ReadTcpState::LenBytes { pos: 0, bytes: [0u8; 2] },
+      peer_addr: peer_addr,
     };
 
     (stream, message_sender)
   }
-
-  pub fn peer_addr(&self) -> io::Result<SocketAddr> {
-    self.socket.peer_addr()
-  }
 }
 
-impl Stream for TcpStream {
+impl<S: Io> Stream for TcpStream<S> {
   type Item = (Vec<u8>, SocketAddr);
   type Error = io::Error;
 
@@ -141,7 +148,7 @@ impl Stream for TcpStream {
           // already handled above, here to make sure the poll() pops the next message
           Async::Ready(Some((buffer, dst))) => {
             // if there is no peer, this connection should die...
-            let peer = try!(self.socket.peer_addr());
+            let peer = self.peer_addr;
 
             // This is an error if the destination is not our peer (this is TCP after all)
             //  This will kill the connection...
@@ -177,7 +184,7 @@ impl Stream for TcpStream {
           if read == 0 {
             // the Stream was closed!
             debug!("zero bytes read, stream closed?");
-            try!(self.socket.shutdown(Shutdown::Both));
+            //try!(self.socket.shutdown(Shutdown::Both));
 
             if *pos == 0 {
               // Since this is the start of the next message, we have a clean end
@@ -209,7 +216,7 @@ impl Stream for TcpStream {
             debug!("zero bytes read for message, stream closed?");
 
             // Since this is the start of the next message, we have a clean end
-            try!(self.socket.shutdown(Shutdown::Both));
+            // try!(self.socket.shutdown(Shutdown::Both));
             return Err(io::Error::new(io::ErrorKind::BrokenPipe, "closed while reading message"));
           }
 
@@ -243,7 +250,7 @@ impl Stream for TcpStream {
     // if the buffer is ready, return it, if not we're NotReady
     if let Some(buffer) = ret_buf {
       debug!("returning buffer");
-      let src_addr = self.socket.peer_addr().expect("strange tcp connection with no peer");
+      let src_addr = self.peer_addr;
       return Ok(Async::Ready(Some((buffer, src_addr))))
     } else {
       debug!("bottomed out");
@@ -336,7 +343,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
   let (stream, sender) = TcpStream::new(server_addr, io_loop.handle());
 
-  let mut stream: TcpStream = io_loop.run(stream).ok().expect("run failed to get stream");
+  let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 
   for _ in 0..send_recv_times {
     // test once
