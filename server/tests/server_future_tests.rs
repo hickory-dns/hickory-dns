@@ -9,7 +9,7 @@ use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
 use std::thread;
 use std::time::Duration;
 
-use futures::stream::Stream;
+use futures::Stream;
 
 use trust_dns::client::*;
 use trust_dns::op::*;

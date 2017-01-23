@@ -8,8 +8,7 @@
 use std::net::SocketAddr;
 use std::io;
 
-use futures::{Async, Future, Poll};
-use futures::stream::Stream;
+use futures::{Async, Future, Poll, Stream};
 use tokio_core::reactor::{Handle};
 
 use ::BufClientStreamHandle;

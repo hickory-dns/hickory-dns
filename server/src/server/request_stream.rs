@@ -1,8 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 
-use futures::{Async, Poll};
-use futures::stream::Stream;
+use futures::{Async, Poll, Stream};
 
 use trust_dns::BufStreamHandle;
 use trust_dns::op::Message;

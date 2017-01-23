@@ -9,8 +9,7 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{Async, Future, Poll};
-use futures::stream::Stream;
+use futures::{Async, Future, Poll, Stream};
 use tokio_core;
 use tokio_core::reactor::Core;
 
@@ -81,7 +80,7 @@ impl ServerFuture {
               .for_each(move |(tcp_stream, src_addr)| {
                 debug!("accepted request from: {}", src_addr);
                 // take the created stream...
-                let (buf_stream, stream_handle) = TcpStream::with_tcp_stream(tcp_stream, src_addr);
+                let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
                 let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
                 let request_stream = RequestStream::new(timeout_stream, stream_handle);
                 let catalog = catalog.clone();

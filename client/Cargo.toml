@@ -51,10 +51,12 @@ error-chain = "0.1.12"
 futures = "^0.1.6"
 lazy_static = "^0.2.1"
 log = "^0.3.5"
-openssl = { version = "^0.9.5", optional = true }
+native-tls = "^0.1"
+openssl = { version = "^0.9.6", optional = true }
 rand = "^0.3"
 ring = { version = "^0.6", optional = true }
 rustc-serialize = "^0.3.18"
+security-framework = "^0.1.10"
 time = "^0.1"
 tokio-core = "^0.1"
 tokio-tls = "^0.1"

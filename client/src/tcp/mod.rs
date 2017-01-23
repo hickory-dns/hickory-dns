@@ -18,7 +18,7 @@
 
 mod tcp_client_connection;
 mod tcp_client_stream;
-mod tcp_stream;
+pub mod tcp_stream;
 
 pub use self::tcp_client_connection::TcpClientConnection;
 pub use self::tcp_client_stream::TcpClientStream;

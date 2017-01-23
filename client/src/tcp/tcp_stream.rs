@@ -24,7 +24,7 @@ enum WriteTcpState {
   Flushing,
 }
 
-enum ReadTcpState {
+pub enum ReadTcpState {
   LenBytes{ pos: usize, bytes: [u8; 2] },
   Bytes{ pos: usize, bytes: Vec<u8> },
 }
@@ -45,9 +45,12 @@ impl<S> TcpStream<S> {
 }
 
 impl TcpStream<TokioTcpStream> {
-  /// it is expected that the resolver wrapper will be responsible for creating and managing
-  ///  new TcpClients such that each new client would have a random port (reduce chance of cache
-  ///  poisoning)
+  /// Creates a new future of the eventually establish a IO stream connection or fail trying
+  ///
+  /// # Arguments
+  ///
+  /// * `name_server` - the IP and Port of the DNS server to connect to
+  /// * `loop_handle` - reference to the takio_core::Core for future based IO
   pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=TcpStream<TokioTcpStream>, Error=io::Error>>, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
     let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
@@ -73,18 +76,28 @@ impl<S: Io> TcpStream<S> {
   /// Initializes a TcpStream with an existing tokio_core::net::TcpStream.
   ///
   /// This is intended for use with a TcpListener and Incoming.
-  pub fn with_tcp_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
+  ///
+  /// # Arguments
+  ///
+  /// * `stream` - the established IO stream for communication
+  /// * `peer_addr` - sources address of the stream
+  pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
 
-    let stream = TcpStream {
+    let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
+
+    (stream, message_sender)
+  }
+
+  /// Wrapps a stream where a sender and receiver have already been established
+  pub fn from_stream_with_receiver(stream: S, peer_addr: SocketAddr, receiver: UnboundedReceiver<(Vec<u8>, SocketAddr)>) -> Self {
+    TcpStream {
       socket: stream,
-      outbound_messages: outbound_messages.fuse().peekable(),
+      outbound_messages: receiver.fuse().peekable(),
       send_state: None,
       read_state: ReadTcpState::LenBytes { pos: 0, bytes: [0u8; 2] },
       peer_addr: peer_addr,
-    };
-
-    (stream, message_sender)
+    }
   }
 }
 
@@ -184,7 +197,7 @@ impl<S: Io> Stream for TcpStream<S> {
           if read == 0 {
             // the Stream was closed!
             debug!("zero bytes read, stream closed?");
-            //try!(self.socket.shutdown(Shutdown::Both));
+            //try!(self.socket.shutdown(Shutdown::Both)); // FIXME: add generic shutdown function
 
             if *pos == 0 {
               // Since this is the start of the next message, we have a clean end
@@ -216,7 +229,7 @@ impl<S: Io> Stream for TcpStream<S> {
             debug!("zero bytes read for message, stream closed?");
 
             // Since this is the start of the next message, we have a clean end
-            // try!(self.socket.shutdown(Shutdown::Both));
+            // try!(self.socket.shutdown(Shutdown::Both));  // FIXME: add generic shutdown function
             return Err(io::Error::new(io::ErrorKind::BrokenPipe, "closed while reading message"));
           }
 
@@ -308,7 +321,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   let send_recv_times = 4;
 
   // an in and out server
-  let server_handle = std::thread::Builder::new().name("test_tcp_client_stream_ipv4:server".to_string()).spawn(move || {
+  let server_handle = std::thread::Builder::new().name("test_tcp_client_stream:server".to_string()).spawn(move || {
     let (mut socket, _) = server.accept().expect("accept failed");
 
     socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...

@@ -1,2 +1,6 @@
 [workspace]
 members = ["client", "server"]
+
+[replace]
+"openssl:0.9.6" = { path = "../rust-openssl/openssl" }
+"openssl-sys:0.9.6" = { path = "../rust-openssl/openssl-sys" }
