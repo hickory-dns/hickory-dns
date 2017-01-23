@@ -32,14 +32,14 @@ use ::op::{Message};
 /// and tokio-rs based implementation. This trait implements syncronous functions for ease of use.
 ///
 /// There was a strong attempt to make it backwards compatible, but making it a drop in replacement
-/// for the old Client was not possible. This trait has two implentations, the `SyncClient` which
-/// is a standard DNS Client, and the `SecureSyncClient` which is a wrapper on `SecureClientHandle`
+/// for the old Client was not possible. This trait has two implentations, the `Client` which
+/// is a standard DNS Client, and the `SecureClient` which is a wrapper on `SecureClientHandle`
 /// providing DNSSec validation.
 ///
-/// *note* When upgrading from previous usage, both `SyncClient` and `SecureSyncClient` have an
+/// *note* When upgrading from previous usage, both `Client` and `SecureClient` have an
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
 /// parameter, and it will sign all update requests (this matches the `ClientFuture` API).
-pub trait Client<C: ClientHandle> {
+pub trait SyncClient<C: ClientHandle> {
   fn get_io_loop(&self) -> RefMut<Core>;
   fn get_client_handle(&self) -> RefMut<C>;
 
@@ -329,18 +329,18 @@ pub trait Client<C: ClientHandle> {
 ///
 /// Usage of TCP or UDP is up to the user. Some DNS servers
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
-pub struct SyncClient {
+pub struct Client {
   client_handle: RefCell<BasicClientHandle>,
   io_loop: RefCell<Core>,
 }
 
-impl SyncClient {
+impl Client {
   /// Creates a new DNS client with the specified connection type
   ///
   /// # Arguments
   ///
   /// * `client_connection` - the client_connection to use for all communication
-  pub fn new<CC: ClientConnection>(client_connection: CC) -> SyncClient
+  pub fn new<CC: ClientConnection>(client_connection: CC) -> Client
   where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
     let (io_loop, stream, stream_handle) = client_connection.unwrap();
 
@@ -350,7 +350,7 @@ impl SyncClient {
       io_loop.handle(),
       None);
 
-    SyncClient{ client_handle: RefCell::new(client), io_loop: RefCell::new(io_loop) }
+    Client{ client_handle: RefCell::new(client), io_loop: RefCell::new(io_loop) }
   }
 
   /// Creates a new DNS client with the specified connection type and a SIG0 signer.
@@ -361,7 +361,7 @@ impl SyncClient {
   ///
   /// * `client_connection` - the client_connection to use for all communication
   /// * `signer` - signer to use, this needs an associated private key
-  pub fn with_signer<CC: ClientConnection>(client_connection: CC, signer: Signer) -> SyncClient
+  pub fn with_signer<CC: ClientConnection>(client_connection: CC, signer: Signer) -> Client
   where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
     let (io_loop, stream, stream_handle) = client_connection.unwrap();
 
@@ -371,11 +371,11 @@ impl SyncClient {
       io_loop.handle(),
       Some(signer));
 
-    SyncClient{ client_handle: RefCell::new(client), io_loop: RefCell::new(io_loop) }
+    Client{ client_handle: RefCell::new(client), io_loop: RefCell::new(io_loop) }
   }
 }
 
-impl Client<BasicClientHandle> for SyncClient {
+impl SyncClient<BasicClientHandle> for Client {
   fn get_io_loop(&self) -> RefMut<Core> {
     self.io_loop.borrow_mut()
   }
@@ -386,22 +386,22 @@ impl Client<BasicClientHandle> for SyncClient {
 }
 
 #[cfg(feature = "openssl")]
-pub struct SecureSyncClient {
+pub struct SecureClient {
   client_handle: RefCell<SecureClientHandle<BasicClientHandle>>,
   io_loop: RefCell<Core>,
 }
 
 #[cfg(feature = "openssl")]
-impl SecureSyncClient {
+impl SecureClient {
   /// Creates a new DNS client with the specified connection type
   ///
   /// # Arguments
   ///
   /// * `client_connection` - the client_connection to use for all communication
-  pub fn new<CC>(client_connection: CC) -> SecureSyncClientBuilder<CC>
+  pub fn new<CC>(client_connection: CC) -> SecureClientBuilder<CC>
   where CC: ClientConnection,
         <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
-    SecureSyncClientBuilder{client_connection: client_connection, trust_anchor: None, signer: None}
+    SecureClientBuilder{client_connection: client_connection, trust_anchor: None, signer: None}
   }
 
   /// DNSSec validating query, this will return an error if the requested records can not be
@@ -432,7 +432,7 @@ impl SecureSyncClient {
 }
 
 #[cfg(feature = "openssl")]
-impl Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient {
+impl SyncClient<SecureClientHandle<BasicClientHandle>> for SecureClient {
   fn get_io_loop(&self) -> RefMut<Core> {
     self.io_loop.borrow_mut()
   }
@@ -442,7 +442,7 @@ impl Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient {
   }
 }
 
-pub struct SecureSyncClientBuilder<CC>
+pub struct SecureClientBuilder<CC>
 where CC: ClientConnection,
       <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
   client_connection: CC,
@@ -450,7 +450,7 @@ where CC: ClientConnection,
   signer: Option<Signer>,
 }
 
-impl<CC> SecureSyncClientBuilder<CC>
+impl<CC> SecureClientBuilder<CC>
 where CC: ClientConnection,
       <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
 
@@ -477,7 +477,7 @@ where CC: ClientConnection,
     self
   }
 
-  pub fn build(self) -> SecureSyncClient {
+  pub fn build(self) -> SecureClient {
     let (io_loop, stream, stream_handle) = self.client_connection.unwrap();
 
     let client = ClientFuture::new(
@@ -488,6 +488,6 @@ where CC: ClientConnection,
 
     let client = SecureClientHandle::with_trust_anchor(client, self.trust_anchor.unwrap_or(Default::default()));
 
-    SecureSyncClient{ client_handle: RefCell::new(client), io_loop: RefCell::new(io_loop) }
+    SecureClient{ client_handle: RefCell::new(client), io_loop: RefCell::new(io_loop) }
   }
 }

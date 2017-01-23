@@ -9,7 +9,7 @@ In an attempt to reduce the overhead of managing the project. The original
 Client has now been revamped to essentially be a synchronous Client over the
 ClientFuture implementation. The ClientFuture has proven to be a more stable
 and reliable implementation. It was attempted to make the move seamless,
-but two new types were introduced, `SyncClient` and `SecureSyncClient`, which
+but two new types were introduced, `Client` and `SecureClient`, which
 are both synchronous implementations of the old Client function interfaces.
 Please read those docs on those new types and the Client trait.
 

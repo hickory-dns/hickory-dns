@@ -25,7 +25,7 @@ mod retry_client_handle;
 mod secure_client_handle;
 
 #[allow(deprecated)]
-pub use self::client::{Client, SecureSyncClient, SyncClient};
+pub use self::client::{SyncClient, SecureClient, Client};
 pub use self::client_connection::ClientConnection;
 pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle, ClientStreamHandle};
 pub use self::memoize_client_handle::MemoizeClientHandle;
