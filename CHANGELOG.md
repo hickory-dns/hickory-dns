@@ -4,7 +4,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.10.0 (in progress)
 ### Changed
-- *Important* Possible breaking API change, the original `Client` has been renamed  
+- *Breaking* Possible breaking API change, the original `Client` has been renamed  
 In an attempt to reduce the overhead of managing the project. The original
 `Client` has now been revamped to essentially be a synchronous `Client` over the
 `ClientFuture` implementation. The `ClientFuture` has proven to be a more stable
@@ -15,7 +15,7 @@ but three new types were introduced: `Client`, `SecureClient`, and the
 `SyncClient` trait.
 
 ### Removed
-- *Important* The original `Server` implementation was removed entirely. Please
+- *Breaking* The original `Server` implementation was removed entirely. Please
 use the ServerFuture implementation from now on. Sorry for the inconvenience,
 but this is necessary to make sure that the software remains at a high quality
 and there is no easy way to migrate the original Server to use `ServerFuture`.
