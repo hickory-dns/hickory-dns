@@ -73,7 +73,7 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
 fn client_thread_www<C: ClientConnection>(conn: C)
 where C::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
   let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
-  let client = SyncClient::new(conn);
+  let client = Client::new(conn);
 
   let response = client.query(&name, DNSClass::IN, RecordType::A).expect("error querying");
 

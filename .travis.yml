@@ -5,6 +5,8 @@ os:
   - linux
   - osx
 rust:
+  # min supported rust version
+  - 1.13.0
   - stable
   - beta
   - nightly

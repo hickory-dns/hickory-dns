@@ -14,7 +14,7 @@ use openssl::rsa::Rsa;
 use tokio_core::reactor::Core;
 
 #[allow(deprecated)]
-use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SecureSyncClient, SyncClient};
+use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SecureClient, SyncClient};
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
@@ -55,7 +55,7 @@ fn test_query_nonet() {
   let mut catalog = Catalog::new();
   catalog.upsert(authority.get_origin().clone(), authority);
 
-  let client = SyncClient::new(TestClientConnection::new(catalog));
+  let client = Client::new(TestClientConnection::new(catalog));
 
   test_query(client);
 }
@@ -66,7 +66,7 @@ fn test_query_nonet() {
 fn test_query_udp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = UdpClientConnection::new(addr).unwrap();
-  let client = SyncClient::new(conn);
+  let client = Client::new(conn);
 
   test_query(client);
 }
@@ -77,13 +77,13 @@ fn test_query_udp() {
 fn test_query_tcp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = TcpClientConnection::new(addr).unwrap();
-  let client = SyncClient::new(conn);
+  let client = Client::new(conn);
 
   test_query(client);
 }
 
 #[allow(deprecated)]
-fn test_query(client: SyncClient) {
+fn test_query(client: Client) {
   use std::cmp::Ordering;
   let name = domain::Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]);
 
@@ -125,7 +125,7 @@ fn test_secure_query_example_nonet() {
   let mut catalog = Catalog::new();
   catalog.upsert(authority.get_origin().clone(), authority);
 
-  let client = SecureSyncClient::new(TestClientConnection::new(catalog)).trust_anchor(trust_anchor).build();
+  let client = SecureClient::new(TestClientConnection::new(catalog)).trust_anchor(trust_anchor).build();
 
   test_secure_query_example(client);
 }
@@ -136,7 +136,7 @@ fn test_secure_query_example_nonet() {
 fn test_secure_query_example_udp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = UdpClientConnection::new(addr).unwrap();
-  let client = SecureSyncClient::new(conn).build();
+  let client = SecureClient::new(conn).build();
 
   test_secure_query_example(client);
 }
@@ -147,13 +147,13 @@ fn test_secure_query_example_udp() {
 fn test_secure_query_example_tcp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = TcpClientConnection::new(addr).unwrap();
-  let client = SecureSyncClient::new(conn).build();
+  let client = SecureClient::new(conn).build();
 
   test_secure_query_example(client);
 }
 
 #[allow(deprecated)]
-fn test_secure_query_example(client: SecureSyncClient) {
+fn test_secure_query_example(client: SecureClient) {
   let name = domain::Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
   let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
 
@@ -180,7 +180,7 @@ fn test_secure_query_example(client: SecureSyncClient) {
 #[ignore]
 #[allow(deprecated)]
 fn test_dnssec_rollernet_td_udp() {
-  let c = SecureSyncClient::new(UdpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap()).build();
+  let c = SecureClient::new(UdpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap()).build();
   c.secure_query(
     &domain::Name::parse("rollernet.us.", None).unwrap(),
     DNSClass::IN,
@@ -192,7 +192,7 @@ fn test_dnssec_rollernet_td_udp() {
 #[ignore]
 #[allow(deprecated)]
 fn test_dnssec_rollernet_td_tcp() {
-  let c = SecureSyncClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap()).build();
+  let c = SecureClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap()).build();
   c.secure_query(
     &domain::Name::parse("rollernet.us.", None).unwrap(),
     DNSClass::IN,
@@ -204,7 +204,7 @@ fn test_dnssec_rollernet_td_tcp() {
 #[ignore]
 #[allow(deprecated)]
 fn test_dnssec_rollernet_td_tcp_mixed_case() {
-  let c = SecureSyncClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap()).build();
+  let c = SecureClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap()).build();
   c.secure_query(
     &domain::Name::parse("RollErnet.Us.", None).unwrap(),
     DNSClass::IN,
@@ -230,7 +230,7 @@ fn test_nsec_query_example_nonet() {
   let mut catalog = Catalog::new();
   catalog.upsert(authority.get_origin().clone(), authority);
 
-  let client = SecureSyncClient::new(TestClientConnection::new(catalog)).trust_anchor(trust_anchor).build();
+  let client = SecureClient::new(TestClientConnection::new(catalog)).trust_anchor(trust_anchor).build();
   test_nsec_query_example::<TestClientConnection>(client);
 }
 
@@ -240,7 +240,7 @@ fn test_nsec_query_example_nonet() {
 fn test_nsec_query_example_udp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = UdpClientConnection::new(addr).unwrap();
-  let client = SecureSyncClient::new(conn).build();
+  let client = SecureClient::new(conn).build();
   test_nsec_query_example::<UdpClientConnection>(client);
 }
 
@@ -250,12 +250,12 @@ fn test_nsec_query_example_udp() {
 fn test_nsec_query_example_tcp() {
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = TcpClientConnection::new(addr).unwrap();
-  let client = SecureSyncClient::new(conn).build();
+  let client = SecureClient::new(conn).build();
   test_nsec_query_example::<TcpClientConnection>(client);
 }
 
 #[allow(deprecated)]
-fn test_nsec_query_example<C: ClientConnection>(client: SecureSyncClient) {
+fn test_nsec_query_example<C: ClientConnection>(client: SecureClient) {
   let name = domain::Name::with_labels(vec!["none".to_string(), "example".to_string(), "com".to_string()]);
 
   let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
@@ -274,7 +274,7 @@ fn test_nsec_query_type() {
 
   let addr: SocketAddr = ("8.8.8.8",53).to_socket_addrs().unwrap().next().unwrap();
   let conn = TcpClientConnection::new(addr).unwrap();
-  let client = SecureSyncClient::new(conn).build();
+  let client = SecureClient::new(conn).build();
 
   let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
   assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
@@ -321,7 +321,7 @@ fn test_nsec_query_type() {
 // }
 
 #[allow(deprecated)]
-fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient, domain::Name) {
+fn create_sig0_ready_client(mut catalog: Catalog) -> (Client, domain::Name) {
   let mut authority = create_example();
   authority.set_allow_update(true);
   let origin = authority.get_origin().clone();
@@ -341,7 +341,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient, domain::Name) 
   authority.upsert(auth_key, 0);
 
   catalog.upsert(authority.get_origin().clone(), authority);
-  let client = SyncClient::with_signer(TestClientConnection::new(catalog), signer);
+  let client = Client::with_signer(TestClientConnection::new(catalog), signer);
 
   (client, origin)
 }
