@@ -154,6 +154,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     if zone_config.get_keys().is_empty() {
       // original RSA key construction
       let key_config = KeyConfig::new(original_key_path.to_string_lossy().to_string(),
+                                      None,
                                       Algorithm::RSASHA256,
                                       zone_name.clone().to_string(),
                                       true,
@@ -191,6 +192,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
   let key_path = key_config.get_key_path();
   let algorithm = try!(key_config.get_algorithm().map_err(|e| format!("bad algorithm: {}", e)));
+  let format = try!(key_config.get_format().map_err(|e| format!("bad key format: {}", e)));
 
   let key: KeyPair = if key_path.exists() {
     info!("reading key: {:?}", key_path);
@@ -201,7 +203,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     let mut key_bytes = Vec::with_capacity(256);
     try!(file.read_to_end(&mut key_bytes).map_err(|e| format!("could not read rsa key from: {:?}: {}", key_path, e)));
 
-    try!(KeyPair::from_private_bytes(algorithm, &key_bytes).map_err(|e| format!("error reading private key file: {:?}: {}", key_path, e)))
+    try!(format.decode_key(&key_bytes, key_config.get_password(), algorithm).map_err(|e| format!("could not decode key: {}", e)))
   } else if key_config.do_auto_generate() {
     info!("creating key: {:?}", key_path);
 
@@ -209,7 +211,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     let mut file = try!(File::create(&key_path).map_err(|e| format!("error creating private key file: {:?}: {}", key_path, e)));
 
     let key = try!(KeyPair::generate(algorithm).map_err(|e| format!("could not generate key: {}", e)));
-    let key_bytes: Vec<u8> = try!(key.to_private_bytes().map_err(|e| format!("could not get key bytes: {}", e)));
+    let key_bytes: Vec<u8> = try!(format.encode_key(&key, key_config.get_password()).map_err(|e| format!("could not get key bytes: {}", e)));
 
     try!(file.write_all(&key_bytes)
              .or_else(|_| fs::remove_file(&key_path))

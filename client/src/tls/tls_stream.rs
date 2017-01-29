@@ -149,8 +149,8 @@ fn tls_client_stream_test(server_addr: IpAddr) {
   let cert = gen.sign(&pkey).unwrap();
   let cert_der = cert.to_der().unwrap();
 
-  let pkcs12_builder = Pkcs12::builder("mypassword", subject_name, &pkey, &cert);
-  let pkcs12 = pkcs12_builder.build().unwrap();
+  let pkcs12_builder = Pkcs12::builder();
+  let pkcs12 = pkcs12_builder.build("mypassword", subject_name, &pkey, &cert).unwrap();
   let pkcs12_der = pkcs12.to_der().unwrap();
 
   //let pkey_der = pkey.private_key_to_der().unwrap();

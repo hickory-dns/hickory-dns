@@ -29,7 +29,7 @@ use toml::{Decoder, Value};
 
 use trust_dns::error::*;
 use trust_dns::rr::Name;
-use trust_dns::rr::dnssec::Algorithm;
+use trust_dns::rr::dnssec::{Algorithm, KeyFormat};
 
 use ::authority::ZoneType;
 use ::error::{ConfigErrorKind, ConfigResult, ConfigError};
@@ -144,6 +144,7 @@ impl ZoneConfig {
 #[derive(RustcDecodable, PartialEq, Debug)]
 pub struct KeyConfig {
   key_path: String,
+  password: Option<String>,
   algorithm: String,
   signer_name: Option<String>,
   is_zone_signing_key: Option<bool>,
@@ -152,9 +153,9 @@ pub struct KeyConfig {
 }
 
 impl KeyConfig {
-  pub fn new(key_path: String, algorithm: Algorithm, signer_name: String,
+  pub fn new(key_path: String, password: Option<String>, algorithm: Algorithm, signer_name: String,
     is_zone_signing_key: bool, is_zone_update_auth: bool, do_auto_generate: bool) -> Self {
-    KeyConfig{ key_path: key_path, algorithm: algorithm.to_str().to_string(), signer_name: Some(signer_name),
+    KeyConfig{ key_path: key_path, password: password, algorithm: algorithm.to_str().to_string(), signer_name: Some(signer_name),
       is_zone_signing_key: Some(is_zone_signing_key), is_zone_update_auth: Some(is_zone_update_auth),
       do_auto_generate: Some(do_auto_generate)
     }
@@ -162,6 +163,21 @@ impl KeyConfig {
 
   /// path to the key file, either relative to the zone file, or a explicit from the root.
   pub fn get_key_path(&self) -> &Path { Path::new(&self.key_path) }
+
+  /// Converts key into
+  pub fn get_format(&self) -> ParseResult<KeyFormat> {
+    let extension = try!(self.get_key_path().extension().ok_or(ParseErrorKind::Msg(format!("file lacks extension, e.g. '.p12': {:?}", self.get_key_path()).into() )));
+
+    match extension.to_str() {
+      Some("der") => Ok(KeyFormat::Der),
+      Some("key") => Ok(KeyFormat::Pem), // TODO: deprecate this...
+      Some("pem") => Ok(KeyFormat::Pem),
+      Some("raw") => Ok(KeyFormat::Raw),
+      e @ _ => Err(ParseErrorKind::Msg(format!("extension not understood, '{:?}': {:?}", e, self.get_key_path() )).into() ),
+    }
+  }
+
+  pub fn get_password(&self) -> Option<&str> { self.password.as_ref().map(|s|s.as_str()) }
 
   /// algorithm for for the key, see `Algorithm` for supported algorithms.
   pub fn get_algorithm(&self) -> ParseResult<Algorithm> { Algorithm::from_str(&self.algorithm).map_err(|e|e.into()) }

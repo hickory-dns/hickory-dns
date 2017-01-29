@@ -43,10 +43,20 @@ impl KeyPair {
     PKey::from_rsa(rsa).map(|pkey| KeyPair::RSA(pkey)).map_err(|e| e.into())
   }
 
+  #[cfg(feature = "openssl")]
+  pub fn from_rsa_pkey(pkey: PKey) -> Self {
+    KeyPair::RSA(pkey)
+  }
+
   /// Creates an EC, elliptic curve, type keypair, only P256 or P384 are supported.
   #[cfg(feature = "openssl")]
   pub fn from_ec_key(ec_key: EcKey) -> DnsSecResult<Self> {
     PKey::from_ec_key(ec_key).map(|pkey| KeyPair::EC(pkey)).map_err(|e| e.into())
+  }
+
+  #[cfg(feature = "openssl")]
+  pub fn from_ec_pkey(pkey: PKey) -> Self {
+    KeyPair::EC(pkey)
   }
 
   /// Creates an ED25519 keypair.

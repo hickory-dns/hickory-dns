@@ -94,6 +94,9 @@ file = "example.com.zone"
 ## keys of the specified formats can be generated in PEM format. Instructions
 ## for custom keys can be found elsewhere.
 ##
+## supported extensions are 'der', 'pem', 'p12'. ED25519 keys are only supported
+## with 'raw', and are the only keys that support 'raw'.
+##
 ## the currently supported set of supported_algorithms are
 ## ["RSASHA256", "RSASHA512", "ECDSAP256SHA256", "ECDSAP384SHA384", "ED25519"]
 ##
@@ -103,6 +106,9 @@ file = "example.com.zone"
 # [[zones.keys]]
 ## relative to the zone $file
 # key = "my_rsa_2048.pem"
+## if pkcs12 format, then the password used to encrypt/decrypt the file,
+## blank for none
+# password = ""
 ## specify the algorithm
 # algorithm = "RSASHA256"
 ## this key should be used to sign the zone
@@ -111,7 +117,7 @@ file = "example.com.zone"
 # is_zone_update_auth = true
 #
 # [[zones.keys]]
-# key = "/path/to/my_ed25519.pem
+# key = "/path/to/my_ed25519.raw"
 # algorithm = "ED25519"
 ## for keys that are not zone signing, the pem need only include the pubic_key
 # is_zone_signing_key = false
