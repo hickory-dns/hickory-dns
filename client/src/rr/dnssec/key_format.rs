@@ -7,7 +7,7 @@ use ::rr::dnssec::Algorithm;
 use ::rr::dnssec::KeyPair;
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
-pub enum KeyFormat { Der, Pem, Pkcs12, Raw, }
+pub enum KeyFormat { Der, Pem, Raw }
 
 impl KeyFormat {
   /// Decode private key
@@ -34,8 +34,9 @@ impl KeyFormat {
     //   }
     // }
 
-    // the next password users all
-    let password = password.map(|s|s.as_bytes());
+    //  empty string prevents openssl from triggering a read from stdin...
+    let password = password.unwrap_or("");
+    let password = password.as_bytes();
 
     match algorithm {
       Algorithm::RSASHA1 |
@@ -46,11 +47,11 @@ impl KeyFormat {
           KeyFormat::Der => try!(Rsa::private_key_from_der(bytes)
                                     .map_err(|e| format!("error reading RSA as DER: {}", e))),
           KeyFormat::Pem => {
-            let key = if let Some(password) = password {
+            let key = //if let Some(password) = password {
               Rsa::private_key_from_pem_passphrase(bytes, password)
-            } else {
-              Rsa::private_key_from_pem(bytes)
-            };
+            /* } else {
+               Rsa::private_key_from_pem(bytes)
+             }*/;
 
             try!(key.map_err(|e| format!("could not decode RSA from PEM, bad password?: {}", e)))
           },
@@ -64,11 +65,11 @@ impl KeyFormat {
         let key = match self {
           KeyFormat::Der => try!(EcKey::private_key_from_der(bytes).map_err(|e| format!("error reading EC as DER: {}", e))),
           KeyFormat::Pem => {
-            let key = if let Some(password) = password {
+            let key = // if let Some(password) = password {
               EcKey::private_key_from_pem_passphrase(bytes, password)
-            } else {
+            /* } else {
               EcKey::private_key_from_pem(bytes)
-            };
+            }*/;
 
             try!(key.map_err(|e| format!("could not decode EC from PEM, bad password?: {}", e)))
           },
@@ -89,16 +90,20 @@ impl KeyFormat {
 
   /// Decode private key
   pub fn encode_key(self, key_pair: &KeyPair, password: Option<&str>) -> DnsSecResult<Vec<u8>> {
-    // the next password users all
-    let password = password.map(|s|s.as_bytes());
+    // on encoding, if the password is empty string, ignore it (empty string is ok on decode)
+    let password = password.iter().filter(|s| !s.is_empty()).map(|s|s.as_bytes()).next();
 
     match *key_pair {
       KeyPair::EC(ref pkey) | KeyPair::RSA(ref pkey) => {
         match self {
-          KeyFormat::Der => return pkey.private_key_to_der().map_err(|e| format!("error writing key as DER: {}", e).into()),
+          KeyFormat::Der => {
+            // to avoid accientally storing a key where there was an expectation that it was password protected
+            if password.is_some() { return Err(format!("Can only password protect PEM: {:?}", self).into()) }
+            return pkey.private_key_to_der().map_err(|e| format!("error writing key as DER: {}", e).into())
+          },
           KeyFormat::Pem => {
             let key = if let Some(password) = password {
-              pkey.private_key_to_pem_passphrase(Cipher::aes_256_gcm(), password)
+              pkey.private_key_to_pem_passphrase(Cipher::aes_256_cbc(), password)
             } else {
               pkey.private_key_to_pem()
             };
@@ -111,6 +116,8 @@ impl KeyFormat {
       KeyPair::ED25519(..) => {
         match self {
           KeyFormat::Raw => {
+            // to avoid accientally storing a key where there was an expectation that it was password protected
+            if password.is_some() { return Err(format!("Can only password protect PEM: {:?}", self).into()) }
             return key_pair.to_private_bytes()
                            .map_err(|e| format!("error writing ED25519 as RAW: {}", e).into())
           },
@@ -118,5 +125,79 @@ impl KeyFormat {
         }
       }
     }
+  }
+}
+
+#[test]
+fn test_rsa_encode_decode_der() {
+  let algorithm = Algorithm::RSASHA256;
+  encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
+}
+
+#[test]
+fn test_rsa_encode_decode_pem() {
+  let algorithm = Algorithm::RSASHA256;
+  encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
+}
+
+#[test]
+fn test_rsa_encode_decode_raw() {
+  let algorithm = Algorithm::RSASHA256;
+  encode_decode_with_format(KeyFormat::Raw, algorithm, false, false);
+}
+
+
+#[test]
+fn test_ec_encode_decode_der() {
+  let algorithm = Algorithm::ECDSAP256SHA256;
+  encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
+}
+
+#[test]
+fn test_ec_encode_decode_pem() {
+  let algorithm = Algorithm::ECDSAP256SHA256;
+  encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
+}
+
+#[test]
+fn test_ec_encode_decode_raw() {
+  let algorithm = Algorithm::ECDSAP256SHA256;
+  encode_decode_with_format(KeyFormat::Raw, algorithm, false, false);
+}
+
+
+#[test]
+fn test_ed25519_encode_decode() {
+  let algorithm = Algorithm::ED25519;
+  encode_decode_with_format(KeyFormat::Der, algorithm, false, false);
+  encode_decode_with_format(KeyFormat::Pem, algorithm, false, false);
+  encode_decode_with_format(KeyFormat::Raw, algorithm, false, true);
+}
+
+#[cfg(test)]
+fn encode_decode_with_format(key_format: KeyFormat, algorithm: Algorithm, ok_pass: bool, ok_empty_pass: bool) {
+  let keypair = KeyPair::generate(algorithm).unwrap();
+  let password = Some("test password");
+  let empty_password = Some("");
+  let no_password = None::<&str>;
+
+  encode_decode_with_password(key_format, &keypair, password, password, algorithm, ok_pass, true);
+  encode_decode_with_password(key_format, &keypair, empty_password, empty_password, algorithm, ok_empty_pass, true);
+  encode_decode_with_password(key_format, &keypair, no_password, no_password, algorithm, ok_empty_pass, true);
+  encode_decode_with_password(key_format, &keypair, no_password, empty_password, algorithm, ok_empty_pass, true);
+  encode_decode_with_password(key_format, &keypair, empty_password, no_password, algorithm, ok_empty_pass, true);
+  encode_decode_with_password(key_format, &keypair, password, no_password, algorithm, ok_pass, false);
+}
+
+#[cfg(test)]
+fn encode_decode_with_password(key_format: KeyFormat, keypair: &KeyPair, en_pass: Option<&str>,
+   de_pass: Option<&str>, algorithm: Algorithm, encode: bool, decode: bool) {
+  let encoded = key_format.encode_key(&keypair, en_pass);
+  if encode {
+    assert!(encoded.is_ok(), format!("{}", encoded.unwrap_err()));
+    let decoded = key_format.decode_key(&encoded.unwrap(), de_pass, algorithm);
+    assert_eq!(decoded.is_ok(), decode);
+  } else {
+    assert!(encoded.is_err());
   }
 }
