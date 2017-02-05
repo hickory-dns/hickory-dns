@@ -8,10 +8,13 @@
 use std::net::SocketAddr;
 use std::io;
 
-use futures::Future;
+use futures::{future, Future, IntoFuture};
 use futures::sync::mpsc::unbounded;
+use native_tls;
 use native_tls::TlsConnector;
+use native_tls::Pkcs12;
 use native_tls::backend::security_framework::TlsConnectorBuilderExt;
+use native_tls::Protocol::Tlsv12;
 use security_framework::certificate::SecCertificate;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::{Handle};
@@ -49,9 +52,21 @@ impl TlsStream {
   /// * `name_server` - IP and Port for the remote DNS resolver
   /// * `name` - The Subject Public Key Info (SPKI) name as associated to a certificate
   /// * `loop_handle` - The reactor Core handle
+  /// * `certs` - list of trusted certificates authorities
+  /// * `pkcs12` - optional client identity for client auth (i.e. for mutual TLS authentication)
   /// TODO: make a builder for the certifiates...
-  pub fn new_tls(name_server: SocketAddr, name: String, loop_handle: Handle, certs: Vec<SecCertificate>) -> (Box<Future<Item=TlsStream, Error=io::Error>>, BufStreamHandle) {
+  pub fn new_tls(name_server: SocketAddr,
+                 name: String,
+                 loop_handle: Handle,
+                 certs: Vec<SecCertificate>,
+                 pkcs12: Option<Pkcs12>) -> (Box<Future<Item=TlsStream, Error=io::Error>>, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
+    let tls_connector = match Self::build(certs, pkcs12) {
+      Ok(c) => c,
+      Err(e) => return (Box::new(future::err(e).into_future().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))),
+                        message_sender)
+    };
+
     let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
 
     // This set of futures collapses the next tcp socket into a stream which can be used for
@@ -59,19 +74,22 @@ impl TlsStream {
     let stream: Box<Future<Item=TlsStream, Error=io::Error>> = Box::new(
       tcp
       .and_then(move |tcp_stream| {
-        let mut builder = TlsConnector::builder().unwrap(); // FIXME: remove unwrap()
-        builder.anchor_certificates(&certs);
-        let connector = builder.build().unwrap(); // FIXME: remove unwrap()
-        connector.connect_async(&name, tcp_stream)
-                 .map(move |tls_stream| {
-                   TcpStream::from_stream_with_receiver(tls_stream, name_server, outbound_messages)
-                 })
-                 .map_err(move |e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
+        tls_connector.connect_async(&name, tcp_stream)
+                     .map(move |s| TcpStream::from_stream_with_receiver(s, name_server, outbound_messages))
+                     .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
       })
       .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
     );
 
     (stream, message_sender)
+  }
+
+  fn build(certs: Vec<SecCertificate>, pkcs12: Option<Pkcs12>) -> native_tls::Result<TlsConnector> {
+    let mut builder = try!(TlsConnector::builder());
+    try!(builder.supported_protocols(&[Tlsv12]));
+    builder.anchor_certificates(&certs);
+    if let Some(pkcs12) = pkcs12 { try!(builder.identity(pkcs12)); }
+    builder.build()
   }
 
   /// Initializes a TcpStream with an existing tokio_core::net::TcpStream.
@@ -202,7 +220,7 @@ fn tls_client_stream_test(server_addr: IpAddr) {
   // TODO: add timeout here, so that test never hangs...
   // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
   let trust_chain = SecCertificate::from_der(&cert_der).unwrap();
-  let (stream, sender) = TlsStream::new_tls(server_addr, subject_name.to_string(), io_loop.handle(), vec![trust_chain]);
+  let (stream, sender) = TlsStream::new_tls(server_addr, subject_name.to_string(), io_loop.handle(), vec![trust_chain], None);
 
   let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 

@@ -121,7 +121,7 @@ fn server_thread_udp(udp_socket: UdpSocket) {
 fn server_thread_tcp(tcp_listener: TcpListener) {
   let catalog = new_catalog();
   let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
-  server.register_listener(tcp_listener, Duration::from_secs(30));
+  server.register_listener(tcp_listener, Duration::from_secs(30)).expect("tcp registration failed");
 
   server.listen().unwrap();
 }

@@ -30,12 +30,14 @@ extern crate chrono;
 #[macro_use] extern crate error_chain;
 #[macro_use] extern crate futures;
 #[macro_use] extern crate log;
+extern crate native_tls;
 extern crate openssl;
 extern crate rusqlite;
 extern crate rustc_serialize;
 extern crate time;
 extern crate toml;
 extern crate tokio_core;
+extern crate tokio_tls;
 extern crate trust_dns;
 
 pub mod authority;

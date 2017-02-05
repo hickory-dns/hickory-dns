@@ -36,6 +36,7 @@ use ::error::{ConfigErrorKind, ConfigResult, ConfigError};
 
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
+static DEFAULT_TLS_PORT: u16 = 853;
 static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
 
 #[derive(RustcDecodable, Debug)]
@@ -43,10 +44,12 @@ pub struct Config {
   listen_addrs_ipv4: Vec<String>,
   listen_addrs_ipv6: Vec<String>,
   listen_port: Option<u16>,
+  tls_listen_port: Option<u16>,
   tcp_request_timeout: Option<u64>,
   log_level: Option<String>,
   directory: Option<String>,
   zones: Vec<ZoneConfig>,
+  tls_cert: Option<TlsCertConfig>,
 }
 
 impl Config {
@@ -64,6 +67,8 @@ impl Config {
   pub fn get_listen_addrs_ipv6(&self) -> Vec<Ipv6Addr> { self.listen_addrs_ipv6.iter().map(|s| s.parse().unwrap()).collect() }
   /// port on which to listen for connections on specified addresses
   pub fn get_listen_port(&self) -> u16 { self.listen_port.unwrap_or(DEFAULT_PORT) }
+  /// port on which to listen for TLS connections
+  pub fn get_tls_listen_port(&self) -> u16 { self.tls_listen_port.unwrap_or(DEFAULT_TLS_PORT) }
   /// default timeout for all TCP connections before forceably shutdown
   pub fn get_tcp_request_timeout(&self) -> Duration { Duration::from_secs(self.tcp_request_timeout.unwrap_or(DEFAULT_TCP_REQUEST_TIMEOUT)) }
 
@@ -87,6 +92,8 @@ impl Config {
   pub fn get_directory(&self) -> &Path { self.directory.as_ref().map_or(Path::new(DEFAULT_PATH), |s|Path::new(s)) }
   /// the set of zones which should be loaded
   pub fn get_zones(&self) -> &[ZoneConfig] { &self.zones }
+  /// the tls certificate to use for accepting tls connections
+  pub fn get_tls_cert(&self) -> Option<&TlsCertConfig> { self.tls_cert.as_ref() }
 }
 
 impl FromStr for Config {
@@ -149,7 +156,7 @@ pub struct KeyConfig {
   signer_name: Option<String>,
   is_zone_signing_key: Option<bool>,
   is_zone_update_auth: Option<bool>,
-  do_auto_generate: Option<bool>,
+  create_if_absent: Option<bool>,
 }
 
 impl KeyConfig {
@@ -157,7 +164,7 @@ impl KeyConfig {
     is_zone_signing_key: bool, is_zone_update_auth: bool, do_auto_generate: bool) -> Self {
     KeyConfig{ key_path: key_path, password: password, algorithm: algorithm.to_str().to_string(), signer_name: Some(signer_name),
       is_zone_signing_key: Some(is_zone_signing_key), is_zone_update_auth: Some(is_zone_update_auth),
-      do_auto_generate: Some(do_auto_generate)
+      create_if_absent: Some(do_auto_generate)
     }
   }
 
@@ -205,5 +212,25 @@ impl KeyConfig {
 
   /// auto generate/create the key if it doesn't already exist (the public portion can be
   /// retrieved by a DNS query to the zone for DNSKEY and KEY records).
-  pub fn do_auto_generate(&self) -> bool { self.do_auto_generate.unwrap_or(false) }
+  pub fn create_if_absent(&self) -> bool { self.create_if_absent.unwrap_or(false) }
+}
+
+/// Configuration for a TLS certificate
+#[derive(RustcDecodable, PartialEq, Debug)]
+pub struct TlsCertConfig {
+  path: String,
+  password: Option<String>,
+  create_if_absent: Option<bool>,
+  subject_name: String,
+}
+
+impl TlsCertConfig {
+  /// path to the pkcs12 der formated certificate file
+  pub fn get_path(&self) ->  &Path { Path::new(&self.path) }
+  /// optional password for open the pkcs12, none assumes no password
+  pub fn get_password(&self) -> Option<&str> { self.password.as_ref().map(|s|s.as_str()) }
+  /// if it does not exist, one will be generated (with an EC key)
+  pub fn create_if_absent(&self) -> bool { self.create_if_absent.unwrap_or(false) }
+  /// the certificate's subject name, e.g. "ns.example.com"
+  pub fn get_subject_name(&self) -> &str { &self.subject_name }
 }
