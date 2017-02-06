@@ -50,13 +50,13 @@ impl TlsStream {
   /// # Arguments
   ///
   /// * `name_server` - IP and Port for the remote DNS resolver
-  /// * `name` - The Subject Public Key Info (SPKI) name as associated to a certificate
+  /// * `subject_name` - The Subject Public Key Info (SPKI) name as associated to a certificate
   /// * `loop_handle` - The reactor Core handle
   /// * `certs` - list of trusted certificates authorities
   /// * `pkcs12` - optional client identity for client auth (i.e. for mutual TLS authentication)
   /// TODO: make a builder for the certifiates...
   pub fn new_tls(name_server: SocketAddr,
-                 name: String,
+                 subject_name: String,
                  loop_handle: Handle,
                  certs: Vec<SecCertificate>,
                  pkcs12: Option<Pkcs12>) -> (Box<Future<Item=TlsStream, Error=io::Error>>, BufStreamHandle) {
@@ -74,7 +74,7 @@ impl TlsStream {
     let stream: Box<Future<Item=TlsStream, Error=io::Error>> = Box::new(
       tcp
       .and_then(move |tcp_stream| {
-        tls_connector.connect_async(&name, tcp_stream)
+        tls_connector.connect_async(&subject_name, tcp_stream)
                      .map(move |s| TcpStream::from_stream_with_receiver(s, name_server, outbound_messages))
                      .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
       })
@@ -84,6 +84,7 @@ impl TlsStream {
     (stream, message_sender)
   }
 
+  #[deprecated = "is this used?"]
   fn build(certs: Vec<SecCertificate>, pkcs12: Option<Pkcs12>) -> native_tls::Result<TlsConnector> {
     let mut builder = try!(TlsConnector::builder());
     try!(builder.supported_protocols(&[Tlsv12]));

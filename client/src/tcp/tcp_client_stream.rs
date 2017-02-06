@@ -42,6 +42,12 @@ impl TcpClientStream<TokioTcpStream> {
   }
 }
 
+impl<S> TcpClientStream<S> {
+  pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
+    TcpClientStream { tcp_stream: tcp_stream }
+  }
+}
+
 impl<S: Io> Stream for TcpClientStream<S> {
   type Item = Vec<u8>;
   type Error = io::Error;

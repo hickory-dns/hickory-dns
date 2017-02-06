@@ -16,10 +16,10 @@
 
 //! TCP protocol related components for DNS.
 
-// mod tls_client_connection;
-// mod tls_client_stream;
+mod tls_client_connection;
+mod tls_client_stream;
 mod tls_stream;
 
-// pub use self::tls_client_connection::TlsClientConnection;
-// pub use self::tls_client_stream::TlsClientStream;
+pub use self::tls_client_connection::TlsClientConnection;
+pub use self::tls_client_stream::TlsClientStream;
 pub use self::tls_stream::TlsStream;
