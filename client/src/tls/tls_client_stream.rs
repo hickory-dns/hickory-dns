@@ -21,11 +21,6 @@ use ::tcp::TcpClientStream;
 use ::tls::TlsStream;
 use ::client::ClientStreamHandle;
 
-// #[must_use = "futures do nothing unless polled"]
-// pub struct TlsClientStream<S> {
-//   tls_stream: TlsStream<S>,
-// }
-
 pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream>>;
 
 impl TlsClientStream {

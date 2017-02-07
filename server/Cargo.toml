@@ -60,6 +60,7 @@ openssl = "^0.9.6"
 rand = "^0.3"
 rustc-serialize = "^0.3.18"
 rusqlite = { version = "^0.8.0", features = ["bundled"] }
+security-framework = "^0.1.10"
 time = "^0.1"
 tokio-core = "^0.1"
 tokio-tls = "^0.1"

@@ -15,6 +15,7 @@ use native_tls::TlsConnector;
 use native_tls::Pkcs12;
 use native_tls::backend::security_framework::TlsConnectorBuilderExt;
 use native_tls::Protocol::Tlsv12;
+#[cfg(target_os = "macos")]
 use security_framework::certificate::SecCertificate;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::{Handle};

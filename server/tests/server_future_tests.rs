@@ -1,6 +1,8 @@
 extern crate chrono;
 extern crate futures;
+extern crate native_tls;
 extern crate openssl;
+extern crate security_framework;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
@@ -10,12 +12,17 @@ use std::thread;
 use std::time::Duration;
 
 use futures::Stream;
+use openssl::*;
+use openssl::x509::extension::*;
+
+use security_framework::certificate::SecCertificate;
 
 use trust_dns::client::*;
 use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns::tcp::TcpClientConnection;
+use trust_dns::tls::TlsClientConnection;
 
 use trust_dns_server::ServerFuture;
 use trust_dns_server::authority::*;
@@ -61,6 +68,46 @@ fn test_server_www_tcp() {
   //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
 }
 
+#[test]
+fn test_server_www_tls() {
+  // Generate X509 certificate
+  let subject_name = "ns.example.com";
+  let rsa = rsa::Rsa::generate(2048).unwrap();
+  let pkey = pkey::PKey::from_rsa(rsa).unwrap();
+
+  let gen = x509::X509Generator::new()
+                         .set_valid_period(365*2)
+                         .add_name("CN".to_owned(), subject_name.to_string())
+                         .set_sign_hash(hash::MessageDigest::sha256())
+                         .add_extension(Extension::KeyUsage(vec![KeyUsageOption::DigitalSignature]));
+
+  let cert = gen.sign(&pkey).unwrap();
+  let cert_der = cert.to_der().unwrap();
+
+  let pkcs12_builder = pkcs12::Pkcs12::builder();
+  let pkcs12 = pkcs12_builder.build("mypassword", subject_name, &pkey, &cert).unwrap();
+  let pkcs12_der = pkcs12.to_der().unwrap();
+
+  // Server address
+  let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127,0,0,1), 0));
+  let tcp_listener = TcpListener::bind(&addr).unwrap();
+
+  let ipaddr = tcp_listener.local_addr().unwrap();
+  println!("tcp_listner on port: {}", ipaddr);
+
+  let pkcs12 = native_tls::Pkcs12::from_der(&pkcs12_der, "mypassword").expect("Pkcs12::from_der");
+  thread::Builder::new().name("test_server:tls:server".to_string()).spawn(move || server_thread_tls(tcp_listener, pkcs12)).unwrap();
+
+  let trust_chain = vec![SecCertificate::from_der(&cert_der).unwrap()];
+  let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(lazy_tls_client(ipaddr, subject_name.to_string(), trust_chain))).unwrap();
+
+  let client_result = client_thread.join();
+  //    let server_result = server_thread.join();
+
+  assert!(client_result.is_ok(), "client failed: {:?}", client_result);
+  //    assert!(server_result.is_ok(), "server failed: {:?}", server_result);
+}
+
 fn lazy_udp_client(ipaddr: SocketAddr) -> UdpClientConnection {
   UdpClientConnection::new(ipaddr).unwrap()
 }
@@ -69,7 +116,10 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
   TcpClientConnection::new(ipaddr).unwrap()
 }
 
-#[allow(deprecated)] // TODO: for now...
+fn lazy_tls_client(ipaddr: SocketAddr, subject_name: String, trust_chain: Vec<SecCertificate>) -> TlsClientConnection {
+  TlsClientConnection::new(ipaddr, subject_name, trust_chain, None).unwrap()
+}
+
 fn client_thread_www<C: ClientConnection>(conn: C)
 where C::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
   let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
@@ -122,6 +172,14 @@ fn server_thread_tcp(tcp_listener: TcpListener) {
   let catalog = new_catalog();
   let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
   server.register_listener(tcp_listener, Duration::from_secs(30)).expect("tcp registration failed");
+
+  server.listen().unwrap();
+}
+
+fn server_thread_tls(tls_listener: TcpListener, pkcs12: native_tls::Pkcs12) {
+  let catalog = new_catalog();
+  let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
+  server.register_tls_listener(tls_listener, Duration::from_secs(30), pkcs12).expect("tcp registration failed");
 
   server.listen().unwrap();
 }
