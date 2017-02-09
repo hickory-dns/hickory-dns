@@ -12,6 +12,7 @@ and reliable implementation. It was attempted to make the move seamless,
 but two new types were introduced, `SyncClient` and `SecureSyncClient`, which
 are both synchronous implementations of the old Client function interfaces.
 Please read those docs on those new types and the Client trait.
+- When EDNS option is present, return only the digest understood matching RRSETs
 
 ### Removed
 - *Important* The original Server implementation was removed entirely. Please
@@ -20,9 +21,10 @@ but this is necessary to make sure that the software remains at a high quality
 and there is no easy way to migrate the original Server to use ServerFuture.
 
 ### Added
-- support for ECDSAP256SHA256, ECDSAP384SHA384 and ED25519 (client and server)
+- Initial support for ECDSAP256SHA256, ECDSAP384SHA384 and ED25519 (client and server)
 - additional config options for keys to named, see `tests/named_test_configs/example.toml`
-- When EDNS option is present, return only the digest understood matching RRSETs
+- Added DNS over TLS support, RFC 7858, #38
+- Added native-tls with support for macOS and Linux (DNS over TLS)
 
 ## 0.9.3
 ### Changed

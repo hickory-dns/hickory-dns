@@ -56,8 +56,10 @@ openssl = { version = "^0.9.6", optional = true }
 rand = "^0.3"
 ring = { version = "^0.6", optional = true }
 rustc-serialize = "^0.3.18"
-security-framework = "^0.1.10"
 time = "^0.1"
 tokio-core = "^0.1"
 tokio-tls = "^0.1"
 untrusted = "^0.3"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = "^0.1.10"

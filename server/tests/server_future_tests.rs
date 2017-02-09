@@ -2,6 +2,7 @@ extern crate chrono;
 extern crate futures;
 extern crate native_tls;
 extern crate openssl;
+#[cfg(target_os = "macos")]
 extern crate security_framework;
 extern crate trust_dns;
 extern crate trust_dns_server;
@@ -14,7 +15,9 @@ use std::time::Duration;
 use futures::Stream;
 use openssl::*;
 use openssl::x509::extension::*;
-
+#[cfg(target_os = "linux")]
+use openssl::x509::X509 as OpensslX509;
+#[cfg(target_os = "macos")]
 use security_framework::certificate::SecCertificate;
 
 use trust_dns::client::*;
@@ -98,8 +101,7 @@ fn test_server_www_tls() {
   let pkcs12 = native_tls::Pkcs12::from_der(&pkcs12_der, "mypassword").expect("Pkcs12::from_der");
   thread::Builder::new().name("test_server:tls:server".to_string()).spawn(move || server_thread_tls(tcp_listener, pkcs12)).unwrap();
 
-  let trust_chain = vec![SecCertificate::from_der(&cert_der).unwrap()];
-  let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(lazy_tls_client(ipaddr, subject_name.to_string(), trust_chain))).unwrap();
+  let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(lazy_tls_client(ipaddr, subject_name.to_string(), cert_der))).unwrap();
 
   let client_result = client_thread.join();
   //    let server_result = server_thread.join();
@@ -116,8 +118,17 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
   TcpClientConnection::new(ipaddr).unwrap()
 }
 
-fn lazy_tls_client(ipaddr: SocketAddr, subject_name: String, trust_chain: Vec<SecCertificate>) -> TlsClientConnection {
-  TlsClientConnection::new(ipaddr, subject_name, trust_chain, None).unwrap()
+fn lazy_tls_client(ipaddr: SocketAddr, subject_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
+  let mut builder = TlsClientConnection::builder();
+
+  #[cfg(target_os = "macos")]
+  let trust_chain = SecCertificate::from_der(&cert_der).unwrap();
+
+  #[cfg(target_os = "linux")]
+  let trust_chain = OpensslX509::from_der(&cert_der).unwrap();
+
+  builder.add_ca(trust_chain);
+  builder.build(ipaddr, subject_name).unwrap()
 }
 
 fn client_thread_www<C: ClientConnection>(conn: C)

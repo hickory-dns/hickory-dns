@@ -2,5 +2,7 @@
 members = ["client", "server"]
 
 [replace]
-"openssl:0.9.6" = { path = "../rust-openssl/openssl" }
-"openssl-sys:0.9.6" = { path = "../rust-openssl/openssl-sys" }
+"openssl:0.9.6" = { git = "https://github.com/sfackler/rust-openssl.git" }
+#openssl:0.9.6" = { path = "../rust-openssl/openssl", git = "https://github.com/sfackler/rust-openssl.git" }
+"openssl-sys:0.9.6" = { git = "https://github.com/sfackler/rust-openssl.git" }
+#"openssl-sys:0.9.6" = { path = "../rust-openssl/openssl-sys", git = "https://github.com/sfackler/rust-openssl.git" }

@@ -38,6 +38,7 @@ extern crate native_tls;
 extern crate rand;
 #[cfg(feature = "ring")] extern crate ring;
 extern crate rustc_serialize;
+#[cfg(target_os = "macos")]
 extern crate security_framework;
 extern crate time;
 #[macro_use] extern crate tokio_core;
