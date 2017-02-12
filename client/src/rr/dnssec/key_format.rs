@@ -113,6 +113,7 @@ impl KeyFormat {
           e @ _ => return Err(format!("unsupported key format with RSA or EC (DER or PEM only): {:?}", e).into()),
         }
       },
+      #[cfg(feature = "ring")]
       KeyPair::ED25519(..) => {
         match self {
           KeyFormat::Raw => {
@@ -167,6 +168,7 @@ fn test_ec_encode_decode_raw() {
 
 
 #[test]
+#[cfg(feature = "ring")]
 fn test_ed25519_encode_decode() {
   let algorithm = Algorithm::ED25519;
   encode_decode_with_format(KeyFormat::Der, algorithm, false, false);

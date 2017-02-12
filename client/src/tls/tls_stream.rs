@@ -17,6 +17,8 @@ use native_tls::Pkcs12;
 use native_tls::backend::security_framework::TlsConnectorBuilderExt;
 #[cfg(target_os = "linux")]
 use native_tls::backend::openssl::TlsConnectorBuilderExt;
+#[cfg(target_os = "linux")]
+use native_tls::backend::openssl::TlsAcceptorBuilderExt;
 use native_tls::Protocol::Tlsv12;
 #[cfg(target_os = "linux")]
 use openssl::x509::X509 as OpensslX509;
@@ -38,15 +40,44 @@ impl TlsStream {
 
   #[cfg(target_os = "linux")]
   fn build(certs: Vec<OpensslX509>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
-    let mut builder = try!(TlsConnector::builder().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
-    try!(builder.supported_protocols(&[Tlsv12]).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+    use openssl::ssl::SSL_VERIFY_NONE;
+    use openssl::x509::store::X509StoreBuilder;
 
-    for cert in certs {
-      try!(builder.builder_mut().builder_mut().cert_store_mut().add_cert(cert).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+
+    let mut tls = try!(TlsConnector::builder().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+
+    {
+      let mut openssl_builder = tls.builder_mut();
+      let mut openssl_ctx_builder = openssl_builder.builder_mut();
+
+      let mut store = openssl_ctx_builder.cert_store_mut();
+      store.set_default_paths().unwrap();
+      for cert in certs {
+        store.add_cert(cert).unwrap();
+      }
     }
 
-    if let Some(pkcs12) = pkcs12 { try!(builder.identity(pkcs12).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))); }
-    builder.build().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
+    // let store = X509StoreBuilder::new().expect("store builder failed");
+    // store.set_default_paths().expect("setting default paths failed");
+
+    // for cert in certs {
+
+    // }
+
+//    try!(builder.supported_protocols(&[Tlsv12]).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+
+    // builder.builder_mut().builder_mut().set_verify(SSL_VERIFY_NONE);
+
+
+    // for cert in certs {
+    //   try!(builder.builder_mut().builder_mut().cert_store_mut().add_cert(cert).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+    // }
+
+    // let store = builder.builder().builder().cert_store();
+    // try!(builder.builder_mut().builder_mut().set_verify_ca_store(store).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+
+    if let Some(pkcs12) = pkcs12 { try!(tls.identity(pkcs12).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))); }
+    tls.build().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
   }
 
   #[cfg(target_os = "macos")]
@@ -54,6 +85,7 @@ impl TlsStream {
     let mut builder = try!(TlsConnector::builder().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
     try!(builder.supported_protocols(&[Tlsv12]).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
     builder.anchor_certificates(&certs);
+
     if let Some(pkcs12) = pkcs12 { try!(builder.identity(pkcs12).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))); }
     builder.build().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
   }
@@ -182,12 +214,15 @@ fn tls_client_stream_test(server_addr: IpAddr) {
   use tokio_core::reactor::Core;
   use native_tls;
   use native_tls::TlsAcceptor;
+  use openssl;
   use openssl::hash::MessageDigest;
+  use openssl::nid;
   use openssl::pkcs12::*;
   use openssl::pkey::*;
   use openssl::rsa::*;
-  use openssl::x509::*;
   use openssl::x509::extension::*;
+  use openssl::ssl::{SSL_VERIFY_PEER, SSL_VERIFY_NONE, SSL_VERIFY_FAIL_IF_NO_PEER_CERT};
+
 
   use std;
   let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -207,13 +242,24 @@ fn tls_client_stream_test(server_addr: IpAddr) {
   let rsa = Rsa::generate(2048).unwrap();
   let pkey = PKey::from_rsa(rsa).unwrap();
 
-  let gen = X509Generator::new()
-                         .set_valid_period(365*2)
-                         .add_name("CN".to_owned(), subject_name.to_string())
-                         .set_sign_hash(MessageDigest::sha256())
-                         .add_extension(Extension::KeyUsage(vec![KeyUsageOption::DigitalSignature]));
+  // let gen = X509Generator::new()
+  //                        .set_valid_period(365*2)
+  //                        .add_name("CN".to_owned(), subject_name.to_string())
+  //                        .add_extension(Extension::KeyUsage(vec![KeyUsageOption::DigitalSignature]));
+  //                        .set_sign_hash(MessageDigest::sha256());
 
-  let cert = gen.sign(&pkey).unwrap();
+  let mut x509_name = openssl::x509::X509NameBuilder::new().unwrap();
+  x509_name.append_entry_by_text("CN", subject_name).unwrap();
+
+  let mut x509_build = openssl::x509::X509::builder().unwrap();
+  x509_build.set_not_before(&openssl::asn1::Asn1Time::days_from_now(0).unwrap()).unwrap();
+  x509_build.set_not_after(&openssl::asn1::Asn1Time::days_from_now(2).unwrap()).unwrap();
+  x509_build.set_subject_name(&x509_name.build()).unwrap();
+  x509_build.set_pubkey(&pkey).unwrap();
+  x509_build.append_extension(openssl::x509::X509Extension::new(None, None, "keyUsage", "digitalSignature").unwrap()).unwrap();
+  x509_build.sign(&pkey, MessageDigest::sha256()).unwrap();
+
+  let cert = x509_build.build();
   let cert_der = cert.to_der().unwrap();
 
   let pkcs12_builder = Pkcs12::builder();
@@ -233,13 +279,28 @@ fn tls_client_stream_test(server_addr: IpAddr) {
   let server_handle = std::thread::Builder::new().name("test_tls_client_stream:server".to_string()).spawn(move || {
 
     let pkcs12 = native_tls::Pkcs12::from_der(&server_pkcs12_der, "mypassword").expect("Pkcs12::from_der");
-    let tls = TlsAcceptor::builder(pkcs12).unwrap().build().unwrap();
+    let mut tls = TlsAcceptor::builder(pkcs12).expect("build with pkcs12 failed");
 
-    let (socket, _) = server.accept().expect("accept failed");
+    // #[cfg(target_os = "linux")]
+    // {
+    //   let mut openssl_builder = tls.builder_mut();
+    //   let mut openssl_ctx_builder = openssl_builder.builder_mut();
+    //   let mut mode = openssl::ssl::SslVerifyMode::empty();
+    //   // mode.insert(SSL_VERIFY_PEER);
+    //   // mode.insert(SSL_VERIFY_FAIL_IF_NO_PEER_CERT);
+
+    //   openssl_ctx_builder.set_verify(mode);
+    //   openssl_ctx_builder.set_default_verify_paths().unwrap();
+    //   openssl_ctx_builder.cert_store_mut().set_default_paths().unwrap();
+    // }
+
+    let tls = tls.build().expect("tls build failed");
+
+    let (socket, _) = server.accept().expect("tcp accept failed");
     socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
     socket.set_write_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
 
-    let mut socket = tls.accept(socket).unwrap();
+    let mut socket = tls.accept(socket).expect("tls accept failed");
 
     for _ in 0..send_recv_times {
       // wait for some bytes...
@@ -262,6 +323,10 @@ fn tls_client_stream_test(server_addr: IpAddr) {
     }
   }).unwrap();
 
+  // let the server go first
+  std::thread::yield_now();
+  std::thread::sleep_ms(100);
+
   // setup the client, which is going to run on the testing thread...
   let mut io_loop = Core::new().unwrap();
 
@@ -279,6 +344,7 @@ fn tls_client_stream_test(server_addr: IpAddr) {
   builder.add_ca(trust_chain);
   let (stream, sender) = builder.build(server_addr, subject_name.to_string(), io_loop.handle());
 
+  // TODO: there is a random failure here... a race with the server thread most likely...
   let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 
   for _ in 0..send_recv_times {

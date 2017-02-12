@@ -98,8 +98,7 @@ fn test_server_www_tls() {
   let ipaddr = tcp_listener.local_addr().unwrap();
   println!("tcp_listner on port: {}", ipaddr);
 
-  let pkcs12 = native_tls::Pkcs12::from_der(&pkcs12_der, "mypassword").expect("Pkcs12::from_der");
-  thread::Builder::new().name("test_server:tls:server".to_string()).spawn(move || server_thread_tls(tcp_listener, pkcs12)).unwrap();
+  thread::Builder::new().name("test_server:tls:server".to_string()).spawn(move || server_thread_tls(tcp_listener, pkcs12_der)).unwrap();
 
   let client_thread = thread::Builder::new().name("test_server:tcp:client".to_string()).spawn(move || client_thread_www(lazy_tls_client(ipaddr, subject_name.to_string(), cert_der))).unwrap();
 
@@ -187,9 +186,10 @@ fn server_thread_tcp(tcp_listener: TcpListener) {
   server.listen().unwrap();
 }
 
-fn server_thread_tls(tls_listener: TcpListener, pkcs12: native_tls::Pkcs12) {
+fn server_thread_tls(tls_listener: TcpListener, pkcs12_der: Vec<u8>) {
   let catalog = new_catalog();
   let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
+  let pkcs12 = native_tls::Pkcs12::from_der(&pkcs12_der, "mypassword").expect("Pkcs12::from_der");
   server.register_tls_listener(tls_listener, Duration::from_secs(30), pkcs12).expect("tcp registration failed");
 
   server.listen().unwrap();
