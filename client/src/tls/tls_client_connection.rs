@@ -23,7 +23,6 @@ use native_tls::Pkcs12;
 use openssl::x509::X509 as OpensslX509;
 #[cfg(target_os = "macos")]
 use security_framework::certificate::SecCertificate;
-use tokio_core::net::TcpStream;
 use tokio_core::reactor::Core;
 
 use ::error::*;

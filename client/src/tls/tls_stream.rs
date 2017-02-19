@@ -7,11 +7,9 @@
 
 use std::net::SocketAddr;
 use std::io;
-use std::fs::File;
 
 use futures::{future, Future, IntoFuture};
 use futures::sync::mpsc::unbounded;
-use native_tls;
 use native_tls::TlsConnector;
 use native_tls::Pkcs12;
 #[cfg(target_os = "macos")]
@@ -51,8 +49,6 @@ impl TlsStream {
     { // mutable reference block
       let mut openssl_builder = tls.builder_mut();
       let mut openssl_ctx_builder = openssl_builder.builder_mut();
-
-      // openssl_ctx_builder.set_ca_file("target/root_cert.pem").unwrap()
 
       let mut store = try!(X509StoreBuilder::new().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
 

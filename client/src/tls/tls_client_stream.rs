@@ -8,13 +8,12 @@
 use std::net::SocketAddr;
 use std::io;
 
-use futures::{Async, Future, Poll, Stream};
+use futures::Future;
 use native_tls::Pkcs12;
 #[cfg(target_os = "linux")]
 use openssl::x509::X509 as OpensslX509;
 #[cfg(target_os = "macos")]
 use security_framework::certificate::SecCertificate;
-use tokio_core::io::Io;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::{Handle};
 use tokio_tls::TlsStream as TokioTlsStream;
