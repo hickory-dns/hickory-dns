@@ -49,8 +49,8 @@ impl TlsStream {
     let mut tls = try!(TlsConnector::builder().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
 
     { // mutable reference block
-      let mut openssl_ctx_builder = openssl_builder.builder_mut();
       let mut openssl_builder = tls.builder_mut();
+      let mut openssl_ctx_builder = openssl_builder.builder_mut();
 
       // openssl_ctx_builder.set_ca_file("target/root_cert.pem").unwrap()
 
