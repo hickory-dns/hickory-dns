@@ -52,7 +52,7 @@ futures = "^0.1.6"
 lazy_static = "^0.2.1"
 log = "^0.3.5"
 native-tls = "^0.1"
-openssl = { version = "^0.9.7", optional = true }
+openssl = { version = "^0.9.7", features = ["v102", "v110"], optional = true }
 rand = "^0.3"
 ring = { version = "^0.6", optional = true }
 rustc-serialize = "^0.3.18"

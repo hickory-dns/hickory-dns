@@ -56,7 +56,7 @@ futures = "^0.1.6"
 lazy_static = "^0.2.1"
 log = "^0.3.5"
 native-tls = "^0.1"
-openssl = "^0.9.7"
+openssl = { version = "^0.9.7", features = ["v102", "v110"] }
 rand = "^0.3"
 rustc-serialize = "^0.3.18"
 rusqlite = { version = "^0.8.0", features = ["bundled"] }
