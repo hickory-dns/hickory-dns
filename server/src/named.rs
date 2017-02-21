@@ -50,8 +50,10 @@ use chrono::{Duration};
 use docopt::Docopt;
 use log::LogLevel;
 use native_tls::Pkcs12;
-use openssl::{hash, pkcs12, x509};
-use openssl::x509::extension::{Extension, KeyUsageOption};
+use openssl::asn1::*;
+use openssl::{hash, nid, pkcs12};
+use openssl::x509::*;
+use openssl::x509::extension::*;
 
 use trust_dns::error::ParseResult;
 use trust_dns::logger;
@@ -253,26 +255,58 @@ fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<Pkcs12, String> {
     info!("generating EC certificate: {:?}", path);
     let key_pair = try!(KeyPair::generate(Algorithm::ECDSAP256SHA256).map_err(|e| format!("error generating key: {:?}: {}", path, e)));
     if let KeyPair::EC(pkey) = key_pair {
-      let gen = x509::X509Generator::new()
-                    .set_valid_period(365*2)
-                    .add_name("CN".to_owned(), subject_name.to_string())
-                    .set_sign_hash(hash::MessageDigest::sha256())
-                    .add_extension(Extension::KeyUsage(vec![KeyUsageOption::DigitalSignature]));
+      let mut x509_name = X509NameBuilder::new().unwrap();
+      x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
+      let x509_name = x509_name.build();
 
-      let cert = try!(gen.sign(&pkey).map_err(|e| format!("error signing cert: {:?}: {}", path, e)));
+      let mut x509_build = X509::builder().unwrap();
+      x509_build.set_not_before(&Asn1Time::days_from_now(0).unwrap()).unwrap();
+      x509_build.set_not_after(&Asn1Time::days_from_now(256).unwrap()).unwrap();
+      x509_build.set_issuer_name(&x509_name).unwrap();
+      x509_build.set_subject_name(&x509_name).unwrap();
+      x509_build.set_pubkey(&pkey).unwrap();
+
+      let subject_alternative_name = SubjectAlternativeName::new()
+        .dns(subject_name)
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+      x509_build.append_extension(subject_alternative_name).unwrap();
+
+      let ext_key_usage = ExtendedKeyUsage::new()
+        .client_auth()
+        .server_auth()
+        .build()
+        .unwrap();
+      x509_build.append_extension(ext_key_usage).unwrap();
+
+      let subject_key_identifier = SubjectKeyIdentifier::new()
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+      x509_build.append_extension(subject_key_identifier).unwrap();
+
+      let authority_key_identifier = AuthorityKeyIdentifier::new()
+        .keyid(true)
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+      x509_build.append_extension(authority_key_identifier).unwrap();
+
+      // CA:FALSE
+      let basic_constraints = BasicConstraints::new().critical().build().unwrap();
+      x509_build.append_extension(basic_constraints).unwrap();
+
+      x509_build.sign(&pkey, hash::MessageDigest::sha256()).unwrap();
+      let cert = x509_build.build();
 
       let pkcs12_builder = pkcs12::Pkcs12::builder();
-      let pkcs12 = try!(pkcs12_builder.build(password.unwrap_or(""), tls_cert_config.get_subject_name(), &pkey, &cert)
-                                      .map_err(|e| format!("error building pkcs12: {:?}: {}", path, e)));
-
-      let bytes = try!(pkcs12.to_der().map_err(|e| format!("error converting pkcs12 to der: {:?}: {}", path, e)));
+      let pkcs12 = pkcs12_builder.build("mypass", subject_name, &pkey, &cert).unwrap();
+      let pkcs12_der = pkcs12.to_der().unwrap();
 
       // write out to the file
-      // TODO: establish proper ownership
+      // TODO: establish proper ownership of the file
       // TODO: generate and write CSR
       let mut file = try!(File::create(&path).map_err(|e| format!("error creating pkcs12 file: {:?}: {}", path, e)));
 
-      try!(file.write_all(&bytes)
+      try!(file.write_all(&pkcs12_der)
                .or_else(|_| fs::remove_file(&path))
                .map_err(|e| format!("error writing pkcs12 cert file: {:?}: {}", path, e)));
     } else {

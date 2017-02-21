@@ -35,12 +35,13 @@ use ::tcp::TcpStream;
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream>>;
 
 impl TlsStream {
+  /// A builder for associating trust information to the `TlsStream`.
   pub fn builder() -> TlsStreamBuilder {
     TlsStreamBuilder { ca_chain: vec![], identity: None }
   }
 
   #[cfg(target_os = "linux")]
-  fn build(certs: Vec<OpensslX509>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
+  fn new(certs: Vec<OpensslX509>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
     use openssl::ssl::SSL_VERIFY_NONE;
     use openssl::x509::store::X509StoreBuilder;
 
@@ -65,7 +66,7 @@ impl TlsStream {
   }
 
   #[cfg(target_os = "macos")]
-  fn build(certs: Vec<SecCertificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
+  fn new(certs: Vec<SecCertificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
     let mut builder = try!(TlsConnector::builder().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
     try!(builder.supported_protocols(&[Tlsv12]).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
     builder.anchor_certificates(&certs);
@@ -96,11 +97,17 @@ pub struct TlsStreamBuilder {
 }
 
 impl TlsStreamBuilder {
+  /// Add a custom trusted peer certificate or certificate auhtority.
+  ///
+  /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
   #[cfg(target_os = "macos")]
   pub fn add_ca(&mut self, ca: SecCertificate) {
     self.ca_chain.push(ca);
   }
 
+  /// Add a custom trusted peer certificate or certificate auhtority.
+  ///
+  /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this
   #[cfg(target_os = "linux")]
   pub fn add_ca(&mut self, ca: OpensslX509) {
     self.ca_chain.push(ca);
@@ -145,7 +152,7 @@ impl TlsStreamBuilder {
                subject_name: String,
                loop_handle: Handle) -> (Box<Future<Item=TlsStream, Error=io::Error>>, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
-    let tls_connector = match TlsStream::build(self.ca_chain, self.identity) {
+    let tls_connector = match TlsStream::new(self.ca_chain, self.identity) {
       Ok(c) => c,
       Err(e) => return (Box::new(future::err(e).into_future().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))),
                         message_sender)

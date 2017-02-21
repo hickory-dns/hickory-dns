@@ -24,13 +24,16 @@ use futures::Stream;
 #[cfg(target_os = "linux")]
 use native_tls::backend::openssl::*;
 use native_tls::TlsAcceptor;
+use openssl::asn1::*;
 use openssl::hash::MessageDigest;
+use openssl::nid;
 use openssl::pkcs12::*;
 use openssl::pkey::*;
 use openssl::rsa::*;
 #[cfg(target_os = "linux")]
 use openssl::ssl::{SSL_VERIFY_PEER, SSL_VERIFY_NONE, SSL_VERIFY_FAIL_IF_NO_PEER_CERT};
 use openssl::x509::*;
+use openssl::x509::extension::*;
 #[cfg(target_os = "linux")]
 use openssl::x509::store::X509StoreBuilder;
 #[cfg(target_os = "macos")]
@@ -70,45 +73,69 @@ fn root_ca() -> (PKey, X509Name, X509) {
   let rsa = Rsa::generate(2048).unwrap();
   let pkey = PKey::from_rsa(rsa).unwrap();
 
-  let mut x509_name = openssl::x509::X509NameBuilder::new().unwrap();
-  x509_name.append_entry_by_text("C", "US").unwrap();
-  x509_name.append_entry_by_text("ST", "CA").unwrap();
-  x509_name.append_entry_by_text("O", "Test-TRust-DNS").unwrap();
-  x509_name.append_entry_by_text("CN", subject_name).unwrap();
+  let mut x509_name = X509NameBuilder::new().unwrap();
+  x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
   let x509_name = x509_name.build();
 
-  let mut x509_build = openssl::x509::X509::builder().unwrap();
-  x509_build.set_not_before(&openssl::asn1::Asn1Time::days_from_now(0).unwrap()).unwrap();
-  x509_build.set_not_after(&openssl::asn1::Asn1Time::days_from_now(2).unwrap()).unwrap();
-  x509_build.set_subject_name(&x509_name).unwrap();
+  let mut x509_build = X509::builder().unwrap();
+  x509_build.set_not_before(&Asn1Time::days_from_now(0).unwrap()).unwrap();
+  x509_build.set_not_after(&Asn1Time::days_from_now(256).unwrap()).unwrap();
   x509_build.set_issuer_name(&x509_name).unwrap();
+  x509_build.set_subject_name(&x509_name).unwrap();
   x509_build.set_pubkey(&pkey).unwrap();
-  x509_build.append_extension(openssl::x509::X509Extension::new(None, None, "basicConstraints", "CA:TRUE").unwrap()).unwrap();
-  x509_build.sign(&pkey, MessageDigest::sha256()).unwrap();
 
-  (pkey, x509_name, x509_build.build())
+  let basic_constraints = BasicConstraints::new().critical().ca().build().unwrap();
+  x509_build.append_extension(basic_constraints).unwrap();
+
+  let subject_alternative_name = SubjectAlternativeName::new()
+        .dns("root.example.com")
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+  x509_build.append_extension(subject_alternative_name).unwrap();
+
+  x509_build.sign(&pkey, MessageDigest::sha256()).unwrap();
+  let cert = x509_build.build();
+
+  (pkey, x509_name, cert)
 }
 
 fn cert(subject_name: &str, ca_pkey: &PKey, ca_name: &X509Name, _/*ca_cert*/: &X509) -> (PKey, X509, Pkcs12) {
   let rsa = Rsa::generate(2048).unwrap();
   let pkey = PKey::from_rsa(rsa).unwrap();
 
-  let mut x509_name = openssl::x509::X509NameBuilder::new().unwrap();
-  x509_name.append_entry_by_text("C", "US").unwrap();
-  x509_name.append_entry_by_text("ST", "CA").unwrap();
-  x509_name.append_entry_by_text("O", "Test-TRust-DNS").unwrap();
-  x509_name.append_entry_by_text("CN", subject_name).unwrap();
+  let mut x509_name = X509NameBuilder::new().unwrap();
+  x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
   let x509_name = x509_name.build();
 
-  let mut x509_build = openssl::x509::X509::builder().unwrap();
-  x509_build.set_not_before(&openssl::asn1::Asn1Time::days_from_now(0).unwrap()).unwrap();
-  x509_build.set_not_after(&openssl::asn1::Asn1Time::days_from_now(256).unwrap()).unwrap();
-  x509_build.set_issuer_name(ca_name).unwrap();
+  let mut x509_build = X509::builder().unwrap();
+  x509_build.set_not_before(&Asn1Time::days_from_now(0).unwrap()).unwrap();
+  x509_build.set_not_after(&Asn1Time::days_from_now(256).unwrap()).unwrap();
+  x509_build.set_issuer_name(&ca_name).unwrap();
   x509_build.set_subject_name(&x509_name).unwrap();
   x509_build.set_pubkey(&pkey).unwrap();
-  x509_build.append_extension(openssl::x509::X509Extension::new(None, None, "keyUsage", "digitalSignature").unwrap()).unwrap();
-  x509_build.append_extension(openssl::x509::X509Extension::new(None, None, "basicConstraints", "CA:FALSE").unwrap()).unwrap();
-  x509_build.sign(ca_pkey, MessageDigest::sha256()).unwrap();
+
+  let ext_key_usage = ExtendedKeyUsage::new()
+        .server_auth()
+        .build()
+        .unwrap();
+  x509_build.append_extension(ext_key_usage).unwrap();
+
+  let subject_key_identifier = SubjectKeyIdentifier::new()
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+  x509_build.append_extension(subject_key_identifier).unwrap();
+
+  let authority_key_identifier = AuthorityKeyIdentifier::new()
+        .keyid(true)
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+  x509_build.append_extension(authority_key_identifier).unwrap();
+
+  // CA:FALSE
+  let basic_constraints = BasicConstraints::new().critical().build().unwrap();
+  x509_build.append_extension(basic_constraints).unwrap();
+
+  x509_build.sign(&ca_pkey, MessageDigest::sha256()).unwrap();
   let cert = x509_build.build();
 
   let pkcs12_builder = Pkcs12::builder();
@@ -118,6 +145,7 @@ fn cert(subject_name: &str, ca_pkey: &PKey, ca_name: &X509Name, _/*ca_cert*/: &X
 }
 
 
+#[allow(unused_mut)]
 fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
   let succeeded = Arc::new(std::sync::atomic::AtomicBool::new(false));
   let succeeded_clone = succeeded.clone();
@@ -147,26 +175,15 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
   let send_recv_times = 4;
 
   // an in and out server
-  // let barrier = Arc::new(Barrier::new(2));
-
-  // let server_barrier = barrier.clone();
-  //let server_pkcs12_der = pkcs12_der.clone();
   #[cfg(target_os = "linux")]
   let root_cert_der_copy = root_cert_der.clone();
+
   let server_handle = thread::Builder::new().name("test_tls_client_stream:server".to_string()).spawn(move || {
     let pkcs12 = native_tls::Pkcs12::from_der(&server_pkcs12_der, "mypass").expect("Pkcs12::from_der");
-    let tls = TlsAcceptor::builder(pkcs12).expect("build with pkcs12 failed");
+    let mut tls = TlsAcceptor::builder(pkcs12).expect("build with pkcs12 failed");
 
     #[cfg(target_os = "linux")]
     {
-      let mut tls = tls;
-      let mut x509_name = openssl::x509::X509NameBuilder::new().unwrap();
-      x509_name.append_entry_by_text("CN", subject_name).unwrap();
-      let x509_name = x509_name.build();
-
-      let mut stack = openssl::stack::Stack::new().unwrap();
-      stack.push(x509_name);
-
       let mut openssl_builder = tls.builder_mut();
       let mut openssl_ctx_builder = openssl_builder.builder_mut();
 
@@ -188,7 +205,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
       openssl_ctx_builder.set_verify(mode);
     }
 
-    // FIXME: add CA on OSx
+    // FIXME: add CA on macOS
 
     let tls = tls.build().expect("tls build failed");
 

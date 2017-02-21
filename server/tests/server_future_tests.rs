@@ -13,10 +13,14 @@ use std::thread;
 use std::time::Duration;
 
 use futures::Stream;
-use openssl::*;
+use openssl::asn1::*;
+use openssl::hash::MessageDigest;
+use openssl::nid;
+use openssl::pkcs12::Pkcs12;
+use openssl::pkey::PKey;
+use openssl::rsa::Rsa;
+use openssl::x509::*;
 use openssl::x509::extension::*;
-#[cfg(target_os = "linux")]
-use openssl::x509::X509 as OpensslX509;
 #[cfg(target_os = "macos")]
 use security_framework::certificate::SecCertificate;
 
@@ -73,22 +77,49 @@ fn test_server_www_tcp() {
 
 #[test]
 fn test_server_www_tls() {
-  // Generate X509 certificate
   let subject_name = "ns.example.com";
-  let rsa = rsa::Rsa::generate(2048).unwrap();
-  let pkey = pkey::PKey::from_rsa(rsa).unwrap();
+  let rsa = Rsa::generate(2048).unwrap();
+  let pkey = PKey::from_rsa(rsa).unwrap();
 
-  let gen = x509::X509Generator::new()
-                         .set_valid_period(365*2)
-                         .add_name("CN".to_owned(), subject_name.to_string())
-                         .set_sign_hash(hash::MessageDigest::sha256())
-                         .add_extension(Extension::KeyUsage(vec![KeyUsageOption::DigitalSignature]));
+  let mut x509_name = X509NameBuilder::new().unwrap();
+  x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
+  let x509_name = x509_name.build();
 
-  let cert = gen.sign(&pkey).unwrap();
+  let mut x509_build = X509::builder().unwrap();
+  x509_build.set_not_before(&Asn1Time::days_from_now(0).unwrap()).unwrap();
+  x509_build.set_not_after(&Asn1Time::days_from_now(256).unwrap()).unwrap();
+  x509_build.set_issuer_name(&x509_name).unwrap();
+  x509_build.set_subject_name(&x509_name).unwrap();
+  x509_build.set_pubkey(&pkey).unwrap();
+
+  let ext_key_usage = ExtendedKeyUsage::new()
+        .client_auth()
+        .server_auth()
+        .build()
+        .unwrap();
+  x509_build.append_extension(ext_key_usage).unwrap();
+
+  let subject_key_identifier = SubjectKeyIdentifier::new()
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+  x509_build.append_extension(subject_key_identifier).unwrap();
+
+  let authority_key_identifier = AuthorityKeyIdentifier::new()
+        .keyid(true)
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+  x509_build.append_extension(authority_key_identifier).unwrap();
+
+  // CA:FALSE
+  let basic_constraints = BasicConstraints::new().critical().build().unwrap();
+  x509_build.append_extension(basic_constraints).unwrap();
+
+  x509_build.sign(&pkey, MessageDigest::sha256()).unwrap();
+  let cert = x509_build.build();
   let cert_der = cert.to_der().unwrap();
 
-  let pkcs12_builder = pkcs12::Pkcs12::builder();
-  let pkcs12 = pkcs12_builder.build("mypassword", subject_name, &pkey, &cert).unwrap();
+  let pkcs12_builder = Pkcs12::builder();
+  let pkcs12 = pkcs12_builder.build("mypass", subject_name, &pkey, &cert).unwrap();
   let pkcs12_der = pkcs12.to_der().unwrap();
 
   // Server address
@@ -124,7 +155,7 @@ fn lazy_tls_client(ipaddr: SocketAddr, subject_name: String, cert_der: Vec<u8>) 
   let trust_chain = SecCertificate::from_der(&cert_der).unwrap();
 
   #[cfg(target_os = "linux")]
-  let trust_chain = OpensslX509::from_der(&cert_der).unwrap();
+  let trust_chain = X509::from_der(&cert_der).unwrap();
 
   builder.add_ca(trust_chain);
   builder.build(ipaddr, subject_name).unwrap()
@@ -189,7 +220,7 @@ fn server_thread_tcp(tcp_listener: TcpListener) {
 fn server_thread_tls(tls_listener: TcpListener, pkcs12_der: Vec<u8>) {
   let catalog = new_catalog();
   let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
-  let pkcs12 = native_tls::Pkcs12::from_der(&pkcs12_der, "mypassword").expect("Pkcs12::from_der");
+  let pkcs12 = native_tls::Pkcs12::from_der(&pkcs12_der, "mypass").expect("Pkcs12::from_der");
   server.register_tls_listener(tls_listener, Duration::from_secs(30), pkcs12).expect("tcp registration failed");
 
   server.listen().unwrap();

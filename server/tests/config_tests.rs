@@ -43,8 +43,8 @@ fn test_read_config() {
   let config: Config = Config::read_config(&path).unwrap();
 
   assert_eq!(config.get_listen_port(), 53);
-  assert_eq!(config.get_listen_addrs_ipv4(), vec![]);
-  assert_eq!(config.get_listen_addrs_ipv6(), vec![]);
+  assert_eq!(config.get_listen_addrs_ipv4(), Vec::<Ipv4Addr>::new());
+  assert_eq!(config.get_listen_addrs_ipv6(), Vec::<Ipv6Addr>::new());
   assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(5));
   assert_eq!(config.get_log_level(), LogLevel::Info);
   assert_eq!(config.get_directory(), Path::new("/var/named"));
