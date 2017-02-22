@@ -1,16 +1,21 @@
 sudo: required
 dist: trusty
 language: rust
+cache: cargo
 os:
   - linux
   - osx
 rust:
+  - 1.13.0
   - stable
   - beta
   - nightly
 matrix:
   allow_failure:
     - rust: nightly
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl-dev_1.0.2g-1ubuntu4.6_amd64.deb ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo dpkg -i libssl-dev_1.0.2g-1ubuntu4.6_amd64.deb ; fi
 script: scripts/run_tests.sh
 after_success: scripts/run_kcov.sh
 notifications:
