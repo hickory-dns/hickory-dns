@@ -19,9 +19,7 @@ use security_framework::certificate::SecCertificate;
 #[cfg(target_os = "linux")]
 use native_tls::backend::openssl::TlsConnectorBuilderExt;
 #[cfg(target_os = "linux")]
-use native_tls::backend::openssl::TlsAcceptorBuilderExt;
-#[cfg(target_os = "linux")]
-use openssl::x509::X509 as OpensslX509;
+use openssl::x509::X509;
 #[cfg(target_os = "linux")]
 use openssl::x509::store::X509StoreBuilder;
 use native_tls::Protocol::Tlsv12;
@@ -41,11 +39,9 @@ impl TlsStream {
   }
 
   #[cfg(target_os = "linux")]
-  fn new(certs: Vec<OpensslX509>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
-    use openssl::ssl::SSL_VERIFY_NONE;
-    use openssl::x509::store::X509StoreBuilder;
-
+  fn new(certs: Vec<X509>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
     let mut tls = try!(TlsConnector::builder().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+    try!(tls.supported_protocols(&[Tlsv12]).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
 
     { // mutable reference block
       let mut openssl_builder = tls.builder_mut();
@@ -92,7 +88,7 @@ pub struct TlsStreamBuilder {
   ca_chain: Vec<SecCertificate>,
 
   #[cfg(target_os = "linux")]
-  ca_chain: Vec<OpensslX509>,
+  ca_chain: Vec<X509>,
   identity: Option<Pkcs12>,
 }
 
@@ -109,7 +105,7 @@ impl TlsStreamBuilder {
   ///
   /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this
   #[cfg(target_os = "linux")]
-  pub fn add_ca(&mut self, ca: OpensslX509) {
+  pub fn add_ca(&mut self, ca: X509) {
     self.ca_chain.push(ca);
   }
 

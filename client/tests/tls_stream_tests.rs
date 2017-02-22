@@ -16,7 +16,9 @@ extern crate trust_dns;
 
 use std::{thread, time};
 use std::net::SocketAddr;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr};
+#[cfg(not(target_os = "linux"))]
+use std::net::Ipv6Addr;
 use std::io::{Read, Write};
 use std::sync::Arc;
 

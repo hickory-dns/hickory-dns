@@ -274,7 +274,9 @@ impl<S: Io> Stream for TcpStream<S> {
   }
 }
 
-#[cfg(test)] use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+#[cfg(test)] use std::net::{IpAddr, Ipv4Addr};
+#[cfg(not(target_os = "linux"))]
+#[cfg(test)] use std::net::Ipv6Addr;
 
 #[test]
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty

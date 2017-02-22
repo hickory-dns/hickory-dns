@@ -66,7 +66,9 @@ impl Stream for UdpClientStream {
 }
 
 
-#[cfg(test)] use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+#[cfg(test)] use std::net::{IpAddr, Ipv4Addr};
+#[cfg(not(target_os = "linux"))]
+#[cfg(test)] use std::net::Ipv6Addr;
 
 #[test]
 fn test_udp_client_stream_ipv4() {
