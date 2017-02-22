@@ -14,8 +14,7 @@ matrix:
   allow_failure:
     - rust: nightly
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl-dev_1.0.2g-1ubuntu4.6_amd64.deb ; fi
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then sudo dpkg -i libssl-dev_1.0.2g-1ubuntu4.6_amd64.deb ; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
 script: scripts/run_tests.sh
 after_success: scripts/run_kcov.sh
 notifications:
