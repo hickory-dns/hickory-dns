@@ -462,8 +462,7 @@ fn test_update() {
 
     authority.set_allow_update(true);
 
-    let mut original_vec: Vec<Record> =
-        vec![Record::new()
+    let mut original_vec: Vec<Record> = vec![Record::new()
                  .name(www_name.clone())
                  .ttl(86400)
                  .rr_type(RecordType::TXT)
