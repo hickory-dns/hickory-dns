@@ -254,7 +254,7 @@ fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, Stri
     info!("reading TLS certificate from: {:?}", path);
     read_cert(path, password)
   } else if tls_cert_config.create_if_absent() {
-    info!("generating EC certificate: {:?}", path);
+    info!("generating RSA certificate: {:?}", path);
     let key_pair = try!(KeyPair::generate(Algorithm::RSASHA256).map_err(|e| format!("error generating key: {:?}: {}", path, e)));
     if let KeyPair::RSA(pkey) = key_pair {
       let mut x509_name = X509NameBuilder::new().unwrap();
@@ -270,6 +270,7 @@ fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, Stri
 
       let ext_key_usage = ExtendedKeyUsage::new()
         .server_auth()
+        .client_auth()
         .build()
         .unwrap();
       x509_build.append_extension(ext_key_usage).unwrap();
@@ -285,8 +286,7 @@ fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, Stri
           .unwrap();
       x509_build.append_extension(authority_key_identifier).unwrap();
 
-      // CA:FALSE
-      let basic_constraints = BasicConstraints::new().critical().build().unwrap();
+      let basic_constraints = BasicConstraints::new().critical().ca().build().unwrap();
       x509_build.append_extension(basic_constraints).unwrap();
 
       x509_build.sign(&pkey, hash::MessageDigest::sha256()).unwrap();
@@ -302,7 +302,7 @@ fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, Stri
           .or_else(|_|fs::remove_file(&cert_path)).unwrap();
 
       let pkcs12_builder = pkcs12::Pkcs12::builder();
-      let pkcs12 = pkcs12_builder.build("mypass", subject_name, &pkey, &cert).unwrap();
+      let pkcs12 = pkcs12_builder.build(password.unwrap_or(""), subject_name, &pkey, &cert).unwrap();
       let pkcs12_der = pkcs12.to_der().unwrap();
 
       // write out to the file
