@@ -21,7 +21,12 @@ use trust_dns::op::ResponseCode;
 pub type UpdateResult<T> = Result<T, ResponseCode>;
 
 #[derive(RustcDecodable, PartialEq, Eq, Debug, Clone, Copy)]
-pub enum ZoneType { Master, Slave, Hint, Forward }
+pub enum ZoneType {
+    Master,
+    Slave,
+    Hint,
+    Forward,
+}
 
 pub mod authority;
 mod catalog;

@@ -27,9 +27,12 @@
 //! * New features for securing public information
 
 extern crate chrono;
-#[macro_use] extern crate error_chain;
-#[macro_use] extern crate futures;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate error_chain;
+#[macro_use]
+extern crate futures;
+#[macro_use]
+extern crate log;
 extern crate native_tls;
 extern crate openssl;
 extern crate rusqlite;
@@ -52,7 +55,7 @@ include!(concat!(env!("OUT_DIR"), "/version.rs"));
 
 #[test]
 fn enable_logging_for_tests() {
-  use trust_dns::logger;
-  use log::LogLevel;
-  logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
+    use trust_dns::logger;
+    use log::LogLevel;
+    logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 }
