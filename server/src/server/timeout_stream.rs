@@ -2,8 +2,7 @@ use std::io;
 use std::mem;
 use std::time::Duration;
 
-use futures::{Async, Future, Poll};
-use futures::stream::Stream;
+use futures::{Async, Future, Poll, Stream};
 use tokio_core::reactor::{Handle, Timeout};
 
 /// This wraps the underlying Stream in a timeout.

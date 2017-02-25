@@ -8,8 +8,7 @@
 use std::net::SocketAddr;
 use std::io;
 
-use futures::{Async, Future, Poll};
-use futures::stream::Stream;
+use futures::{Async, Future, Poll, Stream};
 use tokio_core::reactor::{Handle};
 
 use ::BufClientStreamHandle;
@@ -67,7 +66,9 @@ impl Stream for UdpClientStream {
 }
 
 
-#[cfg(test)] use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+#[cfg(test)] use std::net::{IpAddr, Ipv4Addr};
+#[cfg(not(target_os = "linux"))]
+#[cfg(test)] use std::net::Ipv6Addr;
 
 #[test]
 fn test_udp_client_stream_ipv4() {

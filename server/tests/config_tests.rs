@@ -43,8 +43,8 @@ fn test_read_config() {
   let config: Config = Config::read_config(&path).unwrap();
 
   assert_eq!(config.get_listen_port(), 53);
-  assert_eq!(config.get_listen_addrs_ipv4(), vec![]);
-  assert_eq!(config.get_listen_addrs_ipv6(), vec![]);
+  assert_eq!(config.get_listen_addrs_ipv4(), Vec::<Ipv4Addr>::new());
+  assert_eq!(config.get_listen_addrs_ipv6(), Vec::<Ipv6Addr>::new());
   assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(5));
   assert_eq!(config.get_log_level(), LogLevel::Info);
   assert_eq!(config.get_directory(), Path::new("/var/named"));
@@ -83,7 +83,10 @@ fn test_parse_toml() {
 
   let config: Config = "directory = \"/dev/null\"".parse().unwrap();
   assert_eq!(config.get_directory(), Path::new("/dev/null"));
+}
 
+#[test]
+fn test_parse_zone_keys() {
   let config: Config = "
 [[zones]]
 zone = \"example.com\"
@@ -96,7 +99,7 @@ algorithm = \"ED25519\"
 signer_name = \"ns.example.com.\"
 is_zone_signing_key = false
 is_zone_update_auth = true
-do_auto_generate = true
+create_if_absent = true
 
 [[zones.keys]]
 key_path = \"/path/to/my_rsa.pem\"
@@ -109,12 +112,31 @@ signer_name = \"ns.example.com.\"
   assert_eq!(config.get_zones()[0].get_keys()[0].get_signer_name().unwrap().unwrap(), Name::parse("ns.example.com.", None).unwrap());
   assert_eq!(config.get_zones()[0].get_keys()[0].is_zone_signing_key(), false);
   assert_eq!(config.get_zones()[0].get_keys()[0].is_zone_update_auth(), true);
-  assert_eq!(config.get_zones()[0].get_keys()[0].do_auto_generate(), true);
+  assert_eq!(config.get_zones()[0].get_keys()[0].create_if_absent(), true);
 
   assert_eq!(config.get_zones()[0].get_keys()[1].get_key_path(), Path::new("/path/to/my_rsa.pem"));
   assert_eq!(config.get_zones()[0].get_keys()[1].get_algorithm().unwrap(), Algorithm::RSASHA256);
   assert_eq!(config.get_zones()[0].get_keys()[1].get_signer_name().unwrap().unwrap(), Name::parse("ns.example.com.", None).unwrap());
   assert_eq!(config.get_zones()[0].get_keys()[1].is_zone_signing_key(), false);
   assert_eq!(config.get_zones()[0].get_keys()[1].is_zone_update_auth(), false);
-  assert_eq!(config.get_zones()[0].get_keys()[1].do_auto_generate(), false);
+  assert_eq!(config.get_zones()[0].get_keys()[1].create_if_absent(), false);
+}
+
+#[test]
+fn test_parse_tls() {
+  // defaults
+  let config: Config = "".parse().unwrap();
+
+  assert_eq!(config.get_tls_listen_port(), 853);
+  assert_eq!(config.get_tls_cert(), None);
+
+  let config: Config = "
+tls_cert = { path = \"path/to/some.pkcs12\", create_if_absent = true, subject_name = \"ns.example.com\" }
+tls_listen_port = 8853
+  ".parse().unwrap();
+
+  assert_eq!(config.get_tls_listen_port(), 8853);
+  assert_eq!(config.get_tls_cert().unwrap().get_path(), Path::new("path/to/some.pkcs12"));
+  assert_eq!(config.get_tls_cert().unwrap().create_if_absent(), true);
+  assert_eq!(config.get_tls_cert().unwrap().get_subject_name(), "ns.example.com");
 }

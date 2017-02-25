@@ -14,12 +14,12 @@
  * limitations under the License.
  */
 
-//! UDP protocol related components for DNS.
+//! TCP protocol related components for DNS.
 
-mod udp_client_connection;
-mod udp_client_stream;
-mod udp_stream;
+mod tls_client_connection;
+mod tls_client_stream;
+mod tls_stream;
 
-pub use self::udp_client_connection::UdpClientConnection;
-pub use self::udp_client_stream::UdpClientStream;
-pub use self::udp_stream::UdpStream;
+pub use self::tls_client_connection::{TlsClientConnection, TlsClientConnectionBuilder};
+pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
+pub use self::tls_stream::{TlsStream, TlsStreamBuilder};

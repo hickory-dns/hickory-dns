@@ -44,9 +44,9 @@ pub use self::client_error::ChainErr as ClientChainErr;
 pub use self::lexer_error::ChainErr as LexerChainErr;
 pub use self::parse_error::ChainErr as ParseChainErr;
 
-pub type DecodeResult<T> = Result<T, DecodeError>;
-pub type DnsSecResult<T> = Result<T, DnsSecError>;
-pub type EncodeResult = Result<(), EncodeError>;
-pub type ClientResult<T> = Result<T, ClientError>;
-pub type LexerResult<T> = Result<T, LexerError>;
-pub type ParseResult<T> = Result<T, ParseError>;
+pub use self::decode_error::Result as DecodeResult;
+pub use self::dnssec_error::Result as DnsSecResult;
+pub type EncodeResult = self::encode_error::Result<()>;
+pub use self::client_error::Result as ClientResult;
+pub use self::lexer_error::Result as LexerResult;
+pub use self::parse_error::Result as ParseResult;

@@ -1,16 +1,24 @@
 sudo: required
 dist: trusty
 language: rust
-os:
-  - linux
-  - osx
-rust:
-  - stable
-  - beta
-  - nightly
+rust: stable
+cache: cargo
+
 matrix:
+  include:
+    - os: osx
+      rust: stable
+
+    # min rust version
+    - rust: 1.13.0
+    - rust: beta
+    - rust: nightly
+
   allow_failure:
     - rust: nightly
+
+before_install:
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
 script: scripts/run_tests.sh
 after_success: scripts/run_kcov.sh
 notifications:

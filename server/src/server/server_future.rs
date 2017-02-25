@@ -9,14 +9,18 @@ use std::io;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{Async, Future, Poll};
-use futures::stream::Stream;
+use futures::{Async, Future, Poll, Stream};
+use native_tls::Pkcs12;
+use native_tls::Protocol::Tlsv12;
+use native_tls::TlsAcceptor;
 use tokio_core;
 use tokio_core::reactor::Core;
+use tokio_tls::TlsAcceptorExt;
 
 use trust_dns::op::RequestHandler;
 use trust_dns::udp::UdpStream;
 use trust_dns::tcp::TcpStream;
+use trust_dns::tls::TlsStream;
 
 use ::server::{Request, RequestStream, ResponseHandle, TimeoutStream};
 use ::authority::Catalog;
@@ -62,16 +66,16 @@ impl ServerFuture {
   ///  to not make this too low depending on use cases.
   ///
   /// # Arguments
-  /// * `listener` - a bound and listenting TCP socket
+  /// * `listener` - a bound TCP socket
   /// * `timeout` - timeout duration of incoming requests, any connection that does not send
   ///               requests within this time period will be closed. In the future it should be
   ///               possible to create long-lived queries, but these should be from trusted sources
   ///               only, this would require some type of whitelisting.
-  pub fn register_listener(&self, listener: std::net::TcpListener, timeout: Duration) {
+  pub fn register_listener(&self, listener: std::net::TcpListener, timeout: Duration) -> io::Result<()> {
     let handle = self.io_loop.handle();
     let catalog = self.catalog.clone();
     // TODO: this is an awkward interface with socketaddr...
-    let addr = listener.local_addr().expect("listener is not bound?");
+    let addr = try!(listener.local_addr());
     let listener = tokio_core::net::TcpListener::from_listener(listener, &addr, &handle).expect("could not register listener");
     debug!("registered tcp: {:?}", listener);
 
@@ -81,7 +85,7 @@ impl ServerFuture {
               .for_each(move |(tcp_stream, src_addr)| {
                 debug!("accepted request from: {}", src_addr);
                 // take the created stream...
-                let (buf_stream, stream_handle) = TcpStream::with_tcp_stream(tcp_stream);
+                let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
                 let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
                 let request_stream = RequestStream::new(timeout_stream, stream_handle);
                 let catalog = catalog.clone();
@@ -98,6 +102,69 @@ impl ServerFuture {
               })
               .map_err(|e| debug!("error in inbound tcp_stream: {}", e))
     );
+
+    Ok(())
+  }
+
+  /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
+  /// IPv6 or an IPv4 address.
+  ///
+  /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+  ///  to not make this too low depending on use cases.
+  ///
+  /// # Arguments
+  /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+  /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+  ///               requests within this time period will be closed. In the future it should be
+  ///               possible to create long-lived queries, but these should be from trusted sources
+  ///               only, this would require some type of whitelisting.
+  /// * `pkcs12` - certificate used to announce to clients
+  pub fn register_tls_listener(&self, listener: std::net::TcpListener, timeout: Duration, pkcs12: Pkcs12) -> io::Result<()> {
+    let handle = self.io_loop.handle();
+    let catalog = self.catalog.clone();
+    // TODO: this is an awkward interface with socketaddr...
+    let addr = listener.local_addr().expect("listener is not bound?");
+    let listener = tokio_core::net::TcpListener::from_listener(listener, &addr, &handle).expect("could not register listener");
+    debug!("registered tcp: {:?}", listener);
+
+    let mut builder = try!(TlsAcceptor::builder(pkcs12).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+    try!(builder.supported_protocols(&[Tlsv12]).map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+    let tls_acceptor = try!(builder.build().map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e))));
+
+    // for each incoming request...
+    self.io_loop.handle().spawn(
+      listener.incoming()
+              .for_each(move |(tcp_stream, src_addr)| {
+                debug!("accepted request from: {}", src_addr);
+                let timeout = timeout.clone();
+                let handle = handle.clone();
+                let catalog = catalog.clone();
+
+                // take the created stream...
+                tls_acceptor.accept_async(tcp_stream)
+                            .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
+                            .and_then(move |tls_stream| {
+                              let (buf_stream, stream_handle) = TlsStream::from_stream(tls_stream, src_addr.clone());
+                              let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
+                              let request_stream = RequestStream::new(timeout_stream, stream_handle);
+                              let catalog = catalog.clone();
+
+                              // and spawn to the io_loop
+                              handle.spawn(
+                                request_stream.for_each(move |(request, response_handle)| {
+                                  Self::handle_request(request, response_handle, catalog.clone())
+                                })
+                                .map_err(move |e| debug!("error in TCP request_stream src: {:?} error: {}", src_addr, e))
+                              );
+
+                              Ok(())
+                            })
+                            //.map_err(move |e| debug!("error TLS handshake: {:?} error: {:?}", src_addr, e))
+              })
+              .map_err(|e| debug!("error in inbound tcp_stream: {}", e))
+    );
+
+    Ok(())
   }
 
   /// TODO how to do threads? should we do a bunch of listener threads and then query threads?

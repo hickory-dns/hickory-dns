@@ -2,27 +2,45 @@ extern crate futures;
 extern crate log;
 extern crate trust_dns;
 extern crate tokio_core;
+#[cfg(target_os = "macos")]
+extern crate security_framework;
+#[cfg(target_os = "linux")]
+extern crate openssl;
 
 use std::env;
-use std::io::{BufRead, BufReader, stdout, Write};
+use std::fs::File;
+use std::io::{BufRead, BufReader, Read, stdout, Write};
 use std::mem;
 use std::net::*;
 use std::process::{Command, Stdio};
 use std::thread::{Builder};
 use std::panic::{catch_unwind, UnwindSafe};
 
+#[cfg(target_os = "macos")]
+use security_framework::certificate::SecCertificate;
+#[cfg(target_os = "linux")]
+use openssl::x509::X509;
+
 use tokio_core::reactor::Core;
 
 use trust_dns::client::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::TcpClientStream;
+use trust_dns::tls::TlsClientStream;
 
-fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + UnwindSafe {
+fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16, u16) -> R + UnwindSafe {
   // find a random port to listen on
-  let test_port = {
+  let (test_port, test_tls_port) = {
     let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
     let server_addr = server.local_addr().unwrap();
-    server_addr.port()
+    let test_port = server_addr.port();
+
+    let server = std::net::UdpSocket::bind(("0.0.0.0", 0)).unwrap();
+    let server_addr = server.local_addr().unwrap();
+    let test_tls_port = server_addr.port();
+
+    assert!(test_port != test_tls_port);
+    (test_port, test_tls_port)
   };
 
   let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
@@ -34,6 +52,7 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
                           .arg(&format!("--config={}/tests/named_test_configs/{}", server_path, toml))
                           .arg(&format!("--zonedir={}/tests/named_test_configs", server_path))
                           .arg(&format!("--port={}", test_port))
+                          .arg(&format!("--tls-port={}", test_tls_port))
                           .spawn()
                           .expect("failed to start named");
 
@@ -69,8 +88,10 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
   for _ in 0..1000 {
     output.clear();
     named_out.read_line(&mut output).expect("could not read stdout");
-    stdout().write(b"SRV: ").unwrap();
-    stdout().write(output.as_bytes()).unwrap();
+    if !output.is_empty() {
+      stdout().write(b"SRV: ").unwrap();
+      stdout().write(output.as_bytes()).unwrap();
+    }
     if output.ends_with("awaiting connections...\n") { found = true; break }
   }
 
@@ -84,14 +105,16 @@ fn named_test_harness<F, R>(toml: &str, test: F) where F: FnOnce(u16) -> R + Unw
     while !succeeded.load(std::sync::atomic::Ordering::Relaxed) {
       output.clear();
       named_out.read_line(&mut output).expect("could not read stdout");
-      stdout().write(b"SRV: ").unwrap();
-      stdout().write(output.as_bytes()).unwrap();
+      if !output.is_empty() {
+        stdout().write(b"SRV: ").unwrap();
+        stdout().write(output.as_bytes()).unwrap();
+      }
     }
   }).expect("no thread available");
 
   println!("running test...");
 
-  let result = catch_unwind(move || test(test_port));
+  let result = catch_unwind(move || test(test_port, test_tls_port));
 
   println!("test completed");
   succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
@@ -128,7 +151,7 @@ fn test_example_toml_startup() {
   use log::LogLevel;
   logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 
-  named_test_harness("example.toml", |port| {
+  named_test_harness("example.toml", |port, _| {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
@@ -147,7 +170,7 @@ fn test_example_toml_startup() {
 
 #[test]
 fn test_ipv4_only_toml_startup() {
-  named_test_harness("ipv4_only.toml", |port| {
+  named_test_harness("ipv4_only.toml", |port, _| {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
@@ -171,7 +194,7 @@ fn test_ipv4_only_toml_startup() {
 // #[ignore]
 // #[test]
 // fn test_ipv6_only_toml_startup() {
-//   named_test_harness("ipv6_only.toml", |port| {
+//   named_test_harness("ipv6_only.toml", |port, _| {
 //     let mut io_loop = Core::new().unwrap();
 //     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
 //     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
@@ -194,7 +217,7 @@ fn test_ipv4_only_toml_startup() {
 #[ignore]
 #[test]
 fn test_ipv4_and_ipv6_toml_startup() {
-  named_test_harness("ipv4_and_ipv6.toml", |port| {
+  named_test_harness("ipv4_and_ipv6.toml", |port, _| {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
@@ -212,4 +235,45 @@ fn test_ipv4_and_ipv6_toml_startup() {
 
     assert!(true);
   })
+}
+
+#[test]
+fn test_example_tls_toml_startup() {
+  named_test_harness("dns_over_tls.toml", move |_, tls_port| {
+    let mut cert_der = vec![];
+    File::open("tests/named_test_configs/sec/example.cert").unwrap().read_to_end(&mut cert_der).unwrap();
+
+    let mut io_loop = Core::new().unwrap();
+    let addr: SocketAddr = ("127.0.0.1", tls_port).to_socket_addrs().unwrap().next().unwrap();
+    let mut tls_conn_builder = TlsClientStream::builder();
+    let cert = to_trust_anchor(&cert_der);
+    tls_conn_builder.add_ca(cert);
+    let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string(), io_loop.handle());
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+
+    // ipv4 should succeed
+    assert!(query(&mut io_loop, &mut client));
+
+    let addr: SocketAddr = ("127.0.0.1", tls_port).to_socket_addrs().unwrap().next().unwrap();
+    let mut tls_conn_builder = TlsClientStream::builder();
+    let cert = to_trust_anchor(&cert_der);
+    tls_conn_builder.add_ca(cert);
+    let (stream, sender) = tls_conn_builder.build(addr, "ns.example.com".to_string(), io_loop.handle());
+    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+
+    // ipv6 should succeed
+    assert!(query(&mut io_loop, &mut client));
+
+    assert!(true);
+  })
+}
+
+#[cfg(target_os = "linux")]
+fn to_trust_anchor(cert_der: &[u8]) -> X509 {
+  X509::from_der(&cert_der).unwrap()
+}
+
+#[cfg(target_os = "macos")]
+fn to_trust_anchor(cert_der: &[u8]) -> SecCertificate {
+  SecCertificate::from_der(&cert_der).unwrap()
 }

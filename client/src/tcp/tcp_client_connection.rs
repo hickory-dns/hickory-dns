@@ -18,6 +18,7 @@ use std::net::SocketAddr;
 use std::io;
 
 use futures::Future;
+use tokio_core::net::TcpStream;
 use tokio_core::reactor::Core;
 
 use ::error::*;
@@ -27,7 +28,7 @@ use ::tcp::TcpClientStream;
 /// TCP based DNS client
 pub struct TcpClientConnection {
   io_loop: Core,
-  tcp_client_stream: Box<Future<Item=TcpClientStream, Error=io::Error>>,
+  tcp_client_stream: Box<Future<Item=TcpClientStream<TcpStream>, Error=io::Error>>,
   client_stream_handle: Box<ClientStreamHandle>,
 }
 
@@ -42,14 +43,14 @@ impl TcpClientConnection {
   /// * `name_server` - address of the name server to use for queries
   pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
     let io_loop = try!(Core::new());
-    let (tcp_client_stream, handle) = TcpClientStream::new(name_server, io_loop.handle());
+    let (tcp_client_stream, handle) = TcpClientStream::<TcpStream>::new(name_server, io_loop.handle());
 
     Ok(TcpClientConnection{ io_loop: io_loop, tcp_client_stream: tcp_client_stream, client_stream_handle: handle })
   }
 }
 
 impl ClientConnection for TcpClientConnection {
-  type MessageStream = TcpClientStream;
+  type MessageStream = TcpClientStream<TcpStream>;
 
   fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>) {
     (self.io_loop, self.tcp_client_stream, self.client_stream_handle)

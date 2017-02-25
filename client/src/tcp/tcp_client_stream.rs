@@ -8,8 +8,9 @@
 use std::net::SocketAddr;
 use std::io;
 
-use futures::{Async, Future, Poll};
-use futures::stream::Stream;
+use futures::{Async, Future, Poll, Stream};
+use tokio_core::io::Io;
+use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::{Handle};
 
 use ::BufClientStreamHandle;
@@ -17,18 +18,18 @@ use ::tcp::TcpStream;
 use ::client::ClientStreamHandle;
 
 #[must_use = "futures do nothing unless polled"]
-pub struct TcpClientStream {
-  tcp_stream: TcpStream,
+pub struct TcpClientStream<S> {
+  tcp_stream: TcpStream<S>,
 }
 
-impl TcpClientStream {
+impl TcpClientStream<TokioTcpStream> {
   /// it is expected that the resolver wrapper will be responsible for creating and managing
   ///  new TcpClients such that each new client would have a random port (reduce chance of cache
   ///  poisoning)
-  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=TcpClientStream, Error=io::Error>>, Box<ClientStreamHandle>) {
+  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=TcpClientStream<TokioTcpStream>, Error=io::Error>>, Box<ClientStreamHandle>) {
     let (stream_future, sender) = TcpStream::new(name_server, loop_handle);
 
-    let new_future: Box<Future<Item=TcpClientStream, Error=io::Error>> =
+    let new_future: Box<Future<Item=TcpClientStream<TokioTcpStream>, Error=io::Error>> =
       Box::new(stream_future.map(move |tcp_stream| {
         TcpClientStream {
           tcp_stream: tcp_stream,
@@ -41,7 +42,13 @@ impl TcpClientStream {
   }
 }
 
-impl Stream for TcpClientStream {
+impl<S> TcpClientStream<S> {
+  pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
+    TcpClientStream { tcp_stream: tcp_stream }
+  }
+}
+
+impl<S: Io> Stream for TcpClientStream<S> {
   type Item = Vec<u8>;
   type Error = io::Error;
 
@@ -49,7 +56,7 @@ impl Stream for TcpClientStream {
     match try_ready!(self.tcp_stream.poll()) {
       Some((buffer, src_addr)) => {
         // this is busted if the tcp connection doesn't have a peer
-        let peer = try!(self.tcp_stream.peer_addr());
+        let peer = self.tcp_stream.peer_addr();
         if src_addr != peer {
           // FIXME: this should be an error...
           warn!("{} does not match name_server: {}", src_addr, peer)
@@ -64,7 +71,9 @@ impl Stream for TcpClientStream {
 
 
 
-#[cfg(test)] use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+#[cfg(test)] use std::net::{IpAddr, Ipv4Addr};
+#[cfg(not(target_os = "linux"))]
+#[cfg(test)] use std::net::Ipv6Addr;
 
 #[test]
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
@@ -146,7 +155,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
   // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
   let (stream, mut sender) = TcpClientStream::new(server_addr, io_loop.handle());
 
-  let mut stream: TcpClientStream = io_loop.run(stream).ok().expect("run failed to get stream");
+  let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 
   for _ in 0..send_recv_times {
     // test once

@@ -28,5 +28,5 @@ pub use self::persistence_error::ErrorKind as PersistenceErrorKind;
 pub use self::config_error::ChainErr as ConfigChainErr;
 pub use self::persistence_error::ChainErr as PersistenceChainErr;
 
-pub type ConfigResult<T> = Result<T, ConfigError>;
-pub type PersistenceResult<T> = Result<T, PersistenceError>;
+pub use self::config_error::Result as ConfigResult;
+pub use self::persistence_error::Result as PersistenceResult;

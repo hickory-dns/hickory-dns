@@ -33,31 +33,33 @@ extern crate data_encoding;
 #[macro_use] extern crate futures;
 #[macro_use] extern crate lazy_static;
 #[macro_use] extern crate log;
-#[cfg(feature = "openssl")]
-extern crate openssl;
+extern crate native_tls;
+#[cfg(feature = "openssl")] extern crate openssl;
 extern crate rand;
-#[cfg(feature = "ring")]
-extern crate ring;
+#[cfg(feature = "ring")] extern crate ring;
 extern crate rustc_serialize;
+#[cfg(target_os = "macos")]
+extern crate security_framework;
 extern crate time;
 #[macro_use] extern crate tokio_core;
-#[cfg(feature = "ring")]
-extern crate untrusted;
+extern crate tokio_tls;
+#[cfg(feature = "ring")] extern crate untrusted;
 
+pub mod client;
 pub mod error;
 pub mod logger;
-pub mod rr;
 pub mod op;
-pub mod udp;
+pub mod rr;
 pub mod tcp;
-pub mod client;
+pub mod tls;
+pub mod udp;
 pub mod serialize;
 
 use std::io;
 use std::net::SocketAddr;
 
 use futures::sync::mpsc::UnboundedSender;
-use futures::stream::Stream;
+use futures::Stream;
 
 use op::Message;
 use client::ClientStreamHandle;

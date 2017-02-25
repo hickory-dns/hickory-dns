@@ -1,2 +1,8 @@
 [workspace]
 members = ["client", "server"]
+
+[replace]
+"openssl:0.9.7" = { git = "https://github.com/sfackler/rust-openssl.git", features = ["v102", "v110"] }
+#"openssl:0.9.7" = { path = "../rust-openssl/openssl", features = ["v102", "v110"] }
+"openssl-sys:0.9.7" = { git = "https://github.com/sfackler/rust-openssl.git", features = ["v102", "v110"] }
+#"openssl-sys:0.9.7" = { path = "../rust-openssl/openssl-sys", features = ["v102", "v110"] }

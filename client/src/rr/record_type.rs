@@ -22,8 +22,6 @@ use std::cmp::Ordering;
 use ::serialize::binary::*;
 use ::error::*;
 
-type FromResult = Result<RecordType, DecodeError>;
-
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {

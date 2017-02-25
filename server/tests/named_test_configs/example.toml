@@ -19,10 +19,9 @@
 ## listen_addrs: address on which to listen for incoming connections
 ##  this can be a list of ipv4 or ipv6 addresses
 # listen_addrs_ipv4 = ["0.0.0.0"]
-
 # listen_addrs_ipv6 = ["::0"]
 
-## listen_port: port on which to list
+## listen_port: port on which to list, default 53
 # listen_port = 53
 
 ## tcp_request_timeout: TCP request timeout in seconds. Allows TCP connections
@@ -31,6 +30,17 @@
 ##  a full request must be received for it to not count against the timeout.
 ##  Specifying a timeout of 0 will disable it.
 # tcp_request_timeout = 5
+
+## DNS over TLS certificate information.
+## if create_if_absent is true, a self-signed cert, with an Ellyptic Curve P256 key,
+##  will be created and used,
+##  beside the cert will be a CSR which can be used (if desired) to have a CA sign. Subsequent
+##  to signing, replace the pkcs12 file (with private key embedded) and restart
+##  the server.
+# tls_cert = { path = "path/to/some.pkcs12", create_if_absent = "false", subject_name = "ns.example.com", password = "if_encrypted" }
+
+## port on which to listent, default 853 (should not be 53)
+# tls_listen_port = 853
 
 ## log_level: Trace, Debug, Info, Warn, Error
 # log_level = "Info"
@@ -94,6 +104,9 @@ file = "example.com.zone"
 ## keys of the specified formats can be generated in PEM format. Instructions
 ## for custom keys can be found elsewhere.
 ##
+## supported extensions are 'der', 'pem'. ED25519 keys are only supported
+## with 'raw', and are the only keys that support 'raw'.
+##
 ## the currently supported set of supported_algorithms are
 ## ["RSASHA256", "RSASHA512", "ECDSAP256SHA256", "ECDSAP384SHA384", "ED25519"]
 ##
@@ -103,15 +116,19 @@ file = "example.com.zone"
 # [[zones.keys]]
 ## relative to the zone $file
 # key = "my_rsa_2048.pem"
+## the password used to encrypt/decrypt the file (must be PEM), blank for none
+# password = ""
 ## specify the algorithm
 # algorithm = "RSASHA256"
 ## this key should be used to sign the zone
 # is_zone_signing_key = true
 ## this key is authorized for dynamic update access to the zone via SIG0
 # is_zone_update_auth = true
+## create the key if it is not found
+# create_if_absent = false
 #
 # [[zones.keys]]
-# key = "/path/to/my_ed25519.pem
+# key = "/path/to/my_ed25519.raw"
 # algorithm = "ED25519"
 ## for keys that are not zone signing, the pem need only include the pubic_key
 # is_zone_signing_key = false

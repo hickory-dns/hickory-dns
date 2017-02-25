@@ -15,7 +15,7 @@
 use std::cell::{RefCell, RefMut};
 use std::io;
 
-use futures::stream::Stream;
+use futures::Stream;
 use tokio_core::reactor::Core;
 
 use ::client::{ClientHandle, BasicClientHandle, ClientConnection, ClientFuture, SecureClientHandle};
