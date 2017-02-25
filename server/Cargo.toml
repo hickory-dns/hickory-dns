@@ -59,7 +59,7 @@ native-tls = "^0.1"
 openssl = { version = "^0.9.7", features = ["v102", "v110"] }
 rand = "^0.3"
 rustc-serialize = "^0.3.18"
-rusqlite = { version = "^0.8.0", features = ["bundled"] }
+rusqlite = { version = "^0.9.5", features = ["bundled"] }
 time = "^0.1"
 tokio-core = "^0.1"
 tokio-tls = "^0.1"
