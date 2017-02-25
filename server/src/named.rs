@@ -28,6 +28,7 @@
 //!    -c FILE, --config=FILE  Path to configuration file, default is /etc/named.toml
 //!    -z DIR, --zonedir=DIR   Path to the root directory for all zone files, see also config toml
 //!    -p PORT, --port=PORT    Override the listening port
+//!    --tls-port=PORT         Override the listening port for TLS connections
 //! ```
 
 extern crate chrono;
@@ -49,7 +50,6 @@ use std::io::{Read, Write};
 use chrono::{Duration};
 use docopt::Docopt;
 use log::LogLevel;
-use native_tls::Pkcs12;
 use openssl::asn1::*;
 use openssl::{hash, nid, pkcs12};
 use openssl::x509::*;
@@ -81,6 +81,7 @@ Options:
     -c FILE, --config=FILE  Path to configuration file, default is /etc/named.toml
     -z DIR, --zonedir=DIR   Path to the root directory for all zone files, see also config toml
     -p PORT, --port=PORT    Override the listening port
+    --tls-port=PORT         Override the listening port for TLS connections
 ";
 
 #[derive(RustcDecodable)]
@@ -92,6 +93,7 @@ struct Args {
   pub flag_config: Option<String>,
   pub flag_zonedir: Option<String>,
   pub flag_port: Option<u16>,
+  pub flag_tls_port: Option<u16>,
 }
 
 fn parse_file(file: File, origin: Option<Name>, zone_type: ZoneType, allow_update: bool, is_dnssec_enabled: bool) -> ParseResult<Authority> {
@@ -235,15 +237,15 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
   Ok(Signer::new(Algorithm::RSASHA256, key, name, Duration::weeks(52), true, true))
 }
 
-fn read_cert(path: &Path, password: Option<&str>) -> Result<Pkcs12, String> {
+fn read_cert(path: &Path, password: Option<&str>) -> Result<native_tls::Pkcs12, String> {
   let mut file = try!(File::open(&path).map_err(|e| format!("error opening pkcs12 cert file: {:?}: {}", path, e)));
 
   let mut key_bytes = vec![];
   try!(file.read_to_end(&mut key_bytes).map_err(|e| format!("could not read pkcs12 key from: {:?}: {}", path, e)));
-  Pkcs12::from_der(&key_bytes, password.unwrap_or("")).map_err(|e| format!("baddly formated pkcs12 key from: {:?}: {}", path, e))
+  native_tls::Pkcs12::from_der(&key_bytes, password.unwrap_or("")).map_err(|e| format!("badly formated pkcs12 key from: {:?}: {}", path, e))
 }
 
-fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<Pkcs12, String> {
+fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, String> {
   let path = tls_cert_config.get_path();
   let password = tls_cert_config.get_password();
   let subject_name = tls_cert_config.get_subject_name();
@@ -253,8 +255,8 @@ fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<Pkcs12, String> {
     read_cert(path, password)
   } else if tls_cert_config.create_if_absent() {
     info!("generating EC certificate: {:?}", path);
-    let key_pair = try!(KeyPair::generate(Algorithm::ECDSAP256SHA256).map_err(|e| format!("error generating key: {:?}: {}", path, e)));
-    if let KeyPair::EC(pkey) = key_pair {
+    let key_pair = try!(KeyPair::generate(Algorithm::RSASHA256).map_err(|e| format!("error generating key: {:?}: {}", path, e)));
+    if let KeyPair::RSA(pkey) = key_pair {
       let mut x509_name = X509NameBuilder::new().unwrap();
       x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
       let x509_name = x509_name.build();
@@ -266,28 +268,21 @@ fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<Pkcs12, String> {
       x509_build.set_subject_name(&x509_name).unwrap();
       x509_build.set_pubkey(&pkey).unwrap();
 
-      let subject_alternative_name = SubjectAlternativeName::new()
-        .dns(subject_name)
-        .build(&x509_build.x509v3_context(None, None))
-        .unwrap();
-      x509_build.append_extension(subject_alternative_name).unwrap();
-
       let ext_key_usage = ExtendedKeyUsage::new()
-        .client_auth()
         .server_auth()
         .build()
         .unwrap();
       x509_build.append_extension(ext_key_usage).unwrap();
 
       let subject_key_identifier = SubjectKeyIdentifier::new()
-        .build(&x509_build.x509v3_context(None, None))
-        .unwrap();
+          .build(&x509_build.x509v3_context(None, None))
+          .unwrap();
       x509_build.append_extension(subject_key_identifier).unwrap();
 
       let authority_key_identifier = AuthorityKeyIdentifier::new()
-        .keyid(true)
-        .build(&x509_build.x509v3_context(None, None))
-        .unwrap();
+          .keyid(true)
+          .build(&x509_build.x509v3_context(None, None))
+          .unwrap();
       x509_build.append_extension(authority_key_identifier).unwrap();
 
       // CA:FALSE
@@ -296,6 +291,15 @@ fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<Pkcs12, String> {
 
       x509_build.sign(&pkey, hash::MessageDigest::sha256()).unwrap();
       let cert = x509_build.build();
+
+      // write out the cert file
+      let cert_path = path.with_extension("cert");
+      if cert_path.exists() { return Err(format!("certificate file exists: {:?}", cert_path)) }
+
+      let cert_der = cert.to_der().unwrap();
+      let mut file = File::create(&cert_path).unwrap();
+      file.write_all(&cert_der)
+          .or_else(|_|fs::remove_file(&cert_path)).unwrap();
 
       let pkcs12_builder = pkcs12::Pkcs12::builder();
       let pkcs12 = pkcs12_builder.build("mypass", subject_name, &pkey, &cert).unwrap();
@@ -389,7 +393,7 @@ pub fn main() {
 
   // and TLS as necessary
   if let Some(tls_cert_config) = config.get_tls_cert() {
-    let tls_listen_port: u16 = config.get_tls_listen_port();
+    let tls_listen_port: u16 = args.flag_tls_port.unwrap_or(config.get_tls_listen_port());
     let tls_sockaddrs: Vec<SocketAddr> = listen_addrs.iter().flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap()).collect();
     let tls_listeners: Vec<TcpListener> = tls_sockaddrs.iter().map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x))).collect();
     if tls_listeners.is_empty() { warn!("a tls certificate was specified, but no TCP addresses configured to listen on"); }

@@ -312,7 +312,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 [[package]]
 name = "openssl"
 version = "0.9.7"
-source = "git+https://github.com/sfackler/rust-openssl.git#618cc70d197cd8b5d2ce156e7439866f90a349e8"
+source = "git+https://github.com/sfackler/rust-openssl.git#b5b0a2ec667de21c27a397530d80b3f1a0b76e8f"
 dependencies = [
  "bitflags 0.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "foreign-types 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -330,7 +330,7 @@ replace = "openssl 0.9.7 (git+https://github.com/sfackler/rust-openssl.git)"
 [[package]]
 name = "openssl-sys"
 version = "0.9.7"
-source = "git+https://github.com/sfackler/rust-openssl.git#618cc70d197cd8b5d2ce156e7439866f90a349e8"
+source = "git+https://github.com/sfackler/rust-openssl.git#b5b0a2ec667de21c27a397530d80b3f1a0b76e8f"
 dependencies = [
  "gcc 0.3.43 (registry+https://github.com/rust-lang/crates.io-index)",
  "gdi32-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
