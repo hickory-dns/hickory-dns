@@ -13,6 +13,7 @@ but two new types were introduced, `SyncClient` and `SecureSyncClient`, which
 are both synchronous implementations of the old Client function interfaces.
 Please read those docs on those new types and the Client trait.
 - When EDNS option is present, return only the digest understood matching RRSETs
+- All code reformatted with rustfmt
 
 ### Removed
 - *Important* The original Server implementation was removed entirely. Please
