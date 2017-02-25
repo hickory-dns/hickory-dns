@@ -16,9 +16,9 @@
 
 //! Query struct for looking up resource records
 
-use ::rr::domain::Name;
-use ::rr::record_type::RecordType;
-use ::rr::dns_class::DNSClass;
+use rr::domain::Name;
+use rr::record_type::RecordType;
+use rr::dns_class::DNSClass;
 use ::serialize::binary::*;
 use ::error::*;
 
@@ -48,76 +48,103 @@ use ::error::*;
 /// ```
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
 pub struct Query {
-  name: Name, query_type: RecordType, query_class: DNSClass
+    name: Name,
+    query_type: RecordType,
+    query_class: DNSClass,
 }
 
 impl Query {
-  /// return a default query with an empty name and A, IN for the query_type and query_class
-  pub fn new() -> Self {
-    Query { name: Name::new(), query_type: RecordType::A, query_class: DNSClass::IN }
-  }
+    /// return a default query with an empty name and A, IN for the query_type and query_class
+    pub fn new() -> Self {
+        Query {
+            name: Name::new(),
+            query_type: RecordType::A,
+            query_class: DNSClass::IN,
+        }
+    }
 
-  /// replaces name with the new name
-  pub fn name(&mut self, name: Name) -> &mut Self { self.name = name; self }
-  pub fn query_type(&mut self, query_type: RecordType) -> &mut Self { self.query_type = query_type; self }
-  pub fn query_class(&mut self, query_class: DNSClass) -> &mut Self { self.query_class = query_class; self }
+    /// replaces name with the new name
+    pub fn name(&mut self, name: Name) -> &mut Self {
+        self.name = name;
+        self
+    }
+    pub fn query_type(&mut self, query_type: RecordType) -> &mut Self {
+        self.query_type = query_type;
+        self
+    }
+    pub fn query_class(&mut self, query_class: DNSClass) -> &mut Self {
+        self.query_class = query_class;
+        self
+    }
 
-  /// ```text
-  /// QNAME           a domain name represented as a sequence of labels, where
-  ///                 each label consists of a length octet followed by that
-  ///                 number of octets.  The domain name terminates with the
-  ///                 zero length octet for the null label of the root.  Note
-  ///                 that this field may be an odd number of octets; no
-  ///                 padding is used.
-  /// ```
-  pub fn get_name(&self) -> &Name { &self.name }
+    /// ```text
+    /// QNAME           a domain name represented as a sequence of labels, where
+    ///                 each label consists of a length octet followed by that
+    ///                 number of octets.  The domain name terminates with the
+    ///                 zero length octet for the null label of the root.  Note
+    ///                 that this field may be an odd number of octets; no
+    ///                 padding is used.
+    /// ```
+    pub fn get_name(&self) -> &Name {
+        &self.name
+    }
 
-  /// ```text
-  /// QTYPE           a two octet code which specifies the type of the query.
-  ///                 The values for this field include all codes valid for a
-  ///                 TYPE field, together with some more general codes which
-  ///                 can match more than one type of RR.
-  /// ```
-  pub fn get_query_type(&self) -> RecordType { self.query_type }
+    /// ```text
+    /// QTYPE           a two octet code which specifies the type of the query.
+    ///                 The values for this field include all codes valid for a
+    ///                 TYPE field, together with some more general codes which
+    ///                 can match more than one type of RR.
+    /// ```
+    pub fn get_query_type(&self) -> RecordType {
+        self.query_type
+    }
 
-  /// ```text
-  /// QCLASS          a two octet code that specifies the class of the query.
-  ///                 For example, the QCLASS field is IN for the Internet.
-  /// ```
-  pub fn get_query_class(&self) -> DNSClass { self.query_class }
-
+    /// ```text
+    /// QCLASS          a two octet code that specifies the class of the query.
+    ///                 For example, the QCLASS field is IN for the Internet.
+    /// ```
+    pub fn get_query_class(&self) -> DNSClass {
+        self.query_class
+    }
 }
 
 impl BinSerializable<Query> for Query {
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
-    let name = try!(Name::read(decoder));
-    let query_type = try!(RecordType::read(decoder));
-    let query_class = try!(DNSClass::read(decoder));
+    fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+        let name = try!(Name::read(decoder));
+        let query_type = try!(RecordType::read(decoder));
+        let query_class = try!(DNSClass::read(decoder));
 
-    Ok(Query { name: name, query_type: query_type, query_class: query_class})
-  }
+        Ok(Query {
+            name: name,
+            query_type: query_type,
+            query_class: query_class,
+        })
+    }
 
-  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-    try!(self.name.emit(encoder));
-    try!(self.query_type.emit(encoder));
-    try!(self.query_class.emit(encoder));
+    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+        try!(self.name.emit(encoder));
+        try!(self.query_type.emit(encoder));
+        try!(self.query_class.emit(encoder));
 
-    Ok(())
-  }
+        Ok(())
+    }
 }
 
 #[test]
 fn test_read_and_emit() {
-  let expect = Query { name: Name::with_labels(vec!["WWW".to_string(),"example".to_string(),"com".to_string()]),
-                       query_type: RecordType::AAAA, query_class: DNSClass::IN };
+    let expect = Query {
+        name: Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]),
+        query_type: RecordType::AAAA,
+        query_class: DNSClass::IN,
+    };
 
-  let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
-  {
-    let mut encoder = BinEncoder::new(&mut byte_vec);
-    expect.emit(&mut encoder).unwrap();
-  }
+    let mut byte_vec: Vec<u8> = Vec::with_capacity(512);
+    {
+        let mut encoder = BinEncoder::new(&mut byte_vec);
+        expect.emit(&mut encoder).unwrap();
+    }
 
-  let mut decoder = BinDecoder::new(&byte_vec);
-  let got = Query::read(&mut decoder).unwrap();
-  assert_eq!(got, expect);
+    let mut decoder = BinDecoder::new(&byte_vec);
+    let got = Query::read(&mut decoder).unwrap();
+    assert_eq!(got, expect);
 }

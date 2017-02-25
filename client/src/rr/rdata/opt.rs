@@ -20,7 +20,7 @@ use std::collections::HashMap;
 
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::dnssec::SupportedAlgorithms;
+use rr::dnssec::SupportedAlgorithms;
 
 /// The OPT record type is used for ExtendedDNS records.
 ///
@@ -159,184 +159,197 @@ use ::rr::dnssec::SupportedAlgorithms;
 ///       in a subsequent specification.
 /// ```
 #[derive(Default, Debug, PartialEq, Eq, Clone)]
-pub struct OPT { options: HashMap<EdnsCode, EdnsOption> }
+pub struct OPT {
+    options: HashMap<EdnsCode, EdnsOption>,
+}
 
 impl OPT {
-  /// Creates a new OPT record data.
-  ///
-  /// # Arguments
-  ///
-  /// * `options` - A map of the codes and record types
-  ///
-  /// # Return value
-  ///
-  /// The newly created OPT data
-  pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> OPT {
-    OPT { options: options }
-  }
+    /// Creates a new OPT record data.
+    ///
+    /// # Arguments
+    ///
+    /// * `options` - A map of the codes and record types
+    ///
+    /// # Return value
+    ///
+    /// The newly created OPT data
+    pub fn new(options: HashMap<EdnsCode, EdnsOption>) -> OPT {
+        OPT { options: options }
+    }
 
-  /// The entire map of options
-  pub fn get_options(&self) -> &HashMap<EdnsCode, EdnsOption> {
-    &self.options
-  }
+    /// The entire map of options
+    pub fn get_options(&self) -> &HashMap<EdnsCode, EdnsOption> {
+        &self.options
+    }
 
-  /// Get a single option based on the code
-  pub fn get(&self, code: &EdnsCode) -> Option<&EdnsOption> {
-    self.options.get(code)
-  }
+    /// Get a single option based on the code
+    pub fn get(&self, code: &EdnsCode) -> Option<&EdnsOption> {
+        self.options.get(code)
+    }
 
-  /// Insert a new option, the key is derived from the `EdnsOption`
-  pub fn insert(&mut self, option: EdnsOption) {
-    self.options.insert((&option).into(), option);
-  }
+    /// Insert a new option, the key is derived from the `EdnsOption`
+    pub fn insert(&mut self, option: EdnsOption) {
+        self.options.insert((&option).into(), option);
+    }
 }
 
 
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<OPT> {
-  let mut state: OptReadState = OptReadState::ReadCode;
-  let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
-  let start_idx = decoder.index();
+    let mut state: OptReadState = OptReadState::ReadCode;
+    let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
+    let start_idx = decoder.index();
 
-  while rdata_length as usize > decoder.index() - start_idx {
-    match state {
-      // TODO: can condense Code1/2 and Length1/2 into read_u16() calls.
-      OptReadState::ReadCode => {
-        state = OptReadState::Code{ code: (try!(decoder.read_u16())).into() };
-      },
-      OptReadState::Code{code} => {
-        let length: usize = try!(decoder.read_u16()) as usize;
-        state = OptReadState::Data{code:code, length: length, collected: Vec::<u8>::with_capacity(length) };
-      },
-      OptReadState::Data{code, length, mut collected } => {
-        collected.push(try!(decoder.pop()));
-        if length == collected.len() {
-          options.insert(code, (code, &collected as &[u8]).into());
-          state = OptReadState::ReadCode;
-        } else {
-          state = OptReadState::Data{code: code, length: length, collected: collected};
+    while rdata_length as usize > decoder.index() - start_idx {
+        match state {
+            // TODO: can condense Code1/2 and Length1/2 into read_u16() calls.
+            OptReadState::ReadCode => {
+                state = OptReadState::Code { code: (try!(decoder.read_u16())).into() };
+            }
+            OptReadState::Code { code } => {
+                let length: usize = try!(decoder.read_u16()) as usize;
+                state = OptReadState::Data {
+                    code: code,
+                    length: length,
+                    collected: Vec::<u8>::with_capacity(length),
+                };
+            }
+            OptReadState::Data { code, length, mut collected } => {
+                collected.push(try!(decoder.pop()));
+                if length == collected.len() {
+                    options.insert(code, (code, &collected as &[u8]).into());
+                    state = OptReadState::ReadCode;
+                } else {
+                    state = OptReadState::Data {
+                        code: code,
+                        length: length,
+                        collected: collected,
+                    };
+                }
+            }
         }
-      },
     }
-  }
 
-  if state != OptReadState::ReadCode {
-    // there was some problem parsing the data for the options, ignoring them
-    // TODO: should we ignore all of the EDNS data in this case?
-    warn!("incomplete or poorly formatted EDNS options: {:?}", state);
-    options.clear();
-  }
+    if state != OptReadState::ReadCode {
+        // there was some problem parsing the data for the options, ignoring them
+        // TODO: should we ignore all of the EDNS data in this case?
+        warn!("incomplete or poorly formatted EDNS options: {:?}", state);
+        options.clear();
+    }
 
-  // the record data is stored as unstructured data, the expectation is that this will be processed after initial parsing.
-  Ok(OPT::new(options))
+    // the record data is stored as unstructured data, the expectation is that this will be processed after initial parsing.
+    Ok(OPT::new(options))
 }
 
 pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> EncodeResult {
-  for (ref edns_code, ref edns_option) in opt.get_options().iter() {
-    try!(encoder.emit_u16(u16::from(**edns_code)));
-    try!(encoder.emit_u16(edns_option.len()));
+    for (ref edns_code, ref edns_option) in opt.get_options().iter() {
+        try!(encoder.emit_u16(u16::from(**edns_code)));
+        try!(encoder.emit_u16(edns_option.len()));
 
-    let data: Vec<u8> = Vec::from(*edns_option);
-    try!(encoder.emit_vec(&data))
-  }
-  Ok(())
+        let data: Vec<u8> = Vec::from(*edns_option);
+        try!(encoder.emit_vec(&data))
+    }
+    Ok(())
 }
 
 #[derive(Debug, PartialEq, Eq)]
 enum OptReadState {
-  ReadCode,
-  Code{ code: EdnsCode }, // expect LSB for the opt code, store the high byte
-  Data { code: EdnsCode, length: usize, collected: Vec<u8> }, // expect the data for the option
+    ReadCode,
+    Code { code: EdnsCode }, // expect LSB for the opt code, store the high byte
+    Data {
+        code: EdnsCode,
+        length: usize,
+        collected: Vec<u8>,
+    }, // expect the data for the option
 }
 
 #[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EdnsCode {
-  /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
-  Zero,
+    /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
+    Zero,
 
-  /// [LLQ On-hold](http://files.dns-sd.org/draft-sekar-dns-llq.txt)
-  LLQ,
+    /// [LLQ On-hold](http://files.dns-sd.org/draft-sekar-dns-llq.txt)
+    LLQ,
 
-  /// [UL On-hold](http://files.dns-sd.org/draft-sekar-dns-ul.txt)
-  UL,
+    /// [UL On-hold](http://files.dns-sd.org/draft-sekar-dns-ul.txt)
+    UL,
 
-  /// [RFC 5001, NSID](https://tools.ietf.org/html/rfc5001)
-  NSID,
-  // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
+    /// [RFC 5001, NSID](https://tools.ietf.org/html/rfc5001)
+    NSID,
+    // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
+    /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
+    DAU,
 
-  /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
-  DAU,
+    /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
+    DHU,
 
-  /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
-  DHU,
+    /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
+    N3U,
 
-  /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
-  N3U,
+    /// [edns-client-subnet, Optional](https://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-02)
+    Subnet,
 
-  /// [edns-client-subnet, Optional](https://tools.ietf.org/html/draft-vandergaast-edns-client-subnet-02)
-  Subnet,
+    /// [RFC 7314, EDNS EXPIRE, Optional](https://tools.ietf.org/html/rfc7314)
+    Expire,
 
-  /// [RFC 7314, EDNS EXPIRE, Optional](https://tools.ietf.org/html/rfc7314)
-  Expire,
+    /// [draft-ietf-dnsop-cookies](https://tools.ietf.org/html/draft-ietf-dnsop-cookies-07)
+    Cookie,
 
-  /// [draft-ietf-dnsop-cookies](https://tools.ietf.org/html/draft-ietf-dnsop-cookies-07)
-  Cookie,
+    /// [draft-ietf-dnsop-edns-tcp-keepalive, Optional](https://tools.ietf.org/html/draft-ietf-dnsop-edns-tcp-keepalive-04)
+    Keepalive,
 
-  /// [draft-ietf-dnsop-edns-tcp-keepalive, Optional](https://tools.ietf.org/html/draft-ietf-dnsop-edns-tcp-keepalive-04)
-  Keepalive,
+    /// [draft-mayrhofer-edns0-padding, Optional](https://tools.ietf.org/html/draft-mayrhofer-edns0-padding-01)
+    Padding,
 
-  /// [draft-mayrhofer-edns0-padding, Optional](https://tools.ietf.org/html/draft-mayrhofer-edns0-padding-01)
-  Padding,
+    /// [draft-ietf-dnsop-edns-chain-query](https://tools.ietf.org/html/draft-ietf-dnsop-edns-chain-query-07)
+    Chain,
 
-  /// [draft-ietf-dnsop-edns-chain-query](https://tools.ietf.org/html/draft-ietf-dnsop-edns-chain-query-07)
-  Chain,
-
-  /// Unknown, used to deal with unknown or unsupported codes
-  Unknown(u16)
+    /// Unknown, used to deal with unknown or unsupported codes
+    Unknown(u16),
 }
 
 // TODO: implement a macro to perform these inversions
 impl From<u16> for EdnsCode {
-  fn from(value: u16) -> EdnsCode {
-    match value {
-      0 => EdnsCode::Zero,
-      1 => EdnsCode::LLQ,
-      2 => EdnsCode::UL,
-      3 => EdnsCode::NSID,
-      // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
-      5 => EdnsCode::DAU,
-      6 => EdnsCode::DHU,
-      7 => EdnsCode::N3U,
-      8 => EdnsCode::Subnet,
-      9 => EdnsCode::Expire,
-      10 => EdnsCode::Cookie,
-      11 => EdnsCode::Keepalive,
-      12 => EdnsCode::Padding,
-      13 => EdnsCode::Chain,
-      _ => EdnsCode::Unknown(value),
+    fn from(value: u16) -> EdnsCode {
+        match value {
+            0 => EdnsCode::Zero,
+            1 => EdnsCode::LLQ,
+            2 => EdnsCode::UL,
+            3 => EdnsCode::NSID,
+            // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
+            5 => EdnsCode::DAU,
+            6 => EdnsCode::DHU,
+            7 => EdnsCode::N3U,
+            8 => EdnsCode::Subnet,
+            9 => EdnsCode::Expire,
+            10 => EdnsCode::Cookie,
+            11 => EdnsCode::Keepalive,
+            12 => EdnsCode::Padding,
+            13 => EdnsCode::Chain,
+            _ => EdnsCode::Unknown(value),
+        }
     }
-  }
 }
 
 impl From<EdnsCode> for u16 {
-  fn from(value: EdnsCode) -> u16 {
-    match value {
-      EdnsCode::Zero => 0,
-      EdnsCode::LLQ => 1,
-      EdnsCode::UL => 2,
-      EdnsCode::NSID => 3,
-      // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
-      EdnsCode::DAU => 5,
-      EdnsCode::DHU => 6,
-      EdnsCode::N3U => 7,
-      EdnsCode::Subnet => 8,
-      EdnsCode::Expire => 9,
-      EdnsCode::Cookie => 10,
-      EdnsCode::Keepalive => 11,
-      EdnsCode::Padding => 12,
-      EdnsCode::Chain => 13,
-      EdnsCode::Unknown(value) => value,
+    fn from(value: EdnsCode) -> u16 {
+        match value {
+            EdnsCode::Zero => 0,
+            EdnsCode::LLQ => 1,
+            EdnsCode::UL => 2,
+            EdnsCode::NSID => 3,
+            // 4 Reserved [draft-cheshire-edns0-owner-option] -EXPIRED-
+            EdnsCode::DAU => 5,
+            EdnsCode::DHU => 6,
+            EdnsCode::N3U => 7,
+            EdnsCode::Subnet => 8,
+            EdnsCode::Expire => 9,
+            EdnsCode::Cookie => 10,
+            EdnsCode::Keepalive => 11,
+            EdnsCode::Padding => 12,
+            EdnsCode::Chain => 13,
+            EdnsCode::Unknown(value) => value,
+        }
     }
-  }
 }
 
 /// options used to pass information about capabilities between client and server
@@ -346,78 +359,79 @@ impl From<EdnsCode> for u16 {
 /// http://www.iana.org/assignments/dns-parameters/dns-parameters.xhtml#dns-parameters-13
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
 pub enum EdnsOption {
-  /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
-  DAU(SupportedAlgorithms),
+    /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
+    DAU(SupportedAlgorithms),
 
-  /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
-  DHU(SupportedAlgorithms),
+    /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
+    DHU(SupportedAlgorithms),
 
-  /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
-  N3U(SupportedAlgorithms),
+    /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
+    N3U(SupportedAlgorithms),
 
-  /// Unknown, used to deal with unknown or unsupported codes
-  Unknown(u16, Vec<u8>)
+    /// Unknown, used to deal with unknown or unsupported codes
+    Unknown(u16, Vec<u8>),
 }
 
 impl EdnsOption {
-  pub fn len(&self) -> u16 {
-    match *self {
-      EdnsOption::DAU(ref algorithms) |
-      EdnsOption::DHU(ref algorithms) |
-      EdnsOption::N3U(ref algorithms) => algorithms.len(),
-      EdnsOption::Unknown(_, ref data) => data.len() as u16, // TODO: should we verify?
+    pub fn len(&self) -> u16 {
+        match *self {
+            EdnsOption::DAU(ref algorithms) |
+            EdnsOption::DHU(ref algorithms) |
+            EdnsOption::N3U(ref algorithms) => algorithms.len(),
+            EdnsOption::Unknown(_, ref data) => data.len() as u16, // TODO: should we verify?
+        }
     }
-  }
 }
 
 /// only the supported extensions are listed right now.
-impl<'a> From<(EdnsCode, &'a[u8])> for EdnsOption {
-  fn from(value: (EdnsCode, &'a[u8])) -> EdnsOption {
-    match value.0 {
-      EdnsCode::DAU => EdnsOption::DAU(value.1.into()),
-      EdnsCode::DHU => EdnsOption::DHU(value.1.into()),
-      EdnsCode::N3U => EdnsOption::N3U(value.1.into()),
-      _ => EdnsOption::Unknown(value.0.into(), value.1.to_vec()),
+impl<'a> From<(EdnsCode, &'a [u8])> for EdnsOption {
+    fn from(value: (EdnsCode, &'a [u8])) -> EdnsOption {
+        match value.0 {
+            EdnsCode::DAU => EdnsOption::DAU(value.1.into()),
+            EdnsCode::DHU => EdnsOption::DHU(value.1.into()),
+            EdnsCode::N3U => EdnsOption::N3U(value.1.into()),
+            _ => EdnsOption::Unknown(value.0.into(), value.1.to_vec()),
+        }
     }
-  }
 }
 
 impl<'a> From<&'a EdnsOption> for Vec<u8> {
-  fn from(value: &'a EdnsOption) -> Vec<u8> {
-    match *value {
-      EdnsOption::DAU(ref algorithms) |
-      EdnsOption::DHU(ref algorithms) |
-      EdnsOption::N3U(ref algorithms) => algorithms.into(),
-      EdnsOption::Unknown(_, ref data) => data.clone(), // gah, clone needed or make a crazy api.
+    fn from(value: &'a EdnsOption) -> Vec<u8> {
+        match *value {
+            EdnsOption::DAU(ref algorithms) |
+            EdnsOption::DHU(ref algorithms) |
+            EdnsOption::N3U(ref algorithms) => algorithms.into(),
+            EdnsOption::Unknown(_, ref data) => data.clone(), // gah, clone needed or make a crazy api.
+        }
     }
-  }
 }
 
 impl<'a> From<&'a EdnsOption> for EdnsCode {
-  fn from(value: &'a EdnsOption) -> EdnsCode {
-    match *value {
-      EdnsOption::DAU(..) => EdnsCode::DAU,
-      EdnsOption::DHU(..) => EdnsCode::DHU,
-      EdnsOption::N3U(..)=> EdnsCode::N3U,
-      EdnsOption::Unknown(code, _) => EdnsCode::Unknown(code),
+    fn from(value: &'a EdnsOption) -> EdnsCode {
+        match *value {
+            EdnsOption::DAU(..) => EdnsCode::DAU,
+            EdnsOption::DHU(..) => EdnsCode::DHU,
+            EdnsOption::N3U(..) => EdnsCode::N3U,
+            EdnsOption::Unknown(code, _) => EdnsCode::Unknown(code),
+        }
     }
-  }
 }
 
 #[test]
 pub fn test() {
-  let mut rdata = OPT::default();
-  rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));
+    let mut rdata = OPT::default();
+    rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));
 
-  let mut bytes = Vec::new();
-  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-  assert!(emit(&mut encoder, &rdata).is_ok());
-  let bytes = encoder.as_bytes();
+    let mut bytes = Vec::new();
+    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+    assert!(emit(&mut encoder, &rdata).is_ok());
+    let bytes = encoder.as_bytes();
 
-  println!("bytes: {:?}", bytes);
+    println!("bytes: {:?}", bytes);
 
-  let mut decoder: BinDecoder = BinDecoder::new(bytes);
-  let read_rdata = read(&mut decoder, bytes.len() as u16);
-  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
-  assert_eq!(rdata, read_rdata.unwrap());
+    let mut decoder: BinDecoder = BinDecoder::new(bytes);
+    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    assert!(read_rdata.is_ok(),
+            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert_eq!(rdata, read_rdata.unwrap());
 }

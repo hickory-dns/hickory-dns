@@ -21,37 +21,41 @@ use futures::Future;
 use tokio_core::reactor::Core;
 
 use ::error::*;
-use ::client::{ClientConnection, ClientStreamHandle};
-use ::udp::UdpClientStream;
+use client::{ClientConnection, ClientStreamHandle};
+use udp::UdpClientStream;
 
 /// UDP based DNS client
 pub struct UdpClientConnection {
-  io_loop: Core,
-  udp_client_stream: Box<Future<Item=UdpClientStream, Error=io::Error>>,
-  client_stream_handle: Box<ClientStreamHandle>,
+    io_loop: Core,
+    udp_client_stream: Box<Future<Item = UdpClientStream, Error = io::Error>>,
+    client_stream_handle: Box<ClientStreamHandle>,
 }
 
 impl UdpClientConnection {
-  /// Creates a new client connection.
-  ///
-  /// *Note* this has side affects of binding the socket to 0.0.0.0 and starting the listening
-  ///        event_loop. Expect this to change in the future.
-  ///
-  /// # Arguments
-  ///
-  /// * `name_server` - address of the name server to use for queries
-  pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
-    let io_loop = try!(Core::new());
-    let (udp_client_stream, handle) = UdpClientStream::new(name_server, io_loop.handle());
+    /// Creates a new client connection.
+    ///
+    /// *Note* this has side affects of binding the socket to 0.0.0.0 and starting the listening
+    ///        event_loop. Expect this to change in the future.
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - address of the name server to use for queries
+    pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
+        let io_loop = try!(Core::new());
+        let (udp_client_stream, handle) = UdpClientStream::new(name_server, io_loop.handle());
 
-    Ok(UdpClientConnection{ io_loop: io_loop, udp_client_stream: udp_client_stream, client_stream_handle: handle })
-  }
+        Ok(UdpClientConnection {
+            io_loop: io_loop,
+            udp_client_stream: udp_client_stream,
+            client_stream_handle: handle,
+        })
+    }
 }
 
 impl ClientConnection for UdpClientConnection {
-  type MessageStream = UdpClientStream;
+    type MessageStream = UdpClientStream;
 
   fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>) {
-    (self.io_loop, self.udp_client_stream, self.client_stream_handle)
-  }
+        (self.io_loop, self.udp_client_stream, self.client_stream_handle)
+    }
 }

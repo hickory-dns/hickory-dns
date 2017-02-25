@@ -47,58 +47,60 @@ use ::serialize::binary::*;
 use ::error::*;
 
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv4Addr> {
-  Ok(Ipv4Addr::new(
-    try!(decoder.pop()),
-    try!(decoder.pop()),
-    try!(decoder.pop()),
-    try!(decoder.pop()))
-  )
+    Ok(Ipv4Addr::new(try!(decoder.pop()),
+                     try!(decoder.pop()),
+                     try!(decoder.pop()),
+                     try!(decoder.pop())))
 }
 
 pub fn emit(encoder: &mut BinEncoder, address: &Ipv4Addr) -> EncodeResult {
-  let segments = address.octets();
+    let segments = address.octets();
 
-  try!(encoder.emit(segments[0]));
-  try!(encoder.emit(segments[1]));
-  try!(encoder.emit(segments[2]));
-  try!(encoder.emit(segments[3]));
-  Ok(())
+    try!(encoder.emit(segments[0]));
+    try!(encoder.emit(segments[1]));
+    try!(encoder.emit(segments[2]));
+    try!(encoder.emit(segments[3]));
+    Ok(())
 }
 
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<Ipv4Addr> {
-  let mut token = tokens.iter();
+    let mut token = tokens.iter();
 
-  let address: Ipv4Addr = try!(token.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("ipv4 address".to_string()))).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
-  Ok(address)
+    let address: Ipv4Addr = try!(token.next()
+        .ok_or(ParseError::from(ParseErrorKind::MissingToken("ipv4 address".to_string())))
+        .and_then(|t| if let &Token::CharData(ref s) = t {
+            Ok(try!(s.parse()))
+        } else {
+            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+        }));
+    Ok(address)
 }
 
 #[cfg(test)]
 mod mytests {
-  use std::net::Ipv4Addr;
-  use std::str::FromStr;
+    use std::net::Ipv4Addr;
+    use std::str::FromStr;
 
-  use super::*;
-  use ::serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
+    use super::*;
+    use serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
 
-  fn get_data() -> Vec<(Ipv4Addr, Vec<u8>)> {
-    vec![
-    (Ipv4Addr::from_str("0.0.0.0").unwrap(), vec![0,0,0,0]), // base case
-    (Ipv4Addr::from_str("1.0.0.0").unwrap(), vec![1,0,0,0]),
-    (Ipv4Addr::from_str("0.1.0.0").unwrap(), vec![0,1,0,0]),
-    (Ipv4Addr::from_str("0.0.1.0").unwrap(), vec![0,0,1,0]),
-    (Ipv4Addr::from_str("0.0.0.1").unwrap(), vec![0,0,0,1]),
-    (Ipv4Addr::from_str("127.0.0.1").unwrap(), vec![127,0,0,1]),
-    (Ipv4Addr::from_str("192.168.64.32").unwrap(), vec![192,168,64,32]),
-    ]
-  }
+    fn get_data() -> Vec<(Ipv4Addr, Vec<u8>)> {
+        vec![(Ipv4Addr::from_str("0.0.0.0").unwrap(), vec![0, 0, 0, 0]), // base case
+             (Ipv4Addr::from_str("1.0.0.0").unwrap(), vec![1, 0, 0, 0]),
+             (Ipv4Addr::from_str("0.1.0.0").unwrap(), vec![0, 1, 0, 0]),
+             (Ipv4Addr::from_str("0.0.1.0").unwrap(), vec![0, 0, 1, 0]),
+             (Ipv4Addr::from_str("0.0.0.1").unwrap(), vec![0, 0, 0, 1]),
+             (Ipv4Addr::from_str("127.0.0.1").unwrap(), vec![127, 0, 0, 1]),
+             (Ipv4Addr::from_str("192.168.64.32").unwrap(), vec![192, 168, 64, 32])]
+    }
 
-  #[test]
-  fn test_parse() {
-    test_read_data_set(get_data(), |ref mut d| read(d));
-  }
+    #[test]
+    fn test_parse() {
+        test_read_data_set(get_data(), |ref mut d| read(d));
+    }
 
-  #[test]
-  fn test_write_to() {
-    test_emit_data_set(get_data(), |ref mut e, d| emit(e, &d));
-  }
+    #[test]
+    fn test_write_to() {
+        test_emit_data_set(get_data(), |ref mut e, d| emit(e, &d));
+    }
 }

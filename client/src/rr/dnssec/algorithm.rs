@@ -101,140 +101,144 @@ use ::error::*;
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, RustcDecodable)]
 pub enum Algorithm {
-  /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
-  RSASHA1,
-  /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
-  RSASHA1NSEC3SHA1,
-  RSASHA256,
-  RSASHA512,
-  /// [rfc6605](https://tools.ietf.org/html/rfc6605)
-  ECDSAP256SHA256,
-  /// [rfc6605](https://tools.ietf.org/html/rfc6605)
-  ECDSAP384SHA384,
-  /// [draft-ietf-curdle-dnskey-eddsa-03](https://tools.ietf.org/html/draft-ietf-curdle-dnskey-eddsa-03)
-  ED25519,
+    /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
+    RSASHA1,
+    /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
+    RSASHA1NSEC3SHA1,
+    RSASHA256,
+    RSASHA512,
+    /// [rfc6605](https://tools.ietf.org/html/rfc6605)
+    ECDSAP256SHA256,
+    /// [rfc6605](https://tools.ietf.org/html/rfc6605)
+    ECDSAP384SHA384,
+    /// [draft-ietf-curdle-dnskey-eddsa-03](https://tools.ietf.org/html/draft-ietf-curdle-dnskey-eddsa-03)
+    ED25519,
 }
 
 impl Algorithm {
-  /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-  pub fn from_u8(value: u8) -> DecodeResult<Self> {
-    match value {
-      5  => Ok(Algorithm::RSASHA1),
-      7  => Ok(Algorithm::RSASHA1NSEC3SHA1),
-      8  => Ok(Algorithm::RSASHA256),
-      10 => Ok(Algorithm::RSASHA512),
-      13 => Ok(Algorithm::ECDSAP256SHA256),
-      14 => Ok(Algorithm::ECDSAP384SHA384),
-      15 => Ok(Algorithm::ED25519), // FIXME: assuming IANA will give this as the next number...
-      _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
+    /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+    pub fn from_u8(value: u8) -> DecodeResult<Self> {
+        match value {
+            5 => Ok(Algorithm::RSASHA1),
+            7 => Ok(Algorithm::RSASHA1NSEC3SHA1),
+            8 => Ok(Algorithm::RSASHA256),
+            10 => Ok(Algorithm::RSASHA512),
+            13 => Ok(Algorithm::ECDSAP256SHA256),
+            14 => Ok(Algorithm::ECDSAP384SHA384),
+            15 => Ok(Algorithm::ED25519), // FIXME: assuming IANA will give this as the next number...
+            _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
+        }
     }
-  }
 
-  /// length in bytes that the hash portion of this function will produce
-  pub fn hash_len(&self) -> usize {
-    match *self {
-      Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
-      Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 | Algorithm::ED25519 => 32, // 256 bits
-      Algorithm::ECDSAP384SHA384 => 48,
-      Algorithm::RSASHA512 => 64, // 512 bites
+    /// length in bytes that the hash portion of this function will produce
+    pub fn hash_len(&self) -> usize {
+        match *self {
+            Algorithm::RSASHA1 |
+            Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
+            Algorithm::RSASHA256 |
+            Algorithm::ECDSAP256SHA256 |
+            Algorithm::ED25519 => 32, // 256 bits
+            Algorithm::ECDSAP384SHA384 => 48,
+            Algorithm::RSASHA512 => 64, // 512 bites
+        }
     }
-  }
 
-  pub fn to_str(&self) -> &'static str {
-    match *self {
-      Algorithm::RSASHA1 => "RSASHA1",
-      Algorithm::RSASHA256 => "RSASHA256",
-      Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
-      Algorithm::RSASHA512 => "RSASHA512",
-      Algorithm::ECDSAP256SHA256 => "ECDSAP256SHA256",
-      Algorithm::ECDSAP384SHA384 => "ECDSAP384SHA384",
-      Algorithm::ED25519 => "ED25519",
+    pub fn to_str(&self) -> &'static str {
+        match *self {
+            Algorithm::RSASHA1 => "RSASHA1",
+            Algorithm::RSASHA256 => "RSASHA256",
+            Algorithm::RSASHA1NSEC3SHA1 => "RSASHA1-NSEC3-SHA1",
+            Algorithm::RSASHA512 => "RSASHA512",
+            Algorithm::ECDSAP256SHA256 => "ECDSAP256SHA256",
+            Algorithm::ECDSAP384SHA384 => "ECDSAP384SHA384",
+            Algorithm::ED25519 => "ED25519",
+        }
     }
-  }
 }
 
 impl BinSerializable<Algorithm> for Algorithm {
-  // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<Algorithm> {
-    let algorithm_id = try!(decoder.read_u8());
-    Algorithm::from_u8(algorithm_id)
-  }
+    // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
+    fn read(decoder: &mut BinDecoder) -> DecodeResult<Algorithm> {
+        let algorithm_id = try!(decoder.read_u8());
+        Algorithm::from_u8(algorithm_id)
+    }
 
-  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-    encoder.emit(u8::from(*self))
-  }
+    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+        encoder.emit(u8::from(*self))
+    }
 }
 
 impl FromStr for Algorithm {
-  type Err = DecodeError;
+    type Err = DecodeError;
 
-  fn from_str(s: &str) -> DecodeResult<Algorithm> {
-    match s {
-      "RSASHA1" => Ok(Algorithm::RSASHA1),
-      "RSASHA256" => Ok(Algorithm::RSASHA256),
-      "RSASHA1-NSEC3-SHA1" => Ok(Algorithm::RSASHA1NSEC3SHA1),
-      "RSASHA512" => Ok(Algorithm::RSASHA512),
-      "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
-      "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
-      "ED25519" => Ok(Algorithm::ED25519),
-      _ => Err(DecodeErrorKind::Msg(format!("unrecognized string {}", s)).into()),
+    fn from_str(s: &str) -> DecodeResult<Algorithm> {
+        match s {
+            "RSASHA1" => Ok(Algorithm::RSASHA1),
+            "RSASHA256" => Ok(Algorithm::RSASHA256),
+            "RSASHA1-NSEC3-SHA1" => Ok(Algorithm::RSASHA1NSEC3SHA1),
+            "RSASHA512" => Ok(Algorithm::RSASHA512),
+            "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
+            "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
+            "ED25519" => Ok(Algorithm::ED25519),
+            _ => Err(DecodeErrorKind::Msg(format!("unrecognized string {}", s)).into()),
+        }
     }
-  }
 }
 
 impl From<Algorithm> for &'static str {
-  fn from(a: Algorithm) -> &'static str {
-    a.to_str()
-  }
+    fn from(a: Algorithm) -> &'static str {
+        a.to_str()
+    }
 }
 
 impl From<Algorithm> for u8 {
-  fn from(a: Algorithm) -> u8 {
-    match a {
-      Algorithm::RSASHA1 => 5,
-      Algorithm::RSASHA1NSEC3SHA1 => 7,
-      Algorithm::RSASHA256 => 8,
-      Algorithm::RSASHA512 => 10,
-      Algorithm::ECDSAP256SHA256 => 13,
-      Algorithm::ECDSAP384SHA384 => 14,
-      Algorithm::ED25519 => 15, // FIXME: assuming IANA will give this as the next number...
+    fn from(a: Algorithm) -> u8 {
+        match a {
+            Algorithm::RSASHA1 => 5,
+            Algorithm::RSASHA1NSEC3SHA1 => 7,
+            Algorithm::RSASHA256 => 8,
+            Algorithm::RSASHA512 => 10,
+            Algorithm::ECDSAP256SHA256 => 13,
+            Algorithm::ECDSAP384SHA384 => 14,
+            Algorithm::ED25519 => 15, // FIXME: assuming IANA will give this as the next number...
+        }
     }
-  }
 }
 
 #[test]
 fn test_into() {
-  for algorithm in &[Algorithm::RSASHA1,
-                     Algorithm::RSASHA256,
-                     Algorithm::RSASHA1NSEC3SHA1,
-                     Algorithm::RSASHA512,
-                     Algorithm::ECDSAP256SHA256,
-                     Algorithm::ECDSAP384SHA384,
-                     Algorithm::ED25519] {
-    assert_eq!(*algorithm, Algorithm::from_u8(Into::<u8>::into(*algorithm)).unwrap())
-  }
+    for algorithm in &[Algorithm::RSASHA1,
+                       Algorithm::RSASHA256,
+                       Algorithm::RSASHA1NSEC3SHA1,
+                       Algorithm::RSASHA512,
+                       Algorithm::ECDSAP256SHA256,
+                       Algorithm::ECDSAP384SHA384,
+                       Algorithm::ED25519] {
+        assert_eq!(*algorithm,
+                   Algorithm::from_u8(Into::<u8>::into(*algorithm)).unwrap())
+    }
 }
 
 #[test]
 fn test_order() {
-  let mut algorithms = [Algorithm::RSASHA1,
-                        Algorithm::RSASHA256,
-                        Algorithm::RSASHA1NSEC3SHA1,
-                        Algorithm::RSASHA512,
-                        Algorithm::ECDSAP256SHA256,
-                        Algorithm::ECDSAP384SHA384,
-                        Algorithm::ED25519];
+    let mut algorithms = [Algorithm::RSASHA1,
+                          Algorithm::RSASHA256,
+                          Algorithm::RSASHA1NSEC3SHA1,
+                          Algorithm::RSASHA512,
+                          Algorithm::ECDSAP256SHA256,
+                          Algorithm::ECDSAP384SHA384,
+                          Algorithm::ED25519];
 
-  algorithms.sort();
+    algorithms.sort();
 
-  for (got, expect) in algorithms.iter().zip(
-                            [Algorithm::RSASHA1,
-                             Algorithm::RSASHA1NSEC3SHA1,
-                             Algorithm::RSASHA256,
-                             Algorithm::RSASHA512,
-                             Algorithm::ECDSAP256SHA256,
-                             Algorithm::ECDSAP384SHA384,
-                             Algorithm::ED25519].iter()) {
-    assert_eq!(got, expect);
-  }
+    for (got, expect) in algorithms.iter().zip([Algorithm::RSASHA1,
+                                                Algorithm::RSASHA1NSEC3SHA1,
+                                                Algorithm::RSASHA256,
+                                                Algorithm::RSASHA512,
+                                                Algorithm::ECDSAP256SHA256,
+                                                Algorithm::ECDSAP384SHA384,
+                                                Algorithm::ED25519]
+        .iter()) {
+        assert_eq!(got, expect);
+    }
 }

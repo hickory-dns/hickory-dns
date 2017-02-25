@@ -16,7 +16,7 @@
 use std::collections::BTreeMap;
 
 use ::error::*;
-use ::rr::{ Name, IntoRecordSet, RecordType, Record, DNSClass, RData, RrKey, RecordSet };
+use rr::{Name, IntoRecordSet, RecordType, Record, DNSClass, RData, RrKey, RecordSet};
 
 use super::master_lex::{Lexer, Token};
 
@@ -123,239 +123,272 @@ use super::master_lex::{Lexer, Token};
 pub struct Parser;
 
 impl Parser {
-  pub fn new() -> Self {
-    Parser
-  }
+    pub fn new() -> Self {
+        Parser
+    }
 
-  // TODO: change this function to load into an Authority, using the update_records() method
-  pub fn parse(&mut self, lexer: Lexer, origin: Option<Name>) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
-    let mut lexer = lexer;
-    let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
+    // TODO: change this function to load into an Authority, using the update_records() method
+    pub fn parse(&mut self,
+                 lexer: Lexer,
+                 origin: Option<Name>)
+                 -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
+        let mut lexer = lexer;
+        let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
 
-    let mut origin: Option<Name> = origin;
-    let mut current_name: Option<Name> = None;
-    let mut rtype: Option<RecordType> = None;
-    let mut ttl: Option<u32> = None;
-    let mut class: Option<DNSClass> = None;
-    let mut state = State::StartLine;
-    let mut tokens: Vec<Token> = Vec::new();
+        let mut origin: Option<Name> = origin;
+        let mut current_name: Option<Name> = None;
+        let mut rtype: Option<RecordType> = None;
+        let mut ttl: Option<u32> = None;
+        let mut class: Option<DNSClass> = None;
+        let mut state = State::StartLine;
+        let mut tokens: Vec<Token> = Vec::new();
 
-    while let Some(t) = try!(lexer.next_token()) {
-      state = match state {
-        State::StartLine => {
-          // current_name is not reset on the next line b/c it might be needed from the previous
-          rtype = None;
-          tokens.clear();
+        while let Some(t) = try!(lexer.next_token()) {
+            state = match state {
+                State::StartLine => {
+                    // current_name is not reset on the next line b/c it might be needed from the previous
+                    rtype = None;
+                    tokens.clear();
 
-          match t {
-            // if Dollar, then $INCLUDE or $ORIGIN
-            Token::Include => unimplemented!(),
-            Token::Origin => State::Origin,
-            Token::Ttl => State::Ttl,
+                    match t {
+                        // if Dollar, then $INCLUDE or $ORIGIN
+                        Token::Include => unimplemented!(),
+                        Token::Origin => State::Origin,
+                        Token::Ttl => State::Ttl,
 
-            // if CharData, then Name then ttl_class_type
-            Token::CharData(ref data) => {
-              current_name = Some(try!(Name::parse(data, origin.as_ref())));
-              State::TtlClassType
-            },
+                        // if CharData, then Name then ttl_class_type
+                        Token::CharData(ref data) => {
+                            current_name = Some(try!(Name::parse(data, origin.as_ref())));
+                            State::TtlClassType
+                        }
 
-            // @ is a placeholder for specifying the current origin
-            Token::At => {
-              current_name = origin.clone(); // TODO a COW or RC would reduce copies...
-              State::TtlClassType
-            }
+                        // @ is a placeholder for specifying the current origin
+                        Token::At => {
+                            current_name = origin.clone(); // TODO a COW or RC would reduce copies...
+                            State::TtlClassType
+                        }
 
-            // if blank, then nothing or ttl_class_type
-            Token::Blank => {
-              State::TtlClassType
-            },
-            Token::EOL => State::StartLine, // probably a comment
-            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
-          }
-        },
-        State::Ttl => {
-          match t {
-            Token::CharData(ref data) => {
-              ttl = Some(try!(Self::parse_time(data)));
-              State::StartLine
-            }
-            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
-          }
-        }
-        State::Origin => {
-          match t {
-            Token::CharData(ref data) => {
-              // TODO an origin was specified, should this be legal? definitely confusing...
-              origin = Some(try!(Name::parse(data, None)));
-              State::StartLine
-            }
-            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
-          }
-        }
-        State::Include => unimplemented!(),
-        State::TtlClassType => {
-          match t {
-            // if number, TTL
-            // Token::Number(ref num) => ttl = Some(*num),
-            // One of Class or Type (these cannot be overlapping!)
-            Token::CharData(ref data) => {
-              // if it's a number it's a ttl
-              let result: ParseResult<u32> = Self::parse_time(data);
-              if result.is_ok() {
-                ttl = result.ok();
-                State::TtlClassType // hm, should this go to just ClassType?
-              } else {
-                // if can parse DNSClass, then class
-                let result = DNSClass::from_str(data);
-                if result.is_ok() {
-                  class = result.ok();
-                  State::TtlClassType
-                } else {
-
-                  // if can parse RecordType, then RecordType
-                  rtype = Some(try!(RecordType::from_str(data)));
-                  State::Record
+                        // if blank, then nothing or ttl_class_type
+                        Token::Blank => State::TtlClassType,
+                        Token::EOL => State::StartLine, // probably a comment
+                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                    }
                 }
-              }
+                State::Ttl => {
+                    match t {
+                        Token::CharData(ref data) => {
+                            ttl = Some(try!(Self::parse_time(data)));
+                            State::StartLine
+                        }
+                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                    }
+                }
+                State::Origin => {
+                    match t {
+                        Token::CharData(ref data) => {
+                            // TODO an origin was specified, should this be legal? definitely confusing...
+                            origin = Some(try!(Name::parse(data, None)));
+                            State::StartLine
+                        }
+                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                    }
+                }
+                State::Include => unimplemented!(),
+                State::TtlClassType => {
+                    match t {
+                        // if number, TTL
+                        // Token::Number(ref num) => ttl = Some(*num),
+                        // One of Class or Type (these cannot be overlapping!)
+                        Token::CharData(ref data) => {
+                            // if it's a number it's a ttl
+                            let result: ParseResult<u32> = Self::parse_time(data);
+                            if result.is_ok() {
+                                ttl = result.ok();
+                                State::TtlClassType // hm, should this go to just ClassType?
+                            } else {
+                                // if can parse DNSClass, then class
+                                let result = DNSClass::from_str(data);
+                                if result.is_ok() {
+                                    class = result.ok();
+                                    State::TtlClassType
+                                } else {
+
+                                    // if can parse RecordType, then RecordType
+                                    rtype = Some(try!(RecordType::from_str(data)));
+                                    State::Record
+                                }
+                            }
+                        }
+                        // could be nothing if started with blank and is a comment, i.e. EOL
+                        Token::EOL => {
+                            State::StartLine // next line
+                        }
+                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                    }
+                }
+                State::Record => {
+                    // b/c of ownership rules, perhaps, just collect all the RData components as a list of
+                    //  tokens to pass into the processor
+                    match t {
+                        Token::EOL => {
+                            // call out to parsers for difference record types
+                            let rdata = try!(RData::parse(try!(rtype.ok_or(ParseError::from(ParseErrorKind::Message("record type not specified")))), &tokens, origin.as_ref()));
+
+                            // verify that we have everything we need for the record
+                            let mut record = Record::new();
+                            // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
+                            //  might want to wait until RC.weak() stabilizes, as that would be needed for global
+                            //  memory where you want
+                            record.name(try!(current_name.clone().ok_or(ParseError::from(ParseErrorKind::Message("record name not specified")))));
+                            record.rr_type(rtype.unwrap());
+                            record.dns_class(try!(class.ok_or(ParseError::from(ParseErrorKind::Message("record class not specified")))));
+
+                            // slightly annoying, need to grab the TTL, then move rdata into the record,
+                            //  then check the Type again and have custom add logic.
+                            match rtype.unwrap() {
+                                RecordType::SOA => {
+                                    // TTL for the SOA is set internally...
+                                    // expire is for the SOA, minimum is default for records
+                                    if let RData::SOA(ref soa) = rdata {
+                                        // TODO, this looks wrong, get_expire() should be get_minimum(), right?
+                                        record.ttl(soa.get_expire() as u32); // the spec seems a little inaccurate with u32 and i32
+                                        if ttl.is_none() {
+                                            ttl = Some(soa.get_minimum());
+                                        } // TODO: should this only set it if it's not set?
+                                    } else {
+                                        assert!(false,
+                                                "Invalid RData here, expected SOA: {:?}",
+                                                rdata);
+                                    }
+                                }
+                                _ => {
+                                    record.ttl(try!(ttl.ok_or(ParseError::from(ParseErrorKind::Message("record ttl not specified")))));
+                                }
+                            }
+
+                            // TODO validate record, e.g. the name of SRV record allows _ but others do not.
+
+                            // move the rdata into record...
+                            record.rdata(rdata);
+
+                            // add to the map
+                            let key = RrKey::new(record.get_name(), record.get_rr_type());
+
+                            match rtype.unwrap() {
+                                RecordType::SOA => {
+                                    let set = record.into_record_set();
+                                    if records.insert(key, set).is_some() {
+                                        return Err(ParseErrorKind::Message("SOA is already \
+                                                                            specified")
+                                            .into());
+                                    }
+                                }
+                                _ => {
+                                    // add a Vec if it's not there, then add the record to the list
+                                    let mut set = records.entry(key)
+                                        .or_insert(RecordSet::new(record.get_name(),
+                                                                  record.get_rr_type(),
+                                                                  0));
+                                    set.insert(record, 0);
+                                }
+                            }
+
+                            State::StartLine
+                        }
+                        _ => {
+                            tokens.push(t);
+                            State::Record
+                        }
+                    }
+                }
             }
-            // could be nothing if started with blank and is a comment, i.e. EOL
-            Token::EOL => {
-              State::StartLine // next line
-            },
-            _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
-          }
-        },
-        State::Record => {
-          // b/c of ownership rules, perhaps, just collect all the RData components as a list of
-          //  tokens to pass into the processor
-          match t {
-            Token::EOL => {
-              // call out to parsers for difference record types
-              let rdata = try!(RData::parse(try!(rtype.ok_or(ParseError::from(ParseErrorKind::Message("record type not specified")))), &tokens, origin.as_ref()));
+        }
 
-              // verify that we have everything we need for the record
-              let mut record = Record::new();
-              // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
-              //  might want to wait until RC.weak() stabilizes, as that would be needed for global
-              //  memory where you want
-              record.name(try!(current_name.clone().ok_or(ParseError::from(ParseErrorKind::Message("record name not specified")))));
-              record.rr_type(rtype.unwrap());
-              record.dns_class(try!(class.ok_or(ParseError::from(ParseErrorKind::Message("record class not specified")))));
-
-              // slightly annoying, need to grab the TTL, then move rdata into the record,
-              //  then check the Type again and have custom add logic.
-              match rtype.unwrap() {
-                RecordType::SOA => {
-                  // TTL for the SOA is set internally...
-                  // expire is for the SOA, minimum is default for records
-                  if let RData::SOA(ref soa) = rdata {
-                    // TODO, this looks wrong, get_expire() should be get_minimum(), right?
-                    record.ttl(soa.get_expire() as u32); // the spec seems a little inaccurate with u32 and i32
-                    if ttl.is_none() { ttl = Some(soa.get_minimum()); } // TODO: should this only set it if it's not set?
-                  } else { assert!(false, "Invalid RData here, expected SOA: {:?}", rdata); }
-                },
-                _ => {
-                  record.ttl(try!(ttl.ok_or(ParseError::from(ParseErrorKind::Message("record ttl not specified")))));
-                },
-              }
-
-              // TODO validate record, e.g. the name of SRV record allows _ but others do not.
-
-              // move the rdata into record...
-              record.rdata(rdata);
-
-              // add to the map
-              let key = RrKey::new(record.get_name(), record.get_rr_type());
-
-              match rtype.unwrap() {
-                RecordType::SOA => {
-                  let set = record.into_record_set();
-                  if records.insert(key, set).is_some() {
-                    return Err(ParseErrorKind::Message("SOA is already specified").into());
-                  }
-                },
-                _ => {
-                  // add a Vec if it's not there, then add the record to the list
-                  let mut set = records.entry(key).or_insert(RecordSet::new(record.get_name(), record.get_rr_type(), 0));
-                  set.insert(record, 0);
-                },
-              }
-
-              State::StartLine
-            },
-            _ => { tokens.push(t); State::Record },
-          }
-        },
-      }
+        //
+        // build the Authority and return.
+        let origin = try!(origin.ok_or(ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))));
+        Ok((origin, records))
     }
 
-    //
-    // build the Authority and return.
-    let origin = try!(origin.ok_or(ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))));
-    Ok((origin, records))
-  }
+    /// parses the string following the rules from:
+    ///  https://tools.ietf.org/html/rfc2308 (NXCaching RFC) and
+    ///  http://www.zytrax.com/books/dns/apa/time.html
+    ///
+    /// default is seconds
+    /// #s = seconds = # x 1 seconds (really!)
+    /// #m = minutes = # x 60 seconds
+    /// #h = hours   = # x 3600 seconds
+    /// #d = day     = # x 86400 seconds
+    /// #w = week    = # x 604800 seconds
+    ///
+    /// returns the result of the parsing or and error
+    ///
+    /// # Example
+    /// ```
+    /// use trust_dns::serialize::txt::Parser;
+    ///
+    /// assert_eq!(Parser::parse_time("0").unwrap(),  0);
+    /// assert_eq!(Parser::parse_time("s").unwrap(),  0);
+    /// assert_eq!(Parser::parse_time("0s").unwrap(), 0);
+    /// assert_eq!(Parser::parse_time("1").unwrap(),  1);
+    /// assert_eq!(Parser::parse_time("1S").unwrap(), 1);
+    /// assert_eq!(Parser::parse_time("1s").unwrap(), 1);
+    /// assert_eq!(Parser::parse_time("1M").unwrap(), 60);
+    /// assert_eq!(Parser::parse_time("1m").unwrap(), 60);
+    /// assert_eq!(Parser::parse_time("1H").unwrap(), 3600);
+    /// assert_eq!(Parser::parse_time("1h").unwrap(), 3600);
+    /// assert_eq!(Parser::parse_time("1D").unwrap(), 86400);
+    /// assert_eq!(Parser::parse_time("1d").unwrap(), 86400);
+    /// assert_eq!(Parser::parse_time("1W").unwrap(), 604800);
+    /// assert_eq!(Parser::parse_time("1w").unwrap(), 604800);
+    /// assert_eq!(Parser::parse_time("1s2d3w4h2m").unwrap(), 1+2*86400+3*604800+4*3600+2*60);
+    /// assert_eq!(Parser::parse_time("3w3w").unwrap(), 3*604800+3*604800);
+    /// ```
+    pub fn parse_time(ttl_str: &str) -> ParseResult<u32> {
+        let mut value: u32 = 0;
+        let mut collect: u32 = 0;
 
-  /// parses the string following the rules from:
-  ///  https://tools.ietf.org/html/rfc2308 (NXCaching RFC) and
-  ///  http://www.zytrax.com/books/dns/apa/time.html
-  ///
-  /// default is seconds
-  /// #s = seconds = # x 1 seconds (really!)
-  /// #m = minutes = # x 60 seconds
-  /// #h = hours   = # x 3600 seconds
-  /// #d = day     = # x 86400 seconds
-  /// #w = week    = # x 604800 seconds
-  ///
-  /// returns the result of the parsing or and error
-  ///
-  /// # Example
-  /// ```
-  /// use trust_dns::serialize::txt::Parser;
-  ///
-  /// assert_eq!(Parser::parse_time("0").unwrap(),  0);
-  /// assert_eq!(Parser::parse_time("s").unwrap(),  0);
-  /// assert_eq!(Parser::parse_time("0s").unwrap(), 0);
-  /// assert_eq!(Parser::parse_time("1").unwrap(),  1);
-  /// assert_eq!(Parser::parse_time("1S").unwrap(), 1);
-  /// assert_eq!(Parser::parse_time("1s").unwrap(), 1);
-  /// assert_eq!(Parser::parse_time("1M").unwrap(), 60);
-  /// assert_eq!(Parser::parse_time("1m").unwrap(), 60);
-  /// assert_eq!(Parser::parse_time("1H").unwrap(), 3600);
-  /// assert_eq!(Parser::parse_time("1h").unwrap(), 3600);
-  /// assert_eq!(Parser::parse_time("1D").unwrap(), 86400);
-  /// assert_eq!(Parser::parse_time("1d").unwrap(), 86400);
-  /// assert_eq!(Parser::parse_time("1W").unwrap(), 604800);
-  /// assert_eq!(Parser::parse_time("1w").unwrap(), 604800);
-  /// assert_eq!(Parser::parse_time("1s2d3w4h2m").unwrap(), 1+2*86400+3*604800+4*3600+2*60);
-  /// assert_eq!(Parser::parse_time("3w3w").unwrap(), 3*604800+3*604800);
-  /// ```
-  pub fn parse_time(ttl_str: &str) -> ParseResult<u32> {
-    let mut value: u32 = 0;
-    let mut collect: u32 = 0;
+        for c in ttl_str.chars() {
+            match c {
+                // TODO, should these all be checked operations?
+                '0'...'9' => {
+                    collect *= 10;
+                    collect += try!(c.to_digit(10).ok_or(ParseErrorKind::CharToIntError(c)));
+                }
+                'S' | 's' => {
+                    value += collect;
+                    collect = 0;
+                }
+                'M' | 'm' => {
+                    value += collect * 60;
+                    collect = 0;
+                }
+                'H' | 'h' => {
+                    value += collect * 3600;
+                    collect = 0;
+                }
+                'D' | 'd' => {
+                    value += collect * 86400;
+                    collect = 0;
+                }
+                'W' | 'w' => {
+                    value += collect * 604800;
+                    collect = 0;
+                }
+                _ => return Err(ParseErrorKind::ParseTimeError(ttl_str.to_string()).into()),
+            }
+        }
 
-    for c in ttl_str.chars() {
-      match c {
-        // TODO, should these all be checked operations?
-        '0' ... '9' => { collect *= 10; collect += try!(c.to_digit(10).ok_or(ParseErrorKind::CharToIntError(c))); },
-        'S' | 's'  => { value += collect; collect = 0; },
-        'M' | 'm'  => { value += collect * 60; collect = 0; },
-        'H' | 'h'  => { value += collect * 3600; collect = 0; },
-        'D' | 'd'  => { value += collect * 86400; collect = 0; },
-        'W' | 'w'  => { value += collect * 604800; collect = 0; },
-        _ => return Err(ParseErrorKind::ParseTimeError(ttl_str.to_string()).into()),
-      }
+        return Ok(value + collect); // collects the initial num, or 0 if it was already collected
     }
-
-    return Ok(value + collect); // collects the initial num, or 0 if it was already collected
-  }
 }
 
 #[allow(unused)]
 enum State {
-  StartLine,       // start of line, @, $<WORD>, Name, Blank
-  TtlClassType,    // [<TTL>] [<class>] <type>,
-  Ttl,             // $TTL <time>
-  Record,
-  Include,         // $INCLUDE <filename>
-  Origin,
+    StartLine, // start of line, @, $<WORD>, Name, Blank
+    TtlClassType, // [<TTL>] [<class>] <type>,
+    Ttl, // $TTL <time>
+    Record,
+    Include, // $INCLUDE <filename>
+    Origin,
 }

@@ -19,7 +19,7 @@
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::domain::Name;
+use rr::domain::Name;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
 ///
@@ -66,129 +66,160 @@ use ::rr::domain::Name;
 /// change the SOA RR with known semantics.
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct SOA { mname: Name, rname: Name, serial: u32,
-                 refresh: i32, retry: i32, expire: i32,
-                 minimum: u32, }
+pub struct SOA {
+    mname: Name,
+    rname: Name,
+    serial: u32,
+    refresh: i32,
+    retry: i32,
+    expire: i32,
+    minimum: u32,
+}
 
 impl SOA {
-  /// Creates a new SOA record data.
-  ///
-  /// # Arguments
-  ///
-  /// * `mname` - the name of the master, primary, authority for this zone.
-  /// * `rname` - the name of the responsible party for this zone, e.g. an email address.
-  /// * `serial` - the serial number of the zone, used for caching purposes.
-  /// * `refresh` - the amount of time to wait before a zone is resynched.
-  /// * `retry` - the minimum period to wait if there is a failure during refresh.
-  /// * `expire` - the time until this master is no longer authoritative for the zone.
-  /// * `minimum` - no zone records should have time-to-live values less than this minimum.
-  ///
-  /// # Return value
-  ///
-  /// The newly created SOA record data.
-  pub fn new(mname: Name, rname: Name, serial: u32,
-             refresh: i32, retry: i32, expire: i32,
-             minimum: u32) -> Self {
-    SOA { mname: mname, rname: rname, serial: serial,
-          refresh: refresh, retry: retry, expire: expire,
-          minimum: minimum, }
-  }
+    /// Creates a new SOA record data.
+    ///
+    /// # Arguments
+    ///
+    /// * `mname` - the name of the master, primary, authority for this zone.
+    /// * `rname` - the name of the responsible party for this zone, e.g. an email address.
+    /// * `serial` - the serial number of the zone, used for caching purposes.
+    /// * `refresh` - the amount of time to wait before a zone is resynched.
+    /// * `retry` - the minimum period to wait if there is a failure during refresh.
+    /// * `expire` - the time until this master is no longer authoritative for the zone.
+    /// * `minimum` - no zone records should have time-to-live values less than this minimum.
+    ///
+    /// # Return value
+    ///
+    /// The newly created SOA record data.
+    pub fn new(mname: Name,
+               rname: Name,
+               serial: u32,
+               refresh: i32,
+               retry: i32,
+               expire: i32,
+               minimum: u32)
+               -> Self {
+        SOA {
+            mname: mname,
+            rname: rname,
+            serial: serial,
+            refresh: refresh,
+            retry: retry,
+            expire: expire,
+            minimum: minimum,
+        }
+    }
 
-  /// Increments the serial number by one
-  pub fn increment_serial(&mut self) {
-    self.serial += 1; // TODO: what to do on overflow?
-  }
+    /// Increments the serial number by one
+    pub fn increment_serial(&mut self) {
+        self.serial += 1; // TODO: what to do on overflow?
+    }
 
-  /// ```text
-  /// MNAME           The <domain-name> of the name server that was the
-  ///                 original or primary source of data for this zone.
-  /// ```
-  ///
-  /// # Return value
-  ///
-  /// The `domain-name` of the name server that was the original or primary source of data for
-  /// this zone, i.e. the master name server.
-  pub fn get_mname(&self) -> &Name { &self.mname }
+    /// ```text
+    /// MNAME           The <domain-name> of the name server that was the
+    ///                 original or primary source of data for this zone.
+    /// ```
+    ///
+    /// # Return value
+    ///
+    /// The `domain-name` of the name server that was the original or primary source of data for
+    /// this zone, i.e. the master name server.
+    pub fn get_mname(&self) -> &Name {
+        &self.mname
+    }
 
-  /// ```text
-  /// RNAME           A <domain-name> which specifies the mailbox of the
-  ///                 person responsible for this zone.
-  /// ```
-  ///
-  /// # Return value
-  ///
-  /// A `domain-name` which specifies the mailbox of the person responsible for this zone, i.e.
-  /// the responsible name.
-  pub fn get_rname(&self) -> &Name { &self.rname }
+    /// ```text
+    /// RNAME           A <domain-name> which specifies the mailbox of the
+    ///                 person responsible for this zone.
+    /// ```
+    ///
+    /// # Return value
+    ///
+    /// A `domain-name` which specifies the mailbox of the person responsible for this zone, i.e.
+    /// the responsible name.
+    pub fn get_rname(&self) -> &Name {
+        &self.rname
+    }
 
-  /// ```text
-  /// SERIAL          The unsigned 32 bit version number of the original copy
-  ///                 of the zone.  Zone transfers preserve this value.  This
-  ///                 value wraps and should be compared using sequence space
-  ///                 arithmetic.
-  /// ```
-  ///
-  /// # Return value
-  ///
-  /// The unsigned 32 bit version number of the original copy of the zone. Zone transfers
-  /// preserve this value. This value wraps and should be compared using sequence space arithmetic.
-  pub fn get_serial(&self) -> u32 { self.serial }
+    /// ```text
+    /// SERIAL          The unsigned 32 bit version number of the original copy
+    ///                 of the zone.  Zone transfers preserve this value.  This
+    ///                 value wraps and should be compared using sequence space
+    ///                 arithmetic.
+    /// ```
+    ///
+    /// # Return value
+    ///
+    /// The unsigned 32 bit version number of the original copy of the zone. Zone transfers
+    /// preserve this value. This value wraps and should be compared using sequence space arithmetic.
+    pub fn get_serial(&self) -> u32 {
+        self.serial
+    }
 
-  /// ```text
-  /// REFRESH         A 32 bit time interval before the zone should be
-  ///                 refreshed.
-  /// ```
-  ///
-  /// # Return value
-  ///
-  /// A 32 bit time interval before the zone should be refreshed, in seconds.
-  pub fn get_refresh(&self) -> i32 { self.refresh }
+    /// ```text
+    /// REFRESH         A 32 bit time interval before the zone should be
+    ///                 refreshed.
+    /// ```
+    ///
+    /// # Return value
+    ///
+    /// A 32 bit time interval before the zone should be refreshed, in seconds.
+    pub fn get_refresh(&self) -> i32 {
+        self.refresh
+    }
 
-  /// ```text
-  /// RETRY           A 32 bit time interval that should elapse before a
-  ///                 failed refresh should be retried.
-  /// ```
-  ///
-  /// # Return value
-  ///
-  /// A 32 bit time interval that should elapse before a failed refresh should be retried,
-  /// in seconds.
-  pub fn get_retry(&self) -> i32 { self.retry }
+    /// ```text
+    /// RETRY           A 32 bit time interval that should elapse before a
+    ///                 failed refresh should be retried.
+    /// ```
+    ///
+    /// # Return value
+    ///
+    /// A 32 bit time interval that should elapse before a failed refresh should be retried,
+    /// in seconds.
+    pub fn get_retry(&self) -> i32 {
+        self.retry
+    }
 
-  /// ```text
-  /// EXPIRE          A 32 bit time value that specifies the upper limit on
-  ///                 the time interval that can elapse before the zone is no
-  ///                 longer authoritative.
-  /// ```
-  ///
-  /// # Return value
-  ///
-  /// A 32 bit time value that specifies the upper limit on the time interval that can elapse
-  /// before the zone is no longer authoritative, in seconds
-  pub fn get_expire(&self) -> i32 { self.expire }
+    /// ```text
+    /// EXPIRE          A 32 bit time value that specifies the upper limit on
+    ///                 the time interval that can elapse before the zone is no
+    ///                 longer authoritative.
+    /// ```
+    ///
+    /// # Return value
+    ///
+    /// A 32 bit time value that specifies the upper limit on the time interval that can elapse
+    /// before the zone is no longer authoritative, in seconds
+    pub fn get_expire(&self) -> i32 {
+        self.expire
+    }
 
-  /// ```text
-  /// MINIMUM         The unsigned 32 bit minimum TTL field that should be
-  ///                 exported with any RR from this zone.
-  /// ```
-  ///
-  /// # Return value
-  ///
-  /// The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone.
-  pub fn get_minimum(&self) -> u32 { self.minimum }
+    /// ```text
+    /// MINIMUM         The unsigned 32 bit minimum TTL field that should be
+    ///                 exported with any RR from this zone.
+    /// ```
+    ///
+    /// # Return value
+    ///
+    /// The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone.
+    pub fn get_minimum(&self) -> u32 {
+        self.minimum
+    }
 }
 
 // SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SOA> {
-  Ok(SOA{
-    mname:   try!(Name::read(decoder)),
-    rname:   try!(Name::read(decoder)),
-    serial:  try!(decoder.read_u32()),
-    refresh: try!(decoder.read_i32()),
-    retry:   try!(decoder.read_i32()),
-    expire:  try!(decoder.read_i32()),
-    minimum: try!(decoder.read_u32()),
-  })
+    Ok(SOA {
+        mname: try!(Name::read(decoder)),
+        rname: try!(Name::read(decoder)),
+        serial: try!(decoder.read_u32()),
+        refresh: try!(decoder.read_i32()),
+        retry: try!(decoder.read_i32()),
+        expire: try!(decoder.read_i32()),
+        minimum: try!(decoder.read_u32()),
+    })
 }
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
@@ -210,16 +241,16 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SOA> {
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
 pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> EncodeResult {
-  let is_canonical_names = encoder.is_canonical_names();
-  
-  try!(soa.mname.emit_with_lowercase(encoder, is_canonical_names));
-  try!(soa.rname.emit_with_lowercase(encoder, is_canonical_names));
-  try!(encoder.emit_u32(soa.serial));
-  try!(encoder.emit_i32(soa.refresh));
-  try!(encoder.emit_i32(soa.retry));
-  try!(encoder.emit_i32(soa.expire));
-  try!(encoder.emit_u32(soa.minimum));
-  Ok(())
+    let is_canonical_names = encoder.is_canonical_names();
+
+    try!(soa.mname.emit_with_lowercase(encoder, is_canonical_names));
+    try!(soa.rname.emit_with_lowercase(encoder, is_canonical_names));
+    try!(encoder.emit_u32(soa.serial));
+    try!(encoder.emit_i32(soa.refresh));
+    try!(encoder.emit_i32(soa.retry));
+    try!(encoder.emit_i32(soa.expire));
+    try!(encoder.emit_u32(soa.minimum));
+    Ok(())
 }
 
 // VENERA      Action\.domains (
@@ -229,43 +260,77 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> EncodeResult {
 //                                 3600000; EXPIRE
 //                                 60)    ; MINIMUM
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SOA> {
-  let mut token = tokens.iter();
+    let mut token = tokens.iter();
 
-  let mname: Name = try!(token.next().ok_or(ParseErrorKind::MissingToken("mname".to_string()).into()).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
-  let rname: Name = try!(token.next().ok_or(ParseErrorKind::MissingToken("rname".to_string()).into()).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
-  let mut list = try!(token.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("List".to_string()))).and_then(|t| if let &Token::List(ref v) = t {Ok(v)} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} )).iter();
+    let mname: Name = try!(token.next()
+        .ok_or(ParseErrorKind::MissingToken("mname".to_string()).into())
+        .and_then(|t| if let &Token::CharData(ref s) = t {
+            Name::parse(s, origin)
+        } else {
+            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+        }));
+    let rname: Name = try!(token.next()
+        .ok_or(ParseErrorKind::MissingToken("rname".to_string()).into())
+        .and_then(|t| if let &Token::CharData(ref s) = t {
+            Name::parse(s, origin)
+        } else {
+            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+        }));
+    let mut list = try!(token.next()
+            .ok_or(ParseError::from(ParseErrorKind::MissingToken("List".to_string())))
+            .and_then(|t| if let &Token::List(ref v) = t {
+                Ok(v)
+            } else {
+                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+            }))
+        .iter();
 
-  let serial: u32 = try!(list.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("serial".to_string()))).and_then(|s| Ok(try!(s.parse()))));
-  let refresh: i32 = try!(list.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("refresh".to_string()))).and_then(|s| Ok(try!(s.parse()))));
-  let retry: i32 = try!(list.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("retry".to_string()))).and_then(|s| Ok(try!(s.parse()))));
-  let expire: i32 = try!(list.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("expire".to_string()))).and_then(|s| Ok(try!(s.parse()))));
-  let minimum: u32 = try!(list.next().ok_or(ParseError::from(ParseErrorKind::MissingToken("minimum".to_string()))).and_then(|s| Ok(try!(s.parse()))));
+    let serial: u32 = try!(list.next()
+        .ok_or(ParseError::from(ParseErrorKind::MissingToken("serial".to_string())))
+        .and_then(|s| Ok(try!(s.parse()))));
+    let refresh: i32 = try!(list.next()
+        .ok_or(ParseError::from(ParseErrorKind::MissingToken("refresh".to_string())))
+        .and_then(|s| Ok(try!(s.parse()))));
+    let retry: i32 = try!(list.next()
+        .ok_or(ParseError::from(ParseErrorKind::MissingToken("retry".to_string())))
+        .and_then(|s| Ok(try!(s.parse()))));
+    let expire: i32 = try!(list.next()
+        .ok_or(ParseError::from(ParseErrorKind::MissingToken("expire".to_string())))
+        .and_then(|s| Ok(try!(s.parse()))));
+    let minimum: u32 = try!(list.next()
+        .ok_or(ParseError::from(ParseErrorKind::MissingToken("minimum".to_string())))
+        .and_then(|s| Ok(try!(s.parse()))));
 
 
-  // let serial: u32 = try!(token.next().ok_or(ParseError::MissingToken("serial".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  // let refresh: i32 = try!(token.next().ok_or(ParseError::MissingToken("refresh".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  // let retry: i32 = try!(token.next().ok_or(ParseError::MissingToken("retry".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  // let expire: i32 = try!(token.next().ok_or(ParseError::MissingToken("expire".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-  // let minimum: u32 = try!(token.next().ok_or(ParseError::MissingToken("minimum".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+    // let serial: u32 = try!(token.next().ok_or(ParseError::MissingToken("serial".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+    // let refresh: i32 = try!(token.next().ok_or(ParseError::MissingToken("refresh".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+    // let retry: i32 = try!(token.next().ok_or(ParseError::MissingToken("retry".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+    // let expire: i32 = try!(token.next().ok_or(ParseError::MissingToken("expire".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+    // let minimum: u32 = try!(token.next().ok_or(ParseError::MissingToken("minimum".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
 
-  Ok(SOA::new(mname, rname, serial, refresh, retry, expire, minimum))
+    Ok(SOA::new(mname, rname, serial, refresh, retry, expire, minimum))
 }
 
 #[test]
 fn test() {
-  let rdata = SOA::new(Name::new().label("m").label("example").label("com"),
-                       Name::new().label("r").label("example").label("com"),
-                       1, 2, 3, 4, 5);
+    let rdata = SOA::new(Name::new().label("m").label("example").label("com"),
+                         Name::new().label("r").label("example").label("com"),
+                         1,
+                         2,
+                         3,
+                         4,
+                         5);
 
-  let mut bytes = Vec::new();
-  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-  assert!(emit(&mut encoder, &rdata).is_ok());
-  let bytes = encoder.as_bytes();
+    let mut bytes = Vec::new();
+    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+    assert!(emit(&mut encoder, &rdata).is_ok());
+    let bytes = encoder.as_bytes();
 
-  println!("bytes: {:?}", bytes);
+    println!("bytes: {:?}", bytes);
 
-  let mut decoder: BinDecoder = BinDecoder::new(bytes);
-  let read_rdata = read(&mut decoder);
-  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
-  assert_eq!(rdata, read_rdata.unwrap());
+    let mut decoder: BinDecoder = BinDecoder::new(bytes);
+    let read_rdata = read(&mut decoder);
+    assert!(read_rdata.is_ok(),
+            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert_eq!(rdata, read_rdata.unwrap());
 }

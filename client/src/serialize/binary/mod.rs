@@ -26,46 +26,46 @@ pub mod bin_tests;
 use ::error::*;
 
 pub trait BinSerializable<S: Sized> {
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<S>;
-  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult;
+    fn read(decoder: &mut BinDecoder) -> DecodeResult<S>;
+    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult;
 }
 
 impl BinSerializable<u16> for u16 {
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<u16> {
-    decoder.read_u16()
-  }
+    fn read(decoder: &mut BinDecoder) -> DecodeResult<u16> {
+        decoder.read_u16()
+    }
 
-  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-    encoder.emit_u16(*self)
-  }
+    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+        encoder.emit_u16(*self)
+    }
 }
 
 impl BinSerializable<i32> for i32 {
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<i32> {
-    decoder.read_i32()
-  }
+    fn read(decoder: &mut BinDecoder) -> DecodeResult<i32> {
+        decoder.read_i32()
+    }
 
-  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-    encoder.emit_i32(*self)
-  }
+    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+        encoder.emit_i32(*self)
+    }
 }
 
 impl BinSerializable<u32> for u32 {
-  fn read(decoder: &mut BinDecoder) -> DecodeResult<u32> {
-    decoder.read_u32()
-  }
+    fn read(decoder: &mut BinDecoder) -> DecodeResult<u32> {
+        decoder.read_u32()
+    }
 
-  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-    encoder.emit_u32(*self)
-  }
+    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+        encoder.emit_u32(*self)
+    }
 }
 
 impl BinSerializable<Vec<u8>> for Vec<u8> {
-  fn read(_: &mut BinDecoder) -> DecodeResult<Vec<u8>> {
-    panic!("do not know amount to read in this context")
-  }
+    fn read(_: &mut BinDecoder) -> DecodeResult<Vec<u8>> {
+        panic!("do not know amount to read in this context")
+    }
 
-  fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-    encoder.emit_vec(self)
-  }
+    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+        encoder.emit_vec(self)
+    }
 }

@@ -27,23 +27,31 @@
 //! * New features for securing public information
 
 extern crate backtrace;
-#[macro_use] extern crate error_chain;
+#[macro_use]
+extern crate error_chain;
 extern crate chrono;
 extern crate data_encoding;
-#[macro_use] extern crate futures;
-#[macro_use] extern crate lazy_static;
-#[macro_use] extern crate log;
+#[macro_use]
+extern crate futures;
+#[macro_use]
+extern crate lazy_static;
+#[macro_use]
+extern crate log;
 extern crate native_tls;
-#[cfg(feature = "openssl")] extern crate openssl;
+#[cfg(feature = "openssl")]
+extern crate openssl;
 extern crate rand;
-#[cfg(feature = "ring")] extern crate ring;
+#[cfg(feature = "ring")]
+extern crate ring;
 extern crate rustc_serialize;
 #[cfg(target_os = "macos")]
 extern crate security_framework;
 extern crate time;
-#[macro_use] extern crate tokio_core;
+#[macro_use]
+extern crate tokio_core;
 extern crate tokio_tls;
-#[cfg(feature = "ring")] extern crate untrusted;
+#[cfg(feature = "ring")]
+extern crate untrusted;
 
 pub mod client;
 pub mod error;
@@ -65,28 +73,29 @@ use op::Message;
 use client::ClientStreamHandle;
 
 /// A stream of serialized DNS Messages
-pub type BufStream = Stream<Item=(Vec<u8>, SocketAddr), Error=io::Error>;
+pub type BufStream = Stream<Item = (Vec<u8>, SocketAddr), Error = io::Error>;
 
 /// A sender to which serialized DNS Messages can be sent
 pub type BufStreamHandle = UnboundedSender<(Vec<u8>, SocketAddr)>;
 
 /// A stream of messsages
-pub type MessageStream = Stream<Item=Message, Error=io::Error>;
+pub type MessageStream = Stream<Item = Message, Error = io::Error>;
 
 /// A sender to which a Message can be sent
 pub type MessageStreamHandle = UnboundedSender<Message>;
 
 pub struct BufClientStreamHandle {
-  name_server: SocketAddr,
-  sender: BufStreamHandle,
+    name_server: SocketAddr,
+    sender: BufStreamHandle,
 }
 
 impl ClientStreamHandle for BufClientStreamHandle {
-  fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
-    let name_server: SocketAddr = self.name_server;
-    let sender: &mut _ = &mut self.sender;
-    sender.send((buffer, name_server)).map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
-  }
+    fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
+        let name_server: SocketAddr = self.name_server;
+        let sender: &mut _ = &mut self.sender;
+        sender.send((buffer, name_server))
+            .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
+    }
 }
 
 /// this exposes a version function which gives access to the access
@@ -95,6 +104,6 @@ include!(concat!(env!("OUT_DIR"), "/version.rs"));
 // TODO switch env_logger and remove this
 #[test]
 fn enable_logging_for_tests() {
-  use log::LogLevel;
-  logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
+    use log::LogLevel;
+    logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 }

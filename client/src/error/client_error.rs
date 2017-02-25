@@ -21,11 +21,11 @@ use futures::sync::mpsc::SendError;
 #[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(not(feature = "openssl"))]
-use ::error::dnssec_error::not_openssl::SslErrorStack;
+use error::dnssec_error::not_openssl::SslErrorStack;
 
-use ::op::ResponseCode;
-use ::rr::{Name, Record};
-use ::error::{DnsSecError, DnsSecErrorKind};
+use op::ResponseCode;
+use rr::{Name, Record};
+use error::{DnsSecError, DnsSecErrorKind};
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -134,25 +134,25 @@ error_chain! {
 
 
 impl From<()> for Error {
-  fn from(_: ()) -> Self {
-    ErrorKind::NoError.into()
-  }
+    fn from(_: ()) -> Self {
+        ErrorKind::NoError.into()
+    }
 }
 
 impl From<Canceled> for Error {
-  fn from(c: Canceled) -> Self {
-    ErrorKind::Canceled(c).into()
-  }
+    fn from(c: Canceled) -> Self {
+        ErrorKind::Canceled(c).into()
+    }
 }
 
 impl<T> From<SendError<T>> for Error {
-  fn from(e: SendError<T>) -> Self {
-    ErrorKind::Msg(format!("error sending to mpsc: {}", e)).into()
-  }
+    fn from(e: SendError<T>) -> Self {
+        ErrorKind::Msg(format!("error sending to mpsc: {}", e)).into()
+    }
 }
 
 impl Clone for Error {
-  fn clone(&self) -> Self {
-    ErrorKind::Msg(format!("ClientError: {}", self)).into()
-  }
+    fn clone(&self) -> Self {
+        ErrorKind::Msg(format!("ClientError: {}", self)).into()
+    }
 }
