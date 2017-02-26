@@ -14,150 +14,179 @@ use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use tokio_core::io::Io;
 use tokio_core::net::TcpStream as TokioTcpStream;
-use tokio_core::reactor::{Handle};
+use tokio_core::reactor::Handle;
 
-use ::BufStreamHandle;
+use BufStreamHandle;
 
 enum WriteTcpState {
-  LenBytes{ pos: usize, length: [u8; 2], bytes: Vec<u8> },
-  Bytes{ pos: usize, bytes: Vec<u8> },
-  Flushing,
+    LenBytes {
+        pos: usize,
+        length: [u8; 2],
+        bytes: Vec<u8>,
+    },
+    Bytes { pos: usize, bytes: Vec<u8> },
+    Flushing,
 }
 
 pub enum ReadTcpState {
-  LenBytes{ pos: usize, bytes: [u8; 2] },
-  Bytes{ pos: usize, bytes: Vec<u8> },
+    LenBytes { pos: usize, bytes: [u8; 2] },
+    Bytes { pos: usize, bytes: Vec<u8> },
 }
 
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpStream<S> {
-  socket: S,
-  outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
-  send_state: Option<WriteTcpState>,
-  read_state: ReadTcpState,
-  peer_addr: SocketAddr,
+    socket: S,
+    outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
+    send_state: Option<WriteTcpState>,
+    read_state: ReadTcpState,
+    peer_addr: SocketAddr,
 }
 
 impl<S> TcpStream<S> {
-  pub fn peer_addr(&self) -> SocketAddr {
-    self.peer_addr
-  }
+    pub fn peer_addr(&self) -> SocketAddr {
+        self.peer_addr
+    }
 }
 
 impl TcpStream<TokioTcpStream> {
-  /// Creates a new future of the eventually establish a IO stream connection or fail trying
-  ///
-  /// # Arguments
-  ///
-  /// * `name_server` - the IP and Port of the DNS server to connect to
-  /// * `loop_handle` - reference to the takio_core::Core for future based IO
-  pub fn new(name_server: SocketAddr, loop_handle: Handle) -> (Box<Future<Item=TcpStream<TokioTcpStream>, Error=io::Error>>, BufStreamHandle) {
-    let (message_sender, outbound_messages) = unbounded();
-    let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
+    /// Creates a new future of the eventually establish a IO stream connection or fail trying
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - the IP and Port of the DNS server to connect to
+    /// * `loop_handle` - reference to the takio_core::Core for future based IO
+    pub fn new
+        (name_server: SocketAddr,
+         loop_handle: Handle)
+         -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
+        let (message_sender, outbound_messages) = unbounded();
+        let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
 
-    // This set of futures collapses the next tcp socket into a stream which can be used for
-    //  sending and receiving tcp packets.
-    let stream: Box<Future<Item=TcpStream<TokioTcpStream>, Error=io::Error>> = Box::new(tcp
-      .map(move |tcp_stream| {
-        TcpStream {
-          socket: tcp_stream,
-          outbound_messages: outbound_messages.fuse().peekable(),
-          send_state: None,
-          read_state: ReadTcpState::LenBytes { pos: 0, bytes: [0u8; 2] },
-          peer_addr: name_server,
-        }
-      }));
+        // This set of futures collapses the next tcp socket into a stream which can be used for
+        //  sending and receiving tcp packets.
+        let stream: Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>> =
+            Box::new(tcp.map(move |tcp_stream| {
+                TcpStream {
+                    socket: tcp_stream,
+                    outbound_messages: outbound_messages.fuse().peekable(),
+                    send_state: None,
+                    read_state: ReadTcpState::LenBytes {
+                        pos: 0,
+                        bytes: [0u8; 2],
+                    },
+                    peer_addr: name_server,
+                }
+            }));
 
-    (stream, message_sender)
-  }
+        (stream, message_sender)
+    }
 }
 
 impl<S: Io> TcpStream<S> {
-  /// Initializes a TcpStream with an existing tokio_core::net::TcpStream.
-  ///
-  /// This is intended for use with a TcpListener and Incoming.
-  ///
-  /// # Arguments
-  ///
-  /// * `stream` - the established IO stream for communication
-  /// * `peer_addr` - sources address of the stream
-  pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
-    let (message_sender, outbound_messages) = unbounded();
+    /// Initializes a TcpStream with an existing tokio_core::net::TcpStream.
+    ///
+    /// This is intended for use with a TcpListener and Incoming.
+    ///
+    /// # Arguments
+    ///
+    /// * `stream` - the established IO stream for communication
+    /// * `peer_addr` - sources address of the stream
+    pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
+        let (message_sender, outbound_messages) = unbounded();
 
-    let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
+        let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
 
-    (stream, message_sender)
-  }
-
-  /// Wrapps a stream where a sender and receiver have already been established
-  pub fn from_stream_with_receiver(stream: S, peer_addr: SocketAddr, receiver: UnboundedReceiver<(Vec<u8>, SocketAddr)>) -> Self {
-    TcpStream {
-      socket: stream,
-      outbound_messages: receiver.fuse().peekable(),
-      send_state: None,
-      read_state: ReadTcpState::LenBytes { pos: 0, bytes: [0u8; 2] },
-      peer_addr: peer_addr,
+        (stream, message_sender)
     }
-  }
+
+    /// Wrapps a stream where a sender and receiver have already been established
+    pub fn from_stream_with_receiver(stream: S,
+                                     peer_addr: SocketAddr,
+                                     receiver: UnboundedReceiver<(Vec<u8>, SocketAddr)>)
+                                     -> Self {
+        TcpStream {
+            socket: stream,
+            outbound_messages: receiver.fuse().peekable(),
+            send_state: None,
+            read_state: ReadTcpState::LenBytes {
+                pos: 0,
+                bytes: [0u8; 2],
+            },
+            peer_addr: peer_addr,
+        }
+    }
 }
 
 impl<S: Io> Stream for TcpStream<S> {
-  type Item = (Vec<u8>, SocketAddr);
-  type Error = io::Error;
+    type Item = (Vec<u8>, SocketAddr);
+    type Error = io::Error;
 
-  fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-    // this will not accept incoming data while there is data to send
-    //  makes this self throttling.
-    // TODO: it might be interesting to try and split the sending and receiving futures.
-    loop {
-      // in the case we are sending, send it all?
-      if self.send_state.is_some() {
-        // sending...
-        match self.send_state {
-          Some(WriteTcpState::LenBytes{ ref mut pos, ref length, .. }) => {
-            let wrote = try_nb!(self.socket.write(&length[*pos..]));
-            *pos += wrote;
-          },
-          Some(WriteTcpState::Bytes{ ref mut pos, ref bytes }) => {
-            let wrote = try_nb!(self.socket.write(&bytes[*pos..]));
-            *pos += wrote;
-          },
-          Some(WriteTcpState::Flushing) => {
-            try_nb!(self.socket.flush());
-          },
-          _ => (),
-        }
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        // this will not accept incoming data while there is data to send
+        //  makes this self throttling.
+        // TODO: it might be interesting to try and split the sending and receiving futures.
+        loop {
+            // in the case we are sending, send it all?
+            if self.send_state.is_some() {
+                // sending...
+                match self.send_state {
+                    Some(WriteTcpState::LenBytes { ref mut pos, ref length, .. }) => {
+                        let wrote = try_nb!(self.socket.write(&length[*pos..]));
+                        *pos += wrote;
+                    }
+                    Some(WriteTcpState::Bytes { ref mut pos, ref bytes }) => {
+                        let wrote = try_nb!(self.socket.write(&bytes[*pos..]));
+                        *pos += wrote;
+                    }
+                    Some(WriteTcpState::Flushing) => {
+                        try_nb!(self.socket.flush());
+                    }
+                    _ => (),
+                }
 
-        // get current state
-        let current_state = mem::replace(&mut self.send_state, None);
+                // get current state
+                let current_state = mem::replace(&mut self.send_state, None);
 
-        // switch states
-        match current_state {
-          Some(WriteTcpState::LenBytes{ pos, length, bytes }) => {
-            if pos < length.len() {
-              mem::replace(&mut self.send_state, Some(WriteTcpState::LenBytes{ pos: pos, length: length, bytes: bytes }));
-            } else{
-              mem::replace(&mut self.send_state, Some(WriteTcpState::Bytes{ pos: 0, bytes: bytes }));
-            }
-          },
-          Some(WriteTcpState::Bytes{ pos, bytes }) => {
-            if pos < bytes.len() {
-              mem::replace(&mut self.send_state, Some(WriteTcpState::Bytes{ pos: pos, bytes: bytes }));
+                // switch states
+                match current_state {
+                    Some(WriteTcpState::LenBytes { pos, length, bytes }) => {
+                        if pos < length.len() {
+                            mem::replace(&mut self.send_state,
+                                         Some(WriteTcpState::LenBytes {
+                                             pos: pos,
+                                             length: length,
+                                             bytes: bytes,
+                                         }));
+                        } else {
+                            mem::replace(&mut self.send_state,
+                                         Some(WriteTcpState::Bytes {
+                                             pos: 0,
+                                             bytes: bytes,
+                                         }));
+                        }
+                    }
+                    Some(WriteTcpState::Bytes { pos, bytes }) => {
+                        if pos < bytes.len() {
+                            mem::replace(&mut self.send_state,
+                                         Some(WriteTcpState::Bytes {
+                                             pos: pos,
+                                             bytes: bytes,
+                                         }));
+                        } else {
+                            // At this point we successfully delivered the entire message.
+                            //  flush
+                            mem::replace(&mut self.send_state, Some(WriteTcpState::Flushing));
+                        }
+                    }
+                    Some(WriteTcpState::Flushing) => {
+                        // At this point we successfully delivered the entire message.
+                        mem::replace(&mut self.send_state, None);
+                    }
+                    None => (),
+                };
             } else {
-              // At this point we successfully delivered the entire message.
-              //  flush
-              mem::replace(&mut self.send_state, Some(WriteTcpState::Flushing));
-            }
-          },
-          Some(WriteTcpState::Flushing) => {
-            // At this point we successfully delivered the entire message.
-            mem::replace(&mut self.send_state, None);
-          }
-          None => (),
-        };
-      } else {
-        // then see if there is more to send
-        match try!(self.outbound_messages.poll().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
+                // then see if there is more to send
+                match try!(self.outbound_messages.poll().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
           // already handled above, here to make sure the poll() pops the next message
           Async::Ready(Some((buffer, dst))) => {
             // if there is no peer, this connection should die...
@@ -180,103 +209,113 @@ impl<S: Io> Stream for TcpStream<S> {
           Async::NotReady => break,
           Async::Ready(None) => { debug!("no messages to send"); break },
         }
-      }
-    }
-
-    let mut ret_buf: Option<Vec<u8>> = None;
-
-    // this will loop while there is data to read, or the data has been read, or an IO
-    //  event would block
-    while ret_buf.is_none() {
-      // Evaluates the next state. If None is the result, then no state change occurs,
-      //  if Some(_) is returned, then that will be used as the next state.
-      let new_state: Option<ReadTcpState> = match self.read_state {
-        ReadTcpState::LenBytes { ref mut pos, ref mut bytes } => {
-          // debug!("reading length {}", bytes.len());
-          let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
-          if read == 0 {
-            // the Stream was closed!
-            debug!("zero bytes read, stream closed?");
-            //try!(self.socket.shutdown(Shutdown::Both)); // FIXME: add generic shutdown function
-
-            if *pos == 0 {
-              // Since this is the start of the next message, we have a clean end
-              return Ok(Async::Ready(None))
-            } else {
-              return Err(io::Error::new(io::ErrorKind::BrokenPipe, "closed while reading length"));
             }
-          }
-          debug!("in ReadTcpState::LenBytes: {}", pos);
-          *pos += read;
-
-          if *pos < bytes.len() {
-            debug!("remain ReadTcpState::LenBytes: {}", pos);
-            None
-          } else {
-            let length = (bytes[0] as u16) << 8 & 0xFF00 | bytes[1] as u16 & 0x00FF;
-            debug!("got length: {}", length);
-            let mut bytes = Vec::with_capacity(length as usize);
-            bytes.resize(length as usize, 0);
-
-            debug!("move ReadTcpState::Bytes: {}", bytes.len());
-            Some(ReadTcpState::Bytes{ pos: 0, bytes: bytes })
-          }
-        },
-        ReadTcpState::Bytes { ref mut pos, ref mut bytes } => {
-          let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
-          if read == 0 {
-            // the Stream was closed!
-            debug!("zero bytes read for message, stream closed?");
-
-            // Since this is the start of the next message, we have a clean end
-            // try!(self.socket.shutdown(Shutdown::Both));  // FIXME: add generic shutdown function
-            return Err(io::Error::new(io::ErrorKind::BrokenPipe, "closed while reading message"));
-          }
-
-          debug!("in ReadTcpState::Bytes: {}", bytes.len());
-          *pos += read;
-
-          if *pos < bytes.len() {
-            debug!("remain ReadTcpState::Bytes: {}", bytes.len());
-            None
-          } else {
-            debug!("reset ReadTcpState::LenBytes: {}", 0);
-            Some(ReadTcpState::LenBytes{ pos: 0, bytes: [0u8; 2] })
-          }
-        },
-      };
-
-      // this will move to the next state,
-      //  if it was a completed receipt of bytes, then it will move out the bytes
-      if let Some(state) = new_state {
-        match mem::replace(&mut self.read_state, state) {
-          ReadTcpState::Bytes{ pos, bytes } => {
-            debug!("returning bytes");
-            assert_eq!(pos, bytes.len());
-            ret_buf = Some(bytes);
-          },
-          _ => (),
         }
-      }
-    }
 
-    // if the buffer is ready, return it, if not we're NotReady
-    if let Some(buffer) = ret_buf {
-      debug!("returning buffer");
-      let src_addr = self.peer_addr;
-      return Ok(Async::Ready(Some((buffer, src_addr))))
-    } else {
-      debug!("bottomed out");
-      // at a minimum the outbound_messages should have been polled,
-      //  which will wake this future up later...
-      return Ok(Async::NotReady)
+        let mut ret_buf: Option<Vec<u8>> = None;
+
+        // this will loop while there is data to read, or the data has been read, or an IO
+        //  event would block
+        while ret_buf.is_none() {
+            // Evaluates the next state. If None is the result, then no state change occurs,
+            //  if Some(_) is returned, then that will be used as the next state.
+            let new_state: Option<ReadTcpState> = match self.read_state {
+                ReadTcpState::LenBytes { ref mut pos, ref mut bytes } => {
+                    // debug!("reading length {}", bytes.len());
+                    let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
+                    if read == 0 {
+                        // the Stream was closed!
+                        debug!("zero bytes read, stream closed?");
+                        //try!(self.socket.shutdown(Shutdown::Both)); // FIXME: add generic shutdown function
+
+                        if *pos == 0 {
+                            // Since this is the start of the next message, we have a clean end
+                            return Ok(Async::Ready(None));
+                        } else {
+                            return Err(io::Error::new(io::ErrorKind::BrokenPipe,
+                                                      "closed while reading length"));
+                        }
+                    }
+                    debug!("in ReadTcpState::LenBytes: {}", pos);
+                    *pos += read;
+
+                    if *pos < bytes.len() {
+                        debug!("remain ReadTcpState::LenBytes: {}", pos);
+                        None
+                    } else {
+                        let length = (bytes[0] as u16) << 8 & 0xFF00 | bytes[1] as u16 & 0x00FF;
+                        debug!("got length: {}", length);
+                        let mut bytes = Vec::with_capacity(length as usize);
+                        bytes.resize(length as usize, 0);
+
+                        debug!("move ReadTcpState::Bytes: {}", bytes.len());
+                        Some(ReadTcpState::Bytes {
+                            pos: 0,
+                            bytes: bytes,
+                        })
+                    }
+                }
+                ReadTcpState::Bytes { ref mut pos, ref mut bytes } => {
+                    let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
+                    if read == 0 {
+                        // the Stream was closed!
+                        debug!("zero bytes read for message, stream closed?");
+
+                        // Since this is the start of the next message, we have a clean end
+                        // try!(self.socket.shutdown(Shutdown::Both));  // FIXME: add generic shutdown function
+                        return Err(io::Error::new(io::ErrorKind::BrokenPipe,
+                                                  "closed while reading message"));
+                    }
+
+                    debug!("in ReadTcpState::Bytes: {}", bytes.len());
+                    *pos += read;
+
+                    if *pos < bytes.len() {
+                        debug!("remain ReadTcpState::Bytes: {}", bytes.len());
+                        None
+                    } else {
+                        debug!("reset ReadTcpState::LenBytes: {}", 0);
+                        Some(ReadTcpState::LenBytes {
+                            pos: 0,
+                            bytes: [0u8; 2],
+                        })
+                    }
+                }
+            };
+
+            // this will move to the next state,
+            //  if it was a completed receipt of bytes, then it will move out the bytes
+            if let Some(state) = new_state {
+                match mem::replace(&mut self.read_state, state) {
+                    ReadTcpState::Bytes { pos, bytes } => {
+                        debug!("returning bytes");
+                        assert_eq!(pos, bytes.len());
+                        ret_buf = Some(bytes);
+                    }
+                    _ => (),
+                }
+            }
+        }
+
+        // if the buffer is ready, return it, if not we're NotReady
+        if let Some(buffer) = ret_buf {
+            debug!("returning buffer");
+            let src_addr = self.peer_addr;
+            return Ok(Async::Ready(Some((buffer, src_addr))));
+        } else {
+            debug!("bottomed out");
+            // at a minimum the outbound_messages should have been polled,
+            //  which will wake this future up later...
+            return Ok(Async::NotReady);
+        }
     }
-  }
 }
 
-#[cfg(test)] use std::net::{IpAddr, Ipv4Addr};
+#[cfg(test)]
+use std::net::{IpAddr, Ipv4Addr};
 #[cfg(not(target_os = "linux"))]
-#[cfg(test)] use std::net::Ipv6Addr;
+#[cfg(test)]
+use std::net::Ipv6Addr;
 
 #[test]
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
@@ -284,13 +323,13 @@ impl<S: Io> Stream for TcpStream<S> {
 //  but not 3?
 // #[cfg(not(target_os = "linux"))]
 fn test_tcp_client_stream_ipv4() {
-  tcp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127,0,0,1)))
+    tcp_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
 }
 
 #[test]
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_tcp_client_stream_ipv6() {
-  tcp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
+    tcp_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 }
 
 #[cfg(test)]
@@ -300,30 +339,35 @@ const TEST_BYTES_LEN: usize = 8;
 
 #[cfg(test)]
 fn tcp_client_stream_test(server_addr: IpAddr) {
-  use std::io::{Read, Write};
-  use tokio_core::reactor::Core;
+    use std::io::{Read, Write};
+    use tokio_core::reactor::Core;
 
-  use std;
-  let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-  let succeeded_clone = succeeded.clone();
-  std::thread::Builder::new().name("thread_killer".to_string()).spawn(move || {
-    let succeeded = succeeded_clone.clone();
-    for _ in 0..15 {
-      std::thread::sleep(std::time::Duration::from_secs(1));
-      if succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
-    }
+    use std;
+    let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let succeeded_clone = succeeded.clone();
+    std::thread::Builder::new()
+        .name("thread_killer".to_string())
+        .spawn(move || {
+            let succeeded = succeeded_clone.clone();
+            for _ in 0..15 {
+                std::thread::sleep(std::time::Duration::from_secs(1));
+                if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
+                    return;
+                }
+            }
 
-    panic!("timeout");
-  }).unwrap();
+            panic!("timeout");
+        })
+        .unwrap();
 
-  // TODO: need a timeout on listen
-  let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
-  let server_addr = server.local_addr().unwrap();
+    // TODO: need a timeout on listen
+    let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
+    let server_addr = server.local_addr().unwrap();
 
-  let send_recv_times = 4;
+    let send_recv_times = 4;
 
-  // an in and out server
-  let server_handle = std::thread::Builder::new().name("test_tcp_client_stream:server".to_string()).spawn(move || {
+    // an in and out server
+    let server_handle = std::thread::Builder::new().name("test_tcp_client_stream:server".to_string()).spawn(move || {
     let (mut socket, _) = server.accept().expect("accept failed");
 
     socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
@@ -350,25 +394,26 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     }
   }).unwrap();
 
-  // setup the client, which is going to run on the testing thread...
-  let mut io_loop = Core::new().unwrap();
+    // setup the client, which is going to run on the testing thread...
+    let mut io_loop = Core::new().unwrap();
 
-  // the tests should run within 5 seconds... right?
-  // TODO: add timeout here, so that test never hangs...
-  // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-  let (stream, sender) = TcpStream::new(server_addr, io_loop.handle());
+    // the tests should run within 5 seconds... right?
+    // TODO: add timeout here, so that test never hangs...
+    // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
+    let (stream, sender) = TcpStream::new(server_addr, io_loop.handle());
 
-  let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
+    let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 
-  for _ in 0..send_recv_times {
-    // test once
-    sender.send((TEST_BYTES.to_vec(), server_addr)).expect("send failed");
-    let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect("future iteration run failed");
-    stream = stream_tmp;
-    let (buffer, _) = buffer.expect("no buffer received");
-    assert_eq!(&buffer, TEST_BYTES);
-  }
+    for _ in 0..send_recv_times {
+        // test once
+        sender.send((TEST_BYTES.to_vec(), server_addr)).expect("send failed");
+        let (buffer, stream_tmp) =
+            io_loop.run(stream.into_future()).ok().expect("future iteration run failed");
+        stream = stream_tmp;
+        let (buffer, _) = buffer.expect("no buffer received");
+        assert_eq!(&buffer, TEST_BYTES);
+    }
 
-  succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
-  server_handle.join().expect("server thread failed");
+    succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+    server_handle.join().expect("server thread failed");
 }

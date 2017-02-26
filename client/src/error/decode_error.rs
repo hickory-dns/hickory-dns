@@ -19,10 +19,10 @@ use std::string::FromUtf8Error;
 #[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(not(feature = "openssl"))]
-use ::error::dnssec_error::not_openssl::SslErrorStack;
-use ::error::{DnsSecError, DnsSecErrorKind};
+use error::dnssec_error::not_openssl::SslErrorStack;
+use error::{DnsSecError, DnsSecErrorKind};
 
-use ::rr::Name;
+use rr::Name;
 
 error_chain! {
   // The type defined for this error. These are the conventional

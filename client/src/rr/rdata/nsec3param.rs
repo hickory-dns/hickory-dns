@@ -18,7 +18,7 @@
 
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::dnssec::Nsec3HashAlgorithm;
+use rr::dnssec::Nsec3HashAlgorithm;
 
 /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4)
 ///
@@ -77,101 +77,128 @@ use ::rr::dnssec::Nsec3HashAlgorithm;
 ///  field.
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct NSEC3PARAM{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8> }
+pub struct NSEC3PARAM {
+    hash_algorithm: Nsec3HashAlgorithm,
+    opt_out: bool,
+    iterations: u16,
+    salt: Vec<u8>,
+}
 
 impl NSEC3PARAM {
-  pub fn new(hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>) -> NSEC3PARAM {
-    NSEC3PARAM{ hash_algorithm: hash_algorithm, opt_out: opt_out, iterations: iterations, salt: salt }
-  }
+    pub fn new(hash_algorithm: Nsec3HashAlgorithm,
+               opt_out: bool,
+               iterations: u16,
+               salt: Vec<u8>)
+               -> NSEC3PARAM {
+        NSEC3PARAM {
+            hash_algorithm: hash_algorithm,
+            opt_out: opt_out,
+            iterations: iterations,
+            salt: salt,
+        }
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.1)
-  ///
-  /// ```text
-  /// 4.1.1.  Hash Algorithm
-  ///
-  ///    The Hash Algorithm field identifies the cryptographic hash algorithm
-  ///    used to construct the hash-value.
-  ///
-  ///    The acceptable values are the same as the corresponding field in the
-  ///    NSEC3 RR.
-  /// ```
-  pub fn get_hash_algorithm(&self) -> Nsec3HashAlgorithm { self.hash_algorithm }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.1)
+    ///
+    /// ```text
+    /// 4.1.1.  Hash Algorithm
+    ///
+    ///    The Hash Algorithm field identifies the cryptographic hash algorithm
+    ///    used to construct the hash-value.
+    ///
+    ///    The acceptable values are the same as the corresponding field in the
+    ///    NSEC3 RR.
+    /// ```
+    pub fn get_hash_algorithm(&self) -> Nsec3HashAlgorithm {
+        self.hash_algorithm
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.2)
-  ///
-  /// ```text
-  /// 4.1.2.  Flag Fields
-  ///
-  ///    The Opt-Out flag is not used and is set to zero.
-  ///
-  ///    All other flags are reserved for future use, and must be zero.
-  ///
-  ///    NSEC3PARAM RRs with a Flags field value other than zero MUST be
-  ///    ignored.
-  /// ```
-  pub fn is_opt_out(&self) -> bool { self.opt_out }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.2)
+    ///
+    /// ```text
+    /// 4.1.2.  Flag Fields
+    ///
+    ///    The Opt-Out flag is not used and is set to zero.
+    ///
+    ///    All other flags are reserved for future use, and must be zero.
+    ///
+    ///    NSEC3PARAM RRs with a Flags field value other than zero MUST be
+    ///    ignored.
+    /// ```
+    pub fn is_opt_out(&self) -> bool {
+        self.opt_out
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.3)
-  ///
-  /// ```text
-  /// 4.1.3.  Iterations
-  ///
-  ///    The Iterations field defines the number of additional times the hash
-  ///    is performed.
-  ///
-  ///    Its acceptable values are the same as the corresponding field in the
-  ///    NSEC3 RR.
-  /// ```
-  pub fn get_iterations(&self) -> u16 { self.iterations }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.3)
+    ///
+    /// ```text
+    /// 4.1.3.  Iterations
+    ///
+    ///    The Iterations field defines the number of additional times the hash
+    ///    is performed.
+    ///
+    ///    Its acceptable values are the same as the corresponding field in the
+    ///    NSEC3 RR.
+    /// ```
+    pub fn get_iterations(&self) -> u16 {
+        self.iterations
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.5)
-  ///
-  /// ```text
-  /// 4.1.5.  Salt
-  ///
-  ///    The Salt field is appended to the original owner name before hashing.
-  /// ```
-  pub fn get_salt(&self) -> &[u8] { &self.salt }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4.1.5)
+    ///
+    /// ```text
+    /// 4.1.5.  Salt
+    ///
+    ///    The Salt field is appended to the original owner name before hashing.
+    /// ```
+    pub fn get_salt(&self) -> &[u8] {
+        &self.salt
+    }
 }
 
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<NSEC3PARAM> {
-  let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
-  let flags: u8 = try!(decoder.read_u8());
+    let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
+    let flags: u8 = try!(decoder.read_u8());
 
-  if flags & 0b1111_1110 != 0 { return Err(DecodeErrorKind::UnrecognizedNsec3Flags(flags).into()) }
-  let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
-  let iterations: u16 = try!(decoder.read_u16());
-  let salt_len: u8 = try!(decoder.read_u8());
-  let salt: Vec<u8> = try!(decoder.read_vec(salt_len as usize));
+    if flags & 0b1111_1110 != 0 {
+        return Err(DecodeErrorKind::UnrecognizedNsec3Flags(flags).into());
+    }
+    let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
+    let iterations: u16 = try!(decoder.read_u16());
+    let salt_len: u8 = try!(decoder.read_u8());
+    let salt: Vec<u8> = try!(decoder.read_vec(salt_len as usize));
 
-  Ok(NSEC3PARAM::new(hash_algorithm, opt_out, iterations, salt))
+    Ok(NSEC3PARAM::new(hash_algorithm, opt_out, iterations, salt))
 }
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> EncodeResult {
-  try!(encoder.emit(rdata.get_hash_algorithm().into()));
-  let mut flags: u8 = 0;
-  if rdata.is_opt_out() { flags |= 0b0000_0001 };
-  try!(encoder.emit(flags));
-  try!(encoder.emit_u16(rdata.get_iterations()));
-  try!(encoder.emit(rdata.get_salt().len() as u8));
-  try!(encoder.emit_vec(&rdata.get_salt()));
+    try!(encoder.emit(rdata.get_hash_algorithm().into()));
+    let mut flags: u8 = 0;
+    if rdata.is_opt_out() {
+        flags |= 0b0000_0001
+    };
+    try!(encoder.emit(flags));
+    try!(encoder.emit_u16(rdata.get_iterations()));
+    try!(encoder.emit(rdata.get_salt().len() as u8));
+    try!(encoder.emit_vec(&rdata.get_salt()));
 
-  Ok(())
+    Ok(())
 }
 
 #[test]
 pub fn test() {
-  let rdata = NSEC3PARAM::new(Nsec3HashAlgorithm::SHA1, true, 2, vec![1,2,3,4,5]);
+    let rdata = NSEC3PARAM::new(Nsec3HashAlgorithm::SHA1, true, 2, vec![1, 2, 3, 4, 5]);
 
-  let mut bytes = Vec::new();
-  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-  assert!(emit(&mut encoder, &rdata).is_ok());
-  let bytes = encoder.as_bytes();
+    let mut bytes = Vec::new();
+    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+    assert!(emit(&mut encoder, &rdata).is_ok());
+    let bytes = encoder.as_bytes();
 
-  println!("bytes: {:?}", bytes);
+    println!("bytes: {:?}", bytes);
 
-  let mut decoder: BinDecoder = BinDecoder::new(bytes);
-  let read_rdata = read(&mut decoder);
-  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
-  assert_eq!(rdata, read_rdata.unwrap());
+    let mut decoder: BinDecoder = BinDecoder::new(bytes);
+    let read_rdata = read(&mut decoder);
+    assert!(read_rdata.is_ok(),
+            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert_eq!(rdata, read_rdata.unwrap());
 }

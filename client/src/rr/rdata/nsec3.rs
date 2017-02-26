@@ -16,12 +16,12 @@
 
 //! hashed negative cache proof for non-existence
 
-use std::collections::{HashMap};
+use std::collections::HashMap;
 
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::RecordType;
-use ::rr::dnssec::Nsec3HashAlgorithm;
+use rr::RecordType;
+use rr::dnssec::Nsec3HashAlgorithm;
 
 /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3)
 ///
@@ -109,285 +109,341 @@ use ::rr::dnssec::Nsec3HashAlgorithm;
 ///  field is determined by the preceding Hash Length field.
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct NSEC3{ hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>,
-  next_hashed_owner_name: Vec<u8>, type_bit_maps: Vec<RecordType>}
+pub struct NSEC3 {
+    hash_algorithm: Nsec3HashAlgorithm,
+    opt_out: bool,
+    iterations: u16,
+    salt: Vec<u8>,
+    next_hashed_owner_name: Vec<u8>,
+    type_bit_maps: Vec<RecordType>,
+}
 
 impl NSEC3 {
-  pub fn new(hash_algorithm: Nsec3HashAlgorithm, opt_out: bool, iterations: u16, salt: Vec<u8>,
-    next_hashed_owner_name: Vec<u8>, type_bit_maps: Vec<RecordType>) -> NSEC3 {
-      NSEC3{ hash_algorithm: hash_algorithm, opt_out: opt_out, iterations: iterations, salt: salt,
-        next_hashed_owner_name: next_hashed_owner_name, type_bit_maps: type_bit_maps }
-  }
+    pub fn new(hash_algorithm: Nsec3HashAlgorithm,
+               opt_out: bool,
+               iterations: u16,
+               salt: Vec<u8>,
+               next_hashed_owner_name: Vec<u8>,
+               type_bit_maps: Vec<RecordType>)
+               -> NSEC3 {
+        NSEC3 {
+            hash_algorithm: hash_algorithm,
+            opt_out: opt_out,
+            iterations: iterations,
+            salt: salt,
+            next_hashed_owner_name: next_hashed_owner_name,
+            type_bit_maps: type_bit_maps,
+        }
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.1)
-  ///
-  /// ```text
-  /// 3.1.1.  Hash Algorithm
-  ///
-  ///    The Hash Algorithm field identifies the cryptographic hash algorithm
-  ///    used to construct the hash-value.
-  ///
-  ///    The values for this field are defined in the NSEC3 hash algorithm
-  ///    registry defined in Section 11.
-  /// ```
-  pub fn get_hash_algorithm(&self) -> Nsec3HashAlgorithm { self.hash_algorithm }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.1)
+    ///
+    /// ```text
+    /// 3.1.1.  Hash Algorithm
+    ///
+    ///    The Hash Algorithm field identifies the cryptographic hash algorithm
+    ///    used to construct the hash-value.
+    ///
+    ///    The values for this field are defined in the NSEC3 hash algorithm
+    ///    registry defined in Section 11.
+    /// ```
+    pub fn get_hash_algorithm(&self) -> Nsec3HashAlgorithm {
+        self.hash_algorithm
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.2)
-  ///
-  /// ```text
-  /// 3.1.2.  Flags
-  ///
-  ///    The Flags field contains 8 one-bit flags that can be used to indicate
-  ///    different processing.  All undefined flags must be zero.  The only
-  ///    flag defined by this specification is the Opt-Out flag.
-  ///
-  /// 3.1.2.1.  Opt-Out Flag
-  ///
-  ///    If the Opt-Out flag is set, the NSEC3 record covers zero or more
-  ///    unsigned delegations.
-  ///
-  ///    If the Opt-Out flag is clear, the NSEC3 record covers zero unsigned
-  ///    delegations.
-  ///
-  ///    The Opt-Out Flag indicates whether this NSEC3 RR may cover unsigned
-  ///    delegations.  It is the least significant bit in the Flags field.
-  ///    See Section 6 for details about the use of this flag.
-  /// ```
-  pub fn is_opt_out(&self) -> bool { self.opt_out }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.2)
+    ///
+    /// ```text
+    /// 3.1.2.  Flags
+    ///
+    ///    The Flags field contains 8 one-bit flags that can be used to indicate
+    ///    different processing.  All undefined flags must be zero.  The only
+    ///    flag defined by this specification is the Opt-Out flag.
+    ///
+    /// 3.1.2.1.  Opt-Out Flag
+    ///
+    ///    If the Opt-Out flag is set, the NSEC3 record covers zero or more
+    ///    unsigned delegations.
+    ///
+    ///    If the Opt-Out flag is clear, the NSEC3 record covers zero unsigned
+    ///    delegations.
+    ///
+    ///    The Opt-Out Flag indicates whether this NSEC3 RR may cover unsigned
+    ///    delegations.  It is the least significant bit in the Flags field.
+    ///    See Section 6 for details about the use of this flag.
+    /// ```
+    pub fn is_opt_out(&self) -> bool {
+        self.opt_out
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.3)
-  ///
-  /// ```text
-  /// 3.1.3.  Iterations
-  ///
-  ///    The Iterations field defines the number of additional times the hash
-  ///    function has been performed.  More iterations result in greater
-  ///    resiliency of the hash value against dictionary attacks, but at a
-  ///    higher computational cost for both the server and resolver.  See
-  ///    Section 5 for details of the use of this field, and Section 10.3 for
-  ///    limitations on the value.
-  /// ```
-  pub fn get_iterations(&self) -> u16 { self.iterations }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.3)
+    ///
+    /// ```text
+    /// 3.1.3.  Iterations
+    ///
+    ///    The Iterations field defines the number of additional times the hash
+    ///    function has been performed.  More iterations result in greater
+    ///    resiliency of the hash value against dictionary attacks, but at a
+    ///    higher computational cost for both the server and resolver.  See
+    ///    Section 5 for details of the use of this field, and Section 10.3 for
+    ///    limitations on the value.
+    /// ```
+    pub fn get_iterations(&self) -> u16 {
+        self.iterations
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.5)
-  ///
-  /// ```text
-  /// 3.1.5.  Salt
-  ///
-  ///    The Salt field is appended to the original owner name before hashing
-  ///    in order to defend against pre-calculated dictionary attacks.  See
-  ///    Section 5 for details on how the salt is used.
-  /// ```
-  pub fn get_salt(&self) -> &[u8] { &self.salt }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.5)
+    ///
+    /// ```text
+    /// 3.1.5.  Salt
+    ///
+    ///    The Salt field is appended to the original owner name before hashing
+    ///    in order to defend against pre-calculated dictionary attacks.  See
+    ///    Section 5 for details on how the salt is used.
+    /// ```
+    pub fn get_salt(&self) -> &[u8] {
+        &self.salt
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.7)
-  ///
-  /// ```text
-  /// 3.1.7.  Next Hashed Owner Name
-  ///
-  ///  The Next Hashed Owner Name field contains the next hashed owner name
-  ///  in hash order.  This value is in binary format.  Given the ordered
-  ///  set of all hashed owner names, the Next Hashed Owner Name field
-  ///  contains the hash of an owner name that immediately follows the owner
-  ///  name of the given NSEC3 RR.  The value of the Next Hashed Owner Name
-  ///  field in the last NSEC3 RR in the zone is the same as the hashed
-  ///  owner name of the first NSEC3 RR in the zone in hash order.  Note
-  ///  that, unlike the owner name of the NSEC3 RR, the value of this field
-  ///  does not contain the appended zone name.
-  /// ```
-  pub fn get_next_hashed_owner_name(&self) -> &[u8] { &self.next_hashed_owner_name }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.7)
+    ///
+    /// ```text
+    /// 3.1.7.  Next Hashed Owner Name
+    ///
+    ///  The Next Hashed Owner Name field contains the next hashed owner name
+    ///  in hash order.  This value is in binary format.  Given the ordered
+    ///  set of all hashed owner names, the Next Hashed Owner Name field
+    ///  contains the hash of an owner name that immediately follows the owner
+    ///  name of the given NSEC3 RR.  The value of the Next Hashed Owner Name
+    ///  field in the last NSEC3 RR in the zone is the same as the hashed
+    ///  owner name of the first NSEC3 RR in the zone in hash order.  Note
+    ///  that, unlike the owner name of the NSEC3 RR, the value of this field
+    ///  does not contain the appended zone name.
+    /// ```
+    pub fn get_next_hashed_owner_name(&self) -> &[u8] {
+        &self.next_hashed_owner_name
+    }
 
-  /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.8)
-  ///
-  /// ```text
-  /// 3.1.8.  Type Bit Maps
-  ///
-  ///  The Type Bit Maps field identifies the RRSet types that exist at the
-  ///  original owner name of the NSEC3 RR.
-  /// ```
-  pub fn get_type_bit_maps(&self) -> &[RecordType] { &self.type_bit_maps }
+    /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-3.1.8)
+    ///
+    /// ```text
+    /// 3.1.8.  Type Bit Maps
+    ///
+    ///  The Type Bit Maps field identifies the RRSet types that exist at the
+    ///  original owner name of the NSEC3 RR.
+    /// ```
+    pub fn get_type_bit_maps(&self) -> &[RecordType] {
+        &self.type_bit_maps
+    }
 }
 
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC3> {
-  let start_idx = decoder.index();
+    let start_idx = decoder.index();
 
-  let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
-  let flags: u8 = try!(decoder.read_u8());
+    let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
+    let flags: u8 = try!(decoder.read_u8());
 
-  if flags & 0b1111_1110 != 0 { return Err(DecodeErrorKind::UnrecognizedNsec3Flags(flags).into()) }
-  let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
-  let iterations: u16 = try!(decoder.read_u16());
-  let salt_len: u8 = try!(decoder.read_u8());
-  let salt: Vec<u8> = try!(decoder.read_vec(salt_len as usize));
-  let hash_len: u8 = try!(decoder.read_u8());
-  let next_hashed_owner_name: Vec<u8> = try!(decoder.read_vec(hash_len as usize));
+    if flags & 0b1111_1110 != 0 {
+        return Err(DecodeErrorKind::UnrecognizedNsec3Flags(flags).into());
+    }
+    let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
+    let iterations: u16 = try!(decoder.read_u16());
+    let salt_len: u8 = try!(decoder.read_u8());
+    let salt: Vec<u8> = try!(decoder.read_vec(salt_len as usize));
+    let hash_len: u8 = try!(decoder.read_u8());
+    let next_hashed_owner_name: Vec<u8> = try!(decoder.read_vec(hash_len as usize));
 
-  let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
-  let record_types = try!(decode_type_bit_maps(decoder, bit_map_len));
+    let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
+    let record_types = try!(decode_type_bit_maps(decoder, bit_map_len));
 
-  Ok(NSEC3::new(hash_algorithm, opt_out, iterations, salt, next_hashed_owner_name, record_types))
+    Ok(NSEC3::new(hash_algorithm,
+                  opt_out,
+                  iterations,
+                  salt,
+                  next_hashed_owner_name,
+                  record_types))
 }
 
-pub fn decode_type_bit_maps(decoder: &mut BinDecoder, bit_map_len: usize) -> DecodeResult<Vec<RecordType>> {
-  // 3.2.1.  Type Bit Maps Encoding
-  //
-  //  The encoding of the Type Bit Maps field is the same as that used by
-  //  the NSEC RR, described in [RFC4034].  It is explained and clarified
-  //  here for clarity.
-  //
-  //  The RR type space is split into 256 window blocks, each representing
-  //  the low-order 8 bits of the 16-bit RR type space.  Each block that
-  //  has at least one active RR type is encoded using a single octet
-  //  window number (from 0 to 255), a single octet bitmap length (from 1
-  //  to 32) indicating the number of octets used for the bitmap of the
-  //  window block, and up to 32 octets (256 bits) of bitmap.
-  //
-  //  Blocks are present in the NSEC3 RR RDATA in increasing numerical
-  //  order.
-  //
-  //     Type Bit Maps Field = ( Window Block # | Bitmap Length | Bitmap )+
-  //
-  //     where "|" denotes concatenation.
-  //
-  //  Each bitmap encodes the low-order 8 bits of RR types within the
-  //  window block, in network bit order.  The first bit is bit 0.  For
-  //  window block 0, bit 1 corresponds to RR type 1 (A), bit 2 corresponds
-  //  to RR type 2 (NS), and so forth.  For window block 1, bit 1
-  //  corresponds to RR type 257, bit 2 to RR type 258.  If a bit is set to
-  //  1, it indicates that an RRSet of that type is present for the
-  //  original owner name of the NSEC3 RR.  If a bit is set to 0, it
-  //  indicates that no RRSet of that type is present for the original
-  //  owner name of the NSEC3 RR.
-  //
-  //  Since bit 0 in window block 0 refers to the non-existing RR type 0,
-  //  it MUST be set to 0.  After verification, the validator MUST ignore
-  //  the value of bit 0 in window block 0.
-  //
-  //  Bits representing Meta-TYPEs or QTYPEs as specified in Section 3.1 of
-  //  [RFC2929] or within the range reserved for assignment only to QTYPEs
-  //  and Meta-TYPEs MUST be set to 0, since they do not appear in zone
-  //  data.  If encountered, they must be ignored upon reading.
-  //
-  //  Blocks with no types present MUST NOT be included.  Trailing zero
-  //  octets in the bitmap MUST be omitted.  The length of the bitmap of
-  //  each block is determined by the type code with the largest numerical
-  //  value, within that block, among the set of RR types present at the
-  //  original owner name of the NSEC3 RR.  Trailing octets not specified
-  //  MUST be interpreted as zero octets.
-  let mut record_types: Vec<RecordType> = Vec::new();
-  let mut state: BitMapState = BitMapState::ReadWindow;
+pub fn decode_type_bit_maps(decoder: &mut BinDecoder,
+                            bit_map_len: usize)
+                            -> DecodeResult<Vec<RecordType>> {
+    // 3.2.1.  Type Bit Maps Encoding
+    //
+    //  The encoding of the Type Bit Maps field is the same as that used by
+    //  the NSEC RR, described in [RFC4034].  It is explained and clarified
+    //  here for clarity.
+    //
+    //  The RR type space is split into 256 window blocks, each representing
+    //  the low-order 8 bits of the 16-bit RR type space.  Each block that
+    //  has at least one active RR type is encoded using a single octet
+    //  window number (from 0 to 255), a single octet bitmap length (from 1
+    //  to 32) indicating the number of octets used for the bitmap of the
+    //  window block, and up to 32 octets (256 bits) of bitmap.
+    //
+    //  Blocks are present in the NSEC3 RR RDATA in increasing numerical
+    //  order.
+    //
+    //     Type Bit Maps Field = ( Window Block # | Bitmap Length | Bitmap )+
+    //
+    //     where "|" denotes concatenation.
+    //
+    //  Each bitmap encodes the low-order 8 bits of RR types within the
+    //  window block, in network bit order.  The first bit is bit 0.  For
+    //  window block 0, bit 1 corresponds to RR type 1 (A), bit 2 corresponds
+    //  to RR type 2 (NS), and so forth.  For window block 1, bit 1
+    //  corresponds to RR type 257, bit 2 to RR type 258.  If a bit is set to
+    //  1, it indicates that an RRSet of that type is present for the
+    //  original owner name of the NSEC3 RR.  If a bit is set to 0, it
+    //  indicates that no RRSet of that type is present for the original
+    //  owner name of the NSEC3 RR.
+    //
+    //  Since bit 0 in window block 0 refers to the non-existing RR type 0,
+    //  it MUST be set to 0.  After verification, the validator MUST ignore
+    //  the value of bit 0 in window block 0.
+    //
+    //  Bits representing Meta-TYPEs or QTYPEs as specified in Section 3.1 of
+    //  [RFC2929] or within the range reserved for assignment only to QTYPEs
+    //  and Meta-TYPEs MUST be set to 0, since they do not appear in zone
+    //  data.  If encountered, they must be ignored upon reading.
+    //
+    //  Blocks with no types present MUST NOT be included.  Trailing zero
+    //  octets in the bitmap MUST be omitted.  The length of the bitmap of
+    //  each block is determined by the type code with the largest numerical
+    //  value, within that block, among the set of RR types present at the
+    //  original owner name of the NSEC3 RR.  Trailing octets not specified
+    //  MUST be interpreted as zero octets.
+    let mut record_types: Vec<RecordType> = Vec::new();
+    let mut state: BitMapState = BitMapState::ReadWindow;
 
-  // loop through all the bytes in the bitmap
-  for _ in 0..bit_map_len {
-    let current_byte = try!(decoder.read_u8());
+    // loop through all the bytes in the bitmap
+    for _ in 0..bit_map_len {
+        let current_byte = try!(decoder.read_u8());
 
-    state = match state {
-      BitMapState::ReadWindow => BitMapState::ReadLen{ window: current_byte },
-      BitMapState::ReadLen{ window } => BitMapState::ReadType{ window: window, len: current_byte, left: current_byte },
-      BitMapState::ReadType{ window, len, left } => {
-        // window is the Window Block # from above
-        // len is the Bitmap Length
-        // current_byte is the Bitmap
-        let mut bit_map = current_byte;
+        state = match state {
+            BitMapState::ReadWindow => BitMapState::ReadLen { window: current_byte },
+            BitMapState::ReadLen { window } => {
+                BitMapState::ReadType {
+                    window: window,
+                    len: current_byte,
+                    left: current_byte,
+                }
+            }
+            BitMapState::ReadType { window, len, left } => {
+                // window is the Window Block # from above
+                // len is the Bitmap Length
+                // current_byte is the Bitmap
+                let mut bit_map = current_byte;
 
-        // for all the bits in the current_byte
-        for i in 0..8 {
-          // if the current_bytes most significant bit is set
-          if bit_map & 0b1000_0000 == 0b1000_0000 {
-            // len - left is the block in the bitmap, times 8 for the bits, + the bit in the current_byte
-            let low_byte = ((len - left) * 8) + i;
-            let rr_type: u16 = (window as u16) << 8 | low_byte as u16;
-            record_types.push(try!(RecordType::from_u16(rr_type)));
-          }
-          // shift left and look at the next bit
-          bit_map <<= 1;
-        }
+                // for all the bits in the current_byte
+                for i in 0..8 {
+                    // if the current_bytes most significant bit is set
+                    if bit_map & 0b1000_0000 == 0b1000_0000 {
+                        // len - left is the block in the bitmap, times 8 for the bits, + the bit in the current_byte
+                        let low_byte = ((len - left) * 8) + i;
+                        let rr_type: u16 = (window as u16) << 8 | low_byte as u16;
+                        record_types.push(try!(RecordType::from_u16(rr_type)));
+                    }
+                    // shift left and look at the next bit
+                    bit_map <<= 1;
+                }
 
-        // move to the next section of the bit_map
-        let left = left - 1;
-        if left == 0 {
-          // we've exhausted this Window, move to the next
-          BitMapState::ReadWindow
-        } else {
-          // continue reading this Window
-          BitMapState::ReadType { window: window, len: len, left: left }
-        }
-      },
-    };
-  }
+                // move to the next section of the bit_map
+                let left = left - 1;
+                if left == 0 {
+                    // we've exhausted this Window, move to the next
+                    BitMapState::ReadWindow
+                } else {
+                    // continue reading this Window
+                    BitMapState::ReadType {
+                        window: window,
+                        len: len,
+                        left: left,
+                    }
+                }
+            }
+        };
+    }
 
-  Ok(record_types)
+    Ok(record_types)
 }
 
 enum BitMapState {
-  ReadWindow,
-  ReadLen{ window: u8 },
-  ReadType{ window: u8, len: u8, left: u8 },
+    ReadWindow,
+    ReadLen { window: u8 },
+    ReadType { window: u8, len: u8, left: u8 },
 }
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> EncodeResult {
-  try!(encoder.emit(rdata.get_hash_algorithm().into()));
-  let mut flags: u8 = 0;
-  if rdata.is_opt_out() { flags |= 0b0000_0001 };
-  try!(encoder.emit(flags));
-  try!(encoder.emit_u16(rdata.get_iterations()));
-  try!(encoder.emit(rdata.get_salt().len() as u8));
-  try!(encoder.emit_vec(rdata.get_salt()));
-  try!(encoder.emit(rdata.get_next_hashed_owner_name().len() as u8));
-  try!(encoder.emit_vec(rdata.get_next_hashed_owner_name()));
-  try!(encode_bit_maps(encoder, rdata.get_type_bit_maps()));
+    try!(encoder.emit(rdata.get_hash_algorithm().into()));
+    let mut flags: u8 = 0;
+    if rdata.is_opt_out() {
+        flags |= 0b0000_0001
+    };
+    try!(encoder.emit(flags));
+    try!(encoder.emit_u16(rdata.get_iterations()));
+    try!(encoder.emit(rdata.get_salt().len() as u8));
+    try!(encoder.emit_vec(rdata.get_salt()));
+    try!(encoder.emit(rdata.get_next_hashed_owner_name().len() as u8));
+    try!(encoder.emit_vec(rdata.get_next_hashed_owner_name()));
+    try!(encode_bit_maps(encoder, rdata.get_type_bit_maps()));
 
-  Ok(())
+    Ok(())
 }
 
 pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> EncodeResult {
-  let mut hash: HashMap<u8, Vec<u8>> = HashMap::new();
+    let mut hash: HashMap<u8, Vec<u8>> = HashMap::new();
 
-  // collect the bitmaps
-  for rr_type in type_bit_maps {
-    let code: u16 = (*rr_type).into();
-    let window: u8 = (code >> 8) as u8;
-    let low: u8 = (code & 0x00FF) as u8;
+    // collect the bitmaps
+    for rr_type in type_bit_maps {
+        let code: u16 = (*rr_type).into();
+        let window: u8 = (code >> 8) as u8;
+        let low: u8 = (code & 0x00FF) as u8;
 
-    let bit_map: &mut Vec<u8> = hash.entry(window).or_insert(Vec::new());
-    // len + left is the block in the bitmap, divided by 8 for the bits, + the bit in the current_byte
-    let index: u8 = low / 8;
-    let bit: u8 = 0b1000_0000 >> (low % 8);
+        let bit_map: &mut Vec<u8> = hash.entry(window).or_insert(Vec::new());
+        // len + left is the block in the bitmap, divided by 8 for the bits, + the bit in the current_byte
+        let index: u8 = low / 8;
+        let bit: u8 = 0b1000_0000 >> (low % 8);
 
-    for _ in 0..((index as usize + 1) - bit_map.len()) {
-      bit_map.push(0);
+        for _ in 0..((index as usize + 1) - bit_map.len()) {
+            bit_map.push(0);
+        }
+
+        bit_map[index as usize] |= bit;
     }
 
-    bit_map[index as usize] |= bit;
-  }
-
-  // output bitmaps
-  for (window, bitmap) in hash {
-    try!(encoder.emit(window));
-    // the hashset should never be larger that 255 based on above logic.
-    try!(encoder.emit(bitmap.len() as u8));
-    for bits in bitmap {
-      try!(encoder.emit(bits));
+    // output bitmaps
+    for (window, bitmap) in hash {
+        try!(encoder.emit(window));
+        // the hashset should never be larger that 255 based on above logic.
+        try!(encoder.emit(bitmap.len() as u8));
+        for bits in bitmap {
+            try!(encoder.emit(bits));
+        }
     }
-  }
 
-  Ok(())
+    Ok(())
 }
 
 #[test]
 pub fn test() {
-  let rdata = NSEC3::new(Nsec3HashAlgorithm::SHA1, true, 2, vec![1,2,3,4,5], vec![6,7,8,9,0],
+    let rdata =
+        NSEC3::new(Nsec3HashAlgorithm::SHA1,
+                   true,
+                   2,
+                   vec![1, 2, 3, 4, 5],
+                   vec![6, 7, 8, 9, 0],
                    vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::RRSIG]);
 
-  let mut bytes = Vec::new();
-  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-  assert!(emit(&mut encoder, &rdata).is_ok());
-  let bytes = encoder.as_bytes();
+    let mut bytes = Vec::new();
+    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+    assert!(emit(&mut encoder, &rdata).is_ok());
+    let bytes = encoder.as_bytes();
 
-  println!("bytes: {:?}", bytes);
+    println!("bytes: {:?}", bytes);
 
-  let mut decoder: BinDecoder = BinDecoder::new(bytes);
-  let read_rdata = read(&mut decoder, bytes.len() as u16);
-  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
-  assert_eq!(rdata, read_rdata.unwrap());
+    let mut decoder: BinDecoder = BinDecoder::new(bytes);
+    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    assert!(read_rdata.is_ok(),
+            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert_eq!(rdata, read_rdata.unwrap());
 }

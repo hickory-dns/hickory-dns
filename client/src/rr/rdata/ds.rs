@@ -18,9 +18,9 @@
 
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::dnssec::{Algorithm, DigestType};
-use ::rr::Name;
-use ::rr::rdata::DNSKEY;
+use rr::dnssec::{Algorithm, DigestType};
+use rr::Name;
+use rr::rdata::DNSKEY;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5)
 ///
@@ -66,141 +66,164 @@ use ::rr::rdata::DNSKEY;
 ///    text.
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
-pub struct DS { key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8> }
+pub struct DS {
+    key_tag: u16,
+    algorithm: Algorithm,
+    digest_type: DigestType,
+    digest: Vec<u8>,
+}
 
 impl DS {
-  pub fn new(key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8>) -> DS {
-    DS { key_tag: key_tag, algorithm: algorithm, digest_type: digest_type, digest: digest }
-  }
+    pub fn new(key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8>) -> DS {
+        DS {
+            key_tag: key_tag,
+            algorithm: algorithm,
+            digest_type: digest_type,
+            digest: digest,
+        }
+    }
 
-  /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
-  ///
-  /// ```text
-  /// 5.1.1.  The Key Tag Field
-  ///
-  ///    The Key Tag field lists the key tag of the DNSKEY RR referred to by
-  ///    the DS record, in network byte order.
-  ///
-  ///    The Key Tag used by the DS RR is identical to the Key Tag used by
-  ///    RRSIG RRs.  Appendix B describes how to compute a Key Tag.
-  /// ```
-  pub fn get_key_tag(&self) -> u16 { self.key_tag }
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
+    ///
+    /// ```text
+    /// 5.1.1.  The Key Tag Field
+    ///
+    ///    The Key Tag field lists the key tag of the DNSKEY RR referred to by
+    ///    the DS record, in network byte order.
+    ///
+    ///    The Key Tag used by the DS RR is identical to the Key Tag used by
+    ///    RRSIG RRs.  Appendix B describes how to compute a Key Tag.
+    /// ```
+    pub fn get_key_tag(&self) -> u16 {
+        self.key_tag
+    }
 
-  /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
-  ///
-  /// ```text
-  /// 5.1.2.  The Algorithm Field
-  ///
-  ///    The Algorithm field lists the algorithm number of the DNSKEY RR
-  ///    referred to by the DS record.
-  ///
-  ///    The algorithm number used by the DS RR is identical to the algorithm
-  ///    number used by RRSIG and DNSKEY RRs.  Appendix A.1 lists the
-  ///    algorithm number types.
-  /// ```
-  pub fn get_algorithm(&self) -> &Algorithm { &self.algorithm }
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
+    ///
+    /// ```text
+    /// 5.1.2.  The Algorithm Field
+    ///
+    ///    The Algorithm field lists the algorithm number of the DNSKEY RR
+    ///    referred to by the DS record.
+    ///
+    ///    The algorithm number used by the DS RR is identical to the algorithm
+    ///    number used by RRSIG and DNSKEY RRs.  Appendix A.1 lists the
+    ///    algorithm number types.
+    /// ```
+    pub fn get_algorithm(&self) -> &Algorithm {
+        &self.algorithm
+    }
 
-  /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
-  ///
-  /// ```text
-  /// 5.1.3.  The Digest Type Field
-  ///
-  ///    The DS RR refers to a DNSKEY RR by including a digest of that DNSKEY
-  ///    RR.  The Digest Type field identifies the algorithm used to construct
-  ///    the digest.  Appendix A.2 lists the possible digest algorithm types.
-  /// ```
-  pub fn get_digest_type(&self) -> DigestType { self.digest_type }
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
+    ///
+    /// ```text
+    /// 5.1.3.  The Digest Type Field
+    ///
+    ///    The DS RR refers to a DNSKEY RR by including a digest of that DNSKEY
+    ///    RR.  The Digest Type field identifies the algorithm used to construct
+    ///    the digest.  Appendix A.2 lists the possible digest algorithm types.
+    /// ```
+    pub fn get_digest_type(&self) -> DigestType {
+        self.digest_type
+    }
 
-  /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
-  ///
-  /// ```text
-  /// 5.1.4.  The Digest Field
-  ///
-  ///    The DS record refers to a DNSKEY RR by including a digest of that
-  ///    DNSKEY RR.
-  ///
-  ///    The digest is calculated by concatenating the canonical form of the
-  ///    fully qualified owner name of the DNSKEY RR with the DNSKEY RDATA,
-  ///    and then applying the digest algorithm.
-  ///
-  ///      digest = digest_algorithm( DNSKEY owner name | DNSKEY RDATA);
-  ///
-  ///       "|" denotes concatenation
-  ///
-  ///      DNSKEY RDATA = Flags | Protocol | Algorithm | Public Key.
-  ///
-  ///    The size of the digest may vary depending on the digest algorithm and
-  ///    DNSKEY RR size.  As of the time of this writing, the only defined
-  ///    digest algorithm is SHA-1, which produces a 20 octet digest.
-  /// ```
-  pub fn get_digest(&self) -> &[u8] { &self.digest }
+    /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5.1.1)
+    ///
+    /// ```text
+    /// 5.1.4.  The Digest Field
+    ///
+    ///    The DS record refers to a DNSKEY RR by including a digest of that
+    ///    DNSKEY RR.
+    ///
+    ///    The digest is calculated by concatenating the canonical form of the
+    ///    fully qualified owner name of the DNSKEY RR with the DNSKEY RDATA,
+    ///    and then applying the digest algorithm.
+    ///
+    ///      digest = digest_algorithm( DNSKEY owner name | DNSKEY RDATA);
+    ///
+    ///       "|" denotes concatenation
+    ///
+    ///      DNSKEY RDATA = Flags | Protocol | Algorithm | Public Key.
+    ///
+    ///    The size of the digest may vary depending on the digest algorithm and
+    ///    DNSKEY RR size.  As of the time of this writing, the only defined
+    ///    digest algorithm is SHA-1, which produces a 20 octet digest.
+    /// ```
+    pub fn get_digest(&self) -> &[u8] {
+        &self.digest
+    }
 
-  /// Validates that a given DNSKEY is covered by the DS record.
-  ///
-  /// # Return
-  ///
-  /// true if and only if the DNSKEY is covered by the DS record.
-  pub fn covers(&self, name: &Name, key: &DNSKEY) -> DnsSecResult<bool> {
-    key.to_digest(name, self.get_digest_type())
-       .map_err(|e| e.into())
-       .map(|hash|
-         if &hash as &[u8] == self.get_digest() {
-           return true
-         } else {
-           return false
-         }
-       )
-  }
+    /// Validates that a given DNSKEY is covered by the DS record.
+    ///
+    /// # Return
+    ///
+    /// true if and only if the DNSKEY is covered by the DS record.
+    pub fn covers(&self, name: &Name, key: &DNSKEY) -> DnsSecResult<bool> {
+        key.to_digest(name, self.get_digest_type())
+            .map_err(|e| e.into())
+            .map(|hash| if &hash as &[u8] == self.get_digest() {
+                return true;
+            } else {
+                return false;
+            })
+    }
 }
 
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DS> {
-  let start_idx = decoder.index();
+    let start_idx = decoder.index();
 
-  let key_tag: u16 = try!(decoder.read_u16());
-  let algorithm: Algorithm = try!(Algorithm::read(decoder));
-  let digest_type: DigestType = try!(DigestType::from_u8(try!(decoder.read_u8())));
+    let key_tag: u16 = try!(decoder.read_u16());
+    let algorithm: Algorithm = try!(Algorithm::read(decoder));
+    let digest_type: DigestType = try!(DigestType::from_u8(try!(decoder.read_u8())));
 
-  let left: usize = rdata_length as usize - (decoder.index() - start_idx);;
-  let digest = try!(decoder.read_vec(left));
+    let left: usize = rdata_length as usize - (decoder.index() - start_idx);
+    let digest = try!(decoder.read_vec(left));
 
-  Ok(DS::new(key_tag, algorithm, digest_type, digest))
+    Ok(DS::new(key_tag, algorithm, digest_type, digest))
 }
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> EncodeResult {
-  try!(encoder.emit_u16(rdata.get_key_tag()));
-  try!(rdata.get_algorithm().emit(encoder)); // always 3 for now
-  try!(encoder.emit(rdata.get_digest_type().into()));
-  try!(encoder.emit_vec(rdata.get_digest()));
+    try!(encoder.emit_u16(rdata.get_key_tag()));
+    try!(rdata.get_algorithm().emit(encoder)); // always 3 for now
+    try!(encoder.emit(rdata.get_digest_type().into()));
+    try!(encoder.emit_vec(rdata.get_digest()));
 
-  Ok(())
+    Ok(())
 }
 
 #[test]
 pub fn test() {
-  let rdata = DS::new(0xF00F, Algorithm::RSASHA256, DigestType::SHA256, vec![5,6,7,8]);
+    let rdata = DS::new(0xF00F,
+                        Algorithm::RSASHA256,
+                        DigestType::SHA256,
+                        vec![5, 6, 7, 8]);
 
-  let mut bytes = Vec::new();
-  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-  assert!(emit(&mut encoder, &rdata).is_ok());
-  let bytes = encoder.as_bytes();
+    let mut bytes = Vec::new();
+    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+    assert!(emit(&mut encoder, &rdata).is_ok());
+    let bytes = encoder.as_bytes();
 
-  println!("bytes: {:?}", bytes);
+    println!("bytes: {:?}", bytes);
 
-  let mut decoder: BinDecoder = BinDecoder::new(bytes);
-  let read_rdata = read(&mut decoder, bytes.len() as u16);
-  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
-  assert_eq!(rdata, read_rdata.unwrap());
+    let mut decoder: BinDecoder = BinDecoder::new(bytes);
+    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    assert!(read_rdata.is_ok(),
+            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert_eq!(rdata, read_rdata.unwrap());
 }
 
 #[test]
 #[cfg(feature = "openssl")]
 pub fn test_covers() {
-  use ::rr::rdata::DNSKEY;
+    use rr::rdata::DNSKEY;
 
-  let name = Name::parse("www.example.com.", None).unwrap();
+    let name = Name::parse("www.example.com.", None).unwrap();
 
-  let dnskey_rdata = DNSKEY::new(true, true, false, Algorithm::RSASHA256, vec![1,2,3,4]);
-  let ds_rdata = DS::new(0, Algorithm::RSASHA256, DigestType::SHA256, dnskey_rdata.to_digest(&name, DigestType::SHA256).unwrap());
+    let dnskey_rdata = DNSKEY::new(true, true, false, Algorithm::RSASHA256, vec![1, 2, 3, 4]);
+    let ds_rdata = DS::new(0,
+                           Algorithm::RSASHA256,
+                           DigestType::SHA256,
+                           dnskey_rdata.to_digest(&name, DigestType::SHA256).unwrap());
 
-  assert!(ds_rdata.covers(&name, &dnskey_rdata).unwrap());
+    assert!(ds_rdata.covers(&name, &dnskey_rdata).unwrap());
 }

@@ -14,39 +14,39 @@
  * limitations under the License.
  */
 
- //! Record type for all cname like records.
- //!
- //! A generic struct for all {*}NAME pointer RData records, CNAME, NS, and PTR. Here is the text for
- //! CNAME from RFC 1035, Domain Implementation and Specification, November 1987:
- //!
- //! [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
- //!
- //! ```text
- //! 3.3.1. CNAME RDATA format
- //!
- //!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- //!     /                     CNAME                     /
- //!     /                                               /
- //!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
- //!
- //! where:
- //!
- //! CNAME           A <domain-name> which specifies the canonical or primary
- //!                 name for the owner.  The owner name is an alias.
- //!
- //! CNAME RRs cause no additional section processing, but name servers may
- //! choose to restart the query at the canonical name in certain cases.  See
- //! the description of name server logic in [RFC-1034] for details.
- //! ```
+//! Record type for all cname like records.
+//!
+//! A generic struct for all {*}NAME pointer RData records, CNAME, NS, and PTR. Here is the text for
+//! CNAME from RFC 1035, Domain Implementation and Specification, November 1987:
+//!
+//! [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
+//!
+//! ```text
+//! 3.3.1. CNAME RDATA format
+//!
+//!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//!     /                     CNAME                     /
+//!     /                                               /
+//!     +--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+--+
+//!
+//! where:
+//!
+//! CNAME           A <domain-name> which specifies the canonical or primary
+//!                 name for the owner.  The owner name is an alias.
+//!
+//! CNAME RRs cause no additional section processing, but name servers may
+//! choose to restart the query at the canonical name in certain cases.  See
+//! the description of name server logic in [RFC-1034] for details.
+//! ```
 
 use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
-use ::rr::domain::Name;
+use rr::domain::Name;
 
 
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Name> {
-  Name::read(decoder)
+    Name::read(decoder)
 }
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
@@ -68,32 +68,39 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Name> {
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
 pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> EncodeResult {
-  let is_canonical_names = encoder.is_canonical_names();
-  try!(name_data.emit_with_lowercase(encoder, is_canonical_names));
-  Ok(())
+    let is_canonical_names = encoder.is_canonical_names();
+    try!(name_data.emit_with_lowercase(encoder, is_canonical_names));
+    Ok(())
 }
 
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Name> {
-  let mut token = tokens.iter();
+    let mut token = tokens.iter();
 
-  let name: Name = try!(token.next().ok_or(ParseErrorKind::MissingToken("name".to_string()).into()).and_then(|t| if let &Token::CharData(ref s) = t {Name::parse(s, origin)} else {Err(ParseErrorKind::UnexpectedToken(t.clone()).into())} ));
-  Ok(name)
+    let name: Name = try!(token.next()
+        .ok_or(ParseErrorKind::MissingToken("name".to_string()).into())
+        .and_then(|t| if let &Token::CharData(ref s) = t {
+            Name::parse(s, origin)
+        } else {
+            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+        }));
+    Ok(name)
 }
 
 
 #[test]
 pub fn test() {
-  let rdata = Name::new().label("WWW").label("example").label("com");
+    let rdata = Name::new().label("WWW").label("example").label("com");
 
-  let mut bytes = Vec::new();
-  let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
-  assert!(emit(&mut encoder, &rdata).is_ok());
-  let bytes = encoder.as_bytes();
+    let mut bytes = Vec::new();
+    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+    assert!(emit(&mut encoder, &rdata).is_ok());
+    let bytes = encoder.as_bytes();
 
-  println!("bytes: {:?}", bytes);
+    println!("bytes: {:?}", bytes);
 
-  let mut decoder: BinDecoder = BinDecoder::new(bytes);
-  let read_rdata = read(&mut decoder);
-  assert!(read_rdata.is_ok(), format!("error decoding: {:?}", read_rdata.unwrap_err()));
-  assert_eq!(rdata, read_rdata.unwrap());
+    let mut decoder: BinDecoder = BinDecoder::new(bytes);
+    let read_rdata = read(&mut decoder);
+    assert!(read_rdata.is_ok(),
+            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert_eq!(rdata, read_rdata.unwrap());
 }

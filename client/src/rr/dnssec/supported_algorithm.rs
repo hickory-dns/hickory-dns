@@ -18,87 +18,87 @@
 
 use std::convert::From;
 
-use ::rr::dnssec::Algorithm;
+use rr::dnssec::Algorithm;
 
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct SupportedAlgorithms {
-  // right now the number of Algorithms supported are fewer than 16..
-  bit_map: u8
+    // right now the number of Algorithms supported are fewer than 16..
+    bit_map: u8,
 }
 
 impl SupportedAlgorithms {
-  pub fn new() -> Self {
-    SupportedAlgorithms{ bit_map: 0 }
-  }
-
-  pub fn all() -> Self {
-    SupportedAlgorithms{ bit_map: 0b01111111 }
-  }
-
-  pub fn from_vec(algorithms: &[Algorithm]) -> Self {
-    let mut supported = SupportedAlgorithms::new();
-
-    for a in algorithms {
-      supported.set(*a);
+    pub fn new() -> Self {
+        SupportedAlgorithms { bit_map: 0 }
     }
 
-    supported
-  }
-
-  fn pos(algorithm: Algorithm) -> u8 {
-    // not using the values from the RFC's to keep the bit_map space condensed
-    let bit_pos: u8 = match algorithm {
-      Algorithm::RSASHA1 => 0,
-      Algorithm::RSASHA256 => 1,
-      Algorithm::RSASHA1NSEC3SHA1 => 2,
-      Algorithm::RSASHA512 => 3,
-      Algorithm::ECDSAP256SHA256 => 4,
-      Algorithm::ECDSAP384SHA384 => 5,
-      Algorithm::ED25519 => 6,
-    };
-
-    assert!(bit_pos <= u8::max_value());
-    1u8 << bit_pos
-  }
-
-  fn from_pos(pos: u8) -> Option<Algorithm> {
-    // TODO: should build a code generator or possibly a macro for deriving these inversions
-    match pos {
-      0 => Some(Algorithm::RSASHA1),
-      1 => Some(Algorithm::RSASHA256),
-      2 => Some(Algorithm::RSASHA1NSEC3SHA1),
-      3 => Some(Algorithm::RSASHA512),
-      4 => Some(Algorithm::ECDSAP256SHA256),
-      5 => Some(Algorithm::ECDSAP384SHA384),
-      6 => Some(Algorithm::ED25519),
-      _ => None,
+    pub fn all() -> Self {
+        SupportedAlgorithms { bit_map: 0b01111111 }
     }
-  }
 
-  pub fn set(&mut self, algorithm: Algorithm) {
-    let bit_pos: u8 = Self::pos(algorithm);
-    self.bit_map |= bit_pos;
-  }
+    pub fn from_vec(algorithms: &[Algorithm]) -> Self {
+        let mut supported = SupportedAlgorithms::new();
 
-  pub fn has(&self, algorithm: Algorithm) -> bool {
-    let bit_pos: u8 = Self::pos(algorithm);
-    (bit_pos & self.bit_map) == bit_pos
-  }
+        for a in algorithms {
+            supported.set(*a);
+        }
 
-  pub fn iter(&self) -> SupportedAlgorithmsIter {
-    SupportedAlgorithmsIter::new(self)
-  }
+        supported
+    }
 
-  pub fn len(&self) -> u16 {
-    // this is pretty much guaranteed to be less that u16::max_value()
-    self.iter().count() as u16
-  }
+    fn pos(algorithm: Algorithm) -> u8 {
+        // not using the values from the RFC's to keep the bit_map space condensed
+        let bit_pos: u8 = match algorithm {
+            Algorithm::RSASHA1 => 0,
+            Algorithm::RSASHA256 => 1,
+            Algorithm::RSASHA1NSEC3SHA1 => 2,
+            Algorithm::RSASHA512 => 3,
+            Algorithm::ECDSAP256SHA256 => 4,
+            Algorithm::ECDSAP384SHA384 => 5,
+            Algorithm::ED25519 => 6,
+        };
+
+        assert!(bit_pos <= u8::max_value());
+        1u8 << bit_pos
+    }
+
+    fn from_pos(pos: u8) -> Option<Algorithm> {
+        // TODO: should build a code generator or possibly a macro for deriving these inversions
+        match pos {
+            0 => Some(Algorithm::RSASHA1),
+            1 => Some(Algorithm::RSASHA256),
+            2 => Some(Algorithm::RSASHA1NSEC3SHA1),
+            3 => Some(Algorithm::RSASHA512),
+            4 => Some(Algorithm::ECDSAP256SHA256),
+            5 => Some(Algorithm::ECDSAP384SHA384),
+            6 => Some(Algorithm::ED25519),
+            _ => None,
+        }
+    }
+
+    pub fn set(&mut self, algorithm: Algorithm) {
+        let bit_pos: u8 = Self::pos(algorithm);
+        self.bit_map |= bit_pos;
+    }
+
+    pub fn has(&self, algorithm: Algorithm) -> bool {
+        let bit_pos: u8 = Self::pos(algorithm);
+        (bit_pos & self.bit_map) == bit_pos
+    }
+
+    pub fn iter(&self) -> SupportedAlgorithmsIter {
+        SupportedAlgorithmsIter::new(self)
+    }
+
+    pub fn len(&self) -> u16 {
+        // this is pretty much guaranteed to be less that u16::max_value()
+        self.iter().count() as u16
+    }
 }
 
 impl Default for SupportedAlgorithms {
-  fn default() -> SupportedAlgorithms {
-    SupportedAlgorithms::from_vec(&[Algorithm::RSASHA256])
-  }
+    fn default() -> SupportedAlgorithms {
+        SupportedAlgorithms::from_vec(&[Algorithm::RSASHA256])
+    }
 }
 
 // impl<'a> SupportedAlgorithms {
@@ -108,123 +108,130 @@ impl Default for SupportedAlgorithms {
 // }
 
 impl<'a> From<&'a [u8]> for SupportedAlgorithms {
-  fn from(values: &'a [u8]) -> Self {
-    let mut supported = SupportedAlgorithms::new();
+    fn from(values: &'a [u8]) -> Self {
+        let mut supported = SupportedAlgorithms::new();
 
-    for a in values.iter().map(|i|Algorithm::from_u8(*i)) {
-      if a.is_ok() {
-        supported.set(a.unwrap());
-      } else {
-        warn!("unrecognized algorithm: {}", a.unwrap_err());
-      }
+        for a in values.iter().map(|i| Algorithm::from_u8(*i)) {
+            if a.is_ok() {
+                supported.set(a.unwrap());
+            } else {
+                warn!("unrecognized algorithm: {}", a.unwrap_err());
+            }
+        }
+
+        supported
     }
-
-    supported
-  }
 }
 
 impl<'a> From<&'a SupportedAlgorithms> for Vec<u8> {
-  fn from(value: &'a SupportedAlgorithms) -> Vec<u8> {
-    let mut bytes: Vec<u8> = Vec::with_capacity(8); // today this is less than 8
+    fn from(value: &'a SupportedAlgorithms) -> Vec<u8> {
+        let mut bytes: Vec<u8> = Vec::with_capacity(8); // today this is less than 8
 
-    for a in value.iter() {
-      bytes.push(a.into());
+        for a in value.iter() {
+            bytes.push(a.into());
+        }
+
+        bytes.shrink_to_fit();
+        bytes
     }
-
-    bytes.shrink_to_fit();
-    bytes
-  }
 }
 
 pub struct SupportedAlgorithmsIter<'a> {
-  algorithms: &'a SupportedAlgorithms,
-  current: usize,
+    algorithms: &'a SupportedAlgorithms,
+    current: usize,
 }
 
 impl<'a> SupportedAlgorithmsIter<'a> {
-  pub fn new(algorithms: &'a SupportedAlgorithms) -> Self {
-    SupportedAlgorithmsIter{ algorithms: algorithms, current: 0 }
-  }
+    pub fn new(algorithms: &'a SupportedAlgorithms) -> Self {
+        SupportedAlgorithmsIter {
+            algorithms: algorithms,
+            current: 0,
+        }
+    }
 }
 
 impl<'a> Iterator for SupportedAlgorithmsIter<'a> {
-  type Item = Algorithm;
-  fn next(&mut self) -> Option<Self::Item> {
-    // some quick bounds checking
-    if self.current > u8::max_value() as usize { return None }
+    type Item = Algorithm;
+    fn next(&mut self) -> Option<Self::Item> {
+        // some quick bounds checking
+        if self.current > u8::max_value() as usize {
+            return None;
+        }
 
-    while let Some(algorithm) = SupportedAlgorithms::from_pos(self.current as u8) {
-      self.current += 1;
-      if self.algorithms.has(algorithm) { return Some(algorithm) }
+        while let Some(algorithm) = SupportedAlgorithms::from_pos(self.current as u8) {
+            self.current += 1;
+            if self.algorithms.has(algorithm) {
+                return Some(algorithm);
+            }
+        }
+
+        None
     }
-
-    None
-  }
 }
 
 #[test]
 fn test_has() {
-  let mut supported = SupportedAlgorithms::new();
+    let mut supported = SupportedAlgorithms::new();
 
-  supported.set(Algorithm::RSASHA1);
+    supported.set(Algorithm::RSASHA1);
 
-  assert!(supported.has(Algorithm::RSASHA1));
-  assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
+    assert!(supported.has(Algorithm::RSASHA1));
+    assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
 
-  let mut supported = SupportedAlgorithms::new();
+    let mut supported = SupportedAlgorithms::new();
 
-  supported.set(Algorithm::RSASHA256);
-  assert!(!supported.has(Algorithm::RSASHA1));
-  assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
-  assert!(supported.has(Algorithm::RSASHA256));
+    supported.set(Algorithm::RSASHA256);
+    assert!(!supported.has(Algorithm::RSASHA1));
+    assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
+    assert!(supported.has(Algorithm::RSASHA256));
 }
 
 #[test]
 fn test_iterator() {
-  let supported = SupportedAlgorithms::all();
-  assert_eq!(supported.iter().count(), 7);
+    let supported = SupportedAlgorithms::all();
+    assert_eq!(supported.iter().count(), 7);
 
-  // it just so happens that the iterator has a fixed order...
-  let supported = SupportedAlgorithms::all();
-  let mut iter = supported.iter();
-  assert_eq!(iter.next(), Some(Algorithm::RSASHA1));
-  assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
-  assert_eq!(iter.next(), Some(Algorithm::RSASHA1NSEC3SHA1));
-  assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
-  assert_eq!(iter.next(), Some(Algorithm::ECDSAP256SHA256));
-  assert_eq!(iter.next(), Some(Algorithm::ECDSAP384SHA384));
-  assert_eq!(iter.next(), Some(Algorithm::ED25519));
+    // it just so happens that the iterator has a fixed order...
+    let supported = SupportedAlgorithms::all();
+    let mut iter = supported.iter();
+    assert_eq!(iter.next(), Some(Algorithm::RSASHA1));
+    assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
+    assert_eq!(iter.next(), Some(Algorithm::RSASHA1NSEC3SHA1));
+    assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
+    assert_eq!(iter.next(), Some(Algorithm::ECDSAP256SHA256));
+    assert_eq!(iter.next(), Some(Algorithm::ECDSAP384SHA384));
+    assert_eq!(iter.next(), Some(Algorithm::ED25519));
 
-  let mut supported = SupportedAlgorithms::new();
-  supported.set(Algorithm::RSASHA256);
-  supported.set(Algorithm::RSASHA512);
+    let mut supported = SupportedAlgorithms::new();
+    supported.set(Algorithm::RSASHA256);
+    supported.set(Algorithm::RSASHA512);
 
-  let mut iter = supported.iter();
-  assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
-  assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
+    let mut iter = supported.iter();
+    assert_eq!(iter.next(), Some(Algorithm::RSASHA256));
+    assert_eq!(iter.next(), Some(Algorithm::RSASHA512));
 }
 
 #[test]
 fn test_vec() {
-  let supported = SupportedAlgorithms::all();
-  let array: Vec<u8> = (&supported).into();
-  let decoded: SupportedAlgorithms = (&array as &[_]).into();
+    let supported = SupportedAlgorithms::all();
+    let array: Vec<u8> = (&supported).into();
+    let decoded: SupportedAlgorithms = (&array as &[_]).into();
 
-  assert_eq!(supported, decoded);
+    assert_eq!(supported, decoded);
 
-  let mut supported = SupportedAlgorithms::new();
-  supported.set(Algorithm::RSASHA256);
-  supported.set(Algorithm::ECDSAP256SHA256);
-  supported.set(Algorithm::ECDSAP384SHA384);
-  supported.set(Algorithm::ED25519);
-  let array: Vec<u8> = (&supported).into();
-  let decoded: SupportedAlgorithms = (&array as &[_]).into();
+    let mut supported = SupportedAlgorithms::new();
+    supported.set(Algorithm::RSASHA256);
+    supported.set(Algorithm::ECDSAP256SHA256);
+    supported.set(Algorithm::ECDSAP384SHA384);
+    supported.set(Algorithm::ED25519);
+    let array: Vec<u8> = (&supported).into();
+    let decoded: SupportedAlgorithms = (&array as &[_]).into();
 
-  assert_eq!(supported, decoded);
-  assert!(!supported.has(Algorithm::RSASHA1));
-  assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
-  assert!(supported.has(Algorithm::RSASHA256));
-  assert!(supported.has(Algorithm::ECDSAP256SHA256));
-  assert!(supported.has(Algorithm::ECDSAP384SHA384));
-  assert!(supported.has(Algorithm::ED25519));
+    assert_eq!(supported, decoded);
+    assert!(!supported.has(Algorithm::RSASHA1));
+    assert!(!supported.has(Algorithm::RSASHA1NSEC3SHA1));
+    assert!(supported.has(Algorithm::RSASHA256));
+    assert!(supported.has(Algorithm::ECDSAP256SHA256));
+    assert!(supported.has(Algorithm::ECDSAP384SHA384));
+    assert!(supported.has(Algorithm::ED25519));
 }

@@ -15,10 +15,14 @@
  */
 use std::io::Error as IoError;
 
-#[cfg(feature = "openssl")] use openssl::error::ErrorStack as SslErrorStack;
-#[cfg(not(feature = "openssl"))] use self::not_openssl::SslErrorStack;
-#[cfg(feature = "ring")] use ring::error::Unspecified;
-#[cfg(not(feature = "ring"))] use self::not_ring::Unspecified;
+#[cfg(feature = "openssl")]
+use openssl::error::ErrorStack as SslErrorStack;
+#[cfg(not(feature = "openssl"))]
+use self::not_openssl::SslErrorStack;
+#[cfg(feature = "ring")]
+use ring::error::Unspecified;
+#[cfg(not(feature = "ring"))]
+use self::not_ring::Unspecified;
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -62,42 +66,42 @@ error_chain! {
 
 #[cfg(not(feature = "openssl"))]
 pub mod not_openssl {
-  use std;
+    use std;
 
-  #[derive(Debug)]
-  pub struct SslErrorStack;
+    #[derive(Debug)]
+    pub struct SslErrorStack;
 
-  impl std::fmt::Display for SslErrorStack {
-    fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-      Ok(())
+    impl std::fmt::Display for SslErrorStack {
+        fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+            Ok(())
+        }
     }
-  }
 
 
-  impl std::error::Error for SslErrorStack {
-    fn description(&self) -> &str {
-      "openssl feature not enabled"
+    impl std::error::Error for SslErrorStack {
+        fn description(&self) -> &str {
+            "openssl feature not enabled"
+        }
     }
-  }
 }
 
 #[cfg(not(feature = "ring"))]
 pub mod not_ring {
-  use std;
+    use std;
 
-  #[derive(Debug)]
-  pub struct Unspecified;
+    #[derive(Debug)]
+    pub struct Unspecified;
 
-  impl std::fmt::Display for Unspecified {
-    fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
-      Ok(())
+    impl std::fmt::Display for Unspecified {
+        fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+            Ok(())
+        }
     }
-  }
 
 
-  impl std::error::Error for Unspecified {
-    fn description(&self) -> &str {
-      "ring feature not enabled"
+    impl std::error::Error for Unspecified {
+        fn description(&self) -> &str {
+            "ring feature not enabled"
+        }
     }
-  }
 }

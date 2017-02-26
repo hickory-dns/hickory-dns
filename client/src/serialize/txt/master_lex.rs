@@ -9,420 +9,596 @@ use std::iter::Peekable;
 use std::str::Chars;
 use std::char;
 
-use ::error::{LexerResult, LexerError, LexerErrorKind};
+use error::{LexerResult, LexerError, LexerErrorKind};
 
 pub struct Lexer<'a> {
-  txt: Peekable<Chars<'a>>,
-  state: State,
+    txt: Peekable<Chars<'a>>,
+    state: State,
 }
 
 impl<'a> Lexer<'a> {
-  pub fn new(txt: &str) -> Lexer {
-    Lexer { txt: txt.chars().peekable(), state: State::StartLine }
-  }
-
-  pub fn next_token(&mut self) -> LexerResult<Option<Token>> {
-    let mut char_data_vec: Option<Vec<String>> = None;
-    let mut char_data: Option<String> = None;
-
-    'out: for i in 0..4096 { // max chars in a single lex, helps with issues in the lexer...
-      assert!(i < 4095);     // keeps the bounds of the loop defined (nothing lasts forever)
-
-      // This is to get around mutibility rules such that we can peek at the iter without moving next...
-      let ch: Option<char> = self.peek();
-
-      // handy line for debugging
-      // debug!("ch = {:?}; state = {:?}(c: {:?}, v: {:?})", ch, self.state, char_data, char_data_vec);
-
-      // continuing states should pass back the state as the last statement,
-      //  terminal states should set the state internally and return the proper Token::*.
-      // TODO: there is some non-ideal copying going on in here...
-      match self.state {
-          State::StartLine => {
-            match ch {
-              Some('\r') | Some('\n') => { self.state = State::EOL; },
-              // white space at the start of line is a Blank
-              Some(ch) if ch.is_whitespace() => { self.state = State::Blank },
-              Some(_) => { self.state = State::RestOfLine },
-              None => { self.state = State::EOF; },
-            }
-          },
-          State::RestOfLine => {
-            match ch {
-              Some('@') => { self.state = State::At },
-              Some('(') => { self.txt.next(); char_data_vec = Some(Vec::new()); self.state = State::List; },
-              Some(')') => { return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into()) },
-              Some('$') => { self.txt.next(); char_data = Some(String::new()); self.state = State::Dollar; },
-              Some('\r') | Some('\n') => { self.state = State::EOL; },
-              Some('"') => { self.txt.next(); char_data = Some(String::new()); self.state = State::Quote; },
-              Some(';') => { self.state = State::Comment{ is_list: false } },
-              Some(ch) if ch.is_whitespace() => { self.txt.next(); }, // gobble other whitespace
-              Some(ch) if !ch.is_control() && !ch.is_whitespace() => { char_data = Some(String::new()); self.state = State::CharData{ is_list: false }; },
-              Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
-              None => { self.state = State::EOF; },
-            }
-          }
-          State::Blank => {
-            // consume the whitespace
-            self.txt.next();
-            self.state = State::RestOfLine;
-            return Ok(Some(Token::Blank))
-          }
-          State::Comment{ is_list } => {
-            match ch {
-              Some('\r') | Some('\n') => {
-                if is_list { self.state = State::List; }
-                else { self.state = State::EOL; }
-              }, // out of the comment
-              Some(_) => { self.txt.next(); }, // advance the token by default and maintain state
-              None => { self.state = State::EOF; },
-            }
-          },
-          State::Quote => {
-            match ch {
-              // end and gobble the '"'
-              Some('"') => { self.state = State::RestOfLine; self.txt.next() ; return Ok(Some(Token::CharData(char_data.take().unwrap_or("".into())))) },
-              Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
-              Some(ch) => { self.txt.next(); try!(Self::push_to_str(&mut char_data, ch)); },
-              None => { return Err(LexerErrorKind::UnclosedQuotedString.into()) },
-            }
-          },
-          State::Dollar => {
-            match ch {
-              // even this is a little broad for what's actually possible in a dollar...
-              Some('A' ... 'Z') => { self.txt.next(); try!(Self::push_to_str(&mut char_data, ch.unwrap())); },
-              // finishes the Dollar...
-              Some(_) | None => {
-                self.state = State::RestOfLine;
-                let dollar: String = try!(char_data.take().ok_or(LexerError::from(LexerErrorKind::IllegalState("char_data is None"))));
-
-                if     "INCLUDE" == dollar { return Ok(Some(Token::Include)) }
-                else if "ORIGIN" == dollar { return Ok(Some(Token::Origin)) }
-                else if "TTL"    == dollar { return Ok(Some(Token::Ttl)) }
-                else { return Err(LexerErrorKind::UnrecognizedDollar(char_data.take().unwrap_or("".into())).into()) }
-              },
-            }
-          },
-          State::List => {
-            match ch {
-              Some(';') => { self.txt.next(); self.state = State::Comment{ is_list: true } },
-              Some(')') => { self.txt.next(); self.state = State::RestOfLine; return char_data_vec.take().ok_or(LexerErrorKind::IllegalState("char_data_vec is None").into()).map(|v|Some(Token::List(v))); }
-              Some(ch) if ch.is_whitespace() => { self.txt.next(); },
-              Some(ch) if !ch.is_control() && !ch.is_whitespace() => { char_data = Some(String::new()); self.state = State::CharData{ is_list: true } },
-              Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
-              None => { return Err(LexerErrorKind::UnclosedList.into()) },
-            }
-          },
-          State::CharData{ is_list } => {
-            match ch {
-              Some(')') if !is_list => { return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into()) },
-              Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
-                if is_list {
-                  try!(char_data_vec.as_mut().ok_or(LexerError::from(LexerErrorKind::IllegalState("char_data_vec is None"))).and_then(|v|Ok(v.push(try!(char_data.take().ok_or(LexerErrorKind::IllegalState("char_data is None")))))));
-                  self.state = State::List;
-                } else {
-                  self.state = State::RestOfLine;
-                  let result = char_data.take().ok_or(LexerErrorKind::IllegalState("char_data is None").into());
-                  let opt = result.map(|s|Some(Token::CharData(s)));
-                  return opt;
-                }
-              },
-              // TODO: this next one can be removed, but will keep unescaping for quoted strings
-              //Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
-              Some(ch) if !ch.is_control() && !ch.is_whitespace() => { self.txt.next(); try!(Self::push_to_str(&mut char_data, ch)); },
-              Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
-              None => { self.state = State::EOF; return char_data.take().ok_or(LexerErrorKind::IllegalState("char_data is None").into()).map(|s|Some(Token::CharData(s))) },
-            }
-          },
-          State::At => {
-            self.txt.next();
-            self.state = State::RestOfLine;
-            return Ok(Some(Token::At))
-          },
-          State::EOL => {
-            match ch {
-              Some('\r') => { self.txt.next(); },
-              Some('\n') => { self.txt.next(); self.state = State::StartLine; return Ok(Some(Token::EOL)) },
-              Some(_) => { return Err(LexerErrorKind::IllegalCharacter(ch.unwrap()).into()) },
-              None => { return Err(LexerErrorKind::EOF.into()) },
-            }
-          },
-          // to exhaust all cases, this should never be run...
-          State::EOF => {
-            self.txt.next(); // making sure we consume the last... it will always return None after.
-            return Ok(None)
-          }
+    pub fn new(txt: &str) -> Lexer {
+        Lexer {
+            txt: txt.chars().peekable(),
+            state: State::StartLine,
         }
-
-  }
-
-    unreachable!("The above match statement should have found a terminal state");
-  }
-
-  fn push_to_str(collect: &mut Option<String>, ch: char) -> LexerResult<()> {
-    collect.as_mut().ok_or(LexerErrorKind::IllegalState("collect is None").into()).and_then(|s|Ok(s.push(ch)))
-  }
-
-  fn escape_seq(&mut self) -> LexerResult<char> {
-    // escaped character, let's decode it.
-    self.txt.next(); // consume the escape
-    let ch = try!(self.peek().ok_or(LexerError::from(LexerErrorKind::EOF)));
-
-    if !ch.is_control() {
-      if ch.is_numeric() {
-        // in this case it's an excaped octal: \DDD
-        let d1: u32 = try!(try!(self.txt.next().ok_or(LexerError::from(LexerErrorKind::EOF)).map(|c|c.to_digit(10).ok_or(LexerError::from(LexerErrorKind::IllegalCharacter(c)))))); // gobble
-        let d2: u32 = try!(try!(self.txt.next().ok_or(LexerError::from(LexerErrorKind::EOF)).map(|c|c.to_digit(10).ok_or(LexerError::from(LexerErrorKind::IllegalCharacter(c)))))); // gobble
-        let d3: u32 = try!(try!(self.txt.next().ok_or(LexerError::from(LexerErrorKind::EOF)).map(|c|c.to_digit(10).ok_or(LexerError::from(LexerErrorKind::IllegalCharacter(c)))))); // gobble
-
-        let val: u32 = (d1 << 16) + (d2 << 8) + d3;
-        let ch: char = try!(char::from_u32(val).ok_or(LexerError::from(LexerErrorKind::UnrecognizedOctet(val))));
-
-        return Ok(ch);
-      } else {
-        // this is an excaped char: \X
-        self.txt.next(); // gobble the char
-        return Ok(ch);
-      }
-    } else {
-      return Err(LexerErrorKind::IllegalCharacter(ch).into());
     }
 
-  }
+    pub fn next_token(&mut self) -> LexerResult<Option<Token>> {
+        let mut char_data_vec: Option<Vec<String>> = None;
+        let mut char_data: Option<String> = None;
 
-  fn peek(&mut self) -> Option<char> {
-    self.txt.peek().map(|c|*c)
-  }
+        'out: for i in 0..4096 {
+            // max chars in a single lex, helps with issues in the lexer...
+            assert!(i < 4095); // keeps the bounds of the loop defined (nothing lasts forever)
+
+            // This is to get around mutibility rules such that we can peek at the iter without moving next...
+            let ch: Option<char> = self.peek();
+
+            // handy line for debugging
+            // debug!("ch = {:?}; state = {:?}(c: {:?}, v: {:?})", ch, self.state, char_data, char_data_vec);
+
+            // continuing states should pass back the state as the last statement,
+            //  terminal states should set the state internally and return the proper Token::*.
+            // TODO: there is some non-ideal copying going on in here...
+            match self.state {
+                State::StartLine => {
+                    match ch {
+                        Some('\r') | Some('\n') => {
+                            self.state = State::EOL;
+                        }
+                        // white space at the start of line is a Blank
+                        Some(ch) if ch.is_whitespace() => self.state = State::Blank,
+                        Some(_) => self.state = State::RestOfLine,
+                        None => {
+                            self.state = State::EOF;
+                        }
+                    }
+                }
+                State::RestOfLine => {
+                    match ch {
+                        Some('@') => self.state = State::At,
+                        Some('(') => {
+                            self.txt.next();
+                            char_data_vec = Some(Vec::new());
+                            self.state = State::List;
+                        }
+                        Some(')') => {
+                            return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
+                        }
+                        Some('$') => {
+                            self.txt.next();
+                            char_data = Some(String::new());
+                            self.state = State::Dollar;
+                        }
+                        Some('\r') | Some('\n') => {
+                            self.state = State::EOL;
+                        }
+                        Some('"') => {
+                            self.txt.next();
+                            char_data = Some(String::new());
+                            self.state = State::Quote;
+                        }
+                        Some(';') => self.state = State::Comment { is_list: false },
+                        Some(ch) if ch.is_whitespace() => {
+                            self.txt.next();
+                        } // gobble other whitespace
+                        Some(ch) if !ch.is_control() && !ch.is_whitespace() => {
+                            char_data = Some(String::new());
+                            self.state = State::CharData { is_list: false };
+                        }
+                        Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
+                        None => {
+                            self.state = State::EOF;
+                        }
+                    }
+                }
+                State::Blank => {
+                    // consume the whitespace
+                    self.txt.next();
+                    self.state = State::RestOfLine;
+                    return Ok(Some(Token::Blank));
+                }
+                State::Comment { is_list } => {
+                    match ch {
+                        Some('\r') | Some('\n') => {
+                            if is_list {
+                                self.state = State::List;
+                            } else {
+                                self.state = State::EOL;
+                            }
+                        } // out of the comment
+                        Some(_) => {
+                            self.txt.next();
+                        } // advance the token by default and maintain state
+                        None => {
+                            self.state = State::EOF;
+                        }
+                    }
+                }
+                State::Quote => {
+                    match ch {
+                        // end and gobble the '"'
+                        Some('"') => {
+                            self.state = State::RestOfLine;
+                            self.txt.next();
+                            return Ok(Some(Token::CharData(char_data.take().unwrap_or("".into()))));
+                        }
+                        Some('\\') => {
+                            try!(Self::push_to_str(&mut char_data, try!(self.escape_seq())));
+                        }
+                        Some(ch) => {
+                            self.txt.next();
+                            try!(Self::push_to_str(&mut char_data, ch));
+                        }
+                        None => return Err(LexerErrorKind::UnclosedQuotedString.into()),
+                    }
+                }
+                State::Dollar => {
+                    match ch {
+                        // even this is a little broad for what's actually possible in a dollar...
+                        Some('A'...'Z') => {
+                            self.txt.next();
+                            try!(Self::push_to_str(&mut char_data, ch.unwrap()));
+                        }
+                        // finishes the Dollar...
+                        Some(_) | None => {
+                            self.state = State::RestOfLine;
+                            let dollar: String = try!(char_data.take()
+                                .ok_or(LexerError::from(LexerErrorKind::IllegalState("char_data \
+                                                                                      is None"))));
+
+                            if "INCLUDE" == dollar {
+                                return Ok(Some(Token::Include));
+                            } else if "ORIGIN" == dollar {
+                                return Ok(Some(Token::Origin));
+                            } else if "TTL" == dollar {
+                                return Ok(Some(Token::Ttl));
+                            } else {
+                                return Err(LexerErrorKind::UnrecognizedDollar(char_data.take()
+                                        .unwrap_or("".into()))
+                                    .into());
+                            }
+                        }
+                    }
+                }
+                State::List => {
+                    match ch {
+                        Some(';') => {
+                            self.txt.next();
+                            self.state = State::Comment { is_list: true }
+                        }
+                        Some(')') => {
+                            self.txt.next();
+                            self.state = State::RestOfLine;
+                            return char_data_vec.take()
+                                .ok_or(LexerErrorKind::IllegalState("char_data_vec is None")
+                                    .into())
+                                .map(|v| Some(Token::List(v)));
+                        }
+                        Some(ch) if ch.is_whitespace() => {
+                            self.txt.next();
+                        }
+                        Some(ch) if !ch.is_control() && !ch.is_whitespace() => {
+                            char_data = Some(String::new());
+                            self.state = State::CharData { is_list: true }
+                        }
+                        Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
+                        None => return Err(LexerErrorKind::UnclosedList.into()),
+                    }
+                }
+                State::CharData { is_list } => {
+                    match ch {
+                        Some(')') if !is_list => {
+                            return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
+                        }
+                        Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
+                            if is_list {
+                                try!(char_data_vec.as_mut().ok_or(LexerError::from(LexerErrorKind::IllegalState("char_data_vec is None"))).and_then(|v|Ok(v.push(try!(char_data.take().ok_or(LexerErrorKind::IllegalState("char_data is None")))))));
+                                self.state = State::List;
+                            } else {
+                                self.state = State::RestOfLine;
+                                let result = char_data.take()
+                                    .ok_or(LexerErrorKind::IllegalState("char_data is None")
+                                        .into());
+                                let opt = result.map(|s| Some(Token::CharData(s)));
+                                return opt;
+                            }
+                        }
+                        // TODO: this next one can be removed, but will keep unescaping for quoted strings
+                        //Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
+                        Some(ch) if !ch.is_control() && !ch.is_whitespace() => {
+                            self.txt.next();
+                            try!(Self::push_to_str(&mut char_data, ch));
+                        }
+                        Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
+                        None => {
+                            self.state = State::EOF;
+                            return char_data.take()
+                                .ok_or(LexerErrorKind::IllegalState("char_data is None").into())
+                                .map(|s| Some(Token::CharData(s)));
+                        }
+                    }
+                }
+                State::At => {
+                    self.txt.next();
+                    self.state = State::RestOfLine;
+                    return Ok(Some(Token::At));
+                }
+                State::EOL => {
+                    match ch {
+                        Some('\r') => {
+                            self.txt.next();
+                        }
+                        Some('\n') => {
+                            self.txt.next();
+                            self.state = State::StartLine;
+                            return Ok(Some(Token::EOL));
+                        }
+                        Some(_) => return Err(LexerErrorKind::IllegalCharacter(ch.unwrap()).into()),
+                        None => return Err(LexerErrorKind::EOF.into()),
+                    }
+                }
+                // to exhaust all cases, this should never be run...
+                State::EOF => {
+                    self.txt.next(); // making sure we consume the last... it will always return None after.
+                    return Ok(None);
+                }
+            }
+
+        }
+
+        unreachable!("The above match statement should have found a terminal state");
+    }
+
+    fn push_to_str(collect: &mut Option<String>, ch: char) -> LexerResult<()> {
+        collect.as_mut()
+            .ok_or(LexerErrorKind::IllegalState("collect is None").into())
+            .and_then(|s| Ok(s.push(ch)))
+    }
+
+    fn escape_seq(&mut self) -> LexerResult<char> {
+        // escaped character, let's decode it.
+        self.txt.next(); // consume the escape
+        let ch = try!(self.peek().ok_or(LexerError::from(LexerErrorKind::EOF)));
+
+        if !ch.is_control() {
+            if ch.is_numeric() {
+                // in this case it's an excaped octal: \DDD
+                let d1: u32 = try!(try!(self.txt
+                    .next()
+                    .ok_or(LexerError::from(LexerErrorKind::EOF))
+                    .map(|c| {
+                        c.to_digit(10).ok_or(LexerError::from(LexerErrorKind::IllegalCharacter(c)))
+                    }))); // gobble
+                let d2: u32 = try!(try!(self.txt
+                    .next()
+                    .ok_or(LexerError::from(LexerErrorKind::EOF))
+                    .map(|c| {
+                        c.to_digit(10).ok_or(LexerError::from(LexerErrorKind::IllegalCharacter(c)))
+                    }))); // gobble
+                let d3: u32 = try!(try!(self.txt
+                    .next()
+                    .ok_or(LexerError::from(LexerErrorKind::EOF))
+                    .map(|c| {
+                        c.to_digit(10).ok_or(LexerError::from(LexerErrorKind::IllegalCharacter(c)))
+                    }))); // gobble
+
+                let val: u32 = (d1 << 16) + (d2 << 8) + d3;
+                let ch: char = try!(char::from_u32(val)
+                    .ok_or(LexerError::from(LexerErrorKind::UnrecognizedOctet(val))));
+
+                return Ok(ch);
+            } else {
+                // this is an excaped char: \X
+                self.txt.next(); // gobble the char
+                return Ok(ch);
+            }
+        } else {
+            return Err(LexerErrorKind::IllegalCharacter(ch).into());
+        }
+
+    }
+
+    fn peek(&mut self) -> Option<char> {
+        self.txt.peek().map(|c| *c)
+    }
 }
 
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum State {
-  StartLine,
-  RestOfLine,
-  Blank,             // only if the first part of the line
-  List,              // (..)
-  CharData{ is_list: bool },          // [a-zA-Z, non-control utf8]+
-  //  Name,              // CharData + '.' + CharData
-  Comment{ is_list: bool }, // ;.*
-  At,                // @
-  Quote,             // ".*"
-  Dollar,            // $
-  EOL,               // \n or \r\n
-  EOF,
+    StartLine,
+    RestOfLine,
+    Blank, // only if the first part of the line
+    List, // (..)
+    CharData { is_list: bool }, // [a-zA-Z, non-control utf8]+
+    //  Name,              // CharData + '.' + CharData
+    Comment { is_list: bool }, // ;.*
+    At, // @
+    Quote, // ".*"
+    Dollar, // $
+    EOL, // \n or \r\n
+    EOF,
 }
 
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
-  Blank,             // only if the first part of the line
-  List(Vec<String>), // (..) TODO, this is probably wrong, List maybe should just skip line endings
-  CharData(String),  // [a-zA-Z, non-control utf8, ., -, 0-9]+, ".*"
-  At,                // @
-  Include,           // $INCLUDE
-  Origin,            // $ORIGIN
-  Ttl,               // $TTL
-  EOL,               // \n or \r\n
+    Blank, // only if the first part of the line
+    List(Vec<String>), // (..) TODO, this is probably wrong, List maybe should just skip line endings
+    CharData(String), // [a-zA-Z, non-control utf8, ., -, 0-9]+, ".*"
+    At, // @
+    Include, // $INCLUDE
+    Origin, // $ORIGIN
+    Ttl, // $TTL
+    EOL, // \n or \r\n
 }
 
 #[cfg(test)]
 mod lex_test {
-  use super::*;
+    use super::*;
 
-  fn next_token(lexer: &mut Lexer) -> Option<Token> {
-    let result = lexer.next_token();
-    assert!(!result.is_err(), "{:?}", result);
-    result.unwrap()
-  }
+    fn next_token(lexer: &mut Lexer) -> Option<Token> {
+        let result = lexer.next_token();
+        assert!(!result.is_err(), "{:?}", result);
+        result.unwrap()
+    }
 
-  #[test]
-  fn blank() {
-    // first blank
-    let mut lexer = Lexer::new("     dead beef");
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("dead".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("beef".to_string()));
+    #[test]
+    fn blank() {
+        // first blank
+        let mut lexer = Lexer::new("     dead beef");
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("dead".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("beef".to_string()));
 
-    // not the second blank
-    let mut lexer = Lexer::new("dead beef");
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("dead".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("beef".to_string()));
+        // not the second blank
+        let mut lexer = Lexer::new("dead beef");
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("dead".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("beef".to_string()));
 
 
-    let mut lexer = Lexer::new("dead beef\r\n after");
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("dead".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("beef".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("after".to_string()));
+        let mut lexer = Lexer::new("dead beef\r\n after");
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("dead".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("beef".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("after".to_string()));
 
-    let mut lexer = Lexer::new("dead beef ();comment
+        let mut lexer = Lexer::new("dead beef ();comment
          after");
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("dead".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("beef".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec![]));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("after".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("dead".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("beef".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec![]));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("after".to_string()));
 
-  }
+    }
 
-  #[test]
-  fn escape() {
-    assert_eq!(Lexer::new("a\\Aa").next_token().unwrap().unwrap(), Token::CharData("a\\Aa".to_string()));
-    assert_eq!(Lexer::new("a\\$").next_token().unwrap().unwrap(), Token::CharData("a\\$".to_string()));
-    assert_eq!(Lexer::new("a\\077").next_token().unwrap().unwrap(), Token::CharData("a\\077".to_string()));
-  }
+    #[test]
+    fn escape() {
+        assert_eq!(Lexer::new("a\\Aa").next_token().unwrap().unwrap(),
+                   Token::CharData("a\\Aa".to_string()));
+        assert_eq!(Lexer::new("a\\$").next_token().unwrap().unwrap(),
+                   Token::CharData("a\\$".to_string()));
+        assert_eq!(Lexer::new("a\\077").next_token().unwrap().unwrap(),
+                   Token::CharData("a\\077".to_string()));
+    }
 
-  #[test]
-  fn quoted_txt() {
-    assert_eq!(Lexer::new("\"Quoted\"").next_token().unwrap().unwrap(), Token::CharData("Quoted".to_string()));
-    assert_eq!(Lexer::new("\";@$\"").next_token().unwrap().unwrap(), Token::CharData(";@$".to_string()));
-    assert_eq!(Lexer::new("\"some \\A\"").next_token().unwrap().unwrap(), Token::CharData("some A".to_string()));
-    assert_eq!(Lexer::new("\"a\\Aa\"").next_token().unwrap().unwrap(), Token::CharData("aAa".to_string()));
-    assert_eq!(Lexer::new("\"a\\$\"").next_token().unwrap().unwrap(), Token::CharData("a$".to_string()));
-    assert_eq!(Lexer::new("\"a\\077\"").next_token().unwrap().unwrap(), Token::CharData("a\u{707}".to_string()));
+    #[test]
+    fn quoted_txt() {
+        assert_eq!(Lexer::new("\"Quoted\"").next_token().unwrap().unwrap(),
+                   Token::CharData("Quoted".to_string()));
+        assert_eq!(Lexer::new("\";@$\"").next_token().unwrap().unwrap(),
+                   Token::CharData(";@$".to_string()));
+        assert_eq!(Lexer::new("\"some \\A\"").next_token().unwrap().unwrap(),
+                   Token::CharData("some A".to_string()));
+        assert_eq!(Lexer::new("\"a\\Aa\"").next_token().unwrap().unwrap(),
+                   Token::CharData("aAa".to_string()));
+        assert_eq!(Lexer::new("\"a\\$\"").next_token().unwrap().unwrap(),
+                   Token::CharData("a$".to_string()));
+        assert_eq!(Lexer::new("\"a\\077\"").next_token().unwrap().unwrap(),
+                   Token::CharData("a\u{707}".to_string()));
 
-    assert!(Lexer::new("\"a\\\"").next_token().is_err());
-    assert!(Lexer::new("\"a\\0\"").next_token().is_err());
-    assert!(Lexer::new("\"a\\07\"").next_token().is_err());
+        assert!(Lexer::new("\"a\\\"").next_token().is_err());
+        assert!(Lexer::new("\"a\\0\"").next_token().is_err());
+        assert!(Lexer::new("\"a\\07\"").next_token().is_err());
 
-    let mut lexer = Lexer::new("\"multi\nline\ntext\"");
+        let mut lexer = Lexer::new("\"multi\nline\ntext\"");
 
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("multi\nline\ntext".to_string()));
-    assert_eq!(next_token(&mut lexer), None);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("multi\nline\ntext".to_string()));
+        assert_eq!(next_token(&mut lexer), None);
 
-    let mut lexer = Lexer::new("\"multi\r\nline\r\ntext\"\r\n");
+        let mut lexer = Lexer::new("\"multi\r\nline\r\ntext\"\r\n");
 
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("multi\r\nline\r\ntext".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer), None);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("multi\r\nline\r\ntext".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer), None);
 
-    assert!(Lexer::new("\"multi").next_token().is_err());
-  }
+        assert!(Lexer::new("\"multi").next_token().is_err());
+    }
 
-  #[test]
-  fn unicode() {
-    assert_eq!(Lexer::new("♥").next_token().unwrap().unwrap(), Token::CharData("♥".to_string()));
-  }
+    #[test]
+    fn unicode() {
+        assert_eq!(Lexer::new("♥").next_token().unwrap().unwrap(),
+                   Token::CharData("♥".to_string()));
+    }
 
-  // fun with tests!!! lots of options
-  #[test]
-  fn lex() {
-    assert_eq!(next_token(&mut Lexer::new(".")).unwrap(), Token::CharData(".".to_string()));
-    assert_eq!(next_token(&mut Lexer::new("            .")).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut Lexer::new("abc")).unwrap(), Token::CharData("abc".to_string()));
-    assert_eq!(next_token(&mut Lexer::new("abc.")).unwrap(), Token::CharData("abc.".to_string()));
-    assert_eq!(next_token(&mut Lexer::new(";abc")), None);
-    assert_eq!(next_token(&mut Lexer::new(";;@$-\"")), None);
-    assert_eq!(next_token(&mut Lexer::new("@")).unwrap(), Token::At);
-    assert_eq!(next_token(&mut Lexer::new("123")).unwrap(), Token::CharData("123".to_string()));
-    assert_eq!(next_token(&mut Lexer::new("$INCLUDE")).unwrap(), Token::Include);
-    assert_eq!(next_token(&mut Lexer::new("$ORIGIN")).unwrap(), Token::Origin);
-    assert_eq!(next_token(&mut Lexer::new("$TTL")).unwrap(), Token::Ttl);
-    assert_eq!(next_token(&mut Lexer::new("\n")), Some(Token::EOL));
-    assert_eq!(next_token(&mut Lexer::new("\r\n")), Some(Token::EOL));
-  }
+    // fun with tests!!! lots of options
+    #[test]
+    fn lex() {
+        assert_eq!(next_token(&mut Lexer::new(".")).unwrap(),
+                   Token::CharData(".".to_string()));
+        assert_eq!(next_token(&mut Lexer::new("            .")).unwrap(),
+                   Token::Blank);
+        assert_eq!(next_token(&mut Lexer::new("abc")).unwrap(),
+                   Token::CharData("abc".to_string()));
+        assert_eq!(next_token(&mut Lexer::new("abc.")).unwrap(),
+                   Token::CharData("abc.".to_string()));
+        assert_eq!(next_token(&mut Lexer::new(";abc")), None);
+        assert_eq!(next_token(&mut Lexer::new(";;@$-\"")), None);
+        assert_eq!(next_token(&mut Lexer::new("@")).unwrap(), Token::At);
+        assert_eq!(next_token(&mut Lexer::new("123")).unwrap(),
+                   Token::CharData("123".to_string()));
+        assert_eq!(next_token(&mut Lexer::new("$INCLUDE")).unwrap(),
+                   Token::Include);
+        assert_eq!(next_token(&mut Lexer::new("$ORIGIN")).unwrap(),
+                   Token::Origin);
+        assert_eq!(next_token(&mut Lexer::new("$TTL")).unwrap(), Token::Ttl);
+        assert_eq!(next_token(&mut Lexer::new("\n")), Some(Token::EOL));
+        assert_eq!(next_token(&mut Lexer::new("\r\n")), Some(Token::EOL));
+    }
 
-  #[test]
-  fn list() {
-    let mut lexer = Lexer::new("(");
-    assert!(lexer.next_token().is_err());
+    #[test]
+    fn list() {
+        let mut lexer = Lexer::new("(");
+        assert!(lexer.next_token().is_err());
 
-    assert!(Lexer::new(")").next_token().is_err());
+        assert!(Lexer::new(")").next_token().is_err());
 
-    let mut lexer = Lexer::new("()");
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec![]));
-    assert_eq!(next_token(&mut lexer), None);
+        let mut lexer = Lexer::new("()");
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec![]));
+        assert_eq!(next_token(&mut lexer), None);
 
-    let mut lexer = Lexer::new("(abc)");
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec!["abc".to_string()]));
-    assert_eq!(next_token(&mut lexer), None);
+        let mut lexer = Lexer::new("(abc)");
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::List(vec!["abc".to_string()]));
+        assert_eq!(next_token(&mut lexer), None);
 
-    let mut lexer = Lexer::new("(\nabc\n)");
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec!["abc".to_string()]));
-    assert_eq!(next_token(&mut lexer), None);
+        let mut lexer = Lexer::new("(\nabc\n)");
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::List(vec!["abc".to_string()]));
+        assert_eq!(next_token(&mut lexer), None);
 
-    let mut lexer = Lexer::new("(\nabc\nabc)");
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec!["abc".to_string(), "abc".to_string()]));
-    assert_eq!(next_token(&mut lexer), None);
+        let mut lexer = Lexer::new("(\nabc\nabc)");
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::List(vec!["abc".to_string(), "abc".to_string()]));
+        assert_eq!(next_token(&mut lexer), None);
 
-    let mut lexer = Lexer::new("(\nabc;comment\n)");
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec!["abc".to_string()]));
-    assert_eq!(next_token(&mut lexer), None);
-  }
+        let mut lexer = Lexer::new("(\nabc;comment\n)");
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::List(vec!["abc".to_string()]));
+        assert_eq!(next_token(&mut lexer), None);
+    }
 
-  #[test]
-  fn soa() {
-    let mut lexer = Lexer::new("@   IN  SOA     VENERA      Action\\.domains (
-                                 20     ; SERIAL
+    #[test]
+    fn soa() {
+        let mut lexer =
+            Lexer::new("@   IN  SOA     VENERA      Action\\.domains (
+                                 \
+                        20     ; SERIAL
                                  7200   ; REFRESH
-                                 600    ; RETRY
+                                 \
+                        600    ; RETRY
                                  3600000; EXPIRE
-                                 60)    ; MINIMUM
+                                 \
+                        60)    ; MINIMUM
 
         NS      A.ISI.EDU.
         NS      VENERA
-        NS      VAXA
+        \
+                        NS      VAXA
         MX      10      VENERA
         MX      20      VAXA
 
-A       A       26.3.0.103
+\
+                        A       A       26.3.0.103
 
 VENERA  A       10.1.0.52
-        A       128.9.0.32
+        A       \
+                        128.9.0.32
 
 $INCLUDE <SUBSYS>ISI-MAILBOXES.TXT");
 
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::At);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("IN".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("SOA".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("VENERA".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("Action\\.domains".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::List(vec!["20".to_string(),
-                                                                 "7200".to_string(),
-                                                                 "600".to_string(),
-                                                                 "3600000".to_string(),
-                                                                 "60".to_string()]));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("NS".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("A.ISI.EDU.".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("NS".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("VENERA".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("NS".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("VAXA".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("MX".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("10".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("VENERA".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("MX".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("20".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("VAXA".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("A".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("A".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("26.3.0.103".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("VENERA".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("A".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("10.1.0.52".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("A".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("128.9.0.32".to_string()));
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::Include);
-    assert_eq!(next_token(&mut lexer).unwrap(), Token::CharData("<SUBSYS>ISI-MAILBOXES.TXT".to_string()));
-    assert!(next_token(&mut lexer).is_none());
-  }
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::At);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("IN".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("SOA".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("VENERA".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("Action\\.domains".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::List(vec!["20".to_string(),
+                                    "7200".to_string(),
+                                    "600".to_string(),
+                                    "3600000".to_string(),
+                                    "60".to_string()]));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("NS".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("A.ISI.EDU.".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("NS".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("VENERA".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("NS".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("VAXA".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("MX".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("10".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("VENERA".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("MX".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("20".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("VAXA".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("A".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("A".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("26.3.0.103".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("VENERA".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("A".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("10.1.0.52".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Blank);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("A".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("128.9.0.32".to_string()));
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::EOL);
+        assert_eq!(next_token(&mut lexer).unwrap(), Token::Include);
+        assert_eq!(next_token(&mut lexer).unwrap(),
+                   Token::CharData("<SUBSYS>ISI-MAILBOXES.TXT".to_string()));
+        assert!(next_token(&mut lexer).is_none());
+    }
 }

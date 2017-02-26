@@ -10,10 +10,10 @@ use std::collections::HashMap;
 
 use futures::Future;
 
-use ::client::ClientHandle;
-use ::client::rc_future::{rc_future, RcFuture};
+use client::ClientHandle;
+use client::rc_future::{rc_future, RcFuture};
 use ::error::*;
-use ::op::{Message, Query};
+use op::{Message, Query};
 
 /// Will return memoized (cached) responses to queries
 ///
@@ -23,88 +23,100 @@ use ::op::{Message, Query};
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
 pub struct MemoizeClientHandle<H: ClientHandle> {
-  client: H,
-  active_queries: Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item=Message, Error=ClientError>>>>>>,
+    client: H,
+    active_queries: Rc<RefCell<HashMap<Query,
+                                       RcFuture<Box<Future<Item = Message,
+                                                           Error = ClientError>>>>>>,
 }
 
-impl<H> MemoizeClientHandle<H> where H: ClientHandle {
-  /// Returns a new handle wrapping the specified client
-  pub fn new(client: H) -> MemoizeClientHandle<H> {
-    MemoizeClientHandle { client: client, active_queries: Rc::new(RefCell::new(HashMap::new())) }
-  }
-
+impl<H> MemoizeClientHandle<H>
+    where H: ClientHandle
+{
+    /// Returns a new handle wrapping the specified client
+    pub fn new(client: H) -> MemoizeClientHandle<H> {
+        MemoizeClientHandle {
+            client: client,
+            active_queries: Rc::new(RefCell::new(HashMap::new())),
+        }
+    }
 }
 
-impl<H> ClientHandle for MemoizeClientHandle<H> where H: ClientHandle {
-  fn send(&mut self, message: Message) -> Box<Future<Item=Message, Error=ClientError>> {
-    let query = message.get_queries().first().expect("no query!").clone();
+impl<H> ClientHandle for MemoizeClientHandle<H>
+    where H: ClientHandle
+{
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        let query = message.get_queries().first().expect("no query!").clone();
 
-    if let Some(rc_future) = self.active_queries.borrow().get(&query) {
-      // FIXME check TTLs?
-      return Box::new(rc_future.clone());
+        if let Some(rc_future) = self.active_queries.borrow().get(&query) {
+            // FIXME check TTLs?
+            return Box::new(rc_future.clone());
+        }
+
+        // check if there are active queries
+        {
+            let map = self.active_queries.borrow();
+            let request = map.get(&query);
+            if request.is_some() {
+                return Box::new(request.unwrap().clone());
+            }
+        }
+
+        let request = rc_future(self.client.send(message));
+        let mut map = self.active_queries.borrow_mut();
+        map.insert(query, request.clone());
+
+        return Box::new(request);
     }
-
-    // check if there are active queries
-    {
-      let map = self.active_queries.borrow();
-      let request = map.get(&query);
-      if request.is_some() { return Box::new(request.unwrap().clone()) }
-    }
-
-    let request = rc_future(self.client.send(message));
-    let mut map = self.active_queries.borrow_mut();
-    map.insert(query, request.clone());
-
-    return Box::new(request);
-  }
 }
 
 #[cfg(test)]
 mod test {
-  use std::cell::Cell;
-  use ::client::*;
-  use ::error::*;
-  use ::op::*;
-  use ::rr::*;
-  use futures::*;
+    use std::cell::Cell;
+    use ::client::*;
+    use ::error::*;
+    use ::op::*;
+    use ::rr::*;
+    use futures::*;
 
-  #[derive(Clone)]
-  struct TestClient { i: Cell<u16> }
-
-  impl ClientHandle for TestClient {
-    fn send(&mut self, _: Message) -> Box<Future<Item=Message, Error=ClientError>> {
-      let mut message = Message::new();
-      let i = self.i.get();
-
-      message.id(i);
-      self.i.set(i + 1);
-
-      Box::new(finished(message))
+    #[derive(Clone)]
+    struct TestClient {
+        i: Cell<u16>,
     }
-  }
 
-  #[test]
-  fn test_memoized() {
-    let mut client = MemoizeClientHandle::new(TestClient{i: Cell::new(0)});
+    impl ClientHandle for TestClient {
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+            let mut message = Message::new();
+            let i = self.i.get();
 
-    let mut test1 = Message::new();
-    test1.add_query(Query::new().query_type(RecordType::A).clone());
+            message.id(i);
+            self.i.set(i + 1);
 
-    let mut test2 = Message::new();
-    test2.add_query(Query::new().query_type(RecordType::AAAA).clone());
+            Box::new(finished(message))
+        }
+    }
 
-    let result = client.send(test1.clone()).wait().ok().unwrap();
-    assert_eq!(result.get_id(), 0);
+    #[test]
+    fn test_memoized() {
+        let mut client = MemoizeClientHandle::new(TestClient { i: Cell::new(0) });
 
-    let result = client.send(test2.clone()).wait().ok().unwrap();
-    assert_eq!(result.get_id(), 1);
+        let mut test1 = Message::new();
+        test1.add_query(Query::new().query_type(RecordType::A).clone());
 
-    // should get the same result for each...
-    let result = client.send(test1).wait().ok().unwrap();
-    assert_eq!(result.get_id(), 0);
+        let mut test2 = Message::new();
+        test2.add_query(Query::new().query_type(RecordType::AAAA).clone());
 
-    let result = client.send(test2).wait().ok().unwrap();
-    assert_eq!(result.get_id(), 1);
-  }
+        let result = client.send(test1.clone()).wait().ok().unwrap();
+        assert_eq!(result.get_id(), 0);
+
+        let result = client.send(test2.clone()).wait().ok().unwrap();
+        assert_eq!(result.get_id(), 1);
+
+        // should get the same result for each...
+        let result = client.send(test1).wait().ok().unwrap();
+        assert_eq!(result.get_id(), 0);
+
+        let result = client.send(test2).wait().ok().unwrap();
+        assert_eq!(result.get_id(), 1);
+    }
 
 }

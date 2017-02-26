@@ -34,7 +34,7 @@ pub use self::signer::Signer;
 pub use self::supported_algorithm::SupportedAlgorithms;
 pub use self::trust_anchor::TrustAnchor;
 
-pub use ::error::DnsSecError;
-pub use ::error::DnsSecErrorKind;
-pub use ::error::DnsSecChainErr;
-pub use ::error::DnsSecResult;
+pub use error::DnsSecError;
+pub use error::DnsSecErrorKind;
+pub use error::DnsSecChainErr;
+pub use error::DnsSecResult;

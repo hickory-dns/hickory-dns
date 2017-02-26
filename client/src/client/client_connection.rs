@@ -19,11 +19,11 @@ use std::io;
 use futures::Future;
 use tokio_core::reactor::Core;
 
-use ::client::ClientStreamHandle;
+use client::ClientStreamHandle;
 
 /// Trait for client connections
 pub trait ClientConnection: Sized {
-  type MessageStream;
+    type MessageStream;
 
-  fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>);
+    fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>);
 }

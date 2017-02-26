@@ -19,7 +19,7 @@ use std::net::AddrParseError;
 
 use super::decode_error;
 use super::lexer_error;
-use ::serialize::txt::Token;
+use serialize::txt::Token;
 
 error_chain! {
     // The type defined for this error. These are the conventional

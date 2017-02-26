@@ -40,17 +40,17 @@ use ::error::*;
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 #[allow(dead_code)]
 pub enum OpCode {
-  /// Query request [RFC 1035](https://tools.ietf.org/html/rfc1035)
-  Query,
+    /// Query request [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    Query,
 
-  /// Status message [RFC 1035](https://tools.ietf.org/html/rfc1035)
-  Status,
+    /// Status message [RFC 1035](https://tools.ietf.org/html/rfc1035)
+    Status,
 
-  /// Notify of change [RFC 1996](https://tools.ietf.org/html/rfc1996)
-  Notify,
+    /// Notify of change [RFC 1996](https://tools.ietf.org/html/rfc1996)
+    Notify,
 
-  /// Update message [RFC 2136](https://tools.ietf.org/html/rfc2136)
-  Update,
+    /// Update message [RFC 2136](https://tools.ietf.org/html/rfc2136)
+    Update,
 }
 
 /// Convert from OpCode to u8
@@ -66,17 +66,17 @@ pub enum OpCode {
 /// assert_eq!(0, var);
 /// ```
 impl From<OpCode> for u8 {
-  fn from(rt: OpCode) -> Self {
-    match rt {
-      OpCode::Query  => 0,
-      // 1	IQuery (Inverse Query, OBSOLETE)	[RFC3425]
-      OpCode::Status => 2,
-      // 3	Unassigned
-      OpCode::Notify => 4,
-      OpCode::Update => 5,
-      // 6-15	Unassigned
+    fn from(rt: OpCode) -> Self {
+        match rt {
+            OpCode::Query => 0,
+            // 1	IQuery (Inverse Query, OBSOLETE)	[RFC3425]
+            OpCode::Status => 2,
+            // 3	Unassigned
+            OpCode::Notify => 4,
+            OpCode::Update => 5,
+            // 6-15	Unassigned
+        }
     }
-  }
 }
 
 /// Convert from u8 to OpCode
@@ -89,13 +89,13 @@ impl From<OpCode> for u8 {
 /// assert_eq!(OpCode::Query, var);
 /// ```
 impl OpCode {
-  pub fn from_u8(value: u8) -> DecodeResult<Self> {
-    match value {
-      0 => Ok(OpCode::Query),
-      2 => Ok(OpCode::Status),
-      4 => Ok(OpCode::Notify),
-      5 => Ok(OpCode::Update),
-      _ => Err(DecodeErrorKind::Msg(format!("unknown OpCode: {}", value)).into()),
+    pub fn from_u8(value: u8) -> DecodeResult<Self> {
+        match value {
+            0 => Ok(OpCode::Query),
+            2 => Ok(OpCode::Status),
+            4 => Ok(OpCode::Notify),
+            5 => Ok(OpCode::Update),
+            _ => Err(DecodeErrorKind::Msg(format!("unknown OpCode: {}", value)).into()),
+        }
     }
-  }
 }
