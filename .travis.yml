@@ -2,6 +2,7 @@ sudo: required
 dist: trusty
 language: rust
 rust: stable
+env: CLIENT_OPTIONS="--features=ring"
 cache: cargo
 
 matrix:
@@ -13,6 +14,20 @@ matrix:
     - rust: 1.13.0
     - rust: beta
     - rust: nightly
+
+    # optional feature variations
+    - rust: stable
+      env: MODULES="client"
+           CLIENT_OPTIONS="--no-default-features"
+
+    - rust: stable
+      env: MODULES="client"
+           CLIENT_OPTIONS="--no-default-features --features=openssl" 
+
+    - rust: stable
+      env: MODULES="client"
+           CLIENT_OPTIONS="--no-default-features --features=ring" 
+
 
   allow_failure:
     - rust: nightly

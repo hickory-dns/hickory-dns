@@ -1,5 +1,8 @@
+#[cfg(feature = "openssl")]
 use openssl::ec::EcKey;
+#[cfg(feature = "openssl")]
 use openssl::rsa::Rsa;
+#[cfg(feature = "openssl")]
 use openssl::symm::Cipher;
 
 use ::error::*;
@@ -47,6 +50,7 @@ impl KeyFormat {
         let password = password.as_bytes();
 
         match algorithm {
+            #[cfg(feature = "openssl")]
             Algorithm::RSASHA1 |
             Algorithm::RSASHA1NSEC3SHA1 |
             Algorithm::RSASHA256 |
@@ -78,6 +82,7 @@ impl KeyFormat {
                 return Ok(try!(KeyPair::from_rsa(key)
                     .map_err(|e| format!("could not tranlate RSA to KeyPair: {}", e))));
             }
+            #[cfg(feature = "openssl")]
             Algorithm::ECDSAP256SHA256 |
             Algorithm::ECDSAP384SHA384 => {
                 let key = match self {
@@ -120,6 +125,10 @@ impl KeyFormat {
                     }
                 }
             }
+            #[cfg(not(feature = "openssl"))]
+            e @ _ => {
+                return Err(format!("unsupported Algorith, enable openssl feature: {:?}", e).into())
+            }
         }
     }
 
@@ -129,6 +138,7 @@ impl KeyFormat {
         let password = password.iter().filter(|s| !s.is_empty()).map(|s| s.as_bytes()).next();
 
         match *key_pair {
+            #[cfg(feature = "openssl")]
             KeyPair::EC(ref pkey) |
             KeyPair::RSA(ref pkey) => {
                 match self {
@@ -157,8 +167,7 @@ impl KeyFormat {
                     }
                 }
             }
-            #[cfg(feature = "ring")]
-      KeyPair::ED25519(..) => {
+            #[cfg(feature = "ring")] KeyPair::ED25519(..) => {
                 match self {
                     KeyFormat::Raw => {
                         // to avoid accientally storing a key where there was an expectation that it was password protected
@@ -179,121 +188,132 @@ impl KeyFormat {
     }
 }
 
-#[test]
-fn test_rsa_encode_decode_der() {
-    let algorithm = Algorithm::RSASHA256;
-    encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
-}
-
-#[test]
-fn test_rsa_encode_decode_pem() {
-    let algorithm = Algorithm::RSASHA256;
-    encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
-}
-
-#[test]
-fn test_rsa_encode_decode_raw() {
-    let algorithm = Algorithm::RSASHA256;
-    encode_decode_with_format(KeyFormat::Raw, algorithm, false, false);
-}
-
-
-#[test]
-fn test_ec_encode_decode_der() {
-    let algorithm = Algorithm::ECDSAP256SHA256;
-    encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
-}
-
-#[test]
-fn test_ec_encode_decode_pem() {
-    let algorithm = Algorithm::ECDSAP256SHA256;
-    encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
-}
-
-#[test]
-fn test_ec_encode_decode_raw() {
-    let algorithm = Algorithm::ECDSAP256SHA256;
-    encode_decode_with_format(KeyFormat::Raw, algorithm, false, false);
-}
-
-
-#[test]
-#[cfg(feature = "ring")]
-fn test_ed25519_encode_decode() {
-    let algorithm = Algorithm::ED25519;
-    encode_decode_with_format(KeyFormat::Der, algorithm, false, false);
-    encode_decode_with_format(KeyFormat::Pem, algorithm, false, false);
-    encode_decode_with_format(KeyFormat::Raw, algorithm, false, true);
-}
-
 #[cfg(test)]
-fn encode_decode_with_format(key_format: KeyFormat,
-                             algorithm: Algorithm,
-                             ok_pass: bool,
-                             ok_empty_pass: bool) {
-    let keypair = KeyPair::generate(algorithm).unwrap();
-    let password = Some("test password");
-    let empty_password = Some("");
-    let no_password = None::<&str>;
+mod tests {
+    pub use super::*;
 
-    encode_decode_with_password(key_format,
-                                &keypair,
-                                password,
-                                password,
-                                algorithm,
-                                ok_pass,
-                                true);
-    encode_decode_with_password(key_format,
-                                &keypair,
-                                empty_password,
-                                empty_password,
-                                algorithm,
-                                ok_empty_pass,
-                                true);
-    encode_decode_with_password(key_format,
-                                &keypair,
-                                no_password,
-                                no_password,
-                                algorithm,
-                                ok_empty_pass,
-                                true);
-    encode_decode_with_password(key_format,
-                                &keypair,
-                                no_password,
-                                empty_password,
-                                algorithm,
-                                ok_empty_pass,
-                                true);
-    encode_decode_with_password(key_format,
-                                &keypair,
-                                empty_password,
-                                no_password,
-                                algorithm,
-                                ok_empty_pass,
-                                true);
-    encode_decode_with_password(key_format,
-                                &keypair,
-                                password,
-                                no_password,
-                                algorithm,
-                                ok_pass,
-                                false);
-}
+    #[test]
+    #[cfg(feature = "openssl")]
+    fn test_rsa_encode_decode_der() {
+        let algorithm = Algorithm::RSASHA256;
+        encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
+    }
 
-#[cfg(test)]
-fn encode_decode_with_password(key_format: KeyFormat,
-                               keypair: &KeyPair,
-                               en_pass: Option<&str>,
-                               de_pass: Option<&str>,
-                               algorithm: Algorithm,
-                               encode: bool,
-                               decode: bool) {
-    let encoded = key_format.encode_key(&keypair, en_pass);
-    if encode {
-        assert!(encoded.is_ok(), format!("{}", encoded.unwrap_err()));
-        let decoded = key_format.decode_key(&encoded.unwrap(), de_pass, algorithm);
-        assert_eq!(decoded.is_ok(), decode);
-    } else {
-        assert!(encoded.is_err());
+    #[test]
+    #[cfg(feature = "openssl")]
+    fn test_rsa_encode_decode_pem() {
+        let algorithm = Algorithm::RSASHA256;
+        encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
+    }
+
+    #[test]
+    #[cfg(feature = "openssl")]
+    fn test_rsa_encode_decode_raw() {
+        let algorithm = Algorithm::RSASHA256;
+        encode_decode_with_format(KeyFormat::Raw, algorithm, false, false);
+    }
+
+
+    #[test]
+    #[cfg(feature = "openssl")]
+    fn test_ec_encode_decode_der() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
+    }
+
+    #[test]
+    #[cfg(feature = "openssl")]
+    fn test_ec_encode_decode_pem() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        encode_decode_with_format(KeyFormat::Pem, algorithm, true, true);
+    }
+
+    #[test]
+    #[cfg(feature = "openssl")]
+    fn test_ec_encode_decode_raw() {
+        let algorithm = Algorithm::ECDSAP256SHA256;
+        encode_decode_with_format(KeyFormat::Raw, algorithm, false, false);
+    }
+
+
+    #[test]
+    #[cfg(feature = "ring")]
+    fn test_ed25519_encode_decode() {
+        let algorithm = Algorithm::ED25519;
+        encode_decode_with_format(KeyFormat::Der, algorithm, false, false);
+        encode_decode_with_format(KeyFormat::Pem, algorithm, false, false);
+        encode_decode_with_format(KeyFormat::Raw, algorithm, false, true);
+    }
+
+    #[cfg(test)]
+    fn encode_decode_with_format(key_format: KeyFormat,
+                                 algorithm: Algorithm,
+                                 ok_pass: bool,
+                                 ok_empty_pass: bool) {
+        let keypair = KeyPair::generate(algorithm).unwrap();
+        let password = Some("test password");
+        let empty_password = Some("");
+        let no_password = None::<&str>;
+
+        encode_decode_with_password(key_format,
+                                    &keypair,
+                                    password,
+                                    password,
+                                    algorithm,
+                                    ok_pass,
+                                    true);
+        encode_decode_with_password(key_format,
+                                    &keypair,
+                                    empty_password,
+                                    empty_password,
+                                    algorithm,
+                                    ok_empty_pass,
+                                    true);
+        encode_decode_with_password(key_format,
+                                    &keypair,
+                                    no_password,
+                                    no_password,
+                                    algorithm,
+                                    ok_empty_pass,
+                                    true);
+        encode_decode_with_password(key_format,
+                                    &keypair,
+                                    no_password,
+                                    empty_password,
+                                    algorithm,
+                                    ok_empty_pass,
+                                    true);
+        encode_decode_with_password(key_format,
+                                    &keypair,
+                                    empty_password,
+                                    no_password,
+                                    algorithm,
+                                    ok_empty_pass,
+                                    true);
+        encode_decode_with_password(key_format,
+                                    &keypair,
+                                    password,
+                                    no_password,
+                                    algorithm,
+                                    ok_pass,
+                                    false);
+    }
+
+    #[cfg(test)]
+    fn encode_decode_with_password(key_format: KeyFormat,
+                                   keypair: &KeyPair,
+                                   en_pass: Option<&str>,
+                                   de_pass: Option<&str>,
+                                   algorithm: Algorithm,
+                                   encode: bool,
+                                   decode: bool) {
+        let encoded = key_format.encode_key(&keypair, en_pass);
+        if encode {
+            assert!(encoded.is_ok(), format!("{}", encoded.unwrap_err()));
+            let decoded = key_format.decode_key(&encoded.unwrap(), de_pass, algorithm);
+            assert_eq!(decoded.is_ok(), decode);
+        } else {
+            assert!(encoded.is_err());
+        }
     }
 }

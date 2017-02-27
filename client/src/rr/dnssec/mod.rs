@@ -18,6 +18,7 @@
 
 mod algorithm;
 mod digest_type;
+#[cfg(any(feature = "openssl", feature = "ring"))]
 mod key_format;
 mod keypair;
 mod nsec3;
@@ -27,6 +28,7 @@ mod trust_anchor;
 
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
+#[cfg(any(feature = "openssl", feature = "ring"))]
 pub use self::key_format::KeyFormat;
 pub use self::keypair::KeyPair;
 pub use self::nsec3::Nsec3HashAlgorithm;

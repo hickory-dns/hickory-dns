@@ -15,19 +15,19 @@
  */
 
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
 
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use op::Message;
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::{DNSClass, Name, Record, RecordType, RData};
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::{Algorithm, DigestType, DnsSecErrorKind, DnsSecResult};
 use rr::dnssec::KeyPair;
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{sig, SIG};
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
 /// Use for performing signing and validation of DNSSec based components.
@@ -229,7 +229,7 @@ use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 ///    Note that the response received by the resolver should include all
 ///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
 /// ```
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 pub struct Signer {
     key: KeyPair,
     algorithm: Algorithm,
@@ -239,10 +239,10 @@ pub struct Signer {
     is_zone_update_auth: bool,
 }
 
-#[cfg(not(feature = "openssl"))]
+#[cfg(not(any(feature = "openssl", feature = "ring")))]
 pub struct Signer;
 
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 impl Signer {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
     pub fn new_verifier(algorithm: Algorithm,
@@ -690,208 +690,206 @@ impl Signer {
     }
 }
 
-#[test]
+#[cfg(test)]
 #[cfg(feature = "openssl")]
-fn test_sign_and_verify_message_sig0() {
-    use openssl::rsa::Rsa;
-    use rr::Name;
-    use op::{Message, Query, UpdateMessage};
+mod tests {
+    extern crate openssl;
+    use self::openssl::rsa::Rsa;
 
-    let origin: Name = Name::parse("example.com.", None).unwrap();
-    let mut question: Message = Message::new();
-    let mut query: Query = Query::new();
-    query.set_name(origin.clone());
-    question.add_query(query);
-
-    let rsa = Rsa::generate(512).unwrap();
-    let key = KeyPair::from_rsa(rsa).unwrap();
-    let signer = Signer::new(Algorithm::RSASHA256,
-                             key,
-                             Name::root(),
-                             Duration::max_value(),
-                             true,
-                             true);
-
-    let sig = signer.sign_message(&question).unwrap();
-    println!("sig: {:?}", sig);
-
-    assert!(!sig.is_empty());
-    assert!(signer.verify_message(&question, &sig).is_ok());
-
-    // now test that the sig0 record works correctly.
-    assert!(question.sig0().is_empty());
-    question.sign(&signer, 0).expect("should have signed");
-    assert!(!question.sig0().is_empty());
-
-    let sig = signer.sign_message(&question);
-    println!("sig after sign: {:?}", sig);
-
-    if let &RData::SIG(ref sig) = question.sig0()[0].rdata() {
-        assert!(signer.verify_message(&question, sig.sig()).is_ok());
-    }
-}
-
-#[test]
-#[cfg(feature = "openssl")]
-fn test_hash_rrset() {
-    use openssl::rsa::Rsa;
     use rr::{Name, RecordType};
     use rr::rdata::SIG;
+    use op::{Message, Query, UpdateMessage};
 
-    let rsa = Rsa::generate(512).unwrap();
-    let key = KeyPair::from_rsa(rsa).unwrap();
-    let signer = Signer::new(Algorithm::RSASHA256,
-                             key,
-                             Name::root(),
-                             Duration::max_value(),
-                             true,
-                             true);
+    pub use super::*;
 
-    let origin: Name = Name::parse("example.com.", None).unwrap();
-    let rrsig = Record::new()
-        .set_name(origin.clone())
-        .set_ttl(86400)
-        .set_rr_type(RecordType::NS)
-        .set_dns_class(DNSClass::IN)
-        .set_rdata(RData::SIG(SIG::new(RecordType::NS,
-                                       Algorithm::RSASHA256,
-                                       origin.num_labels(),
-                                       86400,
-                                       5,
-                                       0,
-                                       signer.calculate_key_tag().unwrap(),
-                                       origin.clone(),
-                                       vec![])))
-        .clone();
-    let rrset = vec![Record::new()
-                         .set_name(origin.clone())
-                         .set_ttl(86400)
-                         .set_rr_type(RecordType::NS)
-                         .set_dns_class(DNSClass::IN)
-                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                         .clone(),
-                     Record::new()
-                         .set_name(origin.clone())
-                         .set_ttl(86400)
-                         .set_rr_type(RecordType::NS)
-                         .set_dns_class(DNSClass::IN)
-                         .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
-                         .clone()];
+    #[test]
+    fn test_sign_and_verify_message_sig0() {
+        let origin: Name = Name::parse("example.com.", None).unwrap();
+        let mut question: Message = Message::new();
+        let mut query: Query = Query::new();
+        query.set_name(origin.clone());
+        question.add_query(query);
 
-    let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
-    assert!(!hash.is_empty());
+        let rsa = Rsa::generate(512).unwrap();
+        let key = KeyPair::from_rsa(rsa).unwrap();
+        let signer = Signer::new(Algorithm::RSASHA256,
+                                 key,
+                                 Name::root(),
+                                 Duration::max_value(),
+                                 true,
+                                 true);
 
-    let rrset = vec![Record::new()
-                         .set_name(origin.clone())
-                         .set_ttl(86400)
-                         .set_rr_type(RecordType::CNAME)
-                         .set_dns_class(DNSClass::IN)
-                         .set_rdata(RData::CNAME(Name::parse("a.iana-servers.net.", None).unwrap()))
-                         .clone(), // different type
-                     Record::new()
-                         .set_name(Name::parse("www.example.com.", None).unwrap())
-                         .set_ttl(86400)
-                         .set_rr_type(RecordType::NS)
-                         .set_dns_class(DNSClass::IN)
-                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                         .clone(), // different name
-                     Record::new()
-                         .set_name(origin.clone())
-                         .set_ttl(86400)
-                         .set_rr_type(RecordType::NS)
-                         .set_dns_class(DNSClass::CH)
-                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                         .clone(), // different class
-                     Record::new()
-                         .set_name(origin.clone())
-                         .set_ttl(86400)
-                         .set_rr_type(RecordType::NS)
-                         .set_dns_class(DNSClass::IN)
-                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                         .clone(),
-                     Record::new()
-                         .set_name(origin.clone())
-                         .set_ttl(86400)
-                         .set_rr_type(RecordType::NS)
-                         .set_dns_class(DNSClass::IN)
-                         .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
-                         .clone()];
+        let sig = signer.sign_message(&question).unwrap();
+        println!("sig: {:?}", sig);
 
-    let filtered_hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
-    assert!(!filtered_hash.is_empty());
-    assert_eq!(hash, filtered_hash);
-}
+        assert!(!sig.is_empty());
+        assert!(signer.verify_message(&question, &sig).is_ok());
 
-#[test]
-#[cfg(feature = "openssl")]
-fn test_sign_and_verify_rrset() {
-    use openssl::rsa::Rsa;
-    use rr::RecordType;
-    use rr::Name;
-    use rr::rdata::SIG;
+        // now test that the sig0 record works correctly.
+        assert!(question.sig0().is_empty());
+        question.sign(&signer, 0).expect("should have signed");
+        assert!(!question.sig0().is_empty());
 
-    let rsa = Rsa::generate(512).unwrap();
-    let key = KeyPair::from_rsa(rsa).unwrap();
-    let signer = Signer::new(Algorithm::RSASHA256,
-                             key,
-                             Name::root(),
-                             Duration::max_value(),
-                             true,
-                             true);
+        let sig = signer.sign_message(&question);
+        println!("sig after sign: {:?}", sig);
 
-    let origin: Name = Name::parse("example.com.", None).unwrap();
-    let rrsig = Record::new()
-        .set_name(origin.clone())
-        .set_ttl(86400)
-        .set_rr_type(RecordType::NS)
-        .set_dns_class(DNSClass::IN)
-        .set_rdata(RData::SIG(SIG::new(RecordType::NS,
-                                       Algorithm::RSASHA256,
-                                       origin.num_labels(),
-                                       86400,
-                                       5,
-                                       0,
-                                       signer.calculate_key_tag().unwrap(),
-                                       origin.clone(),
-                                       vec![])))
-        .clone();
-    let rrset = vec![Record::new()
-                         .set_name(origin.clone())
-                         .set_ttl(86400)
-                         .set_rr_type(RecordType::NS)
-                         .set_dns_class(DNSClass::IN)
-                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                         .clone(),
-                     Record::new()
-                         .set_name(origin.clone())
-                         .set_ttl(86400)
-                         .set_rr_type(RecordType::NS)
-                         .set_dns_class(DNSClass::IN)
-                         .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
-                         .clone()];
+        if let &RData::SIG(ref sig) = question.sig0()[0].rdata() {
+            assert!(signer.verify_message(&question, sig.sig()).is_ok());
+        }
+    }
 
-    let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
-    let sig = signer.sign(&hash).unwrap();
+    #[test]
+    fn test_hash_rrset() {
+        let rsa = Rsa::generate(512).unwrap();
+        let key = KeyPair::from_rsa(rsa).unwrap();
+        let signer = Signer::new(Algorithm::RSASHA256,
+                                 key,
+                                 Name::root(),
+                                 Duration::max_value(),
+                                 true,
+                                 true);
 
-    assert!(signer.verify(&hash, &sig).is_ok());
-}
+        let origin: Name = Name::parse("example.com.", None).unwrap();
+        let rrsig = Record::new()
+            .set_name(origin.clone())
+            .set_ttl(86400)
+            .set_rr_type(RecordType::NS)
+            .set_dns_class(DNSClass::IN)
+            .set_rdata(RData::SIG(SIG::new(RecordType::NS,
+                                           Algorithm::RSASHA256,
+                                           origin.num_labels(),
+                                           86400,
+                                           5,
+                                           0,
+                                           signer.calculate_key_tag().unwrap(),
+                                           origin.clone(),
+                                           vec![])))
+            .clone();
+        let rrset =
+            vec![Record::new()
+                     .set_name(origin.clone())
+                     .set_ttl(86400)
+                     .set_rr_type(RecordType::NS)
+                     .set_dns_class(DNSClass::IN)
+                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                     .clone(),
+                 Record::new()
+                     .set_name(origin.clone())
+                     .set_ttl(86400)
+                     .set_rr_type(RecordType::NS)
+                     .set_dns_class(DNSClass::IN)
+                     .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                     .clone()];
 
-#[test]
-#[cfg(feature = "openssl")]
-fn test_calculate_key_tag() {
-    use openssl::rsa::Rsa;
-    let rsa = Rsa::generate(512).unwrap();
-    println!("pkey: {:?}", rsa.public_key_to_pem().unwrap());
+        let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
+        assert!(!hash.is_empty());
 
-    let key = KeyPair::from_rsa(rsa).unwrap();
-    let signer = Signer::new(Algorithm::RSASHA256,
-                             key,
-                             Name::root(),
-                             Duration::max_value(),
-                             true,
-                             true);
-    let key_tag = signer.calculate_key_tag().unwrap();
+        let rrset =
+            vec![Record::new()
+                     .set_name(origin.clone())
+                     .set_ttl(86400)
+                     .set_rr_type(RecordType::CNAME)
+                     .set_dns_class(DNSClass::IN)
+                     .set_rdata(RData::CNAME(Name::parse("a.iana-servers.net.", None).unwrap()))
+                     .clone(), // different type
+                 Record::new()
+                     .set_name(Name::parse("www.example.com.", None).unwrap())
+                     .set_ttl(86400)
+                     .set_rr_type(RecordType::NS)
+                     .set_dns_class(DNSClass::IN)
+                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                     .clone(), // different name
+                 Record::new()
+                     .set_name(origin.clone())
+                     .set_ttl(86400)
+                     .set_rr_type(RecordType::NS)
+                     .set_dns_class(DNSClass::CH)
+                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                     .clone(), // different class
+                 Record::new()
+                     .set_name(origin.clone())
+                     .set_ttl(86400)
+                     .set_rr_type(RecordType::NS)
+                     .set_dns_class(DNSClass::IN)
+                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                     .clone(),
+                 Record::new()
+                     .set_name(origin.clone())
+                     .set_ttl(86400)
+                     .set_rr_type(RecordType::NS)
+                     .set_dns_class(DNSClass::IN)
+                     .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                     .clone()];
 
-    println!("key_tag: {}", key_tag);
-    assert!(key_tag > 0);
+        let filtered_hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
+        assert!(!filtered_hash.is_empty());
+        assert_eq!(hash, filtered_hash);
+    }
+
+    #[test]
+    fn test_sign_and_verify_rrset() {
+        let rsa = Rsa::generate(512).unwrap();
+        let key = KeyPair::from_rsa(rsa).unwrap();
+        let signer = Signer::new(Algorithm::RSASHA256,
+                                 key,
+                                 Name::root(),
+                                 Duration::max_value(),
+                                 true,
+                                 true);
+
+        let origin: Name = Name::parse("example.com.", None).unwrap();
+        let rrsig = Record::new()
+            .set_name(origin.clone())
+            .set_ttl(86400)
+            .set_rr_type(RecordType::NS)
+            .set_dns_class(DNSClass::IN)
+            .set_rdata(RData::SIG(SIG::new(RecordType::NS,
+                                           Algorithm::RSASHA256,
+                                           origin.num_labels(),
+                                           86400,
+                                           5,
+                                           0,
+                                           signer.calculate_key_tag().unwrap(),
+                                           origin.clone(),
+                                           vec![])))
+            .clone();
+        let rrset =
+            vec![Record::new()
+                     .set_name(origin.clone())
+                     .set_ttl(86400)
+                     .set_rr_type(RecordType::NS)
+                     .set_dns_class(DNSClass::IN)
+                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                     .clone(),
+                 Record::new()
+                     .set_name(origin.clone())
+                     .set_ttl(86400)
+                     .set_rr_type(RecordType::NS)
+                     .set_dns_class(DNSClass::IN)
+                     .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                     .clone()];
+
+        let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
+        let sig = signer.sign(&hash).unwrap();
+
+        assert!(signer.verify(&hash, &sig).is_ok());
+    }
+
+    #[test]
+    fn test_calculate_key_tag() {
+        let rsa = Rsa::generate(512).unwrap();
+        println!("pkey: {:?}", rsa.public_key_to_pem().unwrap());
+
+        let key = KeyPair::from_rsa(rsa).unwrap();
+        let signer = Signer::new(Algorithm::RSASHA256,
+                                 key,
+                                 Name::root(),
+                                 Duration::max_value(),
+                                 true,
+                                 true);
+        let key_tag = signer.calculate_key_tag().unwrap();
+
+        println!("key_tag: {}", key_tag);
+        assert!(key_tag > 0);
+    }
 }
