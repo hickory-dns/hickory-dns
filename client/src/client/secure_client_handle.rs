@@ -234,7 +234,7 @@ fn verify_rrsets<H>(client: SecureClientHandle<H>,
             .chain(message_result.additionals())
             .filter(|rr| rr.get_rr_type() == RecordType::RRSIG)
             .filter(|rr| if let &RData::SIG(ref rrsig) = rr.get_rdata() {
-                rrsig.get_type_covered() == record_type
+                rrsig.type_covered() == record_type
             } else {
                 false
             })
@@ -559,7 +559,7 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
     if rrsigs.iter()
         .filter(|rrsig| rrsig.get_rr_type() == RecordType::RRSIG)
         .any(|rrsig| if let &RData::SIG(ref sig) = rrsig.get_rdata() {
-            return RecordType::DNSKEY == rrset.record_type && sig.get_signer_name() == &rrset.name;
+            return RecordType::DNSKEY == rrset.record_type && sig.signer_name() == &rrset.name;
         } else {
             panic!("expected a SIG here");
         }) {
@@ -625,7 +625,7 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
                               let rrset = rrset.clone();
                               let mut client = client.clone_with_context();
 
-                              client.query(sig.get_signer_name().clone(), rrset.record_class, RecordType::DNSKEY)
+                              client.query(sig.signer_name().clone(), rrset.record_class, RecordType::DNSKEY)
                                     .and_then(move |message|
                                       // DNSKEYs are validated by the inner query
                                       message.answers()
@@ -674,7 +674,7 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
     if !dnskey.zone_key() {
         return Err(ClientErrorKind::Message("is not a zone key").into());
     }
-    if *dnskey.algorithm() != sig.get_algorithm() {
+    if *dnskey.algorithm() != sig.algorithm() {
         return Err(ClientErrorKind::Message("mismatched algorithm").into());
     }
 
@@ -687,14 +687,14 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
 
     let signer: Signer = Signer::new_verifier(*dnskey.algorithm(),
                                               pkey,
-                                              sig.get_signer_name().clone(),
+                                              sig.signer_name().clone(),
                                               dnskey.zone_key(),
                                               false);
 
     signer.hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)
         .map_err(|e| e.into())
         .and_then(|rrset_hash| {
-            signer.verify(&rrset_hash, sig.get_sig())
+            signer.verify(&rrset_hash, sig.sig())
                 .map(|_| {
                     debug!("verified rrset: {}, type: {:?}",
                            rrset.name,

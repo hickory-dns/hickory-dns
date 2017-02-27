@@ -160,12 +160,12 @@ impl RecordSet {
             let rrsigs = self.rrsigs
                 .iter()
                 .filter(|record| if let &RData::SIG(ref rrsig) = record.get_rdata() {
-                    supported_algorithms.has(rrsig.get_algorithm())
+                    supported_algorithms.has(rrsig.algorithm())
                 } else {
                     false
                 })
                 .max_by_key(|record| if let &RData::SIG(ref rrsig) = record.get_rdata() {
-                    rrsig.get_algorithm()
+                    rrsig.algorithm()
                 } else {
                     Algorithm::RSASHA1
                 });
@@ -722,7 +722,7 @@ mod test {
         assert!(rrset.get_records(true, SupportedAlgorithms::all())
             .iter()
             .any(|r| if let &RData::SIG(ref sig) = r.get_rdata() {
-                sig.get_algorithm() == Algorithm::ED25519
+                sig.algorithm() == Algorithm::ED25519
             } else {
                 false
             }));
@@ -732,7 +732,7 @@ mod test {
         assert!(rrset.get_records(true, supported_algorithms)
             .iter()
             .any(|r| if let &RData::SIG(ref sig) = r.get_rdata() {
-                sig.get_algorithm() == Algorithm::ECDSAP384SHA384
+                sig.algorithm() == Algorithm::ECDSAP384SHA384
             } else {
                 false
             }));

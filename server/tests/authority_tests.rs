@@ -683,7 +683,7 @@ fn test_zone_signing() {
         assert!(results.iter().any(|r| {
             r.get_rr_type() == RecordType::RRSIG && r.get_name() == record.get_name() &&
             if let &RData::SIG(ref rrsig) = r.get_rdata() {
-                rrsig.get_type_covered() == record.get_rr_type()
+                rrsig.type_covered() == record.get_rr_type()
             } else {
                 false
             }

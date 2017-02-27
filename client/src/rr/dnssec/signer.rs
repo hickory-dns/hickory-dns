@@ -611,14 +611,14 @@ impl Signer {
                                -> DnsSecResult<Vec<u8>> {
         self.hash_rrset(name,
                         dns_class,
-                        sig.get_num_labels(),
-                        sig.get_type_covered(),
-                        sig.get_algorithm(),
-                        sig.get_original_ttl(),
-                        sig.get_sig_expiration(),
-                        sig.get_sig_inception(),
-                        sig.get_key_tag(),
-                        sig.get_signer_name(),
+                        sig.num_labels(),
+                        sig.type_covered(),
+                        sig.algorithm(),
+                        sig.original_ttl(),
+                        sig.sig_expiration(),
+                        sig.sig_inception(),
+                        sig.key_tag(),
+                        sig.signer_name(),
                         records)
     }
 
@@ -727,7 +727,7 @@ fn test_sign_and_verify_message_sig0() {
     println!("sig after sign: {:?}", sig);
 
     if let &RData::SIG(ref sig) = question.sig0()[0].get_rdata() {
-        assert!(signer.verify_message(&question, sig.get_sig()).is_ok());
+        assert!(signer.verify_message(&question, sig.sig()).is_ok());
     }
 }
 

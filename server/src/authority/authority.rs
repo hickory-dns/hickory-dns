@@ -487,7 +487,7 @@ impl Authority {
                 None
             })
             .any(|sig| {
-                let name = sig.get_signer_name();
+                let name = sig.signer_name();
                 let keys = self.lookup(name, RecordType::KEY, false, SupportedAlgorithms::new());
                 debug!("found keys {:?}", keys);
                 keys.iter()
@@ -510,11 +510,11 @@ impl Authority {
                         let pkey = pkey.unwrap();
                         let signer: Signer = Signer::new_verifier(*key.algorithm(),
                                                                   pkey,
-                                                                  sig.get_signer_name().clone(),
+                                                                  sig.signer_name().clone(),
                                                                   false,
                                                                   true);
 
-                        signer.verify_message(update_message, sig.get_sig())
+                        signer.verify_message(update_message, sig.sig())
                             .map(|_| {
                                 info!("verified sig: {:?} with key: {:?}", sig, key);
                                 true
