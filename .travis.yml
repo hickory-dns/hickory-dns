@@ -1,24 +1,16 @@
 sudo: required
 dist: trusty
 language: rust
-rust: stable
-
-# we want full coverage, include all features...
-env: RUN_KCOV=1
-     OPTIONS="--all-features"
 cache: cargo
 
 matrix:
   include:
-    - os: osx
-      rust: stable
-
-    # min rust version
-    - rust: 1.13.0
-    - rust: beta
-    - rust: nightly
-
     # optional feature variations
+    # we want full coverage, include all features...
+    - rust: stable
+      env: RUN_KCOV=1
+           OPTIONS="--all-features"
+
     # no features
     - rust: stable
       env: MODULES="client"
@@ -38,6 +30,13 @@ matrix:
       env: MODULES="client"
            CLIENT_OPTIONS="--no-default-features --features=ring" 
 
+    # min rust version
+    - rust: 1.13.0
+    - rust: beta
+    - rust: nightly
+
+    - os: osx
+      rust: stable
 
   allow_failure:
     - rust: nightly
