@@ -2,7 +2,10 @@ sudo: required
 dist: trusty
 language: rust
 rust: stable
-env: CLIENT_OPTIONS="--features=ring"
+
+# we want full coverage, include all features...
+env: RUN_KCOV=1
+     OPTIONS="--all-features"
 cache: cargo
 
 matrix:
@@ -16,14 +19,21 @@ matrix:
     - rust: nightly
 
     # optional feature variations
+    # no features
     - rust: stable
       env: MODULES="client"
            CLIENT_OPTIONS="--no-default-features"
 
+    # default features...
     - rust: stable
       env: MODULES="client"
-           CLIENT_OPTIONS="--no-default-features --features=openssl" 
+           
+    # just openssl
+    - rust: stable
+      env: MODULES="client"
+           CLIENT_OPTIONS="--no-default-features --features=openssl"  
 
+    # just ring
     - rust: stable
       env: MODULES="client"
            CLIENT_OPTIONS="--no-default-features --features=ring" 

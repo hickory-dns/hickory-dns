@@ -1,7 +1,7 @@
 #!/bin/bash -e
 
 MODULES=${MODULES:-"client server"}
-CLIENT_OPTIONS=${CLIENT_OPTIONS:-"--features=ring"} # add in all features
+CLIENT_OPTIONS=${CLIENT_OPTIONS} # add in all features
 OPTIONS=${OPTIONS}
 
 trust_dns_dir=$(dirname $0)/..

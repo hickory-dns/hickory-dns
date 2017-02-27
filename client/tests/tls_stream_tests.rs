@@ -42,6 +42,7 @@ use openssl::x509::store::X509StoreBuilder;
 use security_framework::certificate::SecCertificate;
 use tokio_core::reactor::Core;
 
+#[cfg(feature = "tls")]
 use trust_dns::tls::TlsStream;
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
@@ -49,6 +50,7 @@ use trust_dns::tls::TlsStream;
 //  but not 3?
 // #[cfg(not(target_os = "linux"))]
 #[test]
+#[cfg(feature = "tls")]
 fn test_tls_client_stream_ipv4() {
     tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), false)
 }
@@ -56,12 +58,14 @@ fn test_tls_client_stream_ipv4() {
 // FIXME: mtls is disabled at the moment, it causes a hang on Linux, and is currently not supported on macOS
 #[cfg(feature = "mtls_disabled")]
 #[test]
+#[cfg(feature = "tls")]
 #[cfg(not(target_os = "macos"))] // ignored until Travis-CI fixes IPv6
 fn test_tls_client_stream_ipv4_mtls() {
     tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), true)
 }
 
 #[test]
+#[cfg(feature = "tls")]
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_tls_client_stream_ipv6() {
     tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)
@@ -148,6 +152,7 @@ fn cert(subject_name: &str, ca_pkey: &PKey, ca_name: &X509Name, _: &X509) -> (PK
 
 
 #[allow(unused_mut)]
+#[cfg(feature = "tls")]
 fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let succeeded = Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();

@@ -11,6 +11,7 @@ esac
 # don't run on nightly or beta
 rustc --version | grep beta && exit 0;
 rustc --version | grep nightly && exit 0;
+if [ -z ${RUN_KCOV} ] ; then exit 0; fi
 
 rm -rf kcov-master master.tar.gz*
 

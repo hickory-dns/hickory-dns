@@ -37,14 +37,15 @@ extern crate futures;
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+#[cfg(feature = "native-tls")]
 extern crate native_tls;
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", all(target_os = "linux", feature = "tls")))]
 extern crate openssl;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
 extern crate rustc_serialize;
-#[cfg(target_os = "macos")]
+#[cfg(all(target_os = "macos", feature = "security-framework"))]
 extern crate security_framework;
 extern crate time;
 #[macro_use]
@@ -59,6 +60,7 @@ pub mod logger;
 pub mod op;
 pub mod rr;
 pub mod tcp;
+#[cfg(feature = "tls")]
 pub mod tls;
 pub mod udp;
 pub mod serialize;

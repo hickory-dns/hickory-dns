@@ -38,7 +38,8 @@ license = "MIT/Apache-2.0"
 build = "build.rs"
 
 [features]
-default = ["trust-dns/ring"]
+default = ["trust-dns/tls"]
+ring = ["trust-dns/ring"]
 
 [lib]
 name = "trust_dns_server"
