@@ -135,19 +135,19 @@ fn test_catalog_lookup() {
     let answers: &[Record] = result.answers();
 
     assert!(!answers.is_empty());
-    assert_eq!(answers.first().unwrap().get_rr_type(), RecordType::A);
-    assert_eq!(answers.first().unwrap().get_rdata(),
+    assert_eq!(answers.first().unwrap().rr_type(), RecordType::A);
+    assert_eq!(answers.first().unwrap().rdata(),
                &RData::A(Ipv4Addr::new(93, 184, 216, 34)));
 
     let mut ns: Vec<Record> = result.name_servers().to_vec();
     ns.sort();
 
     assert_eq!(ns.len(), 2);
-    assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
-    assert_eq!(ns.first().unwrap().get_rdata(),
+    assert_eq!(ns.first().unwrap().rr_type(), RecordType::NS);
+    assert_eq!(ns.first().unwrap().rdata(),
                &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()));
-    assert_eq!(ns.last().unwrap().get_rr_type(), RecordType::NS);
-    assert_eq!(ns.last().unwrap().get_rdata(),
+    assert_eq!(ns.last().unwrap().rr_type(), RecordType::NS);
+    assert_eq!(ns.last().unwrap().rdata(),
                &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()));
 
     // other zone
@@ -164,8 +164,8 @@ fn test_catalog_lookup() {
     let answers: &[Record] = result.answers();
 
     assert!(!answers.is_empty());
-    assert_eq!(answers.first().unwrap().get_rr_type(), RecordType::A);
-    assert_eq!(answers.first().unwrap().get_rdata(),
+    assert_eq!(answers.first().unwrap().rr_type(), RecordType::A);
+    assert_eq!(answers.first().unwrap().rdata(),
                &RData::A(Ipv4Addr::new(93, 184, 216, 34)));
 }
 
@@ -192,8 +192,8 @@ fn test_catalog_nx_soa() {
     let ns: &[Record] = result.name_servers();
 
     assert_eq!(ns.len(), 1);
-    assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::SOA);
-    assert_eq!(ns.first().unwrap().get_rdata(),
+    assert_eq!(ns.first().unwrap().rr_type(), RecordType::SOA);
+    assert_eq!(ns.first().unwrap().rdata(),
                &RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None).unwrap(),
                                     Name::parse("noc.dns.icann.org.", None).unwrap(),
                                     2015082403,

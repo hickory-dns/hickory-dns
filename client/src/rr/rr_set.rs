@@ -719,7 +719,7 @@ mod test {
         rrset.insert_rrsig(rrsig_ecp384);
         rrset.insert_rrsig(rrsig_ed25519);
 
-        assert!(rrset.get_records(true, SupportedAlgorithms::all())
+        assert!(rrset.records(true, SupportedAlgorithms::all())
             .iter()
             .any(|r| if let &RData::SIG(ref sig) = r.rdata() {
                 sig.algorithm() == Algorithm::ED25519
@@ -729,7 +729,7 @@ mod test {
 
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ECDSAP384SHA384);
-        assert!(rrset.get_records(true, supported_algorithms)
+        assert!(rrset.records(true, supported_algorithms)
             .iter()
             .any(|r| if let &RData::SIG(ref sig) = r.rdata() {
                 sig.algorithm() == Algorithm::ECDSAP384SHA384

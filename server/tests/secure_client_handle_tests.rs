@@ -51,15 +51,15 @@ fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: 
         .expect("query failed");
 
     println!("response records: {:?}", response);
-    assert!(response.get_edns().expect("edns not here").is_dnssec_ok());
+    assert!(response.edns().expect("edns not here").dnssec_ok());
 
-    assert!(!response.get_answers().is_empty());
-    let record = &response.get_answers()[0];
-    assert_eq!(record.get_name(), &name);
-    assert_eq!(record.get_rr_type(), RecordType::A);
-    assert_eq!(record.get_dns_class(), DNSClass::IN);
+    assert!(!response.answers().is_empty());
+    let record = &response.answers()[0];
+    assert_eq!(record.name(), &name);
+    assert_eq!(record.rr_type(), RecordType::A);
+    assert_eq!(record.dns_class(), DNSClass::IN);
 
-    if let &RData::A(ref address) = record.get_rdata() {
+    if let &RData::A(ref address) = record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
         assert!(false);
@@ -92,7 +92,7 @@ fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Co
 
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
-    assert_eq!(response.get_response_code(), ResponseCode::NXDomain);
+    assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
 
 // TODO: NSEC response code wrong in Trust-DNS? Issue #53
@@ -123,8 +123,8 @@ fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::NS))
         .expect("query failed");
 
-    assert_eq!(response.get_response_code(), ResponseCode::NoError);
-    assert!(response.get_answers().is_empty());
+    assert_eq!(response.response_code(), ResponseCode::NoError);
+    assert!(response.answers().is_empty());
 }
 
 #[test]
@@ -153,10 +153,10 @@ fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: C
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::DS))
         .expect("query failed");
 
-    assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    assert_eq!(response.response_code(), ResponseCode::NoError);
     // rollernet doesn't have any DS records...
     //  would have failed validation
-    assert!(response.get_answers().is_empty());
+    assert!(response.answers().is_empty());
 }
 
 fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
@@ -167,10 +167,10 @@ fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::DS))
         .expect("query failed");
 
-    assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    assert_eq!(response.response_code(), ResponseCode::NoError);
     // rollernet doesn't have any DS records...
     //  would have failed validation
-    assert!(response.get_answers().is_empty());
+    assert!(response.answers().is_empty());
 }
 
 fn with_nonet<F>(test: F)
@@ -198,7 +198,7 @@ fn with_nonet<F>(test: F)
 
     let trust_anchor = {
         let signers = authority.get_secure_keys();
-        let public_key = signers.first().expect("expected a key in the authority").get_key();
+        let public_key = signers.first().expect("expected a key in the authority").key();
 
         let mut trust_anchor = TrustAnchor::new();
         trust_anchor.insert_trust_anchor(public_key.to_public_bytes().expect("to_vec failed"));

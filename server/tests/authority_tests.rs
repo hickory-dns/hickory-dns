@@ -29,9 +29,9 @@ fn test_search() {
 
     let result = example.search(&query, false, SupportedAlgorithms::new());
     if !result.is_empty() {
-        assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
-        assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
-        assert_eq!(result.first().unwrap().get_rdata(),
+        assert_eq!(result.first().unwrap().rr_type(), RecordType::A);
+        assert_eq!(result.first().unwrap().dns_class(), DNSClass::IN);
+        assert_eq!(result.first().unwrap().rdata(),
                    &RData::A(Ipv4Addr::new(93, 184, 216, 34)));
     } else {
         panic!("expected a result"); // valid panic, in test
@@ -49,9 +49,9 @@ fn test_search_www() {
 
     let result = example.search(&query, false, SupportedAlgorithms::new());
     if !result.is_empty() {
-        assert_eq!(result.first().unwrap().get_rr_type(), RecordType::A);
-        assert_eq!(result.first().unwrap().get_dns_class(), DNSClass::IN);
-        assert_eq!(result.first().unwrap().get_rdata(),
+        assert_eq!(result.first().unwrap().rr_type(), RecordType::A);
+        assert_eq!(result.first().unwrap().dns_class(), DNSClass::IN);
+        assert_eq!(result.first().unwrap().rdata(),
                    &RData::A(Ipv4Addr::new(93, 184, 216, 34)));
     } else {
         panic!("expected a result"); // valid panic, in test
@@ -668,22 +668,22 @@ fn test_zone_signing() {
                                    true,
                                    SupportedAlgorithms::all());
 
-    assert!(results.iter().any(|r| r.get_rr_type() == RecordType::DNSKEY),
+    assert!(results.iter().any(|r| r.rr_type() == RecordType::DNSKEY),
             "must contain a DNSKEY");
 
     for record in results.iter() {
-        if record.get_rr_type() == RecordType::RRSIG {
+        if record.rr_type() == RecordType::RRSIG {
             continue;
         }
-        if record.get_rr_type() == RecordType::DNSKEY {
+        if record.rr_type() == RecordType::DNSKEY {
             continue;
         }
 
         // validate all records have associated RRSIGs after signing
         assert!(results.iter().any(|r| {
-            r.get_rr_type() == RecordType::RRSIG && r.get_name() == record.get_name() &&
-            if let &RData::SIG(ref rrsig) = r.get_rdata() {
-                rrsig.type_covered() == record.get_rr_type()
+            r.rr_type() == RecordType::RRSIG && r.name() == record.name() &&
+            if let &RData::SIG(ref rrsig) = r.rdata() {
+                rrsig.type_covered() == record.rr_type()
             } else {
                 false
             }
@@ -701,7 +701,7 @@ fn test_get_nsec() {
     let results = authority.get_nsec_records(&name, true, SupportedAlgorithms::all());
 
     for record in results.iter() {
-        assert!(record.get_name() < &name);
+        assert!(record.name() < &name);
     }
 }
 
@@ -786,8 +786,8 @@ fn test_recovery() {
         let other_rr_set =
             authority.get_records().get(rr_key).expect(&format!("key doesn't exist: {:?}", rr_key));
         rr_set.iter().zip(other_rr_set.iter()).all(|(record, other_record)| {
-            record.get_ttl() == other_record.get_ttl() &&
-            record.get_rdata() == other_record.get_rdata()
+            record.ttl() == other_record.ttl() &&
+            record.rdata() == other_record.rdata()
         })
     }));
 
@@ -796,8 +796,8 @@ fn test_recovery() {
             .get(rr_key)
             .expect(&format!("key doesn't exist: {:?}", rr_key));
         rr_set.iter().zip(other_rr_set.iter()).all(|(record, other_record)| {
-            record.get_ttl() == other_record.get_ttl() &&
-            record.get_rdata() == other_record.get_rdata()
+            record.ttl() == other_record.ttl() &&
+            record.rdata() == other_record.rdata()
         })
     }));
 }

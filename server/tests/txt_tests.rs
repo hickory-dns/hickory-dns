@@ -102,11 +102,11 @@ venera  A       10.1.0.52
 
     for (record, ref name) in compare {
         assert_eq!(&Name::with_labels(vec!["isi".into(), "edu".into()]),
-                   record.get_name());
-        assert_eq!(60, record.get_ttl()); // TODO: should this be minimum or expire?
-        assert_eq!(DNSClass::IN, record.get_dns_class());
-        assert_eq!(RecordType::NS, record.get_rr_type());
-        if let RData::NS(ref nsdname) = *record.get_rdata() {
+                   record.name());
+        assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
+        assert_eq!(DNSClass::IN, record.dns_class());
+        assert_eq!(RecordType::NS, record.rr_type());
+        if let RData::NS(ref nsdname) = *record.rdata() {
             assert_eq!(name, nsdname);
         } else {
             panic!("Not an NS record!!!") // valid panic, test code
@@ -127,11 +127,11 @@ venera  A       10.1.0.52
 
 
     for (record, (num, ref name)) in compare {
-        assert_eq!(&Name::new().label("isi").label("edu"), record.get_name());
-        assert_eq!(60, record.get_ttl()); // TODO: should this be minimum or expire?
-        assert_eq!(DNSClass::IN, record.get_dns_class());
-        assert_eq!(RecordType::MX, record.get_rr_type());
-        if let RData::MX(ref rdata) = *record.get_rdata() {
+        assert_eq!(&Name::new().label("isi").label("edu"), record.name());
+        assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
+        assert_eq!(DNSClass::IN, record.dns_class());
+        assert_eq!(RecordType::MX, record.rr_type());
+        if let RData::MX(ref rdata) = *record.rdata() {
             assert_eq!(num, rdata.preference());
             assert_eq!(name, rdata.exchange());
         } else {
@@ -222,7 +222,7 @@ venera  A       10.1.0.52
 
 
     for (record, ref vector) in compare {
-        if let RData::TXT(ref rdata) = *record.get_rdata() {
+        if let RData::TXT(ref rdata) = *record.rdata() {
             assert_eq!(vector as &[String], rdata.txt_data());
         } else {
             panic!("Not a TXT record!!!") // valid panic, test code

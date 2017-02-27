@@ -432,16 +432,16 @@ mod tests {
             .set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
 
         let mut greater_name = record.clone();
-        greater_name.name(Name::new().label("zzz").label("example").label("com"));
+        greater_name.set_name(Name::new().label("zzz").label("example").label("com"));
 
         let mut greater_type = record.clone();
-        greater_type.rr_type(RecordType::AAAA);
+        greater_type.set_rr_type(RecordType::AAAA);
 
         let mut greater_class = record.clone();
-        greater_class.dns_class(DNSClass::NONE);
+        greater_class.set_dns_class(DNSClass::NONE);
 
         let mut greater_rdata = record.clone();
-        greater_rdata.rdata(RData::A(Ipv4Addr::new(192, 168, 0, 255)));
+        greater_rdata.set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 255)));
 
         let compares = vec![(&record, &greater_name),
                             (&record, &greater_type),

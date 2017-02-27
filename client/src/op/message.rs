@@ -869,7 +869,7 @@ fn test_legit_message() {
     let mut decoder = BinDecoder::new(&buf);
     let message = Message::read(&mut decoder).unwrap();
 
-    assert_eq!(message.get_id(), 4096);
+    assert_eq!(message.id(), 4096);
 
     let mut buf: Vec<u8> = Vec::with_capacity(512);
     {
@@ -880,5 +880,5 @@ fn test_legit_message() {
     let mut decoder = BinDecoder::new(&buf);
     let message = Message::read(&mut decoder).unwrap();
 
-    assert_eq!(message.get_id(), 4096);
+    assert_eq!(message.id(), 4096);
 }

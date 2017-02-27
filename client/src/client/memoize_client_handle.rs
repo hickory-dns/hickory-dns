@@ -106,17 +106,17 @@ mod test {
         test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
         let result = client.send(test1.clone()).wait().ok().unwrap();
-        assert_eq!(result.get_id(), 0);
+        assert_eq!(result.id(), 0);
 
         let result = client.send(test2.clone()).wait().ok().unwrap();
-        assert_eq!(result.get_id(), 1);
+        assert_eq!(result.id(), 1);
 
         // should get the same result for each...
         let result = client.send(test1).wait().ok().unwrap();
-        assert_eq!(result.get_id(), 0);
+        assert_eq!(result.id(), 0);
 
         let result = client.send(test2).wait().ok().unwrap();
-        assert_eq!(result.get_id(), 1);
+        assert_eq!(result.id(), 1);
     }
 
 }
