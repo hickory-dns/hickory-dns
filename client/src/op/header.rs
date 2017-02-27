@@ -106,59 +106,59 @@ impl Header {
         12 /* this is always 12 bytes */
     }
 
-    pub fn id(&mut self, id: u16) -> &mut Self {
+    pub fn set_id(&mut self, id: u16) -> &mut Self {
         self.id = id;
         self
     }
-    pub fn message_type(&mut self, message_type: MessageType) -> &mut Self {
+    pub fn set_message_type(&mut self, message_type: MessageType) -> &mut Self {
         self.message_type = message_type;
         self
     }
-    pub fn op_code(&mut self, op_code: OpCode) -> &mut Self {
+    pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
         self.op_code = op_code;
         self
     }
-    pub fn authoritative(&mut self, authoritative: bool) -> &mut Self {
+    pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
         self.authoritative = authoritative;
         self
     }
-    pub fn truncated(&mut self, truncated: bool) -> &mut Self {
+    pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
         self.truncation = truncated;
         self
     }
-    pub fn recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
+    pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
         self.recursion_desired = recursion_desired;
         self
     }
-    pub fn recursion_available(&mut self, recursion_available: bool) -> &mut Self {
+    pub fn set_recursion_available(&mut self, recursion_available: bool) -> &mut Self {
         self.recursion_available = recursion_available;
         self
     }
-    pub fn authentic_data(&mut self, authentic_data: bool) -> &mut Self {
+    pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
         self.authentic_data = authentic_data;
         self
     }
-    pub fn checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
+    pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
         self.checking_disabled = checking_disabled;
         self
     }
-    pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self {
+    pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
         self.response_code = response_code.low();
         self
     }
-    pub fn query_count(&mut self, query_count: u16) -> &mut Self {
+    pub fn set_query_count(&mut self, query_count: u16) -> &mut Self {
         self.query_count = query_count;
         self
     }
-    pub fn answer_count(&mut self, answer_count: u16) -> &mut Self {
+    pub fn set_answer_count(&mut self, answer_count: u16) -> &mut Self {
         self.answer_count = answer_count;
         self
     }
-    pub fn name_server_count(&mut self, name_server_count: u16) -> &mut Self {
+    pub fn set_name_server_count(&mut self, name_server_count: u16) -> &mut Self {
         self.name_server_count = name_server_count;
         self
     }
-    pub fn additional_count(&mut self, additional_count: u16) -> &mut Self {
+    pub fn set_additional_count(&mut self, additional_count: u16) -> &mut Self {
         self.additional_count = additional_count;
         self
     }
@@ -169,7 +169,7 @@ impl Header {
     ///                 the corresponding reply and can be used by the requester
     ///                 to match up replies to outstanding queries.
     /// ```
-    pub fn get_id(&self) -> u16 {
+    pub fn id(&self) -> u16 {
         self.id
     }
 
@@ -177,7 +177,7 @@ impl Header {
     /// QR              A one bit field that specifies whether this message is a
     ///                 query (0), or a response (1).
     /// ```
-    pub fn get_message_type(&self) -> MessageType {
+    pub fn message_type(&self) -> MessageType {
         self.message_type
     }
 
@@ -186,7 +186,7 @@ impl Header {
     ///                 message.  This value is set by the originator of a query
     ///                 and copied into the response.  The values are: <see super::op_code>
     /// ```
-    pub fn get_op_code(&self) -> OpCode {
+    pub fn op_code(&self) -> OpCode {
         self.op_code
     }
 
@@ -200,7 +200,7 @@ impl Header {
     ///                 corresponds to the name which matches the query name, or
     ///                 the first owner name in the answer section.
     /// ```
-    pub fn is_authoritative(&self) -> bool {
+    pub fn authoritative(&self) -> bool {
         self.authoritative
     }
 
@@ -209,7 +209,7 @@ impl Header {
     ///                 due to length greater than that permitted on the
     ///                 transmission channel.
     /// ```
-    pub fn is_truncated(&self) -> bool {
+    pub fn truncated(&self) -> bool {
         self.truncation
     }
 
@@ -219,7 +219,7 @@ impl Header {
     ///                 the name server to pursue the query recursively.
     ///                 Recursive query support is optional.
     /// ```
-    pub fn is_recursion_desired(&self) -> bool {
+    pub fn recursion_desired(&self) -> bool {
         self.recursion_desired
     }
 
@@ -228,7 +228,7 @@ impl Header {
     ///                 response, and denotes whether recursive query support is
     ///                 available in the name server.
     /// ```
-    pub fn is_recursion_available(&self) -> bool {
+    pub fn recursion_available(&self) -> bool {
         self.recursion_available
     }
 
@@ -262,12 +262,12 @@ impl Header {
     ///   rules for the CD and AD bits given in Section 3.2 when generating a
     ///   response that involves data obtained via recursion.
     /// ```
-    pub fn is_authentic_data(&self) -> bool {
+    pub fn authentic_data(&self) -> bool {
         self.authentic_data
     }
 
     /// see `is_authentic_data()`
-    pub fn is_checking_disabled(&self) -> bool {
+    pub fn checking_disabled(&self) -> bool {
         self.checking_disabled
     }
 
@@ -276,7 +276,7 @@ impl Header {
     ///                 responses.  The values have the following
     ///                 interpretation: <see super::response_code>
     /// ```
-    pub fn get_response_code(&self) -> u8 {
+    pub fn response_code(&self) -> u8 {
         self.response_code
     }
 
@@ -289,7 +289,7 @@ impl Header {
     ///
     /// If this is a query, this will return the number of queries in the query section of the
     //   message, fo updates this represents the zone count (must be no more than 1).
-    pub fn get_query_count(&self) -> u16 {
+    pub fn query_count(&self) -> u16 {
         self.query_count
     }
 
@@ -302,7 +302,7 @@ impl Header {
     ///
     /// For query responses this is the number of records in the answer section, should be 0 for
     ///  requests, for updates this is the count of prerequisite records.
-    pub fn get_answer_count(&self) -> u16 {
+    pub fn answer_count(&self) -> u16 {
         self.answer_count
     }
 
@@ -318,7 +318,7 @@ impl Header {
     ///
     /// For query responses this is the number of authorities, or nameservers, in the name server
     ///  section, for updates this is the number of update records being sent.
-    pub fn get_name_server_count(&self) -> u16 {
+    pub fn name_server_count(&self) -> u16 {
         self.name_server_count
     }
 
@@ -330,7 +330,7 @@ impl Header {
     /// # Return value
     ///
     /// This is the additional record section count, this section may include EDNS options.
-    pub fn get_additional_count(&self) -> u16 {
+    pub fn additional_count(&self) -> u16 {
         self.additional_count
     }
 

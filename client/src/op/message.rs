@@ -124,43 +124,43 @@ impl Message {
     }
 
     pub fn set_id(&mut self, id: u16) -> &mut Self {
-        self.header.id(id);
+        self.header.set_id(id);
         self
     }
     pub fn set_message_type(&mut self, message_type: MessageType) -> &mut Self {
-        self.header.message_type(message_type);
+        self.header.set_message_type(message_type);
         self
     }
     pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
-        self.header.op_code(op_code);
+        self.header.set_op_code(op_code);
         self
     }
     pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
-        self.header.authoritative(authoritative);
+        self.header.set_authoritative(authoritative);
         self
     }
     pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
-        self.header.truncated(truncated);
+        self.header.set_truncated(truncated);
         self
     }
     pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
-        self.header.recursion_desired(recursion_desired);
+        self.header.set_recursion_desired(recursion_desired);
         self
     }
     pub fn set_recursion_available(&mut self, recursion_available: bool) -> &mut Self {
-        self.header.recursion_available(recursion_available);
+        self.header.set_recursion_available(recursion_available);
         self
     }
     pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
-        self.header.authentic_data(authentic_data);
+        self.header.set_authentic_data(authentic_data);
         self
     }
     pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
-        self.header.checking_disabled(checking_disabled);
+        self.header.set_checking_disabled(checking_disabled);
         self
     }
     pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
-        self.header.response_code(response_code);
+        self.header.set_response_code(response_code);
         self
     }
 
@@ -284,49 +284,49 @@ impl Message {
         self
     }
 
-    /// see `Header::get_id()`
+    /// see `Header::id()`
     pub fn id(&self) -> u16 {
-        self.header.get_id()
+        self.header.id()
     }
 
-    /// see `Header::get_message_type()`
+    /// see `Header::message_type()`
     pub fn message_type(&self) -> MessageType {
-        self.header.get_message_type()
+        self.header.message_type()
     }
 
-    /// see `Header::get_op_code()`
+    /// see `Header::op_code()`
     pub fn op_code(&self) -> OpCode {
-        self.header.get_op_code()
+        self.header.op_code()
     }
 
-    /// see `Header::is_authoritative()`
+    /// see `Header::authoritative()`
     pub fn authoritative(&self) -> bool {
-        self.header.is_authoritative()
+        self.header.authoritative()
     }
 
-    /// see `Header::is_truncated()`
+    /// see `Header::truncated()`
     pub fn truncated(&self) -> bool {
-        self.header.is_truncated()
+        self.header.truncated()
     }
 
-    /// see `Header::is_recursion_desired()`
+    /// see `Header::recursion_desired()`
     pub fn recursion_desired(&self) -> bool {
-        self.header.is_recursion_desired()
+        self.header.recursion_desired()
     }
 
-    /// see `Header::is_recursion_available()`
+    /// see `Header::recursion_available()`
     pub fn recursion_available(&self) -> bool {
-        self.header.is_recursion_available()
+        self.header.recursion_available()
     }
 
-    /// see `Header::is_authentic_data()`
+    /// see `Header::authentic_data()`
     pub fn authentic_data(&self) -> bool {
-        self.header.is_authentic_data()
+        self.header.authentic_data()
     }
 
-    /// see `Header::is_checking_disabled()`
+    /// see `Header::checking_disabled()`
     pub fn checking_disabled(&self) -> bool {
-        self.header.is_checking_disabled()
+        self.header.checking_disabled()
     }
 
     /// # Return value
@@ -335,7 +335,7 @@ impl Message {
     ///  record to create the EDNS `ResponseCode`
     pub fn response_code(&self) -> ResponseCode {
         ResponseCode::from(self.edns.as_ref().map_or(0, |e| e.get_rcode_high()),
-                           self.header.get_response_code())
+                           self.header.response_code())
     }
 
     /// ```text
@@ -720,16 +720,16 @@ impl BinSerializable<Message> for Message {
         //  this could improve error detection while decoding.
 
         // get the questions
-        let count = header.get_query_count() as usize;
+        let count = header.query_count() as usize;
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(try!(Query::read(decoder)));
         }
 
         // get all counts before header moves
-        let answer_count = header.get_answer_count() as usize;
-        let name_server_count = header.get_name_server_count() as usize;
-        let additional_count = header.get_additional_count() as usize;
+        let answer_count = header.answer_count() as usize;
+        let name_server_count = header.name_server_count() as usize;
+        let additional_count = header.additional_count() as usize;
 
         let (answers, _, _) = try!(Self::read_records(decoder, answer_count, false));
         let (name_servers, _, _) = try!(Self::read_records(decoder, name_server_count, false));
