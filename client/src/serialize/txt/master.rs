@@ -251,9 +251,9 @@ impl Parser {
                                     // expire is for the SOA, minimum is default for records
                                     if let RData::SOA(ref soa) = rdata {
                                         // TODO, this looks wrong, get_expire() should be get_minimum(), right?
-                                        record.ttl(soa.get_expire() as u32); // the spec seems a little inaccurate with u32 and i32
+                                        record.ttl(soa.expire() as u32); // the spec seems a little inaccurate with u32 and i32
                                         if ttl.is_none() {
-                                            ttl = Some(soa.get_minimum());
+                                            ttl = Some(soa.minimum());
                                         } // TODO: should this only set it if it's not set?
                                     } else {
                                         assert!(false,

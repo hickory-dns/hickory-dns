@@ -271,7 +271,7 @@ impl RecordSet {
                     match soa_record.get_rdata() {
                         &RData::SOA(ref existing_soa) => {
                             if let &RData::SOA(ref new_soa) = record.get_rdata() {
-                                if new_soa.get_serial() <= existing_soa.get_serial() {
+                                if new_soa.serial() <= existing_soa.serial() {
                                     info!("update ignored serial out of data: {:?} <= {:?}",
                                           new_soa,
                                           existing_soa);

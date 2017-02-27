@@ -223,7 +223,7 @@ impl Authority {
     /// Returns the minimum ttl (as used in the SOA record)
     pub fn get_minimum_ttl(&self) -> u32 {
         self.get_soa().map_or(0, |soa| if let &RData::SOA(ref rdata) = soa.get_rdata() {
-            rdata.get_minimum()
+            rdata.minimum()
         } else {
             0
         })
@@ -239,7 +239,7 @@ impl Authority {
         };
 
         if let &RData::SOA(ref soa_rdata) = soa.get_rdata() {
-            soa_rdata.get_serial()
+            soa_rdata.serial()
         } else {
             panic!("This was not an SOA record"); // valid panic, never should happen
         }
@@ -255,7 +255,7 @@ impl Authority {
 
         let serial = if let &mut RData::SOA(ref mut soa_rdata) = soa.get_rdata_mut() {
             soa_rdata.increment_serial();
-            soa_rdata.get_serial()
+            soa_rdata.serial()
         } else {
             panic!("This was not an SOA record"); // valid panic, never should happen
         };
