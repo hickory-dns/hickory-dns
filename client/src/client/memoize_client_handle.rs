@@ -100,10 +100,10 @@ mod test {
         let mut client = MemoizeClientHandle::new(TestClient { i: Cell::new(0) });
 
         let mut test1 = Message::new();
-        test1.add_query(Query::new().query_type(RecordType::A).clone());
+        test1.add_query(Query::new().set_query_type(RecordType::A).clone());
 
         let mut test2 = Message::new();
-        test2.add_query(Query::new().query_type(RecordType::AAAA).clone());
+        test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
         let result = client.send(test1.clone()).wait().ok().unwrap();
         assert_eq!(result.get_id(), 0);

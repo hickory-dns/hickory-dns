@@ -123,7 +123,7 @@ fn test_catalog_lookup() {
     let mut question: Message = Message::new();
 
     let mut query: Query = Query::new();
-    query.name(origin.clone());
+    query.set_name(origin.clone());
 
     question.add_query(query);
 
@@ -152,7 +152,7 @@ fn test_catalog_lookup() {
 
     // other zone
     let mut query: Query = Query::new();
-    query.name(test_origin.clone());
+    query.set_name(test_origin.clone());
 
     question.add_query(query);
 
@@ -180,7 +180,7 @@ fn test_catalog_nx_soa() {
     let mut question: Message = Message::new();
 
     let mut query: Query = Query::new();
-    query.name(Name::parse("nx.example.com.", None).unwrap());
+    query.set_name(Name::parse("nx.example.com.", None).unwrap());
 
     question.add_query(query);
 
@@ -225,8 +225,8 @@ fn test_axfr() {
     catalog.upsert(origin.clone(), test);
 
     let mut query: Query = Query::new();
-    query.name(origin.clone());
-    query.query_type(RecordType::AXFR);
+    query.set_name(origin.clone());
+    query.set_query_type(RecordType::AXFR);
 
     let mut question: Message = Message::new();
     question.add_query(query);

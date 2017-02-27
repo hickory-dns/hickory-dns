@@ -915,7 +915,7 @@ impl Authority {
                   is_secure: bool,
                   supported_algorithms: SupportedAlgorithms)
                   -> Vec<&Record> {
-        let record_type: RecordType = query.get_query_type();
+        let record_type: RecordType = query.query_type();
 
         // if this is an AXFR zone transfer, verify that this is either the slave or master
         //  for AXFR the first and last record must be the SOA
@@ -929,7 +929,7 @@ impl Authority {
 
         // it would be better to stream this back, rather than packaging everything up in an array
         //  though for UDP it would still need to be bundled
-        let mut query_result: Vec<_> = self.lookup(query.get_name(),
+        let mut query_result: Vec<_> = self.lookup(query.name(),
                                                    record_type,
                                                    is_secure,
                                                    supported_algorithms);

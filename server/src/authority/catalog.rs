@@ -210,12 +210,12 @@ impl Catalog {
         //  therefore the Zone Section is allowed to contain exactly one record.
         //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
         //  the zone's class.
-        if zones.len() != 1 || zones[0].get_query_type() != RecordType::SOA {
+        if zones.len() != 1 || zones[0].query_type() != RecordType::SOA {
             response.set_response_code(ResponseCode::FormErr);
             return response;
         }
 
-        if let Some(authority) = self.find_auth_recurse(zones[0].get_name()) {
+        if let Some(authority) = self.find_auth_recurse(zones[0].name()) {
             let mut authority = authority.write().unwrap(); // poison errors should panic...
             match authority.get_zone_type() {
                 ZoneType::Slave => {
@@ -262,7 +262,7 @@ impl Catalog {
         // TODO: the spec is very unclear on what to do with multiple queries
         //  we will search for each, in the future, maybe make this threaded to respond even faster.
         for query in request.queries() {
-            if let Some(ref_authority) = self.find_auth_recurse(query.get_name()) {
+            if let Some(ref_authority) = self.find_auth_recurse(query.name()) {
                 let authority = &ref_authority.read().unwrap(); // poison errors should panic
                 debug!("found authority: {:?}", authority.get_origin());
                 let (is_dnssec, supported_algorithms) = request.edns()
@@ -294,7 +294,7 @@ impl Catalog {
                     if is_dnssec {
                         // get NSEC records
                         let nsecs =
-                            authority.get_nsec_records(query.get_name(),
+                            authority.get_nsec_records(query.name(),
                                                        is_dnssec,
                                                        supported_algorithms);
                         response.add_name_servers(nsecs.into_iter().cloned());

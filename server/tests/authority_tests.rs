@@ -25,7 +25,7 @@ fn test_search() {
     let origin = example.get_origin().clone();
 
     let mut query: Query = Query::new();
-    query.name(origin.clone());
+    query.set_name(origin.clone());
 
     let result = example.search(&query, false, SupportedAlgorithms::new());
     if !result.is_empty() {
@@ -45,7 +45,7 @@ fn test_search_www() {
     let www_name = Name::parse("www.example.com.", None).unwrap();
 
     let mut query: Query = Query::new();
-    query.name(www_name.clone());
+    query.set_name(www_name.clone());
 
     let result = example.search(&query, false, SupportedAlgorithms::new());
     if !result.is_empty() {

@@ -133,7 +133,7 @@ impl<H> ClientHandle for SecureClientHandle<H>
             message.set_authentic_data(true);
             message.set_checking_disabled(false);
             let dns_class =
-                message.queries().first().map_or(DNSClass::IN, |q| q.get_query_class());
+                message.queries().first().map_or(DNSClass::IN, |q| q.query_class());
 
             return Box::new(self.client
                 .send(message)
@@ -769,9 +769,9 @@ fn verify_nsec(query: &Query, nsecs: Vec<&Record>) -> bool {
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
-    if nsecs.iter().any(|r| query.get_name() == r.get_name() && {
+    if nsecs.iter().any(|r| query.name() == r.get_name() && {
     if let &RData::NSEC(ref rdata) = r.get_rdata() {
-      !rdata.get_type_bit_maps().contains(&query.get_query_type())
+      !rdata.get_type_bit_maps().contains(&query.query_type())
     } else {
       panic!("expected NSEC was {:?}", r.get_rr_type()) // valid panic, never should happen
     }
@@ -779,10 +779,10 @@ fn verify_nsec(query: &Query, nsecs: Vec<&Record>) -> bool {
 
     // based on the WTF? above, we will ignore any NSEC records of the same name
     if nsecs.iter()
-          .filter(|r| query.get_name() != r.get_name())
-          .any(|r| query.get_name() > r.get_name() && {
+          .filter(|r| query.name() != r.get_name())
+          .any(|r| query.name() > r.get_name() && {
     if let &RData::NSEC(ref rdata) = r.get_rdata() {
-      query.get_name() < rdata.get_next_domain_name()
+      query.name() < rdata.get_next_domain_name()
     } else {
       panic!("expected NSEC was {:?}", r.get_rr_type()) // valid panic, never should happen
     }

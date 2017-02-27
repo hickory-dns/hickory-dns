@@ -390,7 +390,7 @@ pub trait ClientHandle: Clone {
 
         // add the query
         let mut query: Query = Query::new();
-        query.name(name.clone()).query_class(query_class).query_type(query_type);
+        query.set_name(name.clone()).set_query_class(query_class).set_query_type(query_type);
         message.add_query(query);
 
         self.send(message)
@@ -488,7 +488,7 @@ pub trait ClientHandle: Clone {
 
         // add the query
         let mut query: Query = Query::new();
-        query.name(name.clone()).query_class(query_class).query_type(query_type);
+        query.set_name(name.clone()).set_query_class(query_class).set_query_type(query_type);
         message.add_query(query);
 
         // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7
@@ -544,7 +544,7 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(rrset.get_dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -615,7 +615,7 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(rrset.get_dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -701,7 +701,7 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(new.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(new.get_dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -784,7 +784,7 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(rrset.get_dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -852,7 +852,7 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(record.get_dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -913,7 +913,7 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(dns_class).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(dns_class).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();

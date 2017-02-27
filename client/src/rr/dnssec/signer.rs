@@ -700,7 +700,7 @@ fn test_sign_and_verify_message_sig0() {
     let origin: Name = Name::parse("example.com.", None).unwrap();
     let mut question: Message = Message::new();
     let mut query: Query = Query::new();
-    query.name(origin.clone());
+    query.set_name(origin.clone());
     question.add_query(query);
 
     let rsa = Rsa::generate(512).unwrap();
