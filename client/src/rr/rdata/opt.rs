@@ -178,7 +178,7 @@ impl OPT {
     }
 
     /// The entire map of options
-    pub fn get_options(&self) -> &HashMap<EdnsCode, EdnsOption> {
+    pub fn options(&self) -> &HashMap<EdnsCode, EdnsOption> {
         &self.options
     }
 
@@ -241,7 +241,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<OPT> {
 }
 
 pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> EncodeResult {
-    for (ref edns_code, ref edns_option) in opt.get_options().iter() {
+    for (ref edns_code, ref edns_option) in opt.options().iter() {
         try!(encoder.emit_u16(u16::from(**edns_code)));
         try!(encoder.emit_u16(edns_option.len()));
 

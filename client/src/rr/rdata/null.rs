@@ -51,7 +51,7 @@ impl NULL {
         NULL { anything: Some(anything) }
     }
 
-    pub fn get_anything(&self) -> Option<&Vec<u8>> {
+    pub fn anything(&self) -> Option<&Vec<u8>> {
         self.anything.as_ref()
     }
 }
@@ -76,7 +76,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NULL> {
 }
 
 pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> EncodeResult {
-    if let Some(ref anything) = nil.get_anything() {
+    if let Some(ref anything) = nil.anything() {
         for b in anything.iter() {
             try!(encoder.emit(*b));
         }
