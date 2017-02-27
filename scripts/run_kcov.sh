@@ -37,7 +37,7 @@ export COVERALLS_PARALLEL=true
 SRC_PATHS=client/src,server/src
 EXCLUDE_PATHS=client/src/error,server/src/error
 
-for i in target/debug/trust_dns*-* target/debug/*_tests-* ; do
+for i in target/debug/deps/trust_dns*-* target/debug/deps/*_tests-* ; do
   if [ -f $i ] && [ -x $i ]; then
     # submit the report... what's the executable since there are many?
     echo "executing kcov on $i"

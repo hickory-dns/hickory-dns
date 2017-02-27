@@ -50,6 +50,7 @@ extern crate security_framework;
 extern crate time;
 #[macro_use]
 extern crate tokio_core;
+#[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;
 #[cfg(feature = "ring")]
 extern crate untrusted;

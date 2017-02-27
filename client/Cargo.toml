@@ -38,7 +38,7 @@ build = "build.rs"
 
 [features]
 default = ["openssl", "tls"]
-tls = ["native-tls", "security-framework"]
+tls = ["native-tls", "tokio-tls", "security-framework"]
 
 [lib]
 name = "trust_dns"
@@ -59,7 +59,7 @@ ring = { version = "^0.6", optional = true }
 rustc-serialize = "^0.3.18"
 time = "^0.1"
 tokio-core = "^0.1"
-tokio-tls = "^0.1"
+tokio-tls = { version = "^0.1", optional = true }
 untrusted = "^0.3"
 
 [dev-dependencies]
