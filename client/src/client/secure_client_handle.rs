@@ -100,16 +100,16 @@ impl<H> ClientHandle for SecureClientHandle<H>
         }
 
         // dnssec only matters on queries.
-        if let OpCode::Query = message.get_op_code() {
+        if let OpCode::Query = message.op_code() {
             // This will panic on no queries, that is a very odd type of request, isn't it?
             // TODO: there should only be one
-            let query = message.get_queries().first().cloned().unwrap();
+            let query = message.queries().first().cloned().unwrap();
             let client: SecureClientHandle<H> = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
       #[cfg(any(feature = "openssl", feature = "ring"))]
             {
-                let edns = message.get_edns_mut();
+                let edns = message.edns_mut();
 
                 edns.set_dnssec_ok(true);
 
@@ -130,25 +130,25 @@ impl<H> ClientHandle for SecureClientHandle<H>
                 edns.set_option(dhu);
             }
 
-            message.authentic_data(true);
-            message.checking_disabled(false);
+            message.set_authentic_data(true);
+            message.set_checking_disabled(false);
             let dns_class =
-                message.get_queries().first().map_or(DNSClass::IN, |q| q.get_query_class());
+                message.queries().first().map_or(DNSClass::IN, |q| q.get_query_class());
 
             return Box::new(self.client
                 .send(message)
                 .and_then(move |message_response| {
                     // group the record sets by name and type
                     //  each rrset type needs to validated independently
-                    debug!("validating message_response: {}", message_response.get_id());
+                    debug!("validating message_response: {}", message_response.id());
                     verify_rrsets(client, message_response, dns_class)
                 })
                 .and_then(move |verified_message| {
                     // at this point all of the message is verified.
                     //  This is where NSEC (and possibly NSEC3) validation occurs
                     // As of now, only NSEC is supported.
-                    if verified_message.get_answers().is_empty() {
-                        let nsecs = verified_message.get_name_servers()
+                    if verified_message.answers().is_empty() {
+                        let nsecs = verified_message.name_servers()
                             .iter()
                             .filter(|rr| rr.get_rr_type() == RecordType::NSEC)
                             .collect::<Vec<_>>();
@@ -185,9 +185,9 @@ fn verify_rrsets<H>(client: SecureClientHandle<H>,
     where H: ClientHandle
 {
     let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
-    for rrset in message_result.get_answers()
+    for rrset in message_result.answers()
                              .iter()
-                             .chain(message_result.get_name_servers())
+                             .chain(message_result.name_servers())
                              .filter(|rr| rr.get_rr_type() != RecordType::RRSIG &&
                              // if we are at a depth greater than 1, we are only interested in proving evaluation chains
                              //   this means that only DNSKEY and DS are intersting at that point.
@@ -220,18 +220,18 @@ fn verify_rrsets<H>(client: SecureClientHandle<H>,
         Vec::with_capacity(rrset_types.len());
     for (name, record_type) in rrset_types {
         // TODO: should we evaluate the different sections (answers and name_servers) separately?
-        let rrset: Vec<Record> = message_result.get_answers()
+        let rrset: Vec<Record> = message_result.answers()
             .iter()
-            .chain(message_result.get_name_servers())
-            .chain(message_result.get_additionals())
+            .chain(message_result.name_servers())
+            .chain(message_result.additionals())
             .filter(|rr| rr.get_rr_type() == record_type && rr.get_name() == &name)
             .cloned()
             .collect();
 
-        let rrsigs: Vec<Record> = message_result.get_answers()
+        let rrsigs: Vec<Record> = message_result.answers()
             .iter()
-            .chain(message_result.get_name_servers())
-            .chain(message_result.get_additionals())
+            .chain(message_result.name_servers())
+            .chain(message_result.additionals())
             .filter(|rr| rr.get_rr_type() == RecordType::RRSIG)
             .filter(|rr| if let &RData::SIG(ref rrsig) = rr.get_rdata() {
                 rrsig.get_type_covered() == record_type
@@ -451,7 +451,7 @@ fn verify_dnskey_rrset<H>(mut client: SecureClientHandle<H>,
                     None
                 })
                 .filter(|&(_, key_rdata)| {
-                    ds_message.get_answers()
+                    ds_message.answers()
                               .iter()
                               .filter(|ds| ds.get_rr_type() == RecordType::DS)
                               .filter_map(|ds| if let &RData::DS(ref ds_rdata) = ds.get_rdata() {
@@ -628,7 +628,7 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
                               client.query(sig.get_signer_name().clone(), rrset.record_class, RecordType::DNSKEY)
                                     .and_then(move |message|
                                       // DNSKEYs are validated by the inner query
-                                      message.get_answers()
+                                      message.answers()
                                              .iter()
                                              .filter(|r| r.get_rr_type() == RecordType::DNSKEY)
                                              .find(|r|

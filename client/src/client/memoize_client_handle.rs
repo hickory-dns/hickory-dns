@@ -45,7 +45,7 @@ impl<H> ClientHandle for MemoizeClientHandle<H>
     where H: ClientHandle
 {
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-        let query = message.get_queries().first().expect("no query!").clone();
+        let query = message.queries().first().expect("no query!").clone();
 
         if let Some(rc_future) = self.active_queries.borrow().get(&query) {
             // FIXME check TTLs?
@@ -88,7 +88,7 @@ mod test {
             let mut message = Message::new();
             let i = self.i.get();
 
-            message.id(i);
+            message.set_id(i);
             self.i.set(i + 1);
 
             Box::new(finished(message))

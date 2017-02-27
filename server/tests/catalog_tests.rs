@@ -129,17 +129,17 @@ fn test_catalog_lookup() {
 
     let result: Message = catalog.lookup(&question);
 
-    assert_eq!(result.get_response_code(), ResponseCode::NoError);
-    assert_eq!(result.get_message_type(), MessageType::Response);
+    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.message_type(), MessageType::Response);
 
-    let answers: &[Record] = result.get_answers();
+    let answers: &[Record] = result.answers();
 
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().get_rr_type(), RecordType::A);
     assert_eq!(answers.first().unwrap().get_rdata(),
                &RData::A(Ipv4Addr::new(93, 184, 216, 34)));
 
-    let mut ns: Vec<Record> = result.get_name_servers().to_vec();
+    let mut ns: Vec<Record> = result.name_servers().to_vec();
     ns.sort();
 
     assert_eq!(ns.len(), 2);
@@ -158,10 +158,10 @@ fn test_catalog_lookup() {
 
     let result: Message = catalog.lookup(&question);
 
-    assert_eq!(result.get_response_code(), ResponseCode::NoError);
-    assert_eq!(result.get_message_type(), MessageType::Response);
+    assert_eq!(result.response_code(), ResponseCode::NoError);
+    assert_eq!(result.message_type(), MessageType::Response);
 
-    let answers: &[Record] = result.get_answers();
+    let answers: &[Record] = result.answers();
 
     assert!(!answers.is_empty());
     assert_eq!(answers.first().unwrap().get_rr_type(), RecordType::A);
@@ -186,10 +186,10 @@ fn test_catalog_nx_soa() {
 
     let result: Message = catalog.lookup(&question);
 
-    assert_eq!(result.get_response_code(), ResponseCode::NXDomain);
-    assert_eq!(result.get_message_type(), MessageType::Response);
+    assert_eq!(result.response_code(), ResponseCode::NXDomain);
+    assert_eq!(result.message_type(), MessageType::Response);
 
-    let ns: &[Record] = result.get_name_servers();
+    let ns: &[Record] = result.name_servers();
 
     assert_eq!(ns.len(), 1);
     assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::SOA);
@@ -232,7 +232,7 @@ fn test_axfr() {
     question.add_query(query);
 
     let result: Message = catalog.lookup(&question);
-    let mut answers: Vec<Record> = result.get_answers().to_vec();
+    let mut answers: Vec<Record> = result.answers().to_vec();
 
     assert_eq!(answers.first().unwrap(), &soa);
     assert_eq!(answers.last().unwrap(), &soa);

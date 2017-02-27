@@ -477,7 +477,7 @@ impl Authority {
         }
 
         // verify sig0, currently the only authorization that is accepted.
-        let sig0s: &[Record] = update_message.get_sig0();
+        let sig0s: &[Record] = update_message.sig0();
         debug!("authorizing with: {:?}", sig0s);
         if !sig0s.is_empty() &&
            sig0s.iter()
@@ -528,7 +528,7 @@ impl Authority {
             return Ok(());
         } else {
             warn!("no sig0 matched registered records: id {}",
-                  update_message.get_id());
+                  update_message.id());
         }
 
         // getting here, we will always default to rejecting the request
@@ -893,10 +893,10 @@ impl Authority {
     pub fn update(&mut self, update: &Message) -> UpdateResult<bool> {
         // the spec says to authorize after prereqs, seems better to auth first.
         try!(self.authorize(update));
-        try!(self.verify_prerequisites(update.get_pre_requisites()));
-        try!(self.pre_scan(update.get_updates()));
+        try!(self.verify_prerequisites(update.prerequisites()));
+        try!(self.pre_scan(update.updates()));
 
-        self.update_records(update.get_updates(), true)
+        self.update_records(update.updates(), true)
     }
 
     /// Using the specified query, perform a lookup against this zone.

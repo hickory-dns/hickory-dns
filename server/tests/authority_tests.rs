@@ -134,7 +134,7 @@ fn test_authorize() {
     let authority: Authority = create_example();
 
     let mut message = Message::new();
-    message.id(10).message_type(MessageType::Query).op_code(OpCode::Update);
+    message.set_id(10).set_message_type(MessageType::Query).set_op_code(OpCode::Update);
 
     assert_eq!(authority.authorize(&message), Err(ResponseCode::Refused));
 

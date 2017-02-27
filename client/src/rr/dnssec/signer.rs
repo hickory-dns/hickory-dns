@@ -719,14 +719,14 @@ fn test_sign_and_verify_message_sig0() {
     assert!(signer.verify_message(&question, &sig).is_ok());
 
     // now test that the sig0 record works correctly.
-    assert!(question.get_sig0().is_empty());
+    assert!(question.sig0().is_empty());
     question.sign(&signer, 0).expect("should have signed");
-    assert!(!question.get_sig0().is_empty());
+    assert!(!question.sig0().is_empty());
 
     let sig = signer.sign_message(&question);
     println!("sig after sign: {:?}", sig);
 
-    if let &RData::SIG(ref sig) = question.get_sig0()[0].get_rdata() {
+    if let &RData::SIG(ref sig) = question.sig0()[0].get_rdata() {
         assert!(signer.verify_message(&question, sig.get_sig()).is_ok());
     }
 }

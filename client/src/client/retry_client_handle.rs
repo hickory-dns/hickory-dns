@@ -106,7 +106,7 @@ mod test {
             if i > self.retries || self.retries - i == 0 {
                 if self.last_succeed {
                     let mut message = Message::new();
-                    message.id(i);
+                    message.set_id(i);
                     return Box::new(finished(message));
                 }
             }
