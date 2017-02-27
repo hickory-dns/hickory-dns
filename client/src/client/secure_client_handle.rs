@@ -771,7 +771,7 @@ fn verify_nsec(query: &Query, nsecs: Vec<&Record>) -> bool {
     //    WTF? is that bad server, bad record
     if nsecs.iter().any(|r| query.name() == r.get_name() && {
     if let &RData::NSEC(ref rdata) = r.get_rdata() {
-      !rdata.get_type_bit_maps().contains(&query.query_type())
+      !rdata.type_bit_maps().contains(&query.query_type())
     } else {
       panic!("expected NSEC was {:?}", r.get_rr_type()) // valid panic, never should happen
     }
@@ -782,7 +782,7 @@ fn verify_nsec(query: &Query, nsecs: Vec<&Record>) -> bool {
           .filter(|r| query.name() != r.get_name())
           .any(|r| query.name() > r.get_name() && {
     if let &RData::NSEC(ref rdata) = r.get_rdata() {
-      query.name() < rdata.get_next_domain_name()
+      query.name() < rdata.next_domain_name()
     } else {
       panic!("expected NSEC was {:?}", r.get_rr_type()) // valid panic, never should happen
     }
