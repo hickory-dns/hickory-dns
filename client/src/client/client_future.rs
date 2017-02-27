@@ -540,11 +540,11 @@ pub trait ClientHandle: Clone {
     {
         // TODO: assert non-empty rrset?
         let rrset = rrset.into_record_set();
-        assert!(zone_origin.zone_of(rrset.get_name()));
+        assert!(zone_origin.zone_of(rrset.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(rrset.get_dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -554,7 +554,7 @@ pub trait ClientHandle: Clone {
             .set_recursion_desired(false);
         message.add_zone(zone);
 
-        let mut prerequisite = Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
+        let mut prerequisite = Record::with(rrset.name().clone(), rrset.record_type(), 0);
         prerequisite.set_dns_class(DNSClass::NONE);
         message.add_pre_requisite(prerequisite);
         message.add_updates(rrset);
@@ -611,11 +611,11 @@ pub trait ClientHandle: Clone {
         where R: IntoRecordSet
     {
         let rrset = rrset.into_record_set();
-        assert!(zone_origin.zone_of(rrset.get_name()));
+        assert!(zone_origin.zone_of(rrset.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(rrset.get_dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -627,7 +627,7 @@ pub trait ClientHandle: Clone {
 
         if must_exist {
             let mut prerequisite =
-                Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
+                Record::with(rrset.name().clone(), rrset.record_type(), 0);
             prerequisite.set_dns_class(DNSClass::ANY);
             message.add_pre_requisite(prerequisite);
         }
@@ -696,12 +696,12 @@ pub trait ClientHandle: Clone {
         let current = current.into_record_set();
         let new = new.into_record_set();
 
-        assert!(zone_origin.zone_of(current.get_name()));
-        assert!(zone_origin.zone_of(new.get_name()));
+        assert!(zone_origin.zone_of(current.name()));
+        assert!(zone_origin.zone_of(new.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(new.get_dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(new.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -780,11 +780,11 @@ pub trait ClientHandle: Clone {
         where R: IntoRecordSet
     {
         let mut rrset = rrset.into_record_set();
-        assert!(zone_origin.zone_of(rrset.get_name()));
+        assert!(zone_origin.zone_of(rrset.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(rrset.get_dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();

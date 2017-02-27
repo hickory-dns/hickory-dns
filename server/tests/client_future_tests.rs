@@ -516,9 +516,9 @@ fn test_compare_and_swap_multi() {
         .expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let mut new = RecordSet::with_ttl(current.get_name().clone(),
-                                      current.get_record_type(),
-                                      current.get_ttl());
+    let mut new = RecordSet::with_ttl(current.name().clone(),
+                                      current.record_type(),
+                                      current.ttl());
     let new1 = new.new_record(RData::A(Ipv4Addr::new(100, 10, 101, 10))).clone();
     let new2 = new.new_record(RData::A(Ipv4Addr::new(100, 10, 101, 11))).clone();
     let new = new;
@@ -527,9 +527,9 @@ fn test_compare_and_swap_multi() {
         .expect("compare_and_swap failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
-    let result = io_loop.run(client.query(new.get_name().clone(),
-                          new.get_dns_class(),
-                          new.get_record_type()))
+    let result = io_loop.run(client.query(new.name().clone(),
+                                          new.dns_class(),
+                                          new.record_type()))
         .expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 2);
@@ -547,9 +547,9 @@ fn test_compare_and_swap_multi() {
         .expect("compare_and_swap failed");
     assert_eq!(result.get_response_code(), ResponseCode::NXRRSet);
 
-    let result = io_loop.run(client.query(new.get_name().clone(),
-                          new.get_dns_class(),
-                          new.get_record_type()))
+    let result = io_loop.run(client.query(new.name().clone(),
+                                          new.dns_class(),
+                                          new.record_type()))
         .expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 2);

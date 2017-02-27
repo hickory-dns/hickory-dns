@@ -984,17 +984,17 @@ impl Authority {
                 self.records
                     .values()
                     .filter(|rr_set| {
-                        rtype == RecordType::ANY || rr_set.get_record_type() != RecordType::SOA
+                        rtype == RecordType::ANY || rr_set.record_type() != RecordType::SOA
                     })
-                    .filter(|rr_set| rtype == RecordType::AXFR || rr_set.get_name() == name)
+                    .filter(|rr_set| rtype == RecordType::AXFR || rr_set.name() == name)
                     .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
-                        vec.append(&mut rr_set.get_records(is_secure, supported_algorithms));
+                        vec.append(&mut rr_set.records(is_secure, supported_algorithms));
                         vec
                     })
             }
             _ => {
                 self.records.get(&rr_key).map_or(vec![], |rr_set| {
-                    rr_set.get_records(is_secure, supported_algorithms).into_iter().collect()
+                    rr_set.records(is_secure, supported_algorithms).into_iter().collect()
                 })
             }
         };
@@ -1016,11 +1016,11 @@ impl Authority {
                             -> Vec<&Record> {
         self.records
             .values()
-            .filter(|rr_set| rr_set.get_record_type() == RecordType::NSEC)
-            .skip_while(|rr_set| name < rr_set.get_name())
+            .filter(|rr_set| rr_set.record_type() == RecordType::NSEC)
+            .skip_while(|rr_set| name < rr_set.name())
             .next()
             .map_or(vec![], |rr_set| {
-                rr_set.get_records(is_secure, supported_algorithms).into_iter().collect()
+                rr_set.records(is_secure, supported_algorithms).into_iter().collect()
             })
     }
 
@@ -1110,34 +1110,34 @@ impl Authority {
 
         for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| {
             // do not sign zone DNSKEY's that's the job of the parent zone
-            if rr_set.get_record_type() == RecordType::DNSKEY {
+            if rr_set.record_type() == RecordType::DNSKEY {
                 return None;
             }
-            rr_set.get_rrsigs().is_empty();
+            rr_set.rrsigs().is_empty();
             Some(rr_set)
         }) {
 
-            debug!("signing rr_set: {}", rr_set.get_name());
+            debug!("signing rr_set: {}", rr_set.name());
             rr_set.clear_rrsigs();
-            let rrsig_temp = Record::with(rr_set.get_name().clone(), RecordType::RRSIG, zone_ttl);
+            let rrsig_temp = Record::with(rr_set.name().clone(), RecordType::RRSIG, zone_ttl);
 
             for signer in self.secure_keys.iter() {
                 let expiration = inception + signer.sig_duration();
 
                 let hash =
-                    signer.hash_rrset(rr_set.get_name(),
+                    signer.hash_rrset(rr_set.name(),
                                       self.class,
-                                      rr_set.get_name().num_labels(),
-                                      rr_set.get_record_type(),
+                                      rr_set.name().num_labels(),
+                                      rr_set.record_type(),
                                       signer.algorithm(),
-                                      rr_set.get_ttl(),
+                                      rr_set.ttl(),
                                       expiration.timestamp() as u32,
                                       inception.timestamp() as u32,
                                       try!(signer.calculate_key_tag()),
                                       signer.signer_name(),
                                       // TODO: this is a nasty clone... the issue is that the vec
                                       //  from get_records is of Vec<&R>, but we really want &[R]
-                                      &rr_set.get_records(false, SupportedAlgorithms::new())
+                                      &rr_set.records(false, SupportedAlgorithms::new())
                                           .into_iter()
                                           .cloned()
                                           .collect::<Vec<Record>>());
@@ -1159,13 +1159,13 @@ impl Authority {
 
                 let mut rrsig = rrsig_temp.clone();
                 rrsig.set_rdata(RData::SIG(SIG::new(// type_covered: RecordType,
-                                                rr_set.get_record_type(),
+                                                rr_set.record_type(),
                                                 // algorithm: Algorithm,
                                                 signer.algorithm(),
                                                 // num_labels: u8,
-                                                rr_set.get_name().num_labels(),
+                                                rr_set.name().num_labels(),
                                                 // original_ttl: u32,
-                                                rr_set.get_ttl(),
+                                                rr_set.ttl(),
                                                 // sig_expiration: u32,
                                                 expiration.timestamp() as u32,
                                                 // sig_inception: u32,
@@ -1178,7 +1178,7 @@ impl Authority {
                                                 signature)));
 
                 rr_set.insert_rrsig(rrsig);
-                debug!("signed rr_set: {}", rr_set.get_name());
+                debug!("signed rr_set: {}", rr_set.name());
             }
         }
 

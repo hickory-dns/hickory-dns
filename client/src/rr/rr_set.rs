@@ -99,14 +99,14 @@ impl RecordSet {
     /// # Return value
     ///
     /// Label of the Resource Record Set
-    pub fn get_name(&self) -> &Name {
+    pub fn name(&self) -> &Name {
         &self.name
     }
 
     /// # Return value
     ///
     /// `RecordType` of the Resource Record Set
-    pub fn get_record_type(&self) -> RecordType {
+    pub fn record_type(&self) -> RecordType {
         self.record_type
     }
 
@@ -121,7 +121,7 @@ impl RecordSet {
     }
 
     /// Returns the `DNSClass` of the RecordSet
-    pub fn get_dns_class(&self) -> DNSClass {
+    pub fn dns_class(&self) -> DNSClass {
         self.dns_class
     }
 
@@ -141,7 +141,7 @@ impl RecordSet {
     ///
     /// TTL, time-to-live, of the Resource Record Set, this is the maximum length of time that an
     /// RecordSet should be cached.
-    pub fn get_ttl(&self) -> u32 {
+    pub fn ttl(&self) -> u32 {
         self.ttl
     }
 
@@ -152,10 +152,10 @@ impl RecordSet {
     /// * `and_rrsigs` - if true, RRSIGs will be returned if they exist
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
-    pub fn get_records(&self,
-                       and_rrsigs: bool,
-                       supported_algorithms: SupportedAlgorithms)
-                       -> Vec<&Record> {
+    pub fn records(&self,
+                   and_rrsigs: bool,
+                   supported_algorithms: SupportedAlgorithms)
+                   -> Vec<&Record> {
         if and_rrsigs {
             let rrsigs = self.rrsigs
                 .iter()
@@ -186,11 +186,11 @@ impl RecordSet {
     }
 
     /// Returns the serial number at which the record was updated.
-    pub fn get_serial(&self) -> u32 {
+    pub fn serial(&self) -> u32 {
         self.serial
     }
 
-    pub fn get_rrsigs(&self) -> &[Record] {
+    pub fn rrsigs(&self) -> &[Record] {
         &self.rrsigs
     }
 
@@ -426,13 +426,13 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert_eq!(rr_set.get_records(false, Default::default()).len(), 1);
-        assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
+        assert_eq!(rr_set.records(false, Default::default()).len(), 1);
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
 
         // dups ignored
         assert!(!rr_set.insert(insert.clone(), 0));
-        assert_eq!(rr_set.get_records(false, Default::default()).len(), 1);
-        assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
+        assert_eq!(rr_set.records(false, Default::default()).len(), 1);
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
 
         // add one
         let insert1 = Record::new()
@@ -443,9 +443,9 @@ mod test {
             .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 25)))
             .clone();
         assert!(rr_set.insert(insert1.clone(), 0));
-        assert_eq!(rr_set.get_records(false, Default::default()).len(), 2);
-        assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
-        assert!(rr_set.get_records(false, Default::default()).contains(&&insert1));
+        assert_eq!(rr_set.records(false, Default::default()).len(), 2);
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert1));
     }
 
     #[test]
@@ -495,19 +495,19 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
         // same serial number
         assert!(!rr_set.insert(same_serial.clone(), 0));
-        assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
-        assert!(!rr_set.get_records(false, Default::default()).contains(&&same_serial));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(!rr_set.records(false, Default::default()).contains(&&same_serial));
 
         assert!(rr_set.insert(new_serial.clone(), 0));
         assert!(!rr_set.insert(same_serial.clone(), 0));
         assert!(!rr_set.insert(insert.clone(), 0));
 
-        assert!(rr_set.get_records(false, Default::default()).contains(&&new_serial));
-        assert!(!rr_set.get_records(false, Default::default()).contains(&&insert));
-        assert!(!rr_set.get_records(false, Default::default()).contains(&&same_serial));
+        assert!(rr_set.records(false, Default::default()).contains(&&new_serial));
+        assert!(!rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(!rr_set.records(false, Default::default()).contains(&&same_serial));
     }
 
     #[test]
@@ -535,12 +535,12 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
 
         // update the record
         assert!(rr_set.insert(new_record.clone(), 0));
-        assert!(!rr_set.get_records(false, Default::default()).contains(&&insert));
-        assert!(rr_set.get_records(false, Default::default()).contains(&&new_record));
+        assert!(!rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&new_record));
     }
 
     #[test]
@@ -595,7 +595,7 @@ mod test {
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(!rr_set.remove(&insert, 0));
-        assert!(rr_set.get_records(false, Default::default()).contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
     }
 
     #[test]
