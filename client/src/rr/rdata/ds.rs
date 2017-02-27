@@ -94,7 +94,7 @@ impl DS {
     ///    The Key Tag used by the DS RR is identical to the Key Tag used by
     ///    RRSIG RRs.  Appendix B describes how to compute a Key Tag.
     /// ```
-    pub fn get_key_tag(&self) -> u16 {
+    pub fn key_tag(&self) -> u16 {
         self.key_tag
     }
 
@@ -110,7 +110,7 @@ impl DS {
     ///    number used by RRSIG and DNSKEY RRs.  Appendix A.1 lists the
     ///    algorithm number types.
     /// ```
-    pub fn get_algorithm(&self) -> &Algorithm {
+    pub fn algorithm(&self) -> &Algorithm {
         &self.algorithm
     }
 
@@ -123,7 +123,7 @@ impl DS {
     ///    RR.  The Digest Type field identifies the algorithm used to construct
     ///    the digest.  Appendix A.2 lists the possible digest algorithm types.
     /// ```
-    pub fn get_digest_type(&self) -> DigestType {
+    pub fn digest_type(&self) -> DigestType {
         self.digest_type
     }
 
@@ -149,7 +149,7 @@ impl DS {
     ///    DNSKEY RR size.  As of the time of this writing, the only defined
     ///    digest algorithm is SHA-1, which produces a 20 octet digest.
     /// ```
-    pub fn get_digest(&self) -> &[u8] {
+    pub fn digest(&self) -> &[u8] {
         &self.digest
     }
 
@@ -159,9 +159,9 @@ impl DS {
     ///
     /// true if and only if the DNSKEY is covered by the DS record.
     pub fn covers(&self, name: &Name, key: &DNSKEY) -> DnsSecResult<bool> {
-        key.to_digest(name, self.get_digest_type())
+        key.to_digest(name, self.digest_type())
             .map_err(|e| e.into())
-            .map(|hash| if &hash as &[u8] == self.get_digest() {
+            .map(|hash| if &hash as &[u8] == self.digest() {
                 return true;
             } else {
                 return false;
@@ -183,10 +183,10 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DS> {
 }
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> EncodeResult {
-    try!(encoder.emit_u16(rdata.get_key_tag()));
-    try!(rdata.get_algorithm().emit(encoder)); // always 3 for now
-    try!(encoder.emit(rdata.get_digest_type().into()));
-    try!(encoder.emit_vec(rdata.get_digest()));
+    try!(encoder.emit_u16(rdata.key_tag()));
+    try!(rdata.algorithm().emit(encoder)); // always 3 for now
+    try!(encoder.emit(rdata.digest_type().into()));
+    try!(encoder.emit_vec(rdata.digest()));
 
     Ok(())
 }
