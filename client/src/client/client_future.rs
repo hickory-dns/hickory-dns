@@ -555,7 +555,7 @@ pub trait ClientHandle: Clone {
         message.add_zone(zone);
 
         let mut prerequisite = Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
-        prerequisite.dns_class(DNSClass::NONE);
+        prerequisite.set_dns_class(DNSClass::NONE);
         message.add_pre_requisite(prerequisite);
         message.add_updates(rrset);
 
@@ -628,7 +628,7 @@ pub trait ClientHandle: Clone {
         if must_exist {
             let mut prerequisite =
                 Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
-            prerequisite.dns_class(DNSClass::ANY);
+            prerequisite.set_dns_class(DNSClass::ANY);
             message.add_pre_requisite(prerequisite);
         }
 
@@ -848,11 +848,11 @@ pub trait ClientHandle: Clone {
                     mut record: Record,
                     zone_origin: domain::Name)
                     -> Box<Future<Item = Message, Error = ClientError>> {
-        assert!(zone_origin.zone_of(record.get_name()));
+        assert!(zone_origin.zone_of(record.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(record.get_dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(record.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -863,11 +863,11 @@ pub trait ClientHandle: Clone {
         message.add_zone(zone);
 
         // the class must be none for an rrset delete
-        record.dns_class(DNSClass::ANY);
+        record.set_dns_class(DNSClass::ANY);
         // the TTL shoudl be 0
-        record.ttl(0);
+        record.set_ttl(0);
         // the rdata must be null to delete all rrsets
-        record.rdata(RData::NULL(NULL::new()));
+        record.set_rdata(RData::NULL(NULL::new()));
         message.add_update(record);
 
         // Extended dns
@@ -929,7 +929,7 @@ pub trait ClientHandle: Clone {
         let mut record = Record::with(name_of_records, RecordType::ANY, 0);
 
         // the class must be none for an rrset delete
-        record.dns_class(DNSClass::ANY);
+        record.set_dns_class(DNSClass::ANY);
 
         message.add_update(record);
 

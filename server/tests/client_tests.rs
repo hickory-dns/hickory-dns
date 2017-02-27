@@ -364,11 +364,11 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient, domain::Name) 
                                                                    "com".to_string()]),
                                     RecordType::KEY,
                                     Duration::minutes(5).num_seconds() as u32);
-    auth_key.rdata(RData::KEY(DNSKEY::new(false,
-                                          false,
-                                          false,
-                                          signer.algorithm(),
-                                          signer.key()
+    auth_key.set_rdata(RData::KEY(DNSKEY::new(false,
+                                              false,
+                                              false,
+                                              signer.algorithm(),
+                                              signer.key()
                                               .to_public_bytes()
                                               .expect("to_vec failed"))));
     authority.upsert(auth_key, 0);
@@ -390,14 +390,14 @@ fn test_create() {
                                                                  "com".to_string()]),
                                   RecordType::A,
                                   Duration::minutes(5).num_seconds() as u32);
-    record.rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
 
     let result = client.create(record.clone(), origin.clone()).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
-    let result = client.query(record.get_name(),
-               record.get_dns_class(),
-               record.get_rr_type())
+    let result = client.query(record.name(),
+                              record.dns_class(),
+                              record.rr_type())
         .expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
@@ -428,7 +428,7 @@ fn test_append() {
                                                                  "com".to_string()]),
                                   RecordType::A,
                                   Duration::minutes(5).num_seconds() as u32);
-    record.rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
     let result = client.append(record.clone(), origin.clone(), true).expect("append failed");
@@ -439,9 +439,9 @@ fn test_append() {
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 
     // verify record contents
-    let result = client.query(record.get_name(),
-               record.get_dns_class(),
-               record.get_rr_type())
+    let result = client.query(record.name(),
+                              record.dns_class(),
+                              record.rr_type())
         .expect("query failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
     assert_eq!(result.get_answers().len(), 1);
@@ -495,7 +495,7 @@ fn test_compare_and_swap() {
                                                                  "com".to_string()]),
                                   RecordType::A,
                                   Duration::minutes(5).num_seconds() as u32);
-    record.rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     let result = client.create(record.clone(), origin.clone()).expect("create failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
@@ -548,7 +548,7 @@ fn test_delete_by_rdata() {
                                                                  "com".to_string()]),
                                   RecordType::A,
                                   Duration::minutes(5).num_seconds() as u32);
-    record.rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
     let result = client.delete_by_rdata(record.clone(), origin.clone()).expect("delete failed");
@@ -591,7 +591,7 @@ fn test_delete_rrset() {
                                                                  "com".to_string()]),
                                   RecordType::A,
                                   Duration::minutes(5).num_seconds() as u32);
-    record.rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
     let result = client.delete_rrset(record.clone(), origin.clone()).expect("delete failed");
@@ -629,10 +629,10 @@ fn test_delete_all() {
                                                                  "com".to_string()]),
                                   RecordType::A,
                                   Duration::minutes(5).num_seconds() as u32);
-    record.rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
+    record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
-    let result = client.delete_all(record.get_name().clone(), origin.clone(), DNSClass::IN)
+    let result = client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN)
         .expect("delete failed");
     assert_eq!(result.get_response_code(), ResponseCode::NoError);
 

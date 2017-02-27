@@ -239,9 +239,9 @@ impl Parser {
                             // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
                             //  might want to wait until RC.weak() stabilizes, as that would be needed for global
                             //  memory where you want
-                            record.name(try!(current_name.clone().ok_or(ParseError::from(ParseErrorKind::Message("record name not specified")))));
-                            record.rr_type(rtype.unwrap());
-                            record.dns_class(try!(class.ok_or(ParseError::from(ParseErrorKind::Message("record class not specified")))));
+                            record.set_name(try!(current_name.clone().ok_or(ParseError::from(ParseErrorKind::Message("record name not specified")))));
+                            record.set_rr_type(rtype.unwrap());
+                            record.set_dns_class(try!(class.ok_or(ParseError::from(ParseErrorKind::Message("record class not specified")))));
 
                             // slightly annoying, need to grab the TTL, then move rdata into the record,
                             //  then check the Type again and have custom add logic.
@@ -251,7 +251,7 @@ impl Parser {
                                     // expire is for the SOA, minimum is default for records
                                     if let RData::SOA(ref soa) = rdata {
                                         // TODO, this looks wrong, get_expire() should be get_minimum(), right?
-                                        record.ttl(soa.expire() as u32); // the spec seems a little inaccurate with u32 and i32
+                                        record.set_ttl(soa.expire() as u32); // the spec seems a little inaccurate with u32 and i32
                                         if ttl.is_none() {
                                             ttl = Some(soa.minimum());
                                         } // TODO: should this only set it if it's not set?
@@ -262,17 +262,17 @@ impl Parser {
                                     }
                                 }
                                 _ => {
-                                    record.ttl(try!(ttl.ok_or(ParseError::from(ParseErrorKind::Message("record ttl not specified")))));
+                                    record.set_ttl(try!(ttl.ok_or(ParseError::from(ParseErrorKind::Message("record ttl not specified")))));
                                 }
                             }
 
                             // TODO validate record, e.g. the name of SRV record allows _ but others do not.
 
                             // move the rdata into record...
-                            record.rdata(rdata);
+                            record.set_rdata(rdata);
 
                             // add to the map
-                            let key = RrKey::new(record.get_name(), record.get_rr_type());
+                            let key = RrKey::new(record.name(), record.rr_type());
 
                             match rtype.unwrap() {
                                 RecordType::SOA => {
@@ -286,8 +286,8 @@ impl Parser {
                                 _ => {
                                     // add a Vec if it's not there, then add the record to the list
                                     let mut set = records.entry(key)
-                                        .or_insert(RecordSet::new(record.get_name(),
-                                                                  record.get_rr_type(),
+                                        .or_insert(RecordSet::new(record.name(),
+                                                                  record.rr_type(),
                                                                   0));
                                     set.insert(record, 0);
                                 }

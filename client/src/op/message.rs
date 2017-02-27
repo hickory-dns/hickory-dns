@@ -279,7 +279,7 @@ impl Message {
     }
 
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::SIG, record.get_rr_type());
+        assert_eq!(RecordType::SIG, record.rr_type());
         self.sig0.push(record);
         self
     }
@@ -506,7 +506,7 @@ impl Message {
                 } // SIG0 must be last
                 records.push(record)
             } else {
-                match record.get_rr_type() {
+                match record.rr_type() {
                     RecordType::SIG => {
                         saw_sig0 = true;
                         sig0s.push(record);
@@ -575,19 +575,19 @@ impl Message {
         let mut sig0 = Record::new();
 
         // The TTL fields SHOULD be zero
-        sig0.ttl(0);
+        sig0.set_ttl(0);
 
         // The CLASS field SHOULD be ANY
-        sig0.dns_class(DNSClass::ANY);
+        sig0.set_dns_class(DNSClass::ANY);
 
         // The owner name SHOULD be root (a single zero octet).
-        sig0.name(Name::root());
-        let num_labels = sig0.get_name().num_labels();
+        sig0.set_name(Name::root());
+        let num_labels = sig0.name().num_labels();
 
         let expiration_time: u32 = inception_time + (5 * 60); // +5 minutes in seconds
 
-        sig0.rr_type(RecordType::SIG);
-        sig0.rdata(
+        sig0.set_rr_type(RecordType::SIG);
+        sig0.set_rdata(
       RData::SIG(SIG::new(
           // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
         RecordType::NULL,
