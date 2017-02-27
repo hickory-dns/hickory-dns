@@ -58,17 +58,17 @@ impl RequestHandler for Catalog {
             // TODO: what version are we?
             let our_version = 0;
             resp_edns.set_dnssec_ok(true);
-            resp_edns.set_max_payload(if req_edns.get_max_payload() < 512 {
+            resp_edns.set_max_payload(if req_edns.max_payload() < 512 {
                 512
             } else {
-                req_edns.get_max_payload()
+                req_edns.max_payload()
             });
             resp_edns.set_version(our_version);
 
-            if req_edns.get_version() > our_version {
+            if req_edns.version() > our_version {
                 warn!("request edns version greater than {}: {}",
                       our_version,
-                      req_edns.get_version());
+                      req_edns.version());
                 response.set_response_code(ResponseCode::BADVERS);
                 response.set_edns(resp_edns);
                 return response;
@@ -268,13 +268,13 @@ impl Catalog {
                 let (is_dnssec, supported_algorithms) = request.edns()
                     .map_or((false, SupportedAlgorithms::new()), |edns| {
                         let supported_algorithms = if let Some(&EdnsOption::DAU(algs)) =
-                            edns.get_option(&EdnsCode::DAU) {
+                            edns.option(&EdnsCode::DAU) {
                             algs
                         } else {
                             Default::default()
                         };
 
-                        (edns.is_dnssec_ok(), supported_algorithms)
+                        (edns.dnssec_ok(), supported_algorithms)
                     });
 
                 let records = authority.search(query, is_dnssec, supported_algorithms);

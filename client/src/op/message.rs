@@ -334,7 +334,7 @@ impl Message {
     /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
     ///  record to create the EDNS `ResponseCode`
     pub fn response_code(&self) -> ResponseCode {
-        ResponseCode::from(self.edns.as_ref().map_or(0, |e| e.get_rcode_high()),
+        ResponseCode::from(self.edns.as_ref().map_or(0, |e| e.rcode_high()),
                            self.header.response_code())
     }
 
@@ -427,7 +427,7 @@ impl Message {
     ///
     /// the max payload value as it's defined in the EDNS section.
     pub fn max_payload(&self) -> u16 {
-        let max_size = self.edns.as_ref().map_or(512, |e| e.get_max_payload());
+        let max_size = self.edns.as_ref().map_or(512, |e| e.max_payload());
         if max_size < 512 { 512 } else { max_size }
     }
 
@@ -435,7 +435,7 @@ impl Message {
     ///
     /// the version as defined in the EDNS record
     pub fn version(&self) -> u8 {
-        self.edns.as_ref().map_or(0, |e| e.get_version())
+        self.edns.as_ref().map_or(0, |e| e.version())
     }
 
     /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
