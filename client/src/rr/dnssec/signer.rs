@@ -279,16 +279,16 @@ impl Signer {
         }
     }
 
-    pub fn get_algorithm(&self) -> Algorithm {
+    pub fn algorithm(&self) -> Algorithm {
         self.algorithm
     }
-    pub fn get_key(&self) -> &KeyPair {
+    pub fn key(&self) -> &KeyPair {
         &self.key
     }
-    pub fn get_sig_duration(&self) -> Duration {
+    pub fn sig_duration(&self) -> Duration {
         self.sig_duration
     }
-    pub fn get_signer_name(&self) -> &Name {
+    pub fn signer_name(&self) -> &Name {
         &self.signer_name
     }
     pub fn is_zone_signing_key(&self) -> bool {

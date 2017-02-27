@@ -589,21 +589,21 @@ impl Message {
         sig0.rr_type(RecordType::SIG);
         sig0.rdata(
       RData::SIG(SIG::new(
-        // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+          // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
         RecordType::NULL,
-        signer.get_algorithm(),
-        num_labels,
-        // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+          signer.algorithm(),
+          num_labels,
+          // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
         0,
-        // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+          // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
         expiration_time,
-        // current time, this should be UTC
+          // current time, this should be UTC
         // unsigned numbers of seconds since the start of 1 January 1970, GMT
         inception_time,
-        key_tag,
-        // can probably get rid of this clone if the owndership is correct
-        signer.get_signer_name().clone(),
-        signature,
+          key_tag,
+          // can probably get rid of this clone if the owndership is correct
+        signer.signer_name().clone(),
+          signature,
       )
     ));
 

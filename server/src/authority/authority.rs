@@ -89,7 +89,7 @@ impl Authority {
     pub fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
         // also add the key to the zone
         let zone_ttl = self.get_minimum_ttl();
-        let dnskey = try!(signer.get_key().to_dnskey(signer.get_algorithm()));
+        let dnskey = try!(signer.key().to_dnskey(signer.algorithm()));
         let dnskey = Record::from_rdata(self.origin.clone(),
                                         zone_ttl,
                                         RecordType::DNSKEY,
@@ -1122,19 +1122,19 @@ impl Authority {
             let rrsig_temp = Record::with(rr_set.get_name().clone(), RecordType::RRSIG, zone_ttl);
 
             for signer in self.secure_keys.iter() {
-                let expiration = inception + signer.get_sig_duration();
+                let expiration = inception + signer.sig_duration();
 
                 let hash =
                     signer.hash_rrset(rr_set.get_name(),
                                       self.class,
                                       rr_set.get_name().num_labels(),
                                       rr_set.get_record_type(),
-                                      signer.get_algorithm(),
+                                      signer.algorithm(),
                                       rr_set.get_ttl(),
                                       expiration.timestamp() as u32,
                                       inception.timestamp() as u32,
                                       try!(signer.calculate_key_tag()),
-                                      signer.get_signer_name(),
+                                      signer.signer_name(),
                                       // TODO: this is a nasty clone... the issue is that the vec
                                       //  from get_records is of Vec<&R>, but we really want &[R]
                                       &rr_set.get_records(false, SupportedAlgorithms::new())
@@ -1161,7 +1161,7 @@ impl Authority {
                 rrsig.rdata(RData::SIG(SIG::new(// type_covered: RecordType,
                                                 rr_set.get_record_type(),
                                                 // algorithm: Algorithm,
-                                                signer.get_algorithm(),
+                                                signer.algorithm(),
                                                 // num_labels: u8,
                                                 rr_set.get_name().num_labels(),
                                                 // original_ttl: u32,
@@ -1173,7 +1173,7 @@ impl Authority {
                                                 // key_tag: u16,
                                                 try!(signer.calculate_key_tag()),
                                                 // signer_name: Name,
-                                                signer.get_signer_name().clone(),
+                                                signer.signer_name().clone(),
                                                 // sig: Vec<u8>
                                                 signature)));
 

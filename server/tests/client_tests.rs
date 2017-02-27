@@ -367,8 +367,8 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient, domain::Name) 
     auth_key.rdata(RData::KEY(DNSKEY::new(false,
                                           false,
                                           false,
-                                          signer.get_algorithm(),
-                                          signer.get_key()
+                                          signer.algorithm(),
+                                          signer.key()
                                               .to_public_bytes()
                                               .expect("to_vec failed"))));
     authority.upsert(auth_key, 0);
