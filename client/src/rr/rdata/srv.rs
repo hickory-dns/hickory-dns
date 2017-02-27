@@ -119,7 +119,7 @@ impl SRV {
     /// order defined by the weight field.  The range is 0-65535.  This
     /// is a 16 bit unsigned integer in network byte order.
     /// ```
-    pub fn get_priority(&self) -> u16 {
+    pub fn priority(&self) -> u16 {
         self.priority
     }
 
@@ -160,7 +160,7 @@ impl SRV {
     /// are no unordered SRV RRs.  This process is repeated for each
     /// Priority.
     /// ```
-    pub fn get_weight(&self) -> u16 {
+    pub fn weight(&self) -> u16 {
         self.weight
     }
 
@@ -171,7 +171,7 @@ impl SRV {
     /// This is often as specified in Assigned Numbers but need not be.
     ///
     /// ```
-    pub fn get_port(&self) -> u16 {
+    pub fn port(&self) -> u16 {
         self.port
     }
 
@@ -187,7 +187,7 @@ impl SRV {
     /// A Target of "." means that the service is decidedly not
     /// available at this domain.
     /// ```
-    pub fn get_target(&self) -> &Name {
+    pub fn target(&self) -> &Name {
         &self.target
     }
 }
@@ -221,10 +221,10 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SRV> {
 pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> EncodeResult {
     let is_canonical_names = encoder.is_canonical_names();
 
-    try!(encoder.emit_u16(srv.get_priority()));
-    try!(encoder.emit_u16(srv.get_weight()));
-    try!(encoder.emit_u16(srv.get_port()));
-    try!(srv.get_target().emit_with_lowercase(encoder, is_canonical_names));
+    try!(encoder.emit_u16(srv.priority()));
+    try!(encoder.emit_u16(srv.weight()));
+    try!(encoder.emit_u16(srv.port()));
+    try!(srv.target().emit_with_lowercase(encoder, is_canonical_names));
     Ok(())
 }
 

@@ -223,7 +223,7 @@ venera  A       10.1.0.52
 
     for (record, ref vector) in compare {
         if let RData::TXT(ref rdata) = *record.get_rdata() {
-            assert_eq!(vector as &[String], rdata.get_txt_data());
+            assert_eq!(vector as &[String], rdata.txt_data());
         } else {
             panic!("Not a TXT record!!!") // valid panic, test code
         }
@@ -263,10 +263,10 @@ venera  A       10.1.0.52
         .cloned()
         .unwrap();
     if let RData::SRV(ref rdata) = *srv_record.get_rdata() {
-        assert_eq!(rdata.get_priority(), 1);
-        assert_eq!(rdata.get_weight(), 2);
-        assert_eq!(rdata.get_port(), 3);
-        assert_eq!(rdata.get_target(),
+        assert_eq!(rdata.priority(), 1);
+        assert_eq!(rdata.weight(), 2);
+        assert_eq!(rdata.port(), 3);
+        assert_eq!(rdata.target(),
                    &Name::new().label("short").label("isi").label("edu"));
     } else {
         panic!("Not an SRV record!!!") // valid panic, test code
