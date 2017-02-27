@@ -109,7 +109,7 @@ impl NSEC3PARAM {
     ///    The acceptable values are the same as the corresponding field in the
     ///    NSEC3 RR.
     /// ```
-    pub fn get_hash_algorithm(&self) -> Nsec3HashAlgorithm {
+    pub fn hash_algorithm(&self) -> Nsec3HashAlgorithm {
         self.hash_algorithm
     }
 
@@ -125,7 +125,7 @@ impl NSEC3PARAM {
     ///    NSEC3PARAM RRs with a Flags field value other than zero MUST be
     ///    ignored.
     /// ```
-    pub fn is_opt_out(&self) -> bool {
+    pub fn opt_out(&self) -> bool {
         self.opt_out
     }
 
@@ -140,7 +140,7 @@ impl NSEC3PARAM {
     ///    Its acceptable values are the same as the corresponding field in the
     ///    NSEC3 RR.
     /// ```
-    pub fn get_iterations(&self) -> u16 {
+    pub fn iterations(&self) -> u16 {
         self.iterations
     }
 
@@ -151,7 +151,7 @@ impl NSEC3PARAM {
     ///
     ///    The Salt field is appended to the original owner name before hashing.
     /// ```
-    pub fn get_salt(&self) -> &[u8] {
+    pub fn salt(&self) -> &[u8] {
         &self.salt
     }
 }
@@ -172,15 +172,15 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<NSEC3PARAM> {
 }
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> EncodeResult {
-    try!(encoder.emit(rdata.get_hash_algorithm().into()));
+    try!(encoder.emit(rdata.hash_algorithm().into()));
     let mut flags: u8 = 0;
-    if rdata.is_opt_out() {
+    if rdata.opt_out() {
         flags |= 0b0000_0001
     };
     try!(encoder.emit(flags));
-    try!(encoder.emit_u16(rdata.get_iterations()));
-    try!(encoder.emit(rdata.get_salt().len() as u8));
-    try!(encoder.emit_vec(&rdata.get_salt()));
+    try!(encoder.emit_u16(rdata.iterations()));
+    try!(encoder.emit(rdata.salt().len() as u8));
+    try!(encoder.emit_vec(&rdata.salt()));
 
     Ok(())
 }
