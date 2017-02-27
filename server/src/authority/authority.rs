@@ -497,8 +497,8 @@ impl Authority {
                         None
                     })
                     .any(|key| {
-                        let pkey = KeyPair::from_public_bytes(key.get_public_key(),
-                                                              *key.get_algorithm());
+                        let pkey = KeyPair::from_public_bytes(key.public_key(),
+                                                              *key.algorithm());
                         if let Err(error) = pkey {
                             warn!("public key {:?} of {} could not be used: {}",
                                   key,
@@ -508,7 +508,7 @@ impl Authority {
                         }
 
                         let pkey = pkey.unwrap();
-                        let signer: Signer = Signer::new_verifier(*key.get_algorithm(),
+                        let signer: Signer = Signer::new_verifier(*key.algorithm(),
                                                                   pkey,
                                                                   sig.get_signer_name().clone(),
                                                                   false,

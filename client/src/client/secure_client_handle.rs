@@ -419,7 +419,7 @@ fn verify_dnskey_rrset<H>(mut client: SecureClientHandle<H>,
             } else {
                 None
             })
-            .filter_map(|(i, rdata)| if client.trust_anchor.contains(rdata.get_public_key()) {
+            .filter_map(|(i, rdata)| if client.trust_anchor.contains(rdata.public_key()) {
                 debug!("in trust_anchor");
                 Some(i)
             } else {
@@ -667,28 +667,28 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
 /// Verifies the given SIG of the RRSET with the DNSKEY.
 #[cfg(feature = "openssl")]
 fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> ClientResult<()> {
-    if dnskey.is_revoke() {
+    if dnskey.revoke() {
         debug!("revoked");
         return Err(ClientErrorKind::Message("revoked").into());
     } // TODO: does this need to be validated? RFC 5011
-    if !dnskey.is_zone_key() {
+    if !dnskey.zone_key() {
         return Err(ClientErrorKind::Message("is not a zone key").into());
     }
-    if *dnskey.get_algorithm() != sig.get_algorithm() {
+    if *dnskey.algorithm() != sig.get_algorithm() {
         return Err(ClientErrorKind::Message("mismatched algorithm").into());
     }
 
-    let pkey = KeyPair::from_public_bytes(dnskey.get_public_key(), *dnskey.get_algorithm());
+    let pkey = KeyPair::from_public_bytes(dnskey.public_key(), *dnskey.algorithm());
     if let Err(e) = pkey {
         debug!("error getting key from vec: {}", e);
         return Err(ClientErrorKind::Message("error getting key from vec").into());
     }
     let pkey = pkey.unwrap();
 
-    let signer: Signer = Signer::new_verifier(*dnskey.get_algorithm(),
+    let signer: Signer = Signer::new_verifier(*dnskey.algorithm(),
                                               pkey,
                                               sig.get_signer_name().clone(),
-                                              dnskey.is_zone_key(),
+                                              dnskey.zone_key(),
                                               false);
 
     signer.hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)
