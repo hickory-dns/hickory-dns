@@ -125,7 +125,7 @@ impl SOA {
     ///
     /// The `domain-name` of the name server that was the original or primary source of data for
     /// this zone, i.e. the master name server.
-    pub fn get_mname(&self) -> &Name {
+    pub fn mname(&self) -> &Name {
         &self.mname
     }
 
@@ -138,7 +138,7 @@ impl SOA {
     ///
     /// A `domain-name` which specifies the mailbox of the person responsible for this zone, i.e.
     /// the responsible name.
-    pub fn get_rname(&self) -> &Name {
+    pub fn rname(&self) -> &Name {
         &self.rname
     }
 
@@ -153,7 +153,7 @@ impl SOA {
     ///
     /// The unsigned 32 bit version number of the original copy of the zone. Zone transfers
     /// preserve this value. This value wraps and should be compared using sequence space arithmetic.
-    pub fn get_serial(&self) -> u32 {
+    pub fn serial(&self) -> u32 {
         self.serial
     }
 
@@ -165,7 +165,7 @@ impl SOA {
     /// # Return value
     ///
     /// A 32 bit time interval before the zone should be refreshed, in seconds.
-    pub fn get_refresh(&self) -> i32 {
+    pub fn refresh(&self) -> i32 {
         self.refresh
     }
 
@@ -178,7 +178,7 @@ impl SOA {
     ///
     /// A 32 bit time interval that should elapse before a failed refresh should be retried,
     /// in seconds.
-    pub fn get_retry(&self) -> i32 {
+    pub fn retry(&self) -> i32 {
         self.retry
     }
 
@@ -192,7 +192,7 @@ impl SOA {
     ///
     /// A 32 bit time value that specifies the upper limit on the time interval that can elapse
     /// before the zone is no longer authoritative, in seconds
-    pub fn get_expire(&self) -> i32 {
+    pub fn expire(&self) -> i32 {
         self.expire
     }
 
@@ -204,7 +204,7 @@ impl SOA {
     /// # Return value
     ///
     /// The unsigned 32 bit minimum TTL field that should be exported with any RR from this zone.
-    pub fn get_minimum(&self) -> u32 {
+    pub fn minimum(&self) -> u32 {
         self.minimum
     }
 }

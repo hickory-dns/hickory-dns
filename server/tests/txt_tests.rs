@@ -65,22 +65,22 @@ venera  A       10.1.0.52
 
     // SOA
     let soa_record = authority.get_soa().unwrap();
-    assert_eq!(RecordType::SOA, soa_record.get_rr_type());
+    assert_eq!(RecordType::SOA, soa_record.rr_type());
     assert_eq!(&Name::new().label("isi").label("edu"),
-               soa_record.get_name()); // i.e. the origin or domain
-    assert_eq!(3600000, soa_record.get_ttl());
-    assert_eq!(DNSClass::IN, soa_record.get_dns_class());
-    if let RData::SOA(ref soa) = *soa_record.get_rdata() {
+               soa_record.name()); // i.e. the origin or domain
+    assert_eq!(3600000, soa_record.ttl());
+    assert_eq!(DNSClass::IN, soa_record.dns_class());
+    if let RData::SOA(ref soa) = *soa_record.rdata() {
         // this should all be lowercased
         assert_eq!(&Name::new().label("venera").label("isi").label("edu"),
-                   soa.get_mname());
+                   soa.mname());
         assert_eq!(&Name::new().label("action.domains").label("isi").label("edu"),
-                   soa.get_rname());
-        assert_eq!(20, soa.get_serial());
-        assert_eq!(7200, soa.get_refresh());
-        assert_eq!(600, soa.get_retry());
-        assert_eq!(3600000, soa.get_expire());
-        assert_eq!(60, soa.get_minimum());
+                   soa.rname());
+        assert_eq!(20, soa.serial());
+        assert_eq!(7200, soa.refresh());
+        assert_eq!(600, soa.retry());
+        assert_eq!(3600000, soa.expire());
+        assert_eq!(60, soa.minimum());
     } else {
         panic!("Not an SOA record!!!") // valid panic, test code
     }
@@ -102,11 +102,11 @@ venera  A       10.1.0.52
 
     for (record, ref name) in compare {
         assert_eq!(&Name::with_labels(vec!["isi".into(), "edu".into()]),
-                   record.get_name());
-        assert_eq!(60, record.get_ttl()); // TODO: should this be minimum or expire?
-        assert_eq!(DNSClass::IN, record.get_dns_class());
-        assert_eq!(RecordType::NS, record.get_rr_type());
-        if let RData::NS(ref nsdname) = *record.get_rdata() {
+                   record.name());
+        assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
+        assert_eq!(DNSClass::IN, record.dns_class());
+        assert_eq!(RecordType::NS, record.rr_type());
+        if let RData::NS(ref nsdname) = *record.rdata() {
             assert_eq!(name, nsdname);
         } else {
             panic!("Not an NS record!!!") // valid panic, test code
@@ -127,13 +127,13 @@ venera  A       10.1.0.52
 
 
     for (record, (num, ref name)) in compare {
-        assert_eq!(&Name::new().label("isi").label("edu"), record.get_name());
-        assert_eq!(60, record.get_ttl()); // TODO: should this be minimum or expire?
-        assert_eq!(DNSClass::IN, record.get_dns_class());
-        assert_eq!(RecordType::MX, record.get_rr_type());
-        if let RData::MX(ref rdata) = *record.get_rdata() {
-            assert_eq!(num, rdata.get_preference());
-            assert_eq!(name, rdata.get_exchange());
+        assert_eq!(&Name::new().label("isi").label("edu"), record.name());
+        assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
+        assert_eq!(DNSClass::IN, record.dns_class());
+        assert_eq!(RecordType::MX, record.rr_type());
+        if let RData::MX(ref rdata) = *record.rdata() {
+            assert_eq!(num, rdata.preference());
+            assert_eq!(name, rdata.exchange());
         } else {
             panic!("Not an NS record!!!") // valid panic, test code
         }
@@ -148,11 +148,11 @@ venera  A       10.1.0.52
         .cloned()
         .unwrap();
     assert_eq!(&Name::new().label("a").label("isi").label("edu"),
-               a_record.get_name());
-    assert_eq!(60, a_record.get_ttl()); // TODO: should this be minimum or expire?
-    assert_eq!(DNSClass::IN, a_record.get_dns_class());
-    assert_eq!(RecordType::A, a_record.get_rr_type());
-    if let RData::A(ref address) = *a_record.get_rdata() {
+               a_record.name());
+    assert_eq!(60, a_record.ttl()); // TODO: should this be minimum or expire?
+    assert_eq!(DNSClass::IN, a_record.dns_class());
+    assert_eq!(RecordType::A, a_record.rr_type());
+    if let RData::A(ref address) = *a_record.rdata() {
         assert_eq!(&Ipv4Addr::new(26u8, 3u8, 0u8, 103u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
@@ -168,8 +168,8 @@ venera  A       10.1.0.52
             .cloned()
             .unwrap();
     assert_eq!(&Name::new().label("aaaa").label("isi").label("edu"),
-               aaaa_record.get_name());
-    if let RData::AAAA(ref address) = *aaaa_record.get_rdata() {
+               aaaa_record.name());
+    if let RData::AAAA(ref address) = *aaaa_record.rdata() {
         assert_eq!(&Ipv6Addr::from_str("4321:0:1:2:3:4:567:89ab").unwrap(),
                    address);
     } else {
@@ -186,9 +186,9 @@ venera  A       10.1.0.52
             .cloned()
             .unwrap();
     assert_eq!(&Name::new().label("short").label("isi").label("edu"),
-               short_record.get_name());
-    assert_eq!(70, short_record.get_ttl());
-    if let RData::A(ref address) = *short_record.get_rdata() {
+               short_record.name());
+    assert_eq!(70, short_record.ttl());
+    if let RData::A(ref address) = *short_record.rdata() {
         assert_eq!(&Ipv4Addr::new(26u8, 3u8, 0u8, 104u8), address);
     } else {
         panic!("Not an A record!!!") // valid panic, test code
@@ -222,8 +222,8 @@ venera  A       10.1.0.52
 
 
     for (record, ref vector) in compare {
-        if let RData::TXT(ref rdata) = *record.get_rdata() {
-            assert_eq!(vector as &[String], rdata.get_txt_data());
+        if let RData::TXT(ref rdata) = *record.rdata() {
+            assert_eq!(vector as &[String], rdata.txt_data());
         } else {
             panic!("Not a TXT record!!!") // valid panic, test code
         }
@@ -243,7 +243,7 @@ venera  A       10.1.0.52
         .first()
         .cloned()
         .unwrap();
-    if let RData::PTR(ref ptrdname) = *ptr_record.get_rdata() {
+    if let RData::PTR(ref ptrdname) = *ptr_record.rdata() {
         assert_eq!(&Name::new().label("a").label("isi").label("edu"), ptrdname);
     } else {
         panic!("Not a PTR record!!!") // valid panic, test code
@@ -262,11 +262,11 @@ venera  A       10.1.0.52
         .first()
         .cloned()
         .unwrap();
-    if let RData::SRV(ref rdata) = *srv_record.get_rdata() {
-        assert_eq!(rdata.get_priority(), 1);
-        assert_eq!(rdata.get_weight(), 2);
-        assert_eq!(rdata.get_port(), 3);
-        assert_eq!(rdata.get_target(),
+    if let RData::SRV(ref rdata) = *srv_record.rdata() {
+        assert_eq!(rdata.priority(), 1);
+        assert_eq!(rdata.weight(), 2);
+        assert_eq!(rdata.port(), 3);
+        assert_eq!(rdata.target(),
                    &Name::new().label("short").label("isi").label("edu"));
     } else {
         panic!("Not an SRV record!!!") // valid panic, test code

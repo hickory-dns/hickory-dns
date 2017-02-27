@@ -97,70 +97,70 @@ impl Message {
 
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Message {
         let mut message: Message = Message::new();
-        message.message_type(MessageType::Response);
-        message.id(id);
-        message.response_code(response_code);
-        message.op_code(op_code);
+        message.set_message_type(MessageType::Response);
+        message.set_id(id);
+        message.set_response_code(response_code);
+        message.set_op_code(op_code);
 
         message
     }
 
     pub fn truncate(&self) -> Self {
         let mut truncated: Message = Message::new();
-        truncated.id(self.get_id());
-        truncated.message_type(self.get_message_type());
-        truncated.op_code(self.get_op_code());
-        truncated.authoritative(self.is_authoritative());
-        truncated.truncated(true);
-        truncated.recursion_desired(self.is_recursion_desired());
-        truncated.recursion_available(self.is_recursion_available());
-        truncated.response_code(self.get_response_code());
-        if self.get_edns().is_some() {
-            truncated.set_edns(self.get_edns().unwrap().clone());
+        truncated.set_id(self.id());
+        truncated.set_message_type(self.message_type());
+        truncated.set_op_code(self.op_code());
+        truncated.set_authoritative(self.authoritative());
+        truncated.set_truncated(true);
+        truncated.set_recursion_desired(self.recursion_desired());
+        truncated.set_recursion_available(self.recursion_available());
+        truncated.set_response_code(self.response_code());
+        if self.edns().is_some() {
+            truncated.set_edns(self.edns().unwrap().clone());
         }
 
         // TODO, perhaps just quickly add a few response records here? that we know would fit?
         truncated
     }
 
-    pub fn id(&mut self, id: u16) -> &mut Self {
-        self.header.id(id);
+    pub fn set_id(&mut self, id: u16) -> &mut Self {
+        self.header.set_id(id);
         self
     }
-    pub fn message_type(&mut self, message_type: MessageType) -> &mut Self {
-        self.header.message_type(message_type);
+    pub fn set_message_type(&mut self, message_type: MessageType) -> &mut Self {
+        self.header.set_message_type(message_type);
         self
     }
-    pub fn op_code(&mut self, op_code: OpCode) -> &mut Self {
-        self.header.op_code(op_code);
+    pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
+        self.header.set_op_code(op_code);
         self
     }
-    pub fn authoritative(&mut self, authoritative: bool) -> &mut Self {
-        self.header.authoritative(authoritative);
+    pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
+        self.header.set_authoritative(authoritative);
         self
     }
-    pub fn truncated(&mut self, truncated: bool) -> &mut Self {
-        self.header.truncated(truncated);
+    pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
+        self.header.set_truncated(truncated);
         self
     }
-    pub fn recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
-        self.header.recursion_desired(recursion_desired);
+    pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
+        self.header.set_recursion_desired(recursion_desired);
         self
     }
-    pub fn recursion_available(&mut self, recursion_available: bool) -> &mut Self {
-        self.header.recursion_available(recursion_available);
+    pub fn set_recursion_available(&mut self, recursion_available: bool) -> &mut Self {
+        self.header.set_recursion_available(recursion_available);
         self
     }
-    pub fn authentic_data(&mut self, authentic_data: bool) -> &mut Self {
-        self.header.authentic_data(authentic_data);
+    pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
+        self.header.set_authentic_data(authentic_data);
         self
     }
-    pub fn checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
-        self.header.checking_disabled(checking_disabled);
+    pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
+        self.header.set_checking_disabled(checking_disabled);
         self
     }
-    pub fn response_code(&mut self, response_code: ResponseCode) -> &mut Self {
-        self.header.response_code(response_code);
+    pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
+        self.header.set_response_code(response_code);
         self
     }
 
@@ -279,76 +279,76 @@ impl Message {
     }
 
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::SIG, record.get_rr_type());
+        assert_eq!(RecordType::SIG, record.rr_type());
         self.sig0.push(record);
         self
     }
 
-    /// see `Header::get_id()`
-    pub fn get_id(&self) -> u16 {
-        self.header.get_id()
+    /// see `Header::id()`
+    pub fn id(&self) -> u16 {
+        self.header.id()
     }
 
-    /// see `Header::get_message_type()`
-    pub fn get_message_type(&self) -> MessageType {
-        self.header.get_message_type()
+    /// see `Header::message_type()`
+    pub fn message_type(&self) -> MessageType {
+        self.header.message_type()
     }
 
-    /// see `Header::get_op_code()`
-    pub fn get_op_code(&self) -> OpCode {
-        self.header.get_op_code()
+    /// see `Header::op_code()`
+    pub fn op_code(&self) -> OpCode {
+        self.header.op_code()
     }
 
-    /// see `Header::is_authoritative()`
-    pub fn is_authoritative(&self) -> bool {
-        self.header.is_authoritative()
+    /// see `Header::authoritative()`
+    pub fn authoritative(&self) -> bool {
+        self.header.authoritative()
     }
 
-    /// see `Header::is_truncated()`
-    pub fn is_truncated(&self) -> bool {
-        self.header.is_truncated()
+    /// see `Header::truncated()`
+    pub fn truncated(&self) -> bool {
+        self.header.truncated()
     }
 
-    /// see `Header::is_recursion_desired()`
-    pub fn is_recursion_desired(&self) -> bool {
-        self.header.is_recursion_desired()
+    /// see `Header::recursion_desired()`
+    pub fn recursion_desired(&self) -> bool {
+        self.header.recursion_desired()
     }
 
-    /// see `Header::is_recursion_available()`
-    pub fn is_recursion_available(&self) -> bool {
-        self.header.is_recursion_available()
+    /// see `Header::recursion_available()`
+    pub fn recursion_available(&self) -> bool {
+        self.header.recursion_available()
     }
 
-    /// see `Header::is_authentic_data()`
-    pub fn is_authentic_data(&self) -> bool {
-        self.header.is_authentic_data()
+    /// see `Header::authentic_data()`
+    pub fn authentic_data(&self) -> bool {
+        self.header.authentic_data()
     }
 
-    /// see `Header::is_checking_disabled()`
-    pub fn is_checking_disabled(&self) -> bool {
-        self.header.is_checking_disabled()
+    /// see `Header::checking_disabled()`
+    pub fn checking_disabled(&self) -> bool {
+        self.header.checking_disabled()
     }
 
     /// # Return value
     ///
     /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
     ///  record to create the EDNS `ResponseCode`
-    pub fn get_response_code(&self) -> ResponseCode {
-        ResponseCode::from(self.edns.as_ref().map_or(0, |e| e.get_rcode_high()),
-                           self.header.get_response_code())
+    pub fn response_code(&self) -> ResponseCode {
+        ResponseCode::from(self.edns.as_ref().map_or(0, |e| e.rcode_high()),
+                           self.header.response_code())
     }
 
     /// ```text
     /// Question        Carries the query name and other query parameters.
     /// ```
-    pub fn get_queries(&self) -> &[Query] {
+    pub fn queries(&self) -> &[Query] {
         &self.queries
     }
 
     /// ```text
     /// Answer          Carries RRs which directly answer the query.
     /// ```
-    pub fn get_answers(&self) -> &[Record] {
+    pub fn answers(&self) -> &[Record] {
         &self.answers
     }
 
@@ -361,7 +361,7 @@ impl Message {
     ///                 May optionally carry the SOA RR for the authoritative
     ///                 data in the answer section.
     /// ```
-    pub fn get_name_servers(&self) -> &[Record] {
+    pub fn name_servers(&self) -> &[Record] {
         &self.name_servers
     }
 
@@ -373,7 +373,7 @@ impl Message {
     /// Additional      Carries RRs which may be helpful in using the RRs in the
     ///                 other sections.
     /// ```
-    pub fn get_additionals(&self) -> &[Record] {
+    pub fn additionals(&self) -> &[Record] {
         &self.additionals
     }
 
@@ -410,12 +410,12 @@ impl Message {
     /// # Return value
     ///
     /// Returns the EDNS record if it was found in the additional section.
-    pub fn get_edns(&self) -> Option<&Edns> {
+    pub fn edns(&self) -> Option<&Edns> {
         self.edns.as_ref()
     }
 
     /// If edns is_none, this will create a new default Edns.
-    pub fn get_edns_mut(&mut self) -> &mut Edns {
+    pub fn edns_mut(&mut self) -> &mut Edns {
         if self.edns.is_none() {
             self.edns = Some(Edns::new());
         }
@@ -426,16 +426,16 @@ impl Message {
     /// # Return value
     ///
     /// the max payload value as it's defined in the EDNS section.
-    pub fn get_max_payload(&self) -> u16 {
-        let max_size = self.edns.as_ref().map_or(512, |e| e.get_max_payload());
+    pub fn max_payload(&self) -> u16 {
+        let max_size = self.edns.as_ref().map_or(512, |e| e.max_payload());
         if max_size < 512 { 512 } else { max_size }
     }
 
     /// # Return value
     ///
     /// the version as defined in the EDNS record
-    pub fn get_version(&self) -> u8 {
-        self.edns.as_ref().map_or(0, |e| e.get_version())
+    pub fn version(&self) -> u8 {
+        self.edns.as_ref().map_or(0, |e| e.version())
     }
 
     /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4)
@@ -452,7 +452,7 @@ impl Message {
     /// # Return value
     ///
     /// The sig0, i.e. signed record, for verifying the sending and package integrity
-    fn get_sig0(&self) -> &[Record] {
+    fn sig0(&self) -> &[Record] {
         &self.sig0
     }
 
@@ -506,7 +506,7 @@ impl Message {
                 } // SIG0 must be last
                 records.push(record)
             } else {
-                match record.get_rr_type() {
+                match record.rr_type() {
                     RecordType::SIG => {
                         saw_sig0 = true;
                         sig0s.push(record);
@@ -575,35 +575,35 @@ impl Message {
         let mut sig0 = Record::new();
 
         // The TTL fields SHOULD be zero
-        sig0.ttl(0);
+        sig0.set_ttl(0);
 
         // The CLASS field SHOULD be ANY
-        sig0.dns_class(DNSClass::ANY);
+        sig0.set_dns_class(DNSClass::ANY);
 
         // The owner name SHOULD be root (a single zero octet).
-        sig0.name(Name::root());
-        let num_labels = sig0.get_name().num_labels();
+        sig0.set_name(Name::root());
+        let num_labels = sig0.name().num_labels();
 
         let expiration_time: u32 = inception_time + (5 * 60); // +5 minutes in seconds
 
-        sig0.rr_type(RecordType::SIG);
-        sig0.rdata(
+        sig0.set_rr_type(RecordType::SIG);
+        sig0.set_rdata(
       RData::SIG(SIG::new(
-        // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+          // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
         RecordType::NULL,
-        signer.get_algorithm(),
-        num_labels,
-        // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+          signer.algorithm(),
+          num_labels,
+          // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
         0,
-        // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+          // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
         expiration_time,
-        // current time, this should be UTC
+          // current time, this should be UTC
         // unsigned numbers of seconds since the start of 1 January 1970, GMT
         inception_time,
-        key_tag,
-        // can probably get rid of this clone if the owndership is correct
-        signer.get_signer_name().clone(),
-        signature,
+          key_tag,
+          // can probably get rid of this clone if the owndership is correct
+        signer.signer_name().clone(),
+          signature,
       )
     ));
 
@@ -622,7 +622,7 @@ impl Message {
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
 ///   to properly do that.
 pub trait UpdateMessage: Debug {
-    fn get_id(&self) -> u16;
+    fn id(&self) -> u16;
     fn add_zone(&mut self, query: Query);
     fn add_pre_requisite(&mut self, record: Record);
     #[deprecated = "will be removed post 0.9.x"]
@@ -638,15 +638,15 @@ pub trait UpdateMessage: Debug {
               I: Iterator<Item = Record>;
     fn add_additional(&mut self, record: Record);
 
-    fn get_zones(&self) -> &[Query];
-    fn get_pre_requisites(&self) -> &[Record];
-    fn get_updates(&self) -> &[Record];
-    fn get_additionals(&self) -> &[Record];
+    fn zones(&self) -> &[Query];
+    fn prerequisites(&self) -> &[Record];
+    fn updates(&self) -> &[Record];
+    fn additionals(&self) -> &[Record];
 
     /// This is used to authenticate update messages.
     ///
-    /// see `Message::get_sig0()` for more information.
-    fn get_sig0(&self) -> &[Record];
+    /// see `Message::sig0()` for more information.
+    fn sig0(&self) -> &[Record];
 
     fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()>;
 }
@@ -654,8 +654,8 @@ pub trait UpdateMessage: Debug {
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
 ///   to properly do that.
 impl UpdateMessage for Message {
-    fn get_id(&self) -> u16 {
-        self.get_id()
+    fn id(&self) -> u16 {
+        self.id()
     }
     fn add_zone(&mut self, query: Query) {
         self.add_query(query);
@@ -688,21 +688,21 @@ impl UpdateMessage for Message {
         self.add_additional(record);
     }
 
-    fn get_zones(&self) -> &[Query] {
-        self.get_queries()
+    fn zones(&self) -> &[Query] {
+        self.queries()
     }
-    fn get_pre_requisites(&self) -> &[Record] {
-        self.get_answers()
+    fn prerequisites(&self) -> &[Record] {
+        self.answers()
     }
-    fn get_updates(&self) -> &[Record] {
-        self.get_name_servers()
+    fn updates(&self) -> &[Record] {
+        self.name_servers()
     }
-    fn get_additionals(&self) -> &[Record] {
-        self.get_additionals()
+    fn additionals(&self) -> &[Record] {
+        self.additionals()
     }
 
-    fn get_sig0(&self) -> &[Record] {
-        self.get_sig0()
+    fn sig0(&self) -> &[Record] {
+        self.sig0()
     }
 
     // TODO: where's the 'right' spot for this function
@@ -720,16 +720,16 @@ impl BinSerializable<Message> for Message {
         //  this could improve error detection while decoding.
 
         // get the questions
-        let count = header.get_query_count() as usize;
+        let count = header.query_count() as usize;
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
             queries.push(try!(Query::read(decoder)));
         }
 
         // get all counts before header moves
-        let answer_count = header.get_answer_count() as usize;
-        let name_server_count = header.get_name_server_count() as usize;
-        let additional_count = header.get_additional_count() as usize;
+        let answer_count = header.answer_count() as usize;
+        let name_server_count = header.name_server_count() as usize;
+        let additional_count = header.additional_count() as usize;
 
         let (answers, _, _) = try!(Self::read_records(decoder, answer_count, false));
         let (name_servers, _, _) = try!(Self::read_records(decoder, name_server_count, false));
@@ -762,7 +762,7 @@ impl BinSerializable<Message> for Message {
         try!(Self::emit_records(encoder, &self.name_servers));
         try!(Self::emit_records(encoder, &self.additionals));
 
-        if let Some(edns) = self.get_edns() {
+        if let Some(edns) = self.edns() {
             // need to commit the error code
             try!(Record::from(edns).emit(encoder));
         }
@@ -780,14 +780,14 @@ impl BinSerializable<Message> for Message {
 #[test]
 fn test_emit_and_read_header() {
     let mut message = Message::new();
-    message.id(10)
-        .message_type(MessageType::Response)
-        .op_code(OpCode::Update)
-        .authoritative(true)
-        .truncated(true)
-        .recursion_desired(true)
-        .recursion_available(true)
-        .response_code(ResponseCode::ServFail);
+    message.set_id(10)
+        .set_message_type(MessageType::Response)
+        .set_op_code(OpCode::Update)
+        .set_authoritative(true)
+        .set_truncated(true)
+        .set_recursion_desired(true)
+        .set_recursion_available(true)
+        .set_response_code(ResponseCode::ServFail);
 
     test_emit_and_read(message);
 }
@@ -795,14 +795,14 @@ fn test_emit_and_read_header() {
 #[test]
 fn test_emit_and_read_query() {
     let mut message = Message::new();
-    message.id(10)
-        .message_type(MessageType::Response)
-        .op_code(OpCode::Update)
-        .authoritative(true)
-        .truncated(true)
-        .recursion_desired(true)
-        .recursion_available(true)
-        .response_code(ResponseCode::ServFail)
+    message.set_id(10)
+        .set_message_type(MessageType::Response)
+        .set_op_code(OpCode::Update)
+        .set_authoritative(true)
+        .set_truncated(true)
+        .set_recursion_desired(true)
+        .set_recursion_available(true)
+        .set_response_code(ResponseCode::ServFail)
         .add_query(Query::new())
         .update_counts(); // we're not testing the query parsing, just message
 
@@ -812,16 +812,16 @@ fn test_emit_and_read_query() {
 #[test]
 fn test_emit_and_read_records() {
     let mut message = Message::new();
-    message.id(10)
-        .message_type(MessageType::Response)
-        .op_code(OpCode::Update)
-        .authoritative(true)
-        .truncated(true)
-        .recursion_desired(true)
-        .recursion_available(true)
-        .authentic_data(true)
-        .checking_disabled(true)
-        .response_code(ResponseCode::ServFail);
+    message.set_id(10)
+        .set_message_type(MessageType::Response)
+        .set_op_code(OpCode::Update)
+        .set_authoritative(true)
+        .set_truncated(true)
+        .set_recursion_desired(true)
+        .set_recursion_available(true)
+        .set_authentic_data(true)
+        .set_checking_disabled(true)
+        .set_response_code(ResponseCode::ServFail);
 
     message.add_answer(Record::new());
     message.add_name_server(Record::new());
@@ -869,7 +869,7 @@ fn test_legit_message() {
     let mut decoder = BinDecoder::new(&buf);
     let message = Message::read(&mut decoder).unwrap();
 
-    assert_eq!(message.get_id(), 4096);
+    assert_eq!(message.id(), 4096);
 
     let mut buf: Vec<u8> = Vec::with_capacity(512);
     {
@@ -880,5 +880,5 @@ fn test_legit_message() {
     let mut decoder = BinDecoder::new(&buf);
     let message = Message::read(&mut decoder).unwrap();
 
-    assert_eq!(message.get_id(), 4096);
+    assert_eq!(message.id(), 4096);
 }

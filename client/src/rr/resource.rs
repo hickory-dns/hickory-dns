@@ -129,7 +129,7 @@ impl Record {
     /// ```text
     /// NAME            a domain name to which this resource record pertains.
     /// ```
-    pub fn name(&mut self, name: domain::Name) -> &mut Self {
+    pub fn set_name(&mut self, name: domain::Name) -> &mut Self {
         self.name_labels = name;
         self
     }
@@ -143,7 +143,7 @@ impl Record {
     ///                 field specifies the meaning of the data in the RDATA
     ///                 field.
     /// ```
-    pub fn rr_type(&mut self, rr_type: RecordType) -> &mut Self {
+    pub fn set_rr_type(&mut self, rr_type: RecordType) -> &mut Self {
         self.rr_type = rr_type;
         self
     }
@@ -152,7 +152,7 @@ impl Record {
     /// CLASS           two octets which specify the class of the data in the
     ///                 RDATA field.
     /// ```
-    pub fn dns_class(&mut self, dns_class: DNSClass) -> &mut Self {
+    pub fn set_dns_class(&mut self, dns_class: DNSClass) -> &mut Self {
         self.dns_class = dns_class;
         self
     }
@@ -164,7 +164,7 @@ impl Record {
     ///                 interpreted to mean that the RR can only be used for the
     ///                 transaction in progress, and should not be cached.
     /// ```
-    pub fn ttl(&mut self, ttl: u32) -> &mut Self {
+    pub fn set_ttl(&mut self, ttl: u32) -> &mut Self {
         self.ttl = ttl;
         self
     }
@@ -176,27 +176,27 @@ impl Record {
     ///                 For example, the if the TYPE is A and the CLASS is IN,
     ///                 the RDATA field is a 4 octet ARPA Internet address.
     /// ```
-    pub fn rdata(&mut self, rdata: RData) -> &mut Self {
+    pub fn set_rdata(&mut self, rdata: RData) -> &mut Self {
         self.rdata = rdata;
         self
     }
 
-    pub fn get_name(&self) -> &domain::Name {
+    pub fn name(&self) -> &domain::Name {
         &self.name_labels
     }
-    pub fn get_rr_type(&self) -> RecordType {
+    pub fn rr_type(&self) -> RecordType {
         self.rr_type
     }
-    pub fn get_dns_class(&self) -> DNSClass {
+    pub fn dns_class(&self) -> DNSClass {
         self.dns_class
     }
-    pub fn get_ttl(&self) -> u32 {
+    pub fn ttl(&self) -> u32 {
         self.ttl
     }
-    pub fn get_rdata(&self) -> &RData {
+    pub fn rdata(&self) -> &RData {
         &self.rdata
     }
-    pub fn get_rdata_mut(&mut self) -> &mut RData {
+    pub fn rdata_mut(&mut self) -> &mut RData {
         &mut self.rdata
     }
     pub fn unwrap_rdata(self) -> RData {
@@ -402,10 +402,10 @@ mod tests {
         record.add_name("www".to_string())
             .add_name("example".to_string())
             .add_name("com".to_string())
-            .rr_type(RecordType::A)
-            .dns_class(DNSClass::IN)
-            .ttl(5)
-            .rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
+            .set_rr_type(RecordType::A)
+            .set_dns_class(DNSClass::IN)
+            .set_ttl(5)
+            .set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
 
         let mut vec_bytes: Vec<u8> = Vec::with_capacity(512);
         {
@@ -426,22 +426,22 @@ mod tests {
         record.add_name("www".to_string())
             .add_name("example".to_string())
             .add_name("com".to_string())
-            .rr_type(RecordType::A)
-            .dns_class(DNSClass::IN)
-            .ttl(5)
-            .rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
+            .set_rr_type(RecordType::A)
+            .set_dns_class(DNSClass::IN)
+            .set_ttl(5)
+            .set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
 
         let mut greater_name = record.clone();
-        greater_name.name(Name::new().label("zzz").label("example").label("com"));
+        greater_name.set_name(Name::new().label("zzz").label("example").label("com"));
 
         let mut greater_type = record.clone();
-        greater_type.rr_type(RecordType::AAAA);
+        greater_type.set_rr_type(RecordType::AAAA);
 
         let mut greater_class = record.clone();
-        greater_class.dns_class(DNSClass::NONE);
+        greater_class.set_dns_class(DNSClass::NONE);
 
         let mut greater_rdata = record.clone();
-        greater_rdata.rdata(RData::A(Ipv4Addr::new(192, 168, 0, 255)));
+        greater_rdata.set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 255)));
 
         let compares = vec![(&record, &greater_name),
                             (&record, &greater_type),

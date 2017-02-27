@@ -55,7 +55,7 @@ impl TXT {
     /// ```text
     /// TXT-DATA        One or more <character-string>s.
     /// ```
-    pub fn get_txt_data(&self) -> &[String] {
+    pub fn txt_data(&self) -> &[String] {
         &self.txt_data
     }
 }
@@ -71,7 +71,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<TXT> {
 }
 
 pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> EncodeResult {
-    for s in txt.get_txt_data() {
+    for s in txt.txt_data() {
         try!(encoder.emit_character_data(s));
     }
 

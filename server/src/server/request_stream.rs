@@ -60,7 +60,7 @@ impl<S> Stream for RequestStream<S>
                     let mut decoder = BinDecoder::new(&buffer);
                     match Message::read(&mut decoder) {
                         Ok(message) => {
-                            debug!("received message: {}", message.get_id());
+                            debug!("received message: {}", message.id());
                             let request = Request {
                                 message: message,
                                 src: addr,
@@ -93,7 +93,7 @@ pub struct ResponseHandle {
 impl ResponseHandle {
     /// Serializes and sends a message to to the wrapped handle
     pub fn send(&mut self, response: Message) -> io::Result<()> {
-        debug!("sending message: {}", response.get_id());
+        debug!("sending message: {}", response.id());
         let mut buffer = Vec::with_capacity(512);
         let encode_result = {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buffer);

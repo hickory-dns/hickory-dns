@@ -59,7 +59,7 @@ impl MX {
     ///                 this RR among others at the same owner.  Lower values
     ///                 are preferred.
     /// ```
-    pub fn get_preference(&self) -> u16 {
+    pub fn preference(&self) -> u16 {
         self.preference
     }
 
@@ -69,7 +69,7 @@ impl MX {
     /// EXCHANGE        A <domain-name> which specifies a host willing to act as
     ///                 a mail exchange for the owner name.
     /// ```
-    pub fn get_exchange(&self) -> &Name {
+    pub fn exchange(&self) -> &Name {
         &self.exchange
     }
 }
@@ -96,8 +96,8 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<MX> {
 /// ```
 pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> EncodeResult {
     let is_canonical_names = encoder.is_canonical_names();
-    try!(encoder.emit_u16(mx.get_preference()));
-    try!(mx.get_exchange().emit_with_lowercase(encoder, is_canonical_names));
+    try!(encoder.emit_u16(mx.preference()));
+    try!(mx.exchange().emit_with_lowercase(encoder, is_canonical_names));
     Ok(())
 }
 

@@ -80,7 +80,7 @@ impl NSEC {
     ///    unless at least one authoritative RRset exists at the same owner
     ///    name.
     /// ```
-    pub fn get_next_domain_name(&self) -> &Name {
+    pub fn next_domain_name(&self) -> &Name {
         &self.next_domain_name
     }
 
@@ -95,7 +95,7 @@ impl NSEC {
     ///    A zone MUST NOT include an NSEC RR for any domain name that only
     ///    holds glue records.
     /// ```
-    pub fn get_type_bit_maps(&self) -> &[RecordType] {
+    pub fn type_bit_maps(&self) -> &[RecordType] {
         &self.type_bit_maps
     }
 }
@@ -124,8 +124,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC> {
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> EncodeResult {
     let is_canonical_names = encoder.is_canonical_names();
     encoder.set_canonical_names(true);
-    try!(rdata.get_next_domain_name().emit(encoder));
-    try!(nsec3::encode_bit_maps(encoder, rdata.get_type_bit_maps()));
+    try!(rdata.next_domain_name().emit(encoder));
+    try!(nsec3::encode_bit_maps(encoder, rdata.type_bit_maps()));
     encoder.set_canonical_names(is_canonical_names);
 
     Ok(())

@@ -279,16 +279,16 @@ impl Signer {
         }
     }
 
-    pub fn get_algorithm(&self) -> Algorithm {
+    pub fn algorithm(&self) -> Algorithm {
         self.algorithm
     }
-    pub fn get_key(&self) -> &KeyPair {
+    pub fn key(&self) -> &KeyPair {
         &self.key
     }
-    pub fn get_sig_duration(&self) -> Duration {
+    pub fn sig_duration(&self) -> Duration {
         self.sig_duration
     }
-    pub fn get_signer_name(&self) -> &Name {
+    pub fn signer_name(&self) -> &Name {
         &self.signer_name
     }
     pub fn is_zone_signing_key(&self) -> bool {
@@ -491,8 +491,8 @@ impl Signer {
 
         // collect only the records for this rrset
         for record in records {
-            if dns_class == record.get_dns_class() && type_covered == record.get_rr_type() &&
-               name == record.get_name() {
+            if dns_class == record.dns_class() && type_covered == record.rr_type() &&
+               name == record.name() {
                 rrset.push(record);
             }
         }
@@ -554,7 +554,7 @@ impl Signer {
                 {
                     let mut rdata_encoder = BinEncoder::new(&mut rdata_buf);
                     rdata_encoder.set_canonical_names(true);
-                    assert!(record.get_rdata().emit(&mut rdata_encoder).is_ok());
+                    assert!(record.rdata().emit(&mut rdata_encoder).is_ok());
                 }
                 assert!(encoder.emit_u16(rdata_buf.len() as u16).is_ok());
                 //
@@ -582,11 +582,11 @@ impl Signer {
                                  rrsig: &Record,
                                  records: &[Record])
                                  -> DnsSecResult<Vec<u8>> {
-        if let &RData::SIG(ref sig) = rrsig.get_rdata() {
-            self.hash_rrset_with_sig(rrsig.get_name(), rrsig.get_dns_class(), sig, records)
+        if let &RData::SIG(ref sig) = rrsig.rdata() {
+            self.hash_rrset_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
         } else {
             return Err(DnsSecErrorKind::Msg(format!("could not determine name from {}",
-                                                    rrsig.get_name()))
+                                                    rrsig.name()))
                 .into());
         }
     }
@@ -611,14 +611,14 @@ impl Signer {
                                -> DnsSecResult<Vec<u8>> {
         self.hash_rrset(name,
                         dns_class,
-                        sig.get_num_labels(),
-                        sig.get_type_covered(),
-                        sig.get_algorithm(),
-                        sig.get_original_ttl(),
-                        sig.get_sig_expiration(),
-                        sig.get_sig_inception(),
-                        sig.get_key_tag(),
-                        sig.get_signer_name(),
+                        sig.num_labels(),
+                        sig.type_covered(),
+                        sig.algorithm(),
+                        sig.original_ttl(),
+                        sig.sig_expiration(),
+                        sig.sig_inception(),
+                        sig.key_tag(),
+                        sig.signer_name(),
                         records)
     }
 
@@ -700,7 +700,7 @@ fn test_sign_and_verify_message_sig0() {
     let origin: Name = Name::parse("example.com.", None).unwrap();
     let mut question: Message = Message::new();
     let mut query: Query = Query::new();
-    query.name(origin.clone());
+    query.set_name(origin.clone());
     question.add_query(query);
 
     let rsa = Rsa::generate(512).unwrap();
@@ -719,15 +719,15 @@ fn test_sign_and_verify_message_sig0() {
     assert!(signer.verify_message(&question, &sig).is_ok());
 
     // now test that the sig0 record works correctly.
-    assert!(question.get_sig0().is_empty());
+    assert!(question.sig0().is_empty());
     question.sign(&signer, 0).expect("should have signed");
-    assert!(!question.get_sig0().is_empty());
+    assert!(!question.sig0().is_empty());
 
     let sig = signer.sign_message(&question);
     println!("sig after sign: {:?}", sig);
 
-    if let &RData::SIG(ref sig) = question.get_sig0()[0].get_rdata() {
-        assert!(signer.verify_message(&question, sig.get_sig()).is_ok());
+    if let &RData::SIG(ref sig) = question.sig0()[0].rdata() {
+        assert!(signer.verify_message(&question, sig.sig()).is_ok());
     }
 }
 
@@ -749,72 +749,72 @@ fn test_hash_rrset() {
 
     let origin: Name = Name::parse("example.com.", None).unwrap();
     let rrsig = Record::new()
-        .name(origin.clone())
-        .ttl(86400)
-        .rr_type(RecordType::NS)
-        .dns_class(DNSClass::IN)
-        .rdata(RData::SIG(SIG::new(RecordType::NS,
-                                   Algorithm::RSASHA256,
-                                   origin.num_labels(),
-                                   86400,
-                                   5,
-                                   0,
-                                   signer.calculate_key_tag().unwrap(),
-                                   origin.clone(),
-                                   vec![])))
+        .set_name(origin.clone())
+        .set_ttl(86400)
+        .set_rr_type(RecordType::NS)
+        .set_dns_class(DNSClass::IN)
+        .set_rdata(RData::SIG(SIG::new(RecordType::NS,
+                                       Algorithm::RSASHA256,
+                                       origin.num_labels(),
+                                       86400,
+                                       5,
+                                       0,
+                                       signer.calculate_key_tag().unwrap(),
+                                       origin.clone(),
+                                       vec![])))
         .clone();
     let rrset = vec![Record::new()
-                         .name(origin.clone())
-                         .ttl(86400)
-                         .rr_type(RecordType::NS)
-                         .dns_class(DNSClass::IN)
-                         .rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                         .set_name(origin.clone())
+                         .set_ttl(86400)
+                         .set_rr_type(RecordType::NS)
+                         .set_dns_class(DNSClass::IN)
+                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
                          .clone(),
                      Record::new()
-                         .name(origin.clone())
-                         .ttl(86400)
-                         .rr_type(RecordType::NS)
-                         .dns_class(DNSClass::IN)
-                         .rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                         .set_name(origin.clone())
+                         .set_ttl(86400)
+                         .set_rr_type(RecordType::NS)
+                         .set_dns_class(DNSClass::IN)
+                         .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
                          .clone()];
 
     let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
     assert!(!hash.is_empty());
 
     let rrset = vec![Record::new()
-                         .name(origin.clone())
-                         .ttl(86400)
-                         .rr_type(RecordType::CNAME)
-                         .dns_class(DNSClass::IN)
-                         .rdata(RData::CNAME(Name::parse("a.iana-servers.net.", None).unwrap()))
+                         .set_name(origin.clone())
+                         .set_ttl(86400)
+                         .set_rr_type(RecordType::CNAME)
+                         .set_dns_class(DNSClass::IN)
+                         .set_rdata(RData::CNAME(Name::parse("a.iana-servers.net.", None).unwrap()))
                          .clone(), // different type
                      Record::new()
-                         .name(Name::parse("www.example.com.", None).unwrap())
-                         .ttl(86400)
-                         .rr_type(RecordType::NS)
-                         .dns_class(DNSClass::IN)
-                         .rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                         .set_name(Name::parse("www.example.com.", None).unwrap())
+                         .set_ttl(86400)
+                         .set_rr_type(RecordType::NS)
+                         .set_dns_class(DNSClass::IN)
+                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
                          .clone(), // different name
                      Record::new()
-                         .name(origin.clone())
-                         .ttl(86400)
-                         .rr_type(RecordType::NS)
-                         .dns_class(DNSClass::CH)
-                         .rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                         .set_name(origin.clone())
+                         .set_ttl(86400)
+                         .set_rr_type(RecordType::NS)
+                         .set_dns_class(DNSClass::CH)
+                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
                          .clone(), // different class
                      Record::new()
-                         .name(origin.clone())
-                         .ttl(86400)
-                         .rr_type(RecordType::NS)
-                         .dns_class(DNSClass::IN)
-                         .rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                         .set_name(origin.clone())
+                         .set_ttl(86400)
+                         .set_rr_type(RecordType::NS)
+                         .set_dns_class(DNSClass::IN)
+                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
                          .clone(),
                      Record::new()
-                         .name(origin.clone())
-                         .ttl(86400)
-                         .rr_type(RecordType::NS)
-                         .dns_class(DNSClass::IN)
-                         .rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                         .set_name(origin.clone())
+                         .set_ttl(86400)
+                         .set_rr_type(RecordType::NS)
+                         .set_dns_class(DNSClass::IN)
+                         .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
                          .clone()];
 
     let filtered_hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
@@ -841,33 +841,33 @@ fn test_sign_and_verify_rrset() {
 
     let origin: Name = Name::parse("example.com.", None).unwrap();
     let rrsig = Record::new()
-        .name(origin.clone())
-        .ttl(86400)
-        .rr_type(RecordType::NS)
-        .dns_class(DNSClass::IN)
-        .rdata(RData::SIG(SIG::new(RecordType::NS,
-                                   Algorithm::RSASHA256,
-                                   origin.num_labels(),
-                                   86400,
-                                   5,
-                                   0,
-                                   signer.calculate_key_tag().unwrap(),
-                                   origin.clone(),
-                                   vec![])))
+        .set_name(origin.clone())
+        .set_ttl(86400)
+        .set_rr_type(RecordType::NS)
+        .set_dns_class(DNSClass::IN)
+        .set_rdata(RData::SIG(SIG::new(RecordType::NS,
+                                       Algorithm::RSASHA256,
+                                       origin.num_labels(),
+                                       86400,
+                                       5,
+                                       0,
+                                       signer.calculate_key_tag().unwrap(),
+                                       origin.clone(),
+                                       vec![])))
         .clone();
     let rrset = vec![Record::new()
-                         .name(origin.clone())
-                         .ttl(86400)
-                         .rr_type(RecordType::NS)
-                         .dns_class(DNSClass::IN)
-                         .rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                         .set_name(origin.clone())
+                         .set_ttl(86400)
+                         .set_rr_type(RecordType::NS)
+                         .set_dns_class(DNSClass::IN)
+                         .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
                          .clone(),
                      Record::new()
-                         .name(origin.clone())
-                         .ttl(86400)
-                         .rr_type(RecordType::NS)
-                         .dns_class(DNSClass::IN)
-                         .rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                         .set_name(origin.clone())
+                         .set_ttl(86400)
+                         .set_rr_type(RecordType::NS)
+                         .set_dns_class(DNSClass::IN)
+                         .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
                          .clone()];
 
     let hash = signer.hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();

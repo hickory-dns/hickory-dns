@@ -64,15 +64,15 @@ impl Query {
     }
 
     /// replaces name with the new name
-    pub fn name(&mut self, name: Name) -> &mut Self {
+    pub fn set_name(&mut self, name: Name) -> &mut Self {
         self.name = name;
         self
     }
-    pub fn query_type(&mut self, query_type: RecordType) -> &mut Self {
+    pub fn set_query_type(&mut self, query_type: RecordType) -> &mut Self {
         self.query_type = query_type;
         self
     }
-    pub fn query_class(&mut self, query_class: DNSClass) -> &mut Self {
+    pub fn set_query_class(&mut self, query_class: DNSClass) -> &mut Self {
         self.query_class = query_class;
         self
     }
@@ -85,7 +85,7 @@ impl Query {
     ///                 that this field may be an odd number of octets; no
     ///                 padding is used.
     /// ```
-    pub fn get_name(&self) -> &Name {
+    pub fn name(&self) -> &Name {
         &self.name
     }
 
@@ -95,7 +95,7 @@ impl Query {
     ///                 TYPE field, together with some more general codes which
     ///                 can match more than one type of RR.
     /// ```
-    pub fn get_query_type(&self) -> RecordType {
+    pub fn query_type(&self) -> RecordType {
         self.query_type
     }
 
@@ -103,7 +103,7 @@ impl Query {
     /// QCLASS          a two octet code that specifies the class of the query.
     ///                 For example, the QCLASS field is IN for the Internet.
     /// ```
-    pub fn get_query_class(&self) -> DNSClass {
+    pub fn query_class(&self) -> DNSClass {
         self.query_class
     }
 }

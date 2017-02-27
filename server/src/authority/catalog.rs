@@ -40,17 +40,17 @@ impl RequestHandler for Catalog {
     /// * `request` - the requested action to perform.
     fn handle_request(&self, request: &Message) -> Message {
         info!("request id: {} type: {:?} op_code: {:?}",
-              request.get_id(),
-              request.get_message_type(),
-              request.get_op_code());
+              request.id(),
+              request.message_type(),
+              request.op_code());
         debug!("request: {:?}", request);
 
         let mut resp_edns_opt: Option<Edns> = None;
 
         // check if it's edns
-        if let Some(req_edns) = request.get_edns() {
+        if let Some(req_edns) = request.edns() {
             let mut response = Message::new();
-            response.id(request.get_id());
+            response.set_id(request.id());
 
             let mut resp_edns: Edns = Edns::new();
 
@@ -58,18 +58,18 @@ impl RequestHandler for Catalog {
             // TODO: what version are we?
             let our_version = 0;
             resp_edns.set_dnssec_ok(true);
-            resp_edns.set_max_payload(if req_edns.get_max_payload() < 512 {
+            resp_edns.set_max_payload(if req_edns.max_payload() < 512 {
                 512
             } else {
-                req_edns.get_max_payload()
+                req_edns.max_payload()
             });
             resp_edns.set_version(our_version);
 
-            if req_edns.get_version() > our_version {
+            if req_edns.version() > our_version {
                 warn!("request edns version greater than {}: {}",
                       our_version,
-                      req_edns.get_version());
-                response.response_code(ResponseCode::BADVERS);
+                      req_edns.version());
+                response.set_response_code(ResponseCode::BADVERS);
                 response.set_edns(resp_edns);
                 return response;
             }
@@ -81,11 +81,11 @@ impl RequestHandler for Catalog {
             resp_edns_opt = Some(resp_edns);
         }
 
-        let mut response: Message = match request.get_message_type() {
+        let mut response: Message = match request.message_type() {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
             MessageType::Query => {
-                match request.get_op_code() {
+                match request.op_code() {
                     OpCode::Query => {
                         let response = self.lookup(&request);
                         debug!("query response: {:?}", response);
@@ -100,16 +100,16 @@ impl RequestHandler for Catalog {
                     }
                     c @ _ => {
                         error!("unimplemented op_code: {:?}", c);
-                        Message::error_msg(request.get_id(),
-                                           request.get_op_code(),
+                        Message::error_msg(request.id(),
+                                           request.op_code(),
                                            ResponseCode::NotImp)
                     }
                 }
             }
             MessageType::Response => {
-                warn!("got a response as a request from id: {}", request.get_id());
-                Message::error_msg(request.get_id(),
-                                   request.get_op_code(),
+                warn!("got a response as a request from id: {}", request.id());
+                Message::error_msg(request.id(),
+                                   request.op_code(),
                                    ResponseCode::NotImp)
             }
         };
@@ -198,11 +198,11 @@ impl Catalog {
     /// * `request` - an update message
     pub fn update(&self, update: &Message) -> Message {
         let mut response: Message = Message::new();
-        response.id(update.get_id());
-        response.op_code(OpCode::Update);
-        response.message_type(MessageType::Response);
+        response.set_id(update.id());
+        response.set_op_code(OpCode::Update);
+        response.set_message_type(MessageType::Response);
 
-        let zones: &[Query] = update.get_zones();
+        let zones: &[Query] = update.zones();
 
         // 2.3 - Zone Section
         //
@@ -210,17 +210,17 @@ impl Catalog {
         //  therefore the Zone Section is allowed to contain exactly one record.
         //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
         //  the zone's class.
-        if zones.len() != 1 || zones[0].get_query_type() != RecordType::SOA {
-            response.response_code(ResponseCode::FormErr);
+        if zones.len() != 1 || zones[0].query_type() != RecordType::SOA {
+            response.set_response_code(ResponseCode::FormErr);
             return response;
         }
 
-        if let Some(authority) = self.find_auth_recurse(zones[0].get_name()) {
+        if let Some(authority) = self.find_auth_recurse(zones[0].name()) {
             let mut authority = authority.write().unwrap(); // poison errors should panic...
             match authority.get_zone_type() {
                 ZoneType::Slave => {
                     error!("slave forwarding for update not yet implemented");
-                    response.response_code(ResponseCode::NotImp);
+                    response.set_response_code(ResponseCode::NotImp);
                     return response;
                 }
                 ZoneType::Master => {
@@ -228,21 +228,21 @@ impl Catalog {
                     match update_result {
                         // successful update
                         Ok(..) => {
-                            response.response_code(ResponseCode::NoError);
+                            response.set_response_code(ResponseCode::NoError);
                         }
                         Err(response_code) => {
-                            response.response_code(response_code);
+                            response.set_response_code(response_code);
                         }
                     }
                     return response;
                 }
                 _ => {
-                    response.response_code(ResponseCode::NotAuth);
+                    response.set_response_code(ResponseCode::NotAuth);
                     return response;
                 }
             }
         } else {
-            response.response_code(ResponseCode::NXDomain);
+            response.set_response_code(ResponseCode::NXDomain);
             response
         }
     }
@@ -254,33 +254,33 @@ impl Catalog {
     /// * `request` - the query message.
     pub fn lookup(&self, request: &Message) -> Message {
         let mut response: Message = Message::new();
-        response.id(request.get_id());
-        response.op_code(OpCode::Query);
-        response.message_type(MessageType::Response);
-        response.add_queries(request.get_queries().into_iter().cloned());
+        response.set_id(request.id());
+        response.set_op_code(OpCode::Query);
+        response.set_message_type(MessageType::Response);
+        response.add_queries(request.queries().into_iter().cloned());
 
         // TODO: the spec is very unclear on what to do with multiple queries
         //  we will search for each, in the future, maybe make this threaded to respond even faster.
-        for query in request.get_queries() {
-            if let Some(ref_authority) = self.find_auth_recurse(query.get_name()) {
+        for query in request.queries() {
+            if let Some(ref_authority) = self.find_auth_recurse(query.name()) {
                 let authority = &ref_authority.read().unwrap(); // poison errors should panic
                 debug!("found authority: {:?}", authority.get_origin());
-                let (is_dnssec, supported_algorithms) = request.get_edns()
+                let (is_dnssec, supported_algorithms) = request.edns()
                     .map_or((false, SupportedAlgorithms::new()), |edns| {
                         let supported_algorithms = if let Some(&EdnsOption::DAU(algs)) =
-                            edns.get_option(&EdnsCode::DAU) {
+                            edns.option(&EdnsCode::DAU) {
                             algs
                         } else {
                             Default::default()
                         };
 
-                        (edns.is_dnssec_ok(), supported_algorithms)
+                        (edns.dnssec_ok(), supported_algorithms)
                     });
 
                 let records = authority.search(query, is_dnssec, supported_algorithms);
                 if !records.is_empty() {
-                    response.response_code(ResponseCode::NoError);
-                    response.authoritative(true);
+                    response.set_response_code(ResponseCode::NoError);
+                    response.set_authoritative(true);
                     response.add_answers(records.into_iter().cloned());
 
                     // get the NS records
@@ -294,14 +294,14 @@ impl Catalog {
                     if is_dnssec {
                         // get NSEC records
                         let nsecs =
-                            authority.get_nsec_records(query.get_name(),
+                            authority.get_nsec_records(query.name(),
                                                        is_dnssec,
                                                        supported_algorithms);
                         response.add_name_servers(nsecs.into_iter().cloned());
                     }
 
                     // in the not found case it's standard to return the SOA in the authority section
-                    response.response_code(ResponseCode::NXDomain);
+                    response.set_response_code(ResponseCode::NXDomain);
 
                     let soa = authority.get_soa_secure(is_dnssec, supported_algorithms);
                     if soa.is_empty() {
@@ -312,7 +312,7 @@ impl Catalog {
                 }
             } else {
                 // we found nothing.
-                response.response_code(ResponseCode::NXDomain);
+                response.set_response_code(ResponseCode::NXDomain);
             }
         }
 

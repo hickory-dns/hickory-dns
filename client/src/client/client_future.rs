@@ -213,10 +213,10 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                     // getting a random query id, this mitigates potential cache poisoning.
                     // TODO: for SIG0 we can't change the message id after signing.
                     let query_id = query_id.expect("query_id should have been set above");
-                    message.id(query_id);
+                    message.set_id(query_id);
 
                     // update messages need to be signed.
-                    if let OpCode::Update = message.get_op_code() {
+                    if let OpCode::Update = message.op_code() {
                         if let Some(ref signer) = self.signer {
                             // TODO: it's too bad this happens here...
                             if let Err(e) = message.sign(signer, UTC::now().timestamp() as u32) {
@@ -244,7 +244,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                             try!(self.stream_handle.send(buffer));
                             // add to the map -after- the client send b/c we don't want to put it in the map if
                             //  we ended up returning from the send.
-                            self.active_requests.insert(message.get_id(), (complete, timeout));
+                            self.active_requests.insert(message.id(), (complete, timeout));
                         }
                         Err(e) => {
                             debug!("error message id: {} error: {}", query_id, e);
@@ -273,9 +273,9 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                     //   deserialize or log decode_error
                     match Message::from_vec(&buffer) {
                         Ok(message) => {
-                            match self.active_requests.remove(&message.get_id()) {
+                            match self.active_requests.remove(&message.id()) {
                                 Some((complete, _)) => complete.complete(Ok(message)),
-                                None => debug!("unexpected request_id: {}", message.get_id()),
+                                None => debug!("unexpected request_id: {}", message.id()),
                             }
                         }
                         // TODO: return src address for diagnostics
@@ -376,21 +376,21 @@ pub trait ClientHandle: Clone {
         let mut message: Message = Message::new();
         let id: u16 = rand::random();
         // TODO make recursion a parameter
-        message.id(id)
-            .message_type(MessageType::Query)
-            .op_code(OpCode::Query)
-            .recursion_desired(true);
+        message.set_id(id)
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Query)
+            .set_recursion_desired(true);
 
         // Extended dns
         {
-            let edns = message.get_edns_mut();
+            let edns = message.edns_mut();
             edns.set_max_payload(1500);
             edns.set_version(0);
         }
 
         // add the query
         let mut query: Query = Query::new();
-        query.name(name.clone()).query_class(query_class).query_type(query_type);
+        query.set_name(name.clone()).set_query_class(query_class).set_query_type(query_type);
         message.add_query(query);
 
         self.send(message)
@@ -469,26 +469,26 @@ pub trait ClientHandle: Clone {
         // build the message
         let mut message: Message = Message::new();
         let id: u16 = rand::random();
-        message.id(id)
+        message.set_id(id)
            // 3.3. NOTIFY is similar to QUERY in that it has a request message with
            // the header QR flag "clear" and a response message with QR "set".  The
            // response message contains no useful information, but its reception by
            // the master is an indication that the slave has received the NOTIFY
            // and that the master can remove the slave from any retry queue for
            // this NOTIFY event.
-           .message_type(MessageType::Query)
-           .op_code(OpCode::Notify);
+           .set_message_type(MessageType::Query)
+           .set_op_code(OpCode::Notify);
 
         // Extended dns
         {
-            let edns = message.get_edns_mut();
+            let edns = message.edns_mut();
             edns.set_max_payload(1500);
             edns.set_version(0);
         }
 
         // add the query
         let mut query: Query = Query::new();
-        query.name(name.clone()).query_class(query_class).query_type(query_type);
+        query.set_name(name.clone()).set_query_class(query_class).set_query_type(query_type);
         message.add_query(query);
 
         // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7
@@ -540,28 +540,28 @@ pub trait ClientHandle: Clone {
     {
         // TODO: assert non-empty rrset?
         let rrset = rrset.into_record_set();
-        assert!(zone_origin.zone_of(rrset.get_name()));
+        assert!(zone_origin.zone_of(rrset.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
-        message.id(rand::random())
-            .message_type(MessageType::Query)
-            .op_code(OpCode::Update)
-            .recursion_desired(false);
+        message.set_id(rand::random())
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Update)
+            .set_recursion_desired(false);
         message.add_zone(zone);
 
-        let mut prerequisite = Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
-        prerequisite.dns_class(DNSClass::NONE);
+        let mut prerequisite = Record::with(rrset.name().clone(), rrset.record_type(), 0);
+        prerequisite.set_dns_class(DNSClass::NONE);
         message.add_pre_requisite(prerequisite);
         message.add_updates(rrset);
 
         // Extended dns
         {
-            let edns = message.get_edns_mut();
+            let edns = message.edns_mut();
             edns.set_max_payload(1500);
             edns.set_version(0);
         }
@@ -611,24 +611,24 @@ pub trait ClientHandle: Clone {
         where R: IntoRecordSet
     {
         let rrset = rrset.into_record_set();
-        assert!(zone_origin.zone_of(rrset.get_name()));
+        assert!(zone_origin.zone_of(rrset.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
-        message.id(rand::random())
-            .message_type(MessageType::Query)
-            .op_code(OpCode::Update)
-            .recursion_desired(false);
+        message.set_id(rand::random())
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Update)
+            .set_recursion_desired(false);
         message.add_zone(zone);
 
         if must_exist {
             let mut prerequisite =
-                Record::with(rrset.get_name().clone(), rrset.get_record_type(), 0);
-            prerequisite.dns_class(DNSClass::ANY);
+                Record::with(rrset.name().clone(), rrset.record_type(), 0);
+            prerequisite.set_dns_class(DNSClass::ANY);
             message.add_pre_requisite(prerequisite);
         }
 
@@ -636,7 +636,7 @@ pub trait ClientHandle: Clone {
 
         // Extended dns
         {
-            let edns = message.get_edns_mut();
+            let edns = message.edns_mut();
             edns.set_max_payload(1500);
             edns.set_version(0);
         }
@@ -696,19 +696,19 @@ pub trait ClientHandle: Clone {
         let current = current.into_record_set();
         let new = new.into_record_set();
 
-        assert!(zone_origin.zone_of(current.get_name()));
-        assert!(zone_origin.zone_of(new.get_name()));
+        assert!(zone_origin.zone_of(current.name()));
+        assert!(zone_origin.zone_of(new.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(new.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(new.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
-        message.id(rand::random())
-            .message_type(MessageType::Query)
-            .op_code(OpCode::Update)
-            .recursion_desired(false);
+        message.set_id(rand::random())
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Update)
+            .set_recursion_desired(false);
         message.add_zone(zone);
 
         // make sure the record is what is expected
@@ -729,7 +729,7 @@ pub trait ClientHandle: Clone {
 
         // Extended dns
         {
-            let edns = message.get_edns_mut();
+            let edns = message.edns_mut();
             edns.set_max_payload(1500);
             edns.set_version(0);
         }
@@ -780,18 +780,18 @@ pub trait ClientHandle: Clone {
         where R: IntoRecordSet
     {
         let mut rrset = rrset.into_record_set();
-        assert!(zone_origin.zone_of(rrset.get_name()));
+        assert!(zone_origin.zone_of(rrset.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(rrset.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
-        message.id(rand::random())
-            .message_type(MessageType::Query)
-            .op_code(OpCode::Update)
-            .recursion_desired(false);
+        message.set_id(rand::random())
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Update)
+            .set_recursion_desired(false);
         message.add_zone(zone);
 
         // the class must be none for delete
@@ -802,7 +802,7 @@ pub trait ClientHandle: Clone {
 
         // Extended dns
         {
-            let edns = message.get_edns_mut();
+            let edns = message.edns_mut();
             edns.set_max_payload(1500);
             edns.set_version(0);
         }
@@ -848,31 +848,31 @@ pub trait ClientHandle: Clone {
                     mut record: Record,
                     zone_origin: domain::Name)
                     -> Box<Future<Item = Message, Error = ClientError>> {
-        assert!(zone_origin.zone_of(record.get_name()));
+        assert!(zone_origin.zone_of(record.name()));
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(record.get_dns_class()).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(record.dns_class()).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
-        message.id(rand::random())
-            .message_type(MessageType::Query)
-            .op_code(OpCode::Update)
-            .recursion_desired(false);
+        message.set_id(rand::random())
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Update)
+            .set_recursion_desired(false);
         message.add_zone(zone);
 
         // the class must be none for an rrset delete
-        record.dns_class(DNSClass::ANY);
+        record.set_dns_class(DNSClass::ANY);
         // the TTL shoudl be 0
-        record.ttl(0);
+        record.set_ttl(0);
         // the rdata must be null to delete all rrsets
-        record.rdata(RData::NULL(NULL::new()));
+        record.set_rdata(RData::NULL(NULL::new()));
         message.add_update(record);
 
         // Extended dns
         {
-            let edns = message.get_edns_mut();
+            let edns = message.edns_mut();
             edns.set_max_payload(1500);
             edns.set_version(0);
         }
@@ -913,14 +913,14 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.name(zone_origin).query_class(dns_class).query_type(RecordType::SOA);
+        zone.set_name(zone_origin).set_query_class(dns_class).set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
-        message.id(rand::random())
-            .message_type(MessageType::Query)
-            .op_code(OpCode::Update)
-            .recursion_desired(false);
+        message.set_id(rand::random())
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Update)
+            .set_recursion_desired(false);
         message.add_zone(zone);
 
         // the TTL shoudl be 0
@@ -929,13 +929,13 @@ pub trait ClientHandle: Clone {
         let mut record = Record::with(name_of_records, RecordType::ANY, 0);
 
         // the class must be none for an rrset delete
-        record.dns_class(DNSClass::ANY);
+        record.set_dns_class(DNSClass::ANY);
 
         message.add_update(record);
 
         // Extended dns
         {
-            let edns = message.get_edns_mut();
+            let edns = message.edns_mut();
             edns.set_max_payload(1500);
             edns.set_version(0);
         }

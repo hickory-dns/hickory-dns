@@ -192,30 +192,30 @@ fn client_thread_www<C: ClientConnection>(conn: C)
 
     let response = client.query(&name, DNSClass::IN, RecordType::A).expect("error querying");
 
-    assert!(response.get_response_code() == ResponseCode::NoError,
+    assert!(response.response_code() == ResponseCode::NoError,
             "got an error: {:?}",
-            response.get_response_code());
+            response.response_code());
 
-    let record = &response.get_answers()[0];
-    assert_eq!(record.get_name(), &name);
-    assert_eq!(record.get_rr_type(), RecordType::A);
-    assert_eq!(record.get_dns_class(), DNSClass::IN);
+    let record = &response.answers()[0];
+    assert_eq!(record.name(), &name);
+    assert_eq!(record.rr_type(), RecordType::A);
+    assert_eq!(record.dns_class(), DNSClass::IN);
 
-    if let &RData::A(ref address) = record.get_rdata() {
+    if let &RData::A(ref address) = record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
     } else {
         assert!(false);
     }
 
-    let mut ns: Vec<_> = response.get_name_servers().to_vec();
+    let mut ns: Vec<_> = response.name_servers().to_vec();
     ns.sort();
 
     assert_eq!(ns.len(), 2);
-    assert_eq!(ns.first().unwrap().get_rr_type(), RecordType::NS);
-    assert_eq!(ns.first().unwrap().get_rdata(),
+    assert_eq!(ns.first().unwrap().rr_type(), RecordType::NS);
+    assert_eq!(ns.first().unwrap().rdata(),
                &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()));
-    assert_eq!(ns.last().unwrap().get_rr_type(), RecordType::NS);
-    assert_eq!(ns.last().unwrap().get_rdata(),
+    assert_eq!(ns.last().unwrap().rr_type(), RecordType::NS);
+    assert_eq!(ns.last().unwrap().rdata(),
                &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()));
 }
 

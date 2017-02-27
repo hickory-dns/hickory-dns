@@ -89,7 +89,7 @@ impl Authority {
     pub fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
         // also add the key to the zone
         let zone_ttl = self.get_minimum_ttl();
-        let dnskey = try!(signer.get_key().to_dnskey(signer.get_algorithm()));
+        let dnskey = try!(signer.key().to_dnskey(signer.algorithm()));
         let dnskey = Record::from_rdata(self.origin.clone(),
                                         zone_ttl,
                                         RecordType::DNSKEY,
@@ -116,7 +116,7 @@ impl Authority {
             // AXFR is special, it is used to mark the dump of a full zone.
             //  when recovering, if an AXFR is encountered, we should remove all the records in the
             //  authority.
-            if record.get_rr_type() == RecordType::AXFR {
+            if record.rr_type() == RecordType::AXFR {
                 self.records.clear();
             } else {
                 match self.update_records(&[record], false) {
@@ -147,7 +147,7 @@ impl Authority {
             info!("persisting zone to journal at SOA.serial: {}", serial);
 
             // TODO: THIS NEEDS TO BE IN A TRANSACTION!!!
-            try!(journal.insert_record(serial, Record::new().rr_type(RecordType::AXFR)));
+            try!(journal.insert_record(serial, Record::new().set_rr_type(RecordType::AXFR)));
 
             for rr_set in self.records.values() {
                 // TODO: should we preserve rr_sets or not?
@@ -222,8 +222,8 @@ impl Authority {
 
     /// Returns the minimum ttl (as used in the SOA record)
     pub fn get_minimum_ttl(&self) -> u32 {
-        self.get_soa().map_or(0, |soa| if let &RData::SOA(ref rdata) = soa.get_rdata() {
-            rdata.get_minimum()
+        self.get_soa().map_or(0, |soa| if let &RData::SOA(ref rdata) = soa.rdata() {
+            rdata.minimum()
         } else {
             0
         })
@@ -238,8 +238,8 @@ impl Authority {
             return 0;
         };
 
-        if let &RData::SOA(ref soa_rdata) = soa.get_rdata() {
-            soa_rdata.get_serial()
+        if let &RData::SOA(ref soa_rdata) = soa.rdata() {
+            soa_rdata.serial()
         } else {
             panic!("This was not an SOA record"); // valid panic, never should happen
         }
@@ -253,9 +253,9 @@ impl Authority {
             return 0;
         };
 
-        let serial = if let &mut RData::SOA(ref mut soa_rdata) = soa.get_rdata_mut() {
+        let serial = if let &mut RData::SOA(ref mut soa_rdata) = soa.rdata_mut() {
             soa_rdata.increment_serial();
-            soa_rdata.get_serial()
+            soa_rdata.serial()
         } else {
             panic!("This was not an SOA record"); // valid panic, never should happen
         };
@@ -358,23 +358,23 @@ impl Authority {
         //           if (zone_rrset<rrset.name, rrset.type> != rrset)
         //                return (NXRRSET)
         for require in pre_requisites {
-            if require.get_ttl() != 0 {
+            if require.ttl() != 0 {
                 warn!("ttl must be 0 for: {:?}", require);
                 return Err(ResponseCode::FormErr);
             }
 
-            if !self.origin.zone_of(require.get_name()) {
-                warn!("{} is not a zone_of {}", require.get_name(), self.origin);
+            if !self.origin.zone_of(require.name()) {
+                warn!("{} is not a zone_of {}", require.name(), self.origin);
                 return Err(ResponseCode::NotZone);
             }
 
-            match require.get_dns_class() {
+            match require.dns_class() {
         DNSClass::ANY =>
-          if let &RData::NULL( .. ) = require.get_rdata() {
-            match require.get_rr_type() {
+          if let &RData::NULL( .. ) = require.rdata() {
+            match require.rr_type() {
               // ANY      ANY      empty    Name is in use
               RecordType::ANY => {
-                if self.lookup(require.get_name(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
+                if self.lookup(require.name(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::NXDomain);
                 } else {
                   continue;
@@ -382,7 +382,7 @@ impl Authority {
               },
               // ANY      rrset    empty    RRset exists (value independent)
               rrset @ _ => {
-                if self.lookup(require.get_name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
+                if self.lookup(require.name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::NXRRSet);
                 } else {
                   continue;
@@ -394,11 +394,11 @@ impl Authority {
           }
         ,
         DNSClass::NONE =>
-          if let &RData::NULL( .. ) = require.get_rdata() {
-            match require.get_rr_type() {
+          if let &RData::NULL( .. ) = require.rdata() {
+            match require.rr_type() {
               // NONE     ANY      empty    Name is not in use
               RecordType::ANY => {
-                if !self.lookup(require.get_name(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
+                if !self.lookup(require.name(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::YXDomain);
                 } else {
                   continue;
@@ -406,7 +406,7 @@ impl Authority {
               },
               // NONE     rrset    empty    RRset does not exist
               rrset @ _ => {
-                if !self.lookup(require.get_name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
+                if !self.lookup(require.name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::YXRRSet);
                 } else {
                   continue;
@@ -419,7 +419,7 @@ impl Authority {
         ,
         class @ _ if class == self.class =>
           // zone     rrset    rr       RRset exists (value dependent)
-          if self.lookup(require.get_name(), require.get_rr_type(), false, SupportedAlgorithms::new())
+          if self.lookup(require.name(), require.rr_type(), false, SupportedAlgorithms::new())
                  .iter()
                  .filter(|rr| *rr == &require)
                  .next()
@@ -477,28 +477,28 @@ impl Authority {
         }
 
         // verify sig0, currently the only authorization that is accepted.
-        let sig0s: &[Record] = update_message.get_sig0();
+        let sig0s: &[Record] = update_message.sig0();
         debug!("authorizing with: {:?}", sig0s);
         if !sig0s.is_empty() &&
            sig0s.iter()
-            .filter_map(|sig0| if let &RData::SIG(ref sig) = sig0.get_rdata() {
+            .filter_map(|sig0| if let &RData::SIG(ref sig) = sig0.rdata() {
                 Some(sig)
             } else {
                 None
             })
             .any(|sig| {
-                let name = sig.get_signer_name();
+                let name = sig.signer_name();
                 let keys = self.lookup(name, RecordType::KEY, false, SupportedAlgorithms::new());
                 debug!("found keys {:?}", keys);
                 keys.iter()
-                    .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.get_rdata() {
+                    .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.rdata() {
                         Some(key)
                     } else {
                         None
                     })
                     .any(|key| {
-                        let pkey = KeyPair::from_public_bytes(key.get_public_key(),
-                                                              *key.get_algorithm());
+                        let pkey = KeyPair::from_public_bytes(key.public_key(),
+                                                              *key.algorithm());
                         if let Err(error) = pkey {
                             warn!("public key {:?} of {} could not be used: {}",
                                   key,
@@ -508,13 +508,13 @@ impl Authority {
                         }
 
                         let pkey = pkey.unwrap();
-                        let signer: Signer = Signer::new_verifier(*key.get_algorithm(),
+                        let signer: Signer = Signer::new_verifier(*key.algorithm(),
                                                                   pkey,
-                                                                  sig.get_signer_name().clone(),
+                                                                  sig.signer_name().clone(),
                                                                   false,
                                                                   true);
 
-                        signer.verify_message(update_message, sig.get_sig())
+                        signer.verify_message(update_message, sig.sig())
                             .map(|_| {
                                 info!("verified sig: {:?} with key: {:?}", sig, key);
                                 true
@@ -528,7 +528,7 @@ impl Authority {
             return Ok(());
         } else {
             warn!("no sig0 matched registered records: id {}",
-                  update_message.get_id());
+                  update_message.id());
         }
 
         // getting here, we will always default to rejecting the request
@@ -581,13 +581,13 @@ impl Authority {
         //           else
         //                return (FORMERR)
         for rr in records {
-            if !self.get_origin().zone_of(rr.get_name()) {
+            if !self.get_origin().zone_of(rr.name()) {
                 return Err(ResponseCode::NotZone);
             }
 
-            let class: DNSClass = rr.get_dns_class();
+            let class: DNSClass = rr.dns_class();
             if class == self.class {
-                match rr.get_rr_type() {
+                match rr.rr_type() {
                     RecordType::ANY | RecordType::AXFR | RecordType::IXFR => {
                         return Err(ResponseCode::FormErr)
                     }
@@ -596,15 +596,15 @@ impl Authority {
             } else {
                 match class {
                     DNSClass::ANY => {
-                        if rr.get_ttl() != 0 {
+                        if rr.ttl() != 0 {
                             return Err(ResponseCode::FormErr);
                         }
-                        if let &RData::NULL(..) = rr.get_rdata() {
+                        if let &RData::NULL(..) = rr.rdata() {
                             ()
                         } else {
                             return Err(ResponseCode::FormErr);
                         }
-                        match rr.get_rr_type() {
+                        match rr.rr_type() {
                             RecordType::AXFR | RecordType::IXFR => {
                                 return Err(ResponseCode::FormErr)
                             }
@@ -612,10 +612,10 @@ impl Authority {
                         }
                     }
                     DNSClass::NONE => {
-                        if rr.get_ttl() != 0 {
+                        if rr.ttl() != 0 {
                             return Err(ResponseCode::FormErr);
                         }
-                        match rr.get_rr_type() {
+                        match rr.rr_type() {
                             RecordType::ANY | RecordType::AXFR | RecordType::IXFR => {
                                 return Err(ResponseCode::FormErr)
                             }
@@ -707,9 +707,9 @@ impl Authority {
         //                zone_rr<rr.name, rr.type, rr.data> = Nil
         //      return (NOERROR)
         for rr in records {
-            let rr_key = RrKey::new(rr.get_name(), rr.get_rr_type());
+            let rr_key = RrKey::new(rr.name(), rr.rr_type());
 
-            match rr.get_dns_class() {
+            match rr.dns_class() {
                 class @ _ if class == self.class => {
                     // RFC 2136 - 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to
                     //  the zone.  In case of duplicate RDATAs (which for SOA RRs is always
@@ -728,9 +728,9 @@ impl Authority {
                 }
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
-                    match rr.get_rr_type() {
+                    match rr.rr_type() {
                         t @ RecordType::SOA |
-                        t @ RecordType::NS if rr.get_name() == &self.origin => {
+                        t @ RecordType::NS if rr.name() == &self.origin => {
                             // SOA and NS records are not to be deleted if they are the origin records
                             info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", t);
                             continue;
@@ -743,7 +743,7 @@ impl Authority {
 
                             // ANY      ANY      empty    Delete all RRsets from a name
                             info!("deleting all records at name (not SOA or NS at origin): {:?}",
-                                  rr.get_name());
+                                  rr.name());
                             let to_delete = self.records
                                 .keys()
                                 .filter(|k| {
@@ -751,7 +751,7 @@ impl Authority {
                                        k.record_type == RecordType::NS) &&
                                       k.name != self.origin)
                                 })
-                                .filter(|k| &k.name == rr.get_name())
+                                .filter(|k| &k.name == rr.name())
                                 .cloned()
                                 .collect::<Vec<RrKey>>();
                             for delete in to_delete {
@@ -766,7 +766,7 @@ impl Authority {
                             //   SOA or NS RRs will be deleted.
 
                             // ANY      rrset    empty    Delete an RRset
-                            if let &RData::NULL(..) = rr.get_rdata() {
+                            if let &RData::NULL(..) = rr.rdata() {
                                 let deleted = self.records.remove(&rr_key);
                                 info!("deleted rrset: {:?}", deleted);
                                 updated = updated || deleted.is_some();
@@ -823,12 +823,12 @@ impl Authority {
     ///
     /// Ok() on success or Err() with the `ResponseCode` associated with the error.
     pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
-        assert_eq!(self.class, record.get_dns_class());
+        assert_eq!(self.class, record.dns_class());
 
-        let rr_key = RrKey::new(record.get_name(), record.get_rr_type());
+        let rr_key = RrKey::new(record.name(), record.rr_type());
         let records: &mut RecordSet = self.records
             .entry(rr_key)
-            .or_insert(RecordSet::new(record.get_name(), record.get_rr_type(), serial));
+            .or_insert(RecordSet::new(record.name(), record.rr_type(), serial));
 
         records.insert(record, serial)
     }
@@ -893,10 +893,10 @@ impl Authority {
     pub fn update(&mut self, update: &Message) -> UpdateResult<bool> {
         // the spec says to authorize after prereqs, seems better to auth first.
         try!(self.authorize(update));
-        try!(self.verify_prerequisites(update.get_pre_requisites()));
-        try!(self.pre_scan(update.get_updates()));
+        try!(self.verify_prerequisites(update.prerequisites()));
+        try!(self.pre_scan(update.updates()));
 
-        self.update_records(update.get_updates(), true)
+        self.update_records(update.updates(), true)
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -915,7 +915,7 @@ impl Authority {
                   is_secure: bool,
                   supported_algorithms: SupportedAlgorithms)
                   -> Vec<&Record> {
-        let record_type: RecordType = query.get_query_type();
+        let record_type: RecordType = query.query_type();
 
         // if this is an AXFR zone transfer, verify that this is either the slave or master
         //  for AXFR the first and last record must be the SOA
@@ -929,7 +929,7 @@ impl Authority {
 
         // it would be better to stream this back, rather than packaging everything up in an array
         //  though for UDP it would still need to be bundled
-        let mut query_result: Vec<_> = self.lookup(query.get_name(),
+        let mut query_result: Vec<_> = self.lookup(query.name(),
                                                    record_type,
                                                    is_secure,
                                                    supported_algorithms);
@@ -984,17 +984,17 @@ impl Authority {
                 self.records
                     .values()
                     .filter(|rr_set| {
-                        rtype == RecordType::ANY || rr_set.get_record_type() != RecordType::SOA
+                        rtype == RecordType::ANY || rr_set.record_type() != RecordType::SOA
                     })
-                    .filter(|rr_set| rtype == RecordType::AXFR || rr_set.get_name() == name)
+                    .filter(|rr_set| rtype == RecordType::AXFR || rr_set.name() == name)
                     .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
-                        vec.append(&mut rr_set.get_records(is_secure, supported_algorithms));
+                        vec.append(&mut rr_set.records(is_secure, supported_algorithms));
                         vec
                     })
             }
             _ => {
                 self.records.get(&rr_key).map_or(vec![], |rr_set| {
-                    rr_set.get_records(is_secure, supported_algorithms).into_iter().collect()
+                    rr_set.records(is_secure, supported_algorithms).into_iter().collect()
                 })
             }
         };
@@ -1016,11 +1016,11 @@ impl Authority {
                             -> Vec<&Record> {
         self.records
             .values()
-            .filter(|rr_set| rr_set.get_record_type() == RecordType::NSEC)
-            .skip_while(|rr_set| name < rr_set.get_name())
+            .filter(|rr_set| rr_set.record_type() == RecordType::NSEC)
+            .skip_while(|rr_set| name < rr_set.name())
             .next()
             .map_or(vec![], |rr_set| {
-                rr_set.get_records(is_secure, supported_algorithms).into_iter().collect()
+                rr_set.records(is_secure, supported_algorithms).into_iter().collect()
             })
     }
 
@@ -1072,7 +1072,7 @@ impl Authority {
                         // names aren't equal, create the NSEC record
                         let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
                         let rdata = NSEC::new(key.name.clone(), vec);
-                        record.rdata(RData::NSEC(rdata));
+                        record.set_rdata(RData::NSEC(rdata));
                         records.push(record);
 
                         // new record...
@@ -1086,7 +1086,7 @@ impl Authority {
                 // names aren't equal, create the NSEC record
                 let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
                 let rdata = NSEC::new(self.get_origin().clone(), vec);
-                record.rdata(RData::NSEC(rdata));
+                record.set_rdata(RData::NSEC(rdata));
                 records.push(record);
             }
         }
@@ -1110,34 +1110,34 @@ impl Authority {
 
         for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| {
             // do not sign zone DNSKEY's that's the job of the parent zone
-            if rr_set.get_record_type() == RecordType::DNSKEY {
+            if rr_set.record_type() == RecordType::DNSKEY {
                 return None;
             }
-            rr_set.get_rrsigs().is_empty();
+            rr_set.rrsigs().is_empty();
             Some(rr_set)
         }) {
 
-            debug!("signing rr_set: {}", rr_set.get_name());
+            debug!("signing rr_set: {}", rr_set.name());
             rr_set.clear_rrsigs();
-            let rrsig_temp = Record::with(rr_set.get_name().clone(), RecordType::RRSIG, zone_ttl);
+            let rrsig_temp = Record::with(rr_set.name().clone(), RecordType::RRSIG, zone_ttl);
 
             for signer in self.secure_keys.iter() {
-                let expiration = inception + signer.get_sig_duration();
+                let expiration = inception + signer.sig_duration();
 
                 let hash =
-                    signer.hash_rrset(rr_set.get_name(),
+                    signer.hash_rrset(rr_set.name(),
                                       self.class,
-                                      rr_set.get_name().num_labels(),
-                                      rr_set.get_record_type(),
-                                      signer.get_algorithm(),
-                                      rr_set.get_ttl(),
+                                      rr_set.name().num_labels(),
+                                      rr_set.record_type(),
+                                      signer.algorithm(),
+                                      rr_set.ttl(),
                                       expiration.timestamp() as u32,
                                       inception.timestamp() as u32,
                                       try!(signer.calculate_key_tag()),
-                                      signer.get_signer_name(),
+                                      signer.signer_name(),
                                       // TODO: this is a nasty clone... the issue is that the vec
                                       //  from get_records is of Vec<&R>, but we really want &[R]
-                                      &rr_set.get_records(false, SupportedAlgorithms::new())
+                                      &rr_set.records(false, SupportedAlgorithms::new())
                                           .into_iter()
                                           .cloned()
                                           .collect::<Vec<Record>>());
@@ -1158,14 +1158,14 @@ impl Authority {
                 let signature = signature.unwrap();
 
                 let mut rrsig = rrsig_temp.clone();
-                rrsig.rdata(RData::SIG(SIG::new(// type_covered: RecordType,
-                                                rr_set.get_record_type(),
+                rrsig.set_rdata(RData::SIG(SIG::new(// type_covered: RecordType,
+                                                rr_set.record_type(),
                                                 // algorithm: Algorithm,
-                                                signer.get_algorithm(),
+                                                signer.algorithm(),
                                                 // num_labels: u8,
-                                                rr_set.get_name().num_labels(),
+                                                rr_set.name().num_labels(),
                                                 // original_ttl: u32,
-                                                rr_set.get_ttl(),
+                                                rr_set.ttl(),
                                                 // sig_expiration: u32,
                                                 expiration.timestamp() as u32,
                                                 // sig_inception: u32,
@@ -1173,12 +1173,12 @@ impl Authority {
                                                 // key_tag: u16,
                                                 try!(signer.calculate_key_tag()),
                                                 // signer_name: Name,
-                                                signer.get_signer_name().clone(),
+                                                signer.signer_name().clone(),
                                                 // sig: Vec<u8>
                                                 signature)));
 
                 rr_set.insert_rrsig(rrsig);
-                debug!("signed rr_set: {}", rr_set.get_name());
+                debug!("signed rr_set: {}", rr_set.name());
             }
         }
 

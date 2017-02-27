@@ -18,36 +18,36 @@ pub fn create_example() -> Authority {
                                                 false);
     // example.com.		3600	IN	SOA	sns.dns.icann.org. noc.dns.icann.org. 2015082403 7200 3600 1209600 3600
     records.upsert(Record::new()
-                       .name(origin.clone())
-                       .ttl(3600)
-                       .rr_type(RecordType::SOA)
-                       .dns_class(DNSClass::IN)
-                       .rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None)
+                       .set_name(origin.clone())
+                       .set_ttl(3600)
+                       .set_rr_type(RecordType::SOA)
+                       .set_dns_class(DNSClass::IN)
+                       .set_rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None)
                                                       .unwrap(),
-                                                  Name::parse("noc.dns.icann.org.", None)
+                                                      Name::parse("noc.dns.icann.org.", None)
                                                       .unwrap(),
-                                                  2015082403,
-                                                  7200,
-                                                  3600,
-                                                  1209600,
-                                                  3600)))
+                                                      2015082403,
+                                                      7200,
+                                                      3600,
+                                                      1209600,
+                                                      3600)))
                        .clone(),
                    0);
 
     records.upsert(Record::new()
-                       .name(origin.clone())
-                       .ttl(86400)
-                       .rr_type(RecordType::NS)
-                       .dns_class(DNSClass::IN)
-                       .rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                       .set_name(origin.clone())
+                       .set_ttl(86400)
+                       .set_rr_type(RecordType::NS)
+                       .set_dns_class(DNSClass::IN)
+                       .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
                        .clone(),
                    0);
     records.upsert(Record::new()
-                       .name(origin.clone())
-                       .ttl(86400)
-                       .rr_type(RecordType::NS)
-                       .dns_class(DNSClass::IN)
-                       .rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                       .set_name(origin.clone())
+                       .set_ttl(86400)
+                       .set_rr_type(RecordType::NS)
+                       .set_dns_class(DNSClass::IN)
+                       .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
                        .clone(),
                    0);
 
@@ -55,11 +55,11 @@ pub fn create_example() -> Authority {
     //records.upsert(origin.clone(), Record::new().name(origin.clone()).ttl(60).rr_type(RecordType::TXT).dns_class(DNSClass::IN).rdata(RData::TXT{ txt_data: vec!["v=spf1 -all".to_string()] }).clone());
     // example.com.		60	IN	TXT	"$Id: example.com 4415 2015-08-24 20:12:23Z davids $"
     records.upsert(Record::new()
-                       .name(origin.clone())
-                       .ttl(60)
-                       .rr_type(RecordType::TXT)
-                       .dns_class(DNSClass::IN)
-                       .rdata(RData::TXT(TXT::new(vec!["$Id: example.com 4415 2015-08-24 \
+                       .set_name(origin.clone())
+                       .set_ttl(60)
+                       .set_rr_type(RecordType::TXT)
+                       .set_dns_class(DNSClass::IN)
+                       .set_rdata(RData::TXT(TXT::new(vec!["$Id: example.com 4415 2015-08-24 \
                                                         20:12:23Z davids $"
                                                            .to_string()])))
                        .clone(),
@@ -67,28 +67,28 @@ pub fn create_example() -> Authority {
 
     // example.com.		86400	IN	A	93.184.216.34
     records.upsert(Record::new()
-                       .name(origin.clone())
-                       .ttl(86400)
-                       .rr_type(RecordType::A)
-                       .dns_class(DNSClass::IN)
-                       .rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
+                       .set_name(origin.clone())
+                       .set_ttl(86400)
+                       .set_rr_type(RecordType::A)
+                       .set_dns_class(DNSClass::IN)
+                       .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
                        .clone(),
                    0);
 
     // example.com.		86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
     records.upsert(Record::new()
-                       .name(origin.clone())
-                       .ttl(86400)
-                       .rr_type(RecordType::AAAA)
-                       .dns_class(DNSClass::IN)
-                       .rdata(RData::AAAA(Ipv6Addr::new(0x2606,
-                                                        0x2800,
-                                                        0x220,
-                                                        0x1,
-                                                        0x248,
-                                                        0x1893,
-                                                        0x25c8,
-                                                        0x1946)))
+                       .set_name(origin.clone())
+                       .set_ttl(86400)
+                       .set_rr_type(RecordType::AAAA)
+                       .set_dns_class(DNSClass::IN)
+                       .set_rdata(RData::AAAA(Ipv6Addr::new(0x2606,
+                                                            0x2800,
+                                                            0x220,
+                                                            0x1,
+                                                            0x248,
+                                                            0x1893,
+                                                            0x25c8,
+                                                            0x1946)))
                        .clone(),
                    0);
 
@@ -111,38 +111,38 @@ pub fn create_example() -> Authority {
 
     // www.example.com.	86400	IN	TXT	"v=spf1 -all"
     records.upsert(Record::new()
-                       .name(www_name.clone())
-                       .ttl(86400)
-                       .rr_type(RecordType::TXT)
-                       .dns_class(DNSClass::IN)
-                       .rdata(RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()])))
+                       .set_name(www_name.clone())
+                       .set_ttl(86400)
+                       .set_rr_type(RecordType::TXT)
+                       .set_dns_class(DNSClass::IN)
+                       .set_rdata(RData::TXT(TXT::new(vec!["v=spf1 -all".to_string()])))
                        .clone(),
                    0);
 
     // www.example.com.	86400	IN	A	93.184.216.34
     records.upsert(Record::new()
-                       .name(www_name.clone())
-                       .ttl(86400)
-                       .rr_type(RecordType::A)
-                       .dns_class(DNSClass::IN)
-                       .rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
+                       .set_name(www_name.clone())
+                       .set_ttl(86400)
+                       .set_rr_type(RecordType::A)
+                       .set_dns_class(DNSClass::IN)
+                       .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 34)))
                        .clone(),
                    0);
 
     // www.example.com.	86400	IN	AAAA	2606:2800:220:1:248:1893:25c8:1946
     records.upsert(Record::new()
-                       .name(www_name.clone())
-                       .ttl(86400)
-                       .rr_type(RecordType::AAAA)
-                       .dns_class(DNSClass::IN)
-                       .rdata(RData::AAAA(Ipv6Addr::new(0x2606,
-                                                        0x2800,
-                                                        0x220,
-                                                        0x1,
-                                                        0x248,
-                                                        0x1893,
-                                                        0x25c8,
-                                                        0x1946)))
+                       .set_name(www_name.clone())
+                       .set_ttl(86400)
+                       .set_rr_type(RecordType::AAAA)
+                       .set_dns_class(DNSClass::IN)
+                       .set_rdata(RData::AAAA(Ipv6Addr::new(0x2606,
+                                                            0x2800,
+                                                            0x220,
+                                                            0x1,
+                                                            0x248,
+                                                            0x1893,
+                                                            0x25c8,
+                                                            0x1946)))
                        .clone(),
                    0);
 

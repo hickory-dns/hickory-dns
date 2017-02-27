@@ -32,9 +32,9 @@ fn create_test_journal() -> (Record, Journal) {
     let www = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
 
     let mut record = Record::new();
-    record.name(www);
-    record.rr_type(RecordType::A);
-    record.rdata(RData::A(Ipv4Addr::from_str("127.0.0.1").unwrap()));
+    record.set_name(www);
+    record.set_rr_type(RecordType::A);
+    record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.0.1").unwrap()));
 
     // test that this message can be inserted
     let conn = Connection::open_in_memory().expect("could not create in memory DB");
@@ -45,7 +45,7 @@ fn create_test_journal() -> (Record, Journal) {
     journal.insert_record(0, &record).unwrap();
 
     // insert another...
-    record.rdata(RData::A(Ipv4Addr::from_str("127.0.1.1").unwrap()));
+    record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.1.1").unwrap()));
     journal.insert_record(0, &record).unwrap();
 
     (record, journal)
@@ -58,13 +58,13 @@ fn test_insert_and_select_record() {
     // select the record
     let (row_id, journal_record) =
         journal.select_record(0).expect("persistence error").expect("none");
-    record.rdata(RData::A(Ipv4Addr::from_str("127.0.0.1").unwrap()));
+    record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.0.1").unwrap()));
     assert_eq!(journal_record, record);
 
     // test another
     let (row_id, journal_record) =
         journal.select_record(row_id + 1).expect("persistence error").expect("none");
-    record.rdata(RData::A(Ipv4Addr::from_str("127.0.1.1").unwrap()));
+    record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.1.1").unwrap()));
     assert_eq!(journal_record, record);
 
     // check that we get nothing for id over row_id
@@ -78,9 +78,9 @@ fn test_iterator() {
 
     let mut iter = journal.iter();
 
-    assert_eq!(record.rdata(RData::A(Ipv4Addr::from_str("127.0.0.1").unwrap())),
+    assert_eq!(record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.0.1").unwrap())),
                &iter.next().unwrap());
-    assert_eq!(record.rdata(RData::A(Ipv4Addr::from_str("127.0.1.1").unwrap())),
+    assert_eq!(record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.1.1").unwrap())),
                &iter.next().unwrap());
     assert_eq!(None, iter.next());
 }

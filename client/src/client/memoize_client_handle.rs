@@ -45,7 +45,7 @@ impl<H> ClientHandle for MemoizeClientHandle<H>
     where H: ClientHandle
 {
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-        let query = message.get_queries().first().expect("no query!").clone();
+        let query = message.queries().first().expect("no query!").clone();
 
         if let Some(rc_future) = self.active_queries.borrow().get(&query) {
             // FIXME check TTLs?
@@ -88,7 +88,7 @@ mod test {
             let mut message = Message::new();
             let i = self.i.get();
 
-            message.id(i);
+            message.set_id(i);
             self.i.set(i + 1);
 
             Box::new(finished(message))
@@ -100,23 +100,23 @@ mod test {
         let mut client = MemoizeClientHandle::new(TestClient { i: Cell::new(0) });
 
         let mut test1 = Message::new();
-        test1.add_query(Query::new().query_type(RecordType::A).clone());
+        test1.add_query(Query::new().set_query_type(RecordType::A).clone());
 
         let mut test2 = Message::new();
-        test2.add_query(Query::new().query_type(RecordType::AAAA).clone());
+        test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
         let result = client.send(test1.clone()).wait().ok().unwrap();
-        assert_eq!(result.get_id(), 0);
+        assert_eq!(result.id(), 0);
 
         let result = client.send(test2.clone()).wait().ok().unwrap();
-        assert_eq!(result.get_id(), 1);
+        assert_eq!(result.id(), 1);
 
         // should get the same result for each...
         let result = client.send(test1).wait().ok().unwrap();
-        assert_eq!(result.get_id(), 0);
+        assert_eq!(result.id(), 0);
 
         let result = client.send(test2).wait().ok().unwrap();
-        assert_eq!(result.get_id(), 1);
+        assert_eq!(result.id(), 1);
     }
 
 }

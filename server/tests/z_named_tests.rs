@@ -151,9 +151,9 @@ fn query(io_loop: &mut Core, client: &mut BasicClientHandle) -> bool {
     let response = response.unwrap();
 
 
-    let record = &response.get_answers()[0];
+    let record = &response.answers()[0];
 
-    if let &RData::A(ref address) = record.get_rdata() {
+    if let &RData::A(ref address) = record.rdata() {
         address == &Ipv4Addr::new(127, 0, 0, 1)
     } else {
         false

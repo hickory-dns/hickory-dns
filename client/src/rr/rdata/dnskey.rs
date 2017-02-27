@@ -107,7 +107,7 @@ impl DNSKEY {
     ///    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
     ///    creation of the DNSKEY RR and MUST be ignored upon receipt.
     /// ```
-    pub fn is_zone_key(&self) -> bool {
+    pub fn zone_key(&self) -> bool {
         self.zone_key
     }
 
@@ -128,7 +128,7 @@ impl DNSKEY {
     ///    Zone Key flag not set MUST NOT be used to verify RRSIGs that cover
     ///    RRsets.
     /// ```
-    pub fn is_secure_entry_point(&self) -> bool {
+    pub fn secure_entry_point(&self) -> bool {
         self.secure_entry_point
     }
 
@@ -142,7 +142,7 @@ impl DNSKEY {
     ///   The IANA has assigned a bit in the DNSKEY flags field (see Section 7
     ///   of [RFC4034]) for the REVOKE bit (8).
     /// ```
-    pub fn is_revoke(&self) -> bool {
+    pub fn revoke(&self) -> bool {
         self.revoke
     }
 
@@ -155,7 +155,7 @@ impl DNSKEY {
     ///    algorithm and determines the format of the Public Key field.  A list
     ///    of DNSSEC algorithm types can be found in Appendix A.1
     /// ```
-    pub fn get_algorithm(&self) -> &Algorithm {
+    pub fn algorithm(&self) -> &Algorithm {
         &self.algorithm
     }
 
@@ -168,7 +168,7 @@ impl DNSKEY {
     ///    depends on the algorithm of the key being stored and is described in
     ///    separate documents.
     /// ```
-    pub fn get_public_key(&self) -> &[u8] {
+    pub fn public_key(&self) -> &[u8] {
         &self.public_key
     }
 
@@ -250,19 +250,19 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY>
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> EncodeResult {
     let mut flags: u16 = 0;
-    if rdata.is_zone_key() {
+    if rdata.zone_key() {
         flags |= 0b0000_0001_0000_0000
     }
-    if rdata.is_secure_entry_point() {
+    if rdata.secure_entry_point() {
         flags |= 0b0000_0000_0000_0001
     }
-    if rdata.is_revoke() {
+    if rdata.revoke() {
         flags |= 0b0000_0000_1000_0000
     }
     try!(encoder.emit_u16(flags));
     try!(encoder.emit(3)); // always 3 for now
-    try!(rdata.get_algorithm().emit(encoder));
-    try!(encoder.emit_vec(rdata.get_public_key()));
+    try!(rdata.algorithm().emit(encoder));
+    try!(encoder.emit_vec(rdata.public_key()));
 
     Ok(())
 }

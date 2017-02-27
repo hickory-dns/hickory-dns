@@ -48,22 +48,22 @@ impl Edns {
         }
     }
 
-    pub fn get_rcode_high(&self) -> u8 {
+    pub fn rcode_high(&self) -> u8 {
         self.rcode_high
     }
-    pub fn get_version(&self) -> u8 {
+    pub fn version(&self) -> u8 {
         self.version
     }
-    pub fn is_dnssec_ok(&self) -> bool {
+    pub fn dnssec_ok(&self) -> bool {
         self.dnssec_ok
     }
-    pub fn get_max_payload(&self) -> u16 {
+    pub fn max_payload(&self) -> u16 {
         self.max_payload
     }
-    pub fn get_option(&self, code: &EdnsCode) -> Option<&EdnsOption> {
+    pub fn option(&self, code: &EdnsCode) -> Option<&EdnsOption> {
         self.options.get(code)
     }
-    pub fn get_options(&self) -> &OPT {
+    pub fn options(&self) -> &OPT {
         &self.options
     }
 
@@ -86,18 +86,18 @@ impl Edns {
 
 impl<'a> From<&'a Record> for Edns {
     fn from(value: &'a Record) -> Self {
-        assert!(value.get_rr_type() == RecordType::OPT);
+        assert!(value.rr_type() == RecordType::OPT);
 
-        let rcode_high: u8 = ((value.get_ttl() & 0xFF000000u32) >> 24) as u8;
-        let version: u8 = ((value.get_ttl() & 0x00FF0000u32) >> 16) as u8;
-        let dnssec_ok: bool = value.get_ttl() & 0x00008000 == 0x00008000;
-        let max_payload: u16 = if u16::from(value.get_dns_class()) < 512 {
+        let rcode_high: u8 = ((value.ttl() & 0xFF000000u32) >> 24) as u8;
+        let version: u8 = ((value.ttl() & 0x00FF0000u32) >> 16) as u8;
+        let dnssec_ok: bool = value.ttl() & 0x00008000 == 0x00008000;
+        let max_payload: u16 = if u16::from(value.dns_class()) < 512 {
             512
         } else {
-            value.get_dns_class().into()
+            value.dns_class().into()
         };
 
-        let options: OPT = match value.get_rdata() {
+        let options: OPT = match value.rdata() {
             &RData::NULL(..) => {
                 // NULL, there was no data in the OPT
                 OPT::default()
@@ -107,7 +107,7 @@ impl<'a> From<&'a Record> for Edns {
             }
             _ => {
                 // this should be a coding error, as opposed to a parsing error.
-                panic!("rr_type doesn't match the RData: {:?}", value.get_rdata()); // valid panic, never should happen
+                panic!("rr_type doesn't match the RData: {:?}", value.rdata()); // valid panic, never should happen
             }
         };
 
@@ -127,24 +127,24 @@ impl<'a> From<&'a Edns> for Record {
     fn from(value: &'a Edns) -> Record {
         let mut record: Record = Record::new();
 
-        record.name(Name::root());
-        record.rr_type(RecordType::OPT);
-        record.dns_class(DNSClass::OPT(value.get_max_payload()));
+        record.set_name(Name::root());
+        record.set_rr_type(RecordType::OPT);
+        record.set_dns_class(DNSClass::OPT(value.max_payload()));
 
         // rebuild the TTL field
-        let mut ttl: u32 = (value.get_rcode_high() as u32) << 24;
-        ttl |= (value.get_version() as u32) << 16;
+        let mut ttl: u32 = (value.rcode_high() as u32) << 24;
+        ttl |= (value.version() as u32) << 16;
 
-        if value.is_dnssec_ok() {
+        if value.dnssec_ok() {
             ttl |= 0x00008000;
         }
-        record.ttl(ttl);
+        record.set_ttl(ttl);
 
         // now for each option, write out the option array
         //  also, since this is a hash, there is no guarantee that ordering will be preserved from
         //  the original binary format.
         // maybe switch to: https://crates.io/crates/linked-hash-map/
-        record.rdata(RData::OPT(value.get_options().clone()));
+        record.set_rdata(RData::OPT(value.options().clone()));
 
         record
     }
@@ -165,9 +165,9 @@ fn test_encode_decode() {
     let record: Record = (&edns).into();
     let edns_decode: Edns = (&record).into();
 
-    assert_eq!(edns.is_dnssec_ok(), edns_decode.is_dnssec_ok());
-    assert_eq!(edns.get_max_payload(), edns_decode.get_max_payload());
-    assert_eq!(edns.get_version(), edns_decode.get_version());
-    assert_eq!(edns.get_rcode_high(), edns_decode.get_rcode_high());
-    assert_eq!(edns.get_options(), edns_decode.get_options());
+    assert_eq!(edns.dnssec_ok(), edns_decode.dnssec_ok());
+    assert_eq!(edns.max_payload(), edns_decode.max_payload());
+    assert_eq!(edns.version(), edns_decode.version());
+    assert_eq!(edns.rcode_high(), edns_decode.rcode_high());
+    assert_eq!(edns.options(), edns_decode.options());
 }

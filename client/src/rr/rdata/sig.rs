@@ -242,7 +242,7 @@ impl SIG {
     ///
     ///  The "type covered" is the type of the other RRs covered by this SIG.
     /// ```
-    pub fn get_type_covered(&self) -> RecordType {
+    pub fn type_covered(&self) -> RecordType {
         self.type_covered
     }
 
@@ -253,7 +253,7 @@ impl SIG {
     ///
     ///  This octet is as described in section 3.2.
     /// ```
-    pub fn get_algorithm(&self) -> Algorithm {
+    pub fn algorithm(&self) -> Algorithm {
         self.algorithm
     }
 
@@ -289,7 +289,7 @@ impl SIG {
     ///    b.c.d.|  *. | *.d. | *.c.d. |   b.c.d. |    bad   |
     ///  a.b.c.d.|  *. | *.d. | *.c.d. | *.b.c.d. | a.b.c.d. |
     /// ```
-    pub fn get_num_labels(&self) -> u8 {
+    pub fn num_labels(&self) -> u8 {
         self.num_labels
     }
 
@@ -310,7 +310,7 @@ impl SIG {
     ///  that all RRs for a particular type, name, and class, that is, all the
     ///  RRs in any particular RRset, must have the same TTL to start with.
     /// ```
-    pub fn get_original_ttl(&self) -> u32 {
+    pub fn original_ttl(&self) -> u32 {
         self.original_ttl
     }
 
@@ -343,12 +343,12 @@ impl SIG {
     ///  purposes not only when its data is updated but also when new SIG RRs
     ///  are inserted (ie, the zone or any part of it is re-signed).
     /// ```
-    pub fn get_sig_expiration(&self) -> u32 {
+    pub fn sig_expiration(&self) -> u32 {
         self.sig_expiration
     }
 
     /// see `get_sig_expiration`
-    pub fn get_sig_inception(&self) -> u32 {
+    pub fn sig_inception(&self) -> u32 {
         self.sig_inception
     }
 
@@ -368,7 +368,7 @@ impl SIG {
     ///  all other algorithms, including private algorithms, it is calculated
     ///  as a simple checksum of the KEY RR as described in Appendix C.
     /// ```
-    pub fn get_key_tag(&self) -> u16 {
+    pub fn key_tag(&self) -> u16 {
         self.key_tag
     }
 
@@ -386,7 +386,7 @@ impl SIG {
     ///  standard DNS name compression when being transmitted over the
     ///  network.
     /// ```
-    pub fn get_signer_name(&self) -> &Name {
+    pub fn signer_name(&self) -> &Name {
         &self.signer_name
     }
 
@@ -419,7 +419,7 @@ impl SIG {
     ///  SIGs SHOULD NOT be included in a zone for any "meta-type" such as
     ///  ANY, AXFR, etc. (but see section 5.6.2 with regard to IXFR).
     /// ```
-    pub fn get_sig(&self) -> &[u8] {
+    pub fn sig(&self) -> &[u8] {
         &self.sig
     }
 }
@@ -473,15 +473,15 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<SIG> {
 pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> EncodeResult {
     let is_canonical_names = encoder.is_canonical_names();
 
-    try!(sig.get_type_covered().emit(encoder));
-    try!(sig.get_algorithm().emit(encoder));
-    try!(encoder.emit(sig.get_num_labels()));
-    try!(encoder.emit_u32(sig.get_original_ttl()));
-    try!(encoder.emit_u32(sig.get_sig_expiration()));
-    try!(encoder.emit_u32(sig.get_sig_inception()));
-    try!(encoder.emit_u16(sig.get_key_tag()));
-    try!(sig.get_signer_name().emit_with_lowercase(encoder, is_canonical_names));
-    try!(encoder.emit_vec(sig.get_sig()));
+    try!(sig.type_covered().emit(encoder));
+    try!(sig.algorithm().emit(encoder));
+    try!(encoder.emit(sig.num_labels()));
+    try!(encoder.emit_u32(sig.original_ttl()));
+    try!(encoder.emit_u32(sig.sig_expiration()));
+    try!(encoder.emit_u32(sig.sig_inception()));
+    try!(encoder.emit_u16(sig.key_tag()));
+    try!(sig.signer_name().emit_with_lowercase(encoder, is_canonical_names));
+    try!(encoder.emit_vec(sig.sig()));
     Ok(())
 }
 
