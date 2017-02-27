@@ -147,7 +147,7 @@ impl NSEC3 {
     ///    The values for this field are defined in the NSEC3 hash algorithm
     ///    registry defined in Section 11.
     /// ```
-    pub fn get_hash_algorithm(&self) -> Nsec3HashAlgorithm {
+    pub fn hash_algorithm(&self) -> Nsec3HashAlgorithm {
         self.hash_algorithm
     }
 
@@ -172,7 +172,7 @@ impl NSEC3 {
     ///    delegations.  It is the least significant bit in the Flags field.
     ///    See Section 6 for details about the use of this flag.
     /// ```
-    pub fn is_opt_out(&self) -> bool {
+    pub fn opt_out(&self) -> bool {
         self.opt_out
     }
 
@@ -188,7 +188,7 @@ impl NSEC3 {
     ///    Section 5 for details of the use of this field, and Section 10.3 for
     ///    limitations on the value.
     /// ```
-    pub fn get_iterations(&self) -> u16 {
+    pub fn iterations(&self) -> u16 {
         self.iterations
     }
 
@@ -201,7 +201,7 @@ impl NSEC3 {
     ///    in order to defend against pre-calculated dictionary attacks.  See
     ///    Section 5 for details on how the salt is used.
     /// ```
-    pub fn get_salt(&self) -> &[u8] {
+    pub fn salt(&self) -> &[u8] {
         &self.salt
     }
 
@@ -220,7 +220,7 @@ impl NSEC3 {
     ///  that, unlike the owner name of the NSEC3 RR, the value of this field
     ///  does not contain the appended zone name.
     /// ```
-    pub fn get_next_hashed_owner_name(&self) -> &[u8] {
+    pub fn next_hashed_owner_name(&self) -> &[u8] {
         &self.next_hashed_owner_name
     }
 
@@ -232,7 +232,7 @@ impl NSEC3 {
     ///  The Type Bit Maps field identifies the RRSet types that exist at the
     ///  original owner name of the NSEC3 RR.
     /// ```
-    pub fn get_type_bit_maps(&self) -> &[RecordType] {
+    pub fn type_bit_maps(&self) -> &[RecordType] {
         &self.type_bit_maps
     }
 }
@@ -374,18 +374,18 @@ enum BitMapState {
 }
 
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> EncodeResult {
-    try!(encoder.emit(rdata.get_hash_algorithm().into()));
+    try!(encoder.emit(rdata.hash_algorithm().into()));
     let mut flags: u8 = 0;
-    if rdata.is_opt_out() {
+    if rdata.opt_out() {
         flags |= 0b0000_0001
     };
     try!(encoder.emit(flags));
-    try!(encoder.emit_u16(rdata.get_iterations()));
-    try!(encoder.emit(rdata.get_salt().len() as u8));
-    try!(encoder.emit_vec(rdata.get_salt()));
-    try!(encoder.emit(rdata.get_next_hashed_owner_name().len() as u8));
-    try!(encoder.emit_vec(rdata.get_next_hashed_owner_name()));
-    try!(encode_bit_maps(encoder, rdata.get_type_bit_maps()));
+    try!(encoder.emit_u16(rdata.iterations()));
+    try!(encoder.emit(rdata.salt().len() as u8));
+    try!(encoder.emit_vec(rdata.salt()));
+    try!(encoder.emit(rdata.next_hashed_owner_name().len() as u8));
+    try!(encoder.emit_vec(rdata.next_hashed_owner_name()));
+    try!(encode_bit_maps(encoder, rdata.type_bit_maps()));
 
     Ok(())
 }
