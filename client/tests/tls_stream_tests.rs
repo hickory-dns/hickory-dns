@@ -11,6 +11,7 @@ extern crate openssl;
 #[cfg(target_os = "macos")]
 extern crate security_framework;
 extern crate tokio_core;
+#[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;
 extern crate trust_dns;
 
