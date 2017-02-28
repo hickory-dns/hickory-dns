@@ -256,7 +256,10 @@ fn test_ipv4_and_ipv6_toml_startup() {
 fn test_example_tls_toml_startup() {
     named_test_harness("dns_over_tls.toml", move |_, tls_port| {
         let mut cert_der = vec![];
-        File::open("tests/named_test_configs/sec/example.cert")
+        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+        println!("using server src path: {}", server_path);
+
+        File::open(&format!("{}/tests/named_test_configs/sec/example.cert", server_path))
             .unwrap()
             .read_to_end(&mut cert_der)
             .unwrap();

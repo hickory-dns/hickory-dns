@@ -288,14 +288,14 @@ fn read_cert(path: &Path, password: Option<&str>) -> Result<native_tls::Pkcs12, 
         .map_err(|e| format!("badly formated pkcs12 key from: {:?}: {}", path, e))
 }
 
-fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, String> {
-    let path = tls_cert_config.get_path();
+fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, String> {
+    let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
     let subject_name = tls_cert_config.get_subject_name();
 
     if path.exists() {
         info!("reading TLS certificate from: {:?}", path);
-        read_cert(path, password)
+        read_cert(&path, password)
     } else if tls_cert_config.create_if_absent() {
         info!("generating RSA certificate: {:?}", path);
         let key_pair = try!(KeyPair::generate(Algorithm::RSASHA256)
@@ -366,7 +366,7 @@ fn load_cert(tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, Stri
             panic!("the interior key was not an EC, something changed")
         }
 
-        read_cert(path, password)
+        read_cert(&path, password)
     } else {
         Err(format!("TLS certificate not found: {:?}", path))
     }
@@ -469,7 +469,7 @@ pub fn main() {
             info!("loading cert for DNS over TLS: {:?}",
                   tls_cert_config.get_path());
             // TODO: see about modifying native_tls to impl Clone for Pkcs12
-            let tls_cert = load_cert(tls_cert_config).expect("error loading tls certificate file");
+            let tls_cert = load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
 
             info!("listening for TLS on {:?}", tls_listener);
             server.register_tls_listener(tls_listener, tcp_request_timeout, tls_cert)

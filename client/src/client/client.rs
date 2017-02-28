@@ -22,7 +22,7 @@ use client::{ClientHandle, BasicClientHandle, ClientConnection, ClientFuture, Se
 use ::error::*;
 use rr::{domain, DNSClass, IntoRecordSet, RecordType, Record};
 use rr::dnssec::Signer;
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::TrustAnchor;
 use op::Message;
 
@@ -390,13 +390,13 @@ impl Client<BasicClientHandle> for SyncClient {
     }
 }
 
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 pub struct SecureSyncClient {
     client_handle: RefCell<SecureClientHandle<BasicClientHandle>>,
     io_loop: RefCell<Core>,
 }
 
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 impl SecureSyncClient {
     /// Creates a new DNS client with the specified connection type
     ///
@@ -433,8 +433,7 @@ impl SecureSyncClient {
     /// * `query_name` - the label to lookup
     /// * `query_class` - most likely this should always be DNSClass::IN
     /// * `query_type` - record type to lookup
-    #[cfg(feature = "openssl")]
-    #[deprecated = "just use query from `Client`"]
+    #[deprecated = "just use query(...) from `Client`"]
     pub fn secure_query(&self,
                         query_name: &domain::Name,
                         query_class: DNSClass,
@@ -445,7 +444,7 @@ impl SecureSyncClient {
     }
 }
 
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 impl Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient {
     fn get_io_loop(&self) -> RefMut<Core> {
         self.io_loop.borrow_mut()
@@ -456,6 +455,7 @@ impl Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient {
     }
 }
 
+#[cfg(any(feature = "openssl", feature = "ring"))]
 pub struct SecureSyncClientBuilder<CC>
 where CC: ClientConnection,
       <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
@@ -464,6 +464,7 @@ where CC: ClientConnection,
   signer: Option<Signer>,
 }
 
+#[cfg(any(feature = "openssl", feature = "ring"))]
 impl<CC> SecureSyncClientBuilder<CC>
 where CC: ClientConnection,
       <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {

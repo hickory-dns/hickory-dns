@@ -25,7 +25,9 @@ mod retry_client_handle;
 mod secure_client_handle;
 
 #[allow(deprecated)]
-pub use self::client::{Client, SecureSyncClient, SyncClient};
+pub use self::client::{Client, SyncClient};
+#[cfg(any(feature = "openssl", feature = "ring"))]
+pub use self::client::SecureSyncClient;
 pub use self::client_connection::ClientConnection;
 pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle,
                               ClientStreamHandle};
