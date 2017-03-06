@@ -307,7 +307,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     server_handle.join().expect("server thread failed");
 }
 
-#[cfg(feature = "mtls")]
+#[cfg(feature = "tls")]
 fn config_mtls(root_pkey: &PKey,
                root_name: &X509Name,
                root_cert: &X509,
@@ -319,8 +319,6 @@ fn config_mtls(root_pkey: &PKey,
     let client_identity =
         native_tls::Pkcs12::from_der(&client_identity.to_der().unwrap(), "mypass").unwrap();
 
+    #[cfg(feature = "mtls")]
     builder.identity(client_identity);
 }
-
-#[cfg(not(feature = "mtls"))]
-fn config_mtls(_: &PKey, _: &X509Name, _: &X509, _: &mut TlsStreamBuilder) {}
