@@ -132,8 +132,7 @@ impl<H> ClientHandle for SecureClientHandle<H>
 
             message.set_authentic_data(true);
             message.set_checking_disabled(false);
-            let dns_class =
-                message.queries().first().map_or(DNSClass::IN, |q| q.query_class());
+            let dns_class = message.queries().first().map_or(DNSClass::IN, |q| q.query_class());
 
             return Box::new(self.client
                 .send(message)
@@ -769,13 +768,18 @@ fn verify_nsec(query: &Query, nsecs: Vec<&Record>) -> bool {
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
-    if nsecs.iter().any(|r| query.name() == r.name() && {
-    if let &RData::NSEC(ref rdata) = r.rdata() {
-      !rdata.type_bit_maps().contains(&query.query_type())
-    } else {
-      panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
+    if nsecs.iter().any(|r| {
+        query.name() == r.name() &&
+        {
+            if let &RData::NSEC(ref rdata) = r.rdata() {
+                !rdata.type_bit_maps().contains(&query.query_type())
+            } else {
+                panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
+            }
+        }
+    }) {
+        return true;
     }
-  }) { return true }
 
     // based on the WTF? above, we will ignore any NSEC records of the same name
     if nsecs.iter()

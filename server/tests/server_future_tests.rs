@@ -14,6 +14,7 @@ use std::time::Duration;
 
 use futures::Stream;
 use openssl::asn1::*;
+use openssl::bn::*;
 use openssl::hash::MessageDigest;
 use openssl::nid;
 use openssl::pkcs12::Pkcs12;
@@ -97,12 +98,17 @@ fn test_server_www_tls() {
     x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
     let x509_name = x509_name.build();
 
+    let mut serial: BigNum = BigNum::new().unwrap();
+    serial.pseudo_rand(32, MSB_MAYBE_ZERO, false).unwrap();
+    let serial = serial.to_asn1_integer().unwrap();
+
     let mut x509_build = X509::builder().unwrap();
     x509_build.set_not_before(&Asn1Time::days_from_now(0).unwrap()).unwrap();
     x509_build.set_not_after(&Asn1Time::days_from_now(256).unwrap()).unwrap();
     x509_build.set_issuer_name(&x509_name).unwrap();
     x509_build.set_subject_name(&x509_name).unwrap();
     x509_build.set_pubkey(&pkey).unwrap();
+    x509_build.set_serial_number(&serial).unwrap();
 
     let ext_key_usage = ExtendedKeyUsage::new()
         .client_auth()

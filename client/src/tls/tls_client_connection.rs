@@ -18,6 +18,7 @@ use std::net::SocketAddr;
 use std::io;
 
 use futures::Future;
+#[cfg(feature = "mtls")]
 use native_tls::Pkcs12;
 #[cfg(target_os = "linux")]
 use openssl::x509::X509 as OpensslX509;
@@ -64,6 +65,7 @@ impl TlsClientConnectionBuilder {
     }
 
     /// Client side identity for client auth in TLS (aka mutual TLS auth)
+    #[cfg(feature = "mtls")]
     pub fn identity(&mut self, pkcs12: Pkcs12) {
         self.0.identity(pkcs12);
     }

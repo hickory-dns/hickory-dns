@@ -52,6 +52,7 @@ use chrono::Duration;
 use docopt::Docopt;
 use log::LogLevel;
 use openssl::asn1::*;
+use openssl::bn::*;
 use openssl::{hash, nid, pkcs12};
 use openssl::x509::*;
 use openssl::x509::extension::*;
@@ -288,7 +289,9 @@ fn read_cert(path: &Path, password: Option<&str>) -> Result<native_tls::Pkcs12, 
         .map_err(|e| format!("badly formated pkcs12 key from: {:?}: {}", path, e))
 }
 
-fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, String> {
+fn load_cert(zone_dir: &Path,
+             tls_cert_config: &TlsCertConfig)
+             -> Result<native_tls::Pkcs12, String> {
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
     let subject_name = tls_cert_config.get_subject_name();
@@ -305,12 +308,17 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<native_
             x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
             let x509_name = x509_name.build();
 
+            let mut serial: BigNum = BigNum::new().unwrap();
+            serial.pseudo_rand(32, MSB_MAYBE_ZERO, false).unwrap();
+            let serial = serial.to_asn1_integer().unwrap();
+
             let mut x509_build = X509::builder().unwrap();
             x509_build.set_not_before(&Asn1Time::days_from_now(0).unwrap()).unwrap();
             x509_build.set_not_after(&Asn1Time::days_from_now(256).unwrap()).unwrap();
             x509_build.set_issuer_name(&x509_name).unwrap();
             x509_build.set_subject_name(&x509_name).unwrap();
             x509_build.set_pubkey(&pkey).unwrap();
+            x509_build.set_serial_number(&serial).unwrap();
 
             let ext_key_usage = ExtendedKeyUsage::new()
                 .server_auth()
@@ -329,6 +337,12 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<native_
                 .build(&x509_build.x509v3_context(None, None))
                 .unwrap();
             x509_build.append_extension(authority_key_identifier).unwrap();
+
+            let subject_alternative_name = SubjectAlternativeName::new()
+                .dns(subject_name)
+                .build(&x509_build.x509v3_context(None, None))
+                .unwrap();
+            x509_build.append_extension(subject_alternative_name).unwrap();
 
             let basic_constraints = BasicConstraints::new().critical().ca().build().unwrap();
             x509_build.append_extension(basic_constraints).unwrap();
@@ -469,7 +483,8 @@ pub fn main() {
             info!("loading cert for DNS over TLS: {:?}",
                   tls_cert_config.get_path());
             // TODO: see about modifying native_tls to impl Clone for Pkcs12
-            let tls_cert = load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
+            let tls_cert = load_cert(zone_dir, tls_cert_config)
+                .expect("error loading tls certificate file");
 
             info!("listening for TLS on {:?}", tls_listener);
             server.register_tls_listener(tls_listener, tcp_request_timeout, tls_cert)

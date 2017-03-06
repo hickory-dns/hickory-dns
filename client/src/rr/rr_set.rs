@@ -250,7 +250,7 @@ impl RecordSet {
     ///
     /// True if the record was inserted.
     ///
-    /// FIXME: make a default add without serial number for basic usage
+    /// TODO: make a default add without serial number for basic usage
     pub fn insert(&mut self, record: Record, serial: u32) -> bool {
         assert_eq!(record.name(), &self.name);
         assert_eq!(record.rr_type(), self.record_type);

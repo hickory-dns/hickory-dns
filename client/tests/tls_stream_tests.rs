@@ -28,6 +28,7 @@ use futures::Stream;
 use native_tls::backend::openssl::*;
 use native_tls::TlsAcceptor;
 use openssl::asn1::*;
+use openssl::bn::*;
 use openssl::hash::MessageDigest;
 use openssl::nid;
 use openssl::pkcs12::*;
@@ -45,6 +46,8 @@ use tokio_core::reactor::Core;
 
 #[cfg(feature = "tls")]
 use trust_dns::tls::TlsStream;
+#[cfg(feature = "tls")]
+use trust_dns::tls::TlsStreamBuilder;
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a mesage buffer reads the wrong length. It works for 2 iterations
@@ -57,7 +60,7 @@ fn test_tls_client_stream_ipv4() {
 }
 
 // FIXME: mtls is disabled at the moment, it causes a hang on Linux, and is currently not supported on macOS
-#[cfg(feature = "mtls_disabled")]
+#[cfg(feature = "mtls")]
 #[test]
 #[cfg(feature = "tls")]
 #[cfg(not(target_os = "macos"))] // ignored until Travis-CI fixes IPv6
@@ -84,12 +87,17 @@ fn root_ca() -> (PKey, X509Name, X509) {
     x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
     let x509_name = x509_name.build();
 
+    let mut serial: BigNum = BigNum::new().unwrap();
+    serial.pseudo_rand(32, MSB_MAYBE_ZERO, false).unwrap();
+    let serial = serial.to_asn1_integer().unwrap();
+
     let mut x509_build = X509::builder().unwrap();
     x509_build.set_not_before(&Asn1Time::days_from_now(0).unwrap()).unwrap();
     x509_build.set_not_after(&Asn1Time::days_from_now(256).unwrap()).unwrap();
     x509_build.set_issuer_name(&x509_name).unwrap();
     x509_build.set_subject_name(&x509_name).unwrap();
     x509_build.set_pubkey(&pkey).unwrap();
+    x509_build.set_serial_number(&serial).unwrap();
 
     let basic_constraints = BasicConstraints::new().critical().ca().build().unwrap();
     x509_build.append_extension(basic_constraints).unwrap();
@@ -114,12 +122,17 @@ fn cert(subject_name: &str, ca_pkey: &PKey, ca_name: &X509Name, _: &X509) -> (PK
     x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
     let x509_name = x509_name.build();
 
+    let mut serial: BigNum = BigNum::new().unwrap();
+    serial.pseudo_rand(32, MSB_MAYBE_ZERO, false).unwrap();
+    let serial = serial.to_asn1_integer().unwrap();
+
     let mut x509_build = X509::builder().unwrap();
     x509_build.set_not_before(&Asn1Time::days_from_now(0).unwrap()).unwrap();
     x509_build.set_not_after(&Asn1Time::days_from_now(256).unwrap()).unwrap();
     x509_build.set_issuer_name(&ca_name).unwrap();
     x509_build.set_subject_name(&x509_name).unwrap();
     x509_build.set_pubkey(&pkey).unwrap();
+    x509_build.set_serial_number(&serial).unwrap();
 
     let ext_key_usage = ExtendedKeyUsage::new()
         .server_auth()
@@ -205,9 +218,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
       // FIXME: mtls tests hang on Linux...
       if mtls {
-        mode.insert(SSL_VERIFY_PEER);
-        mode.insert(SSL_VERIFY_FAIL_IF_NO_PEER_CERT);
-
+          mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+        
         let mut store = X509StoreBuilder::new().unwrap();
         let root_ca = X509::from_der(&root_cert_der_copy).unwrap();
         store.add_cert(root_ca).unwrap();
@@ -220,7 +232,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     }
 
     // FIXME: add CA on macOS
-
+    
     let tls = tls.build().expect("tls build failed");
 
     // server_barrier.wait();
@@ -261,10 +273,10 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
 
-  #[cfg(target_os = "macos")]
+    #[cfg(target_os = "macos")]
     let trust_chain = SecCertificate::from_der(&root_cert_der).unwrap();
 
-  #[cfg(target_os = "linux")]
+    #[cfg(target_os = "linux")]
     let trust_chain = X509::from_der(&root_cert_der).unwrap();
 
 
@@ -273,14 +285,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     builder.add_ca(trust_chain);
 
     if mtls {
-        // signed by the same root cert
-        let client_name = "resolv.example.com";
-        let (_ /*client_pkey*/, _ /*client_cert*/, client_identity) =
-            cert(client_name, &root_pkey, &root_name, &root_cert);
-        let client_identity =
-            native_tls::Pkcs12::from_der(&client_identity.to_der().unwrap(), "mypass").unwrap();
-
-        builder.identity(client_identity);
+        config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
     }
 
     let (stream, sender) = builder.build(server_addr, subject_name.to_string(), io_loop.handle());
@@ -301,3 +306,21 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
     server_handle.join().expect("server thread failed");
 }
+
+#[cfg(feature = "mtls")]
+fn config_mtls(root_pkey: &PKey,
+               root_name: &X509Name,
+               root_cert: &X509,
+               builder: &mut TlsStreamBuilder) {
+    // signed by the same root cert
+    let client_name = "resolv.example.com";
+    let (_ /*client_pkey*/, _ /*client_cert*/, client_identity) =
+        cert(client_name, root_pkey, root_name, root_cert);
+    let client_identity =
+        native_tls::Pkcs12::from_der(&client_identity.to_der().unwrap(), "mypass").unwrap();
+
+    builder.identity(client_identity);
+}
+
+#[cfg(not(feature = "mtls"))]
+fn config_mtls(_: &PKey, _: &X509Name, _: &X509, _: &mut TlsStreamBuilder) {}

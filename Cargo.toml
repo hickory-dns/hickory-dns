@@ -6,3 +6,6 @@ members = ["client", "server"]
 #"openssl:0.9.7" = { path = "../rust-openssl/openssl", features = ["v102", "v110"] }
 "openssl-sys:0.9.7" = { git = "https://github.com/sfackler/rust-openssl.git", features = ["v102", "v110"] }
 #"openssl-sys:0.9.7" = { path = "../rust-openssl/openssl-sys", features = ["v102", "v110"] }
+"native-tls:0.1.1" = { path = "../rust-native-tls" }
+"security-framework:0.1.10" = { git = "https://github.com/sfackler/rust-security-framework.git" }
+"security-framework-sys:0.1.10" = { git = "https://github.com/sfackler/rust-security-framework.git" }

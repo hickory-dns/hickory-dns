@@ -40,6 +40,9 @@ build = "build.rs"
 default = ["openssl", "tls"]
 tls = ["native-tls", "tokio-tls", "security-framework"]
 
+# WARNING: there is a bug in the mutual tls auth code at the moment.
+mtls = ["tls"]
+
 [lib]
 name = "trust_dns"
 path = "src/lib.rs"
