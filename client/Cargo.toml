@@ -41,7 +41,7 @@ default = ["openssl", "tls"]
 tls = ["native-tls", "tokio-tls", "security-framework"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment.
-mtls = ["tls"]
+# mtls = ["tls"]
 
 [lib]
 name = "trust_dns"

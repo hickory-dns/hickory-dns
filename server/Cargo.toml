@@ -42,7 +42,7 @@ default = ["trust-dns/tls"]
 ring = ["trust-dns/ring"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment.
-mtls = ["trust-dns/mtls"]
+# mtls = ["trust-dns/mtls"]
 
 [lib]
 name = "trust_dns_server"
