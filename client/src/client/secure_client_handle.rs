@@ -107,7 +107,7 @@ impl<H> ClientHandle for SecureClientHandle<H>
             let client: SecureClientHandle<H> = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
-      #[cfg(any(feature = "openssl", feature = "ring"))]
+            #[cfg(any(feature = "openssl", feature = "ring"))]
             {
                 let edns = message.edns_mut();
 
@@ -115,12 +115,12 @@ impl<H> ClientHandle for SecureClientHandle<H>
 
                 // send along the algorithms which are supported by this client
                 let mut algorithms = SupportedAlgorithms::new();
-        #[cfg(feature = "openssl")]                {
+                    #[cfg(feature = "openssl")]                {
                     algorithms.set(Algorithm::RSASHA256);
                     algorithms.set(Algorithm::ECDSAP256SHA256);
                     algorithms.set(Algorithm::ECDSAP384SHA384);
                 }
-        #[cfg(feature = "ring")]
+                #[cfg(feature = "ring")]
                 algorithms.set(Algorithm::ED25519);
 
                 let dau = EdnsOption::DAU(algorithms);
@@ -567,7 +567,7 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
         return Box::new(done(
-      rrsigs.into_iter()
+            rrsigs.into_iter()
             // this filter is technically unnecessary, can probably remove it...
             .filter(|rrsig| rrsig.rr_type() == RecordType::RRSIG)
             .map(|rrsig|

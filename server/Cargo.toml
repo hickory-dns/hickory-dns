@@ -41,7 +41,7 @@ build = "build.rs"
 default = ["trust-dns/tls"]
 ring = ["trust-dns/ring"]
 
-# WARNING: there is a bug in the mutual tls auth code at the moment.
+# WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["trust-dns/mtls"]
 
 [lib]

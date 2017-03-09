@@ -202,7 +202,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let send_recv_times = 4;
 
     // an in and out server
-  #[cfg(target_os = "linux")]
+    #[cfg(target_os = "linux")]
     let root_cert_der_copy = root_cert_der.clone();
 
     let server_handle = thread::Builder::new().name("test_tls_client_stream:server".to_string()).spawn(move || {
@@ -307,6 +307,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     server_handle.join().expect("server thread failed");
 }
 
+#[allow(unused_variables)]
 #[cfg(feature = "tls")]
 fn config_mtls(root_pkey: &PKey,
                root_name: &X509Name,

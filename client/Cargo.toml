@@ -40,7 +40,7 @@ build = "build.rs"
 default = ["openssl", "tls"]
 tls = ["native-tls", "tokio-tls", "security-framework"]
 
-# WARNING: there is a bug in the mutual tls auth code at the moment.
+# WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
 
 [lib]
