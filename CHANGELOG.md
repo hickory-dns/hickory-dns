@@ -2,7 +2,7 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 0.10.0 (in progress)
+## 0.10.0
 ### Changed
 - *Important* Possible breaking API change, the original Client has been renamed  
 In an attempt to reduce the overhead of managing the project. The original
