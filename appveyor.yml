@@ -1,8 +1,21 @@
 environment:
   matrix:
   - TARGET: x86_64-pc-windows-msvc
+    BITS: 64
+    OPENSSL_VERSION: 1_1_0e
+    OPENSSL_DIR: C:\OpenSSL
   - TARGET: i686-pc-windows-msvc
+    BITS: 32
+    OPENSSL_VERSION: 1_1_0e
+    OPENSSL_DIR: C:\OpenSSL
+
 install:
+  # Install OpenSSL
+  - ps: Start-FileDownload "http://slproweb.com/download/Win${env:BITS}OpenSSL-${env:OPENSSL_VERSION}.exe"
+  - Win%BITS%OpenSSL-%OPENSSL_VERSION%.exe /SILENT /VERYSILENT /SP- /DIR="C:\OpenSSL"
+  - ps: Start-FileDownload "https://curl.haxx.se/ca/cacert.pem" -FileName "C:\OpenSSL\cacert.pem"
+
+  # Install Rust
   - curl -sSf -o rustup-init.exe https://win.rustup.rs/
   - rustup-init.exe -y --default-host %TARGET%
   - set PATH=%PATH%;C:\Users\appveyor\.cargo\bin
@@ -12,5 +25,7 @@ install:
 build: false
 
 test_script:
-  - cargo build --no-default-features
-  - cargo test --no-default-features
+  - cargo build --manifest-path client/Cargo.toml --no-default-features
+  - cargo test --manifest-path client/Cargo.toml --no-default-features
+  - cargo build --manifest-path server/Cargo.toml --no-default-features
+  - cargo test --manifest-path server/Cargo.toml --no-default-features
