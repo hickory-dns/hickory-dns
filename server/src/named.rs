@@ -52,11 +52,13 @@ use chrono::Duration;
 use docopt::Docopt;
 use log::LogLevel;
 use openssl::asn1::*;
+use openssl::bn::*;
 use openssl::{hash, nid, pkcs12};
+use openssl::pkey::PKey;
 use openssl::x509::*;
 use openssl::x509::extension::*;
 
-use trust_dns::error::ParseResult;
+use trust_dns::error::{DnsSecResult, ParseResult};
 use trust_dns::logger;
 use trust_dns::version;
 use trust_dns::serialize::txt::{Lexer, Parser};
@@ -124,7 +126,8 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     // load the zone
     let mut authority = if zone_config.is_update_allowed() && journal_path.exists() {
         info!("recovering zone from journal: {:?}", journal_path);
-        let journal = try!(Journal::from_file(&journal_path)
+        let journal =
+            try!(Journal::from_file(&journal_path)
             .map_err(|e| format!("error opening journal: {:?}: {}", journal_path, e)));
 
         let mut authority = Authority::new(zone_name.clone(),
@@ -142,20 +145,27 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     } else if zone_path.exists() {
         info!("loading zone file: {:?}", zone_path);
 
-        let zone_file = try!(File::open(&zone_path)
-            .map_err(|e| format!("error opening zone file: {:?}: {}", zone_path, e)));
+        let zone_file = try!(File::open(&zone_path).map_err(|e| {
+                                                    format!("error opening zone file: {:?}: {}",
+                                                            zone_path,
+                                                            e)
+                                                }));
 
-        let mut authority = try!(parse_file(zone_file,
-                                            Some(zone_name.clone()),
-                                            zone_config.get_zone_type(),
-                                            zone_config.is_update_allowed(),
-                                            zone_config.is_dnssec_enabled())
-            .map_err(|e| format!("error reading zone: {:?}: {}", zone_path, e)));
+        let mut authority =
+            try!(parse_file(zone_file,
+                            Some(zone_name.clone()),
+                            zone_config.get_zone_type(),
+                            zone_config.is_update_allowed(),
+                            zone_config.is_dnssec_enabled())
+                         .map_err(|e| {
+                                      format!("error reading zone: {:?}: {}", zone_path, e)
+                                  }));
 
         // if dynamic update is enabled, enable the journal
         if zone_config.is_update_allowed() {
             info!("enabling journal: {:?}", journal_path);
-            let journal = try!(Journal::from_file(&journal_path)
+            let journal =
+                try!(Journal::from_file(&journal_path)
                 .map_err(|e| format!("error creating journal {:?}: {}", journal_path, e)));
 
             authority.journal(journal);
@@ -234,7 +244,8 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     let key: KeyPair = if key_path.exists() {
         info!("reading key: {:?}", key_path);
 
-        let mut file = try!(File::open(&key_path)
+        let mut file =
+            try!(File::open(&key_path)
             .map_err(|e| format!("error opening private key file: {:?}: {}", key_path, e)));
 
         let mut key_bytes = Vec::with_capacity(256);
@@ -247,12 +258,14 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
         info!("creating key: {:?}", key_path);
 
         // TODO: establish proper ownership
-        let mut file = try!(File::create(&key_path)
+        let mut file =
+            try!(File::create(&key_path)
             .map_err(|e| format!("error creating private key file: {:?}: {}", key_path, e)));
 
         let key = try!(KeyPair::generate(algorithm)
             .map_err(|e| format!("could not generate key: {}", e)));
-        let key_bytes: Vec<u8> = try!(format.encode_key(&key, key_config.get_password())
+        let key_bytes: Vec<u8> =
+            try!(format.encode_key(&key, key_config.get_password())
             .map_err(|e| format!("could not get key bytes: {}", e)));
 
         try!(file.write_all(&key_bytes)
@@ -288,7 +301,9 @@ fn read_cert(path: &Path, password: Option<&str>) -> Result<native_tls::Pkcs12, 
         .map_err(|e| format!("badly formated pkcs12 key from: {:?}: {}", path, e))
 }
 
-fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<native_tls::Pkcs12, String> {
+fn load_cert(zone_dir: &Path,
+             tls_cert_config: &TlsCertConfig)
+             -> Result<native_tls::Pkcs12, String> {
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
     let subject_name = tls_cert_config.get_subject_name();
@@ -301,40 +316,7 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<native_
         let key_pair = try!(KeyPair::generate(Algorithm::RSASHA256)
             .map_err(|e| format!("error generating key: {:?}: {}", path, e)));
         if let KeyPair::RSA(pkey) = key_pair {
-            let mut x509_name = X509NameBuilder::new().unwrap();
-            x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name).unwrap();
-            let x509_name = x509_name.build();
-
-            let mut x509_build = X509::builder().unwrap();
-            x509_build.set_not_before(&Asn1Time::days_from_now(0).unwrap()).unwrap();
-            x509_build.set_not_after(&Asn1Time::days_from_now(256).unwrap()).unwrap();
-            x509_build.set_issuer_name(&x509_name).unwrap();
-            x509_build.set_subject_name(&x509_name).unwrap();
-            x509_build.set_pubkey(&pkey).unwrap();
-
-            let ext_key_usage = ExtendedKeyUsage::new()
-                .server_auth()
-                .client_auth()
-                .build()
-                .unwrap();
-            x509_build.append_extension(ext_key_usage).unwrap();
-
-            let subject_key_identifier = SubjectKeyIdentifier::new()
-                .build(&x509_build.x509v3_context(None, None))
-                .unwrap();
-            x509_build.append_extension(subject_key_identifier).unwrap();
-
-            let authority_key_identifier = AuthorityKeyIdentifier::new()
-                .keyid(true)
-                .build(&x509_build.x509v3_context(None, None))
-                .unwrap();
-            x509_build.append_extension(authority_key_identifier).unwrap();
-
-            let basic_constraints = BasicConstraints::new().critical().ca().build().unwrap();
-            x509_build.append_extension(basic_constraints).unwrap();
-
-            x509_build.sign(&pkey, hash::MessageDigest::sha256()).unwrap();
-            let cert = x509_build.build();
+            let (cert, pkcs12) = try!(generate_cert(subject_name, pkey, password).map_err(|e| format!("error generating certificate: {}", e)));
 
             // write out the cert file
             let cert_path = path.with_extension("cert");
@@ -344,20 +326,17 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<native_
 
             let cert_der = cert.to_der().unwrap();
             let mut file = File::create(&cert_path).unwrap();
-            file.write_all(&cert_der)
-                .or_else(|_| fs::remove_file(&cert_path))
-                .unwrap();
-
-            let pkcs12_builder = pkcs12::Pkcs12::builder();
-            let pkcs12 = pkcs12_builder.build(password.unwrap_or(""), subject_name, &pkey, &cert)
-                .unwrap();
-            let pkcs12_der = pkcs12.to_der().unwrap();
+            file.write_all(&cert_der).or_else(|_| fs::remove_file(&cert_path)).unwrap();
 
             // write out to the file
             // TODO: establish proper ownership of the file
             // TODO: generate and write CSR
-            let mut file = try!(File::create(&path)
-                .map_err(|e| format!("error creating pkcs12 file: {:?}: {}", path, e)));
+            let pkcs12_der = pkcs12.to_der().unwrap();
+            let mut file = try!(File::create(&path).map_err(|e| {
+                                                     format!("error creating pkcs12 file: {:?}: {}",
+                                                             path,
+                                                             e)
+                                                 }));
 
             try!(file.write_all(&pkcs12_der)
                 .or_else(|_| fs::remove_file(&path))
@@ -370,6 +349,62 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<native_
     } else {
         Err(format!("TLS certificate not found: {:?}", path))
     }
+}
+
+/// generates a certificate
+fn generate_cert(subject_name: &str,
+                 pkey: PKey,
+                 password: Option<&str>)
+                 -> DnsSecResult<(X509, pkcs12::Pkcs12)> {
+    let mut x509_name = try!(X509NameBuilder::new());
+    try!(x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name));
+    let x509_name = x509_name.build();
+
+    let mut serial: BigNum = try!(BigNum::new());
+    try!(serial.pseudo_rand(32, MSB_MAYBE_ZERO, false));
+    let serial = try!(serial.to_asn1_integer());
+
+    let mut x509_build = try!(X509::builder());
+    try!(Asn1Time::days_from_now(0).and_then(|t| x509_build.set_not_before(&t)));
+    try!(Asn1Time::days_from_now(256).and_then(|t| x509_build.set_not_after(&t)));
+    try!(x509_build.set_issuer_name(&x509_name));
+    try!(x509_build.set_subject_name(&x509_name));
+    try!(x509_build.set_pubkey(&pkey));
+    try!(x509_build.set_serial_number(&serial));
+
+    let ext_key_usage = try!(ExtendedKeyUsage::new()
+        .server_auth()
+        .client_auth()
+        .build());
+    try!(x509_build.append_extension(ext_key_usage));
+
+    let subject_key_identifier =
+        try!(SubjectKeyIdentifier::new().build(&x509_build.x509v3_context(None, None)));
+    try!(x509_build.append_extension(subject_key_identifier));
+
+    let authority_key_identifier = try!(AuthorityKeyIdentifier::new()
+        .keyid(true)
+        .build(&x509_build.x509v3_context(None, None)));
+    try!(x509_build.append_extension(authority_key_identifier));
+
+    let subject_alternative_name = try!(SubjectAlternativeName::new()
+        .dns(subject_name)
+        .build(&x509_build.x509v3_context(None, None)));
+    try!(x509_build.append_extension(subject_alternative_name));
+
+    let basic_constraints = try!(BasicConstraints::new()
+        .critical()
+        .ca()
+        .build());
+    try!(x509_build.append_extension(basic_constraints));
+
+    try!(x509_build.sign(&pkey, hash::MessageDigest::sha256()));
+    let cert = x509_build.build();
+
+    let pkcs12_builder = pkcs12::Pkcs12::builder();
+    let pkcs12 = try!(pkcs12_builder.build(password.unwrap_or(""), subject_name, &pkey, &cert));
+
+    Ok((cert, pkcs12))
 }
 
 /// Main method for running the named server.
@@ -393,13 +428,17 @@ pub fn main() {
     info!("Trust-DNS {} starting", trust_dns::version());
     // start up the server for listening
 
-    let config_path =
-        Path::new(args.flag_config.as_ref().map(|s| s as &str).unwrap_or("/etc/named.toml"));
+    let config_path = Path::new(args.flag_config
+                                    .as_ref()
+                                    .map(|s| s as &str)
+                                    .unwrap_or("/etc/named.toml"));
     info!("loading configuration from: {:?}", config_path);
-    let config = Config::read_config(config_path)
-        .expect(&format!("could not read config: {:?}", config_path));
-    let zone_dir: &Path =
-        args.flag_zonedir.as_ref().map(|s| Path::new(s)).unwrap_or(config.get_directory());
+    let config = Config::read_config(config_path).expect(&format!("could not read config: {:?}",
+                                                                  config_path));
+    let zone_dir: &Path = args.flag_zonedir
+        .as_ref()
+        .map(|s| Path::new(s))
+        .unwrap_or(config.get_directory());
 
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
@@ -469,7 +508,8 @@ pub fn main() {
             info!("loading cert for DNS over TLS: {:?}",
                   tls_cert_config.get_path());
             // TODO: see about modifying native_tls to impl Clone for Pkcs12
-            let tls_cert = load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
+            let tls_cert =
+                load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
 
             info!("listening for TLS on {:?}", tls_listener);
             server.register_tls_listener(tls_listener, tcp_request_timeout, tls_cert)

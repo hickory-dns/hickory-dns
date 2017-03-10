@@ -153,6 +153,7 @@ impl TlsStreamBuilder {
     }
 
     /// Client side identity for client auth in TLS (aka mutual TLS auth)
+    #[cfg(feature = "mtls")]
     pub fn identity(&mut self, pkcs12: Pkcs12) {
         self.identity = Some(pkcs12);
     }

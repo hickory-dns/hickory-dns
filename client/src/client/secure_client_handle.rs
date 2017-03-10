@@ -107,7 +107,7 @@ impl<H> ClientHandle for SecureClientHandle<H>
             let client: SecureClientHandle<H> = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
-      #[cfg(any(feature = "openssl", feature = "ring"))]
+            #[cfg(any(feature = "openssl", feature = "ring"))]
             {
                 let edns = message.edns_mut();
 
@@ -115,12 +115,12 @@ impl<H> ClientHandle for SecureClientHandle<H>
 
                 // send along the algorithms which are supported by this client
                 let mut algorithms = SupportedAlgorithms::new();
-        #[cfg(feature = "openssl")]                {
+                    #[cfg(feature = "openssl")]                {
                     algorithms.set(Algorithm::RSASHA256);
                     algorithms.set(Algorithm::ECDSAP256SHA256);
                     algorithms.set(Algorithm::ECDSAP384SHA384);
                 }
-        #[cfg(feature = "ring")]
+                #[cfg(feature = "ring")]
                 algorithms.set(Algorithm::ED25519);
 
                 let dau = EdnsOption::DAU(algorithms);
@@ -132,8 +132,7 @@ impl<H> ClientHandle for SecureClientHandle<H>
 
             message.set_authentic_data(true);
             message.set_checking_disabled(false);
-            let dns_class =
-                message.queries().first().map_or(DNSClass::IN, |q| q.query_class());
+            let dns_class = message.queries().first().map_or(DNSClass::IN, |q| q.query_class());
 
             return Box::new(self.client
                 .send(message)
@@ -568,7 +567,7 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
         return Box::new(done(
-      rrsigs.into_iter()
+            rrsigs.into_iter()
             // this filter is technically unnecessary, can probably remove it...
             .filter(|rrsig| rrsig.rr_type() == RecordType::RRSIG)
             .map(|rrsig|
@@ -769,13 +768,18 @@ fn verify_nsec(query: &Query, nsecs: Vec<&Record>) -> bool {
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
-    if nsecs.iter().any(|r| query.name() == r.name() && {
-    if let &RData::NSEC(ref rdata) = r.rdata() {
-      !rdata.type_bit_maps().contains(&query.query_type())
-    } else {
-      panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
+    if nsecs.iter().any(|r| {
+        query.name() == r.name() &&
+        {
+            if let &RData::NSEC(ref rdata) = r.rdata() {
+                !rdata.type_bit_maps().contains(&query.query_type())
+            } else {
+                panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
+            }
+        }
+    }) {
+        return true;
     }
-  }) { return true }
 
     // based on the WTF? above, we will ignore any NSEC records of the same name
     if nsecs.iter()
