@@ -49,6 +49,10 @@ These are standards supported by the DNS protocol. The client implements them
 * [delete_rrset](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.delete_rrset) - delete an entire record set
 * [delete_all](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.delete_all) - delete all records sets with a given name
 
+### DNS over TLS on the Client
+
+DNS over TLS is supported. This is accomplished through the use of `rust-native-tls`. To use DNS over TLS with the `Client`, the `TlsClientConnection` should be used. See the `TlsClientConnectionBuilder::add_ca()` method. Similarly, to use the tokio `ClientFuture` the `TlsClientStream` should be used. ClientAuth, mTLS, is currently not supported, there are some issues still being worked on. TLS is supported for Server validation and connection privacy.
+
 ## Server
 
 The server code is complete, the daemon supports IPv4 and IPv6, UDP and TCP.
@@ -73,6 +77,10 @@ Zone signing support is complete, to insert a key store a pem encoded rsa file
  allows for the `DNSKEY` to exist for some unspecified period of time during
  key rotation. Rotating the key currently is not available online and requires
  a restart of the server process.
+
+### DNS over TLS on the Server
+
+Support of TLS on the Server is managed through a pkcs12 der file. The documentation is captured in the example test config file, [example.toml](https://github.com/bluejekyll/trust-dns/blob/master/server/tests/named_test_configs/example.toml). A registered certificate to the server can be pinned to the Client with the `add_ca()` method. Alternatively, as the client uses the rust-native-tls library, it should work with certificate signed by any standard CA.
 
 ## DNSSec status
 
@@ -103,6 +111,8 @@ Zones will be automatically resigned on any record updates via dynamic DNS.
 - [RFC 5702](https://tools.ietf.org/html/rfc5702): SHA-2 Algorithms with RSA in DNSKEY and RRSIG for DNSSEC
 - [RFC 6840](https://tools.ietf.org/html/rfc6840): Clarifications and Implementation Notes for DNSSEC
 - [RFC 6944](https://tools.ietf.org/html/rfc6944): DNSKEY Algorithm Implementation Status
+- [RFC 6975](https://tools.ietf.org/html/rfc6975): Signaling Cryptographic Algorithm Understanding
+- [RFC 7858](https://tools.ietf.org/html/rfc7858): DNS over TLS
 
 ## RFC's in progress or not yet implemented
 
@@ -112,13 +122,12 @@ Zones will be automatically resigned on any record updates via dynamic DNS.
 
 ### Update operations
 - [RFC 1995](https://tools.ietf.org/html/rfc1995): Incremental Zone Transfer
-- [RFC 1996](https://tools.ietf.org/html/rfc1996): Notify slaves of update
+- [RFC 1996](https://tools.ietf.org/html/rfc1996): Notify secondaries of update
 - [Update Leases](https://tools.ietf.org/html/draft-sekar-dns-ul-01): Dynamic DNS Update Leases
 - [Long-Lived Queries](http://tools.ietf.org/html/draft-sekar-dns-llq-01): Notify with bells
 
 ### Secure DNS operations
 - [RFC 5155](https://tools.ietf.org/html/rfc5155): DNSSEC Hashed Authenticated Denial of Existence
-- [RFC 6975](https://tools.ietf.org/html/rfc6975): Signaling Cryptographic Algorithm Understanding
 - [DNSCrypt](https://dnscrypt.org): Trusted DNS queries
 - [S/MIME](https://tools.ietf.org/html/draft-ietf-dane-smime-09): Domain Names For S/MIME
 
@@ -132,7 +141,7 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Prerequisites
 
--   openssl development libraries
+-   openssl development libraries (optional in client, min version 1.0.2)
 -   sqlite3 development libraries (server only)
 
 ### Mac OS X: using homebrew
