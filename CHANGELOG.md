@@ -2,6 +2,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.10.1 (unreleased)
+### Changed
+- Fixed TLS documentation, and add more elsewhere; fixes #102
+
 ## 0.10.0
 ### Changed
 - *Important* Possible breaking API change, the original Client has been renamed  

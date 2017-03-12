@@ -26,6 +26,7 @@ readme = "../README.md"
 # This is a small list of keywords used to categorize and search for this
 # package.
 keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
+categories = ["network-programming"]
 
 # This is a string description of the license for this package. Currently
 # crates.io will validate the license provided against a whitelist of known
@@ -35,6 +36,9 @@ license = "MIT/Apache-2.0"
 
 # custom build steps
 build = "build.rs"
+
+[badges]
+travis-ci = { repository = "bluejekyll/trust-dns" }
 
 [features]
 default = ["openssl", "tls"]

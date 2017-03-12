@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! UDP protocol related components for DNS.
+//! UDP protocol related components for DNS
 
 mod udp_client_connection;
 mod udp_client_stream;

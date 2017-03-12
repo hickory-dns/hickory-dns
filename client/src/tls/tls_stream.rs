@@ -78,14 +78,14 @@ impl TlsStream {
         // if there was a pkcs12 associated, we'll add it to the identity
         if let Some(pkcs12) = pkcs12 {
             try!(tls.identity(pkcs12).map_err(|e| {
-                io::Error::new(io::ErrorKind::ConnectionRefused,
-                               format!("tls error: {}", e))
-            }));
+                                                  io::Error::new(io::ErrorKind::ConnectionRefused,
+                                                                 format!("tls error: {}", e))
+                                              }));
         }
         tls.build().map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        })
+                                io::Error::new(io::ErrorKind::ConnectionRefused,
+                                               format!("tls error: {}", e))
+                            })
     }
 
     #[cfg(target_os = "macos")]
@@ -107,14 +107,14 @@ impl TlsStream {
             }));
         }
         builder.build().map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        })
+                                    io::Error::new(io::ErrorKind::ConnectionRefused,
+                                                   format!("tls error: {}", e))
+                                })
     }
 
-    /// Initializes a TcpStream with an existing tokio_core::net::TcpStream.
+    /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
     ///
-    /// This is intended for use with a TcpListener and Incoming.
+    /// This is intended for use with a TlsListener and Incoming connections
     pub fn from_tls_stream(stream: TokioTlsStream<TokioTcpStream>,
                            peer_addr: SocketAddr)
                            -> (Self, BufStreamHandle) {
@@ -184,9 +184,6 @@ impl TlsStreamBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `subject_name` - The Subject Public Key Info (SPKI) name as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
-    /// * `certs` - list of trusted certificate authorities
-    /// * `pkcs12` - optional client identity for client auth (i.e. for mutual TLS authentication)
-    /// TODO: make a builder for the certifiates...
     pub fn build(self,
                  name_server: SocketAddr,
                  subject_name: String,
@@ -212,17 +209,19 @@ impl TlsStreamBuilder {
             Box::new(tcp.and_then(move |tcp_stream| {
                     tls_connector.connect_async(&subject_name, tcp_stream)
                         .map(move |s| {
-                            TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
-                        })
+                                 TcpStream::from_stream_with_receiver(s,
+                                                                      name_server,
+                                                                      outbound_messages)
+                             })
                         .map_err(|e| {
-                            io::Error::new(io::ErrorKind::ConnectionRefused,
-                                           format!("tls error: {}", e))
-                        })
+                                     io::Error::new(io::ErrorKind::ConnectionRefused,
+                                                    format!("tls error: {}", e))
+                                 })
                 })
-                .map_err(|e| {
-                    io::Error::new(io::ErrorKind::ConnectionRefused,
-                                   format!("tls error: {}", e))
-                }));
+                         .map_err(|e| {
+                                      io::Error::new(io::ErrorKind::ConnectionRefused,
+                                                     format!("tls error: {}", e))
+                                  }));
 
         (stream, message_sender)
     }

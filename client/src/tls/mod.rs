@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! TCP protocol related components for DNS.
+//! TLS protocol related components for DNS over TLS
 
 mod tls_client_connection;
 mod tls_client_stream;

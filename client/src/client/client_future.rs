@@ -20,7 +20,7 @@ use rand::Rng;
 use rand;
 use tokio_core::reactor::{Handle, Timeout};
 
-use ::error::*;
+use error::*;
 use op::{Message, MessageType, OpCode, Query, UpdateMessage};
 use rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use rr::dnssec::Signer;
@@ -31,14 +31,17 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 /// A reference to a Sender of bytes returned from the creation of a UdpClientStream or TcpClientStream
 pub type StreamHandle = UnboundedSender<Vec<u8>>;
 
+/// Implementations of Sinks for sending DNS messages
 pub trait ClientStreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()>;
 }
 
 impl ClientStreamHandle for StreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
-        UnboundedSender::send(self, buffer)
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
+        UnboundedSender::send(self, buffer).map_err(|_| {
+                                                        io::Error::new(io::ErrorKind::Other,
+                                                                       "unknown")
+                                                    })
     }
 }
 
@@ -115,10 +118,10 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
                     signer: signer,
                 }
             })
-            .flatten()
-            .map_err(|e| {
-                error!("error in Client: {}", e);
-            }));
+                              .flatten()
+                              .map_err(|e| {
+                                           error!("error in Client: {}", e);
+                                       }));
 
         BasicClientHandle { message_sender: sender }
     }
@@ -338,8 +341,8 @@ impl ClientHandle for BasicClientHandle {
 
         // conver the oneshot into a Box of a Future message and error.
         Box::new(receiver.map_err(|c| ClientError::from(c))
-            .map(|result| result.into_future())
-            .flatten())
+                     .map(|result| result.into_future())
+                     .flatten())
     }
 }
 
@@ -544,7 +547,9 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(rrset.dns_class())
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -615,7 +620,9 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(rrset.dns_class())
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -626,8 +633,7 @@ pub trait ClientHandle: Clone {
         message.add_zone(zone);
 
         if must_exist {
-            let mut prerequisite =
-                Record::with(rrset.name().clone(), rrset.record_type(), 0);
+            let mut prerequisite = Record::with(rrset.name().clone(), rrset.record_type(), 0);
             prerequisite.set_dns_class(DNSClass::ANY);
             message.add_pre_requisite(prerequisite);
         }
@@ -784,7 +790,9 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(rrset.dns_class())
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -852,7 +860,9 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(record.dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(record.dns_class())
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();

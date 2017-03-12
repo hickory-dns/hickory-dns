@@ -372,30 +372,24 @@ fn generate_cert(subject_name: &str,
     try!(x509_build.set_pubkey(&pkey));
     try!(x509_build.set_serial_number(&serial));
 
-    let ext_key_usage = try!(ExtendedKeyUsage::new()
-        .server_auth()
-        .client_auth()
-        .build());
+    let ext_key_usage = try!(ExtendedKeyUsage::new().server_auth().client_auth().build());
     try!(x509_build.append_extension(ext_key_usage));
 
-    let subject_key_identifier =
-        try!(SubjectKeyIdentifier::new().build(&x509_build.x509v3_context(None, None)));
+    let subject_key_identifier = try!(SubjectKeyIdentifier::new()
+                                          .build(&x509_build.x509v3_context(None, None)));
     try!(x509_build.append_extension(subject_key_identifier));
 
     let authority_key_identifier = try!(AuthorityKeyIdentifier::new()
-        .keyid(true)
-        .build(&x509_build.x509v3_context(None, None)));
+                                            .keyid(true)
+                                            .build(&x509_build.x509v3_context(None, None)));
     try!(x509_build.append_extension(authority_key_identifier));
 
     let subject_alternative_name = try!(SubjectAlternativeName::new()
-        .dns(subject_name)
-        .build(&x509_build.x509v3_context(None, None)));
+                                            .dns(subject_name)
+                                            .build(&x509_build.x509v3_context(None, None)));
     try!(x509_build.append_extension(subject_alternative_name));
 
-    let basic_constraints = try!(BasicConstraints::new()
-        .critical()
-        .ca()
-        .build());
+    let basic_constraints = try!(BasicConstraints::new().critical().ca().build());
     try!(x509_build.append_extension(basic_constraints));
 
     try!(x509_build.sign(&pkey, hash::MessageDigest::sha256()));
