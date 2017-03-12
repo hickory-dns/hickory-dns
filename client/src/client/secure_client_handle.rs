@@ -13,7 +13,7 @@ use std::rc::Rc;
 use futures::*;
 
 use client::ClientHandle;
-use ::error::*;
+use error::*;
 use op::{Message, OpCode, Query};
 use rr::{domain, DNSClass, RData, Record, RecordType};
 use rr::dnssec::{Algorithm, KeyPair, SupportedAlgorithms, TrustAnchor};
@@ -96,14 +96,17 @@ impl<H> ClientHandle for SecureClientHandle<H>
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
             return Box::new(failed(ClientErrorKind::Message("exceeded max validation depth")
-                .into()));
+                                       .into()));
         }
 
         // dnssec only matters on queries.
         if let OpCode::Query = message.op_code() {
             // This will panic on no queries, that is a very odd type of request, isn't it?
             // TODO: there should only be one
-            let query = message.queries().first().cloned().unwrap();
+            let query = message.queries()
+                .first()
+                .cloned()
+                .unwrap();
             let client: SecureClientHandle<H> = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
@@ -115,7 +118,8 @@ impl<H> ClientHandle for SecureClientHandle<H>
 
                 // send along the algorithms which are supported by this client
                 let mut algorithms = SupportedAlgorithms::new();
-                    #[cfg(feature = "openssl")]                {
+                #[cfg(feature = "openssl")]
+                {
                     algorithms.set(Algorithm::RSASHA256);
                     algorithms.set(Algorithm::ECDSAP256SHA256);
                     algorithms.set(Algorithm::ECDSAP384SHA384);
@@ -135,33 +139,33 @@ impl<H> ClientHandle for SecureClientHandle<H>
             let dns_class = message.queries().first().map_or(DNSClass::IN, |q| q.query_class());
 
             return Box::new(self.client
-                .send(message)
-                .and_then(move |message_response| {
-                    // group the record sets by name and type
-                    //  each rrset type needs to validated independently
-                    debug!("validating message_response: {}", message_response.id());
-                    verify_rrsets(client, message_response, dns_class)
-                })
-                .and_then(move |verified_message| {
-                    // at this point all of the message is verified.
-                    //  This is where NSEC (and possibly NSEC3) validation occurs
-                    // As of now, only NSEC is supported.
-                    if verified_message.answers().is_empty() {
-                        let nsecs = verified_message.name_servers()
-                            .iter()
-                            .filter(|rr| rr.rr_type() == RecordType::NSEC)
-                            .collect::<Vec<_>>();
+                                .send(message)
+                                .and_then(move |message_response| {
+                // group the record sets by name and type
+                //  each rrset type needs to validated independently
+                debug!("validating message_response: {}", message_response.id());
+                verify_rrsets(client, message_response, dns_class)
+            })
+                                .and_then(move |verified_message| {
+                // at this point all of the message is verified.
+                //  This is where NSEC (and possibly NSEC3) validation occurs
+                // As of now, only NSEC is supported.
+                if verified_message.answers().is_empty() {
+                    let nsecs = verified_message.name_servers()
+                        .iter()
+                        .filter(|rr| rr.rr_type() == RecordType::NSEC)
+                        .collect::<Vec<_>>();
 
-                        if !verify_nsec(&query, nsecs) {
-                            // TODO change this to remove the NSECs, like we do for the others?
-                            return Err(ClientErrorKind::Message("could not validate nxdomain \
+                    if !verify_nsec(&query, nsecs) {
+                        // TODO change this to remove the NSECs, like we do for the others?
+                        return Err(ClientErrorKind::Message("could not validate nxdomain \
                                                                  with NSEC")
-                                .into());
-                        }
+                                           .into());
                     }
+                }
 
-                    Ok(verified_message)
-                }));
+                Ok(verified_message)
+            }));
         }
 
         self.client.send(message)
@@ -233,10 +237,10 @@ fn verify_rrsets<H>(client: SecureClientHandle<H>,
             .chain(message_result.additionals())
             .filter(|rr| rr.rr_type() == RecordType::RRSIG)
             .filter(|rr| if let &RData::SIG(ref rrsig) = rr.rdata() {
-                rrsig.type_covered() == record_type
-            } else {
-                false
-            })
+                        rrsig.type_covered() == record_type
+                    } else {
+                        false
+                    })
             .cloned()
             .collect();
 
@@ -262,10 +266,10 @@ fn verify_rrsets<H>(client: SecureClientHandle<H>,
 
     // return the full Message validator
     Box::new(VerifyRrsetsFuture {
-        message_result: Some(message_result),
-        rrsets: rrsets_to_verify,
-        verified_rrsets: HashSet::new(),
-    })
+                 message_result: Some(message_result),
+                 rrsets: rrsets_to_verify,
+                 verified_rrsets: HashSet::new(),
+             })
 }
 
 impl Future for VerifyRrsetsFuture {
@@ -317,25 +321,25 @@ impl Future for VerifyRrsetsFuture {
                 let answers = message_result.take_answers()
                     .into_iter()
                     .filter(|record| {
-                        self.verified_rrsets
-                            .contains(&(record.name().clone(), record.rr_type()))
-                    })
+                                self.verified_rrsets.contains(&(record.name().clone(),
+                                                                record.rr_type()))
+                            })
                     .collect::<Vec<Record>>();
 
                 let name_servers = message_result.take_name_servers()
                     .into_iter()
                     .filter(|record| {
-                        self.verified_rrsets
-                            .contains(&(record.name().clone(), record.rr_type()))
-                    })
+                                self.verified_rrsets.contains(&(record.name().clone(),
+                                                                record.rr_type()))
+                            })
                     .collect::<Vec<Record>>();
 
                 let additionals = message_result.take_additionals()
                     .into_iter()
                     .filter(|record| {
-                        self.verified_rrsets
-                            .contains(&(record.name().clone(), record.rr_type()))
-                    })
+                                self.verified_rrsets.contains(&(record.name().clone(),
+                                                                record.rr_type()))
+                            })
                     .collect::<Vec<Record>>();
 
                 // add the filtered records back to the message
@@ -414,16 +418,16 @@ fn verify_dnskey_rrset<H>(mut client: SecureClientHandle<H>,
             .enumerate()
             .filter(|&(_, rr)| rr.rr_type() == RecordType::DNSKEY)
             .filter_map(|(i, rr)| if let &RData::DNSKEY(ref rdata) = rr.rdata() {
-                Some((i, rdata))
-            } else {
-                None
-            })
+                            Some((i, rdata))
+                        } else {
+                            None
+                        })
             .filter_map(|(i, rdata)| if client.trust_anchor.contains(rdata.public_key()) {
-                debug!("in trust_anchor");
-                Some(i)
-            } else {
-                None
-            })
+                            debug!("in trust_anchor");
+                            Some(i)
+                        } else {
+                            None
+                        })
             .collect::<Vec<usize>>();
 
         if !anchored_keys.is_empty() {
@@ -445,10 +449,10 @@ fn verify_dnskey_rrset<H>(mut client: SecureClientHandle<H>,
                 .enumerate()
                 .filter(|&(_, rr)| rr.rr_type() == RecordType::DNSKEY)
                 .filter_map(|(i, rr)| if let &RData::DNSKEY(ref rdata) = rr.rdata() {
-                    Some((i, rdata))
-                } else {
-                    None
-                })
+                                Some((i, rdata))
+                            } else {
+                                None
+                            })
                 .filter(|&(_, key_rdata)| {
                     ds_message.answers()
                               .iter()
@@ -555,13 +559,13 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
            rrset.record_type);
 
     // Special case for self-signed DNSKEYS, validate with itself...
-    if rrsigs.iter()
-        .filter(|rrsig| rrsig.rr_type() == RecordType::RRSIG)
-        .any(|rrsig| if let &RData::SIG(ref sig) = rrsig.rdata() {
+    if rrsigs.iter().filter(|rrsig| rrsig.rr_type() == RecordType::RRSIG).any(|rrsig| {
+        if let &RData::SIG(ref sig) = rrsig.rdata() {
             return RecordType::DNSKEY == rrset.record_type && sig.signer_name() == &rrset.name;
         } else {
             panic!("expected a SIG here");
-        }) {
+        }
+    }) {
         // in this case it was looks like a self-signed key, first validate the signature
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
@@ -649,11 +653,12 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
                                                              validation: {}, {:?}",
                                                             rrset.name,
                                                             rrset.record_type))
-            .into()));
+                                       .into()));
     }
 
     // as long as any of the verifcations is good, then the RRSET is valid.
-    let select = select_ok(verifications)
+    let select =
+        select_ok(verifications)
                           // getting here means at least one of the rrsigs succeeded...
                           .map(move |(rrset, rest)| {
                               drop(rest); // drop all others, should free up Rc
@@ -695,11 +700,11 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
         .and_then(|rrset_hash| {
             signer.verify(&rrset_hash, sig.sig())
                 .map(|_| {
-                    debug!("verified rrset: {}, type: {:?}",
-                           rrset.name,
-                           rrset.record_type);
-                    ()
-                })
+                         debug!("verified rrset: {}, type: {:?}",
+                                rrset.name,
+                                rrset.record_type);
+                         ()
+                     })
                 .map_err(|e| e.into())
         })
 }
@@ -782,15 +787,18 @@ fn verify_nsec(query: &Query, nsecs: Vec<&Record>) -> bool {
     }
 
     // based on the WTF? above, we will ignore any NSEC records of the same name
-    if nsecs.iter()
-          .filter(|r| query.name() != r.name())
-          .any(|r| query.name() > r.name() && {
-    if let &RData::NSEC(ref rdata) = r.rdata() {
-      query.name() < rdata.next_domain_name()
-    } else {
-      panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
+    if nsecs.iter().filter(|r| query.name() != r.name()).any(|r| {
+        query.name() > r.name() &&
+        {
+            if let &RData::NSEC(ref rdata) = r.rdata() {
+                query.name() < rdata.next_domain_name()
+            } else {
+                panic!("expected NSEC was {:?}", r.rr_type()) // valid panic, never should happen
+            }
+        }
+    }) {
+        return true;
     }
-  }) { return true }
 
     // TODO: need to validate ANY or *.domain record existance, which doesn't make sense since
     //  that would have been returned in the request

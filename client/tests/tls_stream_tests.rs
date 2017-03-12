@@ -99,7 +99,11 @@ fn root_ca() -> (PKey, X509Name, X509) {
     x509_build.set_pubkey(&pkey).unwrap();
     x509_build.set_serial_number(&serial).unwrap();
 
-    let basic_constraints = BasicConstraints::new().critical().ca().build().unwrap();
+    let basic_constraints = BasicConstraints::new()
+        .critical()
+        .ca()
+        .build()
+        .unwrap();
     x509_build.append_extension(basic_constraints).unwrap();
 
     let subject_alternative_name = SubjectAlternativeName::new()
@@ -134,15 +138,11 @@ fn cert(subject_name: &str, ca_pkey: &PKey, ca_name: &X509Name, _: &X509) -> (PK
     x509_build.set_pubkey(&pkey).unwrap();
     x509_build.set_serial_number(&serial).unwrap();
 
-    let ext_key_usage = ExtendedKeyUsage::new()
-        .server_auth()
-        .build()
-        .unwrap();
+    let ext_key_usage = ExtendedKeyUsage::new().server_auth().build().unwrap();
     x509_build.append_extension(ext_key_usage).unwrap();
 
-    let subject_key_identifier = SubjectKeyIdentifier::new()
-        .build(&x509_build.x509v3_context(None, None))
-        .unwrap();
+    let subject_key_identifier =
+        SubjectKeyIdentifier::new().build(&x509_build.x509v3_context(None, None)).unwrap();
     x509_build.append_extension(subject_key_identifier).unwrap();
 
     let authority_key_identifier = AuthorityKeyIdentifier::new()

@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-//! TCP protocol related components for DNS.
+//! TCP protocol related components for DNS
 
 mod tcp_client_connection;
 mod tcp_client_stream;

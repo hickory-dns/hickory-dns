@@ -35,11 +35,17 @@ impl TlsClientStream {
 pub struct TlsClientStreamBuilder(TlsStreamBuilder);
 
 impl TlsClientStreamBuilder {
+    /// Add a custom trusted peer certificate or certificate auhtority.
+    ///
+    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
     #[cfg(target_os = "macos")]
     pub fn add_ca(&mut self, ca: SecCertificate) {
         self.0.add_ca(ca);
     }
 
+    /// Add a custom trusted peer certificate or certificate auhtority.
+    ///
+    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
     #[cfg(target_os = "linux")]
     pub fn add_ca(&mut self, ca: OpensslX509) {
         self.0.add_ca(ca);
@@ -47,10 +53,17 @@ impl TlsClientStreamBuilder {
 
     /// Client side identity for client auth in TLS (aka mutual TLS auth)
     #[cfg(feature = "mtls")]
-pub fn identity(&mut self, pkcs12: Pkcs12) {
+    pub fn identity(&mut self, pkcs12: Pkcs12) {
         self.0.identity(pkcs12);
     }
 
+    /// Creates a new TlsStream to the specified name_server
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - IP and Port for the remote DNS resolver
+    /// * `subject_name` - The Subject Public Key Info (SPKI) name as associated to a certificate
+    /// * `loop_handle` - The reactor Core handle
     pub fn build
         (self,
          name_server: SocketAddr,
@@ -63,9 +76,9 @@ pub fn identity(&mut self, pkcs12: Pkcs12) {
             Box::new(stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)));
 
         let sender = Box::new(BufClientStreamHandle {
-            name_server: name_server,
-            sender: sender,
-        });
+                                  name_server: name_server,
+                                  sender: sender,
+                              });
 
         (new_future, sender)
     }
