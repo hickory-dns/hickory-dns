@@ -816,6 +816,13 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-dns-resolver"
+version = "0.1.0"
+dependencies = [
+ "trust-dns 0.10.0",
+]
+
+[[package]]
 name = "trust-dns-rustls"
 version = "0.1.1"
 dependencies = [

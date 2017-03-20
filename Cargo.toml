@@ -1,5 +1,5 @@
 [workspace]
-members = ["client", "compatibility", "native-tls", "rustls", "server"]
+members = ["client", "compatibility", "native-tls", "rustls", "resolver", "server"]
 
 [replace]
 #"native-tls:0.1.1" = { path = "../rust-native-tls" }
