@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 use std::io;
 
 use futures::{Async, Future, Poll, Stream};
-use tokio_core::io::Io;
+use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 
@@ -55,7 +55,7 @@ impl<S> TcpClientStream<S> {
     }
 }
 
-impl<S: Io> Stream for TcpClientStream<S> {
+impl<S: AsyncRead + AsyncWrite> Stream for TcpClientStream<S> {
     type Item = Vec<u8>;
     type Error = io::Error;
 
