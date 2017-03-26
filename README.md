@@ -156,6 +156,8 @@ presume that the trust-dns repos have already been synced to the local system:
 ### Debian-based (includes Ubuntu & Raspbian): using apt-get
 
 ```
+  # note for openssl that a minimum version of 1.0.2 is required for TLS, 
+  #  if this is an issue, TLS can be disabled (on the client), see below.
   $ apt-get install openssl
   $ apt-get install libssl-dev
   $ apt-get install libsqlite3-dev
@@ -217,9 +219,14 @@ so this should allow it to work with most internal loads.
 
 The Client has a few features which can be disabled for different reasons when embedding in other software.
 
--   openssl
+-  `openssl` *default*
+    It is a default feature, so default-features will need to be set to false (this will disable all other default features in trust-dns). Until there are other crypto libraries supported, this will also disable DNSSec validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
 
-It is a default feature, so default-features will need to be set to false (this will disable all other default features in trust-dns). Until there are other crypto libraries supported, this will also disable DNSSec validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
+-  `tls` *default*
+    Enables DNS over TLS for private connections between client and server. If using OpenSSL this requires a minimum version of 1.0.2.
+
+-  `ring`
+    Ring support is only used for ED25519 DNSSec keys at the moment.
 
 ```
 [dependencies]
