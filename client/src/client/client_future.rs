@@ -133,8 +133,8 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
         let mut canceled = HashSet::new();
         for (&id, &mut (ref mut req, ref mut timeout)) in self.active_requests.iter_mut() {
             if let Ok(Async::Ready(())) = req.poll_cancel() {
-        canceled.insert(id);
-      }
+              canceled.insert(id);
+            }
 
             // check for timeouts...
             match timeout.poll() {
@@ -158,7 +158,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
                 //  then the otherside isn't really paying attention anyway)
 
                 // complete the request, it's failed...
-                req.complete(Err(ClientErrorKind::Timeout.into()));
+                req.send(Err(ClientErrorKind::Timeout.into())).expect("error notifying wait, possible future leak");
             }
         }
     }
@@ -224,7 +224,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                             // TODO: it's too bad this happens here...
                             if let Err(e) = message.sign(signer, UTC::now().timestamp() as u32) {
                                 warn!("could not sign message: {}", e);
-                                complete.complete(Err(e.into()));
+                                complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
                                 continue; // to the next message...
                             }
                         }
@@ -235,7 +235,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                         Ok(timeout) => timeout,
                         Err(e) => {
                             warn!("could not create timer: {}", e);
-                            complete.complete(Err(e.into()));
+                            complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
                             continue; // to the next message...
                         }
                     };
@@ -252,7 +252,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                         Err(e) => {
                             debug!("error message id: {} error: {}", query_id, e);
                             // complete with the error, don't add to the map of active requests
-                            complete.complete(Err(e.into()));
+                            complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
                         }
                     }
                 }
@@ -277,7 +277,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                     match Message::from_vec(&buffer) {
                         Ok(message) => {
                             match self.active_requests.remove(&message.id()) {
-                                Some((complete, _)) => complete.complete(Ok(message)),
+                                Some((complete, _)) => complete.send(Ok(message)).expect("error notifying wait, possible future leak"),
                                 None => debug!("unexpected request_id: {}", message.id()),
                             }
                         }
@@ -334,7 +334,7 @@ impl ClientHandle for BasicClientHandle {
             Ok(()) => receiver,
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();
-                complete.complete(Err(e.into()));
+                complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
                 receiver
             }
         };

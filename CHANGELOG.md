@@ -3,8 +3,11 @@ All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.10.1 (unreleased)
+### Added
+- Added `From<IpAddr>` for Name (reverse DNS) #105 
 ### Changed
 - Fixed TLS documentation, and add more elsewhere; fixes #102
+- Upgraded tokio-core and moved to tokio-io
 
 ## 0.10.0
 ### Changed

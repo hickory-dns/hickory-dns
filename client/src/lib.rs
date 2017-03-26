@@ -48,6 +48,7 @@ extern crate rustc_serialize;
 #[cfg(all(target_os = "macos", feature = "security-framework"))]
 extern crate security_framework;
 extern crate time;
+extern crate tokio_io;
 #[macro_use]
 extern crate tokio_core;
 #[cfg(feature = "tokio-tls")]
