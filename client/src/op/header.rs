@@ -18,8 +18,8 @@
 
 use std::convert::From;
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
 
@@ -73,9 +73,12 @@ pub struct Header {
     additional_count: u16,
 }
 
+/// Message types are either Query (also Update) or Response
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 pub enum MessageType {
+    /// Queries are Client requests, these are either Queries or Updates
     Query,
+    /// Response message from the Server or upstream Resolver
     Response,
 }
 
@@ -101,31 +104,45 @@ impl Header {
         }
     }
 
+    /// Length of the header, always 12 bytes
     #[inline(always)]
     pub fn len() -> usize {
         12 /* this is always 12 bytes */
     }
 
+    /// Sets the id of the message, for queries this shoudl be random.
     pub fn set_id(&mut self, id: u16) -> &mut Self {
         self.id = id;
         self
     }
+
+    /// Sets the message type, Queries and Updates both use Query.
     pub fn set_message_type(&mut self, message_type: MessageType) -> &mut Self {
         self.message_type = message_type;
         self
     }
+
+    /// Set the operation code for the message
     pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
         self.op_code = op_code;
         self
     }
+
+    /// From the server is specifies that it is an authoritative reqponse.
     pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
         self.authoritative = authoritative;
         self
     }
+
+    /// Specifies that the records were too large for the payload.
+    ///
+    /// See EDNS or TCP for resolutions to truncation.
     pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
         self.truncation = truncated;
         self
     }
+
+    
     pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
         self.recursion_desired = recursion_desired;
         self
@@ -383,21 +400,21 @@ impl BinSerializable<Header> for Header {
         // TODO: question, should this use the builder pattern instead? might be cleaner code, but
         //  this guarantees that the Header is fully instantiated with all values...
         Ok(Header {
-            id: id,
-            message_type: message_type,
-            op_code: op_code,
-            authoritative: authoritative,
-            truncation: truncation,
-            recursion_desired: recursion_desired,
-            recursion_available: recursion_available,
-            authentic_data: authentic_data,
-            checking_disabled: checking_disabled,
-            response_code: response_code,
-            query_count: query_count,
-            answer_count: answer_count,
-            name_server_count: name_server_count,
-            additional_count: additional_count,
-        })
+               id: id,
+               message_type: message_type,
+               op_code: op_code,
+               authoritative: authoritative,
+               truncation: truncation,
+               recursion_desired: recursion_desired,
+               recursion_available: recursion_available,
+               authentic_data: authentic_data,
+               checking_disabled: checking_disabled,
+               response_code: response_code,
+               query_count: query_count,
+               answer_count: answer_count,
+               name_server_count: name_server_count,
+               additional_count: additional_count,
+           })
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {

@@ -19,7 +19,7 @@
 use std::fmt::Debug;
 use std::mem;
 
-use ::error::*;
+use error::*;
 use rr::{Record, RecordType};
 #[cfg(feature = "openssl")]
 use rr::{DNSClass, Name, RData};
@@ -83,6 +83,7 @@ pub struct Message {
 }
 
 impl Message {
+    /// Returns a new "empty" Message
     pub fn new() -> Self {
         Message {
             header: Header::new(),
@@ -95,6 +96,13 @@ impl Message {
         }
     }
 
+    /// Returns a Message constructed with error details to return to a client
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - message id should match the request message id
+    /// * `op_code` - operation of the request
+    /// * `response_code` - the error code for the response
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Message {
         let mut message: Message = Message::new();
         message.set_message_type(MessageType::Response);
@@ -105,6 +113,7 @@ impl Message {
         message
     }
 
+    /// Truncates a Message, this blindly removes all response fields and sets trucation to `true`
     pub fn truncate(&self) -> Self {
         let mut truncated: Message = Message::new();
         truncated.set_id(self.id());
@@ -123,26 +132,37 @@ impl Message {
         truncated
     }
 
+    /// see `Header::set_id`
     pub fn set_id(&mut self, id: u16) -> &mut Self {
         self.header.set_id(id);
         self
     }
+
+    /// see `Header::set_message_type`
     pub fn set_message_type(&mut self, message_type: MessageType) -> &mut Self {
         self.header.set_message_type(message_type);
         self
     }
+
+    /// see `Header::set_op_code`
     pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
         self.header.set_op_code(op_code);
         self
     }
+
+    /// see `Header::set_authoritative`
     pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
         self.header.set_authoritative(authoritative);
         self
     }
+
+    /// see `Header::set_truncated`
     pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
         self.header.set_truncated(truncated);
         self
     }
+
+    
     pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
         self.header.set_recursion_desired(recursion_desired);
         self
@@ -502,7 +522,7 @@ impl Message {
             if !is_additional {
                 if saw_sig0 {
                     return Err(DecodeErrorKind::Message("sig0 must be final resource record")
-                        .into());
+                                   .into());
                 } // SIG0 must be last
                 records.push(record)
             } else {
@@ -515,12 +535,12 @@ impl Message {
                         if saw_sig0 {
                             return Err(DecodeErrorKind::Message("sig0 must be final resource \
                                                                  record")
-                                .into());
+                                               .into());
                         } // SIG0 must be last
                         if edns.is_some() {
                             return Err(DecodeErrorKind::Message("more than one edns record \
                                                                  present")
-                                .into());
+                                               .into());
                         }
                         edns = Some((&record).into());
                     }
@@ -528,7 +548,7 @@ impl Message {
                         if saw_sig0 {
                             return Err(DecodeErrorKind::Message("sig0 must be final resource \
                                                                  record")
-                                .into());
+                                               .into());
                         } // SIG0 must be last
                         records.push(record);
                     }
@@ -736,14 +756,14 @@ impl BinSerializable<Message> for Message {
         let (additionals, edns, sig0) = try!(Self::read_records(decoder, additional_count, true));
 
         Ok(Message {
-            header: header,
-            queries: queries,
-            answers: answers,
-            name_servers: name_servers,
-            additionals: additionals,
-            sig0: sig0,
-            edns: edns,
-        })
+               header: header,
+               queries: queries,
+               answers: answers,
+               name_servers: name_servers,
+               additionals: additionals,
+               sig0: sig0,
+               edns: edns,
+           })
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {

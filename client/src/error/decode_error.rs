@@ -24,6 +24,7 @@ use error::{DnsSecError, DnsSecErrorKind};
 
 use rr::Name;
 
+/// Errors while decoding DNS messages
 error_chain! {
   // The type defined for this error. These are the conventional
   // and recommended names, but they can be arbitrarily chosen.
