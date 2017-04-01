@@ -53,6 +53,8 @@ extern crate tokio_io;
 extern crate tokio_core;
 #[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;
+#[cfg(feature = "tokio-openssl")]
+extern crate tokio_openssl;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 
@@ -62,10 +64,18 @@ pub mod logger;
 pub mod op;
 pub mod rr;
 pub mod tcp;
-#[cfg(feature = "tls")]
-pub mod tls;
+#[cfg(feature = "native-tls")]
+pub mod tls_native;
+#[doc(hidden)]
+#[cfg(feature = "native-tls")]
+pub use tls_native as tls;
+#[cfg(all(feature = "tls", feature = "openssl"))]
+pub mod tls_openssl;
 pub mod udp;
 pub mod serialize;
+
+#[cfg(test)]
+mod tests;
 
 use std::io;
 use std::net::SocketAddr;

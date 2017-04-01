@@ -23,3 +23,6 @@ mod tls_stream;
 pub use self::tls_client_connection::{TlsClientConnection, TlsClientConnectionBuilder};
 pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
 pub use self::tls_stream::{TlsStream, TlsStreamBuilder};
+
+#[cfg(test)]
+mod tests;
