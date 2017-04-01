@@ -69,7 +69,7 @@ pub mod tls_native;
 #[doc(hidden)]
 #[cfg(feature = "native-tls")]
 pub use tls_native as tls;
-#[cfg(all(feature = "tls", feature = "openssl"))]
+#[cfg(all(feature = "tls", feature = "openssl", not(feature="native-tls")))]
 pub mod tls_openssl;
 pub mod udp;
 pub mod serialize;
