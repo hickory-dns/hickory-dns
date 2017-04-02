@@ -25,4 +25,5 @@ pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
 pub use self::tls_stream::{TlsStream, TlsStreamBuilder};
 
 #[cfg(test)]
+#[cfg(feature = "openssl")] // FIXME: openssl is required for tests at the moment
 mod tests;

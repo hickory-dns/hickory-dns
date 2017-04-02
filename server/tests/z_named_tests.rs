@@ -2,9 +2,6 @@ extern crate futures;
 extern crate log;
 extern crate trust_dns;
 extern crate tokio_core;
-#[cfg(target_os = "macos")]
-extern crate security_framework;
-#[cfg(target_os = "linux")]
 extern crate openssl;
 
 use std::env;
@@ -16,9 +13,6 @@ use std::process::{Command, Stdio};
 use std::thread::Builder;
 use std::panic::{catch_unwind, UnwindSafe};
 
-#[cfg(target_os = "macos")]
-use security_framework::certificate::SecCertificate;
-#[cfg(target_os = "linux")]
 use openssl::x509::X509;
 
 use tokio_core::reactor::Core;
@@ -26,7 +20,7 @@ use tokio_core::reactor::Core;
 use trust_dns::client::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::TcpClientStream;
-use trust_dns::tls::TlsClientStream;
+use trust_dns::tls_openssl::TlsClientStream;
 
 fn named_test_harness<F, R>(toml: &str, test: F)
     where F: FnOnce(u16, u16) -> R + UnwindSafe
@@ -291,12 +285,6 @@ fn test_example_tls_toml_startup() {
     })
 }
 
-#[cfg(target_os = "linux")]
 fn to_trust_anchor(cert_der: &[u8]) -> X509 {
     X509::from_der(&cert_der).unwrap()
-}
-
-#[cfg(target_os = "macos")]
-fn to_trust_anchor(cert_der: &[u8]) -> SecCertificate {
-    SecCertificate::from_der(&cert_der).unwrap()
 }

@@ -32,7 +32,7 @@ use tokio_core::reactor::Core;
 
 use tls_native::{TlsStream, TlsStreamBuilder};
 
-use tests::{root_ca, cert};
+use tests::tls::{root_ca, cert};
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a mesage buffer reads the wrong length. It works for 2 iterations

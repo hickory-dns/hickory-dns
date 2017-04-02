@@ -39,7 +39,7 @@ extern crate lazy_static;
 extern crate log;
 #[cfg(feature = "native-tls")]
 extern crate native_tls;
-#[cfg(any(feature = "openssl", all(target_os = "linux", feature = "tls")))]
+#[cfg(feature = "openssl")]
 extern crate openssl;
 extern crate rand;
 #[cfg(feature = "ring")]
