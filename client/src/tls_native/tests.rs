@@ -20,6 +20,8 @@ use native_tls;
 #[cfg(target_os = "linux")]
 use native_tls::backend::openssl::*;
 use native_tls::TlsAcceptor;
+#[cfg(target_os = "linux")]
+use openssl;
 use openssl::pkey::*;
 #[cfg(target_os = "linux")]
 use openssl::ssl::{SSL_VERIFY_PEER, SSL_VERIFY_NONE, SSL_VERIFY_FAIL_IF_NO_PEER_CERT};

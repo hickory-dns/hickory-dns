@@ -13,7 +13,7 @@ use futures::Future;
 use native_tls::Pkcs12;
 #[cfg(target_os = "linux")]
 use openssl::x509::X509 as OpensslX509;
-#[cfg(feature = "security-framework")]
+#[cfg(feature = "macos")]
 use security_framework::certificate::SecCertificate;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
