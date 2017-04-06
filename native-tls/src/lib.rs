@@ -16,6 +16,15 @@
 
 //! TLS protocol related components for DNS over TLS
 
+extern crate futures;
+extern crate native_tls;
+#[cfg(target_os = "linux")]
+extern crate openssl;
+extern crate security_framework;
+extern crate tokio_core;
+extern crate tokio_tls;
+extern crate trust_dns;
+
 mod tls_client_connection;
 mod tls_client_stream;
 mod tls_stream;
@@ -25,5 +34,4 @@ pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
 pub use self::tls_stream::{TlsStream, TlsStreamBuilder};
 
 #[cfg(test)]
-#[cfg(feature = "openssl")] // FIXME: openssl is required for tests at the moment
 mod tests;

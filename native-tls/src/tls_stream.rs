@@ -27,104 +27,117 @@ use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_tls::{TlsConnectorExt, TlsStream as TokioTlsStream};
 
-use BufStreamHandle;
-use tcp::TcpStream;
+use trust_dns::BufStreamHandle;
+use trust_dns::tcp::TcpStream;
 
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream>>;
 
-impl TlsStream {
-    /// A builder for associating trust information to the `TlsStream`.
-    pub fn builder() -> TlsStreamBuilder {
-        TlsStreamBuilder {
-            ca_chain: vec![],
-            identity: None,
-        }
-    }
-
-    #[cfg(target_os = "linux")]
-    fn new(certs: Vec<X509>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
-        let mut tls = try!(TlsConnector::builder().map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        }));
-        try!(tls.supported_protocols(&[Tlsv12]).map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        }));
-
-        {
-            // mutable reference block
-            let mut openssl_builder = tls.builder_mut();
-            let mut openssl_ctx_builder = openssl_builder.builder_mut();
-
-            let mut store = try!(X509StoreBuilder::new().map_err(|e| {
-                io::Error::new(io::ErrorKind::ConnectionRefused,
-                               format!("tls error: {}", e))
-            }));
-
-            for cert in certs {
-                try!(store.add_cert(cert).map_err(|e| {
-                    io::Error::new(io::ErrorKind::ConnectionRefused,
-                                   format!("tls error: {}", e))
-                }));
-            }
-
-            try!(openssl_ctx_builder.set_verify_cert_store(store.build()).map_err(|e| {
-                io::Error::new(io::ErrorKind::ConnectionRefused,
-                               format!("tls error: {}", e))
-            }));
-        }
-
-        // if there was a pkcs12 associated, we'll add it to the identity
-        if let Some(pkcs12) = pkcs12 {
-            try!(tls.identity(pkcs12).map_err(|e| {
-                                                  io::Error::new(io::ErrorKind::ConnectionRefused,
-                                                                 format!("tls error: {}", e))
-                                              }));
-        }
-        tls.build().map_err(|e| {
-                                io::Error::new(io::ErrorKind::ConnectionRefused,
-                                               format!("tls error: {}", e))
-                            })
-    }
-
-    #[cfg(target_os = "macos")]
-    fn new(certs: Vec<SecCertificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
-        let mut builder = try!(TlsConnector::builder().map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        }));
-        try!(builder.supported_protocols(&[Tlsv12]).map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        }));
-        builder.anchor_certificates(&certs);
-
-        if let Some(pkcs12) = pkcs12 {
-            try!(builder.identity(pkcs12).map_err(|e| {
-                io::Error::new(io::ErrorKind::ConnectionRefused,
-                               format!("tls error: {}", e))
-            }));
-        }
-        builder.build().map_err(|e| {
-                                    io::Error::new(io::ErrorKind::ConnectionRefused,
-                                                   format!("tls error: {}", e))
-                                })
-    }
-
-    /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
-    ///
-    /// This is intended for use with a TlsListener and Incoming connections
-    pub fn from_tls_stream(stream: TokioTlsStream<TokioTcpStream>,
-                           peer_addr: SocketAddr)
-                           -> (Self, BufStreamHandle) {
-        let (message_sender, outbound_messages) = unbounded();
-
-        let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
-
-        (stream, message_sender)
+// impl TlsStream {
+/// A builder for associating trust information to the `TlsStream`.
+pub fn tls_builder() -> TlsStreamBuilder {
+    TlsStreamBuilder {
+        ca_chain: vec![],
+        identity: None,
     }
 }
+
+#[cfg(target_os = "linux")]
+fn tls_new(certs: Vec<X509>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
+    let mut tls = try!(TlsConnector::builder().map_err(|e| {
+            io::Error::new(io::ErrorKind::ConnectionRefused,
+                           format!("tls error: {}", e))
+        }));
+    try!(tls.supported_protocols(&[Tlsv12])
+             .map_err(|e| {
+                          io::Error::new(io::ErrorKind::ConnectionRefused,
+                                         format!("tls error: {}", e))
+                      }));
+
+    {
+        // mutable reference block
+        let mut openssl_builder = tls.builder_mut();
+        let mut openssl_ctx_builder = openssl_builder.builder_mut();
+
+        let mut store = try!(X509StoreBuilder::new().map_err(|e| {
+                io::Error::new(io::ErrorKind::ConnectionRefused,
+                               format!("tls error: {}", e))
+            }));
+
+        for cert in certs {
+            try!(store
+                     .add_cert(cert)
+                     .map_err(|e| {
+                                  io::Error::new(io::ErrorKind::ConnectionRefused,
+                                                 format!("tls error: {}", e))
+                              }));
+        }
+
+        try!(openssl_ctx_builder
+                 .set_verify_cert_store(store.build())
+                 .map_err(|e| {
+                              io::Error::new(io::ErrorKind::ConnectionRefused,
+                                             format!("tls error: {}", e))
+                          }));
+    }
+
+    // if there was a pkcs12 associated, we'll add it to the identity
+    if let Some(pkcs12) = pkcs12 {
+        try!(tls.identity(pkcs12)
+                 .map_err(|e| {
+                              io::Error::new(io::ErrorKind::ConnectionRefused,
+                                             format!("tls error: {}", e))
+                          }));
+    }
+    tls.build()
+        .map_err(|e| {
+                     io::Error::new(io::ErrorKind::ConnectionRefused,
+                                    format!("tls error: {}", e))
+                 })
+}
+
+#[cfg(target_os = "macos")]
+fn tls_new(certs: Vec<SecCertificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
+    let mut builder = try!(TlsConnector::builder().map_err(|e| {
+            io::Error::new(io::ErrorKind::ConnectionRefused,
+                           format!("tls error: {}", e))
+        }));
+    try!(builder
+             .supported_protocols(&[Tlsv12])
+             .map_err(|e| {
+                          io::Error::new(io::ErrorKind::ConnectionRefused,
+                                         format!("tls error: {}", e))
+                      }));
+    builder.anchor_certificates(&certs);
+
+    if let Some(pkcs12) = pkcs12 {
+        try!(builder
+                 .identity(pkcs12)
+                 .map_err(|e| {
+                              io::Error::new(io::ErrorKind::ConnectionRefused,
+                                             format!("tls error: {}", e))
+                          }));
+    }
+    builder
+        .build()
+        .map_err(|e| {
+                     io::Error::new(io::ErrorKind::ConnectionRefused,
+                                    format!("tls error: {}", e))
+                 })
+}
+
+/// Initializes a TlsStream with an existing tokio_tls::TlsStream.
+///
+/// This is intended for use with a TlsListener and Incoming connections
+pub fn tls_from_stream(stream: TokioTlsStream<TokioTcpStream>,
+                       peer_addr: SocketAddr)
+                       -> (TlsStream, BufStreamHandle) {
+    let (message_sender, outbound_messages) = unbounded();
+
+    let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
+
+    (stream, message_sender)
+}
+//}
 
 pub struct TlsStreamBuilder {
     #[cfg(target_os = "macos")]
@@ -190,16 +203,17 @@ impl TlsStreamBuilder {
                  loop_handle: Handle)
                  -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
-        let tls_connector = match TlsStream::new(self.ca_chain, self.identity) {
-            Ok(c) => c,
-            Err(e) => {
+        let tls_connector =
+            match ::tls_stream::tls_new(self.ca_chain, self.identity) {
+                Ok(c) => c,
+                Err(e) => {
                 return (Box::new(future::err(e).into_future().map_err(|e| {
                             io::Error::new(io::ErrorKind::ConnectionRefused,
                                            format!("tls error: {}", e))
                         })),
                         message_sender)
             }
-        };
+            };
 
         let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
 
@@ -207,7 +221,8 @@ impl TlsStreamBuilder {
         //  sending and receiving tcp packets.
         let stream: Box<Future<Item = TlsStream, Error = io::Error>> =
             Box::new(tcp.and_then(move |tcp_stream| {
-                    tls_connector.connect_async(&subject_name, tcp_stream)
+                    tls_connector
+                        .connect_async(&subject_name, tcp_stream)
                         .map(move |s| {
                                  TcpStream::from_stream_with_receiver(s,
                                                                       name_server,

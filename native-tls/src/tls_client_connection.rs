@@ -26,9 +26,9 @@ use openssl::x509::X509 as OpensslX509;
 use security_framework::certificate::SecCertificate;
 use tokio_core::reactor::Core;
 
-use error::*;
-use client::{ClientConnection, ClientStreamHandle};
-use tls::{TlsClientStream, TlsClientStreamBuilder};
+use trust_dns::error::*;
+use trust_dns::client::{ClientConnection, ClientStreamHandle};
+use {TlsClientStream, TlsClientStreamBuilder};
 
 /// Tls client connection
 ///
@@ -41,7 +41,7 @@ pub struct TlsClientConnection {
 
 impl TlsClientConnection {
     pub fn builder() -> TlsClientConnectionBuilder {
-        TlsClientConnectionBuilder(TlsClientStream::builder())
+        TlsClientConnectionBuilder(TlsClientStreamBuilder::new())
     }
 }
 

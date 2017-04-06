@@ -11,8 +11,8 @@ for i in ${MODULES:?}; do
   pushd $i
   opts=${OPTIONS}
   if [ $i == "client" ] ; then opts="${OPTIONS} ${CLIENT_OPTIONS}" ; fi
-  
-  echo "executing cargo on $i"
-  cargo test ${opts}
+    
+  echo "executing $i: cargo test ${opts} $@"
+  cargo test ${opts} $@
   popd
 done

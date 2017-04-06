@@ -42,7 +42,8 @@ build = "build.rs"
 travis-ci = { repository = "bluejekyll/trust-dns" }
 
 [features]
-default = ["trust-dns/tls"]
+default = ["tls"]
+tls = ["trust-dns/tls"]
 ring = ["trust-dns/ring"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100

@@ -10,7 +10,7 @@ use std::io;
 
 use futures::Future;
 #[cfg(feature = "mtls")]
-use native_tls::Pkcs12;
+use openssl::pkcs12::Pkcs12;
 use openssl::x509::X509 as OpensslX509;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
@@ -18,7 +18,7 @@ use tokio_openssl::SslStream as TokioTlsStream;
 
 use BufClientStreamHandle;
 use tcp::TcpClientStream;
-use tls_openssl::{TlsStream, TlsStreamBuilder};
+use tls::{TlsStream, TlsStreamBuilder};
 use client::ClientStreamHandle;
 
 pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream>>;

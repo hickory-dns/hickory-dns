@@ -23,7 +23,7 @@ use tokio_core::reactor::Core;
 
 use error::*;
 use client::{ClientConnection, ClientStreamHandle};
-use tls_openssl::{TlsClientStream, TlsClientStreamBuilder};
+use tls::{TlsClientStream, TlsClientStreamBuilder};
 
 /// Tls client connection
 ///

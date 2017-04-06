@@ -19,22 +19,21 @@ use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_tls::TlsStream as TokioTlsStream;
 
-use BufClientStreamHandle;
-use tcp::TcpClientStream;
-use tls::{TlsStream, TlsStreamBuilder};
-use client::ClientStreamHandle;
+use trust_dns::BufClientStreamHandle;
+use trust_dns::tcp::TcpClientStream;
+use trust_dns::client::ClientStreamHandle;
+
+use {TlsStream, TlsStreamBuilder};
 
 pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream>>;
-
-impl TlsClientStream {
-    pub fn builder() -> TlsClientStreamBuilder {
-        TlsClientStreamBuilder(TlsStream::builder())
-    }
-}
 
 pub struct TlsClientStreamBuilder(TlsStreamBuilder);
 
 impl TlsClientStreamBuilder {
+    pub fn new() -> TlsClientStreamBuilder {
+        TlsClientStreamBuilder(::tls_stream::tls_builder())
+    }
+
     /// Add a custom trusted peer certificate or certificate auhtority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
@@ -75,10 +74,7 @@ impl TlsClientStreamBuilder {
         let new_future: Box<Future<Item = TlsClientStream, Error = io::Error>> =
             Box::new(stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)));
 
-        let sender = Box::new(BufClientStreamHandle {
-                                  name_server: name_server,
-                                  sender: sender,
-                              });
+        let sender = Box::new(BufClientStreamHandle::new(name_server, sender));
 
         (new_future, sender)
     }

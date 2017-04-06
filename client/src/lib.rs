@@ -64,13 +64,8 @@ pub mod logger;
 pub mod op;
 pub mod rr;
 pub mod tcp;
-#[cfg(feature = "native-tls")]
-pub mod tls_native;
-#[doc(hidden)]
-#[cfg(feature = "native-tls")]
-pub use tls_native as tls;
-#[cfg(all(feature = "tls", feature = "openssl", not(feature="native-tls")))]
-pub mod tls_openssl;
+#[cfg(all(feature = "tls", feature = "openssl"))]
+pub mod tls;
 pub mod udp;
 pub mod serialize;
 
@@ -103,11 +98,21 @@ pub struct BufClientStreamHandle {
     sender: BufStreamHandle,
 }
 
+impl BufClientStreamHandle {
+    pub fn new(name_server: SocketAddr, sender: BufStreamHandle) -> Self {
+        BufClientStreamHandle {
+            name_server: name_server,
+            sender: sender,
+        }
+    }
+}
+
 impl ClientStreamHandle for BufClientStreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
         let name_server: SocketAddr = self.name_server;
         let sender: &mut _ = &mut self.sender;
-        sender.send((buffer, name_server))
+        sender
+            .send((buffer, name_server))
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
     }
 }
