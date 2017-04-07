@@ -20,7 +20,7 @@ use tokio_core::reactor::Core;
 use trust_dns::client::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::TcpClientStream;
-use trust_dns::tls_openssl::TlsClientStream;
+use trust_dns::tls::TlsClientStream;
 
 fn named_test_harness<F, R>(toml: &str, test: F)
     where F: FnOnce(u16, u16) -> R + UnwindSafe
