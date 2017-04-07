@@ -20,7 +20,6 @@ extern crate futures;
 extern crate native_tls;
 #[cfg(target_os = "linux")]
 extern crate openssl;
-extern crate security_framework;
 extern crate tokio_core;
 extern crate tokio_tls;
 extern crate trust_dns;
