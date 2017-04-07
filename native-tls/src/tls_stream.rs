@@ -10,19 +10,8 @@ use std::io;
 
 use futures::{future, Future, IntoFuture};
 use futures::sync::mpsc::unbounded;
-use native_tls::TlsConnector;
-use native_tls::Pkcs12;
-#[cfg(target_os = "macos")]
-use native_tls::backend::security_framework::TlsConnectorBuilderExt;
-#[cfg(target_os = "macos")]
-use security_framework::certificate::SecCertificate;
-#[cfg(target_os = "linux")]
-use native_tls::backend::openssl::TlsConnectorBuilderExt;
-#[cfg(target_os = "linux")]
-use openssl::x509::X509;
-#[cfg(target_os = "linux")]
-use openssl::x509::store::X509StoreBuilder;
-use native_tls::Protocol::Tlsv12;
+use native_tls::{Certificate, Pkcs12, TlsConnector};
+use native_tls::Protocol::{Tlsv11, Tlsv12};
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_tls::{TlsConnectorExt, TlsStream as TokioTlsStream};
@@ -41,73 +30,26 @@ pub fn tls_builder() -> TlsStreamBuilder {
     }
 }
 
-#[cfg(target_os = "linux")]
-fn tls_new(certs: Vec<X509>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
-    let mut tls = try!(TlsConnector::builder().map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        }));
-    try!(tls.supported_protocols(&[Tlsv12])
-             .map_err(|e| {
-                          io::Error::new(io::ErrorKind::ConnectionRefused,
-                                         format!("tls error: {}", e))
-                      }));
-
-    {
-        // mutable reference block
-        let mut openssl_builder = tls.builder_mut();
-        let mut openssl_ctx_builder = openssl_builder.builder_mut();
-
-        let mut store = try!(X509StoreBuilder::new().map_err(|e| {
-                io::Error::new(io::ErrorKind::ConnectionRefused,
-                               format!("tls error: {}", e))
-            }));
-
-        for cert in certs {
-            try!(store
-                     .add_cert(cert)
-                     .map_err(|e| {
-                                  io::Error::new(io::ErrorKind::ConnectionRefused,
-                                                 format!("tls error: {}", e))
-                              }));
-        }
-
-        try!(openssl_ctx_builder
-                 .set_verify_cert_store(store.build())
-                 .map_err(|e| {
-                              io::Error::new(io::ErrorKind::ConnectionRefused,
-                                             format!("tls error: {}", e))
-                          }));
-    }
-
-    // if there was a pkcs12 associated, we'll add it to the identity
-    if let Some(pkcs12) = pkcs12 {
-        try!(tls.identity(pkcs12)
-                 .map_err(|e| {
-                              io::Error::new(io::ErrorKind::ConnectionRefused,
-                                             format!("tls error: {}", e))
-                          }));
-    }
-    tls.build()
-        .map_err(|e| {
-                     io::Error::new(io::ErrorKind::ConnectionRefused,
-                                    format!("tls error: {}", e))
-                 })
-}
-
-#[cfg(target_os = "macos")]
-fn tls_new(certs: Vec<SecCertificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
+fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
     let mut builder = try!(TlsConnector::builder().map_err(|e| {
             io::Error::new(io::ErrorKind::ConnectionRefused,
                            format!("tls error: {}", e))
         }));
     try!(builder
-             .supported_protocols(&[Tlsv12])
+             .supported_protocols(&[Tlsv11, Tlsv12])
              .map_err(|e| {
                           io::Error::new(io::ErrorKind::ConnectionRefused,
                                          format!("tls error: {}", e))
                       }));
-    builder.anchor_certificates(&certs);
+
+    for cert in certs {
+        try!(builder
+                 .add_root_certificate(cert)
+                 .map_err(|e| {
+                              io::Error::new(io::ErrorKind::ConnectionRefused,
+                                             format!("tls error: {}", e))
+                          }));
+    }
 
     if let Some(pkcs12) = pkcs12 {
         try!(builder
@@ -140,11 +82,7 @@ pub fn tls_from_stream(stream: TokioTlsStream<TokioTcpStream>,
 //}
 
 pub struct TlsStreamBuilder {
-    #[cfg(target_os = "macos")]
-    ca_chain: Vec<SecCertificate>,
-
-    #[cfg(target_os = "linux")]
-    ca_chain: Vec<X509>,
+    ca_chain: Vec<Certificate>,
     identity: Option<Pkcs12>,
 }
 
@@ -152,16 +90,7 @@ impl TlsStreamBuilder {
     /// Add a custom trusted peer certificate or certificate auhtority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    #[cfg(target_os = "macos")]
-    pub fn add_ca(&mut self, ca: SecCertificate) {
-        self.ca_chain.push(ca);
-    }
-
-    /// Add a custom trusted peer certificate or certificate auhtority.
-    ///
-    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this
-    #[cfg(target_os = "linux")]
-    pub fn add_ca(&mut self, ca: X509) {
+    pub fn add_ca(&mut self, ca: Certificate) {
         self.ca_chain.push(ca);
     }
 

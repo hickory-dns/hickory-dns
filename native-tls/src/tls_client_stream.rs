@@ -9,12 +9,9 @@ use std::net::SocketAddr;
 use std::io;
 
 use futures::Future;
+use native_tls::Certificate;
 #[cfg(feature = "mtls")]
 use native_tls::Pkcs12;
-#[cfg(target_os = "linux")]
-use openssl::x509::X509 as OpensslX509;
-#[cfg(target_os = "macos")]
-use security_framework::certificate::SecCertificate;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_tls::TlsStream as TokioTlsStream;
@@ -23,7 +20,7 @@ use trust_dns::BufClientStreamHandle;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::client::ClientStreamHandle;
 
-use {TlsStream, TlsStreamBuilder};
+use TlsStreamBuilder;
 
 pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream>>;
 
@@ -37,16 +34,7 @@ impl TlsClientStreamBuilder {
     /// Add a custom trusted peer certificate or certificate auhtority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    #[cfg(target_os = "macos")]
-    pub fn add_ca(&mut self, ca: SecCertificate) {
-        self.0.add_ca(ca);
-    }
-
-    /// Add a custom trusted peer certificate or certificate auhtority.
-    ///
-    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    #[cfg(target_os = "linux")]
-    pub fn add_ca(&mut self, ca: OpensslX509) {
+    pub fn add_ca(&mut self, ca: Certificate) {
         self.0.add_ca(ca);
     }
 

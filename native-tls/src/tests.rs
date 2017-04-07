@@ -18,19 +18,15 @@ use std::sync::atomic;
 
 use futures::Stream;
 use native_tls;
+use native_tls::{Certificate, TlsAcceptor};
 #[cfg(target_os = "linux")]
 use native_tls::backend::openssl::*;
-use native_tls::TlsAcceptor;
 #[cfg(target_os = "linux")]
 use openssl;
 #[cfg(target_os = "linux")]
 use openssl::ssl::{SSL_VERIFY_PEER, SSL_VERIFY_NONE, SSL_VERIFY_FAIL_IF_NO_PEER_CERT};
 #[cfg(target_os = "linux")]
 use openssl::x509::store::X509StoreBuilder;
-#[cfg(target_os = "linux")]
-use openssl::x509::X509;
-#[cfg(target_os = "macos")]
-use security_framework::certificate::SecCertificate;
 use tokio_core::reactor::Core;
 
 use {TlsStream, TlsStreamBuilder};
@@ -89,7 +85,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         })
         .unwrap();
 
-    let root_cert_der = read_file("../tests/ca.pem");
+    let root_cert_der = read_file("../tests/ca.der");
 
     // Generate X509 certificate
     let subject_name = "ns.example.com";
@@ -173,12 +169,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
 
-    #[cfg(target_os = "macos")]
-    let trust_chain = SecCertificate::from_der(&root_cert_der).unwrap();
-
-    #[cfg(target_os = "linux")]
-    let trust_chain = X509::from_der(&root_cert_der).unwrap();
-
+    let trust_chain = Certificate::from_der(&root_cert_der).unwrap();
 
     // barrier.wait();
     let mut builder = ::tls_stream::tls_builder();

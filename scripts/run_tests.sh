@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-MODULES=${MODULES:-"client server"}
+MODULES=${MODULES:-"client native-tls server"}
 CLIENT_OPTIONS=${CLIENT_OPTIONS} # add in all features
 OPTIONS=${OPTIONS}
 
