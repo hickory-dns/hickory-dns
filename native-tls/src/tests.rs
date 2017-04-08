@@ -160,7 +160,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let trust_chain = Certificate::from_der(&root_cert_der).unwrap();
 
     // barrier.wait();
-    let mut builder = ::tls_stream::tls_builder();
+    let mut builder = TlsStreamBuilder::new();
     builder.add_ca(trust_chain);
 
     // fix MTLS
