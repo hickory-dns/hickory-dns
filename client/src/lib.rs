@@ -45,8 +45,6 @@ extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
 extern crate rustc_serialize;
-#[cfg(all(target_os = "macos", feature = "security-framework"))]
-extern crate security_framework;
 extern crate time;
 extern crate tokio_io;
 #[macro_use]

@@ -22,10 +22,12 @@ pub fn create_example() -> Authority {
                        .set_ttl(3600)
                        .set_rr_type(RecordType::SOA)
                        .set_dns_class(DNSClass::IN)
-                       .set_rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None)
-                                                      .unwrap(),
-                                                      Name::parse("noc.dns.icann.org.", None)
-                                                      .unwrap(),
+                       .set_rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.",
+                                                                  None)
+                                                              .unwrap(),
+                                                      Name::parse("noc.dns.icann.org.",
+                                                                  None)
+                                                              .unwrap(),
                                                       2015082403,
                                                       7200,
                                                       3600,
@@ -39,7 +41,8 @@ pub fn create_example() -> Authority {
                        .set_ttl(86400)
                        .set_rr_type(RecordType::NS)
                        .set_dns_class(DNSClass::IN)
-                       .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                       .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None)
+                                                .unwrap()))
                        .clone(),
                    0);
     records.upsert(Record::new()
@@ -47,7 +50,8 @@ pub fn create_example() -> Authority {
                        .set_ttl(86400)
                        .set_rr_type(RecordType::NS)
                        .set_dns_class(DNSClass::IN)
-                       .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                       .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None)
+                                                .unwrap()))
                        .clone(),
                    0);
 
@@ -61,7 +65,7 @@ pub fn create_example() -> Authority {
                        .set_dns_class(DNSClass::IN)
                        .set_rdata(RData::TXT(TXT::new(vec!["$Id: example.com 4415 2015-08-24 \
                                                         20:12:23Z davids $"
-                                                           .to_string()])))
+                                                                   .to_string()])))
                        .clone(),
                    0);
 

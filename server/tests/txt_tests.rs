@@ -10,7 +10,6 @@ use trust_dns::serialize::txt::*;
 use trust_dns_server::authority::*;
 
 
-
 #[test]
 fn test_string() {
     let lexer = Lexer::new("@   IN  SOA     venera      action\\.domains (

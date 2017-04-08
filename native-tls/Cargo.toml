@@ -52,8 +52,6 @@ tokio-tls = "^0.1"
 # disables default features, i.e. openssl...
 trust-dns = { version = "^0.10", path = "../client", default-features = false }
 
-[target.'cfg(target_os = "linux")'.dependencies]
-openssl = { version = "^0.9.8", features = ["v102", "v110"] }
-
-[target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "^0.1.10"
+## Commented out until MTLS support is complete
+# [target.'cfg(target_os = "linux")'.dependencies]
+# openssl = { version = "^0.9.8", features = ["v102", "v110"] }

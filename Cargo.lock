@@ -9,6 +9,7 @@ dependencies = [
  "futures 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "native-tls 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -16,8 +17,10 @@ dependencies = [
  "time 0.1.36 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-openssl 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-tls 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.10.0",
+ "trust-dns-native-tls 0.1.0",
 ]
 
 [[package]]
@@ -596,8 +599,6 @@ version = "0.1.0"
 dependencies = [
  "futures 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "native-tls 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "openssl 0.9.10 (registry+https://github.com/rust-lang/crates.io-index)",
- "security-framework 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tls 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.10.0",

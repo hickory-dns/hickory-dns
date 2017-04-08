@@ -74,3 +74,8 @@ tokio-core = "^0.1"
 tokio-openssl = "^0.1"
 toml = "^0.1"
 trust-dns = { version = "^0.10", path = "../client" }
+
+[dev-dependencies]
+native-tls = "^0.1"
+trust-dns-native-tls = { version = "^0.1", path = "../native-tls" }
+tokio-tls = "^0.1"

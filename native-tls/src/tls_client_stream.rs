@@ -28,7 +28,7 @@ pub struct TlsClientStreamBuilder(TlsStreamBuilder);
 
 impl TlsClientStreamBuilder {
     pub fn new() -> TlsClientStreamBuilder {
-        TlsClientStreamBuilder(::tls_stream::tls_builder())
+        TlsClientStreamBuilder(TlsStreamBuilder::new())
     }
 
     /// Add a custom trusted peer certificate or certificate auhtority.

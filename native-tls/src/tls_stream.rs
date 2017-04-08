@@ -21,15 +21,6 @@ use trust_dns::tcp::TcpStream;
 
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream>>;
 
-// impl TlsStream {
-/// A builder for associating trust information to the `TlsStream`.
-pub fn tls_builder() -> TlsStreamBuilder {
-    TlsStreamBuilder {
-        ca_chain: vec![],
-        identity: None,
-    }
-}
-
 fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
     let mut builder = try!(TlsConnector::builder().map_err(|e| {
             io::Error::new(io::ErrorKind::ConnectionRefused,
@@ -79,7 +70,6 @@ pub fn tls_from_stream(stream: TokioTlsStream<TokioTcpStream>,
 
     (stream, message_sender)
 }
-//}
 
 pub struct TlsStreamBuilder {
     ca_chain: Vec<Certificate>,
@@ -87,6 +77,14 @@ pub struct TlsStreamBuilder {
 }
 
 impl TlsStreamBuilder {
+    /// Constructs a new TlsStreamBuilder
+    pub fn new() -> TlsStreamBuilder {
+        TlsStreamBuilder {
+            ca_chain: vec![],
+            identity: None,
+        }
+    }
+
     /// Add a custom trusted peer certificate or certificate auhtority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.

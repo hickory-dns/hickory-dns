@@ -30,11 +30,6 @@ matrix:
       env: MODULES="client"
            CLIENT_OPTIONS="--no-default-features --features=tls"
 
-    # just native-tls
-    - rust: stable
-      env: MODULES="client"
-           CLIENT_OPTIONS="--no-default-features --features=native-tls"
-
     # just ring
     - rust: stable
       env: MODULES="client"

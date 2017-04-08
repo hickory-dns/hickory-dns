@@ -19,14 +19,6 @@ use std::sync::atomic;
 use futures::Stream;
 use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
-#[cfg(target_os = "linux")]
-use native_tls::backend::openssl::*;
-#[cfg(target_os = "linux")]
-use openssl;
-#[cfg(target_os = "linux")]
-use openssl::ssl::{SSL_VERIFY_PEER, SSL_VERIFY_NONE, SSL_VERIFY_FAIL_IF_NO_PEER_CERT};
-#[cfg(target_os = "linux")]
-use openssl::x509::store::X509StoreBuilder;
 use tokio_core::reactor::Core;
 
 use {TlsStream, TlsStreamBuilder};
