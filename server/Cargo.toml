@@ -42,7 +42,8 @@ build = "build.rs"
 travis-ci = { repository = "bluejekyll/trust-dns" }
 
 [features]
-default = ["trust-dns/tls"]
+default = ["tls"]
+tls = ["trust-dns/tls"]
 ring = ["trust-dns/ring"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
@@ -64,16 +65,17 @@ error-chain = "0.1.12"
 futures = "^0.1.6"
 lazy_static = "^0.2.1"
 log = "^0.3.5"
-native-tls = "^0.1"
 openssl = { version = "^0.9.8", features = ["v102", "v110"] }
 rand = "^0.3"
 rustc-serialize = "^0.3.18"
 rusqlite = { version = "^0.9.5", features = ["bundled"] }
 time = "^0.1"
 tokio-core = "^0.1"
-tokio-tls = "^0.1"
+tokio-openssl = "^0.1"
 toml = "^0.1"
 trust-dns = { version = "^0.10", path = "../client" }
 
-[target.'cfg(target_os = "macos")'.dependencies]
-security-framework = "^0.1.10"
+[dev-dependencies]
+native-tls = "^0.1"
+trust-dns-native-tls = { version = "^0.1", path = "../native-tls" }
+tokio-tls = "^0.1"

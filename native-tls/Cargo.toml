@@ -1,17 +1,12 @@
 [package]
-name = "trust-dns"
-version = "0.10.0"
+name = "trust-dns-native-tls"
+version = "0.1.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-TRust-DNS is a safe and secure DNS client with DNSec support. DNSSec
- with NSEC validation for negative records, is complete. The client supports
- dynamic DNS with SIG0 authenticated requests, implementing easy to use high level
- funtions. TRust-DNS is based on the Tokio and Futures libraries, which means
- it should be easily integrated into other software that also use those
- libraries.
+An extension for the TRust-DNS client. To use, disable the tls feature on TRust-DNS.
 """
 
 # These URLs point to more information about the repository
@@ -35,39 +30,28 @@ categories = ["network-programming"]
 license = "MIT/Apache-2.0"
 
 # custom build steps
-build = "build.rs"
+# build = "build.rs"
 
 [badges]
 travis-ci = { repository = "bluejekyll/trust-dns" }
 
 [features]
-default = ["openssl", "tls"]
-tls = ["openssl", "tokio-openssl"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
 
 [lib]
-name = "trust_dns"
+name = "trust_dns_native_tls"
 path = "src/lib.rs"
 
 [dependencies]
-backtrace = "^0.2.1"
-chrono = "^0.2.21"
-data-encoding = "^1.1.2"
-error-chain = "0.1.12"
 futures = "^0.1.6"
-lazy_static = "^0.2.1"
-log = "^0.3.5"
-openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
-rand = "^0.3"
-ring = { version = "^0.6", optional = true }
-rustc-serialize = "^0.3.18"
-time = "^0.1"
+native-tls = "^0.1"
 tokio-core = "^0.1"
-tokio-io = "^0.1"
-tokio-openssl = { version = "^0.1", optional = true }
-untrusted = "^0.3"
+tokio-tls = "^0.1"
+# disables default features, i.e. openssl...
+trust-dns = { version = "^0.10", path = "../client", default-features = false }
 
-[dev-dependencies]
-openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = false }
+## Commented out until MTLS support is complete
+# [target.'cfg(target_os = "linux")'.dependencies]
+# openssl = { version = "^0.9.8", features = ["v102", "v110"] }

@@ -13,6 +13,7 @@ use trust_dns::serialize::binary::*;
 use trust_dns_server::authority::Catalog;
 
 pub mod authority;
+pub mod server_harness;
 
 #[allow(unused)]
 pub struct TestClientStream {
