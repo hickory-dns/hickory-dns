@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use std;
-use std::{thread, time};
+use std::env;
 use std::fs::File;
 use std::net::SocketAddr;
 use std::net::{IpAddr, Ipv4Addr};
@@ -15,6 +15,7 @@ use std::net::Ipv6Addr;
 use std::io::{Read, Write};
 use std::sync::Arc;
 use std::sync::atomic;
+use std::{thread, time};
 
 use futures::Stream;
 use native_tls;
@@ -77,11 +78,14 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         })
         .unwrap();
 
-    let root_cert_der = read_file("../tests/ca.der");
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
+    println!("using server src path: {}", server_path);
+   
+    let root_cert_der = read_file(&format!("{}/../tests/ca.der", server_path));
 
     // Generate X509 certificate
     let subject_name = "ns.example.com";
-    let server_pkcs12_der = read_file("../tests/cert.p12");
+    let server_pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
