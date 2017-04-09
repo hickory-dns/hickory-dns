@@ -25,7 +25,12 @@ install:
 build: false
 
 test_script:
-  - cargo build --manifest-path client/Cargo.toml --no-default-features
+  - cargo test --manifest-path client/Cargo.toml --all-features
   - cargo test --manifest-path client/Cargo.toml --no-default-features
-  - cargo build --manifest-path server/Cargo.toml --no-default-features
-  - cargo test --manifest-path server/Cargo.toml --no-default-features
+  - cargo test --manifest-path client/Cargo.toml
+  - cargo test --manifest-path client/Cargo.toml --no-default-features --features=openssl
+  - cargo test --manifest-path client/Cargo.toml --no-default-features --features=tls
+  - cargo test --manifest-path client/Cargo.toml --no-default-features --features=ring
+
+  - cargo test --manifest-path server/Cargo.toml --all-features
+  - cargo test --manifest-path server/Cargo.toml
