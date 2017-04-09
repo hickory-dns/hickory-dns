@@ -19,18 +19,25 @@
 use std::convert::From;
 use std::cmp::Ordering;
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 
+/// The DNS Record class
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum DNSClass {
-    IN, //	1	RFC 1035	Internet (IN)
-    CH, // 3 Chaos (CH)
-    HS, // 4 Hesiod (HS)
-    NONE, // 254 QCLASS NONE
-    ANY, // 255 QCLASS * (ANY)
-    OPT(u16), // Special class for OPT Version, it was overloaded for EDNS - RFC 6891
+    /// Internet
+    IN,
+    /// Chaos
+    CH,
+    /// Hesiod
+    HS,
+    /// QCLASS NONE
+    NONE,
+    /// QCLASS * (ANY)
+    ANY,
+    /// Special class for OPT Version, it was overloaded for EDNS - RFC 6891
+    OPT(u16),
 }
 
 impl DNSClass {
@@ -73,6 +80,7 @@ impl DNSClass {
         }
     }
 
+    /// Return the OPT version from value
     pub fn for_opt(value: u16) -> Self {
         DNSClass::OPT(value)
     }
@@ -147,9 +155,16 @@ impl Ord for DNSClass {
 
 #[test]
 fn test_order() {
-    let ordered = vec![DNSClass::IN, DNSClass::CH, DNSClass::HS, DNSClass::NONE, DNSClass::ANY];
-    let mut unordered =
-        vec![DNSClass::NONE, DNSClass::HS, DNSClass::CH, DNSClass::IN, DNSClass::ANY];
+    let ordered = vec![DNSClass::IN,
+                       DNSClass::CH,
+                       DNSClass::HS,
+                       DNSClass::NONE,
+                       DNSClass::ANY];
+    let mut unordered = vec![DNSClass::NONE,
+                             DNSClass::HS,
+                             DNSClass::CH,
+                             DNSClass::IN,
+                             DNSClass::ANY];
 
     unordered.sort();
 

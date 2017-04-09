@@ -65,7 +65,7 @@ fn test_read_config() {
                                 vec![]),
                 ZoneConfig::new("0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.\
                                  ip6.arpa"
-                                    .into(),
+                                        .into(),
                                 ZoneType::Master,
                                 "default/ipv6_1.zone".into(),
                                 None,
@@ -100,7 +100,9 @@ fn test_parse_toml() {
     assert_eq!(config.get_listen_addrs_ipv4(),
                vec![Ipv4Addr::new(0, 0, 0, 0)]);
 
-    let config: Config = "listen_addrs_ipv4 = [\"0.0.0.0\", \"127.0.0.1\"]".parse().unwrap();
+    let config: Config = "listen_addrs_ipv4 = [\"0.0.0.0\", \"127.0.0.1\"]"
+        .parse()
+        .unwrap();
     assert_eq!(config.get_listen_addrs_ipv4(),
                vec![Ipv4Addr::new(0, 0, 0, 0), Ipv4Addr::new(127, 0, 0, 1)]);
 
@@ -110,7 +112,8 @@ fn test_parse_toml() {
 
     let config: Config = "listen_addrs_ipv6 = [\"::0\", \"::1\"]".parse().unwrap();
     assert_eq!(config.get_listen_addrs_ipv6(),
-               vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0), Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]);
+               vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0),
+                    Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]);
 
     let config: Config = "tcp_request_timeout = 25".parse().unwrap();
     assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(25));
@@ -124,8 +127,7 @@ fn test_parse_toml() {
 
 #[test]
 fn test_parse_zone_keys() {
-    let config: Config =
-        "
+    let config: Config = "
 [[zones]]
 zone = \"example.com\"
 zone_type = \"Master\"
@@ -153,9 +155,14 @@ signer_name = \"ns.example.com.\"
             .unwrap();
     assert_eq!(config.get_zones()[0].get_keys()[0].get_key_path(),
                Path::new("/path/to/my_ed25519.pem"));
-    assert_eq!(config.get_zones()[0].get_keys()[0].get_algorithm().unwrap(),
+    assert_eq!(config.get_zones()[0].get_keys()[0]
+                   .get_algorithm()
+                   .unwrap(),
                Algorithm::ED25519);
-    assert_eq!(config.get_zones()[0].get_keys()[0].get_signer_name().unwrap().unwrap(),
+    assert_eq!(config.get_zones()[0].get_keys()[0]
+                   .get_signer_name()
+                   .unwrap()
+                   .unwrap(),
                Name::parse("ns.example.com.", None).unwrap());
     assert_eq!(config.get_zones()[0].get_keys()[0].is_zone_signing_key(),
                false);
@@ -165,9 +172,14 @@ signer_name = \"ns.example.com.\"
 
     assert_eq!(config.get_zones()[0].get_keys()[1].get_key_path(),
                Path::new("/path/to/my_rsa.pem"));
-    assert_eq!(config.get_zones()[0].get_keys()[1].get_algorithm().unwrap(),
+    assert_eq!(config.get_zones()[0].get_keys()[1]
+                   .get_algorithm()
+                   .unwrap(),
                Algorithm::RSASHA256);
-    assert_eq!(config.get_zones()[0].get_keys()[1].get_signer_name().unwrap().unwrap(),
+    assert_eq!(config.get_zones()[0].get_keys()[1]
+                   .get_signer_name()
+                   .unwrap()
+                   .unwrap(),
                Name::parse("ns.example.com.", None).unwrap());
     assert_eq!(config.get_zones()[0].get_keys()[1].is_zone_signing_key(),
                false);
@@ -190,8 +202,8 @@ tls_cert = { path = \"path/to/some.pkcs12\", create_if_absent = true, \
                           subject_name = \"ns.example.com\" }
 tls_listen_port = 8853
   "
-        .parse()
-        .unwrap();
+            .parse()
+            .unwrap();
 
     assert_eq!(config.get_tls_listen_port(), 8853);
     assert_eq!(config.get_tls_cert().unwrap().get_path(),

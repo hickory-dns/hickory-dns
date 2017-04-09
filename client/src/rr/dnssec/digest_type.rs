@@ -19,7 +19,7 @@ use openssl::hash;
 use openssl::hash::MessageDigest;
 
 use rr::dnssec::Algorithm;
-use ::error::*;
+use error::*;
 
 /// This is the digest format for the
 ///
@@ -34,12 +34,17 @@ use ::error::*;
 /// ```
 #[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum DigestType {
-    SHA1, // [RFC3658]
+    /// [RFC3658]
+    SHA1,
+    /// [RFC4509]
     SHA256, // [RFC4509]
     // GOSTR34_11_94, // [RFC5933]
-    SHA384, // [RFC6605]
+    /// [RFC6605]
+    SHA384,
+    /// Undefined
     SHA512,
-    ED25519, // this is a passthrough digest as ED25519 is self-packaged
+    /// This is a passthrough digest as ED25519 is self-packaged
+    ED25519,
 }
 
 impl DigestType {
@@ -55,6 +60,7 @@ impl DigestType {
         }
     }
 
+    /// The OpenSSL counterpart for the digest
     #[cfg(feature = "openssl")]
     pub fn to_openssl_digest(&self) -> DnsSecResult<MessageDigest> {
         match *self {
@@ -64,16 +70,18 @@ impl DigestType {
             DigestType::SHA512 => Ok(MessageDigest::sha512()),
             _ => {
                 Err(DnsSecErrorKind::Msg(format!("digest not supported by openssl: {:?}", self))
-                    .into())
+                        .into())
             }
         }
     }
 
+    /// Hash the data
     #[cfg(feature = "openssl")]
     pub fn hash(&self, data: &[u8]) -> DnsSecResult<Vec<u8>> {
         hash::hash(try!(self.to_openssl_digest()), data).map_err(|e| e.into())
     }
 
+    /// This will always error, enable openssl feature at compile time
     #[cfg(not(feature = "openssl"))]
     pub fn hash(&self, _: &[u8]) -> DnsSecResult<Vec<u8>> {
         Err(DnsSecErrorKind::Message("openssl feature not enabled").into())

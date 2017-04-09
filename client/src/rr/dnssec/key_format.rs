@@ -9,10 +9,14 @@ use ::error::*;
 use rr::dnssec::Algorithm;
 use rr::dnssec::KeyPair;
 
+/// The format of the binary key
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum KeyFormat {
+    /// A der encoded key
     Der,
+    /// A pem encoded key, the default of OpenSSL
     Pem,
+    /// Raw bytes unformatted
     Raw,
 }
 

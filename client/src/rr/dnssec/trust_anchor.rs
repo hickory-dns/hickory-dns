@@ -26,20 +26,24 @@ use rr::dnssec::KeyPair;
 #[cfg(feature = "openssl")]
 const ROOT_ANCHOR: &'static str = include_str!("Kjqmt7v.pem");
 
-// TODO: these should also store some information, or more specifically, metadata from the signed
-//  public certificate.
+/// The root set of trust anchors for validating DNSSec, anything in this set will be trusted
 pub struct TrustAnchor {
+    // TODO: these should also store some information, or more specifically, metadata from the signed
+    //  public certificate.
     pkeys: Vec<Vec<u8>>,
 }
 
 impl Default for TrustAnchor {
     #[cfg(feature = "openssl")]
     fn default() -> TrustAnchor {
-        let rsa = Rsa::public_key_from_pem(ROOT_ANCHOR.as_bytes())
-            .expect("Error parsing Kjqmt7v.pem");
+        let rsa =
+            Rsa::public_key_from_pem(ROOT_ANCHOR.as_bytes()).expect("Error parsing Kjqmt7v.pem");
         let key = KeyPair::from_rsa(rsa).expect("Error creating KeyPair from RSA key");
 
-        TrustAnchor { pkeys: vec![key.to_public_bytes().expect("could not convert key to bytes")] }
+        TrustAnchor {
+            pkeys: vec![key.to_public_bytes()
+                            .expect("could not convert key to bytes")],
+        }
     }
 
     #[cfg(not(feature = "openssl"))]
@@ -49,10 +53,12 @@ impl Default for TrustAnchor {
 }
 
 impl TrustAnchor {
+    /// Creates a new empty trust anchor set
     pub fn new() -> TrustAnchor {
         TrustAnchor { pkeys: vec![] }
     }
 
+    /// determines if the key is in the trust anchor set
     pub fn contains(&self, other_key: &[u8]) -> bool {
         self.pkeys.iter().any(|k| other_key == k as &[u8])
     }
@@ -64,6 +70,7 @@ impl TrustAnchor {
         }
     }
 
+    /// get the trust anchor at the specified index
     pub fn get(&self, idx: usize) -> &[u8] {
         &self.pkeys[idx]
     }

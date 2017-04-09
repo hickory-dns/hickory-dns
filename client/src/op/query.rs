@@ -68,10 +68,14 @@ impl Query {
         self.name = name;
         self
     }
+
+    /// Specify the RecordType being queried
     pub fn set_query_type(&mut self, query_type: RecordType) -> &mut Self {
         self.query_type = query_type;
         self
     }
+
+    /// Specify the DNS class of the Query, almost always IN
     pub fn set_query_class(&mut self, query_class: DNSClass) -> &mut Self {
         self.query_class = query_class;
         self

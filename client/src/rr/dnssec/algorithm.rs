@@ -15,8 +15,8 @@
  */
 use std::str::FromStr;
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 
 /// DNSSec signing and validation algorithms.
 ///
@@ -105,7 +105,9 @@ pub enum Algorithm {
     RSASHA1,
     /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
     RSASHA1NSEC3SHA1,
+    /// RSA public key with SHA256 hash
     RSASHA256,
+    /// RSA public key with SHA512 hash
     RSASHA512,
     /// [rfc6605](https://tools.ietf.org/html/rfc6605)
     ECDSAP256SHA256,
@@ -143,6 +145,7 @@ impl Algorithm {
         }
     }
 
+    /// Convert to string form
     pub fn to_str(&self) -> &'static str {
         match *self {
             Algorithm::RSASHA1 => "RSASHA1",
@@ -231,14 +234,16 @@ fn test_order() {
 
     algorithms.sort();
 
-    for (got, expect) in algorithms.iter().zip([Algorithm::RSASHA1,
-                                                Algorithm::RSASHA1NSEC3SHA1,
-                                                Algorithm::RSASHA256,
-                                                Algorithm::RSASHA512,
-                                                Algorithm::ECDSAP256SHA256,
-                                                Algorithm::ECDSAP384SHA384,
-                                                Algorithm::ED25519]
-        .iter()) {
+    for (got, expect) in algorithms
+            .iter()
+            .zip([Algorithm::RSASHA1,
+                  Algorithm::RSASHA1NSEC3SHA1,
+                  Algorithm::RSASHA256,
+                  Algorithm::RSASHA512,
+                  Algorithm::ECDSAP256SHA256,
+                  Algorithm::ECDSAP384SHA384,
+                  Algorithm::ED25519]
+                         .iter()) {
         assert_eq!(got, expect);
     }
 }

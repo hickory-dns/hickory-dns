@@ -279,21 +279,34 @@ impl Signer {
         }
     }
 
+    /// Returns the algorithm this Signer will use to either sign or validate a signature
     pub fn algorithm(&self) -> Algorithm {
         self.algorithm
     }
+
+    /// Return the key used for validateion/signing
     pub fn key(&self) -> &KeyPair {
         &self.key
     }
+
+    /// Returns the duration that this signature is valid for
     pub fn sig_duration(&self) -> Duration {
         self.sig_duration
     }
+
+    /// The name of the signing entity, e.g. the DNS server name.
+    ///
+    /// This should match the name on key in the zone.
     pub fn signer_name(&self) -> &Name {
         &self.signer_name
     }
+
+    /// A hint to the DNSKey associated with this Signer can be used to sign/validate records in the zone
     pub fn is_zone_signing_key(&self) -> bool {
         self.is_zone_signing_key
     }
+
+    /// The associated key can be used for dynamic updates
     pub fn is_zone_update_auth(&self) -> bool {
         self.is_zone_update_auth
     }
@@ -504,7 +517,7 @@ impl Signer {
             name
         } else {
             return Err(DnsSecErrorKind::Msg(format!("could not determine name from {}", name))
-                .into());
+                           .into());
         };
 
         // TODO: rather than buffering here, use the Signer/Verifier? might mean fewer allocations...
@@ -530,14 +543,16 @@ impl Signer {
                                       sig_inception,
                                       key_tag,
                                       &signer_name)
-                .is_ok());
+                            .is_ok());
 
             // construct the rrset signing data
             for record in rrset {
                 //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
                 //
                 //                name is calculated according to the function in the RFC 4035
-                assert!(name.to_lowercase().emit_as_canonical(&mut encoder, true).is_ok());
+                assert!(name.to_lowercase()
+                            .emit_as_canonical(&mut encoder, true)
+                            .is_ok());
                 //
                 //                type is the RRset type and all RRs in the class
                 assert!(type_covered.emit(&mut encoder).is_ok());
@@ -587,7 +602,7 @@ impl Signer {
         } else {
             return Err(DnsSecErrorKind::Msg(format!("could not determine name from {}",
                                                     rrsig.name()))
-                .into());
+                               .into());
         }
     }
 
@@ -670,7 +685,9 @@ impl Signer {
     ///
     /// The signature, ready to be stored in an `RData::RRSIG`.
     pub fn sign(&self, hash: &[u8]) -> DnsSecResult<Vec<u8>> {
-        self.key.sign(self.algorithm, &hash).map_err(|e| e.into())
+        self.key
+            .sign(self.algorithm, &hash)
+            .map_err(|e| e.into())
     }
 
     /// Verifies the hash matches the signature with the current `key`.
@@ -686,7 +703,9 @@ impl Signer {
     /// True if and only if the signature is valid for the hash. This will always return
     /// false if the `key`.
     pub fn verify(&self, hash: &[u8], signature: &[u8]) -> DnsSecResult<()> {
-        self.key.verify(self.algorithm, hash, signature).map_err(|e| e.into())
+        self.key
+            .verify(self.algorithm, hash, signature)
+            .map_err(|e| e.into())
     }
 }
 
@@ -790,7 +809,8 @@ mod tests {
                      .set_ttl(86400)
                      .set_rr_type(RecordType::CNAME)
                      .set_dns_class(DNSClass::IN)
-                     .set_rdata(RData::CNAME(Name::parse("a.iana-servers.net.", None).unwrap()))
+                     .set_rdata(RData::CNAME(Name::parse("a.iana-servers.net.", None)
+                                                 .unwrap()))
                      .clone(), // different type
                  Record::new()
                      .set_name(Name::parse("www.example.com.", None).unwrap())
