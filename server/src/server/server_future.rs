@@ -10,12 +10,12 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
-use native_tls::Pkcs12;
-use native_tls::Protocol::Tlsv12;
-use native_tls::TlsAcceptor;
+use openssl::pkcs12::ParsedPkcs12;
+use openssl::ssl;
+use openssl::ssl::{SslAcceptorBuilder, SslMethod};
 use tokio_core;
 use tokio_core::reactor::Core;
-use tokio_tls::TlsAcceptorExt;
+use tokio_openssl::SslAcceptorExt;
 
 use trust_dns::op::RequestHandler;
 use trust_dns::udp::UdpStream;
@@ -35,9 +35,9 @@ impl ServerFuture {
     /// Creates a new ServerFuture with the specified Catalog of Zones.
     pub fn new(catalog: Catalog) -> io::Result<ServerFuture> {
         Ok(ServerFuture {
-            io_loop: try!(Core::new()),
-            catalog: Arc::new(catalog),
-        })
+               io_loop: try!(Core::new()),
+               catalog: Arc::new(catalog),
+           })
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
@@ -50,11 +50,14 @@ impl ServerFuture {
         let catalog = self.catalog.clone();
 
         // this spawns a ForEach future which handles all the requests into a Catalog.
-        self.io_loop.handle().spawn(// TODO dedup with below into generic func
-                                    request_stream.for_each(move |(request, response_handle)| {
-                Self::handle_request(request, response_handle, catalog.clone())
-            })
-            .map_err(|e| debug!("error in UDP request_stream handler: {}", e)));
+        self.io_loop
+            .handle()
+            .spawn(// TODO dedup with below into generic func
+                   request_stream
+                       .for_each(move |(request, response_handle)| {
+                                     Self::handle_request(request, response_handle, catalog.clone())
+                                 })
+                       .map_err(|e| debug!("error in UDP request_stream handler: {}", e)));
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -82,8 +85,11 @@ impl ServerFuture {
         debug!("registered tcp: {:?}", listener);
 
         // for each incoming request...
-        self.io_loop.handle().spawn(listener.incoming()
-            .for_each(move |(tcp_stream, src_addr)| {
+        self.io_loop
+            .handle()
+            .spawn(listener
+                       .incoming()
+                       .for_each(move |(tcp_stream, src_addr)| {
                 debug!("accepted request from: {}", src_addr);
                 // take the created stream...
                 let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
@@ -103,7 +109,7 @@ impl ServerFuture {
 
                 Ok(())
             })
-            .map_err(|e| debug!("error in inbound tcp_stream: {}", e)));
+                       .map_err(|e| debug!("error in inbound tcp_stream: {}", e)));
 
         Ok(())
     }
@@ -124,7 +130,7 @@ impl ServerFuture {
     pub fn register_tls_listener(&self,
                                  listener: std::net::TcpListener,
                                  timeout: Duration,
-                                 pkcs12: Pkcs12)
+                                 pkcs12: ParsedPkcs12)
                                  -> io::Result<()> {
         let handle = self.io_loop.handle();
         let catalog = self.catalog.clone();
@@ -134,43 +140,50 @@ impl ServerFuture {
             .expect("could not register listener");
         debug!("registered tcp: {:?}", listener);
 
-        let mut builder = try!(TlsAcceptor::builder(pkcs12).map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        }));
-        try!(builder.supported_protocols(&[Tlsv12]).map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        }));
-        let tls_acceptor = try!(builder.build().map_err(|e| {
-            io::Error::new(io::ErrorKind::ConnectionRefused,
-                           format!("tls error: {}", e))
-        }));
+        let mut builder = try!(SslAcceptorBuilder::mozilla_modern(SslMethod::tls(),
+                                                                  &pkcs12.pkey,
+                                                                  &pkcs12.cert,
+                                                                  &pkcs12.chain)
+                                       .map_err(|e| {
+                                                    io::Error::new(io::ErrorKind::ConnectionRefused,
+                                                                   format!("tls error: {}", e))
+                                                }));
+
+        // mut block
+        {
+            let ssl_context_bldr = builder.builder_mut();
+
+            ssl_context_bldr.set_options(ssl::SSL_OP_NO_SSLV2 | ssl::SSL_OP_NO_SSLV3 |
+                                         ssl::SSL_OP_NO_TLSV1 |
+                                         ssl::SSL_OP_NO_TLSV1_1);
+        }
+
+        let tls_acceptor = builder.build();
 
         // for each incoming request...
         self.io_loop.handle().spawn(
-      listener.incoming()
-              .for_each(move |(tcp_stream, src_addr)| {
-                debug!("accepted request from: {}", src_addr);
-                let timeout = timeout.clone();
-                let handle = handle.clone();
-                let catalog = catalog.clone();
+        listener.incoming()
+                .for_each(move |(tcp_stream, src_addr)| {
+                  debug!("accepted request from: {}", src_addr);
+                  let timeout = timeout.clone();
+                  let handle = handle.clone();
+                  let catalog = catalog.clone();
 
-                // take the created stream...
-                tls_acceptor.accept_async(tcp_stream)
-                            .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
-                            .and_then(move |tls_stream| {
-                              let (buf_stream, stream_handle) = TlsStream::from_stream(tls_stream, src_addr.clone());
-                              let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
-                              let request_stream = RequestStream::new(timeout_stream, stream_handle);
-                              let catalog = catalog.clone();
+                  // take the created stream...
+                  tls_acceptor.accept_async(tcp_stream)
+                              .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
+                              .and_then(move |tls_stream| {
+                                  let (buf_stream, stream_handle) = TlsStream::from_stream(tls_stream, src_addr.clone());
+                                  let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
+                                  let request_stream = RequestStream::new(timeout_stream, stream_handle);
+                                  let catalog = catalog.clone();
 
-                              // and spawn to the io_loop
-                              handle.spawn(
-                                request_stream.for_each(move |(request, response_handle)| {
-                                  Self::handle_request(request, response_handle, catalog.clone())
-                                })
-                                .map_err(move |e| debug!("error in TCP request_stream src: {:?} error: {}", src_addr, e))
+                                  // and spawn to the io_loop
+                                  handle.spawn(
+                                  request_stream.for_each(move |(request, response_handle)| {
+                                      Self::handle_request(request, response_handle, catalog.clone())
+                                  })
+                              .map_err(move |e| debug!("error in TCP request_stream src: {:?} error: {}", src_addr, e))
                               );
 
                               Ok(())

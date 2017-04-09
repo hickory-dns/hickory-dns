@@ -20,7 +20,7 @@ use rand::Rng;
 use rand;
 use tokio_core::reactor::{Handle, Timeout};
 
-use ::error::*;
+use error::*;
 use op::{Message, MessageType, OpCode, Query, UpdateMessage};
 use rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use rr::dnssec::Signer;
@@ -31,14 +31,17 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 /// A reference to a Sender of bytes returned from the creation of a UdpClientStream or TcpClientStream
 pub type StreamHandle = UnboundedSender<Vec<u8>>;
 
+/// Implementations of Sinks for sending DNS messages
 pub trait ClientStreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()>;
 }
 
 impl ClientStreamHandle for StreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
-        UnboundedSender::send(self, buffer)
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
+        UnboundedSender::send(self, buffer).map_err(|_| {
+                                                        io::Error::new(io::ErrorKind::Other,
+                                                                       "unknown")
+                                                    })
     }
 }
 
@@ -115,10 +118,10 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
                     signer: signer,
                 }
             })
-            .flatten()
-            .map_err(|e| {
-                error!("error in Client: {}", e);
-            }));
+                              .flatten()
+                              .map_err(|e| {
+                                           error!("error in Client: {}", e);
+                                       }));
 
         BasicClientHandle { message_sender: sender }
     }
@@ -130,8 +133,8 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
         let mut canceled = HashSet::new();
         for (&id, &mut (ref mut req, ref mut timeout)) in self.active_requests.iter_mut() {
             if let Ok(Async::Ready(())) = req.poll_cancel() {
-        canceled.insert(id);
-      }
+              canceled.insert(id);
+            }
 
             // check for timeouts...
             match timeout.poll() {
@@ -155,7 +158,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
                 //  then the otherside isn't really paying attention anyway)
 
                 // complete the request, it's failed...
-                req.complete(Err(ClientErrorKind::Timeout.into()));
+                req.send(Err(ClientErrorKind::Timeout.into())).expect("error notifying wait, possible future leak");
             }
         }
     }
@@ -221,7 +224,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                             // TODO: it's too bad this happens here...
                             if let Err(e) = message.sign(signer, UTC::now().timestamp() as u32) {
                                 warn!("could not sign message: {}", e);
-                                complete.complete(Err(e.into()));
+                                complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
                                 continue; // to the next message...
                             }
                         }
@@ -232,7 +235,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                         Ok(timeout) => timeout,
                         Err(e) => {
                             warn!("could not create timer: {}", e);
-                            complete.complete(Err(e.into()));
+                            complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
                             continue; // to the next message...
                         }
                     };
@@ -249,7 +252,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                         Err(e) => {
                             debug!("error message id: {} error: {}", query_id, e);
                             // complete with the error, don't add to the map of active requests
-                            complete.complete(Err(e.into()));
+                            complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
                         }
                     }
                 }
@@ -274,7 +277,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                     match Message::from_vec(&buffer) {
                         Ok(message) => {
                             match self.active_requests.remove(&message.id()) {
-                                Some((complete, _)) => complete.complete(Ok(message)),
+                                Some((complete, _)) => complete.send(Ok(message)).expect("error notifying wait, possible future leak"),
                                 None => debug!("unexpected request_id: {}", message.id()),
                             }
                         }
@@ -331,15 +334,15 @@ impl ClientHandle for BasicClientHandle {
             Ok(()) => receiver,
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();
-                complete.complete(Err(e.into()));
+                complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
                 receiver
             }
         };
 
         // conver the oneshot into a Box of a Future message and error.
         Box::new(receiver.map_err(|c| ClientError::from(c))
-            .map(|result| result.into_future())
-            .flatten())
+                     .map(|result| result.into_future())
+                     .flatten())
     }
 }
 
@@ -544,7 +547,9 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(rrset.dns_class())
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -615,7 +620,9 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(rrset.dns_class())
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -626,8 +633,7 @@ pub trait ClientHandle: Clone {
         message.add_zone(zone);
 
         if must_exist {
-            let mut prerequisite =
-                Record::with(rrset.name().clone(), rrset.record_type(), 0);
+            let mut prerequisite = Record::with(rrset.name().clone(), rrset.record_type(), 0);
             prerequisite.set_dns_class(DNSClass::ANY);
             message.add_pre_requisite(prerequisite);
         }
@@ -784,7 +790,9 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(rrset.dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(rrset.dns_class())
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
@@ -852,7 +860,9 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(record.dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(record.dns_class())
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();

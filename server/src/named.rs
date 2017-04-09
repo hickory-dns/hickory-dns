@@ -35,7 +35,6 @@ extern crate chrono;
 extern crate docopt;
 #[macro_use]
 extern crate log;
-extern crate native_tls;
 extern crate openssl;
 extern crate rustc_serialize;
 extern crate trust_dns;
@@ -53,7 +52,8 @@ use docopt::Docopt;
 use log::LogLevel;
 use openssl::asn1::*;
 use openssl::bn::*;
-use openssl::{hash, nid, pkcs12};
+use openssl::{hash, nid};
+use openssl::pkcs12::{ParsedPkcs12, Pkcs12};
 use openssl::pkey::PKey;
 use openssl::x509::*;
 use openssl::x509::extension::*;
@@ -135,8 +135,9 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
                                            zone_config.get_zone_type(),
                                            zone_config.is_update_allowed(),
                                            zone_config.is_dnssec_enabled());
-        try!(authority.recover_with_journal(&journal)
-            .map_err(|e| format!("error recovering from journal: {}", e)));
+        try!(authority
+                 .recover_with_journal(&journal)
+                 .map_err(|e| format!("error recovering from journal: {}", e)));
 
         authority.journal(journal);
         info!("recovered zone: {}", zone_name);
@@ -171,8 +172,11 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
             authority.journal(journal);
 
             // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
-            try!(authority.persist_to_journal()
-                .map_err(|e| format!("error persisting to journal {:?}: {}", journal_path, e)));
+            try!(authority
+                     .persist_to_journal()
+                     .map_err(|e| {
+                                  format!("error persisting to journal {:?}: {}", journal_path, e)
+                              }));
         }
 
         info!("loaded zone: {}", zone_name);
@@ -202,7 +206,9 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
                   key_config.get_key_path(),
                   key_config.is_zone_signing_key(),
                   key_config.is_zone_update_auth());
-            authority.add_secure_key(signer).expect("failed to add key to authority");
+            authority
+                .add_secure_key(signer)
+                .expect("failed to add key to authority");
         } else {
             for key_config in zone_config.get_keys() {
                 let signer = try!(load_key(zone_name.clone(), &key_config).map_err(|e| {
@@ -214,7 +220,9 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
                       key_config.get_key_path(),
                       key_config.is_zone_signing_key(),
                       key_config.is_zone_update_auth());
-                authority.add_secure_key(signer).expect("failed to add key to authority");
+                authority
+                    .add_secure_key(signer)
+                    .expect("failed to add key to authority");
             }
         }
     }
@@ -238,8 +246,12 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
 ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     let key_path = key_config.get_key_path();
-    let algorithm = try!(key_config.get_algorithm().map_err(|e| format!("bad algorithm: {}", e)));
-    let format = try!(key_config.get_format().map_err(|e| format!("bad key format: {}", e)));
+    let algorithm = try!(key_config
+                             .get_algorithm()
+                             .map_err(|e| format!("bad algorithm: {}", e)));
+    let format = try!(key_config
+                          .get_format()
+                          .map_err(|e| format!("bad key format: {}", e)));
 
     let key: KeyPair = if key_path.exists() {
         info!("reading key: {:?}", key_path);
@@ -250,10 +262,11 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
 
         let mut key_bytes = Vec::with_capacity(256);
         try!(file.read_to_end(&mut key_bytes)
-            .map_err(|e| format!("could not read key from: {:?}: {}", key_path, e)));
+                 .map_err(|e| format!("could not read key from: {:?}: {}", key_path, e)));
 
-        try!(format.decode_key(&key_bytes, key_config.get_password(), algorithm)
-            .map_err(|e| format!("could not decode key: {}", e)))
+        try!(format
+                 .decode_key(&key_bytes, key_config.get_password(), algorithm)
+                 .map_err(|e| format!("could not decode key: {}", e)))
     } else if key_config.create_if_absent() {
         info!("creating key: {:?}", key_path);
 
@@ -265,20 +278,25 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
         let key = try!(KeyPair::generate(algorithm)
             .map_err(|e| format!("could not generate key: {}", e)));
         let key_bytes: Vec<u8> =
-            try!(format.encode_key(&key, key_config.get_password())
-            .map_err(|e| format!("could not get key bytes: {}", e)));
+            try!(format
+                     .encode_key(&key, key_config.get_password())
+                     .map_err(|e| format!("could not get key bytes: {}", e)));
 
         try!(file.write_all(&key_bytes)
-            .or_else(|_| fs::remove_file(&key_path))
-            .map_err(|e| format!("error writing private key file: {:?}: {}", key_path, e)));
+                 .or_else(|_| fs::remove_file(&key_path))
+                 .map_err(|e| {
+                              format!("error writing private key file: {:?}: {}", key_path, e)
+                          }));
 
         key
     } else {
         return Err(format!("file not found: {:?}", key_path));
     };
 
-    let name = try!(key_config.get_signer_name().map_err(|e| format!("error reading name: {}", e)))
-        .unwrap_or(zone_name);
+    let name = try!(key_config
+                        .get_signer_name()
+                        .map_err(|e| format!("error reading name: {}", e)))
+            .unwrap_or(zone_name);
 
     // add the key to the zone
     // TODO: allow the duration of signatutes to be customized
@@ -290,20 +308,21 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
                    true))
 }
 
-fn read_cert(path: &Path, password: Option<&str>) -> Result<native_tls::Pkcs12, String> {
+fn read_cert(path: &Path, password: Option<&str>) -> Result<ParsedPkcs12, String> {
     let mut file = try!(File::open(&path)
         .map_err(|e| format!("error opening pkcs12 cert file: {:?}: {}", path, e)));
 
     let mut key_bytes = vec![];
     try!(file.read_to_end(&mut key_bytes)
-        .map_err(|e| format!("could not read pkcs12 key from: {:?}: {}", path, e)));
-    native_tls::Pkcs12::from_der(&key_bytes, password.unwrap_or(""))
-        .map_err(|e| format!("badly formated pkcs12 key from: {:?}: {}", path, e))
+             .map_err(|e| format!("could not read pkcs12 key from: {:?}: {}", path, e)));
+    let pkcs12 = try!(Pkcs12::from_der(&key_bytes)
+        .map_err(|e| format!("badly formated pkcs12 key from: {:?}: {}", path, e)));
+    pkcs12
+        .parse(password.unwrap_or(""))
+        .map_err(|e| format!("failed to open pkcs12 from: {:?}: {}", path, e))
 }
 
-fn load_cert(zone_dir: &Path,
-             tls_cert_config: &TlsCertConfig)
-             -> Result<native_tls::Pkcs12, String> {
+fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedPkcs12, String> {
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
     let subject_name = tls_cert_config.get_subject_name();
@@ -326,7 +345,9 @@ fn load_cert(zone_dir: &Path,
 
             let cert_der = cert.to_der().unwrap();
             let mut file = File::create(&cert_path).unwrap();
-            file.write_all(&cert_der).or_else(|_| fs::remove_file(&cert_path)).unwrap();
+            file.write_all(&cert_der)
+                .or_else(|_| fs::remove_file(&cert_path))
+                .unwrap();
 
             // write out to the file
             // TODO: establish proper ownership of the file
@@ -339,8 +360,10 @@ fn load_cert(zone_dir: &Path,
                                                  }));
 
             try!(file.write_all(&pkcs12_der)
-                .or_else(|_| fs::remove_file(&path))
-                .map_err(|e| format!("error writing pkcs12 cert file: {:?}: {}", path, e)));
+                     .or_else(|_| fs::remove_file(&path))
+                     .map_err(|e| {
+                                  format!("error writing pkcs12 cert file: {:?}: {}", path, e)
+                              }));
         } else {
             panic!("the interior key was not an EC, something changed")
         }
@@ -355,7 +378,7 @@ fn load_cert(zone_dir: &Path,
 fn generate_cert(subject_name: &str,
                  pkey: PKey,
                  password: Option<&str>)
-                 -> DnsSecResult<(X509, pkcs12::Pkcs12)> {
+                 -> DnsSecResult<(X509, Pkcs12)> {
     let mut x509_name = try!(X509NameBuilder::new());
     try!(x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name));
     let x509_name = x509_name.build();
@@ -373,35 +396,32 @@ fn generate_cert(subject_name: &str,
     try!(x509_build.set_serial_number(&serial));
 
     let ext_key_usage = try!(ExtendedKeyUsage::new()
-        .server_auth()
-        .client_auth()
-        .build());
+                                 .server_auth()
+                                 .client_auth()
+                                 .build());
     try!(x509_build.append_extension(ext_key_usage));
 
-    let subject_key_identifier =
-        try!(SubjectKeyIdentifier::new().build(&x509_build.x509v3_context(None, None)));
+    let subject_key_identifier = try!(SubjectKeyIdentifier::new()
+                                          .build(&x509_build.x509v3_context(None, None)));
     try!(x509_build.append_extension(subject_key_identifier));
 
     let authority_key_identifier = try!(AuthorityKeyIdentifier::new()
-        .keyid(true)
-        .build(&x509_build.x509v3_context(None, None)));
+                                            .keyid(true)
+                                            .build(&x509_build.x509v3_context(None, None)));
     try!(x509_build.append_extension(authority_key_identifier));
 
     let subject_alternative_name = try!(SubjectAlternativeName::new()
-        .dns(subject_name)
-        .build(&x509_build.x509v3_context(None, None)));
+                                            .dns(subject_name)
+                                            .build(&x509_build.x509v3_context(None, None)));
     try!(x509_build.append_extension(subject_alternative_name));
 
-    let basic_constraints = try!(BasicConstraints::new()
-        .critical()
-        .ca()
-        .build());
+    let basic_constraints = try!(BasicConstraints::new().critical().ca().build());
     try!(x509_build.append_extension(basic_constraints));
 
     try!(x509_build.sign(&pkey, hash::MessageDigest::sha256()));
     let cert = x509_build.build();
 
-    let pkcs12_builder = pkcs12::Pkcs12::builder();
+    let pkcs12_builder = Pkcs12::builder();
     let pkcs12 = try!(pkcs12_builder.build(password.unwrap_or(""), subject_name, &pkey, &cert));
 
     Ok((cert, pkcs12))
@@ -443,7 +463,8 @@ pub fn main() {
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {
-        let zone_name = zone.get_zone().expect(&format!("bad zone name in {:?}", config_path));
+        let zone_name = zone.get_zone()
+            .expect(&format!("bad zone name in {:?}", config_path));
 
         match load_zone(zone_dir, zone) {
             Ok(authority) => catalog.upsert(zone_name, authority),
@@ -455,7 +476,8 @@ pub fn main() {
     // TODO, there should be the option to listen on any port, IP and protocol option...
     let v4addr = config.get_listen_addrs_ipv4();
     let v6addr = config.get_listen_addrs_ipv6();
-    let mut listen_addrs: Vec<IpAddr> = v4addr.into_iter()
+    let mut listen_addrs: Vec<IpAddr> = v4addr
+        .into_iter()
         .map(|x| IpAddr::V4(x))
         .chain(v6addr.into_iter().map(|x| IpAddr::V6(x)))
         .collect();
@@ -465,12 +487,16 @@ pub fn main() {
     if listen_addrs.len() == 0 {
         listen_addrs.push(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
     }
-    let sockaddrs: Vec<SocketAddr> =
-        listen_addrs.iter().flat_map(|x| (*x, listen_port).to_socket_addrs().unwrap()).collect();
-    let udp_sockets: Vec<UdpSocket> = sockaddrs.iter()
+    let sockaddrs: Vec<SocketAddr> = listen_addrs
+        .iter()
+        .flat_map(|x| (*x, listen_port).to_socket_addrs().unwrap())
+        .collect();
+    let udp_sockets: Vec<UdpSocket> = sockaddrs
+        .iter()
         .map(|x| UdpSocket::bind(x).expect(&format!("could not bind to udp: {}", x)))
         .collect();
-    let tcp_listeners: Vec<TcpListener> = sockaddrs.iter()
+    let tcp_listeners: Vec<TcpListener> = sockaddrs
+        .iter()
         .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tcp: {}", x)))
         .collect();
 
@@ -487,17 +513,21 @@ pub fn main() {
     // and TCP as necessary
     for tcp_listener in tcp_listeners {
         info!("listening for TCP on {:?}", tcp_listener);
-        server.register_listener(tcp_listener, tcp_request_timeout)
+        server
+            .register_listener(tcp_listener, tcp_request_timeout)
             .expect("could not register TCP listener");
     }
 
     // and TLS as necessary
     if let Some(tls_cert_config) = config.get_tls_cert() {
-        let tls_listen_port: u16 = args.flag_tls_port.unwrap_or(config.get_tls_listen_port());
-        let tls_sockaddrs: Vec<SocketAddr> = listen_addrs.iter()
+        let tls_listen_port: u16 = args.flag_tls_port
+            .unwrap_or(config.get_tls_listen_port());
+        let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
+            .iter()
             .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
             .collect();
-        let tls_listeners: Vec<TcpListener> = tls_sockaddrs.iter()
+        let tls_listeners: Vec<TcpListener> = tls_sockaddrs
+            .iter()
             .map(|x| TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x)))
             .collect();
         if tls_listeners.is_empty() {
@@ -512,7 +542,8 @@ pub fn main() {
                 load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
 
             info!("listening for TLS on {:?}", tls_listener);
-            server.register_tls_listener(tls_listener, tcp_request_timeout, tls_cert)
+            server
+                .register_tls_listener(tls_listener, tcp_request_timeout, tls_cert)
                 .expect("could not register TLS listener");
         }
     }

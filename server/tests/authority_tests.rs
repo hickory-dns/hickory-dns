@@ -2,6 +2,7 @@ extern crate chrono;
 extern crate futures;
 extern crate openssl;
 extern crate rusqlite;
+extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_server;
 

@@ -12,7 +12,7 @@ use std::io;
 use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
-use tokio_core::io::Io;
+use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 
@@ -82,7 +82,7 @@ impl TcpStream<TokioTcpStream> {
     }
 }
 
-impl<S: Io> TcpStream<S> {
+impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     /// Initializes a TcpStream with an existing tokio_core::net::TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
@@ -117,7 +117,7 @@ impl<S: Io> TcpStream<S> {
     }
 }
 
-impl<S: Io> Stream for TcpStream<S> {
+impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
     type Item = (Vec<u8>, SocketAddr);
     type Error = io::Error;
 

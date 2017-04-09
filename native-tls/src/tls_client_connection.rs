@@ -18,12 +18,14 @@ use std::net::SocketAddr;
 use std::io;
 
 use futures::Future;
-use openssl::x509::X509 as OpensslX509;
+use native_tls::Certificate;
+#[cfg(feature = "mtls")]
+use native_tls::Pkcs12;
 use tokio_core::reactor::Core;
 
-use error::*;
-use client::{ClientConnection, ClientStreamHandle};
-use tls::{TlsClientStream, TlsClientStreamBuilder};
+use trust_dns::error::*;
+use trust_dns::client::{ClientConnection, ClientStreamHandle};
+use {TlsClientStream, TlsClientStreamBuilder};
 
 /// Tls client connection
 ///
@@ -36,7 +38,7 @@ pub struct TlsClientConnection {
 
 impl TlsClientConnection {
     pub fn builder() -> TlsClientConnectionBuilder {
-        TlsClientConnectionBuilder(TlsClientStream::builder())
+        TlsClientConnectionBuilder(TlsClientStreamBuilder::new())
     }
 }
 
@@ -54,7 +56,7 @@ impl TlsClientConnectionBuilder {
     /// Add a custom trusted peer certificate or certificate auhtority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    pub fn add_ca(&mut self, ca: OpensslX509) {
+    pub fn add_ca(&mut self, ca: Certificate) {
         self.0.add_ca(ca);
     }
 

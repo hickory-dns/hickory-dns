@@ -14,12 +14,21 @@
  * limitations under the License.
  */
 
-//! TCP protocol related components for DNS
+//! TLS protocol related components for DNS over TLS
 
-mod tcp_client_connection;
-mod tcp_client_stream;
-pub mod tcp_stream;
+extern crate futures;
+extern crate native_tls;
+extern crate tokio_core;
+extern crate tokio_tls;
+extern crate trust_dns;
 
-pub use self::tcp_client_connection::TcpClientConnection;
-pub use self::tcp_client_stream::TcpClientStream;
-pub use self::tcp_stream::TcpStream;
+pub mod tls_client_connection;
+pub mod tls_client_stream;
+pub mod tls_stream;
+
+pub use self::tls_client_connection::{TlsClientConnection, TlsClientConnectionBuilder};
+pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
+pub use self::tls_stream::{TlsStream, TlsStreamBuilder};
+
+#[cfg(test)]
+mod tests;

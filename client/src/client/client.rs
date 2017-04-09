@@ -19,7 +19,7 @@ use futures::Stream;
 use tokio_core::reactor::Core;
 
 use client::{ClientHandle, BasicClientHandle, ClientConnection, ClientFuture, SecureClientHandle};
-use ::error::*;
+use error::*;
 use rr::{domain, DNSClass, IntoRecordSet, RecordType, Record};
 use rr::dnssec::Signer;
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -28,7 +28,7 @@ use op::Message;
 
 /// Client trait which implements basic DNS Client operations.
 ///
-/// As of 0.9.4, the Client is now a wrapper around the `ClientFuture`, which is a futures-rs
+/// As of 0.10.0, the Client is now a wrapper around the `ClientFuture`, which is a futures-rs
 /// and tokio-rs based implementation. This trait implements syncronous functions for ease of use.
 ///
 /// There was a strong attempt to make it backwards compatible, but making it a drop in replacement
@@ -58,8 +58,9 @@ pub trait Client<C: ClientHandle> {
              query_class: DNSClass,
              query_type: RecordType)
              -> ClientResult<Message> {
-        self.get_io_loop()
-            .run(self.get_client_handle().query(name.clone(), query_class, query_type))
+        self.get_io_loop().run(self.get_client_handle().query(name.clone(),
+                                                              query_class,
+                                                              query_type))
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -78,8 +79,10 @@ pub trait Client<C: ClientHandle> {
                  -> ClientResult<Message>
         where R: IntoRecordSet
     {
-        self.get_io_loop()
-            .run(self.get_client_handle().notify(name, query_class, query_type, rrset))
+        self.get_io_loop().run(self.get_client_handle().notify(name,
+                                                               query_class,
+                                                               query_type,
+                                                               rrset))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -326,8 +329,9 @@ pub trait Client<C: ClientHandle> {
                   zone_origin: domain::Name,
                   dns_class: DNSClass)
                   -> ClientResult<Message> {
-        self.get_io_loop()
-            .run(self.get_client_handle().delete_all(name_of_records, zone_origin, dns_class))
+        self.get_io_loop().run(self.get_client_handle().delete_all(name_of_records,
+                                                                   zone_origin,
+                                                                   dns_class))
     }
 }
 
@@ -347,8 +351,8 @@ impl SyncClient {
     /// # Arguments
     ///
     /// * `client_connection` - the client_connection to use for all communication
-  pub fn new<CC: ClientConnection>(client_connection: CC) -> SyncClient
-  where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
+    pub fn new<CC: ClientConnection>(client_connection: CC) -> SyncClient
+where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static{
         let (io_loop, stream, stream_handle) = client_connection.unwrap();
 
         let client = ClientFuture::new(stream, stream_handle, io_loop.handle(), None);
@@ -368,7 +372,7 @@ impl SyncClient {
     /// * `client_connection` - the client_connection to use for all communication
     /// * `signer` - signer to use, this needs an associated private key
   pub fn with_signer<CC: ClientConnection>(client_connection: CC, signer: Signer) -> SyncClient
-  where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
+where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static{
         let (io_loop, stream, stream_handle) = client_connection.unwrap();
 
         let client = ClientFuture::new(stream, stream_handle, io_loop.handle(), Some(signer));
@@ -390,6 +394,7 @@ impl Client<BasicClientHandle> for SyncClient {
     }
 }
 
+/// A DNS client which will validate DNSSec records upon receipt
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub struct SecureSyncClient {
     client_handle: RefCell<SecureClientHandle<BasicClientHandle>>,
@@ -405,7 +410,7 @@ impl SecureSyncClient {
     /// * `client_connection` - the client_connection to use for all communication
   pub fn new<CC>(client_connection: CC) -> SecureSyncClientBuilder<CC>
   where CC: ClientConnection,
-        <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
+<CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static{
         SecureSyncClientBuilder {
             client_connection: client_connection,
             trust_anchor: None,
@@ -439,8 +444,9 @@ impl SecureSyncClient {
                         query_class: DNSClass,
                         query_type: RecordType)
                         -> ClientResult<Message> {
-        self.get_io_loop()
-            .run(self.get_client_handle().query(query_name.clone(), query_class, query_type))
+        self.get_io_loop().run(self.get_client_handle().query(query_name.clone(),
+                                                              query_class,
+                                                              query_type))
     }
 }
 

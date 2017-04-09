@@ -9,7 +9,7 @@ use std::net::SocketAddr;
 use std::io;
 
 use futures::{Async, Future, Poll, Stream};
-use tokio_core::io::Io;
+use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 
@@ -17,6 +17,9 @@ use BufClientStreamHandle;
 use tcp::TcpStream;
 use client::ClientStreamHandle;
 
+/// Tcp client stream
+///
+/// Use with `trust_dns::client::ClientFuture` impls
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpClientStream<S> {
     tcp_stream: TcpStream<S>,
@@ -32,17 +35,15 @@ impl TcpClientStream<TokioTcpStream> {
                    Box<ClientStreamHandle>) {
         let (stream_future, sender) = TcpStream::new(name_server, loop_handle);
 
-        let new_future: Box<Future<Item=TcpClientStream<TokioTcpStream>, Error=io::Error>> =
-      Box::new(stream_future.map(move |tcp_stream| {
-        TcpClientStream {
-          tcp_stream: tcp_stream,
-        }
-      }));
+        let new_future: Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>> =
+            Box::new(stream_future.map(move |tcp_stream| {
+                                           TcpClientStream { tcp_stream: tcp_stream }
+                                       }));
 
         let sender = Box::new(BufClientStreamHandle {
-            name_server: name_server,
-            sender: sender,
-        });
+                                  name_server: name_server,
+                                  sender: sender,
+                              });
 
         (new_future, sender)
     }
@@ -54,7 +55,7 @@ impl<S> TcpClientStream<S> {
     }
 }
 
-impl<S: Io> Stream for TcpClientStream<S> {
+impl<S: AsyncRead + AsyncWrite> Stream for TcpClientStream<S> {
     type Item = Vec<u8>;
     type Error = io::Error;
 

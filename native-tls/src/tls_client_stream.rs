@@ -9,33 +9,32 @@ use std::net::SocketAddr;
 use std::io;
 
 use futures::Future;
+use native_tls::Certificate;
 #[cfg(feature = "mtls")]
-use openssl::pkcs12::Pkcs12;
-use openssl::x509::X509 as OpensslX509;
+use native_tls::Pkcs12;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
-use tokio_openssl::SslStream as TokioTlsStream;
+use tokio_tls::TlsStream as TokioTlsStream;
 
-use BufClientStreamHandle;
-use tcp::TcpClientStream;
-use tls::{TlsStream, TlsStreamBuilder};
-use client::ClientStreamHandle;
+use trust_dns::BufClientStreamHandle;
+use trust_dns::tcp::TcpClientStream;
+use trust_dns::client::ClientStreamHandle;
+
+use TlsStreamBuilder;
 
 pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream>>;
-
-impl TlsClientStream {
-    pub fn builder() -> TlsClientStreamBuilder {
-        TlsClientStreamBuilder(TlsStream::builder())
-    }
-}
 
 pub struct TlsClientStreamBuilder(TlsStreamBuilder);
 
 impl TlsClientStreamBuilder {
+    pub fn new() -> TlsClientStreamBuilder {
+        TlsClientStreamBuilder(TlsStreamBuilder::new())
+    }
+
     /// Add a custom trusted peer certificate or certificate auhtority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    pub fn add_ca(&mut self, ca: OpensslX509) {
+    pub fn add_ca(&mut self, ca: Certificate) {
         self.0.add_ca(ca);
     }
 
@@ -63,10 +62,7 @@ impl TlsClientStreamBuilder {
         let new_future: Box<Future<Item = TlsClientStream, Error = io::Error>> =
             Box::new(stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)));
 
-        let sender = Box::new(BufClientStreamHandle {
-                                  name_server: name_server,
-                                  sender: sender,
-                              });
+        let sender = Box::new(BufClientStreamHandle::new(name_server, sender));
 
         (new_future, sender)
     }

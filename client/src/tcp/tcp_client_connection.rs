@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! TCP based DNS client
+//! TCP based DNS client connection for Client impls
 
 use std::net::SocketAddr;
 use std::io;
@@ -21,11 +21,13 @@ use futures::Future;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor::Core;
 
-use ::error::*;
+use error::*;
 use client::{ClientConnection, ClientStreamHandle};
 use tcp::TcpClientStream;
 
-/// TCP based DNS client
+/// Tcp client connection
+///
+/// Use with `trust_dns::client::Client` impls
 pub struct TcpClientConnection {
     io_loop: Core,
     tcp_client_stream: Box<Future<Item = TcpClientStream<TcpStream>, Error = io::Error>>,
@@ -47,17 +49,17 @@ impl TcpClientConnection {
                                                                             io_loop.handle());
 
         Ok(TcpClientConnection {
-            io_loop: io_loop,
-            tcp_client_stream: tcp_client_stream,
-            client_stream_handle: handle,
-        })
+               io_loop: io_loop,
+               tcp_client_stream: tcp_client_stream,
+               client_stream_handle: handle,
+           })
     }
 }
 
 impl ClientConnection for TcpClientConnection {
     type MessageStream = TcpClientStream<TcpStream>;
 
-  fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>) {
+fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>){
         (self.io_loop, self.tcp_client_stream, self.client_stream_handle)
     }
 }

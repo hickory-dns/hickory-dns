@@ -33,14 +33,13 @@ extern crate error_chain;
 extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate native_tls;
 extern crate openssl;
 extern crate rusqlite;
 extern crate rustc_serialize;
 extern crate time;
 extern crate toml;
 extern crate tokio_core;
-extern crate tokio_tls;
+extern crate tokio_openssl;
 extern crate trust_dns;
 
 pub mod authority;

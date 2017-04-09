@@ -39,19 +39,20 @@ extern crate lazy_static;
 extern crate log;
 #[cfg(feature = "native-tls")]
 extern crate native_tls;
-#[cfg(any(feature = "openssl", all(target_os = "linux", feature = "tls")))]
+#[cfg(feature = "openssl")]
 extern crate openssl;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
 extern crate rustc_serialize;
-#[cfg(all(target_os = "macos", feature = "security-framework"))]
-extern crate security_framework;
 extern crate time;
+extern crate tokio_io;
 #[macro_use]
 extern crate tokio_core;
 #[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;
+#[cfg(feature = "tokio-openssl")]
+extern crate tokio_openssl;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 
@@ -61,10 +62,13 @@ pub mod logger;
 pub mod op;
 pub mod rr;
 pub mod tcp;
-#[cfg(feature = "tls")]
+#[cfg(all(feature = "tls", feature = "openssl"))]
 pub mod tls;
 pub mod udp;
 pub mod serialize;
+
+#[cfg(test)]
+mod tests;
 
 use std::io;
 use std::net::SocketAddr;
@@ -92,11 +96,21 @@ pub struct BufClientStreamHandle {
     sender: BufStreamHandle,
 }
 
+impl BufClientStreamHandle {
+    pub fn new(name_server: SocketAddr, sender: BufStreamHandle) -> Self {
+        BufClientStreamHandle {
+            name_server: name_server,
+            sender: sender,
+        }
+    }
+}
+
 impl ClientStreamHandle for BufClientStreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
         let name_server: SocketAddr = self.name_server;
         let sender: &mut _ = &mut self.sender;
-        sender.send((buffer, name_server))
+        sender
+            .send((buffer, name_server))
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
     }
 }

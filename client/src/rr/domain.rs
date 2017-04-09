@@ -16,15 +16,16 @@
 
 //! domain name, aka labels, implementaton
 
+use std::char;
+use std::cmp::{Ordering, PartialEq};
+use std::fmt;
+use std::hash::{Hash, Hasher};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
 use std::sync::Arc as Rc;
-use std::fmt;
-use std::cmp::{Ordering, PartialEq};
-use std::char;
-use std::hash::{Hash, Hasher};
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 
 /// TODO: all Names should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
@@ -256,7 +257,7 @@ impl Name {
                         ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
                         _ => {
                             return Err(ParseErrorKind::Msg(format!("unrecognized char: {}", ch))
-                                .into())
+                                           .into())
                         }
                     }
                 }
@@ -286,7 +287,8 @@ impl Name {
                             .ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: \
                                                                                  {}",
                                                                                 ch)))));
-                        let new: char = try!(char::from_u32(val)
+                        let new: char =
+                            try!(char::from_u32(val)
                             .ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: \
                                                                                  {}",
                                                                                 ch)))));
@@ -419,6 +421,51 @@ impl Name {
         format!("{}", self)
     }
 }
+
+impl From<IpAddr> for Name {
+    fn from(addr: IpAddr) -> Name {
+        match addr {
+            IpAddr::V4(ip) => ip.into(),
+            IpAddr::V6(ip) => ip.into(),
+        }
+    }
+}
+
+impl From<Ipv4Addr> for Name {
+    fn from(addr: Ipv4Addr) -> Name {
+        let octets = addr.octets();
+
+        let mut labels = octets.iter().rev().fold(Vec::with_capacity(6), |mut labels, o| {
+            labels.push(format!("{}", o));
+            labels
+        });
+
+        labels.push("in-addr".to_string());
+        labels.push("arpa".to_string());
+
+        Self::with_labels(labels)
+    }
+}
+
+impl From<Ipv6Addr> for Name {
+    fn from(addr: Ipv6Addr) -> Name {
+        let segments = addr.segments();
+
+        let mut labels = segments.iter().rev().fold(Vec::with_capacity(34), |mut labels, o| {
+            labels.push(format!("{:x}", (*o & 0x000F) as u8));
+            labels.push(format!("{:x}", (*o >> 4 & 0x000F) as u8));
+            labels.push(format!("{:x}", (*o >> 8 & 0x000F) as u8));
+            labels.push(format!("{:x}", (*o >> 12 & 0x000F) as u8));
+            labels
+        });
+
+        labels.push("ip6".to_string());
+        labels.push("arpa".to_string());
+
+        Self::with_labels(labels)
+    }
+}
+
 
 impl Hash for Name {
     fn hash<H>(&self, state: &mut H)
@@ -608,7 +655,7 @@ mod tests {
 
     use serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
     #[allow(unused)]
-    use ::serialize::binary::*;
+    use serialize::binary::*;
 
     fn get_data() -> Vec<(Name, Vec<u8>)> {
         vec![
@@ -625,8 +672,18 @@ mod tests {
         assert_eq!(Name::new().label("a").num_labels(), 1);
         assert_eq!(Name::new().label("*").label("b").num_labels(), 1);
         assert_eq!(Name::new().label("a").label("b").num_labels(), 2);
-        assert_eq!(Name::new().label("*").label("b").label("c").num_labels(), 2);
-        assert_eq!(Name::new().label("a").label("b").label("c").num_labels(), 3);
+        assert_eq!(Name::new()
+                       .label("*")
+                       .label("b")
+                       .label("c")
+                       .num_labels(),
+                   2);
+        assert_eq!(Name::new()
+                       .label("a")
+                       .label("b")
+                       .label("c")
+                       .num_labels(),
+                   3);
     }
 
     #[test]
@@ -646,7 +703,11 @@ mod tests {
         let first = Name::new().label("ra").label("rb").label("rc");
         let second = Name::new().label("rb").label("rc");
         let third = Name::new().label("rc");
-        let fourth = Name::new().label("z").label("ra").label("rb").label("rc");
+        let fourth = Name::new()
+            .label("z")
+            .label("ra")
+            .label("rb")
+            .label("rc");
 
         {
             let mut e = BinEncoder::new(&mut bytes);
@@ -687,7 +748,10 @@ mod tests {
 
         assert_eq!(zone.base_name(), Name::new().label("com"));
         assert!(zone.base_name().base_name().is_root());
-        assert!(zone.base_name().base_name().base_name().is_root());
+        assert!(zone.base_name()
+                    .base_name()
+                    .base_name()
+                    .is_root());
     }
 
     #[test]
@@ -773,5 +837,61 @@ mod tests {
             println!("left: {}, right: {}", left, right);
             assert_eq!(left, right);
         }
+    }
+
+    #[test]
+    fn test_from_ipv4() {
+        let ip = IpAddr::V4(Ipv4Addr::new(26, 3, 0, 103));
+        let name = Name::new()
+            .label("103")
+            .label("0")
+            .label("3")
+            .label("26")
+            .label("in-addr")
+            .label("arpa");
+
+        assert_eq!(Into::<Name>::into(ip), name);
+    }
+
+    #[test]
+    fn test_from_ipv6() {
+        let ip = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0x1));
+        let name = Name::new()
+            .label("1")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("0")
+            .label("8")
+            .label("b")
+            .label("d")
+            .label("0")
+            .label("1")
+            .label("0")
+            .label("0")
+            .label("2")
+            .label("ip6")
+            .label("arpa");
+
+        assert_eq!(Into::<Name>::into(ip), name);
     }
 }

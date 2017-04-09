@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//! UDP based DNS client
+//! UDP based DNS client connection for Client impls
 
 use std::io;
 use std::net::SocketAddr;
@@ -20,11 +20,13 @@ use std::net::SocketAddr;
 use futures::Future;
 use tokio_core::reactor::Core;
 
-use ::error::*;
+use error::*;
 use client::{ClientConnection, ClientStreamHandle};
 use udp::UdpClientStream;
 
-/// UDP based DNS client
+/// UDP based DNS Client connection
+///
+/// Use with `trust_dns::client::Client` impls
 pub struct UdpClientConnection {
     io_loop: Core,
     udp_client_stream: Box<Future<Item = UdpClientStream, Error = io::Error>>,
@@ -45,17 +47,17 @@ impl UdpClientConnection {
         let (udp_client_stream, handle) = UdpClientStream::new(name_server, io_loop.handle());
 
         Ok(UdpClientConnection {
-            io_loop: io_loop,
-            udp_client_stream: udp_client_stream,
-            client_stream_handle: handle,
-        })
+               io_loop: io_loop,
+               udp_client_stream: udp_client_stream,
+               client_stream_handle: handle,
+           })
     }
 }
 
 impl ClientConnection for UdpClientConnection {
     type MessageStream = UdpClientStream;
 
-  fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>) {
+fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>){
         (self.io_loop, self.udp_client_stream, self.client_stream_handle)
     }
 }
