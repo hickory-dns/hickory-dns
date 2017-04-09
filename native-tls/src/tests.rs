@@ -85,7 +85,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     // Generate X509 certificate
     let subject_name = "ns.example.com";
-    let server_pkcs12_der = read_file("../tests/cert.p12");
+    let server_pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
 
     // TODO: need a timeout on listen
     let server = std::net::TcpListener::bind(SocketAddr::new(server_addr, 0)).unwrap();
