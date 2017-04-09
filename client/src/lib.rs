@@ -99,6 +99,12 @@ pub struct BufClientStreamHandle {
 }
 
 impl BufClientStreamHandle {
+    /// Constructs a new Buffered Stream Handle, used for sending data to the DNS peer.
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - the address of the DNS server
+    /// * `sender` - the handle being used to send data to the server
     pub fn new(name_server: SocketAddr, sender: BufStreamHandle) -> Self {
         BufClientStreamHandle {
             name_server: name_server,

@@ -142,39 +142,55 @@ impl Header {
         self
     }
 
-    
+    /// Specify that the resolver should recursiviley request data from upstream DNS nodes
     pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
         self.recursion_desired = recursion_desired;
         self
     }
+
+    /// Specifies that recursion is available from this or the remote resolver
     pub fn set_recursion_available(&mut self, recursion_available: bool) -> &mut Self {
         self.recursion_available = recursion_available;
         self
     }
+
+    /// Specifies that the data is authnetic, i.e. the resolver believes all data to be valid through DNSSec
     pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
         self.authentic_data = authentic_data;
         self
     }
+
+    /// Used during recursive resolution to specified if a resolver should or should not validate DNSSec signatures
     pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
         self.checking_disabled = checking_disabled;
         self
     }
+
+    /// The low responsed code (original response codes before EDNS extensions)
     pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
         self.response_code = response_code.low();
         self
     }
+
+    /// Number or query records in the message
     pub fn set_query_count(&mut self, query_count: u16) -> &mut Self {
         self.query_count = query_count;
         self
     }
+
+    /// Number of answer records in the message
     pub fn set_answer_count(&mut self, answer_count: u16) -> &mut Self {
         self.answer_count = answer_count;
         self
     }
+
+    /// Number of name server records in the message
     pub fn set_name_server_count(&mut self, name_server_count: u16) -> &mut Self {
         self.name_server_count = name_server_count;
         self
     }
+
+    /// Number of additional records in the message
     pub fn set_additional_count(&mut self, additional_count: u16) -> &mut Self {
         self.additional_count = additional_count;
         self
