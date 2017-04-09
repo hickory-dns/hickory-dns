@@ -16,9 +16,9 @@
 
 //! null record type, generally not used except as an internal tool for representing null data
 
-use ::serialize::txt::*;
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::txt::*;
+use serialize::binary::*;
+use error::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
 ///
@@ -43,21 +43,23 @@ pub struct NULL {
 }
 
 impl NULL {
+    /// Construct a new NULL RData
     pub fn new() -> NULL {
         NULL { anything: None }
     }
 
+    /// Constructs a new NULL RData with the associated data
     pub fn with(anything: Vec<u8>) -> NULL {
         NULL { anything: Some(anything) }
     }
 
+    /// Returns the buffer stored in the NULL
     pub fn anything(&self) -> Option<&Vec<u8>> {
         self.anything.as_ref()
     }
 }
 
-// TODO: length should be stored in the decoder, and guaranteed everywhere, right?
-// TODO: use this for unknown record types in caching...
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NULL> {
     if rdata_length > 0 {
         let mut anything: Vec<u8> = Vec::with_capacity(rdata_length as usize);
@@ -75,6 +77,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NULL> {
     }
 }
 
+/// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> EncodeResult {
     if let Some(ref anything) = nil.anything() {
         for b in anything.iter() {
@@ -85,6 +88,7 @@ pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> EncodeResult {
     Ok(())
 }
 
+/// Parse the RData from a set of Tokens
 #[allow(unused)]
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<NULL> {
     unimplemented!()

@@ -193,7 +193,7 @@ impl OPT {
     }
 }
 
-
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<OPT> {
     let mut state: OptReadState = OptReadState::ReadCode;
     let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
@@ -240,6 +240,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<OPT> {
     Ok(OPT::new(options))
 }
 
+/// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> EncodeResult {
     for (ref edns_code, ref edns_option) in opt.options().iter() {
         try!(encoder.emit_u16(u16::from(**edns_code)));
@@ -262,6 +263,7 @@ enum OptReadState {
     }, // expect the data for the option
 }
 
+/// The code of the EDNS data option
 #[derive(Hash, Debug, Copy, Clone, PartialEq, Eq)]
 pub enum EdnsCode {
     /// [RFC 6891, Reserved](https://tools.ietf.org/html/rfc6891)
@@ -373,6 +375,7 @@ pub enum EdnsOption {
 }
 
 impl EdnsOption {
+    /// Returns the length in bytes of the EdnsOption
     pub fn len(&self) -> u16 {
         match *self {
             EdnsOption::DAU(ref algorithms) |

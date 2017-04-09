@@ -45,6 +45,16 @@ pub struct MX {
 }
 
 impl MX {
+    /// Constructs a new MX RData
+    ///
+    /// # Arguments
+    ///
+    /// * `preference` - weight of this MX record as opposed to others, lower values have the higher preference
+    /// * `exchange` - Name labels for the mail server
+    ///
+    /// # Returns
+    ///
+    /// A new MX RData for use in a Resource Record
     pub fn new(preference: u16, exchange: Name) -> MX {
         MX {
             preference: preference,
@@ -74,6 +84,7 @@ impl MX {
     }
 }
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<MX> {
     Ok(MX::new(try!(decoder.read_u16()), try!(Name::read(decoder))))
 }
@@ -101,6 +112,7 @@ pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> EncodeResult {
     Ok(())
 }
 
+/// Parse the RData from a set of Tokens
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<MX> {
     let mut token = tokens.iter();
 

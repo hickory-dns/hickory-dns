@@ -77,6 +77,19 @@ pub struct DNSKEY {
 }
 
 impl DNSKEY {
+    /// Construct a new DNSKey RData
+    ///
+    /// # Arguments
+    ///
+    /// * `zone_key` - this key is used to sign Zone resource records
+    /// * `secure_entry_point` - this key is used to sign DNSKeys that sign the Zone records
+    /// * `revoke` - this key has been revoked
+    /// * `algorithm` - specifies the algorithm which this Key uses to sign records
+    /// * `public_key` - the public key material, in native endian, the emitter will perform any necessary conversion
+    ///
+    /// # Return
+    /// 
+    /// A new DNSKEY RData for use in a Resource Record
     pub fn new(zone_key: bool,
                secure_entry_point: bool,
                revoke: bool,
@@ -216,6 +229,7 @@ impl DNSKEY {
     }
 }
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY> {
     let flags: u16 = try!(decoder.read_u16());
 
@@ -248,6 +262,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY>
     Ok(DNSKEY::new(zone_key, secure_entry_point, revoke, algorithm, public_key))
 }
 
+/// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> EncodeResult {
     let mut flags: u16 = 0;
     if rdata.zone_key() {

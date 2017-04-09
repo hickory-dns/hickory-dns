@@ -46,6 +46,7 @@ use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv4Addr> {
     Ok(Ipv4Addr::new(try!(decoder.pop()),
                      try!(decoder.pop()),
@@ -53,6 +54,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv4Addr> {
                      try!(decoder.pop())))
 }
 
+/// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, address: &Ipv4Addr) -> EncodeResult {
     let segments = address.octets();
 
@@ -63,6 +65,7 @@ pub fn emit(encoder: &mut BinEncoder, address: &Ipv4Addr) -> EncodeResult {
     Ok(())
 }
 
+/// Parse the RData from a set of Tokens
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<Ipv4Addr> {
     let mut token = tokens.iter();
 

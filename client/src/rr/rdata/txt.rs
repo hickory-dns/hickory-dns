@@ -60,6 +60,7 @@ impl TXT {
     }
 }
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<TXT> {
     let data_len = decoder.len();
     let mut strings = Vec::with_capacity(1);
@@ -70,6 +71,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<TXT> {
     Ok(TXT::new(strings))
 }
 
+/// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> EncodeResult {
     for s in txt.txt_data() {
         try!(encoder.emit_character_data(s));
@@ -78,6 +80,7 @@ pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> EncodeResult {
     Ok(())
 }
 
+/// Parse the RData from a set of Tokens
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<TXT> {
     let mut txt_data: Vec<String> = Vec::with_capacity(tokens.len());
     for t in tokens {

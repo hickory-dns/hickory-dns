@@ -74,6 +74,18 @@ pub struct DS {
 }
 
 impl DS {
+    /// Constructs a new DS RData
+    ///
+    /// # Arguments
+    ///
+    /// * `key_tag` - the key_tag associated to the DNSKEY
+    /// * `algorithm` - algorithm as specified in the DNSKEY
+    /// * `digest_type` - hash algorithm used to validate the DNSKEY
+    /// * `digest` - hash of the DNSKEY
+    ///
+    /// # Returns
+    ///
+    /// the DS RDATA for use in a Resource Record
     pub fn new(key_tag: u16, algorithm: Algorithm, digest_type: DigestType, digest: Vec<u8>) -> DS {
         DS {
             key_tag: key_tag,
@@ -169,6 +181,7 @@ impl DS {
     }
 }
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DS> {
     let start_idx = decoder.index();
 
@@ -182,6 +195,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DS> {
     Ok(DS::new(key_tag, algorithm, digest_type, digest))
 }
 
+/// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> EncodeResult {
     try!(encoder.emit_u16(rdata.key_tag()));
     try!(rdata.algorithm().emit(encoder)); // always 3 for now

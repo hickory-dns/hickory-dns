@@ -119,6 +119,7 @@ pub struct NSEC3 {
 }
 
 impl NSEC3 {
+    /// Constructs a new NSEC3 record
     pub fn new(hash_algorithm: Nsec3HashAlgorithm,
                opt_out: bool,
                iterations: u16,
@@ -237,6 +238,7 @@ impl NSEC3 {
     }
 }
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC3> {
     let start_idx = decoder.index();
 
@@ -264,6 +266,16 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC3> 
                   record_types))
 }
 
+/// Decodes the array of RecordTypes covered by this NSEC record
+///
+/// # Arguments
+///
+/// * `decoder` - decoder to read from
+/// * `bit_map_len` - the number bytes in the bit map
+///
+/// # Returns
+///
+/// The Array of covered types
 pub fn decode_type_bit_maps(decoder: &mut BinDecoder,
                             bit_map_len: usize)
                             -> DecodeResult<Vec<RecordType>> {
@@ -373,6 +385,7 @@ enum BitMapState {
     ReadType { window: u8, len: u8, left: u8 },
 }
 
+/// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> EncodeResult {
     try!(encoder.emit(rdata.hash_algorithm().into()));
     let mut flags: u8 = 0;
@@ -390,6 +403,12 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> EncodeResult {
     Ok(())
 }
 
+/// Encode the bit map
+///
+/// # Arguments
+///
+/// * `encoder` - the encoder to write to
+/// * `type_bit_maps` - types to encode into the bitmap
 pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> EncodeResult {
     let mut hash: HashMap<u8, Vec<u8>> = HashMap::new();
 

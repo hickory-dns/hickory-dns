@@ -209,7 +209,7 @@ impl SOA {
     }
 }
 
-// SOA { mname: Name, rname: Name, serial: u32, refresh: i32, retry: i32, expire: i32, minimum: u32, },
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SOA> {
     Ok(SOA {
         mname: try!(Name::read(decoder)),
@@ -253,12 +253,7 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> EncodeResult {
     Ok(())
 }
 
-// VENERA      Action\.domains (
-//                                 20     ; SERIAL
-//                                 7200   ; REFRESH
-//                                 600    ; RETRY
-//                                 3600000; EXPIRE
-//                                 60)    ; MINIMUM
+/// Parse the RData from a set of Tokens
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SOA> {
     let mut token = tokens.iter();
 

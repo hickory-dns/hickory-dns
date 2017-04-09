@@ -44,7 +44,7 @@ use ::serialize::binary::*;
 use ::error::*;
 use rr::domain::Name;
 
-
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Name> {
     Name::read(decoder)
 }
@@ -73,6 +73,7 @@ pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> EncodeResult {
     Ok(())
 }
 
+/// Parse the RData from a set of Tokens
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Name> {
     let mut token = tokens.iter();
 

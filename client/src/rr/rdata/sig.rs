@@ -424,6 +424,7 @@ impl SIG {
     }
 }
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<SIG> {
     let start_idx = decoder.index();
 

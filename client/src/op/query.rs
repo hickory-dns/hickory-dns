@@ -75,7 +75,7 @@ impl Query {
         self
     }
 
-    /// Specify the DNS class of the Query, almost always IN
+    /// Specify÷ the DNS class of the Query, almost always IN
     pub fn set_query_class(&mut self, query_class: DNSClass) -> &mut Self {
         self.query_class = query_class;
         self

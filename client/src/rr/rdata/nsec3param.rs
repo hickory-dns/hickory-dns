@@ -85,6 +85,7 @@ pub struct NSEC3PARAM {
 }
 
 impl NSEC3PARAM {
+    /// Constructs a new NSEC3PARAM RData for use in a Resource Record
     pub fn new(hash_algorithm: Nsec3HashAlgorithm,
                opt_out: bool,
                iterations: u16,
@@ -156,6 +157,7 @@ impl NSEC3PARAM {
     }
 }
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<NSEC3PARAM> {
     let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
     let flags: u8 = try!(decoder.read_u8());
@@ -171,6 +173,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<NSEC3PARAM> {
     Ok(NSEC3PARAM::new(hash_algorithm, opt_out, iterations, salt))
 }
 
+/// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> EncodeResult {
     try!(encoder.emit(rdata.hash_algorithm().into()));
     let mut flags: u8 = 0;
