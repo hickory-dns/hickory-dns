@@ -47,7 +47,8 @@ fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: 
     let name = domain::Name::with_labels(vec!["www".to_string(),
                                               "example".to_string(),
                                               "com".to_string()]);
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A))
+    let response = io_loop
+        .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
 
     println!("response records: {:?}", response);
@@ -90,7 +91,8 @@ fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Co
                                               "example".to_string(),
                                               "com".to_string()]);
 
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A))
+    let response = io_loop
+        .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
@@ -120,7 +122,8 @@ fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
                                               "example".to_string(),
                                               "com".to_string()]);
 
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::NS))
+    let response = io_loop
+        .run(client.query(name.clone(), DNSClass::IN, RecordType::NS))
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -150,7 +153,8 @@ fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: C
 {
     let name = domain::Name::parse("rollernet.us.", None).unwrap();
 
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::DS))
+    let response = io_loop
+        .run(client.query(name.clone(), DNSClass::IN, RecordType::DS))
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -164,7 +168,8 @@ fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut
 {
     let name = domain::Name::parse("RollErnet.Us.", None).unwrap();
 
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::DS))
+    let response = io_loop
+        .run(client.query(name.clone(), DNSClass::IN, RecordType::DS))
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -179,7 +184,7 @@ fn with_nonet<F>(test: F)
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
-    std::thread::Builder::new()
+    let join = std::thread::Builder::new()
         .name("thread_killer".to_string())
         .spawn(move || {
             let succeeded = succeeded_clone.clone();
@@ -198,7 +203,10 @@ fn with_nonet<F>(test: F)
 
     let trust_anchor = {
         let signers = authority.get_secure_keys();
-        let public_key = signers.first().expect("expected a key in the authority").key();
+        let public_key = signers
+            .first()
+            .expect("expected a key in the authority")
+            .key();
 
         let mut trust_anchor = TrustAnchor::new();
         trust_anchor.insert_trust_anchor(public_key.to_public_bytes().expect("to_vec failed"));
@@ -217,6 +225,7 @@ fn with_nonet<F>(test: F)
 
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+    join.join().unwrap();
 }
 
 fn with_udp<F>(test: F)
@@ -225,7 +234,7 @@ fn with_udp<F>(test: F)
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
-    std::thread::Builder::new()
+    let join = std::thread::Builder::new()
         .name("thread_killer".to_string())
         .spawn(move || {
             let succeeded = succeeded_clone.clone();
@@ -241,7 +250,11 @@ fn with_udp<F>(test: F)
         .unwrap();
 
     let io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let addr: SocketAddr = ("8.8.8.8", 53)
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
     let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);
@@ -249,6 +262,7 @@ fn with_udp<F>(test: F)
 
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+    join.join().unwrap();
 }
 
 fn with_tcp<F>(test: F)
@@ -257,7 +271,7 @@ fn with_tcp<F>(test: F)
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
-    std::thread::Builder::new()
+    let join = std::thread::Builder::new()
         .name("thread_killer".to_string())
         .spawn(move || {
             let succeeded = succeeded_clone.clone();
@@ -273,7 +287,11 @@ fn with_tcp<F>(test: F)
         .unwrap();
 
     let io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let addr: SocketAddr = ("8.8.8.8", 53)
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
     let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);
@@ -281,4 +299,5 @@ fn with_tcp<F>(test: F)
 
     test(secure_client, io_loop);
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
+    join.join().unwrap();
 }
