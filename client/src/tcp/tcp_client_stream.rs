@@ -50,6 +50,7 @@ impl TcpClientStream<TokioTcpStream> {
 }
 
 impl<S> TcpClientStream<S> {
+    /// Wraps the TcpStream in TcpClientStream
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
         TcpClientStream { tcp_stream: tcp_stream }
     }

@@ -5,7 +5,9 @@ use rr::{Name, RecordType};
 /// Accessor key for RRSets in the Authority.
 #[derive(Eq, PartialEq, Debug, Hash, Clone)]
 pub struct RrKey {
+    /// Matches the name in the Record of this key
     pub name: Name,
+    /// Matches the type of the Record of this key
     pub record_type: RecordType,
 }
 

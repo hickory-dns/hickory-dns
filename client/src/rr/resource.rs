@@ -19,8 +19,8 @@
 use std::sync::Arc as Rc;
 use std::cmp::Ordering;
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use rr::dns_class::DNSClass;
 use rr::domain;
 use rr::IntoRecordSet;
@@ -133,6 +133,8 @@ impl Record {
         self.name_labels = name;
         self
     }
+
+    /// Appends a label to a name
     pub fn add_name(&mut self, label: String) -> &mut Self {
         self.name_labels.add_label(Rc::new(label));
         self
@@ -181,24 +183,37 @@ impl Record {
         self
     }
 
+    /// Returns the name of the record
     pub fn name(&self) -> &domain::Name {
         &self.name_labels
     }
+
+    /// Returns the type of the RData in the record
     pub fn rr_type(&self) -> RecordType {
         self.rr_type
     }
+    
+    /// Returns the DNSClass of the Record, generally IN fro internet
     pub fn dns_class(&self) -> DNSClass {
         self.dns_class
     }
+
+    /// Returns the time-to-live of the record, for caching purposes
     pub fn ttl(&self) -> u32 {
         self.ttl
     }
+
+    /// Returns the Record Data, i.e. the record information
     pub fn rdata(&self) -> &RData {
         &self.rdata
     }
+
+    /// Returns a mutable reference to the Record Data
     pub fn rdata_mut(&mut self) -> &mut RData {
         &mut self.rdata
     }
+
+    /// Returns the RData consuming the Record
     pub fn unwrap_rdata(self) -> RData {
         self.rdata
     }
@@ -262,12 +277,12 @@ impl BinSerializable<Record> for Record {
         };
 
         Ok(Record {
-            name_labels: name_labels,
-            rr_type: record_type,
-            dns_class: class,
-            ttl: ttl,
-            rdata: rdata,
-        })
+               name_labels: name_labels,
+               rr_type: record_type,
+               dns_class: class,
+               ttl: ttl,
+               rdata: rdata,
+           })
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
@@ -389,7 +404,7 @@ mod tests {
 
     use super::*;
     #[allow(unused)]
-    use ::serialize::binary::*;
+    use serialize::binary::*;
     use rr::record_data::RData;
     use rr::record_type::RecordType;
     use rr::dns_class::DNSClass;
@@ -399,7 +414,8 @@ mod tests {
     #[test]
     fn test_emit_and_read() {
         let mut record = Record::new();
-        record.add_name("www".to_string())
+        record
+            .add_name("www".to_string())
             .add_name("example".to_string())
             .add_name("com".to_string())
             .set_rr_type(RecordType::A)
@@ -423,7 +439,8 @@ mod tests {
     #[test]
     fn test_order() {
         let mut record = Record::new();
-        record.add_name("www".to_string())
+        record
+            .add_name("www".to_string())
             .add_name("example".to_string())
             .add_name("com".to_string())
             .set_rr_type(RecordType::A)

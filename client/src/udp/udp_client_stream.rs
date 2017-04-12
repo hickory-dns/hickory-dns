@@ -15,6 +15,7 @@ use BufClientStreamHandle;
 use client::ClientStreamHandle;
 use udp::UdpStream;
 
+/// A UDP client stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpClientStream {
     name_server: SocketAddr,

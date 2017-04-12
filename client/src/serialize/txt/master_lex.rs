@@ -11,12 +11,14 @@ use std::char;
 
 use error::{LexerResult, LexerError, LexerErrorKind};
 
+/// A Lexer for Zone files
 pub struct Lexer<'a> {
     txt: Peekable<Chars<'a>>,
     state: State,
 }
 
 impl<'a> Lexer<'a> {
+    /// Creates a new lexer with the given data to parse
     pub fn new(txt: &str) -> Lexer {
         Lexer {
             txt: txt.chars().peekable(),
@@ -24,6 +26,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
+    /// Return the next Token in the string
     pub fn next_token(&mut self) -> LexerResult<Option<Token>> {
         let mut char_data_vec: Option<Vec<String>> = None;
         let mut char_data: Option<String> = None;
@@ -122,7 +125,9 @@ impl<'a> Lexer<'a> {
                         Some('"') => {
                             self.state = State::RestOfLine;
                             self.txt.next();
-                            return Ok(Some(Token::CharData(char_data.take().unwrap_or("".into()))));
+                            return Ok(Some(Token::CharData(char_data
+                                                               .take()
+                                                               .unwrap_or("".into()))));
                         }
                         Some('\\') => {
                             try!(Self::push_to_str(&mut char_data, try!(self.escape_seq())));
@@ -144,7 +149,8 @@ impl<'a> Lexer<'a> {
                         // finishes the Dollar...
                         Some(_) | None => {
                             self.state = State::RestOfLine;
-                            let dollar: String = try!(char_data.take()
+                            let dollar: String =
+                                try!(char_data.take()
                                 .ok_or(LexerError::from(LexerErrorKind::IllegalState("char_data \
                                                                                       is None"))));
 
@@ -171,10 +177,11 @@ impl<'a> Lexer<'a> {
                         Some(')') => {
                             self.txt.next();
                             self.state = State::RestOfLine;
-                            return char_data_vec.take()
-                                .ok_or(LexerErrorKind::IllegalState("char_data_vec is None")
-                                    .into())
-                                .map(|v| Some(Token::List(v)));
+                            return char_data_vec
+                                       .take()
+                                       .ok_or(LexerErrorKind::IllegalState("char_data_vec is None")
+                                                  .into())
+                                       .map(|v| Some(Token::List(v)));
                         }
                         Some(ch) if ch.is_whitespace() => {
                             self.txt.next();
@@ -198,9 +205,10 @@ impl<'a> Lexer<'a> {
                                 self.state = State::List;
                             } else {
                                 self.state = State::RestOfLine;
-                                let result = char_data.take()
+                                let result = char_data
+                                    .take()
                                     .ok_or(LexerErrorKind::IllegalState("char_data is None")
-                                        .into());
+                                               .into());
                                 let opt = result.map(|s| Some(Token::CharData(s)));
                                 return opt;
                             }
@@ -214,9 +222,11 @@ impl<'a> Lexer<'a> {
                         Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
                         None => {
                             self.state = State::EOF;
-                            return char_data.take()
-                                .ok_or(LexerErrorKind::IllegalState("char_data is None").into())
-                                .map(|s| Some(Token::CharData(s)));
+                            return char_data
+                                       .take()
+                                       .ok_or(LexerErrorKind::IllegalState("char_data is None")
+                                                  .into())
+                                       .map(|s| Some(Token::CharData(s)));
                         }
                     }
                 }
@@ -252,7 +262,8 @@ impl<'a> Lexer<'a> {
     }
 
     fn push_to_str(collect: &mut Option<String>, ch: char) -> LexerResult<()> {
-        collect.as_mut()
+        collect
+            .as_mut()
             .ok_or(LexerErrorKind::IllegalState("collect is None").into())
             .and_then(|s| Ok(s.push(ch)))
     }
@@ -285,8 +296,9 @@ impl<'a> Lexer<'a> {
                     }))); // gobble
 
                 let val: u32 = (d1 << 16) + (d2 << 8) + d3;
-                let ch: char = try!(char::from_u32(val)
-                    .ok_or(LexerError::from(LexerErrorKind::UnrecognizedOctet(val))));
+                let ch: char =
+                    try!(char::from_u32(val)
+                             .ok_or(LexerError::from(LexerErrorKind::UnrecognizedOctet(val))));
 
                 return Ok(ch);
             } else {
@@ -321,16 +333,25 @@ pub enum State {
     EOF,
 }
 
+/// Tokens emited from each Lexer pass
 #[derive(PartialEq, Debug, Clone)]
 pub enum Token {
-    Blank, // only if the first part of the line
-    List(Vec<String>), // (..) TODO, this is probably wrong, List maybe should just skip line endings
-    CharData(String), // [a-zA-Z, non-control utf8, ., -, 0-9]+, ".*"
-    At, // @
-    Include, // $INCLUDE
-    Origin, // $ORIGIN
-    Ttl, // $TTL
-    EOL, // \n or \r\n
+    /// only if the first part of the line
+    Blank,
+    /// (..) TODO, this is probably wrong, List maybe should just skip line endings
+    List(Vec<String>),
+    /// [a-zA-Z, non-control utf8, ., -, 0-9]+, ".*"
+    CharData(String),
+    /// @
+    At,
+    /// $INCLUDE
+    Include,
+    /// $ORIGIN
+    Origin,
+    /// $TTL
+    Ttl,
+    /// \n or \r\n
+    EOL,
 }
 
 #[cfg(test)]
@@ -401,7 +422,10 @@ mod lex_test {
                    Token::CharData("Quoted".to_string()));
         assert_eq!(Lexer::new("\";@$\"").next_token().unwrap().unwrap(),
                    Token::CharData(";@$".to_string()));
-        assert_eq!(Lexer::new("\"some \\A\"").next_token().unwrap().unwrap(),
+        assert_eq!(Lexer::new("\"some \\A\"")
+                       .next_token()
+                       .unwrap()
+                       .unwrap(),
                    Token::CharData("some A".to_string()));
         assert_eq!(Lexer::new("\"a\\Aa\"").next_token().unwrap().unwrap(),
                    Token::CharData("aAa".to_string()));
@@ -495,8 +519,7 @@ mod lex_test {
 
     #[test]
     fn soa() {
-        let mut lexer =
-            Lexer::new("@   IN  SOA     VENERA      Action\\.domains (
+        let mut lexer = Lexer::new("@   IN  SOA     VENERA      Action\\.domains (
                                  \
                         20     ; SERIAL
                                  7200   ; REFRESH

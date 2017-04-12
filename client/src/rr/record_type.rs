@@ -22,51 +22,76 @@ use std::cmp::Ordering;
 use ::serialize::binary::*;
 use ::error::*;
 
+/// The type of the resource record.
+///
+/// This specifies the type of data in the RData field of the Resource Record
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
 #[allow(dead_code)]
 pub enum RecordType {
-    A, //	1	RFC 1035[1]	IPv4 Address record
-    AAAA, //	28	RFC 3596[2]	IPv6 address record
+    /// RFC 1035[1]	IPv4 Address record
+    A,
+    /// RFC 3596[2]	IPv6 address record
+    AAAA,
     //  AFSDB,      //	18	RFC 1183	AFS database record
-    ANY, //  *	255	RFC 1035[1]	All cached records, aka ANY
+    /// RFC 1035[1]	All cached records, aka ANY
+    ANY,	
     //  APL,        //	42	RFC 3123	Address Prefix List
-    AXFR, //	252	RFC 1035[1]	Authoritative Zone Transfer
+    /// RFC 1035[1]	Authoritative Zone Transfer
+    AXFR,
     //  CAA,        //	257	RFC 6844	Certification Authority Authorization
     //  CDNSKEY,    //	60	RFC 7344	Child DNSKEY
     //  CDS,        //	59	RFC 7344	Child DS
     //  CERT,       //	37	RFC 4398	Certificate record
-    CNAME, //	5	RFC 1035[1]	Canonical name record
+    /// RFC 1035[1]	Canonical name record
+    CNAME,
     //  DHCID,      //	49	RFC 4701	DHCP identifier
     //  DLV,        //	32769	RFC 4431	DNSSEC Lookaside Validation record
     //  DNAME,      //	39	RFC 2672	Delegation Name
-    DNSKEY, //	48	RFC 4034	DNS Key record: RSASHA256 and RSASHA512, RFC5702
-    DS, //	43	RFC 4034	Delegation signer: RSASHA256 and RSASHA512, RFC5702
+    /// RFC 4034	DNS Key record: RSASHA256 and RSASHA512, RFC5702
+    DNSKEY,
+    /// RFC 4034	Delegation signer: RSASHA256 and RSASHA512, RFC5702
+    DS,
     //  HIP,        //	55	RFC 5205	Host Identity Protocol
     //  IPSECKEY,   //	45	RFC 4025	IPsec Key
-    IXFR, //	251	RFC 1996	Incremental Zone Transfer
-    KEY, //	25	RFC 2535[3] and RFC 2930[4]	Key record
+    /// RFC 1996	Incremental Zone Transfer
+    IXFR,
+    /// RFC 2535[3] and RFC 2930[4]	Key record
+    KEY,
     //  KX,         //	36	RFC 2230	Key eXchanger record
     //  LOC,        //	29	RFC 1876	Location record
-    MX, //	15	RFC 1035[1]	Mail exchange record
+    /// RFC 1035[1]	Mail exchange record
+    MX,
     //  NAPTR,      //	35	RFC 3403	Naming Authority Pointer
-    NS, //	2	RFC 1035[1]	Name server record
-    NULL, //	0	RFC 1035[1]	Null server record, for testing
-    NSEC, //	47	RFC 4034	Next-Secure record
-    NSEC3, //	50	RFC 5155	NSEC record version 3
-    NSEC3PARAM, //	51	RFC 5155	NSEC3 parameters
-    OPT, //	41	RFC 6891	Option
-    PTR, //	12	RFC 1035[1]	Pointer record
-    RRSIG, //	46	RFC 4034	DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
+    /// RFC 1035[1]	Name server record
+    NS,
+    /// RFC 1035[1]	Null server record, for testing
+    NULL,
+    /// RFC 4034	Next-Secure record
+    NSEC,
+    /// RFC 5155	NSEC record version 3
+    NSEC3,
+    /// RFC 5155	NSEC3 parameters
+    NSEC3PARAM,
+    /// RFC 6891	Option
+    OPT,
+    /// RFC 1035[1]	Pointer record
+    PTR,
+    /// RFC 4034	DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
+    RRSIG,
     //  RP,         //	17	RFC 1183	Responsible person
-    SIG, //	24	RFC 2535 (2931)	Signature, to support 2137 Update
-    SOA, //	6	RFC 1035[1] and RFC 2308[9]	Start of [a zone of] authority record
-    SRV, //	33	RFC 2782	Service locator
+    /// RFC 2535 (2931)	Signature, to support 2137 Update
+    SIG,
+    /// RFC 1035[1] and RFC 2308[9]	Start of [a zone of] authority record
+    SOA,
+    /// RFC 2782	Service locator
+    SRV,
     //  SSHFP,      //	44	RFC 4255	SSH Public Key Fingerprint
     //  TA,         //	32768	N/A	DNSSEC Trust Authorities
     //  TKEY,       //	249	RFC 2930	Secret key record
     //  TLSA,       //	52	RFC 6698	TLSA certificate association
     //  TSIG,       //	250	RFC 2845	Transaction Signature
-    TXT, //	16	RFC 1035[1]	Text record
+    /// RFC 1035[1]	Text record
+    TXT,
 }
 
 impl RecordType {

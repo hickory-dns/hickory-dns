@@ -52,6 +52,7 @@ impl TlsIdentityExt for SslContextBuilder {
     }
 }
 
+/// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream>>;
 
 impl TlsStream {
@@ -121,6 +122,7 @@ impl TlsStream {
     }
 }
 
+/// A builder for the TlsStream
 pub struct TlsStreamBuilder {
     ca_chain: Vec<X509>,
     identity: Option<ParsedPkcs12>,

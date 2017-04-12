@@ -13,6 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
+//! Binary serialization types
+
 mod decoder;
 mod encoder;
 
@@ -25,8 +28,12 @@ pub mod bin_tests;
 
 use ::error::*;
 
+/// A trait for types which are serializable
 pub trait BinSerializable<S: Sized> {
+    /// Read the type from the stream
     fn read(decoder: &mut BinDecoder) -> DecodeResult<S>;
+    
+    /// Write the type to the stream
     fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult;
 }
 

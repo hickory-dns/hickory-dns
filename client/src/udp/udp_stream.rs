@@ -25,6 +25,7 @@ lazy_static!{
   static ref IPV6_ZERO: Ipv6Addr = Ipv6Addr::new(0,0,0,0,0,0,0,0);
 }
 
+/// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream {
     socket: tokio_core::net::UdpSocket,

@@ -18,16 +18,21 @@ use error::{DecodeErrorKind, DecodeResult};
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
 ///
-/// A note on serialization, there was a thought to have this implement the rustc-serialization,
+/// A note on serialization, there was a thought to have this implement the Serde deserializer,
 ///  but given that this is such a small subset of all the serialization which that performs
 ///  this is a simpler implementation without the cruft, at least for serializing to/from the
-///  binary DNS protocols. rustc-serialization will be used for other coms, e.g. json over http
+///  binary DNS protocols.
 pub struct BinDecoder<'a> {
     buffer: &'a [u8],
     index: usize,
 }
 
 impl<'a> BinDecoder<'a> {
+    /// Creates a new BinDecoder
+    ///
+    /// # Arguments
+    ///
+    /// * `buffer` - buffer from which all data will be read
     pub fn new(buffer: &'a [u8]) -> Self {
         BinDecoder {
             buffer: buffer,
@@ -35,6 +40,7 @@ impl<'a> BinDecoder<'a> {
         }
     }
 
+    /// Pop one byte from the buffer
     pub fn pop(&mut self) -> DecodeResult<u8> {
         if self.index < self.buffer.len() {
             let byte = self.buffer[self.index];
@@ -45,10 +51,12 @@ impl<'a> BinDecoder<'a> {
         }
     }
 
+    /// Returns the number of bytes in the buffer
     pub fn len(&self) -> usize {
         self.buffer.len() - self.index
     }
 
+    /// Peed one byte forward, without moving the current index forward
     pub fn peek(&self) -> Option<u8> {
         if self.index < self.buffer.len() {
             Some(self.buffer[self.index])
@@ -57,6 +65,7 @@ impl<'a> BinDecoder<'a> {
         }
     }
 
+    /// Returns the current index in the buffer
     pub fn index(&self) -> usize {
         return self.index;
     }
@@ -70,12 +79,18 @@ impl<'a> BinDecoder<'a> {
         }
     }
 
-    ///<character-string> is a single
+    /// Reads a String from the buffer
+    ///
+    /// ```text
+    /// <character-string> is a single
     /// length octet followed by that number of characters.  <character-string>
     /// is treated as binary information, and can be up to 256 characters in
     /// length (including the length octet).
+    /// ```
     ///
-    /// the vector should be reversed before calling.
+    /// # Returns
+    ///
+    /// A String version of the character data
     pub fn read_character_data(&mut self) -> DecodeResult<String> {
         let length: u8 = try!(self.pop());
 
@@ -88,6 +103,15 @@ impl<'a> BinDecoder<'a> {
         Ok(data)
     }
 
+    /// Reads a Vec out of the buffer
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - number of bytes to read from the buffer
+    ///
+    /// # Returns
+    ///
+    /// The Vec of the specified length, otherwise an error
     pub fn read_vec(&mut self, len: usize) -> DecodeResult<Vec<u8>> {
         // TODO once Drain stabalizes on Vec, this should be replaced...
         let mut vec: Vec<u8> = Vec::with_capacity(len);
@@ -98,14 +122,19 @@ impl<'a> BinDecoder<'a> {
         Ok(vec)
     }
 
+    /// Reads a byte from the buffer, equivalent to `Self::pop()`
     pub fn read_u8(&mut self) -> DecodeResult<u8> {
         self.pop()
     }
 
-    /// parses the next 2 bytes into u16. This performs a byte-by-byte manipulation, there
+    /// Reads the next 2 bytes into u16
+    ///
+    /// This performs a byte-by-byte manipulation, there
     ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
     ///
-    /// the vector should be reversed before calling.
+    /// # Return
+    ///
+    /// Return the u16 from the buffer
     pub fn read_u16(&mut self) -> DecodeResult<u16> {
         let b1: u8 = try!(self.pop());
         let b2: u8 = try!(self.pop());
@@ -114,10 +143,14 @@ impl<'a> BinDecoder<'a> {
         Ok(((b1 as u16) << 8) + (b2 as u16))
     }
 
-    /// parses the next four bytes into i32. This performs a byte-by-byte manipulation, there
+    /// Reads the next four bytes into i32.
+    ///
+    /// This performs a byte-by-byte manipulation, there
     ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
     ///
-    /// the vector should be reversed before calling.
+    /// # Return
+    ///
+    /// Return the i32 from the buffer
     pub fn read_i32(&mut self) -> DecodeResult<i32> {
         // TODO should this use a default rather than the panic! that will happen in the None case?
         let b1: u8 = try!(self.pop());
@@ -129,10 +162,14 @@ impl<'a> BinDecoder<'a> {
         Ok(((b1 as i32) << 24) + ((b2 as i32) << 16) + ((b3 as i32) << 8) + (b4 as i32))
     }
 
-    /// parses the next four bytes into u32. This performs a byte-by-byte manipulation, there
+    /// Reads the next four bytes into u32.
+    ///
+    /// This performs a byte-by-byte manipulation, there
     ///  which means endianness is implicitly handled (i.e. no network to little endian (intel), issues)
     ///
-    /// the vector should be reversed before calling.
+    /// # Return
+    ///
+    /// Return the u32 from the buffer
     pub fn read_u32(&mut self) -> DecodeResult<u32> {
         // TODO should this use a default rather than the panic! that will happen in the None case?
         let b1: u8 = try!(self.pop());
