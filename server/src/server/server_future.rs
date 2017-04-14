@@ -209,6 +209,10 @@ impl ServerFuture {
                            "Server stopping due to interruption"))
     }
 
+    pub fn tokio_core(&mut self) -> &mut Core {
+        &mut self.io_loop
+    }
+
     fn handle_request(request: Request,
                       mut response_handle: ResponseHandle,
                       catalog: Arc<Catalog>)
