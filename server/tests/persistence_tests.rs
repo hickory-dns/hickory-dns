@@ -14,7 +14,7 @@ use trust_dns_server::authority::persistence::CURRENT_VERSION;
 #[test]
 fn test_new_journal() {
     let conn = Connection::open_in_memory().expect("could not create in memory DB");
-    assert_eq!(Journal::new(conn).expect("new Journal").get_schema_version(),
+    assert_eq!(Journal::new(conn).expect("new Journal").schema_version(),
                -1);
 }
 
@@ -24,7 +24,7 @@ fn test_init_journal() {
     let mut journal = Journal::new(conn).unwrap();
     let version = journal.schema_up().unwrap();
     assert_eq!(version, CURRENT_VERSION);
-    assert_eq!(Journal::select_schema_version(journal.get_conn()).unwrap(),
+    assert_eq!(Journal::select_schema_version(journal.conn()).unwrap(),
                CURRENT_VERSION);
 }
 

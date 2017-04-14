@@ -16,6 +16,13 @@ pub struct TimeoutStream<S> {
 }
 
 impl<S> TimeoutStream<S> {
+    /// Returns a new TimeoutStream
+    ///
+    /// # Arguments
+    ///
+    /// * `stream` - stream to wrap
+    /// * `timeout_duration` - timeout between each request, once exceed the connection is killed
+    /// * `reactor_handle` - reactor used for registering new timeouts
     pub fn new(stream: S, timeout_duration: Duration, reactor_handle: Handle) -> io::Result<Self> {
         // store a Timeout for this message before sending
 

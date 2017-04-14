@@ -26,6 +26,8 @@ use server::{Request, RequestStream, ResponseHandle, TimeoutStream};
 use authority::Catalog;
 
 // TODO, would be nice to have a Slab for buffers here...
+
+/// A Futures based implementation of a DNS catalog server
 pub struct ServerFuture {
     io_loop: Core,
     catalog: Arc<Catalog>, // should the catalog just be static?

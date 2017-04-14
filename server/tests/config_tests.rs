@@ -153,14 +153,14 @@ signer_name = \"ns.example.com.\"
 "
             .parse()
             .unwrap();
-    assert_eq!(config.get_zones()[0].get_keys()[0].get_key_path(),
+    assert_eq!(config.get_zones()[0].get_keys()[0].key_path(),
                Path::new("/path/to/my_ed25519.pem"));
     assert_eq!(config.get_zones()[0].get_keys()[0]
-                   .get_algorithm()
+                   .algorithm()
                    .unwrap(),
                Algorithm::ED25519);
     assert_eq!(config.get_zones()[0].get_keys()[0]
-                   .get_signer_name()
+                   .signer_name()
                    .unwrap()
                    .unwrap(),
                Name::parse("ns.example.com.", None).unwrap());
@@ -170,14 +170,14 @@ signer_name = \"ns.example.com.\"
                true);
     assert_eq!(config.get_zones()[0].get_keys()[0].create_if_absent(), true);
 
-    assert_eq!(config.get_zones()[0].get_keys()[1].get_key_path(),
+    assert_eq!(config.get_zones()[0].get_keys()[1].key_path(),
                Path::new("/path/to/my_rsa.pem"));
     assert_eq!(config.get_zones()[0].get_keys()[1]
-                   .get_algorithm()
+                   .algorithm()
                    .unwrap(),
                Algorithm::RSASHA256);
     assert_eq!(config.get_zones()[0].get_keys()[1]
-                   .get_signer_name()
+                   .signer_name()
                    .unwrap()
                    .unwrap(),
                Name::parse("ns.example.com.", None).unwrap());

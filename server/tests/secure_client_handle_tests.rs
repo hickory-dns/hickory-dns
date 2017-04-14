@@ -197,7 +197,7 @@ fn with_nonet<F>(test: F)
     let authority = create_secure_example();
 
     let trust_anchor = {
-        let signers = authority.get_secure_keys();
+        let signers = authority.secure_keys();
         let public_key = signers.first().expect("expected a key in the authority").key();
 
         let mut trust_anchor = TrustAnchor::new();
@@ -207,7 +207,7 @@ fn with_nonet<F>(test: F)
     };
 
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.get_origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);

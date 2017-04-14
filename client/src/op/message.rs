@@ -666,6 +666,7 @@ impl Message {
         Ok(())
     }
 
+    /// Always returns an error; enable OpenSSL for signing support
     #[cfg(not(feature = "openssl"))]
     pub fn sign(&mut self, _: &Signer, _: u32) -> DnsSecResult<()> {
         Err(DnsSecErrorKind::Message("openssl feature not enabled").into())

@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+//! All authority related types
+
 use std::collections::BTreeMap;
 
 use chrono::UTC;
@@ -88,7 +90,7 @@ impl Authority {
     /// * `signer` - Signer with associated private key
     pub fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
         // also add the key to the zone
-        let zone_ttl = self.get_minimum_ttl();
+        let zone_ttl = self.minimum_ttl();
         let dnskey = try!(signer.key().to_dnskey(signer.algorithm()));
         let dnskey = Record::from_rdata(self.origin.clone(),
                                         zone_ttl,
@@ -96,7 +98,7 @@ impl Authority {
                                         RData::DNSKEY(dnskey));
 
         // TODO: also generate the CDS and CDNSKEY
-        let serial = self.get_serial();
+        let serial = self.serial();
         self.upsert(dnskey, serial);
         self.secure_keys.push(signer);
         Ok(())
@@ -142,7 +144,7 @@ impl Authority {
     /// Returns an error if there was an issue writing to the persistence layer.
     pub fn persist_to_journal(&self) -> PersistenceResult<()> {
         if let Some(journal) = self.journal.as_ref() {
-            let serial = self.get_serial();
+            let serial = self.serial();
 
             info!("persisting zone to journal at SOA.serial: {}", serial);
 
@@ -162,11 +164,13 @@ impl Authority {
         Ok(())
     }
 
-    pub fn journal(&mut self, journal: Journal) {
+    /// Associate a backing Journal with this Authority for Updatable zones
+    pub fn set_journal(&mut self, journal: Journal) {
         self.journal = Some(journal);
     }
 
-    pub fn get_journal(&self) -> Option<&Journal> {
+    /// Returns the associated Journal
+    pub fn journal(&self) -> Option<&Journal> {
         self.journal.as_ref()
     }
 
@@ -176,30 +180,30 @@ impl Authority {
     }
 
     /// Retrieve the Signer, which contains the private keys, for this zone
-    pub fn get_secure_keys(&self) -> &[Signer] {
+    pub fn secure_keys(&self) -> &[Signer] {
         &self.secure_keys
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    pub fn get_origin(&self) -> &Name {
+    pub fn origin(&self) -> &Name {
         &self.origin
     }
 
     /// What type is this zone
-    pub fn get_zone_type(&self) -> ZoneType {
+    pub fn zone_type(&self) -> ZoneType {
         self.zone_type
     }
 
     /// Get all the
-    pub fn get_records(&self) -> &BTreeMap<RrKey, RecordSet> {
+    pub fn records(&self) -> &BTreeMap<RrKey, RecordSet> {
         &self.records
     }
 
     /// Returns the SOA of the authority.
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
-    ///  should be used, see `get_soa_secure()`, which will optionally return RRSIGs.
-    pub fn get_soa(&self) -> Option<&Record> {
+    ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
+    pub fn soa(&self) -> Option<&Record> {
         // SOA should be origin|SOA
         self.lookup(&self.origin,
                     RecordType::SOA,
@@ -210,10 +214,10 @@ impl Authority {
     }
 
     /// Returns the SOA record for the zone
-    pub fn get_soa_secure(&self,
-                          is_secure: bool,
-                          supported_algorithms: SupportedAlgorithms)
-                          -> Vec<&Record> {
+    pub fn soa_secure(&self,
+                      is_secure: bool,
+                      supported_algorithms: SupportedAlgorithms)
+                      -> Vec<&Record> {
         self.lookup(&self.origin,
                     RecordType::SOA,
                     is_secure,
@@ -221,17 +225,18 @@ impl Authority {
     }
 
     /// Returns the minimum ttl (as used in the SOA record)
-    pub fn get_minimum_ttl(&self) -> u32 {
-        self.get_soa().map_or(0, |soa| if let &RData::SOA(ref rdata) = soa.rdata() {
-            rdata.minimum()
-        } else {
-            0
-        })
+    pub fn minimum_ttl(&self) -> u32 {
+        self.soa()
+            .map_or(0, |soa| if let &RData::SOA(ref rdata) = soa.rdata() {
+                rdata.minimum()
+            } else {
+                0
+            })
     }
 
     /// get the current serial number for the zone.
-    pub fn get_serial(&self) -> u32 {
-        let soa = if let Some(ref soa_record) = self.get_soa() {
+    pub fn serial(&self) -> u32 {
+        let soa = if let Some(ref soa_record) = self.soa() {
             soa_record.clone()
         } else {
             warn!("no soa record found for zone: {}", self.origin);
@@ -246,7 +251,7 @@ impl Authority {
     }
 
     fn increment_soa_serial(&mut self) -> u32 {
-        let mut soa = if let Some(ref mut soa_record) = self.get_soa() {
+        let mut soa = if let Some(ref mut soa_record) = self.soa() {
             soa_record.clone()
         } else {
             warn!("no soa record found for zone: {}", self.origin);
@@ -264,10 +269,8 @@ impl Authority {
         return serial;
     }
 
-    pub fn get_ns(&self,
-                  is_secure: bool,
-                  supported_algorithms: SupportedAlgorithms)
-                  -> Vec<&Record> {
+    /// Get the NS, NameServer, record for the zone
+    pub fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
         self.lookup(&self.origin,
                     RecordType::NS,
                     is_secure,
@@ -480,51 +483,54 @@ impl Authority {
         let sig0s: &[Record] = update_message.sig0();
         debug!("authorizing with: {:?}", sig0s);
         if !sig0s.is_empty() &&
-           sig0s.iter()
-            .filter_map(|sig0| if let &RData::SIG(ref sig) = sig0.rdata() {
-                Some(sig)
-            } else {
-                None
-            })
-            .any(|sig| {
-                let name = sig.signer_name();
-                let keys = self.lookup(name, RecordType::KEY, false, SupportedAlgorithms::new());
-                debug!("found keys {:?}", keys);
-                keys.iter()
-                    .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.rdata() {
-                        Some(key)
-                    } else {
-                        None
-                    })
-                    .any(|key| {
-                        let pkey = KeyPair::from_public_bytes(key.public_key(),
-                                                              *key.algorithm());
-                        if let Err(error) = pkey {
-                            warn!("public key {:?} of {} could not be used: {}",
-                                  key,
-                                  name,
-                                  error);
-                            return false;
-                        }
-
-                        let pkey = pkey.unwrap();
-                        let signer: Signer = Signer::new_verifier(*key.algorithm(),
-                                                                  pkey,
-                                                                  sig.signer_name().clone(),
-                                                                  false,
-                                                                  true);
-
-                        signer.verify_message(update_message, sig.sig())
-                            .map(|_| {
-                                info!("verified sig: {:?} with key: {:?}", sig, key);
-                                true
+           sig0s
+               .iter()
+               .filter_map(|sig0| if let &RData::SIG(ref sig) = sig0.rdata() {
+                               Some(sig)
+                           } else {
+                               None
+                           })
+               .any(|sig| {
+            let name = sig.signer_name();
+            let keys = self.lookup(name, RecordType::KEY, false, SupportedAlgorithms::new());
+            debug!("found keys {:?}", keys);
+            keys.iter()
+                .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.rdata() {
+                                Some(key)
+                            } else {
+                                None
                             })
-                            .unwrap_or_else(|_| {
-                                debug!("did not verify sig: {:?} with key: {:?}", sig, key);
-                                false
-                            })
-                    })
-            }) {
+                .any(|key| {
+                    let pkey = KeyPair::from_public_bytes(key.public_key(), *key.algorithm());
+                    if let Err(error) = pkey {
+                        warn!("public key {:?} of {} could not be used: {}",
+                              key,
+                              name,
+                              error);
+                        return false;
+                    }
+
+                    let pkey = pkey.unwrap();
+                    let signer: Signer = Signer::new_verifier(*key.algorithm(),
+                                                              pkey,
+                                                              sig.signer_name().clone(),
+                                                              false,
+                                                              true);
+
+                    signer
+                        .verify_message(update_message, sig.sig())
+                        .map(|_| {
+                                 info!("verified sig: {:?} with key: {:?}", sig, key);
+                                 true
+                             })
+                        .unwrap_or_else(|_| {
+                                            debug!("did not verify sig: {:?} with key: {:?}",
+                                                   sig,
+                                                   key);
+                                            false
+                                        })
+                })
+        }) {
             return Ok(());
         } else {
             warn!("no sig0 matched registered records: id {}",
@@ -581,7 +587,7 @@ impl Authority {
         //           else
         //                return (FORMERR)
         for rr in records {
-            if !self.get_origin().zone_of(rr.name()) {
+            if !self.origin().zone_of(rr.name()) {
                 return Err(ResponseCode::NotZone);
             }
 
@@ -656,7 +662,7 @@ impl Authority {
                           auto_signing_and_increment: bool)
                           -> UpdateResult<bool> {
         let mut updated = false;
-        let serial: u32 = self.get_serial();
+        let serial: u32 = self.serial();
 
         // the persistence act as a write-ahead log. The WAL will also be used for recovery of a zone
         //  subsequent to a failure of the server.
@@ -747,10 +753,10 @@ impl Authority {
                             let to_delete = self.records
                                 .keys()
                                 .filter(|k| {
-                                    !((k.record_type == RecordType::SOA ||
-                                       k.record_type == RecordType::NS) &&
-                                      k.name != self.origin)
-                                })
+                                            !((k.record_type == RecordType::SOA ||
+                                               k.record_type == RecordType::NS) &&
+                                              k.name != self.origin)
+                                        })
                                 .filter(|k| &k.name == rr.name())
                                 .cloned()
                                 .collect::<Vec<RrKey>>();
@@ -796,10 +802,11 @@ impl Authority {
         // update the serial...
         if updated && auto_signing_and_increment {
             if self.is_dnssec_enabled {
-                try!(self.secure_zone().map_err(|e| {
-                    error!("failure securing zone: {}", e);
-                    ResponseCode::ServFail
-                }))
+                try!(self.secure_zone()
+                         .map_err(|e| {
+                                      error!("failure securing zone: {}", e);
+                                      ResponseCode::ServFail
+                                  }))
             } else {
                 // the secure_zone() function increments the SOA during it's operation, if we're not
                 //  dnssec, then we need to do it here...
@@ -826,9 +833,10 @@ impl Authority {
         assert_eq!(self.class, record.dns_class());
 
         let rr_key = RrKey::new(record.name(), record.rr_type());
-        let records: &mut RecordSet = self.records
-            .entry(rr_key)
-            .or_insert(RecordSet::new(record.name(), record.rr_type(), serial));
+        let records: &mut RecordSet =
+            self.records
+                .entry(rr_key)
+                .or_insert(RecordSet::new(record.name(), record.rr_type(), serial));
 
         records.insert(record, serial)
     }
@@ -920,7 +928,7 @@ impl Authority {
         // if this is an AXFR zone transfer, verify that this is either the slave or master
         //  for AXFR the first and last record must be the SOA
         if RecordType::AXFR == record_type {
-            match self.get_zone_type() {
+            match self.zone_type() {
                 ZoneType::Master | ZoneType::Slave => (),
                 // TODO Forward?
                 _ => return vec![], // TODO this sould be an error.
@@ -929,13 +937,11 @@ impl Authority {
 
         // it would be better to stream this back, rather than packaging everything up in an array
         //  though for UDP it would still need to be bundled
-        let mut query_result: Vec<_> = self.lookup(query.name(),
-                                                   record_type,
-                                                   is_secure,
-                                                   supported_algorithms);
+        let mut query_result: Vec<_> =
+            self.lookup(query.name(), record_type, is_secure, supported_algorithms);
 
         if RecordType::AXFR == record_type {
-            if let Some(soa) = self.get_soa() {
+            if let Some(soa) = self.soa() {
                 let mut xfr: Vec<&Record> = query_result;
                 // TODO: probably make Records Rc or Arc, to remove the clone
                 xfr.insert(0, soa);
@@ -984,8 +990,8 @@ impl Authority {
                 self.records
                     .values()
                     .filter(|rr_set| {
-                        rtype == RecordType::ANY || rr_set.record_type() != RecordType::SOA
-                    })
+                                rtype == RecordType::ANY || rr_set.record_type() != RecordType::SOA
+                            })
                     .filter(|rr_set| rtype == RecordType::AXFR || rr_set.name() == name)
                     .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
                         vec.append(&mut rr_set.records(is_secure, supported_algorithms));
@@ -993,9 +999,14 @@ impl Authority {
                     })
             }
             _ => {
-                self.records.get(&rr_key).map_or(vec![], |rr_set| {
-                    rr_set.records(is_secure, supported_algorithms).into_iter().collect()
-                })
+                self.records
+                    .get(&rr_key)
+                    .map_or(vec![], |rr_set| {
+                        rr_set
+                            .records(is_secure, supported_algorithms)
+                            .into_iter()
+                            .collect()
+                    })
             }
         };
 
@@ -1020,7 +1031,10 @@ impl Authority {
             .skip_while(|rr_set| name < rr_set.name())
             .next()
             .map_or(vec![], |rr_set| {
-                rr_set.records(is_secure, supported_algorithms).into_iter().collect()
+                rr_set
+                    .records(is_secure, supported_algorithms)
+                    .into_iter()
+                    .collect()
             })
     }
 
@@ -1058,8 +1072,8 @@ impl Authority {
         }
 
         // now go through and generate the nsec records
-        let ttl = self.get_minimum_ttl();
-        let serial = self.get_serial();
+        let ttl = self.minimum_ttl();
+        let serial = self.serial();
         let mut records: Vec<Record> = vec![];
 
         {
@@ -1085,7 +1099,7 @@ impl Authority {
             if let Some((name, vec)) = nsec_info {
                 // names aren't equal, create the NSEC record
                 let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
-                let rdata = NSEC::new(self.get_origin().clone(), vec);
+                let rdata = NSEC::new(self.origin().clone(), vec);
                 record.set_rdata(RData::NSEC(rdata));
                 records.push(record);
             }
@@ -1101,21 +1115,23 @@ impl Authority {
     fn sign_zone(&mut self) -> DnsSecResult<()> {
         debug!("signing zone: {}", self.origin);
         let inception = UTC::now();
-        let zone_ttl = self.get_minimum_ttl();
+        let zone_ttl = self.minimum_ttl();
 
         // TODO: should this be an error?
         if self.secure_keys.is_empty() {
             warn!("attempt to sign_zone for dnssec, but no keys available!")
         }
 
-        for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| {
-            // do not sign zone DNSKEY's that's the job of the parent zone
-            if rr_set.record_type() == RecordType::DNSKEY {
-                return None;
-            }
-            rr_set.rrsigs().is_empty();
-            Some(rr_set)
-        }) {
+        for rr_set in self.records
+                .iter_mut()
+                .filter_map(|(_, rr_set)| {
+                                // do not sign zone DNSKEY's that's the job of the parent zone
+                                if rr_set.record_type() == RecordType::DNSKEY {
+                                    return None;
+                                }
+                                rr_set.rrsigs().is_empty();
+                                Some(rr_set)
+                            }) {
 
             debug!("signing rr_set: {}", rr_set.name());
             rr_set.clear_rrsigs();
@@ -1136,11 +1152,12 @@ impl Authority {
                                       try!(signer.calculate_key_tag()),
                                       signer.signer_name(),
                                       // TODO: this is a nasty clone... the issue is that the vec
-                                      //  from get_records is of Vec<&R>, but we really want &[R]
-                                      &rr_set.records(false, SupportedAlgorithms::new())
-                                          .into_iter()
-                                          .cloned()
-                                          .collect::<Vec<Record>>());
+                                      //  from records is of Vec<&R>, but we really want &[R]
+                                      &rr_set
+                                           .records(false, SupportedAlgorithms::new())
+                                           .into_iter()
+                                           .cloned()
+                                           .collect::<Vec<Record>>());
 
                 // TODO, maybe chain these with some ETL operations instead?
                 if hash.is_err() {
@@ -1159,23 +1176,23 @@ impl Authority {
 
                 let mut rrsig = rrsig_temp.clone();
                 rrsig.set_rdata(RData::SIG(SIG::new(// type_covered: RecordType,
-                                                rr_set.record_type(),
-                                                // algorithm: Algorithm,
-                                                signer.algorithm(),
-                                                // num_labels: u8,
-                                                rr_set.name().num_labels(),
-                                                // original_ttl: u32,
-                                                rr_set.ttl(),
-                                                // sig_expiration: u32,
-                                                expiration.timestamp() as u32,
-                                                // sig_inception: u32,
-                                                inception.timestamp() as u32,
-                                                // key_tag: u16,
-                                                try!(signer.calculate_key_tag()),
-                                                // signer_name: Name,
-                                                signer.signer_name().clone(),
-                                                // sig: Vec<u8>
-                                                signature)));
+                                                    rr_set.record_type(),
+                                                    // algorithm: Algorithm,
+                                                    signer.algorithm(),
+                                                    // num_labels: u8,
+                                                    rr_set.name().num_labels(),
+                                                    // original_ttl: u32,
+                                                    rr_set.ttl(),
+                                                    // sig_expiration: u32,
+                                                    expiration.timestamp() as u32,
+                                                    // sig_inception: u32,
+                                                    inception.timestamp() as u32,
+                                                    // key_tag: u16,
+                                                    try!(signer.calculate_key_tag()),
+                                                    // signer_name: Name,
+                                                    signer.signer_name().clone(),
+                                                    // sig: Vec<u8>
+                                                    signature)));
 
                 rr_set.insert_rrsig(rrsig);
                 debug!("signed rr_set: {}", rr_set.name());

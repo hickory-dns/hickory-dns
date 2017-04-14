@@ -114,8 +114,8 @@ pub fn create_test() -> Authority {
 fn test_catalog_lookup() {
     let example = create_example();
     let test = create_test();
-    let origin = example.get_origin().clone();
-    let test_origin = test.get_origin().clone();
+    let origin = example.origin().clone();
+    let test_origin = test.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), example);
@@ -173,7 +173,7 @@ fn test_catalog_lookup() {
 #[test]
 fn test_catalog_nx_soa() {
     let example = create_example();
-    let origin = example.get_origin().clone();
+    let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), example);
@@ -207,7 +207,7 @@ fn test_catalog_nx_soa() {
 #[test]
 fn test_axfr() {
     let test = create_test();
-    let origin = test.get_origin().clone();
+    let origin = test.origin().clone();
     let soa = Record::new()
         .set_name(origin.clone())
         .set_ttl(3600)

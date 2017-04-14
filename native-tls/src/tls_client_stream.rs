@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! TlsClientStream for DNS over TLS
+
 use std::net::SocketAddr;
 use std::io;
 
@@ -22,11 +24,16 @@ use trust_dns::client::ClientStreamHandle;
 
 use TlsStreamBuilder;
 
+/// TlsClientStream secure DNS over TCP stream
+///
+/// See TlsClientStreamBuilder::new()
 pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream>>;
 
+/// Builder for TlsClientStream
 pub struct TlsClientStreamBuilder(TlsStreamBuilder);
 
 impl TlsClientStreamBuilder {
+    /// Creates a builder fo the construction of a TlsClientStream
     pub fn new() -> TlsClientStreamBuilder {
         TlsClientStreamBuilder(TlsStreamBuilder::new())
     }

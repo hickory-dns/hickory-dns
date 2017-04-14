@@ -139,7 +139,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
                  .recover_with_journal(&journal)
                  .map_err(|e| format!("error recovering from journal: {}", e)));
 
-        authority.journal(journal);
+        authority.set_journal(journal);
         info!("recovered zone: {}", zone_name);
 
         authority
@@ -169,7 +169,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
                 try!(Journal::from_file(&journal_path)
                 .map_err(|e| format!("error creating journal {:?}: {}", journal_path, e)));
 
-            authority.journal(journal);
+            authority.set_journal(journal);
 
             // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
             try!(authority
@@ -199,11 +199,11 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
                                             true);
             let signer = try!(load_key(zone_name, &key_config).map_err(|e| {
                 format!("failed to load key: {:?} msg: {}",
-                        key_config.get_key_path(),
+                        key_config.key_path(),
                         e)
             }));
             info!("adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
-                  key_config.get_key_path(),
+                  key_config.key_path(),
                   key_config.is_zone_signing_key(),
                   key_config.is_zone_update_auth());
             authority
@@ -213,11 +213,11 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
             for key_config in zone_config.get_keys() {
                 let signer = try!(load_key(zone_name.clone(), &key_config).map_err(|e| {
                     format!("failed to load key: {:?} msg: {}",
-                            key_config.get_key_path(),
+                            key_config.key_path(),
                             e)
                 }));
                 info!("adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
-                      key_config.get_key_path(),
+                      key_config.key_path(),
                       key_config.is_zone_signing_key(),
                       key_config.is_zone_update_auth());
                 authority
@@ -245,12 +245,12 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
 /// same directory has the zone $file:
 ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
-    let key_path = key_config.get_key_path();
+    let key_path = key_config.key_path();
     let algorithm = try!(key_config
-                             .get_algorithm()
+                             .algorithm()
                              .map_err(|e| format!("bad algorithm: {}", e)));
     let format = try!(key_config
-                          .get_format()
+                          .format()
                           .map_err(|e| format!("bad key format: {}", e)));
 
     let key: KeyPair = if key_path.exists() {
@@ -265,7 +265,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
                  .map_err(|e| format!("could not read key from: {:?}: {}", key_path, e)));
 
         try!(format
-                 .decode_key(&key_bytes, key_config.get_password(), algorithm)
+                 .decode_key(&key_bytes, key_config.password(), algorithm)
                  .map_err(|e| format!("could not decode key: {}", e)))
     } else if key_config.create_if_absent() {
         info!("creating key: {:?}", key_path);
@@ -279,7 +279,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
             .map_err(|e| format!("could not generate key: {}", e)));
         let key_bytes: Vec<u8> =
             try!(format
-                     .encode_key(&key, key_config.get_password())
+                     .encode_key(&key, key_config.password())
                      .map_err(|e| format!("could not get key bytes: {}", e)));
 
         try!(file.write_all(&key_bytes)
@@ -294,7 +294,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     };
 
     let name = try!(key_config
-                        .get_signer_name()
+                        .signer_name()
                         .map_err(|e| format!("error reading name: {}", e)))
             .unwrap_or(zone_name);
 

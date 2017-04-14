@@ -233,7 +233,7 @@ fn client_thread_www<C: ClientConnection>(conn: C)
 
 fn new_catalog() -> Catalog {
     let example = create_example();
-    let origin = example.get_origin().clone();
+    let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
     catalog.upsert(origin.clone(), example);

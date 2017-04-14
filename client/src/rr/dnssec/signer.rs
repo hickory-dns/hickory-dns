@@ -239,6 +239,7 @@ pub struct Signer {
     is_zone_update_auth: bool,
 }
 
+/// Placeholder type for when OpenSSL and *ring* are disabled; enable OpenSSL and Ring for support
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
 pub struct Signer;
 

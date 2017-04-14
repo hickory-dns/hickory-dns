@@ -39,16 +39,26 @@ static DEFAULT_PORT: u16 = 53;
 static DEFAULT_TLS_PORT: u16 = 853;
 static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
 
+/// Server configuration
 #[derive(RustcDecodable, Debug)]
 pub struct Config {
+    /// The list of IPv4 addresses to listen on
     listen_addrs_ipv4: Vec<String>,
+    /// This list of IPv6 addresses to listen on
     listen_addrs_ipv6: Vec<String>,
+    /// Port on which to listen (associated to all IPs)
     listen_port: Option<u16>,
+    /// Secure port to listen on
     tls_listen_port: Option<u16>,
+    /// Timeout associated to a request before it is closed.
     tcp_request_timeout: Option<u64>,
+    /// Level at which to log, default is INFO
     log_level: Option<String>,
+    /// Base configuration directory, i.e. root path for zones
     directory: Option<String>,
+    /// List of configurations for zones
     zones: Vec<ZoneConfig>,
+    /// Certificate to associate to TLS connections
     tls_cert: Option<TlsCertConfig>,
 }
 
@@ -63,11 +73,17 @@ impl Config {
 
     /// set of listening ipv4 addresses (for TCP and UDP)
     pub fn get_listen_addrs_ipv4(&self) -> Vec<Ipv4Addr> {
-        self.listen_addrs_ipv4.iter().map(|s| s.parse().unwrap()).collect()
+        self.listen_addrs_ipv4
+            .iter()
+            .map(|s| s.parse().unwrap())
+            .collect()
     }
     /// set of listening ipv6 addresses (for TCP and UDP)
     pub fn get_listen_addrs_ipv6(&self) -> Vec<Ipv6Addr> {
-        self.listen_addrs_ipv6.iter().map(|s| s.parse().unwrap()).collect()
+        self.listen_addrs_ipv6
+            .iter()
+            .map(|s| s.parse().unwrap())
+            .collect()
     }
     /// port on which to listen for connections on specified addresses
     pub fn get_listen_port(&self) -> u16 {
@@ -79,7 +95,8 @@ impl Config {
     }
     /// default timeout for all TCP connections before forceably shutdown
     pub fn get_tcp_request_timeout(&self) -> Duration {
-        Duration::from_secs(self.tcp_request_timeout.unwrap_or(DEFAULT_TCP_REQUEST_TIMEOUT))
+        Duration::from_secs(self.tcp_request_timeout
+                                .unwrap_or(DEFAULT_TCP_REQUEST_TIMEOUT))
     }
 
     // TODO: also support env_logger
@@ -100,7 +117,9 @@ impl Config {
     }
     /// the path for all zone configurations, defaults to `/var/named`
     pub fn get_directory(&self) -> &Path {
-        self.directory.as_ref().map_or(Path::new(DEFAULT_PATH), |s| Path::new(s))
+        self.directory
+            .as_ref()
+            .map_or(Path::new(DEFAULT_PATH), |s| Path::new(s))
     }
     /// the set of zones which should be loaded
     pub fn get_zones(&self) -> &[ZoneConfig] {
@@ -116,12 +135,14 @@ impl FromStr for Config {
     type Err = ConfigError;
 
     fn from_str(toml: &str) -> ConfigResult<Config> {
-        let value: Value = try!(toml.parse().map_err(|vec| ConfigErrorKind::VecParserError(vec)));
+        let value: Value = try!(toml.parse()
+                                    .map_err(|vec| ConfigErrorKind::VecParserError(vec)));
         let mut decoder: Decoder = Decoder::new(value);
         Ok(try!(Self::decode(&mut decoder)))
     }
 }
 
+/// Configuration for a zone
 #[derive(RustcDecodable, PartialEq, Debug)]
 pub struct ZoneConfig {
     zone: String, // TODO: make Domain::Name decodable
@@ -133,6 +154,16 @@ pub struct ZoneConfig {
 }
 
 impl ZoneConfig {
+    /// Return a new zone configuration
+    ///
+    /// # Arguments
+    ///
+    /// * `zone` - name of a zone, e.g. example.com
+    /// * `zone_type` - Type of zone, e.g. Master
+    /// * `file` - relative to Config base path, to the zone file
+    /// * `allow_update` - enable dynamic updates
+    /// * `enable_dnssec` - enable signing of the zone for DNSSec
+    /// * `keys` - list of private and public keys used to sign a zone
     pub fn new(zone: String,
                zone_type: ZoneType,
                file: String,
@@ -185,6 +216,7 @@ impl ZoneConfig {
     }
 }
 
+/// Key pair configuration for DNSSec keys for signing a zone
 #[derive(RustcDecodable, PartialEq, Debug)]
 pub struct KeyConfig {
     key_path: String,
@@ -197,6 +229,17 @@ pub struct KeyConfig {
 }
 
 impl KeyConfig {
+    /// Return a new KeyConfig
+    ///
+    /// # Arguments
+    ///
+    /// * `key_path` - file path to the key
+    /// * `password` - password to use to read the key
+    /// * `algorithm` - the type of key stored, see `Algorithm`
+    /// * `signer_name` - the name to use when signing records, e.g. ns.example.com
+    /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
+    /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
+    /// * `do_auto_generate` - if the key does not exist, generate a new one (it will need to be signed)
     pub fn new(key_path: String,
                password: Option<String>,
                algorithm: Algorithm,
@@ -217,16 +260,16 @@ impl KeyConfig {
     }
 
     /// path to the key file, either relative to the zone file, or a explicit from the root.
-    pub fn get_key_path(&self) -> &Path {
+    pub fn key_path(&self) -> &Path {
         Path::new(&self.key_path)
     }
 
     /// Converts key into
-    pub fn get_format(&self) -> ParseResult<KeyFormat> {
-        let extension = try!(self.get_key_path()
+    pub fn format(&self) -> ParseResult<KeyFormat> {
+        let extension = try!(self.key_path()
             .extension()
             .ok_or(ParseErrorKind::Msg(format!("file lacks extension, e.g. '.p12': {:?}",
-                                               self.get_key_path())
+                                               self.key_path())
                 .into())));
 
         match extension.to_str() {
@@ -237,23 +280,24 @@ impl KeyConfig {
             e @ _ => {
                 Err(ParseErrorKind::Msg(format!("extension not understood, '{:?}': {:?}",
                                                 e,
-                                                self.get_key_path()))
-                    .into())
+                                                self.key_path()))
+                            .into())
             }
         }
     }
 
-    pub fn get_password(&self) -> Option<&str> {
+    /// Returns the password used to read the key
+    pub fn password(&self) -> Option<&str> {
         self.password.as_ref().map(|s| s.as_str())
     }
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
-    pub fn get_algorithm(&self) -> ParseResult<Algorithm> {
+    pub fn algorithm(&self) -> ParseResult<Algorithm> {
         Algorithm::from_str(&self.algorithm).map_err(|e| e.into())
     }
 
     /// the signer name for the key, this defaults to the $ORIGIN aka zone name.
-    pub fn get_signer_name(&self) -> ParseResult<Option<Name>> {
+    pub fn signer_name(&self) -> ParseResult<Option<Name>> {
         if let Some(ref signer_name) = self.signer_name.as_ref() {
             let name = try!(Name::parse(signer_name, None));
             return Ok(Some(name));
