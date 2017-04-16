@@ -202,7 +202,7 @@ fn with_nonet<F>(test: F)
     let authority = create_secure_example();
 
     let trust_anchor = {
-        let signers = authority.get_secure_keys();
+        let signers = authority.secure_keys();
         let public_key = signers
             .first()
             .expect("expected a key in the authority")
