@@ -37,6 +37,7 @@ pub struct TlsClientConnection {
 }
 
 impl TlsClientConnection {
+    /// Creates a new builder for the construction of a TlsClientConnection.
     pub fn builder() -> TlsClientConnectionBuilder {
         TlsClientConnectionBuilder(TlsClientStreamBuilder::new())
     }
@@ -45,11 +46,16 @@ impl TlsClientConnection {
 impl ClientConnection for TlsClientConnection {
     type MessageStream = TlsClientStream;
 
-fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>){
+    fn unwrap
+        (self)
+         -> (Core,
+             Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+             Box<ClientStreamHandle>) {
         (self.io_loop, self.tls_client_stream, self.client_stream_handle)
     }
 }
 
+/// A builder for the TlsClientStream.
 pub struct TlsClientConnectionBuilder(TlsClientStreamBuilder);
 
 impl TlsClientConnectionBuilder {

@@ -26,6 +26,8 @@ use server::{Request, RequestStream, ResponseHandle, TimeoutStream};
 use authority::Catalog;
 
 // TODO, would be nice to have a Slab for buffers here...
+
+/// A Futures based implementation of a DNS catalog server
 pub struct ServerFuture {
     io_loop: Core,
     catalog: Arc<Catalog>, // should the catalog just be static?
@@ -207,6 +209,7 @@ impl ServerFuture {
                            "Server stopping due to interruption"))
     }
 
+    /// Returns a reference to the tokio core loop driving this Server instance
     pub fn tokio_core(&mut self) -> &mut Core {
         &mut self.io_loop
     }

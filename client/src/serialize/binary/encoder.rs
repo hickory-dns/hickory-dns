@@ -30,17 +30,29 @@ pub struct BinEncoder<'a> {
 }
 
 impl<'a> BinEncoder<'a> {
+    /// Create a new encoder with the Vec to fill
     pub fn new(buf: &'a mut Vec<u8>) -> Self {
         Self::with_offset(buf, 0, EncodeMode::Normal)
     }
 
+    /// Specify the mode for encoding
+    ///
+    /// # Arguments
+    ///
+    /// * `mode` - In Signing mode, it canonical forms of all data are encoded, otherwise format matches the source form
     pub fn with_mode(buf: &'a mut Vec<u8>, mode: EncodeMode) -> Self {
         Self::with_offset(buf, 0, mode)
     }
 
-    /// offset is used mainly for pointers. If this encoder is starting at some point further in
+    /// Begins the encoder at the given offset
+    ///
+    /// This is used for pointers. If this encoder is starting at some point further in
     ///  the sequence of bytes, for the proper offset of the pointer, the offset accounts for that
     ///  by using the offset to add to the pointer location being written.
+    ///
+    /// # Arguments
+    ///
+    /// * `offset` - index at which to start writing into the buffer
     pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32, mode: EncodeMode) -> Self {
         BinEncoder {
             offset: offset,
@@ -51,48 +63,59 @@ impl<'a> BinEncoder<'a> {
         }
     }
 
+    /// Returns a reference to the internal buffer
     pub fn as_bytes(self) -> &'a Vec<u8> {
         self.buffer
     }
 
+    /// Returns the length of the buffer
     pub fn len(&self) -> usize {
         self.buffer.len()
     }
 
+    /// Returns the current offset into the buffer
     pub fn offset(&self) -> u32 {
         self.offset
     }
 
+    /// Returns the current Encoding mode
     pub fn mode(&self) -> EncodeMode {
         self.mode
     }
 
+    /// If set to true, then names will be written into the buffer in canonical form
     pub fn set_canonical_names(&mut self, canonical_names: bool) {
         self.canonical_names = canonical_names;
     }
 
+    /// Returns true if then encoder is writing in canonical form
     pub fn is_canonical_names(&self) -> bool {
         self.canonical_names
     }
 
+    /// Reserve specified length in the internal buffer
     pub fn reserve(&mut self, extra: usize) {
         self.buffer.reserve(extra);
     }
 
+    /// Emit one byte into the buffer
     pub fn emit(&mut self, b: u8) -> EncodeResult {
         self.offset += 1;
         self.buffer.push(b);
         Ok(())
     }
 
-    /// store the label pointer, the location is the current position in the buffer
-    ///  implicitly, it is expected that the name will be written to the stream after this.
+    /// Stores a label pointer to an already written label
+    ///
+    /// The location is the current position in the buffer
+    ///  implicitly, it is expected that the name will be written to the stream after the current index.
     pub fn store_label_pointer(&mut self, labels: Vec<Rc<String>>) {
         if self.offset < 0x3FFFu32 {
             self.name_pointers.insert(labels, self.offset as u16); // the next char will be at the len() location
         }
     }
 
+    /// Looks up the index of an already written label
     pub fn get_label_pointer(&self, labels: &[Rc<String>]) -> Option<u16> {
         self.name_pointers.get(labels).map(|i| *i)
     }
@@ -128,6 +151,7 @@ impl<'a> BinEncoder<'a> {
         Ok(())
     }
 
+    /// Writes a u16 in network byte order to the buffer
     pub fn emit_u16(&mut self, data: u16) -> EncodeResult {
         self.buffer.reserve(2); // two bytes coming
 
@@ -140,7 +164,7 @@ impl<'a> BinEncoder<'a> {
         Ok(())
     }
 
-
+    /// Writes an i32 in network byte order to the buffer
     pub fn emit_i32(&mut self, data: i32) -> EncodeResult {
         self.buffer.reserve(4); // four bytes coming...
 
@@ -157,7 +181,7 @@ impl<'a> BinEncoder<'a> {
         Ok(())
     }
 
-
+    /// Writes an u32 in network byte order to the buffer
     pub fn emit_u32(&mut self, data: u32) -> EncodeResult {
         self.buffer.reserve(4); // four bytes coming...
 
@@ -174,6 +198,7 @@ impl<'a> BinEncoder<'a> {
         Ok(())
     }
 
+    /// Writes the byte slice to the stream
     pub fn emit_vec(&mut self, data: &[u8]) -> EncodeResult {
         self.buffer.reserve(data.len());
 
@@ -189,6 +214,8 @@ impl<'a> BinEncoder<'a> {
 ///  should not be included in the additional count and not in the encoded data when in Verify
 #[derive(Copy, Clone, Eq, PartialEq)]
 pub enum EncodeMode {
+    /// In signing mode records are written in canonical form
     Signing,
+    /// Write records in standard format
     Normal,
 }

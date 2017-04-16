@@ -40,7 +40,10 @@ use op::Message;
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
 /// parameter, and it will sign all update requests (this matches the `ClientFuture` API).
 pub trait Client<C: ClientHandle> {
+    /// get a mutable reference to the tokio Core associated to the Client
     fn get_io_loop(&self) -> RefMut<Core>;
+
+    /// Get a mutable handle reference tot the Core assiated to the Client
     fn get_client_handle(&self) -> RefMut<C>;
 
     /// A *classic* DNS query, i.e. does not perform and DNSSec operations

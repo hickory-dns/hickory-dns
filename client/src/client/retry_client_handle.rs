@@ -8,7 +8,7 @@
 use futures::{Future, Poll};
 
 use client::ClientHandle;
-use ::error::*;
+use error::*;
 use op::Message;
 
 /// Can be used to reattempt a queries if they fail
@@ -24,6 +24,12 @@ pub struct RetryClientHandle<H: ClientHandle> {
 impl<H> RetryClientHandle<H>
     where H: ClientHandle
 {
+    /// Creates a new Client handler for reattempting requests on failures.
+    ///
+    /// # Arguments
+    ///
+    /// * `client` - handle to the client connection
+    /// * `attempts` - number of attempts before failing
     pub fn new(client: H, attempts: usize) -> RetryClientHandle<H> {
         RetryClientHandle {
             client: client,
@@ -41,11 +47,11 @@ impl<H> ClientHandle for RetryClientHandle<H>
         let future = self.client.send(message.clone());
 
         return Box::new(RetrySendFuture {
-            message: message,
-            client: self.client.clone(),
-            future: future,
-            remaining_attempts: self.attempts,
-        });
+                            message: message,
+                            client: self.client.clone(),
+                            future: future,
+                            remaining_attempts: self.attempts,
+                        });
     }
 }
 
@@ -87,9 +93,9 @@ impl<H> Future for RetrySendFuture<H>
 #[cfg(test)]
 mod test {
     use std::cell::Cell;
-    use ::client::*;
-    use ::error::*;
-    use ::op::*;
+    use client::*;
+    use error::*;
+    use op::*;
     use futures::*;
 
     #[derive(Clone)]
@@ -125,7 +131,10 @@ mod test {
                                                 },
                                                 2);
         let test1 = Message::new();
-        let result = client.send(test1).wait().ok().expect("should have succeeded");
+        let result = client.send(test1)
+            .wait()
+            .ok()
+            .expect("should have succeeded");
         assert_eq!(result.id(), 1); // this is checking the number of iterations the TestCient ran
     }
 

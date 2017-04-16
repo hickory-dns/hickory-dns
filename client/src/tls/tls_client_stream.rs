@@ -21,14 +21,17 @@ use tcp::TcpClientStream;
 use tls::{TlsStream, TlsStreamBuilder};
 use client::ClientStreamHandle;
 
+/// A Type definition for the TLS stream
 pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream>>;
 
 impl TlsClientStream {
+    /// Creates a builder fo the construction of a TlsClientStream
     pub fn builder() -> TlsClientStreamBuilder {
         TlsClientStreamBuilder(TlsStream::builder())
     }
 }
 
+/// A Builder for the TlsClientStream
 pub struct TlsClientStreamBuilder(TlsStreamBuilder);
 
 impl TlsClientStreamBuilder {

@@ -53,7 +53,7 @@ impl ClientConnection for TestClientConnection {
 fn test_query_nonet() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.get_origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let client = SyncClient::new(TestClientConnection::new(catalog));
 
@@ -120,7 +120,7 @@ fn test_secure_query_example_nonet() {
     let authority = create_secure_example();
 
     let trust_anchor = {
-        let signers = authority.get_secure_keys();
+        let signers = authority.secure_keys();
         let public_key = signers.first().expect("expected a key in the authority").key();
 
         let mut trust_anchor = TrustAnchor::new();
@@ -130,7 +130,7 @@ fn test_secure_query_example_nonet() {
     };
 
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.get_origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let client = SecureSyncClient::new(TestClientConnection::new(catalog))
         .trust_anchor(trust_anchor)
@@ -232,7 +232,7 @@ fn test_nsec_query_example_nonet() {
     let authority = create_secure_example();
 
     let trust_anchor = {
-        let signers = authority.get_secure_keys();
+        let signers = authority.secure_keys();
         let public_key = signers.first().expect("expected a key in the authority").key();
 
         let mut trust_anchor = TrustAnchor::new();
@@ -242,7 +242,7 @@ fn test_nsec_query_example_nonet() {
     };
 
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.get_origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let client = SecureSyncClient::new(TestClientConnection::new(catalog))
         .trust_anchor(trust_anchor)
@@ -344,7 +344,7 @@ fn test_nsec_query_type() {
 fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient, domain::Name) {
     let mut authority = create_example();
     authority.set_allow_update(true);
-    let origin = authority.get_origin().clone();
+    let origin = authority.origin().clone();
 
     let rsa = Rsa::generate(512).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
@@ -373,7 +373,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient, domain::Name) 
                                               .expect("to_vec failed"))));
     authority.upsert(auth_key, 0);
 
-    catalog.upsert(authority.get_origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
     let client = SyncClient::with_signer(TestClientConnection::new(catalog), signer);
 
     (client, origin)

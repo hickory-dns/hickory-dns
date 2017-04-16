@@ -7,8 +7,11 @@ use trust_dns::BufStreamHandle;
 use trust_dns::op::Message;
 use trust_dns::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
 
+/// An incoming request to the DNS catalog
 pub struct Request {
+    /// Message with the associated query or update data
     pub message: Message,
+    /// Source address of the Client
     pub src: SocketAddr,
 }
 

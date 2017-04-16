@@ -59,10 +59,10 @@ impl RequestHandler for Catalog {
             let our_version = 0;
             resp_edns.set_dnssec_ok(true);
             resp_edns.set_max_payload(if req_edns.max_payload() < 512 {
-                512
-            } else {
-                req_edns.max_payload()
-            });
+                                          512
+                                      } else {
+                                          req_edns.max_payload()
+                                      });
             resp_edns.set_version(our_version);
 
             if req_edns.version() > our_version {
@@ -100,17 +100,13 @@ impl RequestHandler for Catalog {
                     }
                     c @ _ => {
                         error!("unimplemented op_code: {:?}", c);
-                        Message::error_msg(request.id(),
-                                           request.op_code(),
-                                           ResponseCode::NotImp)
+                        Message::error_msg(request.id(), request.op_code(), ResponseCode::NotImp)
                     }
                 }
             }
             MessageType::Response => {
                 warn!("got a response as a request from id: {}", request.id());
-                Message::error_msg(request.id(),
-                                   request.op_code(),
-                                   ResponseCode::NotImp)
+                Message::error_msg(request.id(), request.op_code(), ResponseCode::NotImp)
             }
         };
 
@@ -140,10 +136,17 @@ impl RequestHandler for Catalog {
 }
 
 impl Catalog {
+    /// Constructs a new Catalog
     pub fn new() -> Self {
         Catalog { authorities: HashMap::new() }
     }
 
+    /// Insert or update a zone authority
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - zone name, e.g. example.com.
+    /// * `authority` - the zone data
     pub fn upsert(&mut self, name: Name, authority: Authority) {
         self.authorities.insert(name, RwLock::new(authority));
     }
@@ -217,7 +220,7 @@ impl Catalog {
 
         if let Some(authority) = self.find_auth_recurse(zones[0].name()) {
             let mut authority = authority.write().unwrap(); // poison errors should panic...
-            match authority.get_zone_type() {
+            match authority.zone_type() {
                 ZoneType::Slave => {
                     error!("slave forwarding for update not yet implemented");
                     response.set_response_code(ResponseCode::NotImp);
@@ -264,8 +267,9 @@ impl Catalog {
         for query in request.queries() {
             if let Some(ref_authority) = self.find_auth_recurse(query.name()) {
                 let authority = &ref_authority.read().unwrap(); // poison errors should panic
-                debug!("found authority: {:?}", authority.get_origin());
-                let (is_dnssec, supported_algorithms) = request.edns()
+                debug!("found authority: {:?}", authority.origin());
+                let (is_dnssec, supported_algorithms) = request
+                    .edns()
                     .map_or((false, SupportedAlgorithms::new()), |edns| {
                         let supported_algorithms = if let Some(&EdnsOption::DAU(algs)) =
                             edns.option(&EdnsCode::DAU) {
@@ -284,28 +288,27 @@ impl Catalog {
                     response.add_answers(records.into_iter().cloned());
 
                     // get the NS records
-                    let ns = authority.get_ns(is_dnssec, supported_algorithms);
+                    let ns = authority.ns(is_dnssec, supported_algorithms);
                     if ns.is_empty() {
-                        warn!("there are no NS records for: {:?}", authority.get_origin());
+                        warn!("there are no NS records for: {:?}", authority.origin());
                     } else {
                         response.add_name_servers(ns.into_iter().cloned());
                     }
                 } else {
                     if is_dnssec {
                         // get NSEC records
-                        let nsecs =
-                            authority.get_nsec_records(query.name(),
-                                                       is_dnssec,
-                                                       supported_algorithms);
+                        let nsecs = authority.get_nsec_records(query.name(),
+                                                               is_dnssec,
+                                                               supported_algorithms);
                         response.add_name_servers(nsecs.into_iter().cloned());
                     }
 
                     // in the not found case it's standard to return the SOA in the authority section
                     response.set_response_code(ResponseCode::NXDomain);
 
-                    let soa = authority.get_soa_secure(is_dnssec, supported_algorithms);
+                    let soa = authority.soa_secure(is_dnssec, supported_algorithms);
                     if soa.is_empty() {
-                        warn!("there is no SOA record for: {:?}", authority.get_origin());
+                        warn!("there is no SOA record for: {:?}", authority.origin());
                     } else {
                         response.add_name_servers(soa.into_iter().cloned());
                     }

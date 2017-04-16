@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! Base TlsStream
+
 use std::net::SocketAddr;
 use std::io;
 
@@ -19,6 +21,7 @@ use tokio_tls::{TlsConnectorExt, TlsStream as TokioTlsStream};
 use trust_dns::BufStreamHandle;
 use trust_dns::tcp::TcpStream;
 
+/// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream>>;
 
 fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
@@ -71,6 +74,7 @@ pub fn tls_from_stream(stream: TokioTlsStream<TokioTcpStream>,
     (stream, message_sender)
 }
 
+/// A builder for the TlsStream
 pub struct TlsStreamBuilder {
     ca_chain: Vec<Certificate>,
     identity: Option<Pkcs12>,

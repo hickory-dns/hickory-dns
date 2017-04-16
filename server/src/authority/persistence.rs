@@ -4,6 +4,9 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+
+//! All zone persistence related types
+
 use std::iter::Iterator;
 use std::path::Path;
 
@@ -16,6 +19,7 @@ use trust_dns::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
 
 use error::{PersistenceErrorKind, PersistenceResult};
 
+/// The current Journal version of the application
 pub const CURRENT_VERSION: i64 = 1;
 
 /// The Journal is the audit log of all changes to a zone after initial creation.
@@ -25,14 +29,16 @@ pub struct Journal {
 }
 
 impl Journal {
+    /// Constructs a new Journal, attaching to the specified Sqlite Connection
     pub fn new(conn: Connection) -> PersistenceResult<Journal> {
         let version = Self::select_schema_version(&conn);
         Ok(Journal {
-            conn: conn,
-            version: try!(version),
-        })
+               conn: conn,
+               version: try!(version),
+           })
     }
 
+    /// Constructs a new Journal opening a Sqlite connection to the file at the specified path
     pub fn from_file(journal_file: &Path) -> PersistenceResult<Journal> {
         let result = Self::new(try!(Connection::open(journal_file)));
         match result {
@@ -44,12 +50,13 @@ impl Journal {
         }
     }
 
-    pub fn get_conn(&self) -> &Connection {
+    /// Returns a reference to the Sqlite Connection
+    pub fn conn(&self) -> &Connection {
         &self.conn
     }
 
-    /// gets the current schema version of the journal
-    pub fn get_schema_version(&self) -> i64 {
+    /// Returns the current schema version of the journal
+    pub fn schema_version(&self) -> i64 {
         self.version
     }
 
@@ -81,13 +88,14 @@ impl Journal {
         let client_id: i64 = 0; // TODO: we need better id information about the client, like pub_key
         let soa_serial: i64 = soa_serial as i64;
 
-        let count = try!(self.conn.execute("INSERT
+        let count = try!(self.conn
+                             .execute("INSERT
                                           \
                                             INTO records (client_id, soa_serial, timestamp, \
                                             record)
                                           \
                                             VALUES ($1, $2, $3, $4)",
-                                           &[&client_id, &soa_serial, &timestamp, &serial_record]));
+                                      &[&client_id, &soa_serial, &timestamp, &serial_record]));
         //
         if count != 1 {
             return Err(PersistenceErrorKind::WrongInsertCount(count, 1).into());
@@ -119,7 +127,8 @@ impl Journal {
         assert!(self.version == CURRENT_VERSION,
                 "schema version mismatch, schema_up() resolves this");
 
-        let mut stmt = try!(self.conn.prepare("SELECT _rowid_, record
+        let mut stmt = try!(self.conn
+                                .prepare("SELECT _rowid_, record
                                             \
                                                FROM records
                                             \
@@ -127,8 +136,7 @@ impl Journal {
                                             \
                                                LIMIT 1"));
 
-        let record_opt: Option<Result<(i64, Record), rusqlite::Error>> =
-            try!(stmt.query_and_then(&[&row_id],
+        let record_opt: Option<Result<(i64, Record), rusqlite::Error>> = try!(stmt.query_and_then(&[&row_id],
                                      |row| -> Result<(i64, Record), rusqlite::Error> {
                 let row_id: i64 = try!(row.get_checked(0));
                 let record_bytes: Vec<u8> = try!(row.get_checked(1));
@@ -194,7 +202,8 @@ impl Journal {
         // validate the versions of all the schemas...
         assert!(new_version <= CURRENT_VERSION);
 
-        let count = try!(self.conn.execute("UPDATE tdns_schema SET version = $1", &[&new_version]));
+        let count = try!(self.conn
+                             .execute("UPDATE tdns_schema SET version = $1", &[&new_version]));
 
         //
         assert_eq!(count, 1);
@@ -218,16 +227,18 @@ impl Journal {
 
     /// initial schema, include the tdns_schema table for tracking the Journal version
     fn init_up(&self) -> PersistenceResult<i64> {
-        let count = try!(self.conn.execute("CREATE TABLE tdns_schema (
+        let count = try!(self.conn
+                             .execute("CREATE TABLE tdns_schema (
                                           \
                                             version INTEGER NOT NULL
                                         \
                                             )",
-                                           &[]));
+                                      &[]));
         //
         assert_eq!(count, 0);
 
-        let count = try!(self.conn.execute("INSERT INTO tdns_schema (version) VALUES (0)", &[]));
+        let count = try!(self.conn
+                             .execute("INSERT INTO tdns_schema (version) VALUES (0)", &[]));
         //
         assert_eq!(count, 1);
 
@@ -238,7 +249,8 @@ impl Journal {
     ///  authority. Each record is expected to be in the format of an update record
     fn records_up(&self) -> PersistenceResult<i64> {
         // we'll be using rowid for our primary key, basically: `rowid INTEGER PRIMARY KEY ASC`
-        let count = try!(self.conn.execute("CREATE TABLE records (
+        let count = try!(self.conn
+                             .execute("CREATE TABLE records (
                                           \
                                             client_id      INTEGER NOT NULL,
                                           \
@@ -249,7 +261,7 @@ impl Journal {
                                             record         BLOB NOT NULL
                                         \
                                             )",
-                                           &[]));
+                                      &[]));
         //
         assert_eq!(count, 1);
 
@@ -257,6 +269,9 @@ impl Journal {
     }
 }
 
+/// Returns an iterator over all items in a Journal
+///
+/// Useful for replaying an entire journal into memory to reconstruct a zone from disk
 pub struct JournalIter<'j> {
     current_row_id: i64,
     journal: &'j Journal,
@@ -275,8 +290,8 @@ impl<'j> Iterator for JournalIter<'j> {
     type Item = Record;
 
     fn next(&mut self) -> Option<Self::Item> {
-        let next: PersistenceResult<Option<(i64, Record)>> = self.journal
-            .select_record(self.current_row_id + 1);
+        let next: PersistenceResult<Option<(i64, Record)>> =
+            self.journal.select_record(self.current_row_id + 1);
 
         match next {
             Ok(Some((row_id, record))) => {

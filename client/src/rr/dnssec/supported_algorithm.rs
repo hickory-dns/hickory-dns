@@ -20,6 +20,7 @@ use std::convert::From;
 
 use rr::dnssec::Algorithm;
 
+/// Used to specify the set of SupportedAlgorithms between a client and server
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
 pub struct SupportedAlgorithms {
     // right now the number of Algorithms supported are fewer than 16..
@@ -27,14 +28,17 @@ pub struct SupportedAlgorithms {
 }
 
 impl SupportedAlgorithms {
+    /// Return a new set of Supported algorithms
     pub fn new() -> Self {
         SupportedAlgorithms { bit_map: 0 }
     }
 
+    /// Specify the entire set is supported
     pub fn all() -> Self {
         SupportedAlgorithms { bit_map: 0b01111111 }
     }
 
+    /// Based on the set of Algorithms, return the supported set
     pub fn from_vec(algorithms: &[Algorithm]) -> Self {
         let mut supported = SupportedAlgorithms::new();
 
@@ -75,20 +79,24 @@ impl SupportedAlgorithms {
         }
     }
 
+    /// Set the specified algorithm as supported
     pub fn set(&mut self, algorithm: Algorithm) {
         let bit_pos: u8 = Self::pos(algorithm);
         self.bit_map |= bit_pos;
     }
 
+    /// Returns true if the algorithm is supported
     pub fn has(&self, algorithm: Algorithm) -> bool {
         let bit_pos: u8 = Self::pos(algorithm);
         (bit_pos & self.bit_map) == bit_pos
     }
 
+    /// Return an Iterator over the supported set.
     pub fn iter(&self) -> SupportedAlgorithmsIter {
         SupportedAlgorithmsIter::new(self)
     }
 
+    /// Return the count of supported algorithms
     pub fn len(&self) -> u16 {
         // this is pretty much guaranteed to be less that u16::max_value()
         self.iter().count() as u16

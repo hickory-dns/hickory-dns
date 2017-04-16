@@ -117,7 +117,7 @@ pub enum ResponseCode {
     BADTRUNC,
 
     /// Bad/missing server cookie [draft-ietf-dnsop-cookies](https://tools.ietf.org/html/draft-ietf-dnsop-cookies-10)
-    BADCOOKIE, 
+    BADCOOKIE,
              // 24-3840	Unassigned
              // 3841-4095	Reserved for Private Use		[RFC6895]
              // 4096-65534	Unassigned
@@ -135,10 +135,12 @@ impl ResponseCode {
         (u16::from(*self) & 0x0FF0) >> 4;
     }
 
+    /// Combines the EDNS high and low from the Header to produce the Extended ResponseCode
     pub fn from(high: u8, low: u8) -> ResponseCode {
         (((high as u16) << 4) | ((low as u16) & 0x000F)).into()
     }
 
+    /// Transforms the response code into the human message
     pub fn to_str(&self) -> &'static str {
         match *self {
             ResponseCode::NoError => "No Error",
@@ -165,20 +167,18 @@ impl ResponseCode {
     }
 }
 
-/**
- * Convert from ResponseCode to u16
- *
- * ```
- * use std::convert::From;
- * use trust_dns::op::response_code::ResponseCode;
- *
- * let var: ResponseCode = From::from(0);
- * assert_eq!(ResponseCode::NoError, var);
- *
- * let var: ResponseCode = 0.into();
- * assert_eq!(ResponseCode::NoError, var);
- * ```
- */
+/// Convert from ResponseCode to u16
+///
+/// ```
+/// use std::convert::From;
+/// use trust_dns::op::response_code::ResponseCode;
+///
+/// let var: ResponseCode = From::from(0);
+/// assert_eq!(ResponseCode::NoError, var);
+///
+/// let var: ResponseCode = 0.into();
+/// assert_eq!(ResponseCode::NoError, var);
+/// ```
 impl From<ResponseCode> for u16 {
     fn from(rt: ResponseCode) -> Self {
         match rt {
@@ -207,20 +207,18 @@ impl From<ResponseCode> for u16 {
     }
 }
 
-/**
- * Convert from u16 to ResponseCode
- *
- * ```
- * use std::convert::From;
- * use trust_dns::op::response_code::ResponseCode;
- *
- * let var: u16 = From::from(ResponseCode::NoError);
- * assert_eq!(0, var);
- *
- * let var: u16 = ResponseCode::NoError.into();
- * assert_eq!(0, var);
- * ```
- */
+/// Convert from u16 to ResponseCode
+///
+/// ```
+/// use std::convert::From;
+/// use trust_dns::op::response_code::ResponseCode;
+///
+/// let var: u16 = From::from(ResponseCode::NoError);
+/// assert_eq!(0, var);
+///
+/// let var: u16 = ResponseCode::NoError.into();
+/// assert_eq!(0, var);
+/// ```
 impl From<u16> for ResponseCode {
     fn from(value: u16) -> Self {
         match value {

@@ -23,7 +23,7 @@ use common::authority::{create_example, create_secure_example};
 #[test]
 fn test_search() {
     let example = create_example();
-    let origin = example.get_origin().clone();
+    let origin = example.origin().clone();
 
     let mut query: Query = Query::new();
     query.set_name(origin.clone());
@@ -63,21 +63,21 @@ fn test_search_www() {
 fn test_authority() {
     let authority: Authority = create_example();
 
-    assert!(authority.get_soa().is_some());
-    assert_eq!(authority.get_soa().unwrap().dns_class(), DNSClass::IN);
+    assert!(authority.soa().is_some());
+    assert_eq!(authority.soa().unwrap().dns_class(), DNSClass::IN);
 
-    assert!(!authority.lookup(authority.get_origin(),
+    assert!(!authority.lookup(authority.origin(),
                 RecordType::NS,
                 false,
                 SupportedAlgorithms::new())
         .is_empty());
 
-    let mut lookup: Vec<_> = authority.get_ns(false, SupportedAlgorithms::new());
+    let mut lookup: Vec<_> = authority.ns(false, SupportedAlgorithms::new());
     lookup.sort();
 
     assert_eq!(**lookup.first().unwrap(),
                Record::new()
-                   .set_name(authority.get_origin().clone())
+                   .set_name(authority.origin().clone())
                    .set_ttl(86400)
                    .set_rr_type(RecordType::NS)
                    .set_dns_class(DNSClass::IN)
@@ -85,20 +85,20 @@ fn test_authority() {
                    .clone());
     assert_eq!(**lookup.last().unwrap(),
                Record::new()
-                   .set_name(authority.get_origin().clone())
+                   .set_name(authority.origin().clone())
                    .set_ttl(86400)
                    .set_rr_type(RecordType::NS)
                    .set_dns_class(DNSClass::IN)
                    .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
                    .clone());
 
-    assert!(!authority.lookup(authority.get_origin(),
+    assert!(!authority.lookup(authority.origin(),
                 RecordType::TXT,
                 false,
                 SupportedAlgorithms::new())
         .is_empty());
 
-    let mut lookup: Vec<_> = authority.lookup(authority.get_origin(),
+    let mut lookup: Vec<_> = authority.lookup(authority.origin(),
                                               RecordType::TXT,
                                               false,
                                               SupportedAlgorithms::new());
@@ -106,7 +106,7 @@ fn test_authority() {
 
     assert_eq!(**lookup.first().unwrap(),
                Record::new()
-                   .set_name(authority.get_origin().clone())
+                   .set_name(authority.origin().clone())
                    .set_ttl(60)
                    .set_rr_type(RecordType::TXT)
                    .set_dns_class(DNSClass::IN)
@@ -115,14 +115,14 @@ fn test_authority() {
                                                        .to_string()])))
                    .clone());
 
-    assert_eq!(**authority.lookup(authority.get_origin(),
+    assert_eq!(**authority.lookup(authority.origin(),
                            RecordType::A,
                            false,
                            SupportedAlgorithms::new())
                    .first()
                    .unwrap(),
                Record::new()
-                   .set_name(authority.get_origin().clone())
+                   .set_name(authority.origin().clone())
                    .set_ttl(86400)
                    .set_rr_type(RecordType::A)
                    .set_dns_class(DNSClass::IN)
@@ -172,7 +172,7 @@ fn test_prerequisites() {
 
     // *   ANY      ANY      empty    Name is in use
     assert!(authority.verify_prerequisites(&[Record::new()
-                                    .set_name(authority.get_origin().clone())
+                                    .set_name(authority.origin().clone())
                                     .set_ttl(0)
                                     .set_dns_class(DNSClass::ANY)
                                     .set_rr_type(RecordType::ANY)
@@ -190,7 +190,7 @@ fn test_prerequisites() {
 
     // *   ANY      rrset    empty    RRset exists (value independent)
     assert!(authority.verify_prerequisites(&[Record::new()
-                                    .set_name(authority.get_origin().clone())
+                                    .set_name(authority.origin().clone())
                                     .set_ttl(0)
                                     .set_dns_class(DNSClass::ANY)
                                     .set_rr_type(RecordType::A)
@@ -216,7 +216,7 @@ fn test_prerequisites() {
                                     .clone()])
         .is_ok());
     assert_eq!(authority.verify_prerequisites(&[Record::new()
-                                                    .set_name(authority.get_origin().clone())
+                                                    .set_name(authority.origin().clone())
                                                     .set_ttl(0)
                                                     .set_dns_class(DNSClass::NONE)
                                                     .set_rr_type(RecordType::ANY)
@@ -234,7 +234,7 @@ fn test_prerequisites() {
                                     .clone()])
         .is_ok());
     assert_eq!(authority.verify_prerequisites(&[Record::new()
-                                                    .set_name(authority.get_origin().clone())
+                                                    .set_name(authority.origin().clone())
                                                     .set_ttl(0)
                                                     .set_dns_class(DNSClass::NONE)
                                                     .set_rr_type(RecordType::A)
@@ -244,7 +244,7 @@ fn test_prerequisites() {
 
     // *   zone     rrset    rr       RRset exists (value dependent)
     assert!(authority.verify_prerequisites(&[Record::new()
-                                    .set_name(authority.get_origin().clone())
+                                    .set_name(authority.origin().clone())
                                     .set_ttl(0)
                                     .set_dns_class(DNSClass::IN)
                                     .set_rr_type(RecordType::A)
@@ -253,7 +253,7 @@ fn test_prerequisites() {
         .is_ok());
     // wrong class
     assert_eq!(authority.verify_prerequisites(&[Record::new()
-                                                    .set_name(authority.get_origin().clone())
+                                                    .set_name(authority.origin().clone())
                                                     .set_ttl(0)
                                                     .set_dns_class(DNSClass::CH)
                                                     .set_rr_type(RecordType::A)
@@ -277,7 +277,7 @@ fn test_prerequisites() {
                Err(ResponseCode::NXRRSet));
     // wrong IP
     assert_eq!(authority.verify_prerequisites(&[Record::new()
-                                                    .set_name(authority.get_origin().clone())
+                                                    .set_name(authority.origin().clone())
                                                     .set_ttl(0)
                                                     .set_dns_class(DNSClass::IN)
                                                     .set_rr_type(RecordType::A)
@@ -459,7 +459,7 @@ fn test_update() {
     let new_name = Name::new().label("new").label("example").label("com");
     let www_name = Name::new().label("www").label("example").label("com");
     let mut authority: Authority = create_example();
-    let serial = authority.get_serial();
+    let serial = authority.serial();
 
     authority.set_allow_update(true);
 
@@ -527,7 +527,7 @@ fn test_update() {
                                 false,
                                 SupportedAlgorithms::new()),
                add_record.iter().collect::<Vec<&Record>>());
-    assert_eq!(serial + 1, authority.get_serial());
+    assert_eq!(serial + 1, authority.serial());
 
     let add_www_record = &[Record::new()
                                .set_name(www_name.clone())
@@ -537,7 +537,7 @@ fn test_update() {
                                .set_rdata(RData::A(Ipv4Addr::new(10, 0, 0, 1)))
                                .clone()];
     assert!(authority.update_records(add_www_record, true).expect("update failed"));
-    assert_eq!(serial + 2, authority.get_serial());
+    assert_eq!(serial + 2, authority.serial());
 
     {
         let mut www_rrset = authority.lookup(&www_name,
@@ -562,7 +562,7 @@ fn test_update() {
                            .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 24)))
                            .clone()];
     assert!(authority.update_records(del_record, true).expect("update failed"));
-    assert_eq!(serial + 3, authority.get_serial());
+    assert_eq!(serial + 3, authority.serial());
     {
         println!("after delete of specific record: {:?}",
                  authority.lookup(&new_name,
@@ -585,7 +585,7 @@ fn test_update() {
                            .set_rdata(RData::A(Ipv4Addr::new(10, 0, 0, 1)))
                            .clone()];
     assert!(authority.update_records(del_record, true).expect("update failed"));
-    assert_eq!(serial + 4, authority.get_serial());
+    assert_eq!(serial + 4, authority.serial());
     {
         let mut www_rrset = authority.lookup(&www_name,
                                              RecordType::ANY,
@@ -606,7 +606,7 @@ fn test_update() {
                            .set_rdata(RData::NULL(NULL::new()))
                            .clone()];
     assert!(authority.update_records(del_record, true).expect("update failed"));
-    assert_eq!(serial + 5, authority.get_serial());
+    assert_eq!(serial + 5, authority.serial());
     let mut removed_a_vec: Vec<_> = vec![Record::new()
                                              .set_name(www_name.clone())
                                              .set_ttl(86400)
@@ -657,14 +657,14 @@ fn test_update() {
                 false,
                 SupportedAlgorithms::new())
         .is_empty());
-    assert_eq!(serial + 6, authority.get_serial());
+    assert_eq!(serial + 6, authority.serial());
 }
 
 #[test]
 fn test_zone_signing() {
     let authority: Authority = create_secure_example();
 
-    let results = authority.lookup(&authority.get_origin(),
+    let results = authority.lookup(&authority.origin(),
                                    RecordType::AXFR,
                                    true,
                                    SupportedAlgorithms::all());
@@ -714,7 +714,7 @@ fn test_journal() {
     journal.schema_up().unwrap();
 
     let mut authority = create_example();
-    authority.journal(journal);
+    authority.set_journal(journal);
     authority.persist_to_journal().unwrap();
 
     let new_name = Name::new().label("new").label("example").label("com");
@@ -740,12 +740,12 @@ fn test_journal() {
     assert!(delete_rrset.is_empty());
 
     // that record should have been recorded... let's reload the journal and see if we get it.
-    let mut recovered_authority = Authority::new(authority.get_origin().clone(),
+    let mut recovered_authority = Authority::new(authority.origin().clone(),
                                                  BTreeMap::new(),
                                                  ZoneType::Master,
                                                  false,
                                                  false);
-    recovered_authority.recover_with_journal(authority.get_journal().expect("journal not Some"))
+    recovered_authority.recover_with_journal(authority.journal().expect("journal not Some"))
         .expect("recovery");
 
     // assert that the correct set of records is there.
@@ -768,11 +768,11 @@ fn test_recovery() {
     journal.schema_up().unwrap();
 
     let mut authority = create_example();
-    authority.journal(journal);
+    authority.set_journal(journal);
     authority.persist_to_journal().unwrap();
 
-    let journal = authority.get_journal().unwrap();
-    let mut recovered_authority = Authority::new(authority.get_origin().clone(),
+    let journal = authority.journal().unwrap();
+    let mut recovered_authority = Authority::new(authority.origin().clone(),
                                                  BTreeMap::new(),
                                                  ZoneType::Master,
                                                  false,
@@ -780,20 +780,20 @@ fn test_recovery() {
 
     recovered_authority.recover_with_journal(journal).expect("recovery");
 
-    assert_eq!(recovered_authority.get_records().len(),
-               authority.get_records().len());
-    assert_eq!(recovered_authority.get_soa(), authority.get_soa());
-    assert!(recovered_authority.get_records().iter().all(|(rr_key, rr_set)| {
+    assert_eq!(recovered_authority.records().len(),
+               authority.records().len());
+    assert_eq!(recovered_authority.soa(), authority.soa());
+    assert!(recovered_authority.records().iter().all(|(rr_key, rr_set)| {
         let other_rr_set =
-            authority.get_records().get(rr_key).expect(&format!("key doesn't exist: {:?}", rr_key));
+            authority.records().get(rr_key).expect(&format!("key doesn't exist: {:?}", rr_key));
         rr_set.iter().zip(other_rr_set.iter()).all(|(record, other_record)| {
             record.ttl() == other_record.ttl() &&
             record.rdata() == other_record.rdata()
         })
     }));
 
-    assert!(authority.get_records().iter().all(|(rr_key, rr_set)| {
-        let other_rr_set = recovered_authority.get_records()
+    assert!(authority.records().iter().all(|(rr_key, rr_set)| {
+        let other_rr_set = recovered_authority.records()
             .get(rr_key)
             .expect(&format!("key doesn't exist: {:?}", rr_key));
         rr_set.iter().zip(other_rr_set.iter()).all(|(record, other_record)| {

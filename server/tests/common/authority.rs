@@ -170,7 +170,7 @@ pub fn create_secure_example() -> Authority {
     let key = KeyPair::from_rsa(rsa).unwrap();
     let signer = Signer::new(Algorithm::RSASHA256,
                              key,
-                             authority.get_origin().clone(),
+                             authority.origin().clone(),
                              Duration::weeks(1),
                              true,
                              true);

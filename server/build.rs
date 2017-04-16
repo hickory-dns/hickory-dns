@@ -26,6 +26,7 @@ fn main() {
   let mut f = File::create(&dest_path).unwrap();
 
 
+  f.write_all(b"/// Returns the current version of TRust-DNS\n").unwrap();
   f.write_all(b"pub fn version() -> &'static str {").unwrap();
   write!(f, " \"{}\" ", version).unwrap();
   f.write_all(b" }").unwrap();

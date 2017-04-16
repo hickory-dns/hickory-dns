@@ -16,8 +16,8 @@
 
 //! negative cache proof for non-existence
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use rr::{Name, RecordType};
 use rr::rdata::nsec3;
 
@@ -52,6 +52,16 @@ pub struct NSEC {
 }
 
 impl NSEC {
+    /// Constructs a new NSET RData
+    ///
+    /// # Arguments
+    ///
+    /// * `next_domain_name` - the name labels of the next ordered name in the zone
+    /// * `type_bit_maps` - a bit map of the types that don't exist at this name
+    ///
+    /// # Returns
+    ///
+    /// An NSEC RData for use in a Resource Record
     pub fn new(next_domain_name: Name, type_bit_maps: Vec<RecordType>) -> NSEC {
         NSEC {
             next_domain_name: next_domain_name,
@@ -100,6 +110,7 @@ impl NSEC {
     }
 }
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC> {
     let start_idx = decoder.index();
 
@@ -136,7 +147,10 @@ pub fn test() {
     use rr::RecordType;
 
     let rdata = NSEC::new(Name::new().label("www").label("example").label("com"),
-                          vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::RRSIG]);
+                          vec![RecordType::A,
+                               RecordType::AAAA,
+                               RecordType::DS,
+                               RecordType::RRSIG]);
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

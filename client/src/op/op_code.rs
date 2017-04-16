@@ -89,6 +89,7 @@ impl From<OpCode> for u8 {
 /// assert_eq!(OpCode::Query, var);
 /// ```
 impl OpCode {
+    /// Decodes the binary value of the OpCode
     pub fn from_u8(value: u8) -> DecodeResult<Self> {
         match value {
             0 => Ok(OpCode::Query),

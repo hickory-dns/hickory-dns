@@ -15,7 +15,7 @@
  */
 use std::collections::BTreeMap;
 
-use ::error::*;
+use error::*;
 use rr::{Name, IntoRecordSet, RecordType, Record, DNSClass, RData, RrKey, RecordSet};
 
 use super::master_lex::{Lexer, Token};
@@ -123,11 +123,16 @@ use super::master_lex::{Lexer, Token};
 pub struct Parser;
 
 impl Parser {
+    /// Returns a new Zone file parser
     pub fn new() -> Self {
         Parser
     }
 
-    // TODO: change this function to load into an Authority, using the update_records() method
+    /// Parse a file from the Lexer
+    ///
+    /// # Return
+    ///
+    /// A pair of the Zone origin name and a map of all Keys to RecordSets
     pub fn parse(&mut self,
                  lexer: Lexer,
                  origin: Option<Name>)
@@ -280,12 +285,13 @@ impl Parser {
                                     if records.insert(key, set).is_some() {
                                         return Err(ParseErrorKind::Message("SOA is already \
                                                                             specified")
-                                            .into());
+                                                           .into());
                                     }
                                 }
                                 _ => {
                                     // add a Vec if it's not there, then add the record to the list
-                                    let mut set = records.entry(key)
+                                    let mut set = records
+                                        .entry(key)
                                         .or_insert(RecordSet::new(record.name(),
                                                                   record.rr_type(),
                                                                   0));

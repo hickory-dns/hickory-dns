@@ -192,6 +192,7 @@ impl SRV {
     }
 }
 
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SRV> {
     // SRV { priority: u16, weight: u16, port: u16, target: Name, },
     Ok(SRV::new(try!(decoder.read_u16()),
@@ -228,7 +229,7 @@ pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> EncodeResult {
     Ok(())
 }
 
-// _foobar._tcp    SRV 0 1 9 old-slow-box.example.com.
+/// Parse the RData from a set of Tokens
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SRV> {
     let mut token = tokens.iter();
 

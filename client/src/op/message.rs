@@ -19,7 +19,7 @@
 use std::fmt::Debug;
 use std::mem;
 
-use ::error::*;
+use error::*;
 use rr::{Record, RecordType};
 #[cfg(feature = "openssl")]
 use rr::{DNSClass, Name, RData};
@@ -83,6 +83,7 @@ pub struct Message {
 }
 
 impl Message {
+    /// Returns a new "empty" Message
     pub fn new() -> Self {
         Message {
             header: Header::new(),
@@ -95,6 +96,13 @@ impl Message {
         }
     }
 
+    /// Returns a Message constructed with error details to return to a client
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - message id should match the request message id
+    /// * `op_code` - operation of the request
+    /// * `response_code` - the error code for the response
     pub fn error_msg(id: u16, op_code: OpCode, response_code: ResponseCode) -> Message {
         let mut message: Message = Message::new();
         message.set_message_type(MessageType::Response);
@@ -105,6 +113,7 @@ impl Message {
         message
     }
 
+    /// Truncates a Message, this blindly removes all response fields and sets trucation to `true`
     pub fn truncate(&self) -> Self {
         let mut truncated: Message = Message::new();
         truncated.set_id(self.id());
@@ -123,54 +132,73 @@ impl Message {
         truncated
     }
 
+    /// see `Header::set_id`
     pub fn set_id(&mut self, id: u16) -> &mut Self {
         self.header.set_id(id);
         self
     }
+
+    /// see `Header::set_message_type`
     pub fn set_message_type(&mut self, message_type: MessageType) -> &mut Self {
         self.header.set_message_type(message_type);
         self
     }
+
+    /// see `Header::set_op_code`
     pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
         self.header.set_op_code(op_code);
         self
     }
+
+    /// see `Header::set_authoritative`
     pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
         self.header.set_authoritative(authoritative);
         self
     }
+
+    /// see `Header::set_truncated`
     pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
         self.header.set_truncated(truncated);
         self
     }
+
+    /// see `Header::set_recursion_desired`
     pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
         self.header.set_recursion_desired(recursion_desired);
         self
     }
+
+    /// see `Header::set_recursion_available`
     pub fn set_recursion_available(&mut self, recursion_available: bool) -> &mut Self {
         self.header.set_recursion_available(recursion_available);
         self
     }
+
+    /// see `Header::set_authentic_data`
     pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
         self.header.set_authentic_data(authentic_data);
         self
     }
+
+    /// see `Header::set_checking_disabled`
     pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
         self.header.set_checking_disabled(checking_disabled);
         self
     }
+
+    /// see `Header::set_response_code`
     pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
         self.header.set_response_code(response_code);
         self
     }
 
-    /// TODO: given that only a single query is ever accepted by almost all DNS servers,
-    ///       it's unclear how it could be useful to have more than one here? change this to set
-    ///       a single query?
+    /// Add a query to the Message, either the query response from the server, or the request Query.
     pub fn add_query(&mut self, query: Query) -> &mut Self {
         self.queries.push(query);
         self
     }
+
+    /// Adds a slice of Queries to the message
     #[deprecated = "will be removed post 0.9.x"]
     pub fn add_all_queries(&mut self, queries: &[Query]) -> &mut Self {
         for q in queries {
@@ -179,6 +207,8 @@ impl Message {
         }
         self
     }
+
+    /// Adds an iterator over a set of Queries to be added to the message
     pub fn add_queries<Q, I>(&mut self, queries: Q) -> &mut Self
         where Q: IntoIterator<Item = Query, IntoIter = I>,
               I: Iterator<Item = Query>
@@ -190,10 +220,13 @@ impl Message {
         self
     }
 
+    /// Add an answer to the Message
     pub fn add_answer(&mut self, record: Record) -> &mut Self {
         self.answers.push(record);
         self
     }
+
+    /// Add an entire set of Answers
     #[deprecated = "will be removed post 0.9.x"]
     pub fn add_all_answers(&mut self, vector: &[&Record]) -> &mut Self {
         for &r in vector {
@@ -203,6 +236,8 @@ impl Message {
         }
         self
     }
+
+    /// Add all the records from the iterator to the answers section of the Message
     pub fn add_answers<R, I>(&mut self, records: R) -> &mut Self
         where R: IntoIterator<Item = Record, IntoIter = I>,
               I: Iterator<Item = Record>
@@ -224,10 +259,13 @@ impl Message {
         self.answers = records;
     }
 
+    /// Add a name server record to the Message
     pub fn add_name_server(&mut self, record: Record) -> &mut Self {
         self.name_servers.push(record);
         self
     }
+
+    /// Adds a set of name server records to the message
     #[deprecated = "will be removed post 0.9.x"]
     pub fn add_all_name_servers(&mut self, vector: &[&Record]) -> &mut Self {
         for &r in vector {
@@ -237,6 +275,8 @@ impl Message {
         }
         self
     }
+
+    /// Add all the records in the Iterator to the name server section of the message
     pub fn add_name_servers<R, I>(&mut self, records: R) -> &mut Self
         where R: IntoIterator<Item = Record, IntoIter = I>,
               I: Iterator<Item = Record>
@@ -258,6 +298,7 @@ impl Message {
         self.name_servers = records;
     }
 
+    /// A an addtional Record to the message
     pub fn add_additional(&mut self, record: Record) -> &mut Self {
         self.additionals.push(record);
         self
@@ -273,11 +314,15 @@ impl Message {
         self.additionals = records;
     }
 
+    /// Add the EDNS section the the Message
     pub fn set_edns(&mut self, edns: Edns) -> &mut Self {
         self.edns = Some(edns);
         self
     }
 
+    /// Add a SIG0 record, i.e. sign this message
+    ///
+    /// This must be don't only after all records have been associated. Generally this will be handled by the client and not need to be used directly
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
         assert_eq!(RecordType::SIG, record.rr_type());
         self.sig0.push(record);
@@ -352,6 +397,7 @@ impl Message {
         &self.answers
     }
 
+    /// Removes all the answers from the Message
     pub fn take_answers(&mut self) -> Vec<Record> {
         mem::replace(&mut self.answers, vec![])
     }
@@ -365,6 +411,7 @@ impl Message {
         &self.name_servers
     }
 
+    /// Remove the name servers from the Message
     pub fn take_name_servers(&mut self) -> Vec<Record> {
         mem::replace(&mut self.name_servers, vec![])
     }
@@ -377,6 +424,7 @@ impl Message {
         &self.additionals
     }
 
+    /// Remove the additional Records from the Message
     pub fn take_additionals(&mut self) -> Vec<Record> {
         mem::replace(&mut self.additionals, vec![])
     }
@@ -480,10 +528,11 @@ impl Message {
             additional_count += self.sig0.len()
         };
 
-        self.header.clone(self.queries.len() as u16,
-                          self.answers.len() as u16,
-                          self.name_servers.len() as u16,
-                          additional_count as u16)
+        self.header
+            .clone(self.queries.len() as u16,
+                   self.answers.len() as u16,
+                   self.name_servers.len() as u16,
+                   additional_count as u16)
     }
 
     fn read_records(decoder: &mut BinDecoder,
@@ -502,7 +551,7 @@ impl Message {
             if !is_additional {
                 if saw_sig0 {
                     return Err(DecodeErrorKind::Message("sig0 must be final resource record")
-                        .into());
+                                   .into());
                 } // SIG0 must be last
                 records.push(record)
             } else {
@@ -515,12 +564,12 @@ impl Message {
                         if saw_sig0 {
                             return Err(DecodeErrorKind::Message("sig0 must be final resource \
                                                                  record")
-                                .into());
+                                               .into());
                         } // SIG0 must be last
                         if edns.is_some() {
                             return Err(DecodeErrorKind::Message("more than one edns record \
                                                                  present")
-                                .into());
+                                               .into());
                         }
                         edns = Some((&record).into());
                     }
@@ -528,7 +577,7 @@ impl Message {
                         if saw_sig0 {
                             return Err(DecodeErrorKind::Message("sig0 must be final resource \
                                                                  record")
-                                .into());
+                                               .into());
                         } // SIG0 must be last
                         records.push(record);
                     }
@@ -546,11 +595,13 @@ impl Message {
         Ok(())
     }
 
+    /// Decodes a message from the buffer.
     pub fn from_vec(buffer: &[u8]) -> DecodeResult<Message> {
         let mut decoder = BinDecoder::new(buffer);
         Message::read(&mut decoder)
     }
 
+    /// Encodes the Message into a buffer
     pub fn to_vec(&self) -> Result<Vec<u8>, EncodeError> {
         let mut buffer = Vec::with_capacity(512);
         {
@@ -561,7 +612,9 @@ impl Message {
         Ok(buffer)
     }
 
-    // TODO: where's the 'right' spot for this function
+    /// Sign the message, i.e. add a SIG0 record to this Message.
+    ///
+    /// Subsequent to calling this, the Message should not change.
     #[cfg(feature = "openssl")]
     pub fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> {
         debug!("signing message: {:?}", self);
@@ -588,24 +641,24 @@ impl Message {
 
         sig0.set_rr_type(RecordType::SIG);
         sig0.set_rdata(
-      RData::SIG(SIG::new(
-          // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-        RecordType::NULL,
-          signer.algorithm(),
-          num_labels,
-          // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-        0,
-          // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-        expiration_time,
-          // current time, this should be UTC
-        // unsigned numbers of seconds since the start of 1 January 1970, GMT
-        inception_time,
-          key_tag,
-          // can probably get rid of this clone if the owndership is correct
-        signer.signer_name().clone(),
-          signature,
-      )
-    ));
+            RData::SIG(SIG::new(
+                // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+                RecordType::NULL,
+                signer.algorithm(),
+                num_labels,
+                // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+                0,
+                // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+                expiration_time,
+                // current time, this should be UTC
+                // unsigned numbers of seconds since the start of 1 January 1970, GMT
+                inception_time,
+                key_tag,
+                // can probably get rid of this clone if the owndership is correct
+                signer.signer_name().clone(),
+                signature,
+            )
+        ));
 
         debug!("sig0: {:?}", sig0);
 
@@ -613,34 +666,63 @@ impl Message {
         Ok(())
     }
 
+    /// Always returns an error; enable OpenSSL for signing support
     #[cfg(not(feature = "openssl"))]
     pub fn sign(&mut self, _: &Signer, _: u32) -> DnsSecResult<()> {
         Err(DnsSecErrorKind::Message("openssl feature not enabled").into())
     }
 }
 
-/// to reduce errors in using the Message struct as an Update, this will do the call throughs
+/// To reduce errors in using the Message struct as an Update, this will do the call throughs
 ///   to properly do that.
+///
+/// Generally rather than constructin this by hand, see the update methods on `Client`
 pub trait UpdateMessage: Debug {
+    /// see `Header::id`
     fn id(&self) -> u16;
+
+    /// Adds the zone section, i.e. name.example.com would be example.com
     fn add_zone(&mut self, query: Query);
+
+    /// Add the pre-requisite records
+    ///
+    /// These must exist, or not, for the Update request to go through.
     fn add_pre_requisite(&mut self, record: Record);
+
+    /// Add all pre-requisites to the UpdateMessage
     #[deprecated = "will be removed post 0.9.x"]
     fn add_all_pre_requisites(&mut self, vector: &[&Record]);
+
+    /// Add all the Records from the Iterator to the pre-reqisites section
     fn add_pre_requisites<R, I>(&mut self, records: R)
         where R: IntoIterator<Item = Record, IntoIter = I>,
               I: Iterator<Item = Record>;
+
+    /// Add the Record to be updated
     fn add_update(&mut self, record: Record);
+
+    /// Add the set of Records to be updated
     #[deprecated = "will be removed post 0.9.x"]
     fn add_all_updates(&mut self, vector: &[&Record]);
+
+    /// Add the Records from the Iterator to the updates section
     fn add_updates<R, I>(&mut self, records: R)
         where R: IntoIterator<Item = Record, IntoIter = I>,
               I: Iterator<Item = Record>;
+
+    /// Add Records to the additional Section of hte UpdateMessage
     fn add_additional(&mut self, record: Record);
 
+    /// Returns the Zones to be updated, generally should only be one.
     fn zones(&self) -> &[Query];
+
+    /// Returns the pre-requisites
     fn prerequisites(&self) -> &[Record];
+
+    /// Returns the records to be updated
     fn updates(&self) -> &[Record];
+
+    /// Returns the additonal records
     fn additionals(&self) -> &[Record];
 
     /// This is used to authenticate update messages.
@@ -648,6 +730,7 @@ pub trait UpdateMessage: Debug {
     /// see `Message::sig0()` for more information.
     fn sig0(&self) -> &[Record];
 
+    /// Signs the UpdateMessage, used to validate the authenticity and authorization of UpdateMessage
     fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()>;
 }
 
@@ -736,14 +819,14 @@ impl BinSerializable<Message> for Message {
         let (additionals, edns, sig0) = try!(Self::read_records(decoder, additional_count, true));
 
         Ok(Message {
-            header: header,
-            queries: queries,
-            answers: answers,
-            name_servers: name_servers,
-            additionals: additionals,
-            sig0: sig0,
-            edns: edns,
-        })
+               header: header,
+               queries: queries,
+               answers: answers,
+               name_servers: name_servers,
+               additionals: additionals,
+               sig0: sig0,
+               edns: edns,
+           })
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
@@ -780,7 +863,8 @@ impl BinSerializable<Message> for Message {
 #[test]
 fn test_emit_and_read_header() {
     let mut message = Message::new();
-    message.set_id(10)
+    message
+        .set_id(10)
         .set_message_type(MessageType::Response)
         .set_op_code(OpCode::Update)
         .set_authoritative(true)
@@ -795,7 +879,8 @@ fn test_emit_and_read_header() {
 #[test]
 fn test_emit_and_read_query() {
     let mut message = Message::new();
-    message.set_id(10)
+    message
+        .set_id(10)
         .set_message_type(MessageType::Response)
         .set_op_code(OpCode::Update)
         .set_authoritative(true)
@@ -812,7 +897,8 @@ fn test_emit_and_read_query() {
 #[test]
 fn test_emit_and_read_records() {
     let mut message = Message::new();
-    message.set_id(10)
+    message
+        .set_id(10)
         .set_message_type(MessageType::Response)
         .set_op_code(OpCode::Update)
         .set_authoritative(true)

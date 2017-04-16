@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! This module contains all the TCP structures for demuxing TCP into streams of DNS packets.
+
 use std::mem;
 use std::net::SocketAddr;
 use std::io;
@@ -18,21 +20,48 @@ use tokio_core::reactor::Handle;
 
 use BufStreamHandle;
 
+/// Current state while writing to the remote of the TCP connection
 enum WriteTcpState {
+    /// Currently writing the length of bytes to of the buffer.
     LenBytes {
+        /// Current position in the length buffer being written
         pos: usize,
+        /// Length of the buffer
         length: [u8; 2],
+        /// Buffer to write after the length
         bytes: Vec<u8>,
     },
-    Bytes { pos: usize, bytes: Vec<u8> },
+    /// Currently writing the buffer to the remote
+    Bytes {
+        /// Current position in the buffer written
+        pos: usize,
+        /// Buffer to write to the remote
+        bytes: Vec<u8>,
+    },
+    /// Currently flushing the bytes to the remote
     Flushing,
 }
 
+/// Current state of a TCP stream as it's being read.
 pub enum ReadTcpState {
-    LenBytes { pos: usize, bytes: [u8; 2] },
-    Bytes { pos: usize, bytes: Vec<u8> },
+    /// Currently reading the length of the TCP packet
+    LenBytes {
+        /// Current position in the buffer
+        pos: usize,
+        /// Buffer of the length to read
+        bytes: [u8; 2],
+    },
+    /// Currently reading the byts of the DNS packet
+    Bytes {
+        /// Current position while reading the buffer
+        pos: usize,
+        /// buffer being read into
+        bytes: Vec<u8>,
+    },
 }
 
+
+/// A Stream used for sending data to and from a remote DNS endpoint (client or server).
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpStream<S> {
     socket: S,
@@ -43,6 +72,7 @@ pub struct TcpStream<S> {
 }
 
 impl<S> TcpStream<S> {
+    /// Returns the address of the peer connection.
     pub fn peer_addr(&self) -> SocketAddr {
         self.peer_addr
     }
@@ -130,11 +160,18 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
             if self.send_state.is_some() {
                 // sending...
                 match self.send_state {
-                    Some(WriteTcpState::LenBytes { ref mut pos, ref length, .. }) => {
+                    Some(WriteTcpState::LenBytes {
+                             ref mut pos,
+                             ref length,
+                             ..
+                         }) => {
                         let wrote = try_nb!(self.socket.write(&length[*pos..]));
                         *pos += wrote;
                     }
-                    Some(WriteTcpState::Bytes { ref mut pos, ref bytes }) => {
+                    Some(WriteTcpState::Bytes {
+                             ref mut pos,
+                             ref bytes,
+                         }) => {
                         let wrote = try_nb!(self.socket.write(&bytes[*pos..]));
                         *pos += wrote;
                     }
@@ -153,25 +190,25 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         if pos < length.len() {
                             mem::replace(&mut self.send_state,
                                          Some(WriteTcpState::LenBytes {
-                                             pos: pos,
-                                             length: length,
-                                             bytes: bytes,
-                                         }));
+                                                  pos: pos,
+                                                  length: length,
+                                                  bytes: bytes,
+                                              }));
                         } else {
                             mem::replace(&mut self.send_state,
                                          Some(WriteTcpState::Bytes {
-                                             pos: 0,
-                                             bytes: bytes,
-                                         }));
+                                                  pos: 0,
+                                                  bytes: bytes,
+                                              }));
                         }
                     }
                     Some(WriteTcpState::Bytes { pos, bytes }) => {
                         if pos < bytes.len() {
                             mem::replace(&mut self.send_state,
                                          Some(WriteTcpState::Bytes {
-                                             pos: pos,
-                                             bytes: bytes,
-                                         }));
+                                                  pos: pos,
+                                                  bytes: bytes,
+                                              }));
                         } else {
                             // At this point we successfully delivered the entire message.
                             //  flush
@@ -220,7 +257,10 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
             // Evaluates the next state. If None is the result, then no state change occurs,
             //  if Some(_) is returned, then that will be used as the next state.
             let new_state: Option<ReadTcpState> = match self.read_state {
-                ReadTcpState::LenBytes { ref mut pos, ref mut bytes } => {
+                ReadTcpState::LenBytes {
+                    ref mut pos,
+                    ref mut bytes,
+                } => {
                     // debug!("reading length {}", bytes.len());
                     let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
                     if read == 0 {
@@ -250,12 +290,15 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
 
                         debug!("move ReadTcpState::Bytes: {}", bytes.len());
                         Some(ReadTcpState::Bytes {
-                            pos: 0,
-                            bytes: bytes,
-                        })
+                                 pos: 0,
+                                 bytes: bytes,
+                             })
                     }
                 }
-                ReadTcpState::Bytes { ref mut pos, ref mut bytes } => {
+                ReadTcpState::Bytes {
+                    ref mut pos,
+                    ref mut bytes,
+                } => {
                     let read = try_nb!(self.socket.read(&mut bytes[*pos..]));
                     if read == 0 {
                         // the Stream was closed!
@@ -276,9 +319,9 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                     } else {
                         debug!("reset ReadTcpState::LenBytes: {}", 0);
                         Some(ReadTcpState::LenBytes {
-                            pos: 0,
-                            bytes: [0u8; 2],
-                        })
+                                 pos: 0,
+                                 bytes: [0u8; 2],
+                             })
                     }
                 }
             };
@@ -367,32 +410,45 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     let send_recv_times = 4;
 
     // an in and out server
-    let server_handle = std::thread::Builder::new().name("test_tcp_client_stream:server".to_string()).spawn(move || {
-    let (mut socket, _) = server.accept().expect("accept failed");
+    let server_handle = std::thread::Builder::new()
+        .name("test_tcp_client_stream:server".to_string())
+        .spawn(move || {
+            let (mut socket, _) = server.accept().expect("accept failed");
 
-    socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
-    socket.set_write_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
+            socket
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap(); // should recieve something within 5 seconds...
+            socket
+                .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap(); // should recieve something within 5 seconds...
 
-    for _ in 0..send_recv_times {
-      // wait for some bytes...
-      let mut len_bytes = [0_u8; 2];
-      socket.read_exact(&mut len_bytes).expect("SERVER: receive failed");
-      let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
-      assert_eq!(length as usize, TEST_BYTES_LEN);
+            for _ in 0..send_recv_times {
+                // wait for some bytes...
+                let mut len_bytes = [0_u8; 2];
+                socket
+                    .read_exact(&mut len_bytes)
+                    .expect("SERVER: receive failed");
+                let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
+                assert_eq!(length as usize, TEST_BYTES_LEN);
 
-      let mut buffer = [0_u8; TEST_BYTES_LEN];
-      socket.read_exact(&mut buffer).unwrap();
+                let mut buffer = [0_u8; TEST_BYTES_LEN];
+                socket.read_exact(&mut buffer).unwrap();
 
-      // println!("read bytes iter: {}", i);
-      assert_eq!(&buffer, TEST_BYTES);
+                // println!("read bytes iter: {}", i);
+                assert_eq!(&buffer, TEST_BYTES);
 
-      // bounce them right back...
-      socket.write_all(&len_bytes).expect("SERVER: send length failed");
-      socket.write_all(&buffer).expect("SERVER: send buffer failed");
-      // println!("wrote bytes iter: {}", i);
-      std::thread::yield_now();
-    }
-  }).unwrap();
+                // bounce them right back...
+                socket
+                    .write_all(&len_bytes)
+                    .expect("SERVER: send length failed");
+                socket
+                    .write_all(&buffer)
+                    .expect("SERVER: send buffer failed");
+                // println!("wrote bytes iter: {}", i);
+                std::thread::yield_now();
+            }
+        })
+        .unwrap();
 
     // setup the client, which is going to run on the testing thread...
     let mut io_loop = Core::new().unwrap();
@@ -402,13 +458,20 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
     let (stream, sender) = TcpStream::new(server_addr, io_loop.handle());
 
-    let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
+    let mut stream = io_loop
+        .run(stream)
+        .ok()
+        .expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
-        sender.send((TEST_BYTES.to_vec(), server_addr)).expect("send failed");
-        let (buffer, stream_tmp) =
-            io_loop.run(stream.into_future()).ok().expect("future iteration run failed");
+        sender
+            .send((TEST_BYTES.to_vec(), server_addr))
+            .expect("send failed");
+        let (buffer, stream_tmp) = io_loop
+            .run(stream.into_future())
+            .ok()
+            .expect("future iteration run failed");
         stream = stream_tmp;
         let (buffer, _) = buffer.expect("no buffer received");
         assert_eq!(&buffer, TEST_BYTES);

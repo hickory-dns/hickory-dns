@@ -38,8 +38,7 @@ use ::serialize::txt::*;
 use ::serialize::binary::*;
 use ::error::*;
 
-//
-// AAAA { address: Ipv6Addr }
+/// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv6Addr> {
     let a: u16 = try!(decoder.read_u16());
     let b: u16 = try!(decoder.read_u16());
@@ -53,6 +52,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv6Addr> {
     Ok(Ipv6Addr::new(a, b, c, d, e, f, g, h))
 }
 
+/// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, address: &Ipv6Addr) -> EncodeResult {
     let segments = address.segments();
 
@@ -67,6 +67,7 @@ pub fn emit(encoder: &mut BinEncoder, address: &Ipv6Addr) -> EncodeResult {
     Ok(())
 }
 
+/// Parse the RData from a set of Tokens
 pub fn parse(tokens: &Vec<Token>) -> ParseResult<Ipv6Addr> {
     let mut token = tokens.iter();
 

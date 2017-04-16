@@ -35,5 +35,6 @@ pub use self::rr_key::RrKey;
 pub use self::rr_set::IntoRecordSet;
 pub use self::rr_set::RecordSet;
 
+/// A RecordSet is a set of Records whose types all match, but data do not
 #[deprecated = "will be removed post 0.9.x, use RecordSet"]
 pub type RrSet = RecordSet;

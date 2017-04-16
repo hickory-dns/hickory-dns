@@ -16,6 +16,9 @@
 
 //! All defined errors for Trust-DNS
 
+// TODO figure out how to doc error_chain!
+#![allow(missing_docs)]
+
 mod config_error;
 mod persistence_error;
 

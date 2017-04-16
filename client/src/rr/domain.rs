@@ -36,11 +36,12 @@ pub struct Name {
 }
 
 impl Name {
+    /// Create a new domain::Name, i.e. label
     pub fn new() -> Self {
         Name { labels: Rc::new(Vec::new()) }
     }
 
-    // this is the root label, i.e. no labels, can probably make this better in the future.
+    /// Returns the root label, i.e. no labels, can probably make this better in the future.
     pub fn root() -> Self {
         Self::new()
     }
@@ -224,7 +225,9 @@ impl Name {
         } else {
             1
         };
-        self.labels.iter().fold(dots, |acc, item| acc + item.len())
+        self.labels
+            .iter()
+            .fold(dots, |acc, item| acc + item.len())
     }
 
     /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
@@ -372,10 +375,12 @@ impl Name {
         Ok(())
     }
 
+    /// Writes the labels, as lower case, to the encoder
     pub fn emit_with_lowercase(&self, encoder: &mut BinEncoder, lowercase: bool) -> EncodeResult {
         let is_canonical_names = encoder.is_canonical_names();
         if lowercase {
-            self.to_lowercase().emit_as_canonical(encoder, is_canonical_names)
+            self.to_lowercase()
+                .emit_as_canonical(encoder, is_canonical_names)
         } else {
             self.emit_as_canonical(encoder, is_canonical_names)
         }
@@ -435,10 +440,13 @@ impl From<Ipv4Addr> for Name {
     fn from(addr: Ipv4Addr) -> Name {
         let octets = addr.octets();
 
-        let mut labels = octets.iter().rev().fold(Vec::with_capacity(6), |mut labels, o| {
-            labels.push(format!("{}", o));
-            labels
-        });
+        let mut labels = octets
+            .iter()
+            .rev()
+            .fold(Vec::with_capacity(6), |mut labels, o| {
+                labels.push(format!("{}", o));
+                labels
+            });
 
         labels.push("in-addr".to_string());
         labels.push("arpa".to_string());
@@ -451,13 +459,16 @@ impl From<Ipv6Addr> for Name {
     fn from(addr: Ipv6Addr) -> Name {
         let segments = addr.segments();
 
-        let mut labels = segments.iter().rev().fold(Vec::with_capacity(34), |mut labels, o| {
-            labels.push(format!("{:x}", (*o & 0x000F) as u8));
-            labels.push(format!("{:x}", (*o >> 4 & 0x000F) as u8));
-            labels.push(format!("{:x}", (*o >> 8 & 0x000F) as u8));
-            labels.push(format!("{:x}", (*o >> 12 & 0x000F) as u8));
-            labels
-        });
+        let mut labels = segments
+            .iter()
+            .rev()
+            .fold(Vec::with_capacity(34), |mut labels, o| {
+                labels.push(format!("{:x}", (*o & 0x000F) as u8));
+                labels.push(format!("{:x}", (*o >> 4 & 0x000F) as u8));
+                labels.push(format!("{:x}", (*o >> 8 & 0x000F) as u8));
+                labels.push(format!("{:x}", (*o >> 12 & 0x000F) as u8));
+                labels
+            });
 
         labels.push("ip6".to_string());
         labels.push("arpa".to_string());
@@ -748,10 +759,7 @@ mod tests {
 
         assert_eq!(zone.base_name(), Name::new().label("com"));
         assert!(zone.base_name().base_name().is_root());
-        assert!(zone.base_name()
-                    .base_name()
-                    .base_name()
-                    .is_root());
+        assert!(zone.base_name().base_name().base_name().is_root());
     }
 
     #[test]

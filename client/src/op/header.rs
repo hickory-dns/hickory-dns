@@ -18,8 +18,8 @@
 
 use std::convert::From;
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
 
@@ -73,9 +73,12 @@ pub struct Header {
     additional_count: u16,
 }
 
+/// Message types are either Query (also Update) or Response
 #[derive(Debug, PartialEq, PartialOrd, Copy, Clone)]
 pub enum MessageType {
+    /// Queries are Client requests, these are either Queries or Updates
     Query,
+    /// Response message from the Server or upstream Resolver
     Response,
 }
 
@@ -101,63 +104,93 @@ impl Header {
         }
     }
 
+    /// Length of the header, always 12 bytes
     #[inline(always)]
     pub fn len() -> usize {
         12 /* this is always 12 bytes */
     }
 
+    /// Sets the id of the message, for queries this shoudl be random.
     pub fn set_id(&mut self, id: u16) -> &mut Self {
         self.id = id;
         self
     }
+
+    /// Sets the message type, Queries and Updates both use Query.
     pub fn set_message_type(&mut self, message_type: MessageType) -> &mut Self {
         self.message_type = message_type;
         self
     }
+
+    /// Set the operation code for the message
     pub fn set_op_code(&mut self, op_code: OpCode) -> &mut Self {
         self.op_code = op_code;
         self
     }
+
+    /// From the server is specifies that it is an authoritative reqponse.
     pub fn set_authoritative(&mut self, authoritative: bool) -> &mut Self {
         self.authoritative = authoritative;
         self
     }
+
+    /// Specifies that the records were too large for the payload.
+    ///
+    /// See EDNS or TCP for resolutions to truncation.
     pub fn set_truncated(&mut self, truncated: bool) -> &mut Self {
         self.truncation = truncated;
         self
     }
+
+    /// Specify that the resolver should recursiviley request data from upstream DNS nodes
     pub fn set_recursion_desired(&mut self, recursion_desired: bool) -> &mut Self {
         self.recursion_desired = recursion_desired;
         self
     }
+
+    /// Specifies that recursion is available from this or the remote resolver
     pub fn set_recursion_available(&mut self, recursion_available: bool) -> &mut Self {
         self.recursion_available = recursion_available;
         self
     }
+
+    /// Specifies that the data is authnetic, i.e. the resolver believes all data to be valid through DNSSec
     pub fn set_authentic_data(&mut self, authentic_data: bool) -> &mut Self {
         self.authentic_data = authentic_data;
         self
     }
+
+    /// Used during recursive resolution to specified if a resolver should or should not validate DNSSec signatures
     pub fn set_checking_disabled(&mut self, checking_disabled: bool) -> &mut Self {
         self.checking_disabled = checking_disabled;
         self
     }
+
+    /// The low responsed code (original response codes before EDNS extensions)
     pub fn set_response_code(&mut self, response_code: ResponseCode) -> &mut Self {
         self.response_code = response_code.low();
         self
     }
+
+    /// Number or query records in the message
     pub fn set_query_count(&mut self, query_count: u16) -> &mut Self {
         self.query_count = query_count;
         self
     }
+
+    /// Number of answer records in the message
     pub fn set_answer_count(&mut self, answer_count: u16) -> &mut Self {
         self.answer_count = answer_count;
         self
     }
+
+    /// Number of name server records in the message
     pub fn set_name_server_count(&mut self, name_server_count: u16) -> &mut Self {
         self.name_server_count = name_server_count;
         self
     }
+
+    /// Number of additional records in the message
     pub fn set_additional_count(&mut self, additional_count: u16) -> &mut Self {
         self.additional_count = additional_count;
         self
@@ -383,21 +416,21 @@ impl BinSerializable<Header> for Header {
         // TODO: question, should this use the builder pattern instead? might be cleaner code, but
         //  this guarantees that the Header is fully instantiated with all values...
         Ok(Header {
-            id: id,
-            message_type: message_type,
-            op_code: op_code,
-            authoritative: authoritative,
-            truncation: truncation,
-            recursion_desired: recursion_desired,
-            recursion_available: recursion_available,
-            authentic_data: authentic_data,
-            checking_disabled: checking_disabled,
-            response_code: response_code,
-            query_count: query_count,
-            answer_count: answer_count,
-            name_server_count: name_server_count,
-            additional_count: additional_count,
-        })
+               id: id,
+               message_type: message_type,
+               op_code: op_code,
+               authoritative: authoritative,
+               truncation: truncation,
+               recursion_desired: recursion_desired,
+               recursion_available: recursion_available,
+               authentic_data: authentic_data,
+               checking_disabled: checking_disabled,
+               response_code: response_code,
+               query_count: query_count,
+               answer_count: answer_count,
+               name_server_count: name_server_count,
+               additional_count: additional_count,
+           })
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {

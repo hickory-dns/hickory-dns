@@ -23,7 +23,11 @@ use client::ClientStreamHandle;
 
 /// Trait for client connections
 pub trait ClientConnection: Sized {
+    /// The associated DNS Message stream type.
     type MessageStream;
 
+    /// Return the inner Futures items
+    ///
+    /// Consumes the connection and allows for future based operations afterward.
     fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>);
 }

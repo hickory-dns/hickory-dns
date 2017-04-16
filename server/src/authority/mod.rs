@@ -18,13 +18,19 @@
 
 use trust_dns::op::ResponseCode;
 
+/// Result of an Update operation
 pub type UpdateResult<T> = Result<T, ResponseCode>;
 
+/// The type of zone stored in a Catalog
 #[derive(RustcDecodable, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ZoneType {
+    /// This authority for a zone, i.e. the Primary
     Master,
+    /// A secondary, i.e. replicated from the Master
     Slave,
+    /// A cached zone with recursive resolver abilities
     Hint,
+    /// A cached zone where all requests are forwarded to another Resolver
     Forward,
 }
 

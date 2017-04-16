@@ -18,7 +18,7 @@ use std::io::Write;
 #[cfg(feature = "openssl")]
 use openssl::hash;
 
-use ::error::*;
+use error::*;
 #[cfg(feature = "openssl")]
 use rr::dnssec::DigestType;
 #[cfg(feature = "openssl")]
@@ -26,79 +26,82 @@ use rr::Name;
 #[cfg(feature = "openssl")]
 use serialize::binary::{BinEncoder, BinSerializable};
 
-// RFC 5155                         NSEC3                        March 2008
-//
-// 11.  IANA Considerations
-//
-//    Although the NSEC3 and NSEC3PARAM RR formats include a hash algorithm
-//    parameter, this document does not define a particular mechanism for
-//    safely transitioning from one NSEC3 hash algorithm to another.  When
-//    specifying a new hash algorithm for use with NSEC3, a transition
-//    mechanism MUST also be defined.
-//
-//    This document updates the IANA registry "DOMAIN NAME SYSTEM
-//    PARAMETERS" (http://www.iana.org/assignments/dns-parameters) in sub-
-//    registry "TYPES", by defining two new types.  Section 3 defines the
-//    NSEC3 RR type 50.  Section 4 defines the NSEC3PARAM RR type 51.
-//
-//    This document updates the IANA registry "DNS SECURITY ALGORITHM
-//    NUMBERS -- per [RFC4035]"
-//    (http://www.iana.org/assignments/dns-sec-alg-numbers).  Section 2
-//    defines the aliases DSA-NSEC3-SHA1 (6) and RSASHA1-NSEC3-SHA1 (7) for
-//    respectively existing registrations DSA and RSASHA1 in combination
-//    with NSEC3 hash algorithm SHA1.
-//
-//    Since these algorithm numbers are aliases for existing DNSKEY
-//    algorithm numbers, the flags that exist for the original algorithm
-//    are valid for the alias algorithm.
-//
-//    This document creates a new IANA registry for NSEC3 flags.  This
-//    registry is named "DNSSEC NSEC3 Flags".  The initial contents of this
-//    registry are:
-//
-//      0   1   2   3   4   5   6   7
-//    +---+---+---+---+---+---+---+---+
-//    |   |   |   |   |   |   |   |Opt|
-//    |   |   |   |   |   |   |   |Out|
-//    +---+---+---+---+---+---+---+---+
-//
-//       bit 7 is the Opt-Out flag.
-//
-//       bits 0 - 6 are available for assignment.
-//
-//    Assignment of additional NSEC3 Flags in this registry requires IETF
-//    Standards Action [RFC2434].
-//
-//    This document creates a new IANA registry for NSEC3PARAM flags.  This
-//    registry is named "DNSSEC NSEC3PARAM Flags".  The initial contents of
-//    this registry are:
-//
-//      0   1   2   3   4   5   6   7
-//    +---+---+---+---+---+---+---+---+
-//    |   |   |   |   |   |   |   | 0 |
-//    +---+---+---+---+---+---+---+---+
-//
-//       bit 7 is reserved and must be 0.
-//
-//       bits 0 - 6 are available for assignment.
-//
-//    Assignment of additional NSEC3PARAM Flags in this registry requires
-//    IETF Standards Action [RFC2434].
-//
-//    Finally, this document creates a new IANA registry for NSEC3 hash
-//    algorithms.  This registry is named "DNSSEC NSEC3 Hash Algorithms".
-//    The initial contents of this registry are:
-//
-//       0 is Reserved.
-//
-//       1 is SHA-1.
-//
-//       2-255 Available for assignment.
-//
-//    Assignment of additional NSEC3 hash algorithms in this registry
-//    requires IETF Standards Action [RFC2434].
+/// ```text
+/// RFC 5155                         NSEC3                        March 2008
+///
+/// 11.  IANA Considerations
+///
+///    Although the NSEC3 and NSEC3PARAM RR formats include a hash algorithm
+///    parameter, this document does not define a particular mechanism for
+///    safely transitioning from one NSEC3 hash algorithm to another.  When
+///    specifying a new hash algorithm for use with NSEC3, a transition
+///    mechanism MUST also be defined.
+///
+///    This document updates the IANA registry "DOMAIN NAME SYSTEM
+///    PARAMETERS" (http://www.iana.org/assignments/dns-parameters) in sub-
+///    registry "TYPES", by defining two new types.  Section 3 defines the
+///    NSEC3 RR type 50.  Section 4 defines the NSEC3PARAM RR type 51.
+///
+///    This document updates the IANA registry "DNS SECURITY ALGORITHM
+///    NUMBERS -- per [RFC4035]"
+///    (http://www.iana.org/assignments/dns-sec-alg-numbers).  Section 2
+///    defines the aliases DSA-NSEC3-SHA1 (6) and RSASHA1-NSEC3-SHA1 (7) for
+///    respectively existing registrations DSA and RSASHA1 in combination
+///    with NSEC3 hash algorithm SHA1.
+///
+///    Since these algorithm numbers are aliases for existing DNSKEY
+///    algorithm numbers, the flags that exist for the original algorithm
+///    are valid for the alias algorithm.
+///
+///    This document creates a new IANA registry for NSEC3 flags.  This
+///    registry is named "DNSSEC NSEC3 Flags".  The initial contents of this
+///    registry are:
+///
+///      0   1   2   3   4   5   6   7
+///    +---+---+---+---+---+---+---+---+
+///    |   |   |   |   |   |   |   |Opt|
+///    |   |   |   |   |   |   |   |Out|
+///    +---+---+---+---+---+---+---+---+
+///
+///       bit 7 is the Opt-Out flag.
+///
+///       bits 0 - 6 are available for assignment.
+///
+///    Assignment of additional NSEC3 Flags in this registry requires IETF
+///    Standards Action [RFC2434].
+///
+///    This document creates a new IANA registry for NSEC3PARAM flags.  This
+///    registry is named "DNSSEC NSEC3PARAM Flags".  The initial contents of
+///    this registry are:
+///
+///      0   1   2   3   4   5   6   7
+///    +---+---+---+---+---+---+---+---+
+///    |   |   |   |   |   |   |   | 0 |
+///    +---+---+---+---+---+---+---+---+
+///
+///       bit 7 is reserved and must be 0.
+///
+///       bits 0 - 6 are available for assignment.
+///
+///    Assignment of additional NSEC3PARAM Flags in this registry requires
+///    IETF Standards Action [RFC2434].
+///
+///    Finally, this document creates a new IANA registry for NSEC3 hash
+///    algorithms.  This registry is named "DNSSEC NSEC3 Hash Algorithms".
+///    The initial contents of this registry are:
+///
+///       0 is Reserved.
+///
+///       1 is SHA-1.
+///
+///       2-255 Available for assignment.
+///
+///    Assignment of additional NSEC3 hash algorithms in this registry
+///    requires IETF Standards Action [RFC2434].
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Nsec3HashAlgorithm {
+    /// Hash for the Nsec3 records
     SHA1,
 }
 
@@ -112,35 +115,37 @@ impl Nsec3HashAlgorithm {
         }
     }
 
-    // Laurie, et al.              Standards Track                    [Page 14]
-    //
-    // RFC 5155                         NSEC3                        March 2008
-    //
-    // Define H(x) to be the hash of x using the Hash Algorithm selected by
-    //    the NSEC3 RR, k to be the number of Iterations, and || to indicate
-    //    concatenation.  Then define:
-    //
-    //       IH(salt, x, 0) = H(x || salt), and
-    //
-    //       IH(salt, x, k) = H(IH(salt, x, k-1) || salt), if k > 0
-    //
-    //    Then the calculated hash of an owner name is
-    //
-    //       IH(salt, owner name, iterations),
-    //
-    //    where the owner name is in the canonical form, defined as:
-    //
-    //    The wire format of the owner name where:
-    //
-    //    1.  The owner name is fully expanded (no DNS name compression) and
-    //        fully qualified;
-    //
-    //    2.  All uppercase US-ASCII letters are replaced by the corresponding
-    //        lowercase US-ASCII letters;
-    //
-    //    3.  If the owner name is a wildcard name, the owner name is in its
-    //        original unexpanded form, including the "*" label (no wildcard
-    //        substitution);
+    /// ```text
+    /// Laurie, et al.              Standards Track                    [Page 14]
+    ///
+    /// RFC 5155                         NSEC3                        March 2008
+    ///
+    /// Define H(x) to be the hash of x using the Hash Algorithm selected by
+    ///    the NSEC3 RR, k to be the number of Iterations, and || to indicate
+    ///    concatenation.  Then define:
+    ///
+    ///       IH(salt, x, 0) = H(x || salt), and
+    ///
+    ///       IH(salt, x, k) = H(IH(salt, x, k-1) || salt), if k > 0
+    ///
+    ///    Then the calculated hash of an owner name is
+    ///
+    ///       IH(salt, owner name, iterations),
+    ///
+    ///    where the owner name is in the canonical form, defined as:
+    ///
+    ///    The wire format of the owner name where:
+    ///
+    ///    1.  The owner name is fully expanded (no DNS name compression) and
+    ///        fully qualified;
+    ///
+    ///    2.  All uppercase US-ASCII letters are replaced by the corresponding
+    ///        lowercase US-ASCII letters;
+    ///
+    ///    3.  If the owner name is a wildcard name, the owner name is in its
+    ///        original unexpanded form, including the "*" label (no wildcard
+    ///        substitution);
+    /// ```
     #[cfg(feature = "openssl")]
     pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> DnsSecResult<Vec<u8>> {
         match *self {
@@ -158,7 +163,7 @@ impl Nsec3HashAlgorithm {
         }
     }
 
-    // until there is another supported algorithm, just hardcoded to this.
+    /// until there is another supported algorithm, just hardcoded to this.
     #[cfg(feature = "openssl")]
     fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> DnsSecResult<Vec<u8>> {
         let digest_type = try!(DigestType::SHA1.to_openssl_digest());
@@ -192,11 +197,20 @@ fn test_hash() {
     let name = Name::new().label("www").label("example").label("com");
     let salt: Vec<u8> = vec![1, 2, 3, 4];
 
-    assert_eq!(Nsec3HashAlgorithm::SHA1.hash(&salt, &name, 0).unwrap().len(),
+    assert_eq!(Nsec3HashAlgorithm::SHA1
+                   .hash(&salt, &name, 0)
+                   .unwrap()
+                   .len(),
                20);
-    assert_eq!(Nsec3HashAlgorithm::SHA1.hash(&salt, &name, 1).unwrap().len(),
+    assert_eq!(Nsec3HashAlgorithm::SHA1
+                   .hash(&salt, &name, 1)
+                   .unwrap()
+                   .len(),
                20);
-    assert_eq!(Nsec3HashAlgorithm::SHA1.hash(&salt, &name, 3).unwrap().len(),
+    assert_eq!(Nsec3HashAlgorithm::SHA1
+                   .hash(&salt, &name, 3)
+                   .unwrap()
+                   .len(),
                20);
 }
 
@@ -256,6 +270,8 @@ fn hash_with_base32(name: &str) -> String {
     // NSEC3PARAM 1 0 12 aabbccdd
     let known_name = Name::parse(name, Some(&Name::new())).unwrap();
     let known_salt = [0xAAu8, 0xBBu8, 0xCCu8, 0xDDu8];
-    let hash = Nsec3HashAlgorithm::SHA1.hash(&known_salt, &known_name, 12).unwrap();
+    let hash = Nsec3HashAlgorithm::SHA1
+        .hash(&known_salt, &known_name, 12)
+        .unwrap();
     base32hex::encode(&hash).to_lowercase()
 }

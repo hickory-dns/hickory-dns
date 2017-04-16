@@ -39,7 +39,7 @@ use common::authority::create_example;
 fn test_query_nonet() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.get_origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
@@ -149,7 +149,7 @@ fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = (
 fn test_notify() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.get_origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
@@ -175,7 +175,7 @@ fn test_notify() {
 fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name) {
     let mut authority = create_example();
     authority.set_allow_update(true);
-    let origin = authority.get_origin().clone();
+    let origin = authority.origin().clone();
 
     let rsa = Rsa::generate(512).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
@@ -206,7 +206,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
 
     // setup the catalog
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.get_origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let (stream, sender) = TestClientStream::new(catalog);
     let client = ClientFuture::new(stream, sender, io_loop.handle(), Some(signer));
@@ -791,7 +791,7 @@ impl fmt::Debug for NeverReturnsClientStream {
 fn test_timeout_query_nonet() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.get_origin().clone(), authority);
+    catalog.upsert(authority.origin().clone(), authority);
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = NeverReturnsClientStream::new();

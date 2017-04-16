@@ -160,15 +160,15 @@ impl RecordSet {
             let rrsigs = self.rrsigs
                 .iter()
                 .filter(|record| if let &RData::SIG(ref rrsig) = record.rdata() {
-                    supported_algorithms.has(rrsig.algorithm())
-                } else {
-                    false
-                })
+                            supported_algorithms.has(rrsig.algorithm())
+                        } else {
+                            false
+                        })
                 .max_by_key(|record| if let &RData::SIG(ref rrsig) = record.rdata() {
-                    rrsig.algorithm()
-                } else {
-                    Algorithm::RSASHA1
-                });
+                                rrsig.algorithm()
+                            } else {
+                                Algorithm::RSASHA1
+                            });
             self.records.iter().chain(rrsigs).collect()
         } else {
             self.records.iter().collect()
@@ -190,14 +190,23 @@ impl RecordSet {
         self.serial
     }
 
+    /// Returns a slice of all the Records signatures in the RecordSet
     pub fn rrsigs(&self) -> &[Record] {
         &self.rrsigs
     }
 
+    /// Inserts a Signature for the Record set
+    ///
+    /// Many can be associated with the RecordSet. Once added, the RecordSet should not be changed
+    ///
+    /// # Arguments
+    ///
+    /// * `rrsig` - A signature which covers the RecordSet.
     pub fn insert_rrsig(&mut self, rrsig: Record) {
         self.rrsigs.push(rrsig)
     }
 
+    /// Useful for clearing all signatures when the RecordSet is updated, or keys are rotated.
     pub fn clear_rrsigs(&mut self) {
         self.rrsigs.clear()
     }
@@ -215,7 +224,10 @@ impl RecordSet {
         record.set_rdata(rdata.clone()); // TODO: remove clone()? this is only needed for the record return
         self.insert(record, 0);
 
-        self.records.iter().find(|r| *r.rdata() == rdata).expect("insert failed? 172")
+        self.records
+            .iter()
+            .find(|r| *r.rdata() == rdata)
+            .expect("insert failed? 172")
     }
 
     /// Inserts a new Resource Record into the Set.
@@ -348,8 +360,7 @@ impl RecordSet {
     /// True if a record was removed.
     pub fn remove(&mut self, record: &Record, serial: u32) -> bool {
         assert_eq!(record.name(), &self.name);
-        assert!(record.rr_type() == self.record_type ||
-                record.rr_type() == RecordType::ANY);
+        assert!(record.rr_type() == self.record_type || record.rr_type() == RecordType::ANY);
 
         match record.rr_type() {
             // never delete the last NS record
@@ -386,7 +397,9 @@ impl RecordSet {
     }
 }
 
+/// Types which implement this can be converted into a RecordSet
 pub trait IntoRecordSet: Sized {
+    /// Performs the conversion to a RecordSet
     fn into_record_set(self) -> RecordSet;
 }
 
@@ -408,7 +421,7 @@ impl IntoIterator for RecordSet {
 #[cfg(test)]
 mod test {
     use std::net::Ipv4Addr;
-    use ::rr::*;
+    use rr::*;
     use rr::rdata::SOA;
 
     #[test]
@@ -427,12 +440,16 @@ mod test {
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert_eq!(rr_set.records(false, Default::default()).len(), 1);
-        assert!(rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&insert));
 
         // dups ignored
         assert!(!rr_set.insert(insert.clone(), 0));
         assert_eq!(rr_set.records(false, Default::default()).len(), 1);
-        assert!(rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&insert));
 
         // add one
         let insert1 = Record::new()
@@ -444,8 +461,12 @@ mod test {
             .clone();
         assert!(rr_set.insert(insert1.clone(), 0));
         assert_eq!(rr_set.records(false, Default::default()).len(), 2);
-        assert!(rr_set.records(false, Default::default()).contains(&&insert));
-        assert!(rr_set.records(false, Default::default()).contains(&&insert1));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&insert));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&insert1));
     }
 
     #[test]
@@ -495,19 +516,31 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&insert));
         // same serial number
         assert!(!rr_set.insert(same_serial.clone(), 0));
-        assert!(rr_set.records(false, Default::default()).contains(&&insert));
-        assert!(!rr_set.records(false, Default::default()).contains(&&same_serial));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&insert));
+        assert!(!rr_set
+                     .records(false, Default::default())
+                     .contains(&&same_serial));
 
         assert!(rr_set.insert(new_serial.clone(), 0));
         assert!(!rr_set.insert(same_serial.clone(), 0));
         assert!(!rr_set.insert(insert.clone(), 0));
 
-        assert!(rr_set.records(false, Default::default()).contains(&&new_serial));
-        assert!(!rr_set.records(false, Default::default()).contains(&&insert));
-        assert!(!rr_set.records(false, Default::default()).contains(&&same_serial));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&new_serial));
+        assert!(!rr_set
+                     .records(false, Default::default())
+                     .contains(&&insert));
+        assert!(!rr_set
+                     .records(false, Default::default())
+                     .contains(&&same_serial));
     }
 
     #[test]
@@ -535,12 +568,18 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&insert));
 
         // update the record
         assert!(rr_set.insert(new_record.clone(), 0));
-        assert!(!rr_set.records(false, Default::default()).contains(&&insert));
-        assert!(rr_set.records(false, Default::default()).contains(&&new_record));
+        assert!(!rr_set
+                     .records(false, Default::default())
+                     .contains(&&insert));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&new_record));
     }
 
     #[test]
@@ -595,7 +634,9 @@ mod test {
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(!rr_set.remove(&insert, 0));
-        assert!(rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(rr_set
+                    .records(false, Default::default())
+                    .contains(&&insert));
     }
 
     #[test]
@@ -719,22 +760,24 @@ mod test {
         rrset.insert_rrsig(rrsig_ecp384);
         rrset.insert_rrsig(rrsig_ed25519);
 
-        assert!(rrset.records(true, SupportedAlgorithms::all())
-            .iter()
-            .any(|r| if let &RData::SIG(ref sig) = r.rdata() {
-                sig.algorithm() == Algorithm::ED25519
-            } else {
-                false
-            }));
+        assert!(rrset
+                    .records(true, SupportedAlgorithms::all())
+                    .iter()
+                    .any(|r| if let &RData::SIG(ref sig) = r.rdata() {
+                             sig.algorithm() == Algorithm::ED25519
+                         } else {
+                             false
+                         }));
 
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ECDSAP384SHA384);
-        assert!(rrset.records(true, supported_algorithms)
-            .iter()
-            .any(|r| if let &RData::SIG(ref sig) = r.rdata() {
-                sig.algorithm() == Algorithm::ECDSAP384SHA384
-            } else {
-                false
-            }));
+        assert!(rrset
+                    .records(true, supported_algorithms)
+                    .iter()
+                    .any(|r| if let &RData::SIG(ref sig) = r.rdata() {
+                             sig.algorithm() == Algorithm::ECDSAP384SHA384
+                         } else {
+                             false
+                         }));
     }
 }

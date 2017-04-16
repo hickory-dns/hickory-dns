@@ -33,6 +33,7 @@ pub type StreamHandle = UnboundedSender<Vec<u8>>;
 
 /// Implementations of Sinks for sending DNS messages
 pub trait ClientStreamHandle {
+    /// Sends a message to the Handle for delivery to the server.
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()>;
 }
 

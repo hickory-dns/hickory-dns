@@ -16,6 +16,8 @@
 
 //! TLS protocol related components for DNS over TLS
 
+#![deny(missing_docs)]
+
 extern crate futures;
 extern crate native_tls;
 extern crate tokio_core;

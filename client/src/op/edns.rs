@@ -20,7 +20,7 @@ use rr::{DNSClass, Name, Record, RecordType, RData};
 use rr::rdata::OPT;
 use rr::rdata::opt::{EdnsCode, EdnsOption};
 
-/// Edns implements the higher level concepts for working with Edns as it is used to create or be
+/// Edns implements the higher level concepts for working with extended dns as it is used to create or be
 /// created from OPT record data.
 #[derive(Debug, PartialEq, Clone)]
 pub struct Edns {
@@ -38,6 +38,7 @@ pub struct Edns {
 }
 
 impl Edns {
+    /// Creates a new extended DNS object.
     pub fn new() -> Self {
         Edns {
             rcode_high: 0,
@@ -48,37 +49,57 @@ impl Edns {
         }
     }
 
+    /// The high order bytes for the response code in the DNS Message
     pub fn rcode_high(&self) -> u8 {
         self.rcode_high
     }
+
+    /// Returns the EDNS version
     pub fn version(&self) -> u8 {
         self.version
     }
+
+    /// Specifies that DNSSec is supported for this Client or Server
     pub fn dnssec_ok(&self) -> bool {
         self.dnssec_ok
     }
+
+    /// Maximum supported size of the DNS payload
     pub fn max_payload(&self) -> u16 {
         self.max_payload
     }
+
+    /// Returns the Option associated with the code
     pub fn option(&self, code: &EdnsCode) -> Option<&EdnsOption> {
         self.options.get(code)
     }
+
+    /// Returns the options portion of EDNS
     pub fn options(&self) -> &OPT {
         &self.options
     }
 
+    /// Set the high order bits for the result code.
     pub fn set_rcode_high(&mut self, rcode_high: u8) {
         self.rcode_high = rcode_high
     }
+
+    /// Set the EDNS version
     pub fn set_version(&mut self, version: u8) {
         self.version = version
     }
+
+    /// Set to true if DNSSec is supported
     pub fn set_dnssec_ok(&mut self, dnssec_ok: bool) {
         self.dnssec_ok = dnssec_ok
     }
+
+    /// Set the maximum payload which can be supported
     pub fn set_max_payload(&mut self, max_payload: u16) {
         self.max_payload = max_payload
     }
+
+    /// Set the specified EDNS option
     pub fn set_option(&mut self, option: EdnsOption) {
         self.options.insert(option);
     }
