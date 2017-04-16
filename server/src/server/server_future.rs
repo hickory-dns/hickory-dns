@@ -209,6 +209,7 @@ impl ServerFuture {
                            "Server stopping due to interruption"))
     }
 
+    /// Returns a reference to the tokio core loop driving this Server instance
     pub fn tokio_core(&mut self) -> &mut Core {
         &mut self.io_loop
     }
