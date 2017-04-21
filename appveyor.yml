@@ -34,5 +34,7 @@ test_script:
   - cargo test --manifest-path client/Cargo.toml --no-default-features --features=tls
   - cargo test --manifest-path client/Cargo.toml --no-default-features --features=ring
 
+  - cargo test --manifest-path rustls/Cargo.toml
+
   - cargo test --manifest-path server/Cargo.toml --all-features
   - cargo test --manifest-path server/Cargo.toml
