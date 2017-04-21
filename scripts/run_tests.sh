@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-MODULES=${MODULES:-"client native-tls server"}
+MODULES=${MODULES:-"client native-tls rustls server"}
 CLIENT_OPTIONS=${CLIENT_OPTIONS} # add in all features
 OPTIONS=${OPTIONS}
 

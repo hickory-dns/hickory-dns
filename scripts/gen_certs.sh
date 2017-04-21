@@ -8,7 +8,7 @@ trust_dns_dir=$(dirname $0)/..
 
 pushd $trust_dns_dir/tests
 
-for i in ca.key ca.pem cert.key cert.csr cert.pem cert.p12 ; do
+for i in ca.key ca.pem cert-key.pem cert.csr cert.pem cert.p12 ; do
     [ -f $i ] && echo "$i exists" && exit 1;
 done
 
@@ -68,8 +68,8 @@ EOF
 
 # Cert
 echo "----> Generating CERT  <----"
-${OPENSSL:?} genrsa -out cert.key 4096
-${OPENSSL:?} req -new -nodes -key cert.key -out cert.csr \
+${OPENSSL:?} genrsa -out cert-key.pem 4096
+${OPENSSL:?} req -new -nodes -key cert-key.pem -out cert.csr \
              -verify \
              -config /tmp/cert.conf
 
@@ -80,7 +80,7 @@ echo "----> Verifying Cert <----"
 ${OPENSSL:?} verify -CAfile ca.pem cert.pem
 
 echo "----> Createing PCKS12 <----"
-${OPENSSL:?} pkcs12 -export -inkey cert.key -in cert.pem -out cert.p12 -passout pass:mypass -name ns.example.com -chain -CAfile ca.pem
+${OPENSSL:?} pkcs12 -export -inkey cert-key.pem -in cert.pem -out cert.p12 -passout pass:mypass -name ns.example.com -chain -CAfile ca.pem
 
 
 popd
