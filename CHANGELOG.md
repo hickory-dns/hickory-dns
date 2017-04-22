@@ -6,11 +6,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 - Added `From<IpAddr>` for Name (reverse DNS) #105 
 - AppVeyor support #103
+- rustls client tls support (seperate crate)
 
 ### Changed
-- Fixed TLS documentation, and add more elsewhere; fixes #102
+- Fixed TLS documentation, added more elsewhere, docs required; fixes #102
 - Upgraded tokio-core and moved to tokio-io
 - *Important* Some `Server` types have been migrated to [RFC#344](https://github.com/aturon/rfcs/blob/conventions-galore/active/0000-conventions-galore.md#gettersetter-apis) style. `get_field()` -> `field()`; `field()` -> `set_field()`
+- Moved native-tls client impl to seperate crate
+- Defaulted to OpenSSL for tls implementation
 
 ## 0.10.0
 ### Changed
