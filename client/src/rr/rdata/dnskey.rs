@@ -20,6 +20,7 @@ use ::serialize::binary::*;
 use ::error::*;
 use rr::dnssec::{Algorithm, DigestType};
 use rr::Name;
+use rr::record_data::RData;
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
@@ -229,6 +230,12 @@ impl DNSKEY {
     }
 }
 
+impl From<DNSKEY> for RData {
+    fn from(key: DNSKEY) -> RData {
+        RData::DNSKEY(key)
+    }
+}
+
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY> {
     let flags: u16 = try!(decoder.read_u16());
@@ -282,25 +289,26 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> EncodeResult {
     Ok(())
 }
 
-// / 2.2.  The DNSKEY RR Presentation Format
-// /
-// /    The presentation format of the RDATA portion is as follows:
-// /
-// /    The Flag field MUST be represented as an unsigned decimal integer.
-// /    Given the currently defined flags, the possible values are: 0, 256,
-// /    and 257.
-// /
-// /    The Protocol Field MUST be represented as an unsigned decimal integer
-// /    with a value of 3.
-// /
-// /    The Algorithm field MUST be represented either as an unsigned decimal
-// /    integer or as an algorithm mnemonic as specified in Appendix A.1.
-// /
-// /    The Public Key field MUST be represented as a Base64 encoding of the
-// /    Public Key.  Whitespace is allowed within the Base64 text.  For a
-// /    definition of Base64 encoding, see [RFC3548].
-// /
-// / TODO: to_string()
+// /// ```text
+// /// 2.2.  The DNSKEY RR Presentation Format
+// ///
+// ///    The presentation format of the RDATA portion is as follows:
+// ///
+// ///    The Flag field MUST be represented as an unsigned decimal integer.
+// ///    Given the currently defined flags, the possible values are: 0, 256,
+// ///    and 257.
+// ///
+// ///    The Protocol Field MUST be represented as an unsigned decimal integer
+// ///    with a value of 3.
+// ///
+// ///    The Algorithm field MUST be represented either as an unsigned decimal
+// ///    integer or as an algorithm mnemonic as specified in Appendix A.1.
+// ///
+// ///    The Public Key field MUST be represented as a Base64 encoding of the
+// ///    Public Key.  Whitespace is allowed within the Base64 text.  For a
+// ///    definition of Base64 encoding, see [RFC3548].
+// /// ```
+// fn to_string()
 
 #[test]
 pub fn test() {

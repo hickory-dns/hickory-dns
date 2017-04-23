@@ -21,8 +21,9 @@
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
 pub mod a;
 pub mod aaaa;
-pub mod ds;
 pub mod dnskey;
+pub mod ds;
+pub mod key;
 pub mod mx;
 pub mod name;
 pub mod null;
@@ -37,6 +38,7 @@ pub mod txt;
 
 pub use self::dnskey::DNSKEY;
 pub use self::ds::DS;
+pub use self::key::KEY;
 pub use self::mx::MX;
 pub use self::nsec::NSEC;
 pub use self::nsec3::NSEC3;

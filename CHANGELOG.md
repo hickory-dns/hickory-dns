@@ -7,6 +7,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Added `From<IpAddr>` for Name (reverse DNS) #105 
 - AppVeyor support #103
 - rustls client tls support (seperate crate)
+- full support for KEY RR in client
 
 ### Changed
 - Fixed TLS documentation, added more elsewhere, docs required; fixes #102
