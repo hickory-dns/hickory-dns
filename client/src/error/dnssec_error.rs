@@ -24,6 +24,8 @@ use ring::error::Unspecified;
 #[cfg(not(feature = "ring"))]
 use self::not_ring::Unspecified;
 
+use error::{EncodeError, EncodeErrorKind};
+
 error_chain! {
     // The type defined for this error. These are the conventional
     // and recommended names, but they can be arbitrarily chosen.
@@ -39,6 +41,7 @@ error_chain! {
     //
     // This section can be empty.
     links {
+        EncodeError, EncodeErrorKind, Encode;
     }
 
     // Automatic conversions between this error chain and other

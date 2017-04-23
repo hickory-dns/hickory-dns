@@ -494,6 +494,7 @@ impl Authority {
             let name = sig.signer_name();
             let keys = self.lookup(name, RecordType::KEY, false, SupportedAlgorithms::new());
             debug!("found keys {:?}", keys);
+            // FIXME: check key usage flags and restrictions
             keys.iter()
                 .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.rdata() {
                                 Some(key)
@@ -511,7 +512,8 @@ impl Authority {
                     }
 
                     let pkey = pkey.unwrap();
-                    let signer: Signer = Signer::new_verifier(*key.algorithm(),
+                    let signer: Signer = Signer::sig0_verifier(key.clone(),
+                                                              *key.algorithm(),
                                                               pkey,
                                                               sig.signer_name().clone(),
                                                               false,

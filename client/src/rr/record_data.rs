@@ -27,7 +27,7 @@ use serialize::txt::*;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{DNSKEY, DS, MX, NSEC, NSEC3, NSEC3PARAM, NULL, OPT, SIG, SOA, SRV, TXT};
+use super::rdata::{DNSKEY, DS, KEY, MX, NSEC, NSEC3, NSEC3PARAM, NULL, OPT, SIG, SOA, SRV, TXT};
 
 /// Record data enum variants
 ///
@@ -238,18 +238,6 @@ pub enum RData {
     ///  algorithm number octet, and the public key itself.  The format is as
     ///  follows:
     ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
-    ///
     ///                       1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
     ///   0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
     ///  +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
@@ -274,7 +262,7 @@ pub enum RData {
     ///  KEY RRs do not specify their validity period but their authenticating
     ///  SIG RR(s) do as described in Section 4 below.
     /// ```
-    KEY(DNSKEY),
+    KEY(KEY),
 
     /// ```text
     /// 3.3.9. MX RDATA format
@@ -742,10 +730,6 @@ impl RData {
                 debug!("reading CNAME");
                 RData::CNAME(try!(rdata::name::read(decoder)))
             }
-            RecordType::KEY => {
-                debug!("reading KEY");
-                RData::KEY(try!(rdata::dnskey::read(decoder, rdata_length)))
-            }
             RecordType::DNSKEY => {
                 debug!("reading DNSKEY");
                 RData::DNSKEY(try!(rdata::dnskey::read(decoder, rdata_length)))
@@ -756,6 +740,10 @@ impl RData {
             }
             rt @ RecordType::IXFR => {
                 return Err(DecodeErrorKind::UnknownRecordTypeValue(rt.into()).into())
+            }
+            RecordType::KEY => {
+                debug!("reading KEY");
+                RData::KEY(try!(rdata::key::read(decoder, rdata_length)))
             }
             RecordType::MX => {
                 debug!("reading MX");
@@ -843,7 +831,7 @@ impl RData {
             // to_lowercase for rfc4034 and rfc6840
             RData::CNAME(ref name) => rdata::name::emit(encoder, name),
             RData::DS(ref ds) => rdata::ds::emit(encoder, ds),
-            RData::KEY(ref key) => rdata::dnskey::emit(encoder, key),
+            RData::KEY(ref key) => rdata::key::emit(encoder, key),
             RData::DNSKEY(ref dnskey) => rdata::dnskey::emit(encoder, dnskey),
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
