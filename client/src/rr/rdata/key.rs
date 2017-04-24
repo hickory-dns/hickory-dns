@@ -19,6 +19,7 @@
 use serialize::binary::*;
 use error::*;
 use rr::dnssec::Algorithm;
+use rr::record_data::RData;
 
 /// [RFC 2535](https://tools.ietf.org/html/rfc2535#section-3), Domain Name System Security Extensions, March 1999
 ///
@@ -711,6 +712,12 @@ impl KEY {
 
     //     digest_type.hash(&buf).map_err(|e| e.into())
     // }
+}
+
+impl From<KEY> for RData {
+    fn from(key: KEY) -> RData {
+        RData::KEY(key)
+    }
 }
 
 /// Read the RData from the given Decoder

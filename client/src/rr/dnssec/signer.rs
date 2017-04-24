@@ -26,7 +26,7 @@ use rr::{DNSClass, Name, Record, RecordType, RData};
 use rr::dnssec::{Algorithm, DigestType, DnsSecErrorKind, DnsSecResult};
 use rr::dnssec::KeyPair;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::{sig, SIG};
+use rr::rdata::{DNSKEY, KEY, sig, SIG};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
@@ -231,6 +231,8 @@ use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 /// ```
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub struct Signer {
+    // TODO: this should really be a trait and generic struct over KEY and DNSKEY
+    key_rdata: RData,
     key: KeyPair,
     algorithm: Algorithm,
     signer_name: Name,
@@ -246,13 +248,34 @@ pub struct Signer;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 impl Signer {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
-    pub fn new_verifier(algorithm: Algorithm,
-                        key: KeyPair,
-                        signer_name: Name,
-                        is_zone_signing_key: bool,
-                        is_zone_update_auth: bool)
-                        -> Self {
+    pub fn dnssec_verifier(key_rdata: DNSKEY,
+                           algorithm: Algorithm,
+                           key: KeyPair,
+                           signer_name: Name,
+                           is_zone_signing_key: bool,
+                           is_zone_update_auth: bool)
+                           -> Self {
         Signer {
+            key_rdata: key_rdata.into(),
+            key: key,
+            algorithm: algorithm,
+            signer_name: signer_name,
+            sig_duration: Duration::zero(),
+            is_zone_signing_key: is_zone_signing_key,
+            is_zone_update_auth: is_zone_update_auth,
+        }
+    }
+
+    /// Version of Signer for verifying RRSIGs and SIG0 records.
+    pub fn sig0_verifier(key_rdata: KEY,
+                         algorithm: Algorithm,
+                         key: KeyPair,
+                         signer_name: Name,
+                         is_zone_signing_key: bool,
+                         is_zone_update_auth: bool)
+                         -> Self {
+        Signer {
+            key_rdata: key_rdata.into(),
             key: key,
             algorithm: algorithm,
             signer_name: signer_name,
@@ -263,6 +286,7 @@ impl Signer {
     }
 
     /// Version of Signer for signing RRSIGs and SIG0 records.
+    #[deprecated="use SIG0 or DNSSec constructors"]
     pub fn new(algorithm: Algorithm,
                key: KeyPair,
                signer_name: Name,
@@ -270,7 +294,12 @@ impl Signer {
                is_zone_signing_key: bool,
                is_zone_update_auth: bool)
                -> Self {
+        let dnskey =
+            key.to_dnskey(algorithm)
+                .expect("something went wrong, use one of the SIG0 or DNSSec constructors");
+
         Signer {
+            key_rdata: dnskey.into(),
             key: key,
             algorithm: algorithm,
             signer_name: signer_name,
@@ -368,7 +397,14 @@ impl Signer {
     pub fn calculate_key_tag(&self) -> DnsSecResult<u16> {
         let mut ac: usize = 0;
 
-        for (i, k) in try!(self.key.to_public_bytes()).iter().enumerate() {
+        // TODO:
+        let mut bytes: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut e = BinEncoder::new(&mut bytes);
+            try!(self.key_rdata.emit(&mut e));
+        }
+
+        for (i, k) in bytes.iter().enumerate() {
             ac += if i & 0x0001 == 0x0001 {
                 *k as usize
             } else {

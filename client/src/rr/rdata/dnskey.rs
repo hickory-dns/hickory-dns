@@ -20,6 +20,7 @@ use ::serialize::binary::*;
 use ::error::*;
 use rr::dnssec::{Algorithm, DigestType};
 use rr::Name;
+use rr::record_data::RData;
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
@@ -226,6 +227,12 @@ impl DNSKEY {
 
         digest_type.hash(&buf)
             .map_err(|e| e.into())
+    }
+}
+
+impl From<DNSKEY> for RData {
+    fn from(key: DNSKEY) -> RData {
+        RData::DNSKEY(key)
     }
 }
 
