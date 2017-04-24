@@ -380,6 +380,16 @@ fn test_key_usage() {
 ///    apply if the update is within the name and class scope as per
 ///    sections 3.1.1 and 3.1.2.
 /// ```
+///
+/// [RFC 3007](https://tools.ietf.org/html/rfc3007#section-1.5), Secure Dynamic Update, November 2000
+///
+/// ```text
+///    [RFC2535, section 3.1.2] defines the signatory field of a key as the
+///    final 4 bits of the flags field, but does not define its value.  This
+///    proposal leaves this field undefined.  Updating [RFC2535], this field
+///    SHOULD be set to 0 in KEY records, and MUST be ignored.
+///
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct UpdateScope {
     /// this key is authorized to attach,
@@ -403,7 +413,7 @@ impl Default for UpdateScope {
             zone: false,
             strong: false,
             unique: false,
-            general: true,
+            general: false,
         }
     }
 }
