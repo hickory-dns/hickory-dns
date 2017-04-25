@@ -1,5 +1,5 @@
 [workspace]
-members = ["client", "native-tls", "rustls", "server"]
+members = ["client", "compatibility", "native-tls", "rustls", "server"]
 
 [replace]
 #"openssl:0.9.8" = { git = "https://github.com/sfackler/rust-openssl.git", features = ["v102", "v110"] }

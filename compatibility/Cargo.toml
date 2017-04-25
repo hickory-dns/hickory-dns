@@ -1,12 +1,12 @@
 [package]
-name = "trust-dns-native-tls"
+name = "trust-dns-compatibility"
 version = "0.1.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-An extension for the TRust-DNS client to use native-tls. To use, disable the tls feature on TRust-DNS.
+TRust-DNS compatability testing library.
 """
 
 # These URLs point to more information about the repository
@@ -34,22 +34,13 @@ travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-
-# WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
-# mtls = ["tls"]
+default = ["none"]
+none = []
+bind = []
 
 [lib]
-name = "trust_dns_native_tls"
+name = "trust_dns_compatibility"
 path = "src/lib.rs"
 
 [dependencies]
-futures = "^0.1.6"
-native-tls = "^0.1"
-tokio-core = "^0.1"
-tokio-tls = "^0.1"
-# disables default features, i.e. openssl...
-trust-dns = { version = "^0.10", path = "../client", default-features = false }
-
-## Commented out until MTLS support is complete
-# [target.'cfg(target_os = "linux")'.dependencies]
-# openssl = { version = "^0.9.8", features = ["v102", "v110"] }
+trust-dns = "*"
