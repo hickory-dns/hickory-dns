@@ -539,28 +539,39 @@ fn test_update_scope() {
 ///           defined.  The use of this value is discouraged and the use of
 ///           different keys for different protocols is encouraged.
 /// ```
+///
+/// [RFC3445](https://tools.ietf.org/html/rfc3445#section-4), Limiting the KEY Resource Record (RR), December 2002
+///
+/// ```text
+/// All Protocol Octet values except DNSSEC (3) are eliminated
+/// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Protocol {
     /// Not in use
+    #[deprecated = "Deprecated by RFC3445"]
     Reserved,
     /// Reserved for use with TLS
+    #[deprecated = "Deprecated by RFC3445"]
     TLS,
     /// Reserved for use with email
+    #[deprecated = "Deprecated by RFC3445"]
     Email,
     /// Reserved for use with DNSSec (TRust-DNS only supports DNSKEY with DNSSec)
-    #[deprecated = "For Zone signing DNSKEY should be used"]
     DNSSec,
     /// Reserved to refer to the Oakley/IPSEC
+    #[deprecated = "Deprecated by RFC3445"]
     IPSec,
     /// Undefined
+    #[deprecated = "Deprecated by RFC3445"]
     Other(u8),
     /// the key can be used in connection with any protocol
+    #[deprecated = "Deprecated by RFC3445"]
     All,
 }
 
 impl Default for Protocol {
     fn default() -> Self {
-        Protocol::All
+        Protocol::DNSSec
     }
 }
 
