@@ -427,7 +427,7 @@ impl Signer {
             message.emit(&mut encoder).unwrap(); // coding error if this panics (i think?)
         }
 
-        DigestType::from(self.algorithm).hash(&buf)
+        Ok(buf)
     }
 
     /// Signs the given message, returning the signature bytes.
