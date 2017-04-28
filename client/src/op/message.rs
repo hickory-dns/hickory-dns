@@ -618,7 +618,6 @@ impl Message {
     #[cfg(feature = "openssl")]
     pub fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> {
         debug!("signing message: {:?}", self);
-        let signature: Vec<u8> = try!(signer.sign_message(self));
         let key_tag: u16 = try!(signer.calculate_key_tag());
 
         // this is based on RFCs 2535, 2931 and 3007
@@ -640,6 +639,22 @@ impl Message {
         let expiration_time: u32 = inception_time + (5 * 60); // +5 minutes in seconds
 
         sig0.set_rr_type(RecordType::SIG);
+        let pre_sig0 = SIG::new(// type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+                                RecordType::NULL,
+                                signer.algorithm(),
+                                num_labels,
+                                // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+                                0,
+                                // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+                                expiration_time,
+                                // current time, this should be UTC
+                                // unsigned numbers of seconds since the start of 1 January 1970, GMT
+                                inception_time,
+                                key_tag,
+                                // can probably get rid of this clone if the owndership is correct
+                                signer.signer_name().clone(),
+                                Vec::new());
+        let signature: Vec<u8> = try!(signer.sign_message(self, &pre_sig0));
         sig0.set_rdata(
             RData::SIG(SIG::new(
                 // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG

@@ -416,16 +416,33 @@ impl Signer {
         return Ok((ac & 0xFFFF) as u16); // this is unnecessary, no?
     }
 
-    fn hash_message(&self, message: &Message) -> DnsSecResult<Vec<u8>> {
+    fn hash_message(&self, message: &Message, pre_sig0: &SIG) -> DnsSecResult<Vec<u8>> {
         // TODO: should perform the serialization and sign block by block to reduce the max memory
         //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
         //  more important
         let mut buf: Vec<u8> = Vec::with_capacity(512);
+        let mut buf2: Vec<u8> = Vec::with_capacity(512);
 
         {
-            let mut encoder: BinEncoder = BinEncoder::with_mode(&mut buf, EncodeMode::Signing);
-            message.emit(&mut encoder).unwrap(); // coding error if this panics (i think?)
+            let mut encoder: BinEncoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
+            assert!(sig::emit_pre_sig(&mut encoder,
+                                      pre_sig0.type_covered(),
+                                      pre_sig0.algorithm(),
+                                      pre_sig0.num_labels(),
+                                      pre_sig0.original_ttl(),
+                                      pre_sig0.sig_expiration(),
+                                      pre_sig0.sig_inception(),
+                                      pre_sig0.key_tag(),
+                                      pre_sig0.signer_name())
+                            .is_ok());
+            // need a separate encoder here, as the encoding references absolute positions
+            // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
+            // are wrong and the signature won't match.
+            let mut encoder2: BinEncoder = BinEncoder::with_mode(&mut buf2, EncodeMode::Signing);
+            message.emit(&mut encoder2).unwrap(); // coding error if this panics (i think?)
         }
+
+        buf.append(&mut buf2);
 
         Ok(buf)
     }
@@ -485,8 +502,8 @@ impl Signer {
     ///  being verified.
     ///
     ///  ---
-    pub fn sign_message(&self, message: &Message) -> DnsSecResult<Vec<u8>> {
-        self.hash_message(message)
+    pub fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> DnsSecResult<Vec<u8>> {
+        self.hash_message(message, pre_sig0)
             .and_then(|hash| self.sign(&hash))
     }
 
@@ -500,8 +517,12 @@ impl Signer {
     /// # Return value
     ///
     /// `true` if the message could be validated against the signature, `false` otherwise
-    pub fn verify_message(&self, message: &Message, signature: &[u8]) -> DnsSecResult<()> {
-        self.hash_message(message)
+    pub fn verify_message(&self,
+                          message: &Message,
+                          signature: &[u8],
+                          sig0: &SIG)
+                          -> DnsSecResult<()> {
+        self.hash_message(message, sig0)
             .and_then(|hash| self.verify(&hash, signature))
     }
 
@@ -758,6 +779,24 @@ mod tests {
 
     pub use super::*;
 
+    fn pre_sig0(signer: &Signer, inception_time: u32, expiration_time: u32) -> SIG {
+        SIG::new(// type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+                 RecordType::NULL,
+                 signer.algorithm(),
+                 0,
+                 // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+                 0,
+                 // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+                 expiration_time,
+                 // current time, this should be UTC
+                 // unsigned numbers of seconds since the start of 1 January 1970, GMT
+                 inception_time,
+                 signer.calculate_key_tag().unwrap(),
+                 // can probably get rid of this clone if the owndership is correct
+                 signer.signer_name().clone(),
+                 Vec::new())
+    }
+
     #[test]
     fn test_sign_and_verify_message_sig0() {
         let origin: Name = Name::parse("example.com.", None).unwrap();
@@ -775,22 +814,25 @@ mod tests {
                                  true,
                                  true);
 
-        let sig = signer.sign_message(&question).unwrap();
+        let pre_sig0 = pre_sig0(&signer, 0, 300);
+        let sig = signer.sign_message(&question, &pre_sig0).unwrap();
         println!("sig: {:?}", sig);
 
         assert!(!sig.is_empty());
-        assert!(signer.verify_message(&question, &sig).is_ok());
+        assert!(signer.verify_message(&question, &sig, &pre_sig0).is_ok());
 
         // now test that the sig0 record works correctly.
         assert!(question.sig0().is_empty());
         question.sign(&signer, 0).expect("should have signed");
         assert!(!question.sig0().is_empty());
 
-        let sig = signer.sign_message(&question);
+        let sig = signer.sign_message(&question, &pre_sig0);
         println!("sig after sign: {:?}", sig);
 
         if let &RData::SIG(ref sig) = question.sig0()[0].rdata() {
-            assert!(signer.verify_message(&question, sig.sig()).is_ok());
+            assert!(signer
+                        .verify_message(&question, sig.sig(), &sig)
+                        .is_ok());
         }
     }
 
