@@ -54,6 +54,7 @@ path = "src/lib.rs"
 
 [[bin]]
 name = "dnskey-to-pem"
+required-features = ["openssl"]
 path = "src/dnskey_to_pem.rs"
 
 [dependencies]

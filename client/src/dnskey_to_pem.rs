@@ -9,7 +9,6 @@ extern crate data_encoding;
 extern crate env_logger;
 #[macro_use]
 extern crate log;
-#[cfg(feature = "openssl")]
 extern crate openssl;
 extern crate trust_dns;
 
@@ -44,7 +43,6 @@ fn args<'a>() -> ArgMatches<'a> {
         .get_matches()
 }
 
-#[cfg(feature = "openssl")]
 pub fn main() {
     env_logger::init().unwrap();
     let matches = args();
@@ -158,9 +156,4 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
             .unwrap();
 
     rsa.private_key_to_pem().unwrap()
-}
-
-#[cfg(not(feature = "openssl"))]
-pub fn main() {
-    let matches = args();
 }
