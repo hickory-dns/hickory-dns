@@ -43,4 +43,6 @@ name = "trust_dns_compatibility"
 path = "src/lib.rs"
 
 [dependencies]
+env_logger = "0.4.2"
 trust-dns = "*"
+

@@ -17,6 +17,8 @@ pub fn named_process() -> (NamedProcess, u16) {
     let bind_path = env::var("TDNS_BIND_PATH").unwrap_or("named".to_owned());
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
 
+    println!("Path to BIND '{}' this can be changed with the TDNS_BIND_PATH environment variable", bind_path);
+
     // create the work directory
     let working_dir = format!("{}/../target/bind_pwd", server_path);
     if !Path::new(&working_dir).exists() {
@@ -25,6 +27,7 @@ pub fn named_process() -> (NamedProcess, u16) {
             .expect("failed to create dir");
     }
 
+    println!("starting BIND: {}", bind_path);
     let mut named = Command::new(bind_path)
                       .current_dir(&working_dir)
                       .stderr(Stdio::piped())

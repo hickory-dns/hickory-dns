@@ -52,10 +52,16 @@ tls = ["openssl", "tokio-openssl"]
 name = "trust_dns"
 path = "src/lib.rs"
 
+[[bin]]
+name = "dnskey-to-pem"
+path = "src/dnskey_to_pem.rs"
+
 [dependencies]
 backtrace = "^0.2.1"
 chrono = "^0.2.21"
-data-encoding = "^1.1.2"
+clap = "^2.23.3"
+data-encoding = "^1.2.0"
+env_logger = "0.4.2"
 error-chain = "0.1.12"
 futures = "^0.1.6"
 lazy_static = "^0.2.1"
