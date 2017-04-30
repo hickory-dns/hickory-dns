@@ -43,6 +43,11 @@ name = "trust_dns_compatibility"
 path = "src/lib.rs"
 
 [dependencies]
+chrono = "^0.2.21"
+data-encoding = "^1.2.0"
 env_logger = "0.4.2"
-trust-dns = "*"
+futures = "^0.1.6"
+openssl = { version = "^0.9.8", features = ["v102", "v110"] }
+rand = "^0.3"
+trust-dns = { version = "*", features = ["openssl"] }
 

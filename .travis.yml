@@ -43,11 +43,16 @@ matrix:
     - os: osx
       rust: stable
 
+    - rust: stable
+      env: MODULES="compatibility"
+           TDNS_BIND_PATH=bind-9-11-0-p1/bin/named/named
+
   allow_failure:
     - rust: nightly
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
+  - if [[ "$MODULES" == "compatibility" ]]; then scripts/install_bind.sh ; fi
 script: scripts/run_tests.sh
 after_success: scripts/run_kcov.sh
 notifications:
