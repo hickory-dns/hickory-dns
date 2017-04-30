@@ -45,7 +45,7 @@ matrix:
 
     - rust: stable
       env: MODULES="compatibility"
-           TDNS_BIND_PATH=bind-9-11-0-p1/bin/named/named
+           TDNS_BIND_PATH=bind-9.11.0-P1/bin/named/named
 
   allow_failure:
     - rust: nightly
