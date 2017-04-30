@@ -81,6 +81,7 @@ fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient
 }
 
 #[test]
+#[ignore]
 fn test_create() {
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);

@@ -10,7 +10,7 @@ tar -xzf bind-9.11.0-P1.tar.gz
 
 echo "----> compiling bind"
 cd bind-9.11.0-P1
-.configure
+./configure
 make
 
 ## export TDNS_BIND_PATH=bin/named/named
