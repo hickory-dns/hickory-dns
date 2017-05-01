@@ -1,7 +1,6 @@
 sudo: required
 dist: trusty
 language: rust
-cache: cargo
 
 matrix:
   include:
