@@ -47,6 +47,9 @@ for i in target/debug/deps/trust_dns*-* target/debug/deps/*_tests-* ; do
          target/kcov-$(basename $i) $i
 
     let test_count='test_count+1'
+    
+    # this only works for a single test run upload
+    last_test=$i
   fi
 done
 
@@ -54,8 +57,8 @@ echo "----> ran $test_count test(s)"
 echo "----> merging and uploading to coveralls.io"
 
 if [[ "$test_count" -eq 1 ]] ; then
-  echo kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only target/kcov-*
-  kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only target/kcov-*
+  echo kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only target/kcov-* ${last_test}
+  kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only target/kcov-* ${last_test}
 elif [[ "$test_count" -gt 1 ]] ; then
   echo kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only --merge target/kcov-*
   kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only --merge target/kcov-*
