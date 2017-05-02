@@ -54,6 +54,6 @@ echo "----> merging and uploading to coveralls.io"
 
 if [[ "$test_count" -eq 1 ]] ; then 
   kcov --coveralls-id=${TRAVIS_JOB_ID}
-elif [[ "$test_count" -gt 1 ]]
+elif [[ "$test_count" -gt 1 ]] ; then
   kcov --coveralls-id=${TRAVIS_JOB_ID} --merge target/kcov-*
 fi
