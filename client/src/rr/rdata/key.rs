@@ -158,6 +158,7 @@ use rr::record_data::RData;
 ///               6 and 7 above) always have authority to sign any RRs in
 ///               the zone regardless of the value of the signatory field.
 /// ```
+#[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct KEY {
     key_trust: KeyTrust,
@@ -232,10 +233,11 @@ fn test_key_trust() {
 }
 
 /// Declares what this key is for
+#[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum KeyUsage {
     /// key associated with a "user" or "account" at an end entity, usually a host
-    UserAccount,
+    Host,
     /// zone key for the zone whose name is the KEY RR owner name
     #[deprecated = "For Zone signing DNSKEY should be used"]
     Zone,
@@ -257,7 +259,7 @@ impl From<u16> for KeyUsage {
         // we only care about the 6&7 two bits, zero out the rest
         match flags & 0b0000_0011_0000_0000 {
             // 00: indicates that this is a key associated with a "user" or
-            0b0000_0000_0000_0000 => KeyUsage::UserAccount,
+            0b0000_0000_0000_0000 => KeyUsage::Host,
             // 01: indicates that this is a zone key for the zone whose name
             0b0000_0001_0000_0000 => KeyUsage::Zone,
             // 10: indicates that this is a key associated with the non-zone
@@ -274,7 +276,7 @@ impl From<KeyUsage> for u16 {
     fn from(key_usage: KeyUsage) -> Self {
         match key_usage {
             // 00: indicates that this is a key associated with a "user" or
-            KeyUsage::UserAccount => 0b0000_0000_0000_0000,
+            KeyUsage::Host => 0b0000_0000_0000_0000,
             // 01: indicates that this is a zone key for the zone whose name
             KeyUsage::Zone => 0b0000_0001_0000_0000,
             // 10: indicates that this is a key associated with the non-zone
@@ -380,6 +382,18 @@ fn test_key_usage() {
 ///    apply if the update is within the name and class scope as per
 ///    sections 3.1.1 and 3.1.2.
 /// ```
+///
+/// [RFC 3007](https://tools.ietf.org/html/rfc3007#section-1.5), Secure Dynamic Update, November 2000
+///
+/// ```text
+///    [RFC2535, section 3.1.2] defines the signatory field of a key as the
+///    final 4 bits of the flags field, but does not define its value.  This
+///    proposal leaves this field undefined.  Updating [RFC2535], this field
+///    SHOULD be set to 0 in KEY records, and MUST be ignored.
+///
+/// ```
+#[deprecated = "Deprecated by RFC3007"]
+#[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub struct UpdateScope {
     /// this key is authorized to attach,
@@ -397,17 +411,19 @@ pub struct UpdateScope {
     pub general: bool,
 }
 
+#[allow(deprecated)]
 impl Default for UpdateScope {
     fn default() -> Self {
         UpdateScope {
             zone: false,
             strong: false,
             unique: false,
-            general: true,
+            general: false,
         }
     }
 }
 
+#[allow(deprecated)]
 impl From<u16> for UpdateScope {
     fn from(flags: u16) -> Self {
         // we only care about the final four bits, zero out the rest
@@ -424,6 +440,7 @@ impl From<u16> for UpdateScope {
     }
 }
 
+#[allow(deprecated)]
 impl From<UpdateScope> for u16 {
     fn from(update_scope: UpdateScope) -> Self {
         let mut flags = 0_u16;
@@ -545,6 +562,7 @@ fn test_update_scope() {
 /// ```text
 /// All Protocol Octet values except DNSSEC (3) are eliminated
 /// ```
+#[allow(deprecated)]
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Protocol {
     /// Not in use
@@ -619,6 +637,7 @@ impl KEY {
     /// # Return
     ///
     /// A new KEY RData for use in a Resource Record
+    #[allow(deprecated)]
     pub fn new(key_trust: KeyTrust,
                key_usage: KeyUsage,
                signatory: UpdateScope,
@@ -732,6 +751,7 @@ impl From<KEY> for RData {
 }
 
 /// Read the RData from the given Decoder
+#[allow(deprecated)]
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<KEY> {
     //      0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
     //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+

@@ -235,6 +235,29 @@ impl SIG {
         }
     }
 
+    /// Add actual signature value to existing SIG record data.
+    ///
+    /// # Arguments
+    ///
+    /// * `signature` - signature to be stored in this record.
+    ///
+    /// # Return value
+    ///
+    /// The new SIG record data.
+    pub fn set_sig(self, signature: Vec<u8>) -> Self {
+        SIG {
+            type_covered: self.type_covered,
+            algorithm: self.algorithm,
+            num_labels: self.num_labels,
+            original_ttl: self.original_ttl,
+            sig_expiration: self.sig_expiration,
+            sig_inception: self.sig_inception,
+            key_tag: self.key_tag,
+            signer_name: self.signer_name,
+            sig: signature,
+        }
+    }
+
     /// [RFC 2535, Domain Name System Security Extensions, March 1999](https://tools.ietf.org/html/rfc2535#section-4.1.1)
     ///
     /// ```text
