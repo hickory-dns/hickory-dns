@@ -61,9 +61,9 @@ pub trait Client<C: ClientHandle> {
              query_class: DNSClass,
              query_type: RecordType)
              -> ClientResult<Message> {
-        self.get_io_loop().run(self.get_client_handle().query(name.clone(),
-                                                              query_class,
-                                                              query_type))
+        self.get_io_loop()
+            .run(self.get_client_handle()
+                     .query(name.clone(), query_class, query_type))
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -82,10 +82,9 @@ pub trait Client<C: ClientHandle> {
                  -> ClientResult<Message>
         where R: IntoRecordSet
     {
-        self.get_io_loop().run(self.get_client_handle().notify(name,
-                                                               query_class,
-                                                               query_type,
-                                                               rrset))
+        self.get_io_loop()
+            .run(self.get_client_handle()
+                     .notify(name, query_class, query_type, rrset))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -124,7 +123,8 @@ pub trait Client<C: ClientHandle> {
     fn create<R>(&self, rrset: R, zone_origin: domain::Name) -> ClientResult<Message>
         where R: IntoRecordSet
     {
-        self.get_io_loop().run(self.get_client_handle().create(rrset, zone_origin))
+        self.get_io_loop()
+            .run(self.get_client_handle().create(rrset, zone_origin))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
@@ -168,7 +168,9 @@ pub trait Client<C: ClientHandle> {
                  -> ClientResult<Message>
         where R: IntoRecordSet
     {
-        self.get_io_loop().run(self.get_client_handle().append(rrset, zone_origin, must_exist))
+        self.get_io_loop()
+            .run(self.get_client_handle()
+                     .append(rrset, zone_origin, must_exist))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -220,7 +222,9 @@ pub trait Client<C: ClientHandle> {
         where CR: IntoRecordSet,
               NR: IntoRecordSet
     {
-        self.get_io_loop().run(self.get_client_handle().compare_and_swap(current, new, zone_origin))
+        self.get_io_loop()
+            .run(self.get_client_handle()
+                     .compare_and_swap(current, new, zone_origin))
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -261,7 +265,9 @@ pub trait Client<C: ClientHandle> {
     fn delete_by_rdata<R>(&self, record: R, zone_origin: domain::Name) -> ClientResult<Message>
         where R: IntoRecordSet
     {
-        self.get_io_loop().run(self.get_client_handle().delete_by_rdata(record, zone_origin))
+        self.get_io_loop()
+            .run(self.get_client_handle()
+                     .delete_by_rdata(record, zone_origin))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -300,7 +306,9 @@ pub trait Client<C: ClientHandle> {
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
     fn delete_rrset(&self, record: Record, zone_origin: domain::Name) -> ClientResult<Message> {
-        self.get_io_loop().run(self.get_client_handle().delete_rrset(record, zone_origin))
+        self.get_io_loop()
+            .run(self.get_client_handle()
+                     .delete_rrset(record, zone_origin))
     }
 
     /// Deletes all records at the specified name
@@ -332,9 +340,9 @@ pub trait Client<C: ClientHandle> {
                   zone_origin: domain::Name,
                   dns_class: DNSClass)
                   -> ClientResult<Message> {
-        self.get_io_loop().run(self.get_client_handle().delete_all(name_of_records,
-                                                                   zone_origin,
-                                                                   dns_class))
+        self.get_io_loop()
+            .run(self.get_client_handle()
+                     .delete_all(name_of_records, zone_origin, dns_class))
     }
 }
 
@@ -447,9 +455,9 @@ impl SecureSyncClient {
                         query_class: DNSClass,
                         query_type: RecordType)
                         -> ClientResult<Message> {
-        self.get_io_loop().run(self.get_client_handle().query(query_name.clone(),
-                                                              query_class,
-                                                              query_type))
+        self.get_io_loop()
+            .run(self.get_client_handle()
+                     .query(query_name.clone(), query_class, query_type))
     }
 }
 

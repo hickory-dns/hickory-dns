@@ -1,7 +1,6 @@
 sudo: required
 dist: trusty
 language: rust
-cache: cargo
 
 matrix:
   include:
@@ -14,25 +13,30 @@ matrix:
     # no features
     - rust: stable
       env: MODULES="client"
+           RUN_KCOV=1
            CLIENT_OPTIONS="--no-default-features"
 
     # default features...
     - rust: stable
       env: MODULES="client"
-           
+           RUN_KCOV=1
+
     # just openssl
     - rust: stable
       env: MODULES="client"
+           RUN_KCOV=1
            CLIENT_OPTIONS="--no-default-features --features=openssl"  
 
     # just tls
     - rust: stable
       env: MODULES="client"
+           RUN_KCOV=1
            CLIENT_OPTIONS="--no-default-features --features=tls"
 
     # just ring
     - rust: stable
       env: MODULES="client"
+           RUN_KCOV=1
            CLIENT_OPTIONS="--no-default-features --features=ring" 
 
     # min rust version
@@ -43,11 +47,17 @@ matrix:
     - os: osx
       rust: stable
 
+    - rust: stable
+      env: MODULES="compatibility"
+           TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
+           OPTIONS="--no-default-features --features=bind"
+
   allow_failure:
     - rust: nightly
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
+  - if [[ "$MODULES" == "compatibility" ]]; then scripts/install_bind.sh ; fi
 script: scripts/run_tests.sh
 after_success: scripts/run_kcov.sh
 notifications:
