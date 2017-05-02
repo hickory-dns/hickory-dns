@@ -1,13 +1,13 @@
 ; replace the trust-dns.org with your own name
-@               IN      SOA     trust-dns.org. root.trust-dns.org. (
-                                199609203       ; Serial
-                                28800   ; Refresh
-                                7200    ; Retry
-                                604800  ; Expire
-                                86400)  ; Minimum TTL
-                        NS      trust-dns.org.
+@      86400 IN  SOA trust-dns.org. root.trust-dns.org. (
+                     199609203 ; Serial
+                     28800     ; Refresh
+                     7200      ; Retry
+                     604800    ; Expire
+                     86400)    ; Minimum TTL
+                 NS      trust-dns.org.
 
 www              A        127.0.0.1
                  AAAA     ::1
 
-update IN KEY 256 3 8 AwEAAdEBDjYLWnuuqrWyEm6JYJ/LctpkHu03tYlmEtOlLwibpSGqS1pt wobz73Z1LFW/SG0abwSDD3j5XujrHv8ydGltrqOJmy0Nz8OEvZLb/tsO jNOgyTDHOYR9MnGu9XpgTi4ZDWrTxuSpN7rx9jcZuMEt/3e+ttCGNUZg wss8brTjW9P1GOptjJGMkix14/WHSdpXHga1D4d1hvh7KnNTDM8B6Qdz hs8WCYJrH70ta3cS3rNNSkqtgU5yA1lS/xXe/Cg4GbJh1jPRf1HxqStt vjsOJxUt3elapiWG7uBQQq4z/bK+MHh/JGBudTSALtr9RTXe3QHSpSzi t8tOEfTuIqc=
+update 86400 IN  KEY 256 3 8 AwEAAdEBDjYLWnuuqrWyEm6JYJ/LctpkHu03tYlmEtOlLwibpSGqS1pt wobz73Z1LFW/SG0abwSDD3j5XujrHv8ydGltrqOJmy0Nz8OEvZLb/tsO jNOgyTDHOYR9MnGu9XpgTi4ZDWrTxuSpN7rx9jcZuMEt/3e+ttCGNUZg wss8brTjW9P1GOptjJGMkix14/WHSdpXHga1D4d1hvh7KnNTDM8B6Qdz hs8WCYJrH70ta3cS3rNNSkqtgU5yA1lS/xXe/Cg4GbJh1jPRf1HxqStt vjsOJxUt3elapiWG7uBQQq4z/bK+MHh/JGBudTSALtr9RTXe3QHSpSzi t8tOEfTuIqc=

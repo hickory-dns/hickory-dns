@@ -27,6 +27,8 @@ use trust_dns::udp::UdpClientConnection;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::{DNSClass, Name, Record, RData, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, Signer, KeyPair};
+use trust_dns::rr::rdata::key::KEY;
+use trust_dns::rr::rdata::key::KeyUsage;
 use trust_dns_compatibility::named_process;
 
 #[test]
@@ -59,7 +61,7 @@ fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient
 {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
     let mut pem = File::open(format!("{}/../compatibility/tests/conf/Kupdate.example.com.+008+07134.pem",
-                                 server_path))
+                                     server_path))
             .expect("could not find pem file");
 
     let mut pem_buf = Vec::<u8>::new();
@@ -67,21 +69,26 @@ fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient
         .expect("failed to read pem");
     let rsa = Rsa::private_key_from_pem(&pem_buf).expect("something wrong with key from pem");
     let key = KeyPair::from_rsa(rsa).unwrap();
+    let dns_key = KEY::new(Default::default(),
+                           KeyUsage::Host,
+                           Default::default(),
+                           Default::default(),
+                           Algorithm::RSASHA256,
+                           pem_buf.to_owned());
 
-    let signer = Signer::new(Algorithm::RSASHA256,
-                             key,
-                             Name::with_labels(vec!["update".to_string(),
-                                                    "example".to_string(),
-                                                    "com".to_string()]),
-                             Duration::max_value(),
-                             true,
-                             true);
+    let signer = Signer::sig0_verifier(dns_key,
+                                       Algorithm::RSASHA256,
+                                       key,
+                                       Name::with_labels(vec!["update".to_string(),
+                                                              "example".to_string(),
+                                                              "com".to_string()]),
+                                       false,
+                                       true);
 
     SyncClient::with_signer(conn, signer)
 }
 
 #[test]
-#[ignore]
 fn test_create() {
     let (process, port) = named_process();
     let socket = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), port);

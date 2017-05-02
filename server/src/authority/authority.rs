@@ -520,7 +520,7 @@ impl Authority {
                                                               true);
 
                     signer
-                        .verify_message(update_message, sig.sig())
+                        .verify_message(update_message, sig.sig(), sig)
                         .map(|_| {
                                  info!("verified sig: {:?} with key: {:?}", sig, key);
                                  true
