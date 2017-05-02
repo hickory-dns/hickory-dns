@@ -40,14 +40,20 @@ EXCLUDE_PATHS=client/src/error,server/src/error
 for i in target/debug/deps/trust_dns*-* target/debug/deps/*_tests-* ; do
   if [ -f $i ] && [ -x $i ]; then
     # submit the report... what's the executable since there are many?
-    echo "executing kcov on $i"
+    echo "----> executing kcov on $i"
     kcov --exclude-pattern=/.cargo \
          --include-path=${SRC_PATHS} \
          --exclude-path=${EXCLUDE_PATHS} \
          target/kcov-$(basename $i) $i
+
+    let test_count='test_count+1'
   fi
 done
 
-echo "merging and uploading to coveralls.io"
-kcov --coveralls-id=${TRAVIS_JOB_ID} \
-     --merge target/kcov-*
+echo "----> merging and uploading to coveralls.io"
+
+if [[ "$test_count" -eq 1 ]] ; then 
+  kcov --coveralls-id=${TRAVIS_JOB_ID}
+elif [[ "$test_count" -gt 1 ]]
+  kcov --coveralls-id=${TRAVIS_JOB_ID} --merge target/kcov-*
+fi
