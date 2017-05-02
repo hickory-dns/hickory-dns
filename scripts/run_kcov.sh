@@ -54,8 +54,8 @@ echo "----> ran $test_count test(s)"
 echo "----> merging and uploading to coveralls.io"
 
 if [[ "$test_count" -eq 1 ]] ; then 
-  echo kcov --coveralls-id=${TRAVIS_JOB_ID}
-  kcov --coveralls-id=${TRAVIS_JOB_ID}
+  echo kcov --coveralls-id=${TRAVIS_JOB_ID} target/kcov-*
+  kcov --coveralls-id=${TRAVIS_JOB_ID} target/kcov-*
 elif [[ "$test_count" -gt 1 ]] ; then
   echo kcov --coveralls-id=${TRAVIS_JOB_ID} --merge target/kcov-*
   kcov --coveralls-id=${TRAVIS_JOB_ID} --merge target/kcov-*
