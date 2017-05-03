@@ -237,7 +237,7 @@ pub fn test_covers() {
     let ds_rdata = DS::new(0,
                            Algorithm::RSASHA256,
                            DigestType::SHA256,
-                           dnskey_rdata.to_digest(&name, DigestType::SHA256).unwrap());
+                           dnskey_rdata.to_digest(&name, DigestType::SHA256).unwrap().to_vec());
 
     assert!(ds_rdata.covers(&name, &dnskey_rdata).unwrap());
 }

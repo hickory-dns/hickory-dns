@@ -300,12 +300,9 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
 
     // add the key to the zone
     // TODO: allow the duration of signatutes to be customized
-    Ok(Signer::new(Algorithm::RSASHA256,
-                   key,
-                   name,
-                   Duration::weeks(52),
-                   true,
-                   true))
+    let dnskey = try!(key.to_dnskey(algorithm)
+                          .map_err(|e| format!("error converting to dnskey: {}", e)));
+    Ok(Signer::dnssec(dnskey.clone(), key, name, Duration::weeks(52), true))
 }
 
 fn read_cert(path: &Path, password: Option<&str>) -> Result<ParsedPkcs12, String> {

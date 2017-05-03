@@ -15,8 +15,11 @@
  */
 #[cfg(feature = "openssl")]
 use std::io::Write;
+
 #[cfg(feature = "openssl")]
 use openssl::hash;
+#[cfg(feature = "openssl")]
+use openssl::hash::DigestBytes;
 
 use error::*;
 #[cfg(feature = "openssl")]
@@ -147,7 +150,7 @@ impl Nsec3HashAlgorithm {
     ///        substitution);
     /// ```
     #[cfg(feature = "openssl")]
-    pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> DnsSecResult<Vec<u8>> {
+    pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> DnsSecResult<DigestBytes> {
         match *self {
             // if there ever is more than just SHA1 support, this should be a genericized method
             Nsec3HashAlgorithm::SHA1 => {
@@ -165,7 +168,7 @@ impl Nsec3HashAlgorithm {
 
     /// until there is another supported algorithm, just hardcoded to this.
     #[cfg(feature = "openssl")]
-    fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> DnsSecResult<Vec<u8>> {
+    fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> DnsSecResult<DigestBytes> {
         let digest_type = try!(DigestType::SHA1.to_openssl_digest());
         hash::Hasher::new(digest_type)
             .map_err(|e| e.into())
@@ -177,7 +180,7 @@ impl Nsec3HashAlgorithm {
                     try!(hasher.write_all(&bytes));
                 }
                 try!(hasher.write_all(salt));
-                hasher.finish().map_err(|e| e.into())
+                hasher.finish2().map_err(|e| e.into())
             })
     }
 }

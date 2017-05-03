@@ -1,11 +1,13 @@
-use std::fs::DirBuilder;
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 use std::env;
 use std::mem;
-use std::path::Path;
 use std::process::{Command, Stdio};
-
-use data_encoding::base32;
-use rand;
 
 use super::*;
 
@@ -18,27 +20,15 @@ pub fn named_process() -> (NamedProcess, u16) {
     let test_port = find_test_port();
 
     let bind_path = env::var("TDNS_BIND_PATH").unwrap_or("named".to_owned());
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
-
+    
     println!("Path to BIND '{}' this can be changed with the TDNS_BIND_PATH environment variable",
              bind_path);
 
-    // create the work directory
-    let rand = rand::random::<u32>();
-    let rand = base32::encode(&[rand as u8,
-                                (rand >> 8) as u8,
-                                (rand >> 16) as u8,
-                                (rand >> 24) as u8]);
-    let working_dir = format!("{}/../target/bind_pwd_{}", server_path, rand);
-    println!("BIND working directory: {}", working_dir);
-    if !Path::new(&working_dir).exists() {
-        DirBuilder::new()
-            .recursive(true)
-            .create(&working_dir)
-            .expect("failed to create dir");
-    }
+    let working_dir = new_working_dir();
+    println!("---> BIND working directory: {}", working_dir);
 
-    println!("starting BIND: {}", bind_path);
+    // start up bind
+    println!("---> starting BIND: {}", bind_path);
     let mut named = Command::new(bind_path)
                       .current_dir(&working_dir)
                       .stderr(Stdio::piped())
@@ -52,6 +42,6 @@ pub fn named_process() -> (NamedProcess, u16) {
 
     //
     let stderr = mem::replace(&mut named.stderr, None).unwrap();
-    let process = wrap_process(named, stderr, "running\n");
+    let process = wrap_process(working_dir, named, stderr, "running\n");
     (process, test_port)
 }
