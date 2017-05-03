@@ -22,6 +22,7 @@ use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
 use tokio_core::reactor::Core;
 
+#[allow(unused)]
 use {TlsStream, TlsStreamBuilder};
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
@@ -59,7 +60,7 @@ fn read_file(path: &str) -> Vec<u8> {
     bytes
 }
 
-#[allow(unused_mut)]
+#[allow(unused, unused_mut)]
 fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let succeeded = Arc::new(atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();

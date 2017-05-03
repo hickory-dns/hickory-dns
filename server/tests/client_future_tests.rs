@@ -25,7 +25,6 @@ use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, IntoRecordSet, RData, Record, RecordType, RecordSet};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
-use trust_dns::rr::rdata::*;
 use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns_server::authority::Catalog;
@@ -195,31 +194,21 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 
+    let trusted_name = domain::Name::with_labels(vec!["trusted".to_string(),
+                                                      "example".to_string(),
+                                                      "com".to_string()]);
+
     let rsa = Rsa::generate(512).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
+    let sig0_key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
 
-    let signer = Signer::new(Algorithm::RSASHA256,
-                             key,
-                             domain::Name::with_labels(vec!["trusted".to_string(),
-                                                            "example".to_string(),
-                                                            "com".to_string()]),
-                             Duration::max_value(),
-                             true,
-                             true);
+    let signer = Signer::sig0(sig0_key.clone(), key, trusted_name.clone(), true);
 
     // insert the KEY for the trusted.example.com
-    let mut auth_key = Record::with(domain::Name::with_labels(vec!["trusted".to_string(),
-                                                                   "example".to_string(),
-                                                                   "com".to_string()]),
+    let mut auth_key = Record::with(trusted_name,
                                     RecordType::KEY,
                                     Duration::minutes(5).num_seconds() as u32);
-    auth_key
-        .set_rdata(RData::KEY(KEY::new(Default::default(),
-                                       Default::default(),
-                                       Default::default(),
-                                       Default::default(),
-                                       signer.algorithm(),
-                                       signer.key().to_public_bytes().expect("to_vec failed"))));
+    auth_key.set_rdata(RData::KEY(sig0_key));
     authority.upsert(auth_key, 0);
 
     // setup the catalog

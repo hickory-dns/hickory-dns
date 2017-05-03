@@ -21,6 +21,7 @@ use std::default::Default;
 #[cfg(feature = "openssl")]
 use openssl::rsa::Rsa;
 
+#[cfg(feature = "openssl")]
 use rr::dnssec::KeyPair;
 
 #[cfg(feature = "openssl")]

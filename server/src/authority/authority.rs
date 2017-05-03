@@ -512,12 +512,8 @@ impl Authority {
                     }
 
                     let pkey = pkey.unwrap();
-                    let signer: Signer = Signer::sig0_verifier(key.clone(),
-                                                              *key.algorithm(),
-                                                              pkey,
-                                                              sig.signer_name().clone(),
-                                                              false,
-                                                              true);
+                    let signer: Signer =
+                        Signer::sig0(key.clone(), pkey, sig.signer_name().clone(), true);
 
                     signer
                         .verify_message(update_message, sig.sig(), sig)

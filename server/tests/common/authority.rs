@@ -168,12 +168,12 @@ pub fn create_secure_example() -> Authority {
     let mut authority: Authority = create_example();
     let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
-    let signer = Signer::new(Algorithm::RSASHA256,
-                             key,
-                             authority.origin().clone(),
-                             Duration::weeks(1),
-                             true,
-                             true);
+    let dnskey = key.to_dnskey(Algorithm::RSASHA256).unwrap();
+    let signer = Signer::dnssec(dnskey,
+                                key,
+                                authority.origin().clone(),
+                                Duration::weeks(1),
+                                true);
 
     authority.add_secure_key(signer);
     authority.secure_zone();

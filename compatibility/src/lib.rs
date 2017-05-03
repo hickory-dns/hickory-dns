@@ -8,11 +8,17 @@
 extern crate data_encoding;
 extern crate rand;
 
+use std::env;
+use std::fs;
+use std::fs::DirBuilder;
 use std::io::{BufRead, BufReader, Read, stdout, Write};
+use std::path::Path;
 use std::process::Child;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
+
+use data_encoding::base32;
 
 mod bind;
 mod none;
@@ -30,6 +36,7 @@ fn find_test_port() -> u16 {
 }
 
 pub struct NamedProcess {
+    working_dir: String,
     named: Child,
     thread_notice: Arc<AtomicBool>,
 }
@@ -40,10 +47,33 @@ impl Drop for NamedProcess {
         self.named.wait().expect("waiting failed");
 
         self.thread_notice.store(true, Ordering::Relaxed);
+
+        println!("----> cleanup work dir: {}", self.working_dir);
+        fs::remove_dir_all(&self.working_dir);
     }
 }
 
-fn wrap_process<R>(named: Child, io: R, started_str: &str) -> NamedProcess
+fn new_working_dir() -> String {
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+
+    let rand = rand::random::<u32>();
+    let rand = base32::encode(&[rand as u8,
+                                (rand >> 8) as u8,
+                                (rand >> 16) as u8,
+                                (rand >> 24) as u8]);
+    let working_dir = format!("{}/../target/bind_pwd_{}", server_path, rand);
+
+    if !Path::new(&working_dir).exists() {
+        DirBuilder::new()
+            .recursive(true)
+            .create(&working_dir)
+            .expect("failed to create dir");
+    }
+
+    working_dir
+}
+
+fn wrap_process<R>(working_dir: String, named: Child, io: R, started_str: &str) -> NamedProcess
     where R: Read + Send + 'static
 {
     let mut named_out = BufReader::new(io);
@@ -92,6 +122,7 @@ fn wrap_process<R>(named: Child, io: R, started_str: &str) -> NamedProcess
 
     // return handle to child process
     NamedProcess {
+        working_dir: working_dir,
         named: named,
         thread_notice: thread_notice,
     }

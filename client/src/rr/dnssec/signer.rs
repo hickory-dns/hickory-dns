@@ -23,14 +23,15 @@ use op::Message;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::{DNSClass, Name, Record, RecordType, RData};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::{Algorithm, DigestType, DnsSecErrorKind, DnsSecResult};
-use rr::dnssec::KeyPair;
+use rr::dnssec::{Algorithm, DnsSecErrorKind, DnsSecResult, KeyPair};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSKEY, KEY, sig, SIG};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
 /// Use for performing signing and validation of DNSSec based components.
+///
+/// TODO: warning this struct and it's impl are under high volatility, expect breaking changes
 ///
 /// [RFC 4035](https://tools.ietf.org/html/rfc4035), DNSSEC Protocol Modifications, March 2005
 ///
@@ -248,39 +249,56 @@ pub struct Signer;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 impl Signer {
     /// Version of Signer for verifying RRSIGs and SIG0 records.
-    pub fn dnssec_verifier(key_rdata: DNSKEY,
-                           algorithm: Algorithm,
-                           key: KeyPair,
-                           signer_name: Name,
-                           is_zone_signing_key: bool,
-                           is_zone_update_auth: bool)
-                           -> Self {
+    ///
+    /// # Arguments
+    ///
+    /// * `key_rdata` - the DNSKEY and public key material
+    /// * `key` - the private key for signing, unless validating, where just the public key is necessary
+    /// * `signer_name` - name in the zone to which this DNSKEY is bound
+    /// * `sig_duration` - time period for which this key is valid, 0 when verifying
+    /// * `is_zone_update_auth` - this key may be used for updating the zone
+    pub fn dnssec(key_rdata: DNSKEY,
+                  key: KeyPair,
+                  signer_name: Name,
+                  sig_duration: Duration,
+                  is_zone_update_auth: bool)
+                  -> Self {
+        let algorithm = *key_rdata.algorithm();
+        let is_zone_signing_key = key_rdata.zone_key();
+
         Signer {
             key_rdata: key_rdata.into(),
             key: key,
             algorithm: algorithm,
             signer_name: signer_name,
-            sig_duration: Duration::zero(),
+            sig_duration: sig_duration,
             is_zone_signing_key: is_zone_signing_key,
             is_zone_update_auth: is_zone_update_auth,
         }
     }
 
     /// Version of Signer for verifying RRSIGs and SIG0 records.
-    pub fn sig0_verifier(key_rdata: KEY,
-                         algorithm: Algorithm,
-                         key: KeyPair,
-                         signer_name: Name,
-                         is_zone_signing_key: bool,
-                         is_zone_update_auth: bool)
-                         -> Self {
+    ///
+    /// # Arguments
+    ///
+    /// * `key_rdata` - the KEY and public key material
+    /// * `key` - the private key for signing, unless validating, where just the public key is necessary
+    /// * `signer_name` - name in the zone to which this DNSKEY is bound
+    /// * `is_zone_update_auth` - this key may be used for updating the zone
+    pub fn sig0(key_rdata: KEY,
+                key: KeyPair,
+                signer_name: Name,
+                is_zone_update_auth: bool)
+                -> Self {
+        let algorithm = *key_rdata.algorithm();
+
         Signer {
             key_rdata: key_rdata.into(),
             key: key,
             algorithm: algorithm,
             signer_name: signer_name,
             sig_duration: Duration::zero(),
-            is_zone_signing_key: is_zone_signing_key,
+            is_zone_signing_key: false,
             is_zone_update_auth: is_zone_update_auth,
         }
     }
@@ -807,12 +825,8 @@ mod tests {
 
         let rsa = Rsa::generate(512).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let signer = Signer::new(Algorithm::RSASHA256,
-                                 key,
-                                 Name::root(),
-                                 Duration::max_value(),
-                                 true,
-                                 true);
+        let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+        let signer = Signer::sig0(sig0key, key, Name::root(), true);
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
         let sig = signer.sign_message(&question, &pre_sig0).unwrap();
@@ -838,12 +852,8 @@ mod tests {
     fn test_hash_rrset() {
         let rsa = Rsa::generate(512).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let signer = Signer::new(Algorithm::RSASHA256,
-                                 key,
-                                 Name::root(),
-                                 Duration::max_value(),
-                                 true,
-                                 true);
+        let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+        let signer = Signer::sig0(sig0key, key, Name::root(), true);
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let rrsig = Record::new()
@@ -927,12 +937,8 @@ mod tests {
     fn test_sign_and_verify_rrset() {
         let rsa = Rsa::generate(512).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let signer = Signer::new(Algorithm::RSASHA256,
-                                 key,
-                                 Name::root(),
-                                 Duration::max_value(),
-                                 true,
-                                 true);
+        let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+        let signer = Signer::sig0(sig0key, key, Name::root(), true);
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let rrsig = Record::new()
@@ -978,12 +984,8 @@ mod tests {
         println!("pkey: {:?}", rsa.public_key_to_pem().unwrap());
 
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let signer = Signer::new(Algorithm::RSASHA256,
-                                 key,
-                                 Name::root(),
-                                 Duration::max_value(),
-                                 true,
-                                 true);
+        let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+        let signer = Signer::sig0(sig0key, key, Name::root(), true);
         let key_tag = signer.calculate_key_tag().unwrap();
 
         println!("key_tag: {}", key_tag);

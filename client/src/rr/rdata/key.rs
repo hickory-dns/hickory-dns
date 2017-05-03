@@ -184,7 +184,7 @@ pub enum KeyTrust {
 
 impl Default for KeyTrust {
     fn default() -> Self {
-        KeyTrust::NotPrivate
+        KeyTrust::AuthOrPrivate
     }
 }
 
@@ -290,8 +290,8 @@ impl From<KeyUsage> for u16 {
 #[test]
 #[allow(deprecated)]
 fn test_key_usage() {
-    assert_eq!(KeyUsage::UserAccount,
-               KeyUsage::from(u16::from(KeyUsage::UserAccount)));
+    assert_eq!(KeyUsage::Host,
+               KeyUsage::from(u16::from(KeyUsage::Host)));
     assert_eq!(KeyUsage::Zone, KeyUsage::from(u16::from(KeyUsage::Zone)));
     assert_eq!(KeyUsage::Entity,
                KeyUsage::from(u16::from(KeyUsage::Entity)));
@@ -466,6 +466,7 @@ impl From<UpdateScope> for u16 {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_update_scope() {
     assert_eq!(UpdateScope::default(),
                UpdateScope::from(u16::from(UpdateScope::default())));

@@ -16,7 +16,7 @@
 #[cfg(feature = "openssl")]
 use openssl::hash;
 #[cfg(feature = "openssl")]
-use openssl::hash::MessageDigest;
+use openssl::hash::{DigestBytes, MessageDigest};
 
 use rr::dnssec::Algorithm;
 use error::*;
@@ -77,8 +77,8 @@ impl DigestType {
 
     /// Hash the data
     #[cfg(feature = "openssl")]
-    pub fn hash(&self, data: &[u8]) -> DnsSecResult<Vec<u8>> {
-        hash::hash(try!(self.to_openssl_digest()), data).map_err(|e| e.into())
+    pub fn hash(&self, data: &[u8]) -> DnsSecResult<DigestBytes> {
+        hash::hash2(try!(self.to_openssl_digest()), data).map_err(|e| e.into())
     }
 
     /// This will always error, enable openssl feature at compile time

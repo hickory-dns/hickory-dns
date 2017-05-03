@@ -12,13 +12,15 @@ use std::rc::Rc;
 
 use futures::*;
 
+#[cfg(feature = "openssl")]
+use chrono::Duration;
 use client::ClientHandle;
 use error::*;
 use op::{Message, OpCode, Query};
 use rr::{domain, DNSClass, RData, Record, RecordType};
-use rr::dnssec::{Algorithm, KeyPair, SupportedAlgorithms, TrustAnchor};
+use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 #[cfg(feature = "openssl")]
-use rr::dnssec::Signer;
+use rr::dnssec::{KeyPair, Signer};
 use rr::rdata::{DNSKEY, SIG};
 use rr::rdata::opt::EdnsOption;
 
@@ -702,12 +704,11 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
     }
     let pkey = pkey.unwrap();
 
-    let signer: Signer = Signer::dnssec_verifier(dnskey.clone(),
-                                                 *dnskey.algorithm(),
-                                                 pkey,
-                                                 sig.signer_name().clone(),
-                                                 dnskey.zone_key(),
-                                                 false);
+    let signer: Signer = Signer::dnssec(dnskey.clone(),
+                                        pkey,
+                                        sig.signer_name().clone(),
+                                        Duration::zero(),
+                                        false);
 
     signer
         .hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)

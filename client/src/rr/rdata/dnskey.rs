@@ -16,11 +16,14 @@
 
 //! public key record data for signing zone records
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use rr::dnssec::{Algorithm, DigestType};
 use rr::Name;
 use rr::record_data::RData;
+
+#[cfg(feature = "openssl")]
+use openssl::hash::DigestBytes;
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
@@ -89,7 +92,7 @@ impl DNSKEY {
     /// * `public_key` - the public key material, in native endian, the emitter will perform any necessary conversion
     ///
     /// # Return
-    /// 
+    ///
     /// A new DNSKEY RData for use in a Resource Record
     pub fn new(zone_key: bool,
                secure_entry_point: bool,
@@ -213,20 +216,26 @@ impl DNSKEY {
     ///
     /// * `name` - the label of of the DNSKEY record.
     /// * `digest_type` - the `DigestType` with which to create the message digest.
-    pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> DnsSecResult<Vec<u8>> {
+    #[cfg(feature = "openssl")]
+    pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> DnsSecResult<DigestBytes> {
         let mut buf: Vec<u8> = Vec::new();
         {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
             encoder.set_canonical_names(true);
             if let Err(e) = name.emit(&mut encoder)
-                .and_then(|_| emit(&mut encoder, self)) {
+                   .and_then(|_| emit(&mut encoder, self)) {
                 warn!("error serializing dnskey: {}", e);
                 return Err(DnsSecErrorKind::Msg(format!("error serializing dnskey: {}", e)).into());
             }
         }
 
-        digest_type.hash(&buf)
-            .map_err(|e| e.into())
+        digest_type.hash(&buf).map_err(|e| e.into())
+    }
+
+    /// This method is only supported when OpenSSL is enabled, `cargo build --features=openssl`
+    #[cfg(not(feature = "openssl"))]
+    pub fn to_digest(&self, _: &Name, _: DigestType) -> DnsSecResult<Vec<u8>> {
+        panic!("digests require OpenSSL to be enabled, 'cargo build --features=openssl'")
     }
 }
 
@@ -331,7 +340,8 @@ pub fn test() {
             format!("error decoding: {:?}", read_rdata.unwrap_err()));
     assert_eq!(rdata, read_rdata.unwrap());
   #[cfg(feature = "openssl")]
-    assert!(rdata.to_digest(&Name::parse("www.example.com.", None).unwrap(),
-                   DigestType::SHA256)
-        .is_ok());
+    assert!(rdata
+                .to_digest(&Name::parse("www.example.com.", None).unwrap(),
+                           DigestType::SHA256)
+                .is_ok());
 }

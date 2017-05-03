@@ -18,7 +18,9 @@ use std::io;
 use futures::Stream;
 use tokio_core::reactor::Core;
 
-use client::{ClientHandle, BasicClientHandle, ClientConnection, ClientFuture, SecureClientHandle};
+use client::{ClientHandle, BasicClientHandle, ClientConnection, ClientFuture};
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use client::SecureClientHandle;
 use error::*;
 use rr::{domain, DNSClass, IntoRecordSet, RecordType, Record};
 use rr::dnssec::Signer;
