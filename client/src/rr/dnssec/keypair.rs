@@ -210,10 +210,8 @@ impl KeyPair {
                 //  An Ed25519 public key consists of a 32-octet value, which is encoded
                 //  into the Public Key field of a DNSKEY resource record as a simple bit
                 //  string.  The generation of a public key is defined in Section 5.1.5
-                //  in [I-D.irtf-cfrg-eddsa].
-                //
-                // **NOTE: not specified in the RFC is the byte order, assuming it is
-                //  BigEndian/NetworkByteOrder.
+                //  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
+                //  endian byte order.
                 if public_key.len() != 32 {
                     return Err(DnsSecErrorKind::Msg(format!("expected 32 byte public_key: {}",
                                                             public_key.len()))
