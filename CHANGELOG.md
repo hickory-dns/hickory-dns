@@ -8,13 +8,19 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - AppVeyor support #103
 - rustls client tls support (seperate crate)
 - full support for KEY RR in client
+- compatibility tests with BIND for SIG0 updates
+- Added full implementation of KEY type
 
 ### Changed
-- Fixed TLS documentation, added more elsewhere, docs required; fixes #102
+- Updated TLS documentation, added more elsewhere, docs required; fixes #102
 - Upgraded tokio-core and moved to tokio-io
 - *Important* Some `Server` types have been migrated to [RFC#344](https://github.com/aturon/rfcs/blob/conventions-galore/active/0000-conventions-galore.md#gettersetter-apis) style. `get_field()` -> `field()`; `field()` -> `set_field()`
 - Moved native-tls client impl to seperate crate
 - Defaulted to OpenSSL for tls implementation
+
+### Fixed
+- key_tag calculation for DNSKEY and KEY now correct #118 (@jannic)
+- SIG0 signing fixed to match RFC and BIND #120 (@jannic)
 
 ## 0.10.0
 ### Changed
