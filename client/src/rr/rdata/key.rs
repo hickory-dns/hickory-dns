@@ -290,8 +290,7 @@ impl From<KeyUsage> for u16 {
 #[test]
 #[allow(deprecated)]
 fn test_key_usage() {
-    assert_eq!(KeyUsage::Host,
-               KeyUsage::from(u16::from(KeyUsage::Host)));
+    assert_eq!(KeyUsage::Host, KeyUsage::from(u16::from(KeyUsage::Host)));
     assert_eq!(KeyUsage::Zone, KeyUsage::from(u16::from(KeyUsage::Zone)));
     assert_eq!(KeyUsage::Entity,
                KeyUsage::from(u16::from(KeyUsage::Entity)));
@@ -664,6 +663,12 @@ impl KEY {
     /// Returns the entity type using this key
     pub fn key_usage(&self) -> KeyUsage {
         self.key_usage
+    }
+
+    /// Returns the signatory information of the KEY
+    #[allow(deprecated)]
+    pub fn signatory(&self) -> UpdateScope {
+        self.signatory
     }
 
     /// Returns true if the key_trust is DoNotTrust

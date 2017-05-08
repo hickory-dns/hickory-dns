@@ -202,7 +202,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     let key = KeyPair::from_rsa(rsa).unwrap();
     let sig0_key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
 
-    let signer = Signer::sig0(sig0_key.clone(), key, trusted_name.clone(), true);
+    let signer = Signer::sig0(sig0_key.clone(), key, trusted_name.clone());
 
     // insert the KEY for the trusted.example.com
     let mut auth_key = Record::with(trusted_name,

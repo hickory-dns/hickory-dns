@@ -707,8 +707,7 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
     let signer: Signer = Signer::dnssec(dnskey.clone(),
                                         pkey,
                                         sig.signer_name().clone(),
-                                        Duration::zero(),
-                                        false);
+                                        Duration::zero());
 
     signer
         .hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)
