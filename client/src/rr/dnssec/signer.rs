@@ -239,7 +239,6 @@ pub struct Signer {
     signer_name: Name,
     sig_duration: Duration,
     is_zone_signing_key: bool,
-    is_zone_update_auth: bool,
 }
 
 /// Placeholder type for when OpenSSL and *ring* are disabled; enable OpenSSL and Ring for support
@@ -260,8 +259,7 @@ impl Signer {
     pub fn dnssec(key_rdata: DNSKEY,
                   key: KeyPair,
                   signer_name: Name,
-                  sig_duration: Duration,
-                  is_zone_update_auth: bool)
+                  sig_duration: Duration)
                   -> Self {
         let algorithm = *key_rdata.algorithm();
         let is_zone_signing_key = key_rdata.zone_key();
@@ -273,7 +271,6 @@ impl Signer {
             signer_name: signer_name,
             sig_duration: sig_duration,
             is_zone_signing_key: is_zone_signing_key,
-            is_zone_update_auth: is_zone_update_auth,
         }
     }
 
@@ -285,11 +282,7 @@ impl Signer {
     /// * `key` - the private key for signing, unless validating, where just the public key is necessary
     /// * `signer_name` - name in the zone to which this DNSKEY is bound
     /// * `is_zone_update_auth` - this key may be used for updating the zone
-    pub fn sig0(key_rdata: KEY,
-                key: KeyPair,
-                signer_name: Name,
-                is_zone_update_auth: bool)
-                -> Self {
+    pub fn sig0(key_rdata: KEY, key: KeyPair, signer_name: Name) -> Self {
         let algorithm = *key_rdata.algorithm();
 
         Signer {
@@ -299,7 +292,6 @@ impl Signer {
             signer_name: signer_name,
             sig_duration: Duration::zero(),
             is_zone_signing_key: false,
-            is_zone_update_auth: is_zone_update_auth,
         }
     }
 
@@ -310,7 +302,7 @@ impl Signer {
                signer_name: Name,
                sig_duration: Duration,
                is_zone_signing_key: bool,
-               is_zone_update_auth: bool)
+               _: bool)
                -> Self {
         let dnskey =
             key.to_dnskey(algorithm)
@@ -323,7 +315,6 @@ impl Signer {
             signer_name: signer_name,
             sig_duration: sig_duration,
             is_zone_signing_key: is_zone_signing_key,
-            is_zone_update_auth: is_zone_update_auth,
         }
     }
 
@@ -352,11 +343,6 @@ impl Signer {
     /// A hint to the DNSKey associated with this Signer can be used to sign/validate records in the zone
     pub fn is_zone_signing_key(&self) -> bool {
         self.is_zone_signing_key
-    }
-
-    /// The associated key can be used for dynamic updates
-    pub fn is_zone_update_auth(&self) -> bool {
-        self.is_zone_update_auth
     }
 
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
@@ -826,7 +812,7 @@ mod tests {
         let rsa = Rsa::generate(512).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
-        let signer = Signer::sig0(sig0key, key, Name::root(), true);
+        let signer = Signer::sig0(sig0key, key, Name::root());
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
         let sig = signer.sign_message(&question, &pre_sig0).unwrap();
@@ -853,7 +839,7 @@ mod tests {
         let rsa = Rsa::generate(512).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
-        let signer = Signer::sig0(sig0key, key, Name::root(), true);
+        let signer = Signer::sig0(sig0key, key, Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let rrsig = Record::new()
@@ -938,7 +924,7 @@ mod tests {
         let rsa = Rsa::generate(512).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
-        let signer = Signer::sig0(sig0key, key, Name::root(), true);
+        let signer = Signer::sig0(sig0key, key, Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
         let rrsig = Record::new()
@@ -985,7 +971,7 @@ mod tests {
 
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
-        let signer = Signer::sig0(sig0key, key, Name::root(), true);
+        let signer = Signer::sig0(sig0key, key, Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 
         println!("key_tag: {}", key_tag);

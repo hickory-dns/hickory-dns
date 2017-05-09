@@ -81,8 +81,7 @@ fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient
                               key,
                               Name::with_labels(vec!["update".to_string(),
                                                      "example".to_string(),
-                                                     "com".to_string()]),
-                              true);
+                                                     "com".to_string()]));
 
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
 

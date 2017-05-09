@@ -302,7 +302,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     // TODO: allow the duration of signatutes to be customized
     let dnskey = try!(key.to_dnskey(algorithm)
                           .map_err(|e| format!("error converting to dnskey: {}", e)));
-    Ok(Signer::dnssec(dnskey.clone(), key, name, Duration::weeks(52), true))
+    Ok(Signer::dnssec(dnskey.clone(), key, name, Duration::weeks(52)))
 }
 
 fn read_cert(path: &Path, password: Option<&str>) -> Result<ParsedPkcs12, String> {
