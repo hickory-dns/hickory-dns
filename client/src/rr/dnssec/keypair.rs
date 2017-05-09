@@ -218,11 +218,6 @@ impl KeyPair {
                                        .into());
                 }
 
-                // these are LittleEndian encoded bytes... we need to special case
-                //  serialzation/deserialization for endianess. why, Intel, why...
-                let mut public_key = public_key.to_vec();
-                public_key.reverse();
-
                 let mut ed_key_pair = Ed25519KeyPairBytes {
                     private_key: [0_u8; 32],
                     public_key: [0_u8; 32],
@@ -295,11 +290,7 @@ impl KeyPair {
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => {
-                // this is "little endian" encoded bytes... we need to special case
-                //  serialzation/deserialization for endianess. why, Intel, why...
-                let mut pub_key = ed_key.public_key.to_vec();
-                pub_key.reverse();
-                Ok(pub_key)
+                Ok(ed_key.public_key.to_vec())
             }
             // #[cfg(not(all(feature = "openssl", feature = "ring")))]
             // _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
