@@ -21,7 +21,8 @@ use openssl::nid;
 #[cfg(feature = "ring")]
 use ring::rand;
 #[cfg(feature = "ring")]
-use ring::signature::{Ed25519KeyPair, Ed25519KeyPairBytes, EdDSAParameters, VerificationAlgorithm};
+use ring::signature::{Ed25519KeyPair, ED25519_PUBLIC_KEY_LEN, EdDSAParameters,
+                      VerificationAlgorithm};
 #[cfg(feature = "ring")]
 use untrusted::Input;
 
@@ -44,7 +45,7 @@ pub enum KeyPair {
     EC(PKey),
     /// ED25519 ecryption and hash defined keypair
     #[cfg(feature = "ring")]
-    ED25519(Ed25519KeyPairBytes),
+    ED25519(Ed25519KeyPair),
 }
 
 
@@ -79,7 +80,7 @@ impl KeyPair {
 
     /// Creates an ED25519 keypair.
     #[cfg(feature = "ring")]
-    pub fn from_ed25519(ed_key: Ed25519KeyPairBytes) -> Self {
+    pub fn from_ed25519(ed_key: Ed25519KeyPair) -> Self {
         KeyPair::ED25519(ed_key)
     }
 
@@ -203,31 +204,29 @@ impl KeyPair {
                 .map(|pkey| KeyPair::EC(pkey))
                 .map_err(|e| e.into())
             }
-            #[cfg(feature = "ring")]
-            Algorithm::ED25519 => {
-                // Internet-Draft              EdDSA for DNSSEC               December 2016
-                //
-                //  An Ed25519 public key consists of a 32-octet value, which is encoded
-                //  into the Public Key field of a DNSKEY resource record as a simple bit
-                //  string.  The generation of a public key is defined in Section 5.1.5
-                //  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
-                //  endian byte order.
-                if public_key.len() != 32 {
-                    return Err(DnsSecErrorKind::Msg(format!("expected 32 byte public_key: {}",
-                                                            public_key.len()))
-                                       .into());
-                }
+            // #[cfg(feature = "ring")]
+            // Algorithm::ED25519 => {
+            //     // Internet-Draft              EdDSA for DNSSEC               December 2016
+            //     //
+            //     //  An Ed25519 public key consists of a 32-octet value, which is encoded
+            //     //  into the Public Key field of a DNSKEY resource record as a simple bit
+            //     //  string.  The generation of a public key is defined in Section 5.1.5
+            //     //  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
+            //     //  endian byte order.
+            //     if public_key.len() != ED25519_PUBLIC_KEY_LEN {
+            //         return Err(DnsSecErrorKind::Msg(format!("expected {} byte public_key: {}",
+            //                                                 ED25519_PUBLIC_KEY_LEN,
+            //                                                 public_key.len()))
+            //                            .into());
+            //     }
 
-                let mut ed_key_pair = Ed25519KeyPairBytes {
-                    private_key: [0_u8; 32],
-                    public_key: [0_u8; 32],
-                };
+            //     let mut ed_public_key = [0_u8; ED25519_PUBLIC_KEY_LEN];
+            //     ed_public_key.copy_from_slice(&public_key);
 
-                ed_key_pair.public_key.copy_from_slice(&public_key);
-                Ok(KeyPair::ED25519(ed_key_pair))
-            }
+            //     Ok(KeyPair::ED25519(ed_public_key))
+            // }
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
-      _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
 
@@ -289,9 +288,7 @@ impl KeyPair {
                     })
             }
             #[cfg(feature = "ring")]
-            KeyPair::ED25519(ref ed_key) => {
-                Ok(ed_key.public_key.to_vec())
-            }
+            KeyPair::ED25519(ref ed_key) => Ok(ed_key.public_key_bytes().to_vec()),
             // #[cfg(not(all(feature = "openssl", feature = "ring")))]
             // _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
@@ -445,13 +442,7 @@ impl KeyPair {
                 signer.finish().map_err(|e| e.into())
             }
             #[cfg(feature = "ring")]
-            KeyPair::ED25519(ref ed_key) => {
-                Ed25519KeyPair::from_bytes(&ed_key.private_key, &ed_key.public_key)
-                    .map_err(|_| {
-                                 DnsSecErrorKind::Message("something is wrong with the keys").into()
-                             })
-                    .map(|ed_key| ed_key.sign(message).as_slice().to_vec())
-            }
+            KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(message).as_ref().to_vec()),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
@@ -493,7 +484,7 @@ impl KeyPair {
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => {
-                let public_key = Input::from(&ed_key.public_key);
+                let public_key = Input::from(&ed_key.public_key_bytes());
                 let message = Input::from(message);
                 let signature = Input::from(signature);
                 EdDSAParameters {}
@@ -509,22 +500,24 @@ impl KeyPair {
     ///
     /// Generally the format is will be in PEM, with the exception of ED25519, which is
     ///  currently little endian `32 private key bytes | 32 public key bytes`.
+    #[deprecated = "private keys should be stored separately"]
+    #[cfg(feature = "openssl")]
     pub fn to_private_bytes(&self) -> DnsSecResult<Vec<u8>> {
         match *self {
             #[cfg(feature = "openssl")]
             KeyPair::RSA(ref pkey) |
             KeyPair::EC(ref pkey) => pkey.private_key_to_pem().map_err(|e| e.into()),
-            #[cfg(feature = "ring")]
-            KeyPair::ED25519(ref ed_key) => {
-                let mut vec = Vec::with_capacity(ed_key.private_key.len() +
-                                                 ed_key.public_key.len());
+            // #[cfg(feature = "ring")]
+            // KeyPair::ED25519(ref ed_key) => {
+            //     let mut vec = Vec::with_capacity(ed_key.private_key.len() +
+            //                                      ed_key.public_key.len());
 
-                vec.extend_from_slice(&ed_key.private_key);
-                vec.extend_from_slice(&ed_key.public_key);
-                Ok(vec)
-            }
+            //     vec.extend_from_slice(&ed_key.private_key);
+            //     vec.extend_from_slice(&ed_key.public_key);
+            //     Ok(vec)
+            // }
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
-      _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+            _ => Err(DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into()),
         }
     }
 
@@ -533,6 +526,8 @@ impl KeyPair {
     /// Generally the format is expected to be in PEM, with the exception of ED25519, which is
     ///  currently little endian `32 private key bytes | 32 public key bytes`.
     #[allow(unused)]
+    #[cfg(feature = "openssl")]
+    #[deprecated = "use native tools to load keys, and the from_<key>() methods to wrap"]
     pub fn from_private_bytes(algorithm: Algorithm, bytes: &[u8]) -> DnsSecResult<Self> {
         match algorithm {
             #[cfg(feature = "openssl")]
@@ -549,26 +544,13 @@ impl KeyPair {
                 let ec = try!(EcKey::private_key_from_pem(bytes));
                 KeyPair::from_ec_key(ec)
             }
-            #[cfg(feature = "ring")]
-            Algorithm::ED25519 => {
-                let mut private_key = [0u8; 32];
-                let mut public_key = [0u8; 32];
-
-                if bytes.len() != 64 {
-                    return Err(DnsSecErrorKind::Msg(format!("expected 64 bytes: {}", bytes.len()))
-                                   .into());
-                }
-
-                private_key.copy_from_slice(&bytes[..32]);
-                public_key.copy_from_slice(&bytes[32..]);
-
-                Ok(KeyPair::from_ed25519(Ed25519KeyPairBytes {
-                                             private_key: private_key,
-                                             public_key: public_key,
-                                         }))
-            }
+            // #[cfg(feature = "ring")]
+            // Algorithm::ED25519 => {
+            //     Err(DnsSecErrorKind::Message("ring does not support loading keys from raw bytes")
+            //             .into())
+            // }
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
-      _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
 
@@ -603,112 +585,153 @@ impl KeyPair {
             }
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => {
-                let rng = rand::SystemRandom::new();
-                Ed25519KeyPair::generate_serializable(&rng)
-                    .map_err(|e| e.into())
-                    .map(|(_, key)| KeyPair::from_ed25519(key))
+                Err(DnsSecErrorKind::Message("use generate_pkcs8 for generating private key and encoding").into())
             }
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
-      _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+        }
+    }
+
+    /// Generates a key, securing it with pkcs8
+    #[cfg(feature = "ring")]
+    pub fn generate_pkcs8(algorithm: Algorithm) -> DnsSecResult<Vec<u8>> {
+        match algorithm {
+            #[cfg(feature = "openssl")]
+            Algorithm::RSASHA1 |
+            Algorithm::RSASHA1NSEC3SHA1 |
+            Algorithm::RSASHA256 |
+            Algorithm::RSASHA512 => {
+                Err(DnsSecErrorKind::Message("openssl does not yet support pkcs8").into())
+            }
+            #[cfg(feature = "openssl")]
+            Algorithm::ECDSAP256SHA256 => {
+                Err(DnsSecErrorKind::Message("openssl does not yet support pkcs8").into())
+            }
+            #[cfg(feature = "openssl")]
+            Algorithm::ECDSAP384SHA384 => {
+                Err(DnsSecErrorKind::Message("openssl does not yet support pkcs8").into())
+            }
+            #[cfg(feature = "ring")]
+            Algorithm::ED25519 => {
+                let rng = rand::SystemRandom::new();
+                Ed25519KeyPair::generate_pkcs8(&rng)
+                    .map_err(|e| e.into())
+                    .map(|pkcs8_bytes| pkcs8_bytes.to_vec())
+            }
+            #[cfg(not(all(feature = "openssl", feature = "ring")))]
+            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
 }
 
-#[cfg(feature = "openssl")]
-#[test]
-fn test_rsa_hashing() {
-    hash_test(Algorithm::RSASHA256);
-}
-
-#[cfg(feature = "openssl")]
-#[test]
-fn test_ec_hashing_p256() {
-    hash_test(Algorithm::ECDSAP256SHA256);
-}
-
-#[cfg(feature = "openssl")]
-#[test]
-fn test_ec_hashing_p384() {
-    hash_test(Algorithm::ECDSAP384SHA384);
-}
-
-#[cfg(feature = "ring")]
-#[test]
-fn test_ed25519() {
-    hash_test(Algorithm::ED25519);
-}
-
 #[cfg(test)]
-fn hash_test(algorithm: Algorithm) {
-    let bytes = b"www.example.com";
+mod tests {
+    use super::*;
+    use rr::dnssec::*;
 
-    let key = KeyPair::generate(algorithm).unwrap();
-    let neg = KeyPair::generate(algorithm).unwrap();
+    #[cfg(feature = "openssl")]
+    #[test]
+    fn test_rsa_hashing() {
+        hash_test(Algorithm::RSASHA256);
+    }
 
-    let sig = key.sign(algorithm, bytes).unwrap();
-    assert!(key.verify(algorithm, bytes, &sig).is_ok(),
-            "algorithm: {:?}",
-            algorithm);
-    assert!(!neg.verify(algorithm, bytes, &sig).is_ok(),
-            "algorithm: {:?}",
-            algorithm);
-}
+    #[cfg(feature = "openssl")]
+    #[test]
+    fn test_ec_hashing_p256() {
+        hash_test(Algorithm::ECDSAP256SHA256);
+    }
+
+    #[cfg(feature = "openssl")]
+    #[test]
+    fn test_ec_hashing_p384() {
+        hash_test(Algorithm::ECDSAP384SHA384);
+    }
+
+    #[cfg(feature = "ring")]
+    #[test]
+    fn test_ed25519() {
+        hash_test(Algorithm::ED25519);
+    }
+
+    fn hash_test(algorithm: Algorithm) {
+        let bytes = b"www.example.com";
+
+        let key_pkcs8 = KeyPair::generate_pkcs8(algorithm).unwrap();
+        let neg_pkcs8 = KeyPair::generate_pkcs8(algorithm).unwrap();
+
+        let key = KeyFormat::Pkcs8
+            .decode_key(&key_pkcs8, None, algorithm)
+            .unwrap();
+        let neg = KeyFormat::Pkcs8
+            .decode_key(&neg_pkcs8, None, algorithm)
+            .unwrap();
+
+        let sig = key.sign(algorithm, bytes).unwrap();
+        assert!(key.verify(algorithm, bytes, &sig).is_ok(),
+                "algorithm: {:?}",
+                algorithm);
+        assert!(!neg.verify(algorithm, bytes, &sig).is_ok(),
+                "algorithm: {:?}",
+                algorithm);
+    }
 
 
-#[cfg(feature = "openssl")]
-#[test]
-fn test_to_from_public_key_rsa() {
-    to_from_public_key_test(Algorithm::RSASHA256);
-}
+    #[cfg(feature = "openssl")]
+    #[test]
+    fn test_to_from_public_key_rsa() {
+        to_from_public_key_test(Algorithm::RSASHA256);
+    }
 
-#[cfg(feature = "openssl")]
-#[test]
-fn test_to_from_public_key_ec_p256() {
-    to_from_public_key_test(Algorithm::ECDSAP256SHA256);
-}
+    #[cfg(feature = "openssl")]
+    #[test]
+    fn test_to_from_public_key_ec_p256() {
+        to_from_public_key_test(Algorithm::ECDSAP256SHA256);
+    }
 
-#[cfg(feature = "openssl")]
-#[test]
-fn test_to_from_public_key_ec_p384() {
-    to_from_public_key_test(Algorithm::ECDSAP384SHA384);
-}
+    #[cfg(feature = "openssl")]
+    #[test]
+    fn test_to_from_public_key_ec_p384() {
+        to_from_public_key_test(Algorithm::ECDSAP384SHA384);
+    }
 
-#[cfg(feature = "ring")]
-#[test]
-fn test_to_from_public_key_ed25519() {
-    to_from_public_key_test(Algorithm::ED25519);
-}
+    #[cfg(feature = "ring")]
+    #[test]
+    fn test_to_from_public_key_ed25519() {
+        to_from_public_key_test(Algorithm::ED25519);
+    }
 
-#[cfg(test)]
-fn to_from_public_key_test(algorithm: Algorithm) {
-    let key = KeyPair::generate(algorithm).unwrap();
+    fn to_from_public_key_test(algorithm: Algorithm) {
+        let key_pkcs8 = KeyPair::generate_pkcs8(algorithm).unwrap();
+        let key = KeyFormat::Pkcs8
+            .decode_key(&key_pkcs8, None, algorithm)
+            .unwrap();
 
-    assert!(key.to_public_bytes()
-                .and_then(|bytes| KeyPair::from_public_bytes(&bytes, algorithm))
-                .is_ok());
-}
+        let bytes = key.to_public_bytes().unwrap();
+        PublicKeyEnum::from_public_bytes(&bytes, algorithm).unwrap();
+    }
 
-#[cfg(feature = "openssl")]
-#[test]
-fn test_serialization_ec() {
-    test_serialization(Algorithm::ECDSAP256SHA256);
-}
+    #[cfg(feature = "openssl")]
+    #[test]
+    fn test_serialization_ec() {
+        test_serialization(Algorithm::ECDSAP256SHA256);
+    }
 
-#[cfg(feature = "ring")]
-#[test]
-fn test_serialization_ed25519() {
-    test_serialization(Algorithm::ED25519);
-}
+    #[cfg(feature = "ring")]
+    #[test]
+    fn test_serialization_ed25519() {
+        test_serialization(Algorithm::ED25519);
+    }
 
-#[cfg(feature = "openssl")]
-#[test]
-fn test_serialization_rsa() {
-    test_serialization(Algorithm::RSASHA256);
-}
+    #[cfg(feature = "openssl")]
+    #[test]
+    fn test_serialization_rsa() {
+        test_serialization(Algorithm::RSASHA256);
+    }
 
-#[cfg(test)]
-fn test_serialization(algorithm: Algorithm) {
-    let key = KeyPair::generate(algorithm).unwrap();
-
-    assert!(KeyPair::from_private_bytes(algorithm, &key.to_private_bytes().unwrap()).is_ok());
+    fn test_serialization(algorithm: Algorithm) {
+        let key_pkcs8 = KeyPair::generate_pkcs8(algorithm).unwrap();
+        KeyFormat::Pkcs8
+            .decode_key(&key_pkcs8, None, algorithm)
+            .unwrap();
+    }
 }

@@ -2,6 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.10.2 (in progress)
+
+### Fixed
+- Fixed format of ED25519 keys (@briansmith) #129
+
 ## 0.10.1
 ### Added
 - Added `From<IpAddr>` for Name (reverse DNS) #105 

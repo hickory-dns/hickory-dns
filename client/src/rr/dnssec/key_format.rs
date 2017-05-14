@@ -4,6 +4,10 @@ use openssl::ec::EcKey;
 use openssl::rsa::Rsa;
 #[cfg(feature = "openssl")]
 use openssl::symm::Cipher;
+#[cfg(feature = "ring")]
+use ring::signature::Ed25519KeyPair;
+#[cfg(feature = "ring")]
+use untrusted::Input;
 
 use error::*;
 use rr::dnssec::Algorithm;
@@ -18,6 +22,8 @@ pub enum KeyFormat {
     Pem,
     /// Raw bytes unformatted
     Raw,
+    /// Pkcs8, a pkcs8 formatted private key
+    Pkcs8,
 }
 
 impl KeyFormat {
@@ -89,20 +95,28 @@ impl KeyFormat {
             }
             Algorithm::ED25519 => {
                 match self {
-                    KeyFormat::Raw => {
-                        return KeyPair::from_private_bytes(algorithm, bytes)
-                            .map_err(|e| format!("error reading ED25519 as RAW: {}", e).into())
+                    // KeyFormat::Raw => {
+                    //     return KeyPair::from_private_bytes(algorithm, bytes)
+                    //         .map_err(|e| format!("error reading ED25519 as RAW: {}", e).into())
+                    // }
+                    #[cfg(feature = "ring")]
+                    KeyFormat::Pkcs8 => {
+                        let key = try!(Ed25519KeyPair::from_pkcs8(Input::from(bytes)));
+
+                        return Ok(KeyPair::from_ed25519(key));
                     }
                     e @ _ => {
-                        return Err(format!("unsupported key format with ED25519 (RAW only): {:?}",
+                        return Err(format!("unsupported key format with ED25519 (only Pkcs8 supported): {:?}",
                                            e)
                                            .into())
                     }
                 }
             }
-            #[cfg(not(feature = "openssl"))]
+            #[cfg(not(all(feature = "openssl", feature = "ring")))]
             e @ _ => {
-                return Err(format!("unsupported Algorith, enable openssl feature: {:?}", e).into())
+                return Err(format!("unsupported Algorithm, enable openssl or ring feature: {:?}",
+                                   e)
+                                   .into())
             }
         }
     }
@@ -148,27 +162,29 @@ impl KeyFormat {
                     }
                 }
             }
-            #[cfg(feature = "ring")] KeyPair::ED25519(..) => {
-                match self {
-                    KeyFormat::Raw => {
-                        // to avoid accientally storing a key where there was an expectation that it was password protected
-                        if password.is_some() {
-                            return Err(format!("Can only password protect PEM: {:?}", self).into());
-                        }
-                        return key_pair
-                                   .to_private_bytes()
-                                   .map_err(|e| {
-                                                format!("error writing ED25519 as RAW: {}", e)
-                                                    .into()
-                                            });
-                    }
-                    e @ _ => {
-                        return Err(format!("unsupported key format with ED25519 (RAW only): {:?}",
-                                           e)
-                                           .into())
-                    }
-                }
-            }
+            // #[cfg(feature = "ring")]
+            // KeyPair::ED25519(..) => {
+            //     match self {
+            //         KeyFormat::Raw => {
+            //             // to avoid accientally storing a key where there was an expectation that it was password protected
+            //             if password.is_some() {
+            //                 return Err(format!("Can only password protect PEM: {:?}", self).into());
+            //             }
+            //             return key_pair
+            //                        .to_private_bytes()
+            //                        .map_err(|e| {
+            //                                     format!("error writing ED25519 as RAW: {}", e)
+            //                                         .into()
+            //                                 });
+            //         }
+            //         e @ _ => {
+            //             return Err(format!("unsupported key format with ED25519 (RAW only): {:?}",
+            //                                e)
+            //                                .into())
+            //         }
+            //     }
+            // }
+            _ => return Err(format!("unsupported Algorithm, enable openssl feature (encode not supported with ring)").into()),
         }
     }
 }
@@ -220,14 +236,11 @@ mod tests {
         encode_decode_with_format(KeyFormat::Raw, algorithm, false, false);
     }
 
-
     #[test]
     #[cfg(feature = "ring")]
-    fn test_ed25519_encode_decode() {
+    fn test_ed25519_encode_decode_pkcs8() {
         let algorithm = Algorithm::ED25519;
-        encode_decode_with_format(KeyFormat::Der, algorithm, false, false);
-        encode_decode_with_format(KeyFormat::Pem, algorithm, false, false);
-        encode_decode_with_format(KeyFormat::Raw, algorithm, false, true);
+        encode_decode_pkcs8_with_format(KeyFormat::Pkcs8, algorithm, true, true);
     }
 
     #[cfg(test)]
@@ -285,6 +298,60 @@ mod tests {
     }
 
     #[cfg(test)]
+    fn encode_decode_pkcs8_with_format(key_format: KeyFormat,
+                                       algorithm: Algorithm,
+                                       ok_pass: bool,
+                                       ok_empty_pass: bool) {
+        let pkcs8_bytes = KeyPair::generate_pkcs8(algorithm).unwrap();
+        let password = Some("test password");
+        let empty_password = Some("");
+        let no_password = None::<&str>;
+
+        encode_decode_pkcs8_with_password(key_format,
+                                          &pkcs8_bytes,
+                                          password,
+                                          password,
+                                          algorithm,
+                                          ok_pass,
+                                          true);
+        encode_decode_pkcs8_with_password(key_format,
+                                          &pkcs8_bytes,
+                                          empty_password,
+                                          empty_password,
+                                          algorithm,
+                                          ok_empty_pass,
+                                          true);
+        encode_decode_pkcs8_with_password(key_format,
+                                          &pkcs8_bytes,
+                                          no_password,
+                                          no_password,
+                                          algorithm,
+                                          ok_empty_pass,
+                                          true);
+        encode_decode_pkcs8_with_password(key_format,
+                                          &pkcs8_bytes,
+                                          no_password,
+                                          empty_password,
+                                          algorithm,
+                                          ok_empty_pass,
+                                          true);
+        encode_decode_pkcs8_with_password(key_format,
+                                          &pkcs8_bytes,
+                                          empty_password,
+                                          no_password,
+                                          algorithm,
+                                          ok_empty_pass,
+                                          true);
+        // encode_decode_pkcs8_with_password(key_format,
+        //                                   &pkcs8_bytes,
+        //                                   password,
+        //                                   no_password,
+        //                                   algorithm,
+        //                                   ok_pass,
+        //                                   false);
+    }
+
+    #[cfg(test)]
     fn encode_decode_with_password(key_format: KeyFormat,
                                    keypair: &KeyPair,
                                    en_pass: Option<&str>,
@@ -292,6 +359,14 @@ mod tests {
                                    algorithm: Algorithm,
                                    encode: bool,
                                    decode: bool) {
+        println!("test params: format: {:?}, en_pass: {:?}, de_pass: {:?}, alg: {:?}, encode: {}, decode: {}",
+                 key_format,
+                 en_pass,
+                 de_pass,
+                 algorithm,
+                 encode,
+                 decode);
+
         let encoded = key_format.encode_key(&keypair, en_pass);
         if encode {
             assert!(encoded.is_ok(), format!("{}", encoded.unwrap_err()));
@@ -300,5 +375,29 @@ mod tests {
         } else {
             assert!(encoded.is_err());
         }
+    }
+
+    #[cfg(test)]
+    fn encode_decode_pkcs8_with_password(key_format: KeyFormat,
+                                         pkcs8_bytes: &[u8],
+                                         en_pass: Option<&str>,
+                                         de_pass: Option<&str>,
+                                         algorithm: Algorithm,
+                                         encode: bool,
+                                         decode: bool) {
+        println!("test params: format: {:?}, en_pass: {:?}, de_pass: {:?}, alg: {:?}, encode: {}, decode: {}",
+                 key_format,
+                 en_pass,
+                 de_pass,
+                 algorithm,
+                 encode,
+                 decode);
+
+        let decoded = key_format.decode_key(pkcs8_bytes, de_pass, algorithm);
+        if decode {
+            decoded.unwrap();
+        } else {
+            assert!(decoded.is_err())
+        };
     }
 }
