@@ -690,8 +690,8 @@ impl KEY {
     ///    algorithm and determines the format of the Public Key field.  A list
     ///    of DNSSEC algorithm types can be found in Appendix A.1
     /// ```
-    pub fn algorithm(&self) -> &Algorithm {
-        &self.algorithm
+    pub fn algorithm(&self) -> Algorithm {
+        self.algorithm
     }
 
     /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-2.1.4)

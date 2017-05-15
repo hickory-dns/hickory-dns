@@ -16,11 +16,12 @@ use futures::*;
 use chrono::Duration;
 use client::ClientHandle;
 use error::*;
+use rr::dnssec::hash;
 use op::{Message, OpCode, Query};
 use rr::{domain, DNSClass, RData, Record, RecordType};
-use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
+use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor, Verifier};
 #[cfg(feature = "openssl")]
-use rr::dnssec::{KeyPair, Signer};
+use rr::dnssec::{KeyPair, Signer, PublicKey, PublicKeyEnum};
 use rr::rdata::{DNSKEY, SIG};
 use rr::rdata::opt::EdnsOption;
 
@@ -693,36 +694,12 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
     if !dnskey.zone_key() {
         return Err(ClientErrorKind::Message("is not a zone key").into());
     }
-    if *dnskey.algorithm() != sig.algorithm() {
+    if dnskey.algorithm() != sig.algorithm() {
         return Err(ClientErrorKind::Message("mismatched algorithm").into());
     }
 
-    let pkey = KeyPair::from_public_bytes(dnskey.public_key(), *dnskey.algorithm());
-    if let Err(e) = pkey {
-        debug!("error getting key from vec: {}", e);
-        return Err(ClientErrorKind::Message("error getting key from vec").into());
-    }
-    let pkey = pkey.unwrap();
-
-    let signer: Signer = Signer::dnssec(dnskey.clone(),
-                                        pkey,
-                                        sig.signer_name().clone(),
-                                        Duration::zero());
-
-    signer
-        .hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)
-        .map_err(|e| e.into())
-        .and_then(|rrset_hash| {
-            signer
-                .verify(&rrset_hash, sig.sig())
-                .map(|_| {
-                         debug!("verified rrset: {}, type: {:?}",
-                                rrset.name,
-                                rrset.record_type);
-                         ()
-                     })
-                .map_err(|e| e.into())
-        })
+    let rrset_hash = hash::hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)?;
+    dnskey.verify(&rrset_hash, sig.sig()).map_err(Into::into)
 }
 
 /// Will always return an error. To enable record verification compile with the openssl feature.
