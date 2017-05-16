@@ -666,39 +666,33 @@ mod tests {
     #[cfg(feature = "openssl")]
     #[test]
     fn test_rsa_hashing() {
-        hash_test(Algorithm::RSASHA256);
+        hash_test(Algorithm::RSASHA256, KeyFormat::Der);
     }
 
     #[cfg(feature = "openssl")]
     #[test]
     fn test_ec_hashing_p256() {
-        hash_test(Algorithm::ECDSAP256SHA256);
+        hash_test(Algorithm::ECDSAP256SHA256, KeyFormat::Der);
     }
 
     #[cfg(feature = "openssl")]
     #[test]
     fn test_ec_hashing_p384() {
-        hash_test(Algorithm::ECDSAP384SHA384);
+        hash_test(Algorithm::ECDSAP384SHA384, KeyFormat::Der);
     }
 
     #[cfg(feature = "ring")]
     #[test]
     fn test_ed25519() {
-        hash_test(Algorithm::ED25519);
+        hash_test(Algorithm::ED25519, KeyFormat::Pkcs8);
     }
 
-    fn hash_test(algorithm: Algorithm) {
+    fn hash_test(algorithm: Algorithm, key_format: KeyFormat) {
         let bytes = b"www.example.com";
 
-        let key_pkcs8 = KeyPair::generate_pkcs8(algorithm).unwrap();
-        let neg_pkcs8 = KeyPair::generate_pkcs8(algorithm).unwrap();
-
-        let key = KeyFormat::Pkcs8
-            .decode_key(&key_pkcs8, None, algorithm)
-            .unwrap();
-        let neg = KeyFormat::Pkcs8
-            .decode_key(&neg_pkcs8, None, algorithm)
-            .unwrap();
+        // TODO: convert to stored keys...
+        let key = key_format.decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(), None, algorithm).unwrap();
+        let neg = key_format.decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(), None, algorithm).unwrap();
 
         let sig = key.sign(algorithm, bytes).unwrap();
         assert!(key.verify(algorithm, bytes, &sig).is_ok(),
@@ -707,65 +701,5 @@ mod tests {
         assert!(!neg.verify(algorithm, bytes, &sig).is_ok(),
                 "algorithm: {:?}",
                 algorithm);
-    }
-
-
-    #[cfg(feature = "openssl")]
-    #[test]
-    fn test_to_from_public_key_rsa() {
-        to_from_public_key_test(Algorithm::RSASHA256);
-    }
-
-    #[cfg(feature = "openssl")]
-    #[test]
-    fn test_to_from_public_key_ec_p256() {
-        to_from_public_key_test(Algorithm::ECDSAP256SHA256);
-    }
-
-    #[cfg(feature = "openssl")]
-    #[test]
-    fn test_to_from_public_key_ec_p384() {
-        to_from_public_key_test(Algorithm::ECDSAP384SHA384);
-    }
-
-    #[cfg(feature = "ring")]
-    #[test]
-    fn test_to_from_public_key_ed25519() {
-        to_from_public_key_test(Algorithm::ED25519);
-    }
-
-    fn to_from_public_key_test(algorithm: Algorithm) {
-        let key_pkcs8 = KeyPair::generate_pkcs8(algorithm).unwrap();
-        let key = KeyFormat::Pkcs8
-            .decode_key(&key_pkcs8, None, algorithm)
-            .unwrap();
-
-        let bytes = key.to_public_bytes().unwrap();
-        PublicKeyEnum::from_public_bytes(&bytes, algorithm).unwrap();
-    }
-
-    #[cfg(feature = "openssl")]
-    #[test]
-    fn test_serialization_ec() {
-        test_serialization(Algorithm::ECDSAP256SHA256);
-    }
-
-    #[cfg(feature = "ring")]
-    #[test]
-    fn test_serialization_ed25519() {
-        test_serialization(Algorithm::ED25519);
-    }
-
-    #[cfg(feature = "openssl")]
-    #[test]
-    fn test_serialization_rsa() {
-        test_serialization(Algorithm::RSASHA256);
-    }
-
-    fn test_serialization(algorithm: Algorithm) {
-        let key_pkcs8 = KeyPair::generate_pkcs8(algorithm).unwrap();
-        KeyFormat::Pkcs8
-            .decode_key(&key_pkcs8, None, algorithm)
-            .unwrap();
     }
 }

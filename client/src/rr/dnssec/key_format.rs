@@ -20,8 +20,6 @@ pub enum KeyFormat {
     Der,
     /// A pem encoded key, the default of OpenSSL
     Pem,
-    /// Raw bytes unformatted
-    Raw,
     /// Pkcs8, a pkcs8 formatted private key
     Pkcs8,
 }
@@ -121,7 +119,78 @@ impl KeyFormat {
         }
     }
 
+    /// Generate a new key and encode to the specified format
+    pub fn generate_and_encode(self,
+                               algorithm: Algorithm,
+                               password: Option<&str>)
+                               -> DnsSecResult<Vec<u8>> {
+        // on encoding, if the password is empty string, ignore it (empty string is ok on decode)
+        let password = password
+            .iter()
+            .filter(|s| !s.is_empty())
+            .map(|s| s.as_bytes())
+            .next();
+
+        // generate the key
+        let key_pair: KeyPair = match algorithm {
+            #[cfg(feature = "openssl")]
+            Algorithm::RSASHA1 |
+            Algorithm::RSASHA1NSEC3SHA1 |
+            Algorithm::RSASHA256 |
+            Algorithm::RSASHA512 |
+            Algorithm::ECDSAP256SHA256 |
+            Algorithm::ECDSAP384SHA384 => KeyPair::generate(algorithm)?,
+            #[cfg(feature = "ring")]
+            Algorithm::ED25519 => return KeyPair::generate_pkcs8(algorithm),
+            #[cfg(not(all(feature = "openssl", feature = "ring")))]
+            e @ _ => {
+                return Err(format!("unsupported Algorithm, enable openssl or ring feature: {:?}",
+                                   e)
+                                   .into())
+            }
+        };
+
+        // encode the key
+        match key_pair {
+            #[cfg(feature = "openssl")]
+            KeyPair::EC(ref pkey) |
+            KeyPair::RSA(ref pkey) => {
+                match self {
+                    KeyFormat::Der => {
+                        // to avoid accientally storing a key where there was an expectation that it was password protected
+                        if password.is_some() {
+                            return Err(format!("Can only password protect PEM: {:?}", self).into());
+                        }
+                        return pkey.private_key_to_der()
+                                   .map_err(|e| {
+                                                format!("error writing key as DER: {}", e).into()
+                                            });
+                    }
+                    KeyFormat::Pem => {
+                        let key = if let Some(password) = password {
+                            pkey.private_key_to_pem_passphrase(Cipher::aes_256_cbc(), password)
+                        } else {
+                            pkey.private_key_to_pem()
+                        };
+
+                        return key.map_err(|e| format!("error writing key as PEM: {}", e).into());
+                    }
+                    e @ _ => {
+                        return Err(format!("unsupported key format with RSA or EC (DER or PEM \
+                                            only): {:?}",
+                                           e)
+                                           .into())
+                    }
+                }
+            }
+            #[cfg(feature = "ring")]
+            KeyPair::ED25519(..) => panic!("should have returned early"),
+            _ => return Err(format!("unsupported Algorithm, enable openssl feature (encode not supported with ring)").into()),
+        }
+    }
+
     /// Decode private key
+    #[deprecated]
     pub fn encode_key(self, key_pair: &KeyPair, password: Option<&str>) -> DnsSecResult<Vec<u8>> {
         // on encoding, if the password is empty string, ignore it (empty string is ok on decode)
         let password = password
@@ -209,14 +278,6 @@ mod tests {
 
     #[test]
     #[cfg(feature = "openssl")]
-    fn test_rsa_encode_decode_raw() {
-        let algorithm = Algorithm::RSASHA256;
-        encode_decode_with_format(KeyFormat::Raw, algorithm, false, false);
-    }
-
-
-    #[test]
-    #[cfg(feature = "openssl")]
     fn test_ec_encode_decode_der() {
         let algorithm = Algorithm::ECDSAP256SHA256;
         encode_decode_with_format(KeyFormat::Der, algorithm, false, true);
@@ -230,17 +291,10 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "openssl")]
-    fn test_ec_encode_decode_raw() {
-        let algorithm = Algorithm::ECDSAP256SHA256;
-        encode_decode_with_format(KeyFormat::Raw, algorithm, false, false);
-    }
-
-    #[test]
     #[cfg(feature = "ring")]
     fn test_ed25519_encode_decode_pkcs8() {
         let algorithm = Algorithm::ED25519;
-        encode_decode_pkcs8_with_format(KeyFormat::Pkcs8, algorithm, true, true);
+        encode_decode_with_format(KeyFormat::Pkcs8, algorithm, true, true);
     }
 
     #[cfg(test)]
@@ -248,112 +302,51 @@ mod tests {
                                  algorithm: Algorithm,
                                  ok_pass: bool,
                                  ok_empty_pass: bool) {
-        let keypair = KeyPair::generate(algorithm).unwrap();
         let password = Some("test password");
         let empty_password = Some("");
         let no_password = None::<&str>;
 
         encode_decode_with_password(key_format,
-                                    &keypair,
                                     password,
                                     password,
                                     algorithm,
                                     ok_pass,
                                     true);
         encode_decode_with_password(key_format,
-                                    &keypair,
                                     empty_password,
                                     empty_password,
                                     algorithm,
                                     ok_empty_pass,
                                     true);
         encode_decode_with_password(key_format,
-                                    &keypair,
                                     no_password,
                                     no_password,
                                     algorithm,
                                     ok_empty_pass,
                                     true);
         encode_decode_with_password(key_format,
-                                    &keypair,
                                     no_password,
                                     empty_password,
                                     algorithm,
                                     ok_empty_pass,
                                     true);
         encode_decode_with_password(key_format,
-                                    &keypair,
                                     empty_password,
                                     no_password,
                                     algorithm,
                                     ok_empty_pass,
                                     true);
-        encode_decode_with_password(key_format,
-                                    &keypair,
-                                    password,
-                                    no_password,
-                                    algorithm,
-                                    ok_pass,
-                                    false);
-    }
-
-    #[cfg(test)]
-    fn encode_decode_pkcs8_with_format(key_format: KeyFormat,
-                                       algorithm: Algorithm,
-                                       ok_pass: bool,
-                                       ok_empty_pass: bool) {
-        let pkcs8_bytes = KeyPair::generate_pkcs8(algorithm).unwrap();
-        let password = Some("test password");
-        let empty_password = Some("");
-        let no_password = None::<&str>;
-
-        encode_decode_pkcs8_with_password(key_format,
-                                          &pkcs8_bytes,
-                                          password,
-                                          password,
-                                          algorithm,
-                                          ok_pass,
-                                          true);
-        encode_decode_pkcs8_with_password(key_format,
-                                          &pkcs8_bytes,
-                                          empty_password,
-                                          empty_password,
-                                          algorithm,
-                                          ok_empty_pass,
-                                          true);
-        encode_decode_pkcs8_with_password(key_format,
-                                          &pkcs8_bytes,
-                                          no_password,
-                                          no_password,
-                                          algorithm,
-                                          ok_empty_pass,
-                                          true);
-        encode_decode_pkcs8_with_password(key_format,
-                                          &pkcs8_bytes,
-                                          no_password,
-                                          empty_password,
-                                          algorithm,
-                                          ok_empty_pass,
-                                          true);
-        encode_decode_pkcs8_with_password(key_format,
-                                          &pkcs8_bytes,
-                                          empty_password,
-                                          no_password,
-                                          algorithm,
-                                          ok_empty_pass,
-                                          true);
-        // encode_decode_pkcs8_with_password(key_format,
-        //                                   &pkcs8_bytes,
-        //                                   password,
-        //                                   no_password,
-        //                                   algorithm,
-        //                                   ok_pass,
-        //                                   false);
+        // TODO: disabled for now... add back in if ring suports passwords on pkcs8
+        // encode_decode_with_password(key_format,
+        //                             password,
+        //                             no_password,
+        //                             algorithm,
+        //                             ok_pass,
+        //                             false);
     }
 
     #[cfg(test)]
     fn encode_decode_with_password(key_format: KeyFormat,
-                                   keypair: &KeyPair,
                                    en_pass: Option<&str>,
                                    de_pass: Option<&str>,
                                    algorithm: Algorithm,
@@ -366,8 +359,8 @@ mod tests {
                  algorithm,
                  encode,
                  decode);
+        let encoded = key_format.generate_and_encode(algorithm, en_pass);
 
-        let encoded = key_format.encode_key(&keypair, en_pass);
         if encode {
             assert!(encoded.is_ok(), format!("{}", encoded.unwrap_err()));
             let decoded = key_format.decode_key(&encoded.unwrap(), de_pass, algorithm);
@@ -375,29 +368,5 @@ mod tests {
         } else {
             assert!(encoded.is_err());
         }
-    }
-
-    #[cfg(test)]
-    fn encode_decode_pkcs8_with_password(key_format: KeyFormat,
-                                         pkcs8_bytes: &[u8],
-                                         en_pass: Option<&str>,
-                                         de_pass: Option<&str>,
-                                         algorithm: Algorithm,
-                                         encode: bool,
-                                         decode: bool) {
-        println!("test params: format: {:?}, en_pass: {:?}, de_pass: {:?}, alg: {:?}, encode: {}, decode: {}",
-                 key_format,
-                 en_pass,
-                 de_pass,
-                 algorithm,
-                 encode,
-                 decode);
-
-        let decoded = key_format.decode_key(pkcs8_bytes, de_pass, algorithm);
-        if decode {
-            decoded.unwrap();
-        } else {
-            assert!(decoded.is_err())
-        };
     }
 }
