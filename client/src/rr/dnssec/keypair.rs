@@ -21,9 +21,7 @@ use openssl::nid;
 #[cfg(feature = "ring")]
 use ring::rand;
 #[cfg(feature = "ring")]
-use ring::signature::{Ed25519KeyPair, EdDSAParameters, VerificationAlgorithm};
-#[cfg(feature = "ring")]
-use untrusted::Input;
+use ring::signature::Ed25519KeyPair;
 
 use error::*;
 use rr::Name;
@@ -378,6 +376,7 @@ impl PublicKey for KeyPair {
         unimplemented!()
     }
 
+    #[allow(unused_variables)]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
         match *self {
             #[cfg(feature = "openssl")]

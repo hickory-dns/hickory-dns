@@ -16,7 +16,9 @@ use client::ClientHandle;
 use error::*;
 use op::{Message, OpCode, Query};
 use rr::{domain, DNSClass, RData, Record, RecordType};
-use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor, Verifier};
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::dnssec::Verifier;
+use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use rr::rdata::{DNSKEY, SIG};
 use rr::rdata::opt::EdnsOption;
 
@@ -680,7 +682,7 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
 }
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> ClientResult<()> {
     if dnskey.revoke() {
         debug!("revoked");
@@ -697,9 +699,9 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
 }
 
 /// Will always return an error. To enable record verification compile with the openssl feature.
-#[cfg(not(feature = "openssl"))]
+#[cfg(not(any(feature = "openssl", feature = "ring")))]
 fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ClientResult<()> {
-    Err(ClientErrorKind::Message("openssl feature not enabled").into())
+    Err(ClientErrorKind::Message("openssl or ring feature(s) not enabled").into())
 }
 
 

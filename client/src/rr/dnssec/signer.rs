@@ -24,6 +24,7 @@ use op::Message;
 use rr::{Name, RData};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::KeyPair;
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::{Algorithm, DnsSecResult, hash, PublicKey, PublicKeyEnum, Verifier};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSKEY, KEY, SIG};

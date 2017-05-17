@@ -27,7 +27,9 @@ use ring::signature::{ED25519_PUBLIC_KEY_LEN, EdDSAParameters, VerificationAlgor
 use untrusted::Input;
 
 use error::*;
-use rr::dnssec::{Algorithm, DigestType};
+#[cfg(feature = "openssl")]
+use rr::dnssec::DigestType;
+use rr::dnssec::Algorithm;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
@@ -355,6 +357,7 @@ pub enum PublicKeyEnum<'k> {
 
 impl<'k> PublicKeyEnum<'k> {
     /// Converts the bytes into a PulbicKey of the specified algorithm
+    #[allow(unused_variables)]
     pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> DnsSecResult<Self> {
         match algorithm {
             #[cfg(feature = "openssl")]
@@ -391,6 +394,7 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
         }
     }
 
+    #[allow(unused_variables)]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
         match *self {
             #[cfg(feature = "openssl")]

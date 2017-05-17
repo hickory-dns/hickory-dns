@@ -121,6 +121,7 @@ impl KeyFormat {
                                password: Option<&str>)
                                -> DnsSecResult<Vec<u8>> {
         // on encoding, if the password is empty string, ignore it (empty string is ok on decode)
+        #[allow(unused)]
         let password = password
             .iter()
             .filter(|s| !s.is_empty())
@@ -128,6 +129,7 @@ impl KeyFormat {
             .next();
 
         // generate the key
+        #[allow(unused)]
         let key_pair: KeyPair = match algorithm {
             #[cfg(feature = "openssl")]
             Algorithm::RSASHA1 |
@@ -147,6 +149,7 @@ impl KeyFormat {
         };
 
         // encode the key
+        #[allow(unreachable_code)] // in ring only mode, this block is never reached
         match key_pair {
             #[cfg(feature = "openssl")]
             KeyPair::EC(ref pkey) |
@@ -190,6 +193,7 @@ impl KeyFormat {
     #[deprecated]
     pub fn encode_key(self, key_pair: &KeyPair, password: Option<&str>) -> DnsSecResult<Vec<u8>> {
         // on encoding, if the password is empty string, ignore it (empty string is ok on decode)
+        #[allow(unused)]        
         let password = password
             .iter()
             .filter(|s| !s.is_empty())
@@ -282,12 +286,7 @@ mod tests {
         let empty_password = Some("");
         let no_password = None::<&str>;
 
-        encode_decode_with_password(key_format,
-                                    password,
-                                    password,
-                                    algorithm,
-                                    ok_pass,
-                                    true);
+        encode_decode_with_password(key_format, password, password, algorithm, ok_pass, true);
         encode_decode_with_password(key_format,
                                     empty_password,
                                     empty_password,
