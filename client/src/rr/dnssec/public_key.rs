@@ -120,6 +120,7 @@ pub trait PublicKey {
     }
 }
 
+#[cfg(feature = "openssl")]
 fn verify_with_pkey(pkey: &PKey,
                     algorithm: Algorithm,
                     message: &[u8],
@@ -145,6 +146,7 @@ pub struct Ec<'k> {
     pkey: PKey,
 }
 
+#[cfg(feature = "openssl")]
 impl<'k> Ec<'k> {
     /// ```text
     /// RFC 6605                    ECDSA for DNSSEC                  April 2012
@@ -197,6 +199,7 @@ impl<'k> Ec<'k> {
     }
 }
 
+#[cfg(feature = "openssl")]
 impl<'k> PublicKey for Ec<'k> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
@@ -323,6 +326,7 @@ impl<'k> Rsa<'k> {
     }
 }
 
+#[cfg(feature = "openssl")]
 impl<'k> PublicKey for Rsa<'k> {
     fn public_bytes(&self) -> &[u8] {
         self.raw

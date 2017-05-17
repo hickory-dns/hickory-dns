@@ -1,13 +1,9 @@
 //! Verifier is a structure for performing many of the signing processes of the DNSSec specification
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use op::Message;
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::{DNSClass, Name, Record};
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::{Algorithm, DnsSecResult};
 use rr::dnssec::{hash, PublicKey, PublicKeyEnum};
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSKEY, KEY, SIG};
 
 /// Types which are able to verify DNS based signatures

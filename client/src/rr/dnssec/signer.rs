@@ -23,8 +23,8 @@ use op::Message;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::{Name, RData};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::{Algorithm, DnsSecResult, KeyPair};
-use rr::dnssec::{hash, PublicKey, PublicKeyEnum, Verifier};
+use rr::dnssec::KeyPair;
+use rr::dnssec::{Algorithm, DnsSecResult, hash, PublicKey, PublicKeyEnum, Verifier};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSKEY, KEY, SIG};
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -498,6 +498,7 @@ impl Signer {
     }
 }
 
+#[cfg(any(feature = "openssl", feature = "ring"))]
 impl Verifier for Signer {
     fn algorithm(&self) -> Algorithm {
         self.algorithm()

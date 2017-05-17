@@ -1,14 +1,9 @@
 //! hash functions for DNSSec operations
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use op::Message;
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::{DNSClass, Name, Record, RecordType, RData};
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::{Algorithm, DnsSecErrorKind, DnsSecResult};
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{sig, SIG};
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
 /// Hashes a Message for signing
@@ -270,6 +265,7 @@ pub fn determine_name(name: &Name, num_labels: u8) -> Option<Name> {
     None
 }
 
+#[cfg(feature = "openssl")]
 #[cfg(test)]
 mod tests {
     extern crate openssl;

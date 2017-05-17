@@ -408,6 +408,7 @@ impl PublicKey for KeyPair {
     }
 }
 
+#[cfg(any(feature = "openssl", feature = "ring"))]
 #[cfg(test)]
 mod tests {
     use rr::dnssec::*;
