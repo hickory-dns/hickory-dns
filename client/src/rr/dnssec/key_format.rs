@@ -93,10 +93,6 @@ impl KeyFormat {
             }
             Algorithm::ED25519 => {
                 match self {
-                    // KeyFormat::Raw => {
-                    //     return KeyPair::from_private_bytes(algorithm, bytes)
-                    //         .map_err(|e| format!("error reading ED25519 as RAW: {}", e).into())
-                    // }
                     #[cfg(feature = "ring")]
                     KeyFormat::Pkcs8 => {
                         let key = try!(Ed25519KeyPair::from_pkcs8(Input::from(bytes)));

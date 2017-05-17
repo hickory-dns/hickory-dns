@@ -8,12 +8,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Fixed format of ED25519 keys (@briansmith) #129
 
 ### Changed
-- Revamped signer and keypair to better deal with public key
+- Revamped signer and keypair to better deal with public key (possible breaking change)
 - Upgraded *ring* to 0.9.x series, requires pkcs8 for key storage
+- Dropped support for dangerous private key byte access (possible breaking change)
 
 ### Added
-- PublicKey and Verifier for verifying with zero copy from KEY and DNSKEY
-- Pkcs8 as a supported KeyFormat for storage
+- PublicKey and Verifier for verifying with zero copy from KEY and DNSKEY (possible breaking change)
+- Pkcs8 as a supported KeyFormat for storage (possible breaking change)
 
 ## 0.10.1
 ### Added
