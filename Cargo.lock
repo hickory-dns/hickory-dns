@@ -720,19 +720,13 @@ dependencies = [
 
 [[package]]
 name = "tokio-rustls"
-version = "0.2.0"
-source = "git+https://github.com/bluejekyll/tokio-rustls.git#0b0ab95419c549b013d3a5bd4d41c49779488a58"
+version = "0.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "futures 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustls 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-io 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
-
-[[package]]
-name = "tokio-rustls"
-version = "0.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-replace = "tokio-rustls 0.2.0 (git+https://github.com/bluejekyll/tokio-rustls.git)"
 
 [[package]]
 name = "tokio-tls"
@@ -809,7 +803,7 @@ dependencies = [
  "openssl 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustls 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
- "tokio-rustls 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-rustls 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.10.1",
 ]
 
@@ -977,8 +971,7 @@ dependencies = [
 "checksum tokio-core 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)" = "febd81b3e2ef615c6c8077347b33f3f3deec3d708ecd08194c9707b7a1eccfc9"
 "checksum tokio-io 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "48f55df1341bb92281f229a6030bc2abffde2c7a44c6d6b802b7687dd8be0775"
 "checksum tokio-openssl 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "114355e60ae8cdd9a779843fbb0f7130b96f86b7ee46cfd32cdc79cb9e6ade74"
-"checksum tokio-rustls 0.2.0 (git+https://github.com/bluejekyll/tokio-rustls.git)" = "<none>"
-"checksum tokio-rustls 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "c219299a76da8160d0519ed7ade99cbb7d7ccd826d35968f6063d49e5b1447fb"
+"checksum tokio-rustls 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)" = "1561db9191a4c0e4167bb6f655e882ca91ca541738bc3f1ec36f488fedd06138"
 "checksum tokio-tls 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "666266622d9a4d1974a0beda33d505999515b0c60edc0c3fda09784e56609a97"
 "checksum toml 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)" = "0590d72182e50e879c4da3b11c6488dae18fccb1ae0c7a3eda18e16795844796"
 "checksum unicode-segmentation 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "a8083c594e02b8ae1654ae26f0ade5158b119bd88ad0e8227a5d8fcd72407946"
