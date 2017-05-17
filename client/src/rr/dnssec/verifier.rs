@@ -1,20 +1,14 @@
 //! Verifier is a structure for performing many of the signing processes of the DNSSec specification
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use chrono::Duration;
-
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use op::Message;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::{DNSClass, Name, Record, RecordType, RData};
+use rr::{DNSClass, Name, Record};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::{Algorithm, DnsSecErrorKind, DnsSecResult, KeyPair};
+use rr::dnssec::{Algorithm, DnsSecResult};
 use rr::dnssec::{hash, PublicKey, PublicKeyEnum};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::{DNSKEY, KEY, sig, SIG};
-#[cfg(any(feature = "openssl", feature = "ring"))]
-use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
-
+use rr::rdata::{DNSKEY, KEY, SIG};
 
 /// Types which are able to verify DNS based signatures
 pub trait Verifier {

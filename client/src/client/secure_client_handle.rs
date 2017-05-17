@@ -12,16 +12,11 @@ use std::rc::Rc;
 
 use futures::*;
 
-#[cfg(feature = "openssl")]
-use chrono::Duration;
 use client::ClientHandle;
 use error::*;
-use rr::dnssec::hash;
 use op::{Message, OpCode, Query};
 use rr::{domain, DNSClass, RData, Record, RecordType};
 use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor, Verifier};
-#[cfg(feature = "openssl")]
-use rr::dnssec::{KeyPair, Signer, PublicKey, PublicKeyEnum};
 use rr::rdata::{DNSKEY, SIG};
 use rr::rdata::opt::EdnsOption;
 

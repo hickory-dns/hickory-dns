@@ -12,17 +12,16 @@ use openssl::sign::{Signer, Verifier};
 #[cfg(feature = "openssl")]
 use openssl::pkey::PKey;
 #[cfg(feature = "openssl")]
-use openssl::bn::{BigNum, BigNumContext};
+use openssl::bn::BigNumContext;
 #[cfg(feature = "openssl")]
-use openssl::ec::{EcGroup, EcKey, EcPoint, POINT_CONVERSION_UNCOMPRESSED};
+use openssl::ec::{EcGroup, EcKey, POINT_CONVERSION_UNCOMPRESSED};
 #[cfg(feature = "openssl")]
 use openssl::nid;
 
 #[cfg(feature = "ring")]
 use ring::rand;
 #[cfg(feature = "ring")]
-use ring::signature::{Ed25519KeyPair, ED25519_PUBLIC_KEY_LEN, EdDSAParameters,
-                      VerificationAlgorithm};
+use ring::signature::{Ed25519KeyPair, EdDSAParameters, VerificationAlgorithm};
 #[cfg(feature = "ring")]
 use untrusted::Input;
 
@@ -85,152 +84,6 @@ impl KeyPair {
         KeyPair::ED25519(ed_key)
     }
 
-    // /// Converts an array of bytes into a KeyPair, interpreting it based on the algorithm type.
-    // ///
-    // /// Formats for the public key are described in rfc3110, rfc6605, and
-    // ///  rfc-draft-ietf-curdle-dnskey-eddsa-03.
-    // ///
-    // /// # Arguments
-    // ///
-    // /// * `public_key` - the public key bytes formatted in BigEndian/NetworkByteOrder
-    // /// * `algorithm` - the Algorithm which is used to interpret the key
-    // #[allow(unused)]
-    // pub fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> DnsSecResult<Self> {
-    //     match algorithm {
-    //         #[cfg(feature = "openssl")]
-    //         Algorithm::RSASHA1 |
-    //         Algorithm::RSASHA1NSEC3SHA1 |
-    //         Algorithm::RSASHA256 |
-    //         Algorithm::RSASHA512 => {
-    //             // RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
-    //             //
-    //             //       2. RSA Public KEY Resource Records
-    //             //
-    //             //  RSA public keys are stored in the DNS as KEY RRs using algorithm
-    //             //  number 5 [RFC2535].  The structure of the algorithm specific portion
-    //             //  of the RDATA part of such RRs is as shown below.
-    //             //
-    //             //        Field             Size
-    //             //        -----             ----
-    //             //        exponent length   1 or 3 octets (see text)
-    //             //        exponent          as specified by length field
-    //             //        modulus           remaining space
-    //             //
-    //             //  For interoperability, the exponent and modulus are each limited to
-    //             //  4096 bits in length.  The public key exponent is a variable length
-    //             //  unsigned integer.  Its length in octets is represented as one octet
-    //             //  if it is in the range of 1 to 255 and by a zero octet followed by a
-    //             //  two octet unsigned length if it is longer than 255 bytes.  The public
-    //             //  key modulus field is a multiprecision unsigned integer.  The length
-    //             //  of the modulus can be determined from the RDLENGTH and the preceding
-    //             //  RDATA fields including the exponent.  Leading zero octets are
-    //             //  prohibited in the exponent and modulus.
-    //             //
-    //             //  Note: KEY RRs for use with RSA/SHA1 DNS signatures MUST use this
-    //             //  algorithm number (rather than the algorithm number specified in the
-    //             //  obsoleted RFC 2537).
-    //             //
-    //             //  Note: This changes the algorithm number for RSA KEY RRs to be the
-    //             //  same as the new algorithm number for RSA/SHA1 SIGs.
-    //             if public_key.len() < 3 || public_key.len() > (4096 + 3) {
-    //                 return Err(DnsSecErrorKind::Message("bad public key").into());
-    //             }
-    //             let mut num_exp_len_octs = 1;
-    //             let mut len: u16 = public_key[0] as u16;
-    //             if len == 0 {
-    //                 num_exp_len_octs = 3;
-    //                 len = ((public_key[1] as u16) << 8) | (public_key[2] as u16)
-    //             }
-    //             let len = len; // demut
-
-    //             // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-    //             let e = try!(BigNum::from_slice(&public_key[(num_exp_len_octs as usize)..
-    //                                              (len as usize + num_exp_len_octs)]));
-    //             let n = try!(BigNum::from_slice(&public_key[(len as usize + num_exp_len_octs)..]));
-
-    //             OpenSslRsa::from_public_components(n, e)
-    //                 .map_err(|e| e.into())
-    //                 .and_then(|rsa| Self::from_rsa(rsa))
-    //         }
-    //         #[cfg(feature = "openssl")]
-    //         Algorithm::ECDSAP256SHA256 => {
-    //             // RFC 6605                    ECDSA for DNSSEC                  April 2012
-    //             //
-    //             //   4.  DNSKEY and RRSIG Resource Records for ECDSA
-    //             //
-    //             //   ECDSA public keys consist of a single value, called "Q" in FIPS
-    //             //   186-3.  In DNSSEC keys, Q is a simple bit string that represents the
-    //             //   uncompressed form of a curve point, "x | y".
-    //             //
-    //             //   The ECDSA signature is the combination of two non-negative integers,
-    //             //   called "r" and "s" in FIPS 186-3.  The two integers, each of which is
-    //             //   formatted as a simple octet string, are combined into a single longer
-    //             //   octet string for DNSSEC as the concatenation "r | s".  (Conversion of
-    //             //   the integers to bit strings is described in Section C.2 of FIPS
-    //             //   186-3.)  For P-256, each integer MUST be encoded as 32 octets; for
-    //             //   P-384, each integer MUST be encoded as 48 octets.
-    //             //
-    //             //   The algorithm numbers associated with the DNSKEY and RRSIG resource
-    //             //   records are fully defined in the IANA Considerations section.  They
-    //             //   are:
-    //             //
-    //             //   o  DNSKEY and RRSIG RRs signifying ECDSA with the P-256 curve and
-    //             //      SHA-256 use the algorithm number 13.
-    //             //
-    //             //   o  DNSKEY and RRSIG RRs signifying ECDSA with the P-384 curve and
-    //             //      SHA-384 use the algorithm number 14.
-    //             //
-    //             //   Conformant implementations that create records to be put into the DNS
-    //             //   MUST implement signing and verification for both of the above
-    //             //   algorithms.  Conformant DNSSEC verifiers MUST implement verification
-    //             //   for both of the above algorithms.
-    //             EcGroup::from_curve_name(nid::SECP256K1)
-    //             .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
-    //             // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-    //             .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, public_key, &mut ctx).map(|point| (group, point) ))
-    //             .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
-    //             .and_then(|ec_key| PKey::from_ec_key(ec_key) )
-    //             .map(|pkey| KeyPair::EC(pkey))
-    //             .map_err(|e| e.into())
-    //         }
-    //         #[cfg(feature = "openssl")]
-    //         Algorithm::ECDSAP384SHA384 => {
-    //             // see above Algorithm::ECDSAP256SHA256 for reference
-    //             EcGroup::from_curve_name(nid::SECP384R1)
-    //             .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
-    //             // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-    //             .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, public_key, &mut ctx).map(|point| (group, point) ))
-    //             .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
-    //             .and_then(|ec_key| PKey::from_ec_key(ec_key) )
-    //             .map(|pkey| KeyPair::EC(pkey))
-    //             .map_err(|e| e.into())
-    //         }
-    //         // #[cfg(feature = "ring")]
-    //         // Algorithm::ED25519 => {
-    //         //     // Internet-Draft              EdDSA for DNSSEC               December 2016
-    //         //     //
-    //         //     //  An Ed25519 public key consists of a 32-octet value, which is encoded
-    //         //     //  into the Public Key field of a DNSKEY resource record as a simple bit
-    //         //     //  string.  The generation of a public key is defined in Section 5.1.5
-    //         //     //  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
-    //         //     //  endian byte order.
-    //         //     if public_key.len() != ED25519_PUBLIC_KEY_LEN {
-    //         //         return Err(DnsSecErrorKind::Msg(format!("expected {} byte public_key: {}",
-    //         //                                                 ED25519_PUBLIC_KEY_LEN,
-    //         //                                                 public_key.len()))
-    //         //                            .into());
-    //         //     }
-
-    //         //     let mut ed_public_key = [0_u8; ED25519_PUBLIC_KEY_LEN];
-    //         //     ed_public_key.copy_from_slice(&public_key);
-
-    //         //     Ok(KeyPair::ED25519(ed_public_key))
-    //         // }
-    //         #[cfg(not(all(feature = "openssl", feature = "ring")))]
-    //         _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
-    //     }
-    // }
-
     /// Converts this keypair to the DNS binary form of the public_key.
     ///
     /// If there is a private key associated with this keypair, it will not be included in this
@@ -290,7 +143,7 @@ impl KeyPair {
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.public_key_bytes().to_vec()),
-            #[cfg(not(all(feature = "openssl", feature = "ring")))]
+            #[cfg(not(any(feature = "openssl", feature = "ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into()),
         }
     }
@@ -510,7 +363,7 @@ impl KeyPair {
             KeyPair::RSA(ref pkey) |
             KeyPair::EC(ref pkey) => pkey.private_key_to_pem().map_err(|e| e.into()),
             #[cfg(feature = "ring")]
-            KeyPair::ED25519(ref ed_key) => {
+            KeyPair::ED25519(..) => {
                 Err(DnsSecErrorKind::Message("ring does not support raw private key bytes, see pkcs8 functions").into())
             }
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
@@ -647,7 +500,7 @@ impl PublicKey for KeyPair {
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => {
-                let pub_key = Ed25519::from_public_bytes(&ed_key.public_key_bytes(), algorithm)?;
+                let pub_key = Ed25519::from_public_bytes(&ed_key.public_key_bytes())?;
                 pub_key
                     .verify(algorithm, message, signature)
                     .map_err(|e| e.into())
@@ -660,7 +513,6 @@ impl PublicKey for KeyPair {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
     use rr::dnssec::*;
 
     #[cfg(feature = "openssl")]
@@ -691,8 +543,16 @@ mod tests {
         let bytes = b"www.example.com";
 
         // TODO: convert to stored keys...
-        let key = key_format.decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(), None, algorithm).unwrap();
-        let neg = key_format.decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(), None, algorithm).unwrap();
+        let key = key_format
+            .decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(),
+                        None,
+                        algorithm)
+            .unwrap();
+        let neg = key_format
+            .decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(),
+                        None,
+                        algorithm)
+            .unwrap();
 
         let sig = key.sign(algorithm, bytes).unwrap();
         assert!(key.verify(algorithm, bytes, &sig).is_ok(),

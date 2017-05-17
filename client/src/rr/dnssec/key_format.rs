@@ -185,6 +185,7 @@ impl KeyFormat {
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(..) => panic!("should have returned early"),
+            #[cfg(not(any(feature = "openssl", feature = "ring")))]
             _ => return Err(format!("unsupported Algorithm, enable openssl feature (encode not supported with ring)").into()),
         }
     }
@@ -231,28 +232,7 @@ impl KeyFormat {
                     }
                 }
             }
-            // #[cfg(feature = "ring")]
-            // KeyPair::ED25519(..) => {
-            //     match self {
-            //         KeyFormat::Raw => {
-            //             // to avoid accientally storing a key where there was an expectation that it was password protected
-            //             if password.is_some() {
-            //                 return Err(format!("Can only password protect PEM: {:?}", self).into());
-            //             }
-            //             return key_pair
-            //                        .to_private_bytes()
-            //                        .map_err(|e| {
-            //                                     format!("error writing ED25519 as RAW: {}", e)
-            //                                         .into()
-            //                                 });
-            //         }
-            //         e @ _ => {
-            //             return Err(format!("unsupported key format with ED25519 (RAW only): {:?}",
-            //                                e)
-            //                                .into())
-            //         }
-            //     }
-            // }
+            #[cfg(any(feature = "ring", not(feature = "openssl")))]
             _ => return Err(format!("unsupported Algorithm, enable openssl feature (encode not supported with ring)").into()),
         }
     }

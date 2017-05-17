@@ -1,15 +1,13 @@
-//! signer is a structure for performing many of the signing processes of the DNSSec specification
-#[cfg(any(feature = "openssl", feature = "ring"))]
-use chrono::Duration;
+//! hash functions for DNSSec operations
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use op::Message;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::{DNSClass, Name, Record, RecordType, RData};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::{Algorithm, DnsSecErrorKind, DnsSecResult, KeyPair, Signer};
+use rr::dnssec::{Algorithm, DnsSecErrorKind, DnsSecResult};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::{DNSKEY, KEY, sig, SIG};
+use rr::rdata::{sig, SIG};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
@@ -279,7 +277,7 @@ mod tests {
 
     use rr::{Name, RecordType};
     use rr::rdata::SIG;
-    use op::{Message, Query, UpdateMessage};
+    use rr::dnssec::{KeyPair, Signer};
 
     pub use super::*;
 

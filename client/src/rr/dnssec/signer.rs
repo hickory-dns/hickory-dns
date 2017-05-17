@@ -21,14 +21,14 @@ use chrono::Duration;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use op::Message;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::{DNSClass, Name, Record, RecordType, RData};
+use rr::{Name, RData};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::{Algorithm, DnsSecErrorKind, DnsSecResult, KeyPair};
+use rr::dnssec::{Algorithm, DnsSecResult, KeyPair};
 use rr::dnssec::hash;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::{DNSKEY, KEY, sig, SIG};
+use rr::rdata::{DNSKEY, KEY, SIG};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
+use serialize::binary::BinEncoder;
 
 /// Use for performing signing and validation of DNSSec based components.
 ///
@@ -539,7 +539,7 @@ mod tests {
     extern crate openssl;
     use self::openssl::rsa::Rsa;
 
-    use rr::{Name, RecordType};
+    use rr::{DNSClass, Name, Record, RecordType};
     use rr::rdata::SIG;
     use op::{Message, Query, UpdateMessage};
 

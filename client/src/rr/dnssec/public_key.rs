@@ -6,18 +6,19 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Public Key implementations for supported key types
+#[cfg(not(any(feature = "openssl", feature = "ring")))]
 use std::marker::PhantomData;
 
 #[cfg(feature = "openssl")]
 use openssl::rsa::Rsa as OpenSslRsa;
-#[cfg(feature = "openssl")]
-use openssl::sign::{Signer, Verifier};
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use openssl::sign::Verifier;
 #[cfg(feature = "openssl")]
 use openssl::pkey::PKey;
 #[cfg(feature = "openssl")]
 use openssl::bn::{BigNum, BigNumContext};
 #[cfg(feature = "openssl")]
-use openssl::ec::{EcGroup, EcKey, EcPoint, POINT_CONVERSION_UNCOMPRESSED};
+use openssl::ec::{EcGroup, EcKey, EcPoint};
 #[cfg(feature = "openssl")]
 use openssl::nid;
 #[cfg(feature = "ring")]
@@ -206,7 +207,7 @@ impl<'k> PublicKey for Ec<'k> {
     }
 }
 
-/// Ed25519 Public key 
+/// Ed25519 Public key
 #[cfg(feature = "ring")]
 pub struct Ed25519<'k> {
     raw: &'k [u8],
@@ -223,7 +224,7 @@ impl<'k> Ed25519<'k> {
     ///  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
     ///  endian byte order.
     /// ```
-    pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> DnsSecResult<Self> {
+    pub fn from_public_bytes(public_key: &'k [u8]) -> DnsSecResult<Self> {
         if public_key.len() != ED25519_PUBLIC_KEY_LEN {
             return Err(DnsSecErrorKind::Msg(format!("expected {} byte public_key: {}",
                                                     ED25519_PUBLIC_KEY_LEN,
@@ -242,7 +243,7 @@ impl<'k> PublicKey for Ed25519<'k> {
         self.raw
     }
 
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    fn verify(&self, _: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
         let public_key = Input::from(self.raw);
         let message = Input::from(message);
         let signature = Input::from(signature);
@@ -293,8 +294,7 @@ impl<'k> Rsa<'k> {
     ///  Note: This changes the algorithm number for RSA KEY RRs to be the
     ///  same as the new algorithm number for RSA/SHA1 SIGs.
     /// ```
-    pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> DnsSecResult<Self> {
-
+    pub fn from_public_bytes(public_key: &'k [u8]) -> DnsSecResult<Self> {
         if public_key.len() < 3 || public_key.len() > (4096 + 3) {
             return Err(DnsSecErrorKind::Message("bad public key").into());
         }
@@ -360,16 +360,14 @@ impl<'k> PublicKeyEnum<'k> {
             }
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => {
-                Ok(PublicKeyEnum::Ed25519(Ed25519::from_public_bytes(public_key, algorithm)?))
+                Ok(PublicKeyEnum::Ed25519(Ed25519::from_public_bytes(public_key)?))
             }
             #[cfg(feature = "openssl")]
             Algorithm::RSASHA1 |
             Algorithm::RSASHA1NSEC3SHA1 |
             Algorithm::RSASHA256 |
-            Algorithm::RSASHA512 => {
-                Ok(PublicKeyEnum::Rsa(Rsa::from_public_bytes(public_key, algorithm)?))
-            }
-
+            Algorithm::RSASHA512 => Ok(PublicKeyEnum::Rsa(Rsa::from_public_bytes(public_key)?)),
+            #[cfg(not(all(feature = "ring", feature = "openssl")))]
             _ => Err("no public keys registered, enable ring or openssl features".into()),
         }
     }
@@ -384,6 +382,7 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
             PublicKeyEnum::Ed25519(ref ed) => ed.public_bytes(),
             #[cfg(feature = "openssl")]
             PublicKeyEnum::Rsa(ref rsa) => rsa.public_bytes(),
+            #[cfg(not(any(feature = "ring", feature = "openssl")))]
             _ => panic!("no public keys registered, enable ring or openssl features"),
         }
     }
@@ -396,6 +395,7 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
             PublicKeyEnum::Ed25519(ref ed) => ed.verify(algorithm, message, signature),
             #[cfg(feature = "openssl")]
             PublicKeyEnum::Rsa(ref rsa) => rsa.verify(algorithm, message, signature),
+            #[cfg(not(any(feature = "ring", feature = "openssl")))]
             _ => panic!("no public keys registered, enable ring or openssl features"),
         }
     }
