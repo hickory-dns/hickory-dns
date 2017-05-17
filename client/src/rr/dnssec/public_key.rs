@@ -11,7 +11,7 @@ use std::marker::PhantomData;
 
 #[cfg(feature = "openssl")]
 use openssl::rsa::Rsa as OpenSslRsa;
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "openssl")]
 use openssl::sign::Verifier;
 #[cfg(feature = "openssl")]
 use openssl::pkey::PKey;
