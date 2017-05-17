@@ -135,12 +135,12 @@ fn test_create() {
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 
-#[test]
-fn test_update() {
-    // named_process();
-}
+// #[test]
+// fn test_update() {
+//     // named_process();
+// }
 
-#[test]
-fn test_delete() {
-    // named_process();
-}
+// #[test]
+// fn test_delete() {
+//     // named_process();
+// }

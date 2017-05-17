@@ -37,7 +37,7 @@ fn tls_new(certs: &[Certificate] /*, pkcs12: Option<Pkcs12>*/) -> io::Result<Arc
                               }));
         }
     }
-    
+
     // if let Some(pkcs12) = pkcs12 {
     //     try!(builder
     //              .identity(pkcs12)

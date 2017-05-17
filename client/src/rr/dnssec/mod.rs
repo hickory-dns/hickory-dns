@@ -18,13 +18,16 @@
 
 mod algorithm;
 mod digest_type;
+pub mod hash;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 mod key_format;
 mod keypair;
 mod nsec3;
+pub mod public_key;
 mod signer;
 mod supported_algorithm;
 mod trust_anchor;
+mod verifier;
 
 pub use self::algorithm::Algorithm;
 pub use self::digest_type::DigestType;
@@ -32,9 +35,12 @@ pub use self::digest_type::DigestType;
 pub use self::key_format::KeyFormat;
 pub use self::keypair::KeyPair;
 pub use self::nsec3::Nsec3HashAlgorithm;
+pub use self::public_key::PublicKey;
+pub use self::public_key::PublicKeyEnum;
 pub use self::signer::Signer;
 pub use self::supported_algorithm::SupportedAlgorithms;
 pub use self::trust_anchor::TrustAnchor;
+pub use self::verifier::Verifier;
 
 pub use error::DnsSecError;
 pub use error::DnsSecErrorKind;

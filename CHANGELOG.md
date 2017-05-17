@@ -2,6 +2,21 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.10.2
+
+### Fixed
+- Fixed format of ED25519 keys (@briansmith) #129
+
+### Changed
+- Revamped signer and keypair to better deal with public key (possible breaking change)
+- Upgraded *ring* to 0.9.x series, requires pkcs8 for key storage
+- Dropped support for dangerous private key byte access (possible breaking change)
+- Upgraded tokio-rustls and rustls dependencies to support *ring* updates
+
+### Added
+- PublicKey and Verifier for verifying with zero copy from KEY and DNSKEY (possible breaking change)
+- Pkcs8 as a supported KeyFormat for storage (possible breaking change)
+
 ## 0.10.1
 ### Added
 - Added `From<IpAddr>` for Name (reverse DNS) #105 

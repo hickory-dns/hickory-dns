@@ -276,7 +276,7 @@ impl KeyConfig {
             Some("der") => Ok(KeyFormat::Der),
             Some("key") => Ok(KeyFormat::Pem), // TODO: deprecate this...
             Some("pem") => Ok(KeyFormat::Pem),
-            Some("raw") => Ok(KeyFormat::Raw),
+            Some("pk8") => Ok(KeyFormat::Pkcs8),
             e @ _ => {
                 Err(ParseErrorKind::Msg(format!("extension not understood, '{:?}': {:?}",
                                                 e,
