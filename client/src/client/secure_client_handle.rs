@@ -698,8 +698,7 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
         return Err(ClientErrorKind::Message("mismatched algorithm").into());
     }
 
-    let rrset_hash = hash::hash_rrset_with_sig(&rrset.name, rrset.record_class, sig, &rrset.records)?;
-    dnskey.verify(&rrset_hash, sig.sig()).map_err(Into::into)
+    dnskey.verify_rrsig(&rrset.name, rrset.record_class, sig, &rrset.records).map_err(Into::into)
 }
 
 /// Will always return an error. To enable record verification compile with the openssl feature.

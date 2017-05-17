@@ -9,7 +9,7 @@ use op::Message;
 use rr::{DNSClass, Name, Record, RecordType, RData};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::{Algorithm, DnsSecErrorKind, DnsSecResult, KeyPair};
-use rr::dnssec::{PublicKey, PublicKeyEnum};
+use rr::dnssec::{hash, PublicKey, PublicKeyEnum};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSKEY, KEY, sig, SIG};
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -38,6 +38,38 @@ pub trait Verifier {
     /// false if the `key`.
     fn verify(&self, hash: &[u8], signature: &[u8]) -> DnsSecResult<()> {
         self.key()?.verify(self.algorithm(), hash, signature)
+    }
+
+    /// Verifies a message with the against the given signature, i.e. SIG0
+    ///
+    /// # Arguments
+    ///
+    /// * `message` - the message to verify
+    /// * `signature` - the signature to use for validation
+    ///
+    /// # Return value
+    ///
+    /// `true` if the message could be validated against the signature, `false` otherwise
+    fn verify_message(&self, message: &Message, signature: &[u8], sig0: &SIG) -> DnsSecResult<()> {
+        hash::hash_message(message, sig0).and_then(|hash| self.verify(&hash, signature))
+    }
+
+    /// Verifies an RRSig with the associated key, e.g. DNSKEY
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - name associated with the rrsig being validated
+    /// * `dns_class` - DNSClass of the records, generally IN
+    /// * `sig` - signature record being validated
+    /// * `records` - Records covered by SIG
+    fn verify_rrsig(&self,
+                    name: &Name,
+                    dns_class: DNSClass,
+                    sig: &SIG,
+                    records: &[Record])
+                    -> DnsSecResult<()> {
+        let rrset_hash = hash::hash_rrset_with_sig(name, dns_class, sig, records)?;
+        self.verify(&rrset_hash, sig.sig())
     }
 }
 

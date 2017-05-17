@@ -23,7 +23,7 @@ use trust_dns::error::*;
 use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
 use trust_dns::rr::rdata::{NSEC, SIG};
-use trust_dns::rr::dnssec::{KeyPair, Signer, SupportedAlgorithms};
+use trust_dns::rr::dnssec::{hash, Signer, SupportedAlgorithms, Verifier};
 
 use authority::{Journal, UpdateResult, ZoneType};
 use error::{PersistenceErrorKind, PersistenceResult};
@@ -502,20 +502,7 @@ impl Authority {
                                 None
                             })
                 .any(|key| {
-                    let pkey = KeyPair::from_public_bytes(key.public_key(), *key.algorithm());
-                    if let Err(error) = pkey {
-                        warn!("public key {:?} of {} could not be used: {}",
-                              key,
-                              name,
-                              error);
-                        return false;
-                    }
-
-                    let pkey = pkey.unwrap();
-                    let signer: Signer = Signer::sig0(key.clone(), pkey, sig.signer_name().clone());
-
-                    signer
-                        .verify_message(update_message, sig.sig(), sig)
+                    key.verify_message(update_message, sig.sig(), sig)
                         .map(|_| {
                                  info!("verified sig: {:?} with key: {:?}", sig, key);
                                  true
@@ -1137,24 +1124,23 @@ impl Authority {
             for signer in self.secure_keys.iter() {
                 let expiration = inception + signer.sig_duration();
 
-                let hash =
-                    signer.hash_rrset(rr_set.name(),
-                                      self.class,
-                                      rr_set.name().num_labels(),
-                                      rr_set.record_type(),
-                                      signer.algorithm(),
-                                      rr_set.ttl(),
-                                      expiration.timestamp() as u32,
-                                      inception.timestamp() as u32,
-                                      try!(signer.calculate_key_tag()),
-                                      signer.signer_name(),
-                                      // TODO: this is a nasty clone... the issue is that the vec
-                                      //  from records is of Vec<&R>, but we really want &[R]
-                                      &rr_set
-                                           .records(false, SupportedAlgorithms::new())
-                                           .into_iter()
-                                           .cloned()
-                                           .collect::<Vec<Record>>());
+                let hash = hash::hash_rrset(rr_set.name(),
+                                            self.class,
+                                            rr_set.name().num_labels(),
+                                            rr_set.record_type(),
+                                            signer.algorithm(),
+                                            rr_set.ttl(),
+                                            expiration.timestamp() as u32,
+                                            inception.timestamp() as u32,
+                                            try!(signer.calculate_key_tag()),
+                                            signer.signer_name(),
+                                            // TODO: this is a nasty clone... the issue is that the vec
+                                            //  from records is of Vec<&R>, but we really want &[R]
+                                            &rr_set
+                                                 .records(false, SupportedAlgorithms::new())
+                                                 .into_iter()
+                                                 .cloned()
+                                                 .collect::<Vec<Record>>());
 
                 // TODO, maybe chain these with some ETL operations instead?
                 if hash.is_err() {
