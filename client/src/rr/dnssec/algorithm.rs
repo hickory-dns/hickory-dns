@@ -127,7 +127,7 @@ impl Algorithm {
             10 => Ok(Algorithm::RSASHA512),
             13 => Ok(Algorithm::ECDSAP256SHA256),
             14 => Ok(Algorithm::ECDSAP384SHA384),
-            15 => Ok(Algorithm::ED25519), // FIXME: assuming IANA will give this as the next number...
+            15 => Ok(Algorithm::ED25519),
             _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
         }
     }
@@ -203,7 +203,7 @@ impl From<Algorithm> for u8 {
             Algorithm::RSASHA512 => 10,
             Algorithm::ECDSAP256SHA256 => 13,
             Algorithm::ECDSAP384SHA384 => 14,
-            Algorithm::ED25519 => 15, // FIXME: assuming IANA will give this as the next number...
+            Algorithm::ED25519 => 15,
         }
     }
 }

@@ -24,7 +24,7 @@ use op::Message;
 use rr::{Name, RData};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::{Algorithm, DnsSecResult, KeyPair};
-use rr::dnssec::hash;
+use rr::dnssec::{hash, PublicKey, PublicKeyEnum, Verifier};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSKEY, KEY, SIG};
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -480,24 +480,6 @@ impl Signer {
         hash::hash_message(message, pre_sig0).and_then(|hash| self.sign(&hash))
     }
 
-    /// Verifies a message with the against the given signature
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - the message to verify
-    /// * `signature` - the signature to use for validation
-    ///
-    /// # Return value
-    ///
-    /// `true` if the message could be validated against the signature, `false` otherwise
-    pub fn verify_message(&self,
-                          message: &Message,
-                          signature: &[u8],
-                          sig0: &SIG)
-                          -> DnsSecResult<()> {
-        hash::hash_message(message, sig0).and_then(|hash| self.verify(&hash, signature))
-    }
-
     /// Signs a hash.
     ///
     /// This will panic if the `key` is not a private key and can be used for signing.
@@ -514,22 +496,19 @@ impl Signer {
             .sign(self.algorithm, &hash)
             .map_err(|e| e.into())
     }
+}
 
-    /// Verifies the hash matches the signature with the current `key`.
-    ///
-    /// # Arguments
-    ///
-    /// * `hash` - the hash to be validated, see `hash_rrset`
-    /// * `signature` - the signature to use to verify the hash, extracted from an `RData::RRSIG`
-    ///                 for example.
-    ///
-    /// # Return value
-    ///
-    /// Ok if valid, Err otherwise
-    pub fn verify(&self, hash: &[u8], signature: &[u8]) -> DnsSecResult<()> {
-        self.key
-            .verify(self.algorithm, hash, signature)
-            .map_err(|e| e.into())
+impl Verifier for Signer {
+    fn algorithm(&self) -> Algorithm {
+        self.algorithm()
+    }
+
+    fn key<'k>(&'k self) -> DnsSecResult<PublicKeyEnum<'k>> {
+        panic!("Signer is cheating by implementing verify() directly to avoid cloning keys")
+    }
+
+    fn verify(&self, hash: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+        self.key().verify(self.algorithm(), hash, signature)
     }
 }
 
@@ -541,6 +520,7 @@ mod tests {
 
     use rr::{DNSClass, Name, Record, RecordType};
     use rr::rdata::SIG;
+    use rr::dnssec::Verifier;
     use op::{Message, Query, UpdateMessage};
 
     pub use super::*;
