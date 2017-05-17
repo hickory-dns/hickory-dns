@@ -1,6 +1,6 @@
 [root]
 name = "trust-dns-server"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "backtrace 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.2.25 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -19,8 +19,8 @@ dependencies = [
  "tokio-openssl 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tls 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.1.30 (registry+https://github.com/rust-lang/crates.io-index)",
- "trust-dns 0.10.1",
- "trust-dns-native-tls 0.1.0",
+ "trust-dns 0.10.2",
+ "trust-dns-native-tls 0.1.1",
 ]
 
 [[package]]
@@ -749,7 +749,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns"
-version = "0.10.1"
+version = "0.10.2"
 dependencies = [
  "backtrace 0.2.3 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.2.25 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -781,30 +781,30 @@ dependencies = [
  "futures 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "trust-dns 0.10.1",
+ "trust-dns 0.10.2",
 ]
 
 [[package]]
 name = "trust-dns-native-tls"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "futures 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "native-tls 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tls 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "trust-dns 0.10.1",
+ "trust-dns 0.10.2",
 ]
 
 [[package]]
 name = "trust-dns-rustls"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "futures 0.1.13 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.9.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustls 0.8.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-rustls 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "trust-dns 0.10.1",
+ "trust-dns 0.10.2",
 ]
 
 [[package]]
