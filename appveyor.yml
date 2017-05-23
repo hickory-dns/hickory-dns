@@ -36,5 +36,7 @@ test_script:
 
   - cargo test --manifest-path rustls/Cargo.toml
 
+  - cargo test --manifest-path resolver/Cargo.toml
+
   - cargo test --manifest-path server/Cargo.toml --all-features
   - cargo test --manifest-path server/Cargo.toml

@@ -168,6 +168,15 @@ impl<'a> From<&'a io::Error> for Error {
     }
 }
 
+impl From<Error> for io::Error {
+    fn from(e: Error) -> Self {
+        match e.kind() {
+            &ErrorKind::Timeout => io::ErrorKind::TimedOut.into(),
+            _ => io::Error::new(io::ErrorKind::Other, format!("ClientError: {}", e)),
+        }
+    }
+}
+
 #[test]
 fn test_conversion() {
     let io_error = io::Error::new(io::ErrorKind::TimedOut, format!("mock timeout"));
