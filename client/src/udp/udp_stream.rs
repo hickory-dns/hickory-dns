@@ -28,6 +28,7 @@ lazy_static!{
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream {
+    // FIXME: change UdpStream to always select a new Socket for every request
     socket: tokio_core::net::UdpSocket,
     outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
 }

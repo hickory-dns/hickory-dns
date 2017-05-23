@@ -82,3 +82,9 @@ error_chain! {
       }
     }
 }
+
+impl From<Error> for io::Error {
+    fn from(e: Error) -> Self {
+        io::Error::new(io::ErrorKind::Other, format!("DNS ParseError: {}", e))
+    }
+}

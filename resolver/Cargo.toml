@@ -41,4 +41,8 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
+futures = "^0.1.6"
 trust-dns = { version = "^0.10", path = "../client" }
+
+[dev-dependencies]
+tokio-core = "^0.1"

@@ -819,7 +819,9 @@ dependencies = [
 name = "trust-dns-resolver"
 version = "0.1.0"
 dependencies = [
- "trust-dns 0.10.0",
+ "futures 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-core 0.1.7 (registry+https://github.com/rust-lang/crates.io-index)",
+ "trust-dns 0.10.2",
 ]
 
 [[package]]
