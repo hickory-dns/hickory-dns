@@ -15,6 +15,7 @@ use tokio_core::reactor::Core;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SecureSyncClient, SyncClient};
+use trust_dns::error::ClientErrorKind;
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
@@ -25,7 +26,7 @@ use trust_dns::udp::UdpClientConnection;
 use trust_dns_server::authority::Catalog;
 
 mod common;
-use common::TestClientStream;
+use common::{TestClientStream, NeverReturnsClientConnection};
 use common::authority::{create_example, create_secure_example};
 
 pub struct TestClientConnection {
@@ -213,6 +214,54 @@ fn test_secure_query_example(client: SecureSyncClient) {
         assert!(false);
     }
 }
+
+fn test_timeout_query(client: SyncClient) {
+    let name = domain::Name::with_labels(vec!["WWW".to_string(),
+                                              "example".to_string(),
+                                              "com".to_string()]);
+
+    let response = client.query(&name, DNSClass::IN, RecordType::A);
+    assert!(response.is_err());
+
+    if let &ClientErrorKind::Timeout = response.unwrap_err().kind() {
+        ()
+    } else {
+        assert!(false);
+    }
+}
+
+#[test]
+fn test_timeout_query_nonet() {
+    // TODO: need to add timeout length to SyncClient
+    let client = SyncClient::new(NeverReturnsClientConnection::new().unwrap());
+    test_timeout_query(client);
+}
+
+#[test]
+fn test_timeout_query_udp() {
+    let addr: SocketAddr = ("192.168.3.1", 53)
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
+
+    // TODO: need to add timeout length to SyncClient
+    let client = SyncClient::new(UdpClientConnection::new(addr).unwrap());
+    test_timeout_query(client);
+}
+
+// #[test]
+// fn test_timeout_query_tcp() {
+//     let addr: SocketAddr = ("192.168.3.1", 53)
+//         .to_socket_addrs()
+//         .unwrap()
+//         .next()
+//         .unwrap();
+
+//     // TODO: need to add timeout length to SyncClient
+//     let client = SyncClient::new(TcpClientConnection::new(addr).unwrap());
+//     test_timeout_query(client);
+// }
 
 #[test]
 #[ignore]

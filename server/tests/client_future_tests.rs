@@ -6,20 +6,15 @@ extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
-use std::fmt;
-use std::io;
 use std::net::*;
 use std::cmp::Ordering;
 
 use chrono::Duration;
-use futures::{Async, Future, finished, Poll};
-use futures::stream::{Fuse, Stream};
-use futures::sync::mpsc::{unbounded, UnboundedReceiver};
-use futures::task::park;
+use futures::Future;
 use openssl::rsa::Rsa;
 use tokio_core::reactor::Core;
 
-use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle, ClientStreamHandle};
+use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle};
 use trust_dns::error::*;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
@@ -30,7 +25,7 @@ use trust_dns::tcp::TcpClientStream;
 use trust_dns_server::authority::Catalog;
 
 mod common;
-use common::TestClientStream;
+use common::{NeverReturnsClientStream, TestClientStream};
 use common::authority::create_example;
 
 
@@ -802,57 +797,7 @@ fn test_delete_all() {
     assert_eq!(result.answers().len(), 0);
 }
 
-// need to do something with the message channel, otherwise the ClientFuture will think there
-//  is no one listening to messages and shutdown...
-#[allow(dead_code)]
-pub struct NeverReturnsClientStream {
-    outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
-}
-
-impl NeverReturnsClientStream {
-    pub fn new() -> (Box<Future<Item = Self, Error = io::Error>>, Box<ClientStreamHandle>) {
-        let (message_sender, outbound_messages) = unbounded();
-
-        let stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>> =
-            Box::new(finished(NeverReturnsClientStream {
-                                  outbound_messages: outbound_messages.fuse(),
-                              }));
-
-        (stream, Box::new(message_sender))
-    }
-}
-
-impl Stream for NeverReturnsClientStream {
-    type Item = Vec<u8>;
-    type Error = io::Error;
-
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        // always not ready...
-        park().unpark();
-        Ok(Async::NotReady)
-    }
-}
-
-impl fmt::Debug for NeverReturnsClientStream {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "TestClientStream catalog")
-    }
-}
-
-#[test]
-fn test_timeout_query_nonet() {
-    let authority = create_example();
-    let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
-
-    let mut io_loop = Core::new().unwrap();
-    let (stream, sender) = NeverReturnsClientStream::new();
-    let mut client = ClientFuture::with_timeout(stream,
-                                                sender,
-                                                io_loop.handle(),
-                                                std::time::Duration::from_millis(1),
-                                                None);
-
+fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
     let name = domain::Name::with_labels(vec!["www".to_string(),
                                               "example".to_string(),
                                               "com".to_string()]);
@@ -879,3 +824,53 @@ fn test_timeout_query_nonet() {
         assert!(false);
     }
 }
+
+#[test]
+fn test_timeout_query_nonet() {
+    let mut io_loop = Core::new().unwrap();
+    let (stream, sender) = NeverReturnsClientStream::new();
+    let mut client = ClientFuture::with_timeout(stream,
+                                                sender,
+                                                io_loop.handle(),
+                                                std::time::Duration::from_millis(1),
+                                                None);
+    test_timeout_query(client, io_loop);
+}
+
+#[test]
+fn test_timeout_query_udp() {
+    let mut io_loop = Core::new().unwrap();
+
+    let addr: SocketAddr = ("192.168.3.1", 53)
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
+
+    let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
+    let mut client = ClientFuture::with_timeout(stream,
+                                                sender,
+                                                io_loop.handle(),
+                                                std::time::Duration::from_millis(1),
+                                                None);
+    test_timeout_query(client, io_loop);
+}
+
+// #[test]
+// fn test_timeout_query_tcp() {
+//     let mut io_loop = Core::new().unwrap();
+
+//     let addr: SocketAddr = ("192.168.3.1", 53)
+//         .to_socket_addrs()
+//         .unwrap()
+//         .next()
+//         .unwrap();
+
+//     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
+//     let mut client = ClientFuture::with_timeout(stream,
+//                                                 sender,
+//                                                 io_loop.handle(),
+//                                                 std::time::Duration::from_millis(1),
+//                                                 None);
+//     test_timeout_query(client, io_loop);
+//}
