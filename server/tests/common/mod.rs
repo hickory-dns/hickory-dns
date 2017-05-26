@@ -1,3 +1,6 @@
+#![allow(dead_code)]
+
+
 use std::fmt;
 use std::io;
 
@@ -5,8 +8,10 @@ use futures::{Async, Future, finished, Poll};
 use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task::park;
+use tokio_core::reactor::Core;
 
-use trust_dns::client::ClientStreamHandle;
+use trust_dns::error::ClientResult;
+use trust_dns::client::{ClientConnection, ClientStreamHandle};
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
 
@@ -74,5 +79,76 @@ impl Stream for TestClientStream {
 impl fmt::Debug for TestClientStream {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "TestClientStream catalog")
+    }
+}
+
+
+// need to do something with the message channel, otherwise the ClientFuture will think there
+//  is no one listening to messages and shutdown...
+#[allow(dead_code)]
+pub struct NeverReturnsClientStream {
+    outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
+}
+
+#[allow(dead_code)]
+impl NeverReturnsClientStream {
+    pub fn new() -> (Box<Future<Item = Self, Error = io::Error>>, Box<ClientStreamHandle>) {
+        let (message_sender, outbound_messages) = unbounded();
+
+        let stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>> =
+            Box::new(finished(NeverReturnsClientStream {
+                                  outbound_messages: outbound_messages.fuse(),
+                              }));
+
+        (stream, Box::new(message_sender))
+    }
+}
+
+impl Stream for NeverReturnsClientStream {
+    type Item = Vec<u8>;
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
+        // always not ready...
+        park().unpark();
+        Ok(Async::NotReady)
+    }
+}
+
+impl fmt::Debug for NeverReturnsClientStream {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "TestClientStream catalog")
+    }
+}
+
+#[allow(dead_code)]
+pub struct NeverReturnsClientConnection {
+    io_loop: Core,
+    client_stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>>,
+    client_stream_handle: Box<ClientStreamHandle>,
+}
+
+impl NeverReturnsClientConnection {
+    pub fn new() -> ClientResult<Self> {
+        let io_loop = try!(Core::new());
+        let (client_stream, handle) = NeverReturnsClientStream::new();
+
+        Ok(NeverReturnsClientConnection {
+               io_loop: io_loop,
+               client_stream: client_stream,
+               client_stream_handle: handle,
+           })
+    }
+}
+
+impl ClientConnection for NeverReturnsClientConnection {
+    type MessageStream = NeverReturnsClientStream;
+
+    fn unwrap
+        (self)
+         -> (Core,
+             Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+             Box<ClientStreamHandle>) {
+        (self.io_loop, self.client_stream, self.client_stream_handle)
     }
 }
