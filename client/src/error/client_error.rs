@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-use std::io::Error as IoError;
+use std::io;
 
 use futures::Canceled;
 use futures::sync::mpsc::SendError;
@@ -54,7 +54,7 @@ error_chain! {
     //
     // This section can be empty.
     foreign_links {
-      IoError, Io, "io error";
+      io::Error, Io, "io error";
       SslErrorStack, SSL, "ssl error";
     }
 
@@ -132,7 +132,6 @@ error_chain! {
     }
 }
 
-
 impl From<()> for Error {
     fn from(_: ()) -> Self {
         ErrorKind::NoError.into()
@@ -154,5 +153,14 @@ impl<T> From<SendError<T>> for Error {
 impl Clone for Error {
     fn clone(&self) -> Self {
         ErrorKind::Msg(format!("ClientError: {}", self)).into()
+    }
+}
+
+impl<'a> From<&'a io::Error> for Error {
+    fn from(e: &'a io::Error) -> Self {
+        match e.kind() {
+            io::ErrorKind::TimedOut => ErrorKind::Timeout.into(),
+            _ => format!("io::Error: {}", e).into(),
+        }
     }
 }
