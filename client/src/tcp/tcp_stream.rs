@@ -7,16 +7,19 @@
 
 //! This module contains all the TCP structures for demuxing TCP into streams of DNS packets.
 
+use std::io;
 use std::mem;
 use std::net::SocketAddr;
-use std::io;
+use std::time::Duration;
 
 use futures::{Async, Future, Poll};
+use futures::future;
+use futures::future::Either;
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_core::net::TcpStream as TokioTcpStream;
-use tokio_core::reactor::Handle;
+use tokio_core::reactor::{Handle, Timeout};
 
 use BufStreamHandle;
 
@@ -79,7 +82,9 @@ impl<S> TcpStream<S> {
 }
 
 impl TcpStream<TokioTcpStream> {
-    /// Creates a new future of the eventually establish a IO stream connection or fail trying
+    /// Creates a new future of the eventually establish a IO stream connection or fail trying.
+    ///
+    /// Defaults to a 5 second timeout
     ///
     /// # Arguments
     ///
@@ -89,13 +94,48 @@ impl TcpStream<TokioTcpStream> {
         (name_server: SocketAddr,
          loop_handle: Handle)
          -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
+        Self::with_timeout(name_server, loop_handle, Duration::from_secs(5))
+    }
+
+    /// Creates a new future of the eventually establish a IO stream connection or fail trying
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - the IP and Port of the DNS server to connect to
+    /// * `loop_handle` - reference to the takio_core::Core for future based IO
+    /// * `timeout` - connection timeout
+    pub fn with_timeout
+        (name_server: SocketAddr,
+         loop_handle: Handle,
+         timeout: Duration)
+         -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
+        let timeout = match Timeout::new(timeout, &loop_handle) {
+            Ok(timeout) => timeout,
+            Err(e) => return (Box::new(future::err(e)), message_sender),
+        };
+
+
         let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
         let stream: Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>> =
-            Box::new(tcp.map(move |tcp_stream| {
+            Box::new(timeout
+                         .select2(tcp)
+                         .then(move |res| match res {
+                                   Ok(Either::A((_, _))) => {
+                                       future::err(io::Error::new(io::ErrorKind::TimedOut, format!("TimedOut connecting to: {}", name_server)))
+                                   }
+                                   Ok(Either::B((tcp_stream, _))) => future::ok((tcp_stream, name_server)),
+                                   Err(Either::A((timeout_err, _))) => {
+                                       future::err(timeout_err)
+                                   }
+                                   Err(Either::B((tcp_err, _))) => {
+                                       future::err(tcp_err)
+                                   }
+                               })
+                         .map(move |(tcp_stream, name_server)| {
                 TcpStream {
                     socket: tcp_stream,
                     outbound_messages: outbound_messages.fuse().peekable(),

@@ -14,8 +14,9 @@
 
 //! TCP based DNS client connection for Client impls
 
-use std::net::SocketAddr;
 use std::io;
+use std::net::SocketAddr;
+use std::time::Duration;
 
 use futures::Future;
 use tokio_core::net::TcpStream;
@@ -40,13 +41,27 @@ impl TcpClientConnection {
     /// *Note* this has side affects of establishing the connection to the specified DNS server and
     ///        starting the event_loop. Expect this to change in the future.
     ///
+    /// Default connection timeout is 5 seconds
+    ///
     /// # Arguments
     ///
     /// * `name_server` - address of the name server to use for queries
     pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
+        Self::with_timeout(name_server, Duration::from_secs(5))
+    }
+
+    /// Creates a new client connection.
+    ///
+    /// *Note* this has side affects of establishing the connection to the specified DNS server and
+    ///        starting the event_loop. Expect this to change in the future.
+    ///
+    /// # Arguments
+    ///
+    /// * `name_server` - address of the name server to use for queries
+    pub fn with_timeout(name_server: SocketAddr, timeout: Duration) -> ClientResult<Self> {
         let io_loop = try!(Core::new());
-        let (tcp_client_stream, handle) = TcpClientStream::<TcpStream>::new(name_server,
-                                                                            io_loop.handle());
+        let (tcp_client_stream, handle) =
+            TcpClientStream::<TcpStream>::with_timeout(name_server, io_loop.handle(), timeout);
 
         Ok(TcpClientConnection {
                io_loop: io_loop,
@@ -59,7 +74,11 @@ impl TcpClientConnection {
 impl ClientConnection for TcpClientConnection {
     type MessageStream = TcpClientStream<TcpStream>;
 
-fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>){
+    fn unwrap
+        (self)
+         -> (Core,
+             Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+             Box<ClientStreamHandle>) {
         (self.io_loop, self.tcp_client_stream, self.client_stream_handle)
     }
 }

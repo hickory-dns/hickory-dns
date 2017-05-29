@@ -57,8 +57,8 @@ pub struct ClientFuture<S: Stream<Item = Vec<u8>, Error = io::Error>> {
     timeout_duration: Duration,
     // TODO genericize and remove this Box
     stream_handle: Box<ClientStreamHandle>,
-    new_receiver: Peekable<StreamFuse<UnboundedReceiver<(Message,
-                                                         Complete<ClientResult<Message>>)>>>,
+    new_receiver:
+        Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<ClientResult<Message>>)>>>,
     active_requests: HashMap<u16, (Complete<ClientResult<Message>>, Timeout)>,
     // TODO: Maybe make a typed version of ClientFuture for Updates?
     signer: Option<Signer>,
@@ -108,21 +108,35 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
         let (sender, rx) = unbounded();
 
         let loop_handle_clone = loop_handle.clone();
-        loop_handle.spawn(stream.map(move |stream| {
-                ClientFuture {
-                    stream: stream,
-                    reactor_handle: loop_handle_clone,
-                    timeout_duration: timeout_duration,
-                    stream_handle: stream_handle,
-                    new_receiver: rx.fuse().peekable(),
-                    active_requests: HashMap::new(),
-                    signer: signer,
-                }
-            })
-                              .flatten()
-                              .map_err(|e| {
-                                           error!("error in Client: {}", e);
-                                       }));
+        loop_handle
+            .spawn(stream
+                       .then(move |res| match res {
+                                 Ok(stream) => {
+                                     ClientStreamOrError::Future(ClientFuture {
+                                                                     stream: stream,
+                                                                     reactor_handle:
+                                                                         loop_handle_clone,
+                                                                     timeout_duration:
+                                                                         timeout_duration,
+                                                                     stream_handle: stream_handle,
+                                                                     new_receiver: rx.fuse()
+                                                                         .peekable(),
+                                                                     active_requests:
+                                                                         HashMap::new(),
+                                                                     signer: signer,
+                                                                 })
+                                 }
+                                 Err(stream_error) => {
+                                     ClientStreamOrError::Errored(ClientStreamErrored {
+                                                                      error: stream_error,
+                                                                      new_receiver: rx.fuse()
+                                                                          .peekable(),
+                                                                  })
+                                 }
+                             })
+                       .map_err(|e: ClientError| {
+                                    error!("error in Client: {}", e);
+                                }));
 
         BasicClientHandle { message_sender: sender }
     }
@@ -159,7 +173,8 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
                 //  then the otherside isn't really paying attention anyway)
 
                 // complete the request, it's failed...
-                req.send(Err(ClientErrorKind::Timeout.into())).expect("error notifying wait, possible future leak");
+                req.send(Err(ClientErrorKind::Timeout.into()))
+                    .expect("error notifying wait, possible future leak");
             }
         }
     }
@@ -225,7 +240,9 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                             // TODO: it's too bad this happens here...
                             if let Err(e) = message.sign(signer, UTC::now().timestamp() as u32) {
                                 warn!("could not sign message: {}", e);
-                                complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
+                                complete
+                                    .send(Err(e.into()))
+                                    .expect("error notifying wait, possible future leak");
                                 continue; // to the next message...
                             }
                         }
@@ -236,7 +253,9 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                         Ok(timeout) => timeout,
                         Err(e) => {
                             warn!("could not create timer: {}", e);
-                            complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
+                            complete
+                                .send(Err(e.into()))
+                                .expect("error notifying wait, possible future leak");
                             continue; // to the next message...
                         }
                     };
@@ -248,12 +267,15 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                             try!(self.stream_handle.send(buffer));
                             // add to the map -after- the client send b/c we don't want to put it in the map if
                             //  we ended up returning from the send.
-                            self.active_requests.insert(message.id(), (complete, timeout));
+                            self.active_requests
+                                .insert(message.id(), (complete, timeout));
                         }
                         Err(e) => {
                             debug!("error message id: {} error: {}", query_id, e);
                             // complete with the error, don't add to the map of active requests
-                            complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
+                            complete
+                                .send(Err(e.into()))
+                                .expect("error notifying wait, possible future leak");
                         }
                     }
                 }
@@ -278,7 +300,11 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                     match Message::from_vec(&buffer) {
                         Ok(message) => {
                             match self.active_requests.remove(&message.id()) {
-                                Some((complete, _)) => complete.send(Ok(message)).expect("error notifying wait, possible future leak"),
+                                Some((complete, _)) => {
+                                    complete
+                                        .send(Ok(message))
+                                        .expect("error notifying wait, possible future leak")
+                                }
                                 None => debug!("unexpected request_id: {}", message.id()),
                             }
                         }
@@ -316,6 +342,50 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
     }
 }
 
+/// Always returns the specified io::Error to the remote Sender
+struct ClientStreamErrored {
+    error: io::Error,
+    new_receiver:
+        Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<ClientResult<Message>>)>>>,
+}
+
+impl Future for ClientStreamErrored {
+    type Item = ();
+    type Error = ClientError;
+
+    fn poll(&mut self) -> Poll<(), Self::Error> {
+        match self.new_receiver.poll() {
+            Ok(Async::Ready(Some((_, complete)))) => {
+                complete
+                    .send(Err(ClientError::from(&self.error).clone()))
+                    .expect("error notifying wait, possible future leak");
+
+                park().unpark();
+                return Ok(Async::NotReady);
+            }
+            Ok(Async::Ready(None)) => return Ok(Async::Ready(())),            
+            _ => return Err(ClientErrorKind::NoError.into()),
+        }
+    }
+}
+
+enum ClientStreamOrError<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> {
+    Future(ClientFuture<S>),
+    Errored(ClientStreamErrored),
+}
+
+impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientStreamOrError<S> {
+    type Item = ();
+    type Error = ClientError;
+
+    fn poll(&mut self) -> Poll<(), Self::Error> {
+        match *self {
+            ClientStreamOrError::Future(ref mut f) => f.poll(),
+            ClientStreamOrError::Errored(ref mut e) => e.poll(),
+        }
+    }
+}
+
 /// Root ClientHandle implementaton returned by ClientFuture
 ///
 /// This can be used directly to perform queries. See `trust_dns::client::SecureClientHandle` for
@@ -335,13 +405,16 @@ impl ClientHandle for BasicClientHandle {
             Ok(()) => receiver,
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();
-                complete.send(Err(e.into())).expect("error notifying wait, possible future leak");
+                complete
+                    .send(Err(e.into()))
+                    .expect("error notifying wait, possible future leak");
                 receiver
             }
         };
 
         // conver the oneshot into a Box of a Future message and error.
-        Box::new(receiver.map_err(|c| ClientError::from(c))
+        Box::new(receiver
+                     .map_err(|c| ClientError::from(c))
                      .map(|result| result.into_future())
                      .flatten())
     }
@@ -380,7 +453,8 @@ pub trait ClientHandle: Clone {
         let mut message: Message = Message::new();
         let id: u16 = rand::random();
         // TODO make recursion a parameter
-        message.set_id(id)
+        message
+            .set_id(id)
             .set_message_type(MessageType::Query)
             .set_op_code(OpCode::Query)
             .set_recursion_desired(true);
@@ -394,7 +468,10 @@ pub trait ClientHandle: Clone {
 
         // add the query
         let mut query: Query = Query::new();
-        query.set_name(name.clone()).set_query_class(query_class).set_query_type(query_type);
+        query
+            .set_name(name.clone())
+            .set_query_class(query_class)
+            .set_query_type(query_type);
         message.add_query(query);
 
         self.send(message)
@@ -492,7 +569,10 @@ pub trait ClientHandle: Clone {
 
         // add the query
         let mut query: Query = Query::new();
-        query.set_name(name.clone()).set_query_class(query_class).set_query_type(query_type);
+        query
+            .set_name(name.clone())
+            .set_query_class(query_class)
+            .set_query_type(query_type);
         message.add_query(query);
 
         // add the notify message, see https://tools.ietf.org/html/rfc1996, section 3.7
@@ -554,7 +634,8 @@ pub trait ClientHandle: Clone {
 
         // build the message
         let mut message: Message = Message::new();
-        message.set_id(rand::random())
+        message
+            .set_id(rand::random())
             .set_message_type(MessageType::Query)
             .set_op_code(OpCode::Update)
             .set_recursion_desired(false);
@@ -627,7 +708,8 @@ pub trait ClientHandle: Clone {
 
         // build the message
         let mut message: Message = Message::new();
-        message.set_id(rand::random())
+        message
+            .set_id(rand::random())
             .set_message_type(MessageType::Query)
             .set_op_code(OpCode::Update)
             .set_recursion_desired(false);
@@ -708,11 +790,14 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(new.dns_class()).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(new.dns_class())
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
-        message.set_id(rand::random())
+        message
+            .set_id(rand::random())
             .set_message_type(MessageType::Query)
             .set_op_code(OpCode::Update)
             .set_recursion_desired(false);
@@ -797,7 +882,8 @@ pub trait ClientHandle: Clone {
 
         // build the message
         let mut message: Message = Message::new();
-        message.set_id(rand::random())
+        message
+            .set_id(rand::random())
             .set_message_type(MessageType::Query)
             .set_op_code(OpCode::Update)
             .set_recursion_desired(false);
@@ -867,7 +953,8 @@ pub trait ClientHandle: Clone {
 
         // build the message
         let mut message: Message = Message::new();
-        message.set_id(rand::random())
+        message
+            .set_id(rand::random())
             .set_message_type(MessageType::Query)
             .set_op_code(OpCode::Update)
             .set_recursion_desired(false);
@@ -924,11 +1011,14 @@ pub trait ClientHandle: Clone {
 
         // for updates, the query section is used for the zone
         let mut zone: Query = Query::new();
-        zone.set_name(zone_origin).set_query_class(dns_class).set_query_type(RecordType::SOA);
+        zone.set_name(zone_origin)
+            .set_query_class(dns_class)
+            .set_query_type(RecordType::SOA);
 
         // build the message
         let mut message: Message = Message::new();
-        message.set_id(rand::random())
+        message
+            .set_id(rand::random())
             .set_message_type(MessageType::Query)
             .set_op_code(OpCode::Update)
             .set_recursion_desired(false);
