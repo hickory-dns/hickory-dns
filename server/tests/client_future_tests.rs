@@ -15,6 +15,7 @@ use openssl::rsa::Rsa;
 use tokio_core::reactor::Core;
 
 use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle};
+use trust_dns::error::*;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, IntoRecordSet, RData, Record, RecordType, RecordSet};
@@ -801,28 +802,23 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
                                               "example".to_string(),
                                               "com".to_string()]);
 
-    // TODO: the Timeout checks below should work, break on TCP for some reason...
-    io_loop
+    let err = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .unwrap_err();
 
-    // match io_loop
-    //           .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
-    //           .unwrap_err()
-    //           .kind() {
-    //     &ClientErrorKind::Timeout => (),
-    //     e @ _ => assert!(false, format!("something else: {}", e)),
-    // }
+    match err.kind() {
+        &ClientErrorKind::Timeout => (),
+        e @ _ => assert!(false, format!("something else: {}", e)),
+    }
 
-    io_loop
+    let err = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::AAAA))
         .unwrap_err();
 
-    // // test that we don't have any thing funky with registering new timeouts, etc...
-    // match io_loop
-    //           .run(client.query(name.clone(), DNSClass::IN, RecordType::AAAA))
-    //           .unwrap_err()
-    //           .kind() {
+    // test that we don't have any thing funky with registering new timeouts, etc...
+    //   it would be cool if we could maintain a different error here, but shutdown is problably ok.
+    //
+    // match err.kind() {
     //     &ClientErrorKind::Timeout => (),
     //     e @ _ => assert!(false, format!("something else: {}", e)),
     // }

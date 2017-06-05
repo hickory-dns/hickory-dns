@@ -152,7 +152,10 @@ impl<T> From<SendError<T>> for Error {
 
 impl Clone for Error {
     fn clone(&self) -> Self {
-        ErrorKind::Msg(format!("ClientError: {}", self)).into()
+        match self.kind() {
+            &ErrorKind::Timeout => ErrorKind::Timeout.into(),
+            _ => ErrorKind::Msg(format!("Cloned error: {}", self)).into(),
+        }
     }
 }
 
@@ -162,5 +165,17 @@ impl<'a> From<&'a io::Error> for Error {
             io::ErrorKind::TimedOut => ErrorKind::Timeout.into(),
             _ => format!("io::Error: {}", e).into(),
         }
+    }
+}
+
+#[test]
+fn test_conversion() {
+    let io_error = io::Error::new(io::ErrorKind::TimedOut, format!("mock timeout"));
+
+    let error = Error::from(&io_error);
+
+    match error.kind() {
+        &ErrorKind::Timeout => (),
+        _ => panic!("incorrect type: {}", error),
     }
 }
