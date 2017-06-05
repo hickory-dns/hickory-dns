@@ -16,6 +16,7 @@ use tokio_core::reactor::Core;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SecureSyncClient, SyncClient};
+use trust_dns::error::*;
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
@@ -224,10 +225,10 @@ fn test_timeout_query(client: SyncClient) {
     assert!(response.is_err());
 
     // TODO: this type check should work, but for some reason TCP connection timeout doesn't match
-    // match response.unwrap_err().kind() {
-    //     &ClientErrorKind::Timeout => (),
-    //     e @ _ => assert!(false, format!("something else: {}", e)),
-    // }
+    match response.unwrap_err().kind() {
+        &ClientErrorKind::Timeout => (),
+        e @ _ => assert!(false, format!("something else: {:?}", e)),
+    }
 }
 
 #[test]
