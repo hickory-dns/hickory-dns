@@ -82,7 +82,7 @@ pub trait Client<C: ClientHandle> {
                  query_type: RecordType,
                  rrset: Option<R>)
                  -> ClientResult<Message>
-        where R: IntoRecordSet
+        where R: IntoRecordSet, Self: Sized
     {
         self.get_io_loop()
             .run(self.get_client_handle()
@@ -123,7 +123,7 @@ pub trait Client<C: ClientHandle> {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
     fn create<R>(&self, rrset: R, zone_origin: domain::Name) -> ClientResult<Message>
-        where R: IntoRecordSet
+        where R: IntoRecordSet, Self: Sized
     {
         self.get_io_loop()
             .run(self.get_client_handle().create(rrset, zone_origin))
@@ -168,7 +168,7 @@ pub trait Client<C: ClientHandle> {
                  zone_origin: domain::Name,
                  must_exist: bool)
                  -> ClientResult<Message>
-        where R: IntoRecordSet
+        where R: IntoRecordSet, Self: Sized
     {
         self.get_io_loop()
             .run(self.get_client_handle()
@@ -222,7 +222,8 @@ pub trait Client<C: ClientHandle> {
                                 zone_origin: domain::Name)
                                 -> ClientResult<Message>
         where CR: IntoRecordSet,
-              NR: IntoRecordSet
+              NR: IntoRecordSet,
+              Self: Sized
     {
         self.get_io_loop()
             .run(self.get_client_handle()
@@ -265,7 +266,7 @@ pub trait Client<C: ClientHandle> {
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
     fn delete_by_rdata<R>(&self, record: R, zone_origin: domain::Name) -> ClientResult<Message>
-        where R: IntoRecordSet
+        where R: IntoRecordSet, Self: Sized
     {
         self.get_io_loop()
             .run(self.get_client_handle()
