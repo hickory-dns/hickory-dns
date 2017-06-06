@@ -6,31 +6,48 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Configuration for a resolver
-use std::collections::BTreeSet;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
 /// Configuration for the upstream nameservers to use for resolution
+#[derive(Clone, Debug)]
 pub struct ResolverConfig {
-    name_servers: Vec<NameServerConf>,
+    name_servers: Vec<NameServerConfig>,
 }
 
 impl ResolverConfig {
-    pub fn add_name_server(&mut self, name_server: NameServerConf) {
+    pub fn add_name_server(&mut self, name_server: NameServerConfig) {
         self.name_servers.push(name_server);
+    }
+
+    pub fn name_servers(&self) -> &[NameServerConfig] {
+        &self.name_servers
     }
 }
 
 impl Default for ResolverConfig {
     fn default() -> Self {
-        let ns = NameServerConf{ socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53) };
+        let ns = NameServerConfig
+ {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
+            protocol: Protocol::Udp,
+        };
         ResolverConfig { name_servers: vec![ns] }
     }
 }
 
-#[derive(Debug, Eq, PartialEq)]
-pub struct NameServerConf {
+#[derive(Clone, Debug, Eq, PartialEq)]
+enum Protocol {
+    Udp,
+    Tcp,
+    // TODO: add client certificate for mTLS
+    Tls,
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NameServerConfig {
     socket_addr: SocketAddr,
+    protocol: Protocol,
 }
 
 /// Configuration for the Resolver

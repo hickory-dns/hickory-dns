@@ -400,7 +400,8 @@ impl ClientHandle for BasicClientHandle {
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
 
-        let receiver = match message_sender.send((message, complete)) {
+        // TODO: update to use Sink::send
+        let receiver = match UnboundedSender::send(message_sender, (message, complete)) {
             Ok(()) => receiver,
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();

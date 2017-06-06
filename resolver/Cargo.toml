@@ -10,7 +10,7 @@ TRust-DNS is a safe and secure DNS library. This is the resolver library. It use
 """
 
 # These URLs point to more information about the repository
-documentation = "https://docs.rs/trust-dns"
+documentation = "https://docs.rs/trust-dns-resolver"
 homepage = "http://www.trust-dns.org/index.html"
 repository = "https://github.com/bluejekyll/trust-dns"
 
@@ -37,11 +37,12 @@ travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [lib]
-name = "trust_dns_resolver"
+name = "r2d2_trust_dns"
 path = "src/lib.rs"
 
 [dependencies]
 futures = "^0.1.6"
+tokio-core = "^0.1"
 trust-dns = { version = "^0.10", path = "../client" }
 
 [dev-dependencies]

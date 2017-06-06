@@ -11,30 +11,27 @@ use trust_dns::client::ClientHandle;
 use trust_dns::rr::RecordType;
 
 use config::{ResolverConfig, ResolverOpts};
+use pool::NameServerPool;
 use lookup_ip::LookupIpFuture;
 
 /// A Recursive Resolver for DNS records.
-pub struct ResolverFuture<C: ClientHandle> {
-    config: ResolverConfig,
-    options: ResolverOpts,
-    client: C,
+pub struct ResolverFuture {
+    // config: ResolverConfig,
+    // options: ResolverOpts,
+    pool: NameServerPool,
 }
 
-impl<C: ClientHandle> ResolverFuture<C> {
+impl ResolverFuture {
     /// Construct a new ResolverFuture with the associated Client.
-    pub fn new(config: ResolverConfig, options: ResolverOpts, client: C) -> Self {
-        ResolverFuture {
-            config,
-            options,
-            client,
-        }
+    pub fn new(config: ResolverConfig, options: ResolverOpts) -> Self {
+        let pool = NameServerPool::from_config(&config, &options);
+        ResolverFuture { pool }
     }
 
     /// A basic host name lookup lookup
     pub fn lookup_ip(&mut self, host: &str) -> LookupIpFuture {
-
         // create the lookup
-        LookupIpFuture::lookup(host, RecordType::A, &mut self.client)
+        LookupIpFuture::lookup(host, RecordType::A, &mut self.pool)
     }
 }
 
