@@ -184,15 +184,17 @@ impl<'k> Ec<'k> {
     /// ```
     pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> DnsSecResult<Self> {
         let curve = match algorithm {
-            Algorithm::ECDSAP256SHA256 => nid::SECP256K1,
+            Algorithm::ECDSAP256SHA256 => nid::X9_62_PRIME256V1,
             Algorithm::ECDSAP384SHA384 => nid::SECP384R1,
             _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
-
+        // Key needs to be converted to OpenSSL format
+        let mut k = vec![0x04]; // POINT_CONVERSION_UNCOMPRESSED
+        k.extend(public_key);
         EcGroup::from_curve_name(curve)
                 .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
                 // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-                .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, public_key, &mut ctx).map(|point| (group, point) ))
+                .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, &k, &mut ctx).map(|point| (group, point) ))
                 .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
                 .and_then(|ec_key| PKey::from_ec_key(ec_key) )
                 .map_err(|e| e.into())
@@ -208,7 +210,27 @@ impl<'k> PublicKey for Ec<'k> {
     }
 
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
-        verify_with_pkey(&self.pkey, algorithm, message, signature)
+        if signature.len() == 0 || signature.len() & 1 != 0 {
+            return Err("invalid signature length".into());
+        }
+        // Convert signature to ASN.1 DER format
+        let part_len = (signature.len() / 2) as u8;
+        let header1 = if signature[0] > 0x7f {
+            vec![0x02, part_len + 1, 0]
+        } else {
+            vec![0x02, part_len]
+        };
+        let header2 = if signature[part_len as usize] > 0x7f {
+            vec![0x02, part_len + 1, 0]
+        } else {
+            vec![0x02, part_len]
+        };
+        let mut signature_asn1 = vec![0x30, (signature.len() + header1.len() + header2.len()) as u8];
+        signature_asn1.extend(&header1);
+        signature_asn1.extend(&signature[..(part_len as usize)]);
+        signature_asn1.extend(&header2);
+        signature_asn1.extend(&signature[(part_len as usize)..]);
+        verify_with_pkey(&self.pkey, algorithm, message, &signature_asn1)
     }
 }
 
