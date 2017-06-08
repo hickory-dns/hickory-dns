@@ -204,32 +204,52 @@ impl<'k> Ec<'k> {
 }
 
 #[cfg(feature = "openssl")]
+fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
+    assert!(int.len() > 0);
+    output.push(0x02); // INTEGER
+    if int[0] > 0x7f {
+        output.push((int.len() + 1) as u8);
+        output.push(0x00); // MSB must be zero
+        output.extend(int);
+        return;
+    }
+    // Trim leading zeros
+    let mut pos = 0;
+    while pos < int.len() {
+        if int[pos] == 0 {
+            if pos == int.len() - 1 {
+                break;
+            }
+            pos += 1;
+            continue;
+        }
+        if int[pos] > 0x7f {
+            // We need to leave one 0x00 to make MSB zero
+            pos -= 1;
+        }
+        break;
+    }
+    let int_output = &int[pos..];
+    output.push(int_output.len() as u8);
+    output.extend(int_output);
+}
+#[cfg(feature = "openssl")]
 impl<'k> PublicKey for Ec<'k> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
     }
 
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
-        if signature.len() == 0 || signature.len() & 1 != 0 {
+        if signature.len() == 0 || signature.len() & 1 != 0 || signature.len() > 127 {
             return Err("invalid signature length".into());
         }
         // Convert signature to ASN.1 DER format
-        let part_len = (signature.len() / 2) as u8;
-        let header1 = if signature[0] > 0x7f {
-            vec![0x02, part_len + 1, 0]
-        } else {
-            vec![0x02, part_len]
-        };
-        let header2 = if signature[part_len as usize] > 0x7f {
-            vec![0x02, part_len + 1, 0]
-        } else {
-            vec![0x02, part_len]
-        };
-        let mut signature_asn1 = vec![0x30, (signature.len() + header1.len() + header2.len()) as u8];
-        signature_asn1.extend(&header1);
-        signature_asn1.extend(&signature[..(part_len as usize)]);
-        signature_asn1.extend(&header2);
-        signature_asn1.extend(&signature[(part_len as usize)..]);
+        let part_len = signature.len() / 2;
+        // ASN.1 SEQUENCE: 0x30 [LENGTH]
+        let mut signature_asn1 = vec![0x30, 0x00];
+        asn1_emit_integer(&mut signature_asn1, &signature[..part_len]);
+        asn1_emit_integer(&mut signature_asn1, &signature[part_len..]);
+        signature_asn1[1] = (signature_asn1.len() - 2) as u8;
         verify_with_pkey(&self.pkey, algorithm, message, &signature_asn1)
     }
 }
@@ -429,4 +449,33 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
             _ => panic!("no public keys registered, enable ring or openssl features"),
         }
     }
+}
+
+#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(test)]
+mod tests {
+    use rr::dnssec::public_key::*;
+
+    #[cfg(feature = "openssl")]
+    #[test]
+    fn test_asn1_emit_integer() {
+        fn test_case(source: &[u8], expected_data: &[u8]) {
+            let mut output = Vec::<u8>::new();
+            asn1_emit_integer(&mut output, source);
+            assert_eq!(output[0], 0x02);
+            assert_eq!(output[1], expected_data.len() as u8);
+            assert_eq!(&output[2..], expected_data);
+        }
+        test_case(&[0x00], &[0x00]);
+        test_case(&[0x00, 0x00], &[0x00]);
+        test_case(&[0x7f], &[0x7f]);
+        test_case(&[0x80], &[0x00, 0x80]);
+        test_case(&[0x00, 0x80], &[0x00, 0x80]);
+        test_case(&[0x00, 0x00, 0x80], &[0x00, 0x80]);
+        test_case(&[0x7f, 0x00, 0x80], &[0x7f, 0x00, 0x80]);
+        test_case(&[0x00, 0x7f, 0x00, 0x80], &[0x7f, 0x00, 0x80]);
+        test_case(&[0x80, 0x00, 0x80], &[0x00, 0x80, 0x00, 0x80]);
+        test_case(&[0xff, 0x00, 0x80], &[0x00, 0xff, 0x00, 0x80]);
+    }
+
 }
