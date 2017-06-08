@@ -319,7 +319,7 @@ impl KeyPair {
                     let p2_pos = 4 + p1_len;
                     expect(p2_pos, 0x02)?;
                     let p2_len = bytes[p2_pos + 1] as usize;
-                    if p2_pos + 1 + p2_len > bytes.len() {
+                    if p2_pos + 2 + p2_len > bytes.len() {
                         return Err("unexpected signature format (invalid length)".into());
                     }
 
