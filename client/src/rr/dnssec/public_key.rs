@@ -459,12 +459,12 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
 #[cfg(any(feature = "openssl", feature = "ring"))]
 #[cfg(test)]
 mod tests {
-    use rr::dnssec::public_key::*;
-
     #[cfg(feature = "openssl")]
     #[test]
     fn test_asn1_emit_integer() {
         fn test_case(source: &[u8], expected_data: &[u8]) {
+            use rr::dnssec::public_key::asn1_emit_integer;
+
             let mut output = Vec::<u8>::new();
             asn1_emit_integer(&mut output, source);
             assert_eq!(output[0], 0x02);
