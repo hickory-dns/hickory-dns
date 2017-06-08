@@ -233,6 +233,20 @@ fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
     output.push(int_output.len() as u8);
     output.extend(int_output);
 }
+/// Convert raw DNSSEC ECDSA signature to ASN.1 DER format
+#[cfg(feature = "openssl")]
+pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> DnsSecResult<Vec<u8>> {
+    if signature.len() == 0 || signature.len() & 1 != 0 || signature.len() > 127 {
+        return Err("invalid signature length".into());
+    }
+    let part_len = signature.len() / 2;
+    // ASN.1 SEQUENCE: 0x30 [LENGTH]
+    let mut signature_asn1 = vec![0x30, 0x00];
+    asn1_emit_integer(&mut signature_asn1, &signature[..part_len]);
+    asn1_emit_integer(&mut signature_asn1, &signature[part_len..]);
+    signature_asn1[1] = (signature_asn1.len() - 2) as u8;
+    Ok(signature_asn1)
+}
 #[cfg(feature = "openssl")]
 impl<'k> PublicKey for Ec<'k> {
     fn public_bytes(&self) -> &[u8] {
@@ -240,16 +254,7 @@ impl<'k> PublicKey for Ec<'k> {
     }
 
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
-        if signature.len() == 0 || signature.len() & 1 != 0 || signature.len() > 127 {
-            return Err("invalid signature length".into());
-        }
-        // Convert signature to ASN.1 DER format
-        let part_len = signature.len() / 2;
-        // ASN.1 SEQUENCE: 0x30 [LENGTH]
-        let mut signature_asn1 = vec![0x30, 0x00];
-        asn1_emit_integer(&mut signature_asn1, &signature[..part_len]);
-        asn1_emit_integer(&mut signature_asn1, &signature[part_len..]);
-        signature_asn1[1] = (signature_asn1.len() - 2) as u8;
+        let signature_asn1 = dnssec_ecdsa_signature_to_der(signature)?;
         verify_with_pkey(&self.pkey, algorithm, message, &signature_asn1)
     }
 }

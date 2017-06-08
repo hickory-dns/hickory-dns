@@ -28,6 +28,8 @@ use rr::Name;
 use rr::dnssec::{Algorithm, DigestType, PublicKey};
 #[cfg(feature = "ring")]
 use rr::dnssec::public_key::Ed25519;
+#[cfg(feature = "openssl")]
+use rr::dnssec::public_key::dnssec_ecdsa_signature_to_der;
 use rr::rdata::{DNSKEY, DS, KEY};
 
 /// A public and private key pair, the private portion is not required.
@@ -138,6 +140,8 @@ impl KeyPair {
                                       })
                             .map_err(|e| e.into())
                     })
+                    // Remove OpenSSL header byte
+                    .map(|mut bytes| { bytes.remove(0); bytes })
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.public_key_bytes().to_vec()),
@@ -292,6 +296,70 @@ impl KeyPair {
                 let mut signer = Signer::new(digest_type, &pkey).unwrap();
                 try!(signer.update(&message));
                 signer.finish().map_err(|e| e.into())
+                .and_then(|bytes| {
+                    if let KeyPair::RSA(_) = *self {
+                        return Ok(bytes);
+                    }
+
+                    // Convert DER signature to raw signature (see RFC 6605 Section 4)
+                    if bytes.len() < 8 {
+                        return Err("unexpected signature format (length too short)".into());
+                    }
+                    let expect = |pos: usize, expected: u8| -> DnsSecResult<()> {
+                        if bytes[pos] != expected {
+                            return Err(format!("unexpected signature format ({}, {}))", pos, expected).into());
+                        }
+                        Ok(())
+                    };
+                    // Sanity checks
+                    expect(0, 0x30)?;
+                    expect(1, (bytes.len() - 2) as u8)?;
+                    expect(2, 0x02)?;
+                    let p1_len = bytes[3] as usize;
+                    let p2_pos = 4 + p1_len;
+                    expect(p2_pos, 0x02)?;
+                    let p2_len = bytes[p2_pos + 1] as usize;
+                    if p2_pos + 1 + p2_len > bytes.len() {
+                        return Err("unexpected signature format (invalid length)".into());
+                    }
+
+                    let p1 = &bytes[4..p2_pos];
+                    let p2 = &bytes[p2_pos + 2 .. p2_pos + 2 + p2_len];
+
+                    // For P-256, each integer MUST be encoded as 32 octets;
+                    // for P-384, each integer MUST be encoded as 48 octets.
+                    let part_len = match algorithm {
+                        Algorithm::ECDSAP256SHA256 => 32,
+                        Algorithm::ECDSAP384SHA384 => 48,
+                        _ => return Err("unexpected algorithm".into()),
+                    };
+                    let mut ret = Vec::<u8>::new();
+                    {
+                        let mut write_part = |mut part: &[u8]| -> DnsSecResult<()> {
+                            // We need to pad or trim the octet string to expected length
+                            if part.len() > part_len + 1 {
+                                return Err("invalid signature data".into());
+                            }
+                            if part.len() == part_len + 1 {
+                                // Trim leading zero
+                                if part[0] != 0x00 {
+                                    return Err("invalid signature data".into());
+                                }
+                                part = &part[1..];
+                            }
+                            for _ in 0..(part_len - part.len()) {
+                                // Pad with zeros. All numbers are big-endian here.
+                                ret.push(0x00);
+                            }
+                            ret.extend(part);
+                            Ok(())
+                        };
+                        write_part(p1)?;
+                        write_part(p2)?;
+                    }
+                    assert_eq!(ret.len(), part_len * 2);
+                    Ok(ret)
+                })
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(message).as_ref().to_vec()),
@@ -317,7 +385,7 @@ impl KeyPair {
             }
             #[cfg(feature = "openssl")]
             Algorithm::ECDSAP256SHA256 => {
-                EcGroup::from_curve_name(nid::SECP256K1)
+                EcGroup::from_curve_name(nid::X9_62_PRIME256V1)
                     .and_then(|group| EcKey::generate(&group))
                     .map_err(|e| e.into())
                     .and_then(|ec_key| KeyPair::from_ec_key(ec_key))
@@ -385,8 +453,14 @@ impl PublicKey for KeyPair {
                 let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
                 let mut verifier = Verifier::new(digest_type, &pkey).unwrap();
                 try!(verifier.update(message));
-                verifier
-                    .finish(signature)
+                let result = match *self {
+                    KeyPair::RSA(_) => verifier.finish(signature),
+                    KeyPair::EC(_) => {
+                        let signature_asn1 = dnssec_ecdsa_signature_to_der(signature)?;
+                        verifier.finish(&signature_asn1)
+                    },
+                };
+                result
                     .map_err(|e| e.into())
                     .and_then(|b| if b {
                                   Ok(())
@@ -414,28 +488,41 @@ mod tests {
 
     #[cfg(feature = "openssl")]
     #[test]
-    fn test_rsa_hashing() {
+    fn test_rsa() {
+        public_key_test(Algorithm::RSASHA256, KeyFormat::Der);
         hash_test(Algorithm::RSASHA256, KeyFormat::Der);
     }
 
     #[cfg(feature = "openssl")]
     #[test]
-    fn test_ec_hashing_p256() {
+    fn test_ec_p256() {
+        public_key_test(Algorithm::ECDSAP256SHA256, KeyFormat::Der);
         hash_test(Algorithm::ECDSAP256SHA256, KeyFormat::Der);
     }
 
     #[cfg(feature = "openssl")]
     #[test]
-    fn test_ec_hashing_p384() {
+    fn test_ec_p384() {
+        public_key_test(Algorithm::ECDSAP384SHA384, KeyFormat::Der);
         hash_test(Algorithm::ECDSAP384SHA384, KeyFormat::Der);
     }
 
     #[cfg(feature = "ring")]
     #[test]
     fn test_ed25519() {
+        public_key_test(Algorithm::ED25519, KeyFormat::Pkcs8);
         hash_test(Algorithm::ED25519, KeyFormat::Pkcs8);
     }
 
+    fn public_key_test(algorithm: Algorithm, key_format: KeyFormat) {
+        let key = key_format
+            .decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(),
+                        None,
+                        algorithm)
+            .unwrap();
+        let public_bytes = key.to_public_bytes().unwrap();
+        PublicKeyEnum::from_public_bytes(&public_bytes, algorithm).unwrap();
+    }
     fn hash_test(algorithm: Algorithm, key_format: KeyFormat) {
         let bytes = b"www.example.com";
 
@@ -455,8 +542,14 @@ mod tests {
         assert!(key.verify(algorithm, bytes, &sig).is_ok(),
                 "algorithm: {:?}",
                 algorithm);
+        assert!(key.to_dnskey(algorithm).unwrap().verify(bytes, &sig).is_ok(),
+                "algorithm: {:?} (dnskey)",
+                algorithm);
         assert!(!neg.verify(algorithm, bytes, &sig).is_ok(),
-                "algorithm: {:?}",
+                "algorithm: {:?} (neg)",
+                algorithm);
+        assert!(!neg.to_dnskey(algorithm).unwrap().verify(bytes, &sig).is_ok(),
+                "algorithm: {:?} (dnskey, neg)",
                 algorithm);
     }
 }
