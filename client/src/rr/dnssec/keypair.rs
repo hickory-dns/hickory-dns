@@ -521,7 +521,17 @@ mod tests {
                         algorithm)
             .unwrap();
         let public_bytes = key.to_public_bytes().unwrap();
-        PublicKeyEnum::from_public_bytes(&public_bytes, algorithm).unwrap();
+        let pk = PublicKeyEnum::from_public_bytes(&public_bytes, algorithm).unwrap();
+
+        let bytes = b"www.example.com";
+        let mut sig = key.sign(algorithm, bytes).unwrap();
+        assert!(pk.verify(algorithm, bytes, &sig).is_ok(),
+                "algorithm: {:?} (public key)",
+                algorithm);
+        sig[10] = !sig[10];
+        assert!(!pk.verify(algorithm, bytes, &sig).is_ok(),
+                "algorithm: {:?} (public key, neg)",
+                algorithm);
     }
     fn hash_test(algorithm: Algorithm, key_format: KeyFormat) {
         let bytes = b"www.example.com";
