@@ -459,6 +459,8 @@ impl PublicKey for KeyPair {
                         let signature_asn1 = dnssec_ecdsa_signature_to_der(signature)?;
                         verifier.finish(&signature_asn1)
                     },
+                    #[cfg(feature = "ring")]
+                    _ => unreachable!(),
                 };
                 result
                     .map_err(|e| e.into())
