@@ -7,7 +7,7 @@ use std::io;
 use futures::{Async, Future, finished, Poll};
 use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
-use futures::task::park;
+use futures::task;
 use tokio_core::reactor::Core;
 
 use trust_dns::error::ClientResult;
@@ -69,7 +69,7 @@ impl Stream for TestClientStream {
             // now we get to drop through to the receives...
             // TODO: should we also return None if there are no more messages to send?
             _ => {
-                park().unpark();
+                task::current().notify();
                 Ok(Async::NotReady)
             }
         }
@@ -110,7 +110,7 @@ impl Stream for NeverReturnsClientStream {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         // always not ready...
-        park().unpark();
+        task::current().notify();
         Ok(Async::NotReady)
     }
 }

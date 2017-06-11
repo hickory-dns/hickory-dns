@@ -811,7 +811,7 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
         e @ _ => assert!(false, format!("something else: {}", e)),
     }
 
-    let err = io_loop
+    io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::AAAA))
         .unwrap_err();
 
