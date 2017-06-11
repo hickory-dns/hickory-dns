@@ -15,7 +15,6 @@ use futures::IntoFuture;
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::sync::oneshot;
-use futures::task::park;
 use rand::Rng;
 use rand;
 use tokio_core::reactor::{Handle, Timeout};
@@ -192,7 +191,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
         }
 
         warn!("could not get next random query id, delaying");
-        park().unpark();
+        task::current().notify();
         Async::NotReady
     }
 }
@@ -334,7 +333,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
         // was hit then "yield". This'll make sure that the future is
         // woken up immediately on the next turn of the event loop.
         if messages_received == QOS_MAX_RECEIVE_MSGS {
-            task::park().unpark();
+            task::current().notify();
         }
 
         // Finally, return not ready to keep the 'driver task' alive.
@@ -360,7 +359,7 @@ impl Future for ClientStreamErrored {
                     .send(Err(ClientError::from(&self.error).clone()))
                     .expect("error notifying wait, possible future leak");
 
-                park().unpark();
+                task::current().notify();
                 return Ok(Async::NotReady);
             }
             Ok(Async::Ready(None)) => return Ok(Async::Ready(())),            

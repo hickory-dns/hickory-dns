@@ -2,10 +2,11 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 0.10.3 (unreleased)
+## 0.10.3
 
 ### Fixed
-- Proper TCP connection timeout 
+- Proper TCP connection timeout
+- Fixed signature format of ECDSA (@SAPikachu) #141
 
 ## 0.10.2
 
