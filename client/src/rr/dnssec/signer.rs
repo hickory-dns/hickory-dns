@@ -347,6 +347,18 @@ impl Signer {
         self.is_zone_signing_key
     }
 
+    /// Internal checksum function (used for non-RSAMD5 hashes only,
+    /// however, RSAMD5 is considered deprecated and not implemented in
+    /// trust-dns, anyways).
+    fn calculate_key_tag_internal(bytes: &Vec<u8>) -> u16 {
+        let mut ac: u32 = 0;
+        for (i, k) in bytes.iter().enumerate() {
+            ac += (*k as u32) << if i & 0x01 != 0 { 0 } else { 8 };
+        }
+        ac += ac >> 16;
+        (ac & 0xFFFF) as u16
+    }
+
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
     ///
     /// [RFC 1035](https://tools.ietf.org/html/rfc1035), DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987
@@ -401,25 +413,13 @@ impl Signer {
     ///  }
     /// ```
     pub fn calculate_key_tag(&self) -> DnsSecResult<u16> {
-        let mut ac: usize = 0;
-
         // TODO:
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {
             let mut e = BinEncoder::new(&mut bytes);
             try!(self.key_rdata.emit(&mut e));
         }
-
-        for (i, k) in bytes.iter().enumerate() {
-            ac += if i & 0x0001 == 0x0001 {
-                *k as usize
-            } else {
-                (*k as usize) << 8
-            };
-        }
-
-        ac += (ac >> 16) & 0xFFFF;
-        return Ok((ac & 0xFFFF) as u16); // this is unnecessary, no?
+        Ok(Signer::calculate_key_tag_internal(&bytes))
     }
 
     /// Signs the given message, returning the signature bytes.
@@ -518,6 +518,7 @@ impl Verifier for Signer {
 #[cfg(feature = "openssl")]
 mod tests {
     extern crate openssl;
+    use self::openssl::bn::BigNum;
     use self::openssl::rsa::Rsa;
 
     use rr::{DNSClass, Name, Record, RecordType};
@@ -624,16 +625,77 @@ mod tests {
     }
 
     #[test]
+    fn test_calculate_key_tag_checksum() {
+	let test_text = "The quick brown fox jumps over the lazy dog";
+        let test_vectors = vec!(
+            (vec!(), 0),
+            (vec!(0, 0, 0, 0), 0),
+            (vec!(0xff, 0xff, 0xff, 0xff), 0xffff),
+            (vec!(1, 0, 0, 0), 0x0100),
+            (vec!(0, 1, 0, 0), 0x0001),
+            (vec!(0, 0, 1, 0), 0x0100),
+            (test_text.as_bytes().to_vec(), 0x8d5b)
+        );
+
+        for &(ref input_data, exp_result) in test_vectors.iter() {
+            let result = Signer::calculate_key_tag_internal(&input_data);
+            assert_eq!(result, exp_result);
+        }
+    }
+
+    fn get_rsa_from_vec(params: &Vec<u32>)
+        -> Result<Rsa, openssl::error::ErrorStack>
+    {
+        Rsa::from_private_components(
+            BigNum::from_u32(params[0]).unwrap(), // modulus: n
+            BigNum::from_u32(params[1]).unwrap(), // public exponent: e,
+            BigNum::from_u32(params[2]).unwrap(), // private exponent: de,
+            BigNum::from_u32(params[3]).unwrap(), // prime1: p,
+            BigNum::from_u32(params[4]).unwrap(), // prime2: q,
+            BigNum::from_u32(params[5]).unwrap(), // exponent1: dp,
+            BigNum::from_u32(params[6]).unwrap(), // exponent2: dq,
+            BigNum::from_u32(params[7]).unwrap()  // coefficient: qi
+        )
+    }
+
+    #[test]
     fn test_calculate_key_tag() {
-        let rsa = Rsa::generate(512).unwrap();
-        println!("pkey: {:?}", rsa.public_key_to_pem().unwrap());
+        let test_vectors = vec!(
+            (vec!(33, 3, 21, 11, 3, 1, 1, 1), 9739),
+            (vec!(0xc2fedb69, 0x10001, 0x6ebb9209, 0xf743,
+                  0xc9e3, 0xd07f, 0x6275, 0x1095), 42354)
+        );
+
+        for &(ref input_data, exp_result) in test_vectors.iter() {
+            let rsa = get_rsa_from_vec(input_data).unwrap();
+            let rsa_pem = rsa.private_key_to_pem().unwrap();
+            println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
+
+            let key = KeyPair::from_rsa(rsa).unwrap();
+            let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+            let signer = Signer::sig0(sig0key, key, Name::root());
+            let key_tag = signer.calculate_key_tag().unwrap();
+
+            assert_eq!(key_tag, exp_result);
+        }
+    }
+
+    #[test]
+    fn test_calculate_key_tag_pem() {
+        let x = "-----BEGIN RSA PRIVATE KEY-----
+MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
+-----END RSA PRIVATE KEY-----
+";
+
+        let rsa = Rsa::private_key_from_pem(x.as_bytes()).unwrap();
+        let rsa_pem = rsa.private_key_to_pem().unwrap();
+        println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
         let signer = Signer::sig0(sig0key, key, Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 
-        println!("key_tag: {}", key_tag);
-        assert!(key_tag > 0);
+        assert_eq!(key_tag, 28551);
     }
 }
