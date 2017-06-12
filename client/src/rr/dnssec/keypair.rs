@@ -31,6 +31,7 @@ use rr::dnssec::public_key::Ed25519;
 #[cfg(feature = "openssl")]
 use rr::dnssec::public_key::dnssec_ecdsa_signature_to_der;
 use rr::rdata::{DNSKEY, DS, KEY};
+use rr::rdata::key::KeyUsage;
 
 /// A public and private key pair, the private portion is not required.
 ///
@@ -241,11 +242,12 @@ impl KeyPair {
     /// # Return
     ///
     /// the KEY record data
+    #[allow(deprecated)]
     pub fn to_sig0key(&self, algorithm: Algorithm) -> DnsSecResult<KEY> {
         self.to_public_bytes()
             .map(|bytes| {
                      KEY::new(Default::default(),
-                              Default::default(),
+                              KeyUsage::Zone,
                               Default::default(),
                               Default::default(),
                               algorithm,
