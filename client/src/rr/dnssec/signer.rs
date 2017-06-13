@@ -523,6 +523,7 @@ mod tests {
 
     use rr::{DNSClass, Name, Record, RecordType};
     use rr::rdata::SIG;
+    use rr::rdata::key::KeyUsage;
     use rr::dnssec::Verifier;
     use op::{Message, Query, UpdateMessage};
 
@@ -580,10 +581,12 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_sign_and_verify_rrset() {
         let rsa = Rsa::generate(512).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+        let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256,
+            KeyUsage::Zone).unwrap();
         let signer = Signer::sig0(sig0key, key, Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
@@ -659,6 +662,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_calculate_key_tag() {
         let test_vectors = vec!(
             (vec!(33, 3, 21, 11, 3, 1, 1, 1), 9739),
@@ -672,7 +676,8 @@ mod tests {
             println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
             let key = KeyPair::from_rsa(rsa).unwrap();
-            let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+            let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256,
+                KeyUsage::Zone).unwrap();
             let signer = Signer::sig0(sig0key, key, Name::root());
             let key_tag = signer.calculate_key_tag().unwrap();
 
@@ -681,6 +686,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(deprecated)]
     fn test_calculate_key_tag_pem() {
         let x = "-----BEGIN RSA PRIVATE KEY-----
 MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
@@ -692,7 +698,8 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+        let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256,
+            KeyUsage::Zone).unwrap();
         let signer = Signer::sig0(sig0key, key, Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 

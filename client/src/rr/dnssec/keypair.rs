@@ -234,6 +234,7 @@ impl KeyPair {
     }
 
     /// Convert this keypair into a KEY record type for usage with SIG0
+    /// with key type entity (`KeyUsage::Entity`).
     ///
     /// # Arguments
     ///
@@ -242,12 +243,27 @@ impl KeyPair {
     /// # Return
     ///
     /// the KEY record data
-    #[allow(deprecated)]
     pub fn to_sig0key(&self, algorithm: Algorithm) -> DnsSecResult<KEY> {
+        self.to_sig0key_with_usage(algorithm, Default::default())
+    }
+
+    /// Convert this keypair into a KEY record type for usage with SIG0
+    /// with a given key (usage) type.
+    ///
+    /// # Arguments
+    ///
+    /// * `algorithm` - algorithm of the KEY
+    /// * `usage`     - the key type
+    ///
+    /// # Return
+    ///
+    /// the KEY record data
+    pub fn to_sig0key_with_usage(&self, algorithm: Algorithm,
+                                 usage: KeyUsage) -> DnsSecResult<KEY> {
         self.to_public_bytes()
             .map(|bytes| {
                      KEY::new(Default::default(),
-                              KeyUsage::Zone,
+                              usage,
                               Default::default(),
                               Default::default(),
                               algorithm,
