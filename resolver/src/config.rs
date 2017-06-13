@@ -37,7 +37,7 @@ impl Default for ResolverConfig {
 }
 
 #[derive(Clone, Debug, Eq, PartialEq)]
-enum Protocol {
+pub enum Protocol {
     Udp,
     Tcp,
     // TODO: add client certificate for mTLS
@@ -46,8 +46,8 @@ enum Protocol {
 
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NameServerConfig {
-    socket_addr: SocketAddr,
-    protocol: Protocol,
+    pub socket_addr: SocketAddr,
+    pub protocol: Protocol,
 }
 
 /// Configuration for the Resolver

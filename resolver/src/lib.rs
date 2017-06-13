@@ -17,7 +17,7 @@ extern crate trust_dns;
 
 mod config;
 mod lookup_ip;
-mod pool;
+mod name_server_pool;
 mod resolver;
 mod resolver_future;
 
