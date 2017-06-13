@@ -37,7 +37,7 @@ travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [lib]
-name = "r2d2_trust_dns"
+name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
