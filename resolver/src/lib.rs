@@ -12,6 +12,8 @@
 #![deny(missing_docs)]
 
 extern crate futures;
+#[macro_use]
+extern crate log;
 extern crate tokio_core;
 extern crate trust_dns;
 
