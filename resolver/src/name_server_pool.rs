@@ -5,9 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::io;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures::{future, Future, Sink, Stream};
@@ -35,10 +37,7 @@ enum NameServerState {
     ///  failed at some point after. The Failed state should not be entered due to the
     ///  error contained in a Message recieved from the server. In All cases to reestablish
     ///  a new connection will need to be created.
-    Failed {
-        error: ClientError,
-        when: Duration,
-    },
+    Failed { error: ClientError, when: Duration },
 }
 
 impl NameServerState {
@@ -71,36 +70,16 @@ impl PartialEq for NameServerState {
 
 impl Eq for NameServerState {}
 
-#[derive(Clone)]
-pub(crate) struct NameServer {
-    config: NameServerConfig,
-    client: BasicClientHandle,
+#[derive(Clone, PartialEq, Eq)]
+struct NameServerStats {
     state: NameServerState,
     successes: usize,
     failures: usize,
 }
 
-impl NameServer {
-    pub fn new(config: NameServerConfig, reactor: Handle) -> Self {
-        let client = match config.protocol {
-            Protocol::Udp => {
-                let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor.clone());
-                // FIXME: need config for Signer...
-                ClientFuture::new(stream, handle, reactor, None)
-            }
-            Protocol::Tcp => {
-                let (stream, handle) = TcpClientStream::new(config.socket_addr, reactor.clone());
-                // FIXME: need config for Signer...
-                ClientFuture::new(stream, handle, reactor, None)
-            }
-            // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr, reactor),
-            _ => unimplemented!(),
-        };
-
-        // FIXME: setup EDNS
-        NameServer {
-            config,
-            client,
+impl Default for NameServerStats {
+    fn default() -> Self {
+        NameServerStats {
             state: NameServerState::Init { send_edns: None },
             successes: 0,
             failures: 0,
@@ -108,13 +87,17 @@ impl NameServer {
     }
 }
 
-impl ClientHandle for NameServer {
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-        self.client.send(message)
+impl NameServerStats {
+    fn increment_success(&mut self) {
+        self.successes += 1;
+    }
+
+    fn increment_failures(&mut self) {
+        self.failures += 1;
     }
 }
 
-impl Ord for NameServer {
+impl Ord for NameServerStats {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
         // if they are literally equal, just return
@@ -138,6 +121,100 @@ impl Ord for NameServer {
 
         // at this point we'll go with the lesser of successes to make sure there is ballance
         self.successes.cmp(&other.successes)
+    }
+}
+
+impl PartialOrd for NameServerStats {
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
+        Some(self.cmp(other))
+    }
+}
+
+#[derive(Clone)]
+pub(crate) struct NameServer {
+    config: NameServerConfig,
+    client: BasicClientHandle,
+    stats: Arc<Mutex<NameServerStats>>,
+}
+
+impl NameServer {
+    pub fn new(config: NameServerConfig, reactor: Handle) -> Self {
+        let client = match config.protocol {
+            Protocol::Udp => {
+                let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor.clone());
+                // TODO: need config for Signer...
+                ClientFuture::new(stream, handle, reactor, None)
+            }
+            Protocol::Tcp => {
+                let (stream, handle) = TcpClientStream::new(config.socket_addr, reactor.clone());
+                // TODO: need config for Signer...
+                ClientFuture::new(stream, handle, reactor, None)
+            }
+            // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr, reactor),
+            _ => unimplemented!(),
+        };
+
+        // FIXME: setup EDNS
+        NameServer {
+            config,
+            client,
+            stats: Arc::new(Mutex::new(NameServerStats::default())),
+        }
+    }
+}
+
+impl ClientHandle for NameServer {
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        // FIXME: if state is failed, return future::err(), unless retry delay expired...
+        // Becuase a Poisoned lock error could have occured, make sure to create a new Mutex...
+
+        // grab a reference to the stats for this NameServer
+        let mutex1 = self.stats.clone(); // TODO: clean this up, switch from `and_then/or_else` to `then`
+        let mutex2 = self.stats.clone();
+        Box::new(self.client.send(message).and_then(move |response| {
+            let response = 
+                mutex1
+                    .lock()
+                    .and_then(|mut stats| {stats.increment_success(); Ok(response)} )
+                    .map_err(|e| format!("Error acquiring NameServerStats lock: {}", e).into());
+
+            // FIXME: transition state from Init to Established (and extract EDNS)
+            future::result(response)
+        }).or_else(move |error| {
+            mutex2
+                .lock()
+                .and_then(|mut stats| {
+                    stats.increment_failures();
+                    Ok(())
+                })
+                .or_else(|e| {
+                    warn!("Error acquiring NameServerStats lock (already in error state, ignoring): {}", e);
+                    Err(()) 
+                })
+                .is_ok(); // ignoring error, as this connection is already marked in error...
+
+            // FIXME: transition state from Init/Established to Failed.
+            // These are connection failures, not lookup failures, that is handled in the resolver layer
+            future::err(error)
+        }))
+    }
+}
+
+impl Ord for NameServer {
+    /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
+    fn cmp(&self, other: &Self) -> Ordering {
+        // if they are literally equal, just return
+        if self == other {
+            return Ordering::Equal;
+        }
+
+        self.stats
+            .lock()
+            .expect("poisoned lock in NameServer::cmp")
+            .cmp(&other
+                      .stats
+                      .lock() // TODO: hmm... deadlock potential? switch to try_lock...
+                      .expect("poisoned lock in NameServer::cmp"))
     }
 }
 

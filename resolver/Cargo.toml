@@ -42,6 +42,7 @@ path = "src/lib.rs"
 
 [dependencies]
 futures = "^0.1.6"
+log = "^0.3.5"
 tokio-core = "^0.1"
 trust-dns = { version = "^0.10", path = "../client" }
 
