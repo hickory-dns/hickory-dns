@@ -8,17 +8,14 @@
 //! Structs for creating and using a ResolverFuture
 
 use tokio_core::reactor::Handle;
-use trust_dns::client::ClientHandle;
 use trust_dns::rr::RecordType;
 
 use config::{ResolverConfig, ResolverOpts};
 use name_server_pool::NameServerPool;
 use lookup_ip::LookupIpFuture;
 
-/// A Recursive Resolver for DNS records.
+/// A Resolver for DNS records.
 pub struct ResolverFuture {
-    // config: ResolverConfig,
-    // options: ResolverOpts,
     pool: NameServerPool,
 }
 
@@ -29,7 +26,13 @@ impl ResolverFuture {
         ResolverFuture { pool }
     }
 
-    /// A basic host name lookup lookup
+    /// Performs a DNS lookup for the IP for the given hostname.
+    ///
+    /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
+    ///  returning IpV4 or IpV6 addresses.
+    ///
+    /// # Arguments
+    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
     pub fn lookup_ip(&mut self, host: &str) -> LookupIpFuture {
         // create the lookup
         LookupIpFuture::lookup(host, RecordType::A, &mut self.pool)
@@ -43,23 +46,14 @@ mod tests {
     extern crate tokio_core;
 
     use futures::Future;
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+    use std::net::{IpAddr, Ipv4Addr};
     use self::tokio_core::reactor::Core;
-    use trust_dns::client::ClientFuture;
-    use trust_dns::udp::UdpClientStream;
-
+    
     use super::*;
 
     #[test]
     fn test_lookup() {
         let mut io_loop = Core::new().unwrap();
-        let addr: SocketAddr = ("8.8.8.8", 53)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-        let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
         let mut resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), io_loop.handle());
 
         io_loop

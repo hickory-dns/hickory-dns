@@ -5,28 +5,26 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::mem;
-use std::io;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
-use futures::{future, Future, Sink, Stream};
+use futures::{future, Future};
 use tokio_core::reactor::Handle;
 
 use trust_dns::error::*;
-use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle, ClientStreamHandle};
+use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::op::{Edns, Message};
 use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
-use trust_dns::tls::TlsClientStream;
+// use trust_dns::tls::TlsClientStream;
 
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 
-const MIN_RETRY_DELAYms: u64 = 500;
-const MAX_RETRY_DELAYs: u64 = 360;
+const MIN_RETRY_DELAY_MS: u64 = 500;
+const MAX_RETRY_DELAY_S: u64 = 360;
 
 /// State of a connection with a remote NameServer.
 #[derive(Clone, Debug)]
@@ -47,7 +45,7 @@ enum NameServerState {
 impl NameServerState {
     fn to_usize(&self) -> usize {
         match *self {
-            NameServerState::Init { .. } => 3,
+            NameServerState::Init { .. } => 3, // Should we instead prefer already established connections?
             NameServerState::Established { .. } => 2,
             NameServerState::Failed { .. } => 1,
         }
@@ -93,6 +91,7 @@ impl NameServerStats {
             state: NameServerState::Init { send_edns },
             successes,
             failures,
+            // TODO: incorporate latency
         }
     }
 
@@ -134,11 +133,12 @@ impl Ord for NameServerStats {
             return Ordering::Equal;
         }
 
-        // TODO: evaluate last failed, and if it's greater that retry period, treat like it's "init"
         // otherwise, run our evaluation to determine the next to be returned from the Heap
         match self.state.cmp(&other.state) {
             Ordering::Equal => (),
-            o @ _ => return o,
+            o @ _ => {
+                return o;
+            }
         }
 
         // TODO: track latency and use lowest latency connection...
@@ -171,6 +171,7 @@ impl NameServer {
     fn new_connection(config: &NameServerConfig, reactor: Handle) -> BasicClientHandle {
         match config.protocol {
             Protocol::Udp => {
+                // TODO: need resolver_opts for timeout
                 let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor.clone());
                 // TODO: need config for Signer...
                 ClientFuture::new(stream, handle, reactor, None)
@@ -197,7 +198,11 @@ impl NameServer {
         }
     }
 
-    pub fn try_reconnect(&mut self) -> ClientResult<()> {
+    /// checks if the connection is failed, if so, then it
+    ///  will check the last falure time, and if the retry period is acceptable,
+    ///  then reconnect.
+    #[allow(unused_must_use)] // TODO: remove must use from BasicClientHandle
+    fn try_reconnect(&mut self) -> ClientResult<()> {
         let error_opt: Option<(ClientError, Instant, usize, usize)> = self.stats
             .lock()
             .map(|stats| if let NameServerState::Failed { ref error, when } = stats.state {
@@ -211,11 +216,27 @@ impl NameServer {
                                                       .into())
                      })?;
 
-
         // if this is in a failure state
         if let Some((error, when, successes, failures)) = error_opt {
-            // TODO: make this backoff based on failures - successes
-            if Instant::now().duration_since(when) > Duration::from_secs(MAX_RETRY_DELAYs) {
+            // Backoff is based on successes vs. failures...
+            let max_delay = Duration::from_secs(MAX_RETRY_DELAY_S);
+            let min_delay = Duration::from_millis(MIN_RETRY_DELAY_MS);
+            let failures = failures.saturating_sub(successes);
+            let retry_delay = Duration::from_millis(failures.saturating_mul(10) as u64); // 10 ms backoff
+
+            // TODO: switch to min|max when they stabalize
+            let retry_delay = if retry_delay < max_delay {
+                if retry_delay > min_delay {
+                    retry_delay
+                } else {
+                    min_delay
+                }
+            } else {
+                max_delay
+            };
+
+            if Instant::now().duration_since(when) > retry_delay {
+                println!("reconnecting: {:?}", self.config);
                 // establish a new connection
                 let client = Self::new_connection(&self.config, self.reactor.clone());
                 mem::replace(&mut self.client, client);
@@ -235,6 +256,7 @@ impl NameServer {
     }
 }
 
+// TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
 impl ClientHandle for NameServer {
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         // if state is failed, return future::err(), unless retry delay expired...
@@ -245,9 +267,11 @@ impl ClientHandle for NameServer {
         // Becuase a Poisoned lock error could have occured, make sure to create a new Mutex...
 
         // grab a reference to the stats for this NameServer
-        let mutex1 = self.stats.clone(); // TODO: clean this up, switch from `and_then/or_else` to `then`
+        let mutex1 = self.stats.clone();
         let mutex2 = self.stats.clone();
         Box::new(self.client.send(message).and_then(move |response| {
+                println!("SUCCESS ------->");
+            
             // TODO: consider making message::take_edns...
             let remote_edns = response.edns().cloned();
 
@@ -260,6 +284,8 @@ impl ClientHandle for NameServer {
 
             future::result(response)
         }).or_else(move |error| {
+                println!("FAILED: {:?} ------->", error);
+            
             // this transitions the state to failure
             mutex2
                 .lock()
@@ -292,7 +318,7 @@ impl Ord for NameServer {
             .expect("poisoned lock in NameServer::cmp")
             .cmp(&other
                       .stats
-                      .lock() // TODO: hmm... deadlock potential? switch to try_lock...
+                      .lock() // TODO: hmm... deadlock potential? switch to try_lock?
                       .expect("poisoned lock in NameServer::cmp"))
     }
 }
@@ -357,12 +383,55 @@ mod tests {
 
     use tokio_core::reactor::Core;
 
-    use trust_dns::client::{BasicClientHandle, ClientHandle};
+    use trust_dns::client::ClientHandle;
     use trust_dns::op::ResponseCode;
     use trust_dns::rr::{DNSClass, Name, RecordType};
 
     use config::Protocol;
     use super::*;
+
+    #[test]
+    fn test_state_cmp() {
+        let init = NameServerStats {
+            state: NameServerState::Init { send_edns: None },
+            successes: 0,
+            failures: 0,
+        };
+
+        let established = NameServerStats {
+            state: NameServerState::Established { remote_edns: None },
+            successes: 0,
+            failures: 0,
+        };
+
+        let failed = NameServerStats {
+            state: NameServerState::Failed {
+                error: ClientErrorKind::Msg("test".to_string()).into(),
+                when: Instant::now(),
+            },
+            successes: 0,
+            failures: 0,
+        };
+
+        let established_successes = NameServerStats {
+            state: NameServerState::Established { remote_edns: None },
+            successes: 1,
+            failures: 0,
+        };
+
+        let established_failed = NameServerStats {
+            state: NameServerState::Established { remote_edns: None },
+            successes: 0,
+            failures: 1,
+        };
+
+
+        assert_eq!(init.cmp(&init), Ordering::Equal);
+        assert_eq!(init.cmp(&established), Ordering::Greater);
+        assert_eq!(established.cmp(&failed), Ordering::Greater);
+        assert_eq!(established.cmp(&established_successes), Ordering::Greater);
+        assert_eq!(established.cmp(&established_failed), Ordering::Greater);
+    }
 
     #[test]
     fn test_name_server() {
@@ -378,5 +447,65 @@ mod tests {
             .run(name_server.query(name.clone(), DNSClass::IN, RecordType::A))
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
+    }
+
+    #[ignore]
+    // FIXME: use resolver_opts for lower timeout
+    #[test]
+    fn test_failed_name_server() {
+        let config = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),
+            protocol: Protocol::Udp,
+        };
+        let mut io_loop = Core::new().unwrap();
+        let mut name_server = NameServer::new(config, io_loop.handle());
+
+        let name = Name::parse("www.example.com.", None).unwrap();
+        assert!(io_loop
+                    .run(name_server.query(name.clone(), DNSClass::IN, RecordType::A))
+                    .is_err());
+    }
+
+    #[ignore]
+    // FIXME: use resolver_opts for lower timeout
+    #[test]
+    fn test_failed_then_success_pool() {
+        let config1 = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 253),
+            protocol: Protocol::Udp,
+        };
+
+        let config2 = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
+            protocol: Protocol::Udp,
+        };
+
+        let mut resolver_config = ResolverConfig::new();
+        resolver_config.add_name_server(config1);
+        resolver_config.add_name_server(config2);
+
+        let mut io_loop = Core::new().unwrap();
+        let mut pool = NameServerPool::from_config(&resolver_config,
+                                                   &ResolverOpts::default(),
+                                                   io_loop.handle());
+
+        let name = Name::parse("www.example.com.", None).unwrap();
+
+        // TODO: it's not clear why there are two failures before the
+        for i in 0..2 {
+            assert!(io_loop
+                        .run(pool.query(name.clone(), DNSClass::IN, RecordType::A))
+                        .is_err(),
+                    "iter: {}",
+                    i);
+        }
+
+        for i in 0..10 {
+            assert!(io_loop
+                        .run(pool.query(name.clone(), DNSClass::IN, RecordType::A))
+                        .is_ok(),
+                    "iter: {}",
+                    i);
+        }
     }
 }

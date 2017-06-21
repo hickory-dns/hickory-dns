@@ -6,7 +6,7 @@ authors = ["Benjamin Fry <benjaminfry@me.com>"]
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-TRust-DNS is a safe and secure DNS library. This is the resolver library. It uses the Client library to perform all DNS queries.
+TRust-DNS is a safe and secure DNS library. This Resolver library  uses the Client library to perform all DNS queries.
 """
 
 # These URLs point to more information about the repository

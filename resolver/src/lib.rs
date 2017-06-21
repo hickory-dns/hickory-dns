@@ -5,9 +5,15 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! A resolver must be constructed with a Client. See the `trust-dns` crate for Client.
+//! The Resolver is responsible for performing recursive queries to lookup domain names.
 //!
-//! This as best as possible attempts to abide by the the DNS RFCs, specifically Recursive resolution as defined in 
+//! This is a 100% in process DNS resolver. It *does not* use the Host OS' resolver. If what is desired is to use the Host OS' resolver, generally in the system's libc, then the `std::net::ToSocketAddrs` variant over `&str` is what should be used. As of the initial release, `trust-dns-resolver` it does not currently support search paths or ndot recursive lookups. It only supports FQDN, where the name must be specified with the final dot, e.g. `www.example.com.`. This limitation will be removed in future releases.
+//!
+//! Unlike the `trust-dns` client, this tries to provide a simpler interface to perform DNS queries. For update options, i.e. Dynamic DNS, the `trust-dns` crate must be used directly.
+//!
+//! There are two types for performing DNS queries, `Resolver` and `ResolverFuture`. `Resolver` is the easiest to work with, it is a wrapper around `ResolverFuture`. `ResolverFuture` is a `Tokio` based async resolver, and can be used inside any `Tokio` based system.
+//!
+//! This as best as possible attempts to abide by the the DNS RFCs, please file issues at https://github.com/bluejekyll/trust-dns .
 
 #![deny(missing_docs)]
 

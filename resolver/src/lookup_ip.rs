@@ -12,12 +12,11 @@ use std::io;
 use std::mem;
 use std::net::IpAddr;
 
-use futures::{Async, future, Future, Poll};
-use futures::task::park;
+use futures::{Async, future, Future, Poll, task};
 
 use trust_dns::client::ClientHandle;
 use trust_dns::error::ClientError;
-use trust_dns::op::{Message, Query};
+use trust_dns::op::Message;
 use trust_dns::rr::{DNSClass, Name, RData, RecordType};
 
 #[derive(Debug)]
@@ -66,19 +65,20 @@ impl Future for LookupIpFuture {
     }
 }
 
-struct LookupStack(Vec<Query>);
+// TODO: maximum recursion on CNAME, etc, chains...
+// struct LookupStack(Vec<Query>);
 
-impl LookupStack {
-    // pushes the Query onto the stack, and returns a reference. An error will be returned
-    fn push(&mut self, query: Query) -> io::Result<&Query> {
-        if self.0.contains(&query) {
-            return Err(io::Error::new(io::ErrorKind::Other, "circular CNAME or other recursion"));
-        }
+// impl LookupStack {
+//     // pushes the Query onto the stack, and returns a reference. An error will be returned
+//     fn push(&mut self, query: Query) -> io::Result<&Query> {
+//         if self.0.contains(&query) {
+//             return Err(io::Error::new(io::ErrorKind::Other, "circular CNAME or other recursion"));
+//         }
 
-        self.0.push(query);
-        Ok(self.0.last().unwrap())
-    }
-}
+//         self.0.push(query);
+//         Ok(self.0.last().unwrap())
+//     }
+// }
 
 pub enum LookupIpState {
     Query(RecordType, Box<Future<Item = Message, Error = ClientError>>),
@@ -151,7 +151,7 @@ impl Future for LookupIpState {
             LookupIpState::Fin(_) => panic!("should have returned earlier"),
         }
 
-        park().unpark(); // yield
+        task::current().notify(); // yield
         Ok(Async::NotReady)
     }
 }

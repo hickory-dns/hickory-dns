@@ -10,9 +10,7 @@
 use std::cell::RefCell;
 use std::io;
 
-use futures::Stream;
 use tokio_core::reactor::Core;
-use trust_dns::client::{BasicClientHandle, ClientConnection, ClientFuture};
 
 use config::{ResolverConfig, ResolverOpts};
 use lookup_ip::LookupIp;
@@ -45,13 +43,14 @@ impl Resolver {
            })
     }
 
+    // TODO: need to support ndot lookup options...
     /// Performs a DNS lookup for the IP for the given hostname.
     ///
     /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
     ///  returning IpV4 or IpV6 addresses.
     ///
     /// # Arguments
-    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown.
+    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
     pub fn lookup_ip(&mut self, host: &str) -> io::Result<LookupIp> {
         self.io_loop
             .borrow_mut()
@@ -63,22 +62,12 @@ impl Resolver {
 mod tests {
     extern crate tokio_core;
 
-    use futures::Future;
-    use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
-    use self::tokio_core::reactor::Core;
-    use trust_dns::client::ClientFuture;
-    use trust_dns::udp::UdpClientConnection;
+    use std::net::{IpAddr, Ipv4Addr};
 
     use super::*;
 
     #[test]
     fn test_lookup() {
-        let addr: SocketAddr = ("8.8.8.8", 53)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let conn = UdpClientConnection::new(addr).unwrap();
         let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 
         let mut response = resolver.lookup_ip("www.example.com.").unwrap();
