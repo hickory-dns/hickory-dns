@@ -16,6 +16,10 @@ pub struct ResolverConfig {
 }
 
 impl ResolverConfig {
+    pub fn new() -> Self {
+        ResolverConfig { name_servers: vec![] }
+    }
+
     pub fn add_name_server(&mut self, name_server: NameServerConfig) {
         self.name_servers.push(name_server);
     }
