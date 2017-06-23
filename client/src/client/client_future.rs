@@ -390,7 +390,6 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientSt
 /// This can be used directly to perform queries. See `trust_dns::client::SecureClientHandle` for
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
-#[must_use = "queries can only be sent through a ClientHandle"]
 pub struct BasicClientHandle {
     message_sender: UnboundedSender<(Message, Complete<ClientResult<Message>>)>,
 }
