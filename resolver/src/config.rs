@@ -16,26 +16,36 @@ pub struct ResolverConfig {
 }
 
 impl ResolverConfig {
+    /// Creates a new empty configuration
     pub fn new() -> Self {
         ResolverConfig { name_servers: vec![] }
     }
 
+    // TODO: consider allowing options per NameServer... like different timeouts?
+    /// Add the configuration for a name server
     pub fn add_name_server(&mut self, name_server: NameServerConfig) {
         self.name_servers.push(name_server);
     }
 
+    /// Returns a reference to the name servers 
     pub fn name_servers(&self) -> &[NameServerConfig] {
         &self.name_servers
     }
 }
 
 impl Default for ResolverConfig {
+    /// Creates a default configuration, using 8.8.8.8:53 and 8.8.4.4:53 (thank you, Google).
     fn default() -> Self {
-        let ns = NameServerConfig {
+        let google_ns1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
             protocol: Protocol::Udp,
         };
-        ResolverConfig { name_servers: vec![ns] }
+
+        let google_ns2 = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)), 53),
+            protocol: Protocol::Udp,
+        };
+        ResolverConfig { name_servers: vec![google_ns1, google_ns2] }
     }
 }
 
@@ -55,24 +65,25 @@ pub struct NameServerConfig {
 
 /// Configuration for the Resolver
 #[derive(Clone, Copy)]
+#[allow(dead_code)] // TODO: remove after all params are supported
 pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)
     ///  that must appear before a query is assumted to include the TLD. The default is one, which
     ///  means that `www` would never be assumed to be a TLD, and would always be appended to either
     ///  the search
-    pub ndots: usize,
+    /*pub*/ ndots: usize,
     /// Specify the timeout for a request. Defaults to 5 seconds
     pub timeout: Duration,
     /// Number of attempts before giving up. Defaults to 2
-    pub attempts: usize,
+    /*pub*/ attempts: usize,
     /// Rotate through the resource records in the response (if there is more than one for a given name)
-    pub rotate: bool,
+    /*pub*/ rotate: bool,
     /// Validate the names in the response
-    pub check_names: bool,
+    /*pub*/ check_names: bool,
     /// Enable edns, for larger records
-    pub edns0: bool,
+    /*pub*/ edns0: bool,
     /// Use DNSSec to validate the request
-    pub validate: bool,
+    /*pub*/ validate: bool,
 }
 
 impl Default for ResolverOpts {

@@ -162,36 +162,37 @@ impl PartialOrd for NameServerStats {
 #[derive(Clone)]
 pub(crate) struct NameServer {
     config: NameServerConfig,
+    options: ResolverOpts,
     client: BasicClientHandle,
     stats: Arc<Mutex<NameServerStats>>,
     reactor: Handle,
 }
 
 impl NameServer {
-    fn new_connection(config: &NameServerConfig, reactor: Handle) -> BasicClientHandle {
+    fn new_connection(config: &NameServerConfig, options: &ResolverOpts, reactor: Handle) -> BasicClientHandle {
         match config.protocol {
             Protocol::Udp => {
-                // TODO: need resolver_opts for timeout
                 let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor.clone());
                 // TODO: need config for Signer...
-                ClientFuture::new(stream, handle, reactor, None)
+                ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
             }
             Protocol::Tcp => {
-                let (stream, handle) = TcpClientStream::new(config.socket_addr, reactor.clone());
+                let (stream, handle) = TcpClientStream::with_timeout(config.socket_addr, reactor.clone(), options.timeout);
                 // TODO: need config for Signer...
-                ClientFuture::new(stream, handle, reactor, None)
+                ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
             }
             // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr, reactor),
             _ => unimplemented!(),
         }
     }
 
-    pub fn new(config: NameServerConfig, reactor: Handle) -> Self {
-        let client = Self::new_connection(&config, reactor.clone());
+    pub fn new(config: NameServerConfig, options: ResolverOpts, reactor: Handle) -> Self {
+        let client = Self::new_connection(&config, &options, reactor.clone());
 
         // FIXME: setup EDNS
         NameServer {
             config,
+            options,
             client,
             stats: Arc::new(Mutex::new(NameServerStats::default())),
             reactor,
@@ -238,7 +239,7 @@ impl NameServer {
             if Instant::now().duration_since(when) > retry_delay {
                 println!("reconnecting: {:?}", self.config);
                 // establish a new connection
-                let client = Self::new_connection(&self.config, self.reactor.clone());
+                let client = Self::new_connection(&self.config, &self.options, self.reactor.clone());
                 mem::replace(&mut self.client, client);
 
                 // reinitialize the mutex (in case it was poisoned before)
@@ -270,8 +271,6 @@ impl ClientHandle for NameServer {
         let mutex1 = self.stats.clone();
         let mutex2 = self.stats.clone();
         Box::new(self.client.send(message).and_then(move |response| {
-                println!("SUCCESS ------->");
-            
             // TODO: consider making message::take_edns...
             let remote_edns = response.edns().cloned();
 
@@ -284,8 +283,6 @@ impl ClientHandle for NameServer {
 
             future::result(response)
         }).or_else(move |error| {
-                println!("FAILED: {:?} ------->", error);
-            
             // this transitions the state to failure
             mutex2
                 .lock()
@@ -341,23 +338,23 @@ impl Eq for NameServer {}
 #[derive(Clone)]
 pub(crate) struct NameServerPool {
     conns: BinaryHeap<NameServer>,
-    opts: ResolverOpts,
+    options: ResolverOpts,
 }
 
 impl NameServerPool {
     pub fn from_config(config: &ResolverConfig,
-                       opts: &ResolverOpts,
+                       options: &ResolverOpts,
                        reactor: Handle)
                        -> NameServerPool {
         let conns: BinaryHeap<NameServer> = config
             .name_servers()
             .iter()
-            .map(|ns_config| NameServer::new(ns_config.clone(), reactor.clone()))
+            .map(|ns_config| NameServer::new(ns_config.clone(), options.clone(), reactor.clone()))
             .collect();
 
         NameServerPool {
             conns,
-            opts: opts.clone(),
+            options: options.clone(),
         }
     }
 }
@@ -440,7 +437,7 @@ mod tests {
             protocol: Protocol::Udp,
         };
         let mut io_loop = Core::new().unwrap();
-        let mut name_server = NameServer::new(config, io_loop.handle());
+        let mut name_server = NameServer::new(config, ResolverOpts::default(), io_loop.handle());
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = io_loop
@@ -449,16 +446,16 @@ mod tests {
         assert_eq!(response.response_code(), ResponseCode::NoError);
     }
 
-    #[ignore]
-    // FIXME: use resolver_opts for lower timeout
     #[test]
     fn test_failed_name_server() {
+        let mut options = ResolverOpts::default();
+        options.timeout = Duration::from_millis(1); // this is going to fail, make it fail fast...
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),
             protocol: Protocol::Udp,
         };
         let mut io_loop = Core::new().unwrap();
-        let mut name_server = NameServer::new(config, io_loop.handle());
+        let mut name_server = NameServer::new(config, options, io_loop.handle());
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(io_loop
@@ -466,8 +463,7 @@ mod tests {
                     .is_err());
     }
 
-    #[ignore]
-    // FIXME: use resolver_opts for lower timeout
+    #[ignore] // because of there is a real connection that needs a reasonable timeout
     #[test]
     fn test_failed_then_success_pool() {
         let config1 = NameServerConfig {
