@@ -176,6 +176,16 @@ impl Name {
     pub fn zone_of(&self, name: &Self) -> bool {
         let self_len = self.labels.len();
         let name_len = name.labels.len();
+        if self_len == 0 {
+            return true;
+        }
+        if name_len == 0 {
+            // self_len != 0
+            return false;
+        }
+        if self_len > name_len {
+            return false;
+        }
         let self_lower = self.to_lowercase();
         let name_lower = name.to_lowercase();
 
