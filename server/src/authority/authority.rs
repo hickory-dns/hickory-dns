@@ -17,7 +17,7 @@
 
 use std::collections::BTreeMap;
 
-use chrono::UTC;
+use chrono::Utc;
 
 use trust_dns::error::*;
 use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
@@ -1098,7 +1098,7 @@ impl Authority {
     /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
     fn sign_zone(&mut self) -> DnsSecResult<()> {
         debug!("signing zone: {}", self.origin);
-        let inception = UTC::now();
+        let inception = Utc::now();
         let zone_ttl = self.minimum_ttl();
 
         // TODO: should this be an error?

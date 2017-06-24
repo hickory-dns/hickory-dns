@@ -43,7 +43,7 @@ name = "trust_dns_compatibility"
 path = "src/lib.rs"
 
 [dependencies]
-chrono = "^0.3.1"
+chrono = "^0.4"
 data-encoding = "^1.2.0"
 env_logger = "0.4.2"
 futures = "^0.1.6"
