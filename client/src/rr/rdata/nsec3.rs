@@ -423,8 +423,9 @@ pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -
         let index: u8 = low / 8;
         let bit: u8 = 0b1000_0000 >> (low % 8);
 
-        for _ in 0..((index as usize + 1) - bit_map.len()) {
-            bit_map.push(0);
+        // adding necessary space to the vector
+        if bit_map.len() < (index as usize + 1) {
+            bit_map.resize(index as usize + 1, 0_u8);
         }
 
         bit_map[index as usize] |= bit;
@@ -465,4 +466,37 @@ pub fn test() {
     assert!(read_rdata.is_ok(),
             format!("error decoding: {:?}", read_rdata.unwrap_err()));
     assert_eq!(rdata, read_rdata.unwrap());
+}
+
+#[test]
+pub fn test_dups() {
+    let rdata_with_dups =
+        NSEC3::new(Nsec3HashAlgorithm::SHA1,
+                   true,
+                   2,
+                   vec![1, 2, 3, 4, 5],
+                   vec![6, 7, 8, 9, 0],
+                   vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::AAAA, RecordType::RRSIG]);
+
+    
+    let rdata_wo =
+        NSEC3::new(Nsec3HashAlgorithm::SHA1,
+                   true,
+                   2,
+                   vec![1, 2, 3, 4, 5],
+                   vec![6, 7, 8, 9, 0],
+                   vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::RRSIG]);
+
+    let mut bytes = Vec::new();
+    let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+    assert!(emit(&mut encoder, &rdata_with_dups).is_ok());
+    let bytes = encoder.as_bytes();
+
+    println!("bytes: {:?}", bytes);
+
+    let mut decoder: BinDecoder = BinDecoder::new(bytes);
+    let read_rdata = read(&mut decoder, bytes.len() as u16);
+    assert!(read_rdata.is_ok(),
+            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert_eq!(rdata_wo, read_rdata.unwrap());
 }
