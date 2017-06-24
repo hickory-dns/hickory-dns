@@ -19,6 +19,7 @@ use trust_dns::error::ClientError;
 use trust_dns::op::Message;
 use trust_dns::rr::{DNSClass, Name, RData, RecordType};
 
+/// Result of a DNS query when querying for A or AAAA records.
 #[derive(Debug)]
 pub struct LookupIp {
     ips: Vec<IpAddr>,
@@ -38,12 +39,17 @@ impl Iterator for LookupIp {
     }
 }
 
+/// The Future returned from ResolverFuture when performing an A or AAAA lookup.
 pub struct LookupIpFuture {
     future: Box<Future<Item = LookupIp, Error = io::Error>>,
 }
 
 impl LookupIpFuture {
-    pub fn lookup<C: ClientHandle>(host: &str, query_type: RecordType, client: &mut C) -> Self {
+    pub(crate) fn lookup<C: ClientHandle>(
+        host: &str,
+        query_type: RecordType,
+        client: &mut C,
+    ) -> Self {
         let name = match Name::parse(host, None) {
             Ok(name) => name,
             Err(err) => {
@@ -80,7 +86,7 @@ impl Future for LookupIpFuture {
 //     }
 // }
 
-pub enum LookupIpState {
+enum LookupIpState {
     Query(RecordType, Box<Future<Item = Message, Error = ClientError>>),
     Fin(Vec<IpAddr>),
 }
@@ -93,22 +99,23 @@ impl LookupIpState {
 
     fn transition_query(&mut self, message: &Message) {
         assert!(if let LookupIpState::Query(_, _) = *self {
-                    true
-                } else {
-                    false
-                });
+            true
+        } else {
+            false
+        });
 
         // TODO: evaluate all response settings, like truncation, etc.
         let answers = message
             .answers()
             .iter()
-            .filter_map(|r| if let RData::A(ipaddr) = *r.rdata() {
-                            Some(IpAddr::V4(ipaddr))
-                        } else {
-                            None
-                        })
+            .filter_map(|r| match *r.rdata() {
+                RData::A(ipaddr) => Some(IpAddr::V4(ipaddr)),
+                RData::AAAA(ipaddr) => Some(IpAddr::V6(ipaddr)),
+                _ => None,
+            })
             .collect();
 
+        // transition 
         mem::replace(self, LookupIpState::Fin(answers));
     }
 }
@@ -154,4 +161,10 @@ impl Future for LookupIpState {
         task::current().notify(); // yield
         Ok(Async::NotReady)
     }
+}
+
+mod tests {
+    pub use super::*;
+
+
 }

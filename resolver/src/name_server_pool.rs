@@ -182,7 +182,7 @@ impl NameServer {
                 ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
             }
             // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr, reactor),
-            _ => unimplemented!(),
+            // _ => unimplemented!(),
         }
     }
 

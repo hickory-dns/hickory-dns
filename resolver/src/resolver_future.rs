@@ -29,7 +29,7 @@ impl ResolverFuture {
     /// Performs a DNS lookup for the IP for the given hostname.
     ///
     /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
-    ///  returning IpV4 or IpV6 addresses.
+    ///  returning IpV4 or IpV6 addresses. (*Note*: current release only queries A, IPv4)
     ///
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.

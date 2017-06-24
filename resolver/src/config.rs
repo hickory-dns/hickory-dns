@@ -49,17 +49,23 @@ impl Default for ResolverConfig {
     }
 }
 
+/// The protocol on which a NameServer should be communicated with
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub enum Protocol {
+    /// UDP is the traditional DNS port, this is generally the correct choice
     Udp,
+    /// TCP can be used for large queries, but not all NameServers support it
     Tcp,
-    // TODO: add client certificate for mTLS
-    Tls,
+    // TODO: add client certificate for mTLS?
+    // Tls,
 }
 
+/// Configuration for the NameServer
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NameServerConfig {
+    /// The address which the DNS NameServer is registered at.
     pub socket_addr: SocketAddr,
+    /// The protocol to use when communicating with the NameServer.
     pub protocol: Protocol,
 }
 
