@@ -785,10 +785,13 @@ mod tests {
         let zone = Name::new().label("example").label("com");
         let www = Name::new().label("www").label("example").label("com");
         let none = Name::new().label("none").label("com");
+        let root = Name::root();
 
         assert!(zone.zone_of(&zone));
         assert!(zone.zone_of(&www));
-        assert!(!zone.zone_of(&none))
+        assert!(!zone.zone_of(&none));
+        assert!(root.zone_of(&zone));
+        assert!(!zone.zone_of(&root));
     }
 
     #[test]
