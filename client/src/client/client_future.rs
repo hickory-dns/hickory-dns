@@ -9,7 +9,7 @@ use std::collections::{HashMap, HashSet};
 use std::io;
 use std::time::Duration;
 
-use chrono::UTC;
+use chrono::Utc;
 use futures::{Async, Complete, Future, Poll, task};
 use futures::IntoFuture;
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
@@ -237,7 +237,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientFu
                     if let OpCode::Update = message.op_code() {
                         if let Some(ref signer) = self.signer {
                             // TODO: it's too bad this happens here...
-                            if let Err(e) = message.sign(signer, UTC::now().timestamp() as u32) {
+                            if let Err(e) = message.sign(signer, Utc::now().timestamp() as u32) {
                                 warn!("could not sign message: {}", e);
                                 complete
                                     .send(Err(e.into()))

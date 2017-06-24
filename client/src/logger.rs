@@ -41,7 +41,7 @@ impl log::Log for TrustDnsLogger {
 
     fn log(&self, record: &LogRecord) {
         if self.enabled(record.metadata()) {
-            let local: DateTime<UTC> = UTC::now();
+            let local: DateTime<Utc> = Utc::now();
 
             println!("{} {} {}:{} {}",
                      local.to_rfc3339(),
