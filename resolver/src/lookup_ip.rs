@@ -11,6 +11,7 @@
 use std::io;
 use std::mem;
 use std::net::IpAddr;
+use std::slice::Iter;
 
 use futures::{Async, future, Future, Poll, task};
 
@@ -29,6 +30,11 @@ impl LookupIp {
     fn new(ips: Vec<IpAddr>) -> Self {
         LookupIp { ips }
     }
+
+    /// Returns a borrowed iterator of the returned IPs
+    pub fn iter(&self) -> LookupIpIter {
+        LookupIpIter(self.ips.iter())
+    }
 }
 
 impl Iterator for LookupIp {
@@ -38,6 +44,18 @@ impl Iterator for LookupIp {
         self.ips.pop()
     }
 }
+
+/// Borrowed view of set of IPs returned from a LookupIp
+pub struct LookupIpIter<'a>(Iter<'a, IpAddr>);
+
+impl<'a> Iterator for LookupIpIter<'a> {
+    type Item = &'a IpAddr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
 
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
 pub struct LookupIpFuture {

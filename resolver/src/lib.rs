@@ -13,7 +13,7 @@
 //!
 //! There are two types for performing DNS queries, `Resolver` and `ResolverFuture`. `Resolver` is the easiest to work with, it is a wrapper around `ResolverFuture`. `ResolverFuture` is a `Tokio` based async resolver, and can be used inside any `Tokio` based system.
 //!
-//! *Notes on current limitations*: DNSSec is not yet supported in the Resolver, use the `trust-dns` Client if DNSSec validation is needed. Many standard system options and configurations are not yet supported. The host system `/etc/resolv.conf` is not yet being used. Recursion is not yet built, i.e. CNAME chains will not be fully resolved. IPv6 lookups are not included in queries. Due to many of these limitations, you may not yet want to use this library.
+//! *Notes on current limitations*: DNSSec is not yet supported in the Resolver, use the `trust-dns` Client if DNSSec validation is needed. Many standard system options and configurations are not yet supported. The host system `/etc/resolv.conf` is not yet being used. Recursion is not yet built, i.e. CNAME chains will not be fully resolved if an address is not returned. IPv6 lookups are not included in queries. Due to many of these limitations, you may not yet want to use this library.
 //!
 //! This as best as possible attempts to abide by the the DNS RFCs, please file issues at https://github.com/bluejekyll/trust-dns .
 //!
