@@ -59,7 +59,7 @@
 //!
 //! ## Objects
 //!
-//! There are two variations of implementations of the Client. The `SyncClient`, synchronous client, and the `ClientFuture`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SecureSyncClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
+//! There are two variations of implementations of the Client. The `SyncClient`, a synchronous client, and the `ClientFuture`, a Tokio async client. `SyncClient` is an implementation of the `Client` trait, there is another implementation, `SecureSyncClient`, which validates DNSSec records. For these basic examples we'll only look at the `SyncClient`
 //!
 //! First we must decide on the type of connection, there are three supported by TRust-DNS today, UDP, TCP and TLS. TLS requires OpenSSL by default, see also [trust-dns-native-tls](https://docs.rs/trust-dns-native-tls) and [trust-dns-rustls](https://docs.rs/trust-dns-rustls) for other TLS options.
 //!
@@ -120,7 +120,7 @@
 //!
 //! ## Dynamic update
 //!
-//! Currently `trust-dns` supports SIG(0) signed records for authentication and authorization of dynamic DNS updates. It's beyond the scope of these exampmles to show how to setup SIG(0) authorization on the server. `trust-dns` is known to work with BIND9 and `trust-dns-server`. Expect in the future for TLS to become a potentially better option for authorization with certificate chains. These examples show using SIG(0) for auth, requires OpenSSL. It's beyond the scope of these examples to describe the configuration for the server.
+//! Currently `trust-dns` supports SIG(0) signed records for authentication and authorization of dynamic DNS updates. It's beyond the scope of these examples to show how to setup SIG(0) authorization on the server. `trust-dns` is known to work with BIND9 and `trust-dns-server`. Expect in the future for TLS to become a potentially better option for authorization with certificate chains. These examples show using SIG(0) for auth, requires OpenSSL. It's beyond the scope of these examples to describe the configuration for the server.
 
 //!
 //! ```rust,no_run
