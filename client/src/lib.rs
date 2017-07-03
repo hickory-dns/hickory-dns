@@ -132,6 +132,7 @@
 //! use std::io::Read;
 //! use std::net::Ipv4Addr;
 //! use chrono::Duration;
+//! # #[cfg(feature = "openssl")]
 //! use openssl::rsa::Rsa;
 //! # use trust_dns::client::Client;
 //! # use trust_dns::udp::UdpClientConnection;
@@ -141,6 +142,7 @@
 //! use trust_dns::op::ResponseCode;
 //! use trust_dns::rr::rdata::key::KEY;
 //!
+//! # #[cfg(feature = "openssl")]
 //! # fn main() {
 //! # let address = "0.0.0.0:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
@@ -190,6 +192,9 @@
 //! // Create the record.
 //! let result = client.create(record, origin).unwrap();
 //! assert_eq!(result.response_code(), ResponseCode::NoError);
+//! # }
+//! # #[cfg(not(feature = "openssl"))]
+//! # fn main() {
 //! # }
 //! ```
 //!
