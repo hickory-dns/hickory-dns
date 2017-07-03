@@ -434,6 +434,8 @@ impl SecureSyncClient {
     /// DNSSec validating query, this will return an error if the requested records can not be
     ///  validated against the trust_anchor.
     ///
+    /// *Deprecated* This function only exists for backward compatibility. It's just a wrapper around `Client::query` at this point
+    ///
     /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
     ///  make sure that the answer is correct. Then starts
     ///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
@@ -451,7 +453,7 @@ impl SecureSyncClient {
     /// * `query_name` - the label to lookup
     /// * `query_class` - most likely this should always be DNSClass::IN
     /// * `query_type` - record type to lookup
-    #[deprecated = "just use query(...) from `Client`"]
+    #[deprecated = "just use Client::query"]
     pub fn secure_query(&self,
                         query_name: &domain::Name,
                         query_class: DNSClass,
