@@ -17,20 +17,74 @@
 //!
 //! This as best as possible attempts to abide by the the DNS RFCs, please file issues at https://github.com/bluejekyll/trust-dns .
 //!
-//! ## Example
-//! 
+//! # Usage
+//!
+//! ## Declare dependency
+//!
+//! ```toml
+//! [dependency]
+//! trust-dns-resolver = "^0.1"
+//! ```
+//!
+//! ## Extern the crate for usage in the library
+//!
+//! ```rust
+//! extern crate trust_dns_resolver;
+//! ```
+//!
+//! ## Using the Synchronous Resolver
+//!
+//! This uses the default configuration. Currently this sets the google resolvers as the upstream resolvers.
+//!
 //! ```rust
 //! use std::net::*;
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
 //!
+//! // Construct a new Resolver with default configuration options
 //! let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 //! 
+//! // Lookup the IP addresses associated with a name.
 //! // NOTE: do not forget the final dot, as the resolver does not yet support search paths.
 //! let mut response = resolver.lookup_ip("www.example.com.").unwrap();
 //!
+//! // There can be many addresses associated with the name,
+//! //  this can return IPv4 and/or IPv6 addresses
 //! let address = response.next().expect("no addresses returned!");
 //! assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34))); 
+//! ```
+//!
+//! ## Using the Tokio/Async Resolver
+//!
+//! For more advanced asynchronous usage, the ResolverFuture is integrated with Tokio. In fact, the ResolverFuture is used by the synchronous Resolver for all lookups.
+//!
+//! ```rust
+//! # extern crate futures;
+//! # extern crate tokio_core;
+//! # extern crate trust_dns_resolver;
+//! # fn main() {
+//! use std::net::{IpAddr, Ipv4Addr};
+//! use futures::Future;
+//! use self::tokio_core::reactor::Core;
+//! use trust_dns_resolver::ResolverFuture;
+//! use trust_dns_resolver::config::*;
+//!
+//! // We need a Tokio reactor::Core to run the resolver
+//! //  this is responsible for running all Future tasks and registering interest in IO channels
+//! let mut io_loop = Core::new().unwrap(); 
+//!
+//! // Construct a new Resolver with default configuration options
+//! let mut resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), io_loop.handle());
+//! 
+//! // Lookup the IP addresses associated with a name.
+//! // NOTE: do not forget the final dot, as the resolver does not yet support search paths.
+//! let mut response = io_loop.run(resolver.lookup_ip("www.example.com.")).unwrap();
+//!
+//! // There can be many addresses associated with the name,
+//! //  this can return IPv4 and/or IPv6 addresses
+//! let address = response.next().expect("no addresses returned!");
+//! assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34))); 
+//! # }
 //! ```
 
 #![deny(missing_docs)]
