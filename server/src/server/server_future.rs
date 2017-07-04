@@ -22,22 +22,21 @@ use trust_dns::tcp::TcpStream;
 use trust_dns::tls::TlsStream;
 
 use server::{Request, RequestHandler, RequestStream, ResponseHandle, TimeoutStream};
-use authority::Catalog;
 
 // TODO, would be nice to have a Slab for buffers here...
 
-/// A Futures based implementation of a DNS catalog server
-pub struct ServerFuture {
+/// A Futures based implementation of a DNS server
+pub struct ServerFuture<T: RequestHandler + 'static> {
     io_loop: Core,
-    catalog: Arc<Catalog>, // should the catalog just be static?
+    handler: Arc<T>
 }
 
-impl ServerFuture {
-    /// Creates a new ServerFuture with the specified Catalog of Zones.
-    pub fn new(catalog: Catalog) -> io::Result<ServerFuture> {
+impl <T: RequestHandler> ServerFuture <T> {
+    /// Creates a new ServerFuture with the specified Handler.
+    pub fn new(handler: T) -> io::Result<ServerFuture<T>> {
         Ok(ServerFuture {
                io_loop: try!(Core::new()),
-               catalog: Arc::new(catalog),
+               handler: Arc::new(handler),
            })
     }
 
@@ -48,15 +47,15 @@ impl ServerFuture {
         // create the new UdpStream
         let (buf_stream, stream_handle) = UdpStream::with_bound(socket, self.io_loop.handle());
         let request_stream = RequestStream::new(buf_stream, stream_handle);
-        let catalog = self.catalog.clone();
+        let handler = self.handler.clone();
 
-        // this spawns a ForEach future which handles all the requests into a Catalog.
+        // this spawns a ForEach future which handles all the requests into a Handler.
         self.io_loop
             .handle()
             .spawn(// TODO dedup with below into generic func
                    request_stream
                        .for_each(move |(request, response_handle)| {
-                                     Self::handle_request(request, response_handle, catalog.clone())
+                                     Self::handle_request(request, response_handle, handler.clone())
                                  })
                        .map_err(|e| debug!("error in UDP request_stream handler: {}", e)));
     }
@@ -78,7 +77,7 @@ impl ServerFuture {
                              timeout: Duration)
                              -> io::Result<()> {
         let handle = self.io_loop.handle();
-        let catalog = self.catalog.clone();
+        let handler = self.handler.clone();
         // TODO: this is an awkward interface with socketaddr...
         let addr = try!(listener.local_addr());
         let listener = tokio_core::net::TcpListener::from_listener(listener, &addr, &handle)
@@ -96,11 +95,11 @@ impl ServerFuture {
                 let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
                 let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
                 let request_stream = RequestStream::new(timeout_stream, stream_handle);
-                let catalog = catalog.clone();
+                let handler = handler.clone();
 
                 // and spawn to the io_loop
                 handle.spawn(request_stream.for_each(move |(request, response_handle)| {
-                        Self::handle_request(request, response_handle, catalog.clone())
+                        Self::handle_request(request, response_handle, handler.clone())
                     })
                     .map_err(move |e| {
                         debug!("error in TCP request_stream src: {:?} error: {}",
@@ -134,7 +133,7 @@ impl ServerFuture {
                                  pkcs12: ParsedPkcs12)
                                  -> io::Result<()> {
         let handle = self.io_loop.handle();
-        let catalog = self.catalog.clone();
+        let handler = self.handler.clone();
         // TODO: this is an awkward interface with socketaddr...
         let addr = listener.local_addr().expect("listener is not bound?");
         let listener = tokio_core::net::TcpListener::from_listener(listener, &addr, &handle)
@@ -168,7 +167,7 @@ impl ServerFuture {
                   debug!("accepted request from: {}", src_addr);
                   let timeout = timeout.clone();
                   let handle = handle.clone();
-                  let catalog = catalog.clone();
+                  let handler = handler.clone();
 
                   // take the created stream...
                   tls_acceptor.accept_async(tcp_stream)
@@ -177,12 +176,12 @@ impl ServerFuture {
                                   let (buf_stream, stream_handle) = TlsStream::from_stream(tls_stream, src_addr.clone());
                                   let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
                                   let request_stream = RequestStream::new(timeout_stream, stream_handle);
-                                  let catalog = catalog.clone();
+                                  let handler = handler.clone();
 
                                   // and spawn to the io_loop
                                   handle.spawn(
                                   request_stream.for_each(move |(request, response_handle)| {
-                                      Self::handle_request(request, response_handle, catalog.clone())
+                                      Self::handle_request(request, response_handle, handler.clone())
                                   })
                               .map_err(move |e| debug!("error in TCP request_stream src: {:?} error: {}", src_addr, e))
                               );
@@ -215,9 +214,9 @@ impl ServerFuture {
 
     fn handle_request(request: Request,
                       mut response_handle: ResponseHandle,
-                      catalog: Arc<Catalog>)
+                      handler: Arc<T>)
                       -> io::Result<()> {
-        let response = catalog.handle_request(&request);
+        let response = handler.handle_request(&request);
         response_handle.send(response)
     }
 }
