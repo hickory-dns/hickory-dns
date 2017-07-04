@@ -65,7 +65,7 @@
 //! # fn main() {
 //! use std::net::{IpAddr, Ipv4Addr};
 //! use futures::Future;
-//! use self::tokio_core::reactor::Core;
+//! use tokio_core::reactor::Core;
 //! use trust_dns_resolver::ResolverFuture;
 //! use trust_dns_resolver::config::*;
 //!
@@ -78,7 +78,12 @@
 //! 
 //! // Lookup the IP addresses associated with a name.
 //! // NOTE: do not forget the final dot, as the resolver does not yet support search paths.
-//! let mut response = io_loop.run(resolver.lookup_ip("www.example.com.")).unwrap();
+//! // This returns a future that will lookup the IP addresses, it must be run in the Core to
+//! //  to get the actual result.
+//! let lookup_future = resolver.lookup_ip("www.example.com.");
+//!
+//! // Run the lookup until it resolves or errors
+//! let mut response = io_loop.run(lookup_future).unwrap();
 //!
 //! // There can be many addresses associated with the name,
 //! //  this can return IPv4 and/or IPv6 addresses
@@ -86,6 +91,18 @@
 //! assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34))); 
 //! # }
 //! ```
+//!
+//! Generaally after a lookup in an asynchornous context, there would probably be a connection made to a server, for example:
+//!
+//! ```rust,no_compile
+//! let result = io_loop.run(lookup_future.and_then(|ips| {
+//!                              let ip = ips.next().unwrap();
+//!                              TcpStream::connect()
+//!                          }).and_then(|conn| /* do something with the connection... */)
+//! ).unwrap();
+//! ```
+//! 
+//! It's beyond the scope of these examples to show how to deal with connection failures and looping etc. But if you wanted to say try a different address from the result set after a connection failure, it will be necessary to create a type that implements the `Future` trait. Inside the `Future::poll` method would be the place to implement a loop over the different IP addresses.
 
 #![deny(missing_docs)]
 
