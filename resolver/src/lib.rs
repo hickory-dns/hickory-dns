@@ -51,5 +51,7 @@ mod resolver_future;
 pub use resolver::Resolver;
 pub use resolver_future::ResolverFuture;
 
-/// this exposes a version function which gives access to the access
-include!(concat!(env!("OUT_DIR"), "/version.rs"));
+/// returns a version as specified in Cargo.toml
+pub fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}

@@ -296,8 +296,10 @@ impl ClientStreamHandle for BufClientStreamHandle {
     }
 }
 
-/// this exposes a version function which gives access to the access
-include!(concat!(env!("OUT_DIR"), "/version.rs"));
+/// Returns a version as specified in Cargo.toml
+pub fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
 
 // TODO switch env_logger and remove this
 #[test]

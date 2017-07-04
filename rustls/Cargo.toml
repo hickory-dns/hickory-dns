@@ -29,9 +29,6 @@ categories = ["network-programming"]
 # be separated with a `/`
 license = "MIT/Apache-2.0"
 
-# custom build steps
-# build = "build.rs"
-
 [badges]
 travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }

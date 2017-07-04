@@ -50,8 +50,10 @@ pub mod server;
 
 pub use self::server::ServerFuture;
 
-/// this exposes a version function which gives access to the access
-include!(concat!(env!("OUT_DIR"), "/version.rs"));
+/// Returns the current version of TRust-DNS
+pub fn version() -> &'static str {
+    env!("CARGO_PKG_VERSION")
+}
 
 #[test]
 fn enable_logging_for_tests() {
