@@ -69,6 +69,28 @@ pub struct NameServerConfig {
     pub protocol: Protocol,
 }
 
+/// The lookup ip strategy
+#[derive(Clone, Copy)]
+pub enum LookupIpStrategy {
+    /// Only query for A (Ipv4) records
+    Ipv4Only,
+    /// Only query for AAAA (Ipv6) recrods
+    Ipv6Only,
+    /// Query for A and AAAA in parallel (default)
+    Ipv4AndIpv6,
+    /// Query for Ipv6 if that fails, query for Ipv4
+    Ipv6thenIpv4,
+    /// Query for Ipv4 if that fails, query for Ipv6
+    Ipv4thenIpv6,
+}
+
+impl Default for LookupIpStrategy {
+    /// Returns Ipv4AndIpv6 as the default.
+    fn default() -> Self {
+        LookupIpStrategy::Ipv4AndIpv6
+    }
+}
+
 /// Configuration for the Resolver
 #[derive(Clone, Copy)]
 #[allow(dead_code)] // TODO: remove after all params are supported
@@ -90,6 +112,8 @@ pub struct ResolverOpts {
     /*pub*/ edns0: bool,
     /// Use DNSSec to validate the request
     /*pub*/ validate: bool,
+    /// The ip_strategy for the Resolver to use when lookup Ipv4 or Ipv6 addresses
+    pub ip_strategy: LookupIpStrategy,
 }
 
 impl Default for ResolverOpts {
@@ -105,6 +129,7 @@ impl Default for ResolverOpts {
             check_names: true,
             edns0: false,
             validate: false,
+            ip_strategy: LookupIpStrategy::default(),
         }
     }
 }
