@@ -94,7 +94,7 @@
 //!
 //! Generaally after a lookup in an asynchornous context, there would probably be a connection made to a server, for example:
 //!
-//! ```rust,no_compile
+//! ```c
 //! let result = io_loop.run(lookup_future.and_then(|ips| {
 //!                              let ip = ips.next().unwrap();
 //!                              TcpStream::connect()
