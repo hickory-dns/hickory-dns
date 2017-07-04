@@ -237,10 +237,10 @@ fn ipv4_and_ipv6<C: ClientHandle>(
                             /// join AAAA and A results
                             Ok(mut rem_ips) => {
                                 rem_ips.append(&mut ips);
-                                Box::new(future::ok(rem_ips))
+                                future::ok(rem_ips)
                             }
                             // AAAA failed, just return A
-                            Err(_) => Box::new(future::ok(ips)),
+                            Err(_) => future::ok(ips),
                         })) as
                             // This cast is to resolve a comilation error, not sure of it's necessity
                             Box<Future<Item = Vec<IpAddr>, Error = ClientError>>
