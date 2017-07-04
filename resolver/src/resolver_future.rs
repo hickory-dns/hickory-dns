@@ -8,7 +8,6 @@
 //! Structs for creating and using a ResolverFuture
 
 use tokio_core::reactor::Handle;
-use trust_dns::rr::RecordType;
 
 use config::{ResolverConfig, ResolverOpts};
 use name_server_pool::NameServerPool;
@@ -16,6 +15,7 @@ use lookup_ip::LookupIpFuture;
 
 /// A Resolver for DNS records.
 pub struct ResolverFuture {
+    options: ResolverOpts,
     pool: NameServerPool,
 }
 
@@ -23,7 +23,7 @@ impl ResolverFuture {
     /// Construct a new ResolverFuture with the associated Client.
     pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: Handle) -> Self {
         let pool = NameServerPool::from_config(&config, &options, reactor);
-        ResolverFuture { pool }
+        ResolverFuture { options, pool }
     }
 
     /// Performs a DNS lookup for the IP for the given hostname.
@@ -35,7 +35,7 @@ impl ResolverFuture {
     /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
     pub fn lookup_ip(&mut self, host: &str) -> LookupIpFuture {
         // create the lookup
-        LookupIpFuture::lookup(host, RecordType::A, &mut self.pool)
+        LookupIpFuture::lookup(host, self.options.ip_strategy, &mut self.pool)
     }
 }
 

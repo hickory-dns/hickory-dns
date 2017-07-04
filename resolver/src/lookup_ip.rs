@@ -20,6 +20,8 @@ use trust_dns::error::ClientError;
 use trust_dns::op::Message;
 use trust_dns::rr::{DNSClass, Name, RData, RecordType};
 
+use config::LookupIpStrategy;
+
 /// Result of a DNS query when querying for A or AAAA records.
 #[derive(Debug)]
 pub struct LookupIp {
@@ -65,7 +67,7 @@ pub struct LookupIpFuture {
 impl LookupIpFuture {
     pub(crate) fn lookup<C: ClientHandle>(
         host: &str,
-        query_type: RecordType,
+        strategy: LookupIpStrategy,
         client: &mut C,
     ) -> Self {
         let name = match Name::parse(host, None) {
@@ -75,7 +77,7 @@ impl LookupIpFuture {
             }
         };
 
-        let query = LookupIpState::lookup(name, query_type, client);
+        let query = LookupIpState::lookup(name, strategy, client);
         LookupIpFuture { future: Box::new(query) }
     }
 }
@@ -105,36 +107,26 @@ impl Future for LookupIpFuture {
 // }
 
 enum LookupIpState {
-    Query(RecordType, Box<Future<Item = Message, Error = ClientError>>),
+    Query(Box<Future<Item = Vec<IpAddr>, Error = ClientError>>),
     Fin(Vec<IpAddr>),
 }
 
 impl LookupIpState {
-    pub fn lookup<C: ClientHandle>(name: Name, query_type: RecordType, client: &mut C) -> Self {
-        let query_future = client.query(name, DNSClass::IN, query_type);
-        LookupIpState::Query(query_type, query_future)
+    pub fn lookup<C: ClientHandle>(name: Name, strategy: LookupIpStrategy, client: &mut C) -> Self {
+        let query_future = lookup(name, strategy, client);
+
+        LookupIpState::Query(query_future)
     }
 
-    fn transition_query(&mut self, message: &Message) {
-        assert!(if let LookupIpState::Query(_, _) = *self {
+    fn transition_query(&mut self, ips: Vec<IpAddr>) {
+        assert!(if let LookupIpState::Query(_) = *self {
             true
         } else {
             false
         });
 
-        // TODO: evaluate all response settings, like truncation, etc.
-        let answers = message
-            .answers()
-            .iter()
-            .filter_map(|r| match *r.rdata() {
-                RData::A(ipaddr) => Some(IpAddr::V4(ipaddr)),
-                RData::AAAA(ipaddr) => Some(IpAddr::V6(ipaddr)),
-                _ => None,
-            })
-            .collect();
-
-        // transition 
-        mem::replace(self, LookupIpState::Fin(answers));
+        // transition
+        mem::replace(self, LookupIpState::Fin(ips));
     }
 }
 
@@ -146,7 +138,7 @@ impl Future for LookupIpState {
         // first transition any polling that is needed (mutable refs...)
         let poll;
         match *self {
-            LookupIpState::Query(_, ref mut query) => {
+            LookupIpState::Query(ref mut query) => {
                 poll = query.poll().map_err(|e| e.into());
                 match poll {
                     Ok(Async::NotReady) => {
@@ -167,9 +159,9 @@ impl Future for LookupIpState {
 
         // getting here means there are Aync::Ready available.
         match *self {
-            LookupIpState::Query(_, _) => {
+            LookupIpState::Query(_) => {
                 match poll {
-                    Ok(Async::Ready(ref message)) => self.transition_query(message),
+                    Ok(Async::Ready(ips)) => self.transition_query(ips),
                     _ => panic!("should have returned earlier"),
                 }
             }
@@ -181,8 +173,84 @@ impl Future for LookupIpState {
     }
 }
 
-mod tests {
-    pub use super::*;
-
-
+fn lookup<C: ClientHandle>(
+    name: Name,
+    strategy: LookupIpStrategy,
+    client: &mut C,
+) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+    match strategy {
+        LookupIpStrategy::Ipv4Only => ipv4_only(name, client),
+        LookupIpStrategy::Ipv6Only => ipv6_only(name, client),
+        LookupIpStrategy::Ipv4AndIpv6 => ipv4_and_ipv6(name, client),
+        LookupIpStrategy::Ipv6thenIpv4 => unimplemented!(),
+        LookupIpStrategy::Ipv4thenIpv6 => unimplemented!(),
+    }
 }
+
+fn map_message_to_ipaddr(mut message: Message) -> Vec<IpAddr> {
+    message
+        .take_answers()
+        .iter()
+        .filter_map(|r| match *r.rdata() {
+            RData::A(ipaddr) => Some(IpAddr::V4(ipaddr)),
+            RData::AAAA(ipaddr) => Some(IpAddr::V6(ipaddr)),
+            _ => None,
+        })
+        .collect()
+}
+
+/// queries only for A records
+fn ipv4_only<C: ClientHandle>(
+    name: Name,
+    client: &mut C,
+) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+    Box::new(client.query(name, DNSClass::IN, RecordType::A).map(
+        map_message_to_ipaddr,
+    ))
+}
+
+fn ipv6_only<C: ClientHandle>(
+    name: Name,
+    client: &mut C,
+) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+    Box::new(client.query(name, DNSClass::IN, RecordType::AAAA).map(
+        map_message_to_ipaddr,
+    ))
+}
+
+fn ipv4_and_ipv6<C: ClientHandle>(
+    name: Name,
+    client: &mut C,
+) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+    Box::new(
+        client
+            .query(name.clone(), DNSClass::IN, RecordType::A)
+            .map(map_message_to_ipaddr)
+            .select(client.query(name, DNSClass::IN, RecordType::AAAA).map(
+                map_message_to_ipaddr,
+            ))
+            .then(|sel_res| {
+                match sel_res {
+                    // A record returned, get the other record result, or else just return record
+                    Ok((mut ips, remaining_query)) => {
+                        Box::new(remaining_query.then(move |query_res| match query_res {
+                            /// join AAAA and A results
+                            Ok(mut rem_ips) => {
+                                rem_ips.append(&mut ips);
+                                Box::new(future::ok(rem_ips))
+                            }
+                            // AAAA failed, just return A
+                            Err(_) => Box::new(future::ok(ips)),
+                        })) as
+                            // This cast is to resolve a comilation error, not sure of it's necessity
+                            Box<Future<Item = Vec<IpAddr>, Error = ClientError>>
+                    }
+
+                    // A failed, just return the AAAA result
+                    Err((_, remaining_query)) => Box::new(remaining_query),
+                }
+            }),
+    )
+}
+
+// TODO: build some non-network tests which test all variants of the Strategies...
