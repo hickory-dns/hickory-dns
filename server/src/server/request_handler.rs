@@ -7,11 +7,10 @@
 
 //! Request Handler for incoming requests
 
-use op::Message;
+use server::Request;
+use trust_dns::op::Message;
 
 /// Trait for handling incoming requests, and providing a message response.
-///
-/// *note* this probably belongs in the server crate and may move there in the future.
 pub trait RequestHandler {
     /// Determine's what needs to happen given the type of request, i.e. Query or Update.
     ///
@@ -22,5 +21,5 @@ pub trait RequestHandler {
     /// # Returns
     ///
     /// The derived response to the the request
-    fn handle_request(&self, request: &Message) -> Message;
+    fn handle_request(&self, request: &Request) -> Message;
 }

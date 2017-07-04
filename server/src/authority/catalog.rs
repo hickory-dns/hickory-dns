@@ -19,11 +19,11 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-use trust_dns::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage, RequestHandler,
-                    ResponseCode};
+use trust_dns::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage, ResponseCode};
 use trust_dns::rr::{Name, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
+use server::{Request, RequestHandler};
 
 use authority::{Authority, ZoneType};
 
@@ -38,19 +38,20 @@ impl RequestHandler for Catalog {
     /// # Arguments
     ///
     /// * `request` - the requested action to perform.
-    fn handle_request(&self, request: &Message) -> Message {
+    fn handle_request(&self, request: &Request) -> Message {
+        let request_message = &request.message;
         info!("request id: {} type: {:?} op_code: {:?}",
-              request.id(),
-              request.message_type(),
-              request.op_code());
-        debug!("request: {:?}", request);
+              request_message.id(),
+              request_message.message_type(),
+              request_message.op_code());
+        debug!("request: {:?}", request_message);
 
         let mut resp_edns_opt: Option<Edns> = None;
 
         // check if it's edns
-        if let Some(req_edns) = request.edns() {
+        if let Some(req_edns) = request_message.edns() {
             let mut response = Message::new();
-            response.set_id(request.id());
+            response.set_id(request_message.id());
 
             let mut resp_edns: Edns = Edns::new();
 
@@ -81,32 +82,32 @@ impl RequestHandler for Catalog {
             resp_edns_opt = Some(resp_edns);
         }
 
-        let mut response: Message = match request.message_type() {
+        let mut response: Message = match request_message.message_type() {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
             MessageType::Query => {
-                match request.op_code() {
+                match request_message.op_code() {
                     OpCode::Query => {
-                        let response = self.lookup(&request);
+                        let response = self.lookup(&request_message);
                         debug!("query response: {:?}", response);
                         response
                         // TODO, handle recursion here or in the catalog?
                         // recursive queries should be cached.
                     }
                     OpCode::Update => {
-                        let response = self.update(request);
+                        let response = self.update(request_message);
                         debug!("update response: {:?}", response);
                         response
                     }
                     c @ _ => {
                         error!("unimplemented op_code: {:?}", c);
-                        Message::error_msg(request.id(), request.op_code(), ResponseCode::NotImp)
+                        Message::error_msg(request_message.id(), request_message.op_code(), ResponseCode::NotImp)
                     }
                 }
             }
             MessageType::Response => {
-                warn!("got a response as a request from id: {}", request.id());
-                Message::error_msg(request.id(), request.op_code(), ResponseCode::NotImp)
+                warn!("got a response as a request from id: {}", request_message.id());
+                Message::error_msg(request_message.id(), request_message.op_code(), ResponseCode::NotImp)
             }
         };
 

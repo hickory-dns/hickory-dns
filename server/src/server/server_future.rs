@@ -17,12 +17,11 @@ use tokio_core;
 use tokio_core::reactor::Core;
 use tokio_openssl::SslAcceptorExt;
 
-use trust_dns::op::RequestHandler;
 use trust_dns::udp::UdpStream;
 use trust_dns::tcp::TcpStream;
 use trust_dns::tls::TlsStream;
 
-use server::{Request, RequestStream, ResponseHandle, TimeoutStream};
+use server::{Request, RequestHandler, RequestStream, ResponseHandle, TimeoutStream};
 use authority::Catalog;
 
 // TODO, would be nice to have a Slab for buffers here...
@@ -218,7 +217,7 @@ impl ServerFuture {
                       mut response_handle: ResponseHandle,
                       catalog: Arc<Catalog>)
                       -> io::Result<()> {
-        let response = catalog.handle_request(&request.message);
+        let response = catalog.handle_request(&request);
         response_handle.send(response)
     }
 }

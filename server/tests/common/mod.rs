@@ -16,6 +16,7 @@ use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
 
 use trust_dns_server::authority::Catalog;
+use trust_dns_server::server::{Request, RequestHandler};
 
 pub mod authority;
 pub mod server_harness;
@@ -56,7 +57,8 @@ impl Stream for TestClientStream {
                 let mut decoder = BinDecoder::new(&bytes);
 
                 let message = Message::read(&mut decoder).expect("could not decode message");
-                let response = self.catalog.handle_request(&message);
+                let request = Request { message: message, src: "127.0.0.1:1234".parse().expect("cannot parse host and port") };
+                let response = self.catalog.handle_request(&request);
 
                 let mut buf = Vec::with_capacity(512);
                 {
