@@ -65,7 +65,7 @@ pub struct LookupIpFuture {
 }
 
 impl LookupIpFuture {
-    pub(crate) fn lookup<C: ClientHandle>(
+    pub(crate) fn lookup<C: ClientHandle + 'static>(
         host: &str,
         strategy: LookupIpStrategy,
         client: &mut C,
@@ -112,7 +112,11 @@ enum LookupIpState {
 }
 
 impl LookupIpState {
-    pub fn lookup<C: ClientHandle>(name: Name, strategy: LookupIpStrategy, client: &mut C) -> Self {
+    pub fn lookup<C: ClientHandle + 'static>(
+        name: Name,
+        strategy: LookupIpStrategy,
+        client: &mut C,
+    ) -> Self {
         let query_future = lookup(name, strategy, client);
 
         LookupIpState::Query(query_future)
@@ -173,7 +177,7 @@ impl Future for LookupIpState {
     }
 }
 
-fn lookup<C: ClientHandle>(
+fn lookup<C: ClientHandle + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: &mut C,
@@ -182,8 +186,8 @@ fn lookup<C: ClientHandle>(
         LookupIpStrategy::Ipv4Only => ipv4_only(name, client),
         LookupIpStrategy::Ipv6Only => ipv6_only(name, client),
         LookupIpStrategy::Ipv4AndIpv6 => ipv4_and_ipv6(name, client),
-        LookupIpStrategy::Ipv6thenIpv4 => unimplemented!(),
-        LookupIpStrategy::Ipv4thenIpv6 => unimplemented!(),
+        LookupIpStrategy::Ipv6thenIpv4 => ipv6_then_ipv4(name, client),
+        LookupIpStrategy::Ipv4thenIpv6 => ipv4_then_ipv6(name, client),
     }
 }
 
@@ -209,6 +213,7 @@ fn ipv4_only<C: ClientHandle>(
     ))
 }
 
+/// queries only for AAAA records
 fn ipv6_only<C: ClientHandle>(
     name: Name,
     client: &mut C,
@@ -218,6 +223,7 @@ fn ipv6_only<C: ClientHandle>(
     ))
 }
 
+/// queries only for A and AAAA in parallel
 fn ipv4_and_ipv6<C: ClientHandle>(
     name: Name,
     client: &mut C,
@@ -253,4 +259,213 @@ fn ipv4_and_ipv6<C: ClientHandle>(
     )
 }
 
-// TODO: build some non-network tests which test all variants of the Strategies...
+/// queries only for AAAA and on no results queries for A
+fn ipv6_then_ipv4<C: ClientHandle + 'static>(
+    name: Name,
+    client: &mut C,
+) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+    rt_then_swap(name, client, RecordType::AAAA, RecordType::A)
+}
+
+/// queries only for A and on no results queries for AAAA
+fn ipv4_then_ipv6<C: ClientHandle + 'static>(
+    name: Name,
+    client: &mut C,
+) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+    rt_then_swap(name, client, RecordType::A, RecordType::AAAA)
+}
+
+/// queries only for first_type and on no results queries for second_type
+fn rt_then_swap<C: ClientHandle + 'static>(
+    name: Name,
+    client: &mut C,
+    first_type: RecordType,
+    second_type: RecordType,
+) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+    let mut or_client = client.clone();
+    Box::new(
+        client
+            .query(name.clone(), DNSClass::IN, first_type)
+            .map(map_message_to_ipaddr)
+            .then(move |res| {
+                match res {
+                    Ok(ips) => {
+                        println!("ips");
+                        if ips.is_empty() {
+                            println!("ips, are empty");
+
+                            // no ips returns, NXDomain or Otherwise, doesn't matter
+                            Box::new(
+                                or_client
+                                    .query(name.clone(), DNSClass::IN, second_type)
+                                    .map(map_message_to_ipaddr),
+                            ) as
+                                Box<Future<Item = Vec<IpAddr>, Error = ClientError>>
+                        } else {
+                            Box::new(future::ok(ips)) as
+                                Box<Future<Item = Vec<IpAddr>, Error = ClientError>>
+                        }
+                    }
+                    Err(_) => {
+                        Box::new(
+                            or_client
+                                .query(name.clone(), DNSClass::IN, second_type)
+                                .map(map_message_to_ipaddr),
+                        )
+                    }
+                }
+            }),
+    )
+}
+
+// TODO: need to add some Err(result) tests...
+#[cfg(test)]
+mod tests {
+    use std::io;
+    use std::mem;
+    use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+    use std::slice::Iter;
+    use std::sync::{Arc, Mutex};
+
+    use futures::{Async, future, Future, Poll, task};
+
+    use trust_dns::client::ClientHandle;
+    use trust_dns::error::ClientError;
+    use trust_dns::op::Message;
+    use trust_dns::rr::{DNSClass, Name, Record, RData, RecordType};
+
+    use config::LookupIpStrategy;
+
+    use super::*;
+
+    #[derive(Clone)]
+    struct MockClientHandle {
+        messages: Arc<Mutex<Vec<Message>>>,
+    }
+
+    impl ClientHandle for MockClientHandle {
+        fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+            Box::new(future::ok(self.messages.lock().unwrap().pop().unwrap_or(
+                Message::new(),
+            )))
+        }
+    }
+
+    fn v4_message() -> Message {
+        let mut message = Message::new();
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::root(),
+                0,
+                RecordType::A,
+                RData::A(Ipv4Addr::new(127, 0, 0, 1))
+            ),
+        ]);
+        message
+    }
+
+    fn v6_message() -> Message {
+        let mut message = Message::new();
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::root(),
+                0,
+                RecordType::AAAA,
+                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))
+            ),
+        ]);
+        message
+    }
+
+    fn mock(messages: Vec<Message>) -> MockClientHandle {
+        MockClientHandle { messages: Arc::new(Mutex::new(messages)) }
+    }
+
+    #[test]
+    fn test_ipv4_only_strategy() {
+        assert_eq!(
+            ipv4_only(Name::root(), &mut mock(vec![v4_message()]))
+                .wait()
+                .unwrap(),
+            vec![Ipv4Addr::new(127, 0, 0, 1)]
+        );
+    }
+
+    #[test]
+    fn test_ipv6_only_strategy() {
+        assert_eq!(
+            ipv6_only(Name::root(), &mut mock(vec![v6_message()]))
+                .wait()
+                .unwrap(),
+            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+        );
+    }
+
+    #[test]
+    fn test_ipv4_and_ipv6_strategy() {
+        // both succeed
+        assert_eq!(
+            ipv4_and_ipv6(Name::root(), &mut mock(vec![v4_message(), v6_message()]))
+                .wait()
+                .unwrap(),
+            vec![
+                IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
+                IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            ]
+        );
+
+        // only ipv4 available
+        assert_eq!(
+            ipv4_and_ipv6(Name::root(), &mut mock(vec![v4_message()]))
+                .wait()
+                .unwrap(),
+            vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))]
+        );
+
+        // only ipv6 available
+        assert_eq!(
+            ipv4_and_ipv6(Name::root(), &mut mock(vec![v6_message()]))
+                .wait()
+                .unwrap(),
+            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+        );
+    }
+
+    #[test]
+    fn test_ipv6_then_ipv4_strategy() {
+        // ipv6 first
+        assert_eq!(
+            ipv6_then_ipv4(Name::root(), &mut mock(vec![v6_message()]))
+                .wait()
+                .unwrap(),
+            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+        );
+
+        // nothing then ipv4
+        assert_eq!(
+            ipv6_then_ipv4(Name::root(), &mut mock(vec![v4_message(), Message::new()]))
+                .wait()
+                .unwrap(),
+            vec![Ipv4Addr::new(127, 0, 0, 1)]
+        );
+    }
+
+    #[test]
+    fn test_ipv4_then_ipv6_strategy() {
+        // ipv6 first
+        assert_eq!(
+            ipv4_then_ipv6(Name::root(), &mut mock(vec![v4_message()]))
+                .wait()
+                .unwrap(),
+            vec![Ipv4Addr::new(127, 0, 0, 1)]
+        );
+
+        // nothing then ipv6
+        assert_eq!(
+            ipv4_then_ipv6(Name::root(), &mut mock(vec![v6_message(), Message::new()]))
+                .wait()
+                .unwrap(),
+            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+        );
+    }
+}
