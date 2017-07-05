@@ -231,7 +231,7 @@ fn ipv4_and_ipv6<C: ClientHandle>(
             ))
             .then(|sel_res| {
                 match sel_res {
-                    // A record returned, get the other record result, or else just return record
+                    // Some ips returned, get the other record result, or else just return record
                     Ok((mut ips, remaining_query)) => {
                         Box::new(remaining_query.then(move |query_res| match query_res {
                             /// join AAAA and A results
@@ -239,14 +239,14 @@ fn ipv4_and_ipv6<C: ClientHandle>(
                                 rem_ips.append(&mut ips);
                                 future::ok(rem_ips)
                             }
-                            // AAAA failed, just return A
+                            // One failed, just return the other
                             Err(_) => future::ok(ips),
                         })) as
                             // This cast is to resolve a comilation error, not sure of it's necessity
                             Box<Future<Item = Vec<IpAddr>, Error = ClientError>>
                     }
 
-                    // A failed, just return the AAAA result
+                    // One failed, just return the other
                     Err((_, remaining_query)) => Box::new(remaining_query),
                 }
             }),
