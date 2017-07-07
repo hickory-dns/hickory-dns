@@ -1,12 +1,12 @@
 [package]
 name = "trust-dns-resolver"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
 # uploaded to crates.io (aka this is not markdown)
 description = """
-TRust-DNS is a safe and secure DNS library. This Resolver library  uses the Client library to perform all DNS queries. *Notes on current limitations*: DNSSec is not yet supported in the Resolver, use the `trust-dns` Client if DNSSec validation is needed. Many standard system options and configurations are not yet supported. The host system `/etc/resolv.conf` is not yet being used. Recursion is not yet built, i.e. CNAME chains will not be fully resolved. Due to many of these limitations, you may not yet want to use this library.
+TRust-DNS is a safe and secure DNS library. This Resolver library  uses the Client library to perform all DNS queries. *Notes on current limitations*: DNSSec is not yet supported in the Resolver, use the `trust-dns` Client if DNSSec validation is needed. Many standard system options and configurations are not yet supported. The host system `/etc/resolv.conf` is not yet being used. Recursion is not yet built, i.e. CNAME chains will not be fully resolved, though many upstream resolvers will handle this making it a non-blocking issue.
 """
 
 # These URLs point to more information about the repository
