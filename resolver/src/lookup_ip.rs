@@ -318,7 +318,6 @@ fn rt_then_swap<C: ClientHandle + 'static>(
     )
 }
 
-// TODO: need to add some Err(result) tests...
 #[cfg(test)]
 mod tests {
     use std::io;
@@ -330,7 +329,7 @@ mod tests {
     use futures::{Async, future, Future, Poll, task};
 
     use trust_dns::client::ClientHandle;
-    use trust_dns::error::ClientError;
+    use trust_dns::error::*;
     use trust_dns::op::Message;
     use trust_dns::rr::{DNSClass, Name, Record, RData, RecordType};
 
@@ -340,18 +339,18 @@ mod tests {
 
     #[derive(Clone)]
     struct MockClientHandle {
-        messages: Arc<Mutex<Vec<Message>>>,
+        messages: Arc<Mutex<Vec<ClientResult<Message>>>>,
     }
 
     impl ClientHandle for MockClientHandle {
         fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-            Box::new(future::ok(self.messages.lock().unwrap().pop().unwrap_or(
-                Message::new(),
-            )))
+            Box::new(future::result(
+                self.messages.lock().unwrap().pop().unwrap_or(empty()),
+            ))
         }
     }
 
-    fn v4_message() -> Message {
+    fn v4_message() -> ClientResult<Message> {
         let mut message = Message::new();
         message.insert_answers(vec![
             Record::from_rdata(
@@ -361,10 +360,10 @@ mod tests {
                 RData::A(Ipv4Addr::new(127, 0, 0, 1))
             ),
         ]);
-        message
+        Ok(message)
     }
 
-    fn v6_message() -> Message {
+    fn v6_message() -> ClientResult<Message> {
         let mut message = Message::new();
         message.insert_answers(vec![
             Record::from_rdata(
@@ -374,10 +373,18 @@ mod tests {
                 RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))
             ),
         ]);
-        message
+        Ok(message)
     }
 
-    fn mock(messages: Vec<Message>) -> MockClientHandle {
+    fn empty() -> ClientResult<Message> {
+        Ok(Message::new())
+    }
+
+    fn error() -> ClientResult<Message> {
+        Err(ClientErrorKind::Io.into())
+    }
+
+    fn mock(messages: Vec<ClientResult<Message>>) -> MockClientHandle {
         MockClientHandle { messages: Arc::new(Mutex::new(messages)) }
     }
 
@@ -429,6 +436,14 @@ mod tests {
                 .unwrap(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
+
+        // error, then only ipv6 available
+        assert_eq!(
+            ipv4_and_ipv6(Name::root(), &mut mock(vec![error(), v6_message()]))
+                .wait()
+                .unwrap(),
+            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+        );
     }
 
     #[test]
@@ -443,7 +458,15 @@ mod tests {
 
         // nothing then ipv4
         assert_eq!(
-            ipv6_then_ipv4(Name::root(), &mut mock(vec![v4_message(), Message::new()]))
+            ipv6_then_ipv4(Name::root(), &mut mock(vec![v4_message(), empty()]))
+                .wait()
+                .unwrap(),
+            vec![Ipv4Addr::new(127, 0, 0, 1)]
+        );
+
+        // ipv4 and error
+        assert_eq!(
+            ipv6_then_ipv4(Name::root(), &mut mock(vec![v4_message(), error()]))
                 .wait()
                 .unwrap(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
@@ -462,7 +485,15 @@ mod tests {
 
         // nothing then ipv6
         assert_eq!(
-            ipv4_then_ipv6(Name::root(), &mut mock(vec![v6_message(), Message::new()]))
+            ipv4_then_ipv6(Name::root(), &mut mock(vec![v6_message(), empty()]))
+                .wait()
+                .unwrap(),
+            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+        );
+
+        // error then ipv6
+        assert_eq!(
+            ipv4_then_ipv6(Name::root(), &mut mock(vec![v6_message(), error()]))
                 .wait()
                 .unwrap(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
