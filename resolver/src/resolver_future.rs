@@ -45,29 +45,42 @@ impl ResolverFuture {
 mod tests {
     extern crate tokio_core;
 
-    use futures::Future;
-    use std::net::{IpAddr, Ipv4Addr};
+    use std::net::*;
+
     use self::tokio_core::reactor::Core;
-    
+
     use super::*;
 
     #[test]
     fn test_lookup() {
         let mut io_loop = Core::new().unwrap();
-        let mut resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), io_loop.handle());
+        let mut resolver = ResolverFuture::new(
+            ResolverConfig::default(),
+            ResolverOpts::default(),
+            io_loop.handle(),
+        );
 
-        io_loop
-            .run(resolver
-                     .lookup_ip("www.example.com.")
-                     .map(move |mut response| {
-                              println!("response records: {:?}", response);
-
-                              let address = response.next().expect("no addresses returned");
-                              assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)))
-                          })
-                     .map_err(|e| {
-                                  assert!(false, "query failed: {}", e);
-                              }))
-            .unwrap();
+        let response = io_loop.run(resolver.lookup_ip("www.example.com.")).expect("failed to run lookup");
+        
+        assert_eq!(response.iter().count(), 2);
+        for address in response {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert_eq!(
+                    address,
+                    IpAddr::V6(Ipv6Addr::new(
+                        0x2606,
+                        0x2800,
+                        0x220,
+                        0x1,
+                        0x248,
+                        0x1893,
+                        0x25c8,
+                        0x1946,
+                    ))
+                );
+            }
+        }
     }
 }

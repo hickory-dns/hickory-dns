@@ -320,20 +320,15 @@ fn rt_then_swap<C: ClientHandle + 'static>(
 
 #[cfg(test)]
 mod tests {
-    use std::io;
-    use std::mem;
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-    use std::slice::Iter;
     use std::sync::{Arc, Mutex};
 
-    use futures::{Async, future, Future, Poll, task};
+    use futures::{future, Future};
 
     use trust_dns::client::ClientHandle;
     use trust_dns::error::*;
     use trust_dns::op::Message;
-    use trust_dns::rr::{DNSClass, Name, Record, RData, RecordType};
-
-    use config::LookupIpStrategy;
+    use trust_dns::rr::{Name, Record, RData, RecordType};
 
     use super::*;
 
@@ -343,7 +338,7 @@ mod tests {
     }
 
     impl ClientHandle for MockClientHandle {
-        fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
