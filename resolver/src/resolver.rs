@@ -40,9 +40,9 @@ impl Resolver {
         let resolver = ResolverFuture::new(config, options, io_loop.handle());
 
         Ok(Resolver {
-               resolver_future: RefCell::new(resolver),
-               io_loop: RefCell::new(io_loop),
-           })
+            resolver_future: RefCell::new(resolver),
+            io_loop: RefCell::new(io_loop),
+        })
     }
 
     // TODO: need to support ndot lookup options...
@@ -54,9 +54,11 @@ impl Resolver {
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
     pub fn lookup_ip(&mut self, host: &str) -> io::Result<LookupIp> {
-        self.io_loop
-            .borrow_mut()
-            .run(self.resolver_future.borrow_mut().lookup_ip(host))
+        self.io_loop.borrow_mut().run(
+            self.resolver_future
+                .borrow_mut()
+                .lookup_ip(host),
+        )
     }
 }
 
@@ -64,18 +66,37 @@ impl Resolver {
 mod tests {
     extern crate tokio_core;
 
-    use std::net::{IpAddr, Ipv4Addr};
+    use std::net::*;
 
     use super::*;
 
     #[test]
     fn test_lookup() {
-        let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+        let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default())
+            .unwrap();
 
-        let mut response = resolver.lookup_ip("www.example.com.").unwrap();
+        let response = resolver.lookup_ip("www.example.com.").unwrap();
         println!("response records: {:?}", response);
 
-        let address = response.next().expect("no addresses returned");
-        assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+        assert_eq!(response.iter().count(), 2);
+        for address in response {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert_eq!(
+                    address,
+                    IpAddr::V6(Ipv6Addr::new(
+                        0x2606,
+                        0x2800,
+                        0x220,
+                        0x1,
+                        0x248,
+                        0x1893,
+                        0x25c8,
+                        0x1946,
+                    ))
+                );
+            }
+        }
     }
 }
