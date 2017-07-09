@@ -114,6 +114,7 @@
 #![deny(missing_docs)]
 
 extern crate futures;
+extern crate lalrpop_util;
 #[macro_use]
 extern crate log;
 extern crate tokio_core;
@@ -123,8 +124,8 @@ pub mod config;
 pub mod lookup_ip;
 mod name_server_pool;
 mod resolver;
+pub mod system_conf;
 mod resolver_future;
-
 
 pub use resolver::Resolver;
 pub use resolver_future::ResolverFuture;

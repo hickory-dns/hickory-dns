@@ -137,7 +137,7 @@ impl BinSerializable<Query> for Query {
 #[test]
 fn test_read_and_emit() {
     let expect = Query {
-        name: Name::with_labels(vec!["WWW".to_string(), "example".to_string(), "com".to_string()]),
+        name: Name::from_labels(vec!["WWW", "example", "com"]),
         query_type: RecordType::AAAA,
         query_class: DNSClass::IN,
     };

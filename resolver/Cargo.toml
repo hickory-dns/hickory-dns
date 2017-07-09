@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-resolver"
-version = "0.2.0"
+version = "0.3.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -29,6 +29,8 @@ categories = ["network-programming"]
 # be separated with a `/`
 license = "MIT/Apache-2.0"
 
+build = "build.rs"
+
 [badges]
 travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
@@ -37,9 +39,14 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 name = "trust_dns_resolver"
 path = "src/lib.rs"
 
+[build-dependencies]
+lalrpop = "^0.13.1"
+
 [dependencies]
 futures = "^0.1.6"
+lalrpop-util = "^0.13.1"
 log = "^0.3.5"
+regex = "0.2.1"
 tokio-core = "^0.1"
 trust-dns = { version = "^0.10", path = "../client" }
 
