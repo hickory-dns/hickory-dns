@@ -22,6 +22,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
+use std::str::FromStr;
 use std::sync::Arc as Rc;
 
 use serialize::binary::*;
@@ -72,10 +73,33 @@ impl Name {
         self
     }
 
-    /// for mutating over time
-    pub fn with_labels(labels: Vec<String>) -> Self {
+    /// Creates a new Name from the specified labels
+    ///
+    /// # Arguments
+    ///
+    /// * `labels` - vector of items which will be stored as Strings.
+    ///
+    /// # Examples
+    ///
+    /// ```rust
+    /// use std::str::FromStr;
+    /// use trust_dns::rr::domain::Name;
+    ///
+    /// let from_labels = Name::from_labels(vec!["www", "example", "com"]);
+    /// assert_eq!(from_labels, Name::from_str("www.example.com.").unwrap());
+    ///
+    /// let root = Name::from_labels::<String>(vec![]);
+    /// assert!(root.is_root());
+    /// ```
+    pub fn from_labels<S: Into<String>>(labels: Vec<S>) -> Self {
         assert!(labels.len() < 256); // this should be an error
-        Name { labels: Rc::new(labels.into_iter().map(|s| Rc::new(s)).collect()) }
+        Name { labels: Rc::new(labels.into_iter().map(|s| Rc::new(s.into())).collect()) }
+    }
+
+    /// Deprecated in favor of `from_labels`
+    #[deprecated]
+    pub fn with_labels(labels: Vec<String>) -> Self {
+        Self::from_labels(labels)
     }
 
     /// prepend the String to the label
@@ -127,7 +151,7 @@ impl Name {
             new_labels.push(label.to_lowercase());
         }
 
-        Self::with_labels(new_labels)
+        Self::from_labels(new_labels)
     }
 
     /// Trims off the first part of the name, to help with searching for the domain piece
@@ -235,9 +259,7 @@ impl Name {
         } else {
             1
         };
-        self.labels
-            .iter()
-            .fold(dots, |acc, item| acc + item.len())
+        self.labels.iter().fold(dots, |acc, item| acc + item.len())
     }
 
     /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
@@ -258,6 +280,12 @@ impl Name {
 
         let mut state = ParseState::Label;
 
+        // short cirtuit root parse
+        if local == "." {
+            return Ok(name);
+        }
+
+        // evaluate all characters
         for ch in local.chars() {
             match state {
                 ParseState::Label => {
@@ -269,17 +297,19 @@ impl Name {
                         '\\' => state = ParseState::Escape1,
                         ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
                         _ => {
-                            return Err(ParseErrorKind::Msg(format!("unrecognized char: {}", ch))
-                                           .into())
+                            return Err(
+                                ParseErrorKind::Msg(format!("unrecognized char: {}", ch)).into(),
+                            )
                         }
                     }
                 }
                 ParseState::Escape1 => {
                     if ch.is_numeric() {
-                        state = ParseState::Escape2(try!(ch.to_digit(10)
-                            .ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: \
-                                                                                 {}",
-                                                                                ch))))))
+                        state = ParseState::Escape2(try!(
+                            ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(
+                                format!("illegal char: {}", ch),
+                            )))
+                        ))
                     } else {
                         // it's a single escaped char
                         label.push(ch);
@@ -288,27 +318,35 @@ impl Name {
                 }
                 ParseState::Escape2(i) => {
                     if ch.is_numeric() {
-                        state = ParseState::Escape3(i, try!(ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: {}", ch))))));
+                        state = ParseState::Escape3(
+                            i,
+                            try!(ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(
+                                format!("illegal char: {}", ch),
+                            )))),
+                        );
                     } else {
-                        return try!(Err(ParseErrorKind::Msg(format!("unrecognized char: {}", ch))));
+                        return try!(Err(
+                            ParseErrorKind::Msg(format!("unrecognized char: {}", ch)),
+                        ));
                     }
                 }
                 ParseState::Escape3(i, ii) => {
                     if ch.is_numeric() {
                         let val: u32 = (i << 16) + (ii << 8) +
-                                       try!(ch.to_digit(10)
-                            .ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: \
-                                                                                 {}",
-                                                                                ch)))));
-                        let new: char =
-                            try!(char::from_u32(val)
-                            .ok_or(ParseError::from(ParseErrorKind::Msg(format!("illegal char: \
-                                                                                 {}",
-                                                                                ch)))));
+                            try!(ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(
+                                format!("illegal char: {}", ch),
+                            ))));
+                        let new: char = try!(char::from_u32(val).ok_or(
+                            ParseError::from(ParseErrorKind::Msg(
+                                format!("illegal char: {}", ch),
+                            )),
+                        ));
                         label.push(new);
                         state = ParseState::Label;
                     } else {
-                        return try!(Err(ParseErrorKind::Msg(format!("unrecognized char: {}", ch))));
+                        return try!(Err(
+                            ParseErrorKind::Msg(format!("unrecognized char: {}", ch)),
+                        ));
                     }
                 }
             }
@@ -326,7 +364,9 @@ impl Name {
         // }
 
         if !local.ends_with('.') {
-            name.append(try!(origin.ok_or(ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified")))));
+            name.append(try!(origin.ok_or(ParseError::from(
+                ParseErrorKind::Message("$ORIGIN was not specified"),
+            ))));
         }
 
         Ok(name)
@@ -389,8 +429,10 @@ impl Name {
     pub fn emit_with_lowercase(&self, encoder: &mut BinEncoder, lowercase: bool) -> EncodeResult {
         let is_canonical_names = encoder.is_canonical_names();
         if lowercase {
-            self.to_lowercase()
-                .emit_as_canonical(encoder, is_canonical_names)
+            self.to_lowercase().emit_as_canonical(
+                encoder,
+                is_canonical_names,
+            )
         } else {
             self.emit_as_canonical(encoder, is_canonical_names)
         }
@@ -450,18 +492,18 @@ impl From<Ipv4Addr> for Name {
     fn from(addr: Ipv4Addr) -> Name {
         let octets = addr.octets();
 
-        let mut labels = octets
-            .iter()
-            .rev()
-            .fold(Vec::with_capacity(6), |mut labels, o| {
+        let mut labels = octets.iter().rev().fold(
+            Vec::with_capacity(6),
+            |mut labels, o| {
                 labels.push(format!("{}", o));
                 labels
-            });
+            },
+        );
 
         labels.push("in-addr".to_string());
         labels.push("arpa".to_string());
 
-        Self::with_labels(labels)
+        Self::from_labels(labels)
     }
 }
 
@@ -469,28 +511,29 @@ impl From<Ipv6Addr> for Name {
     fn from(addr: Ipv6Addr) -> Name {
         let segments = addr.segments();
 
-        let mut labels = segments
-            .iter()
-            .rev()
-            .fold(Vec::with_capacity(34), |mut labels, o| {
+        let mut labels = segments.iter().rev().fold(
+            Vec::with_capacity(34),
+            |mut labels, o| {
                 labels.push(format!("{:x}", (*o & 0x000F) as u8));
                 labels.push(format!("{:x}", (*o >> 4 & 0x000F) as u8));
                 labels.push(format!("{:x}", (*o >> 8 & 0x000F) as u8));
                 labels.push(format!("{:x}", (*o >> 12 & 0x000F) as u8));
                 labels
-            });
+            },
+        );
 
         labels.push("ip6".to_string());
         labels.push("arpa".to_string());
 
-        Self::with_labels(labels)
+        Self::from_labels(labels)
     }
 }
 
 
 impl Hash for Name {
     fn hash<H>(&self, state: &mut H)
-        where H: Hasher
+    where
+        H: Hasher,
     {
         for label in self.labels.iter() {
             state.write(label.to_lowercase().as_bytes());
@@ -668,6 +711,13 @@ enum LabelParseState {
     Root, // root is the end of the labels list, aka null
 }
 
+impl FromStr for Name {
+    type Err = ParseError;
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Name::parse(s, None)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -693,18 +743,8 @@ mod tests {
         assert_eq!(Name::new().label("a").num_labels(), 1);
         assert_eq!(Name::new().label("*").label("b").num_labels(), 1);
         assert_eq!(Name::new().label("a").label("b").num_labels(), 2);
-        assert_eq!(Name::new()
-                       .label("*")
-                       .label("b")
-                       .label("c")
-                       .num_labels(),
-                   2);
-        assert_eq!(Name::new()
-                       .label("a")
-                       .label("b")
-                       .label("c")
-                       .num_labels(),
-                   3);
+        assert_eq!(Name::new().label("*").label("b").label("c").num_labels(), 2);
+        assert_eq!(Name::new().label("a").label("b").label("c").num_labels(), 3);
     }
 
     #[test]
@@ -724,11 +764,7 @@ mod tests {
         let first = Name::new().label("ra").label("rb").label("rc");
         let second = Name::new().label("rb").label("rc");
         let third = Name::new().label("rc");
-        let fourth = Name::new()
-            .label("z")
-            .label("ra")
-            .label("rb")
-            .label("rc");
+        let fourth = Name::new().label("z").label("ra").label("rb").label("rc");
 
         {
             let mut e = BinEncoder::new(&mut bytes);
@@ -808,9 +844,13 @@ mod tests {
     #[test]
     fn test_partial_cmp_eq() {
         let root = Some(Name::with_labels(vec![]));
-        let comparisons: Vec<(Name, Name)> = vec![(root.clone().unwrap(), root.clone().unwrap()),
-                                                  (Name::parse("example", root.as_ref()).unwrap(),
-                                                   Name::parse("example", root.as_ref()).unwrap())];
+        let comparisons: Vec<(Name, Name)> = vec![
+            (root.clone().unwrap(), root.clone().unwrap()),
+            (
+                Name::parse("example", root.as_ref()).unwrap(),
+                Name::parse("example", root.as_ref()).unwrap()
+            ),
+        ];
 
         for (left, right) in comparisons {
             println!("left: {}, right: {}", left, right);
@@ -822,22 +862,40 @@ mod tests {
     fn test_partial_cmp() {
         let root = Some(Name::with_labels(vec![]));
         let comparisons: Vec<(Name, Name)> =
-            vec![(Name::parse("example", root.as_ref()).unwrap(),
-                  Name::parse("a.example", root.as_ref()).unwrap()),
-                 (Name::parse("a.example", root.as_ref()).unwrap(),
-                  Name::parse("yljkjljk.a.example", root.as_ref()).unwrap()),
-                 (Name::parse("yljkjljk.a.example", root.as_ref()).unwrap(),
-                  Name::parse("Z.a.example", root.as_ref()).unwrap()),
-                 (Name::parse("Z.a.example", root.as_ref()).unwrap(),
-                  Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap()),
-                 (Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap(),
-                  Name::parse("z.example", root.as_ref()).unwrap()),
-                 (Name::parse("z.example", root.as_ref()).unwrap(),
-                  Name::parse("\\001.z.example", root.as_ref()).unwrap()),
-                 (Name::parse("\\001.z.example", root.as_ref()).unwrap(),
-                  Name::parse("*.z.example", root.as_ref()).unwrap()),
-                 (Name::parse("*.z.example", root.as_ref()).unwrap(),
-                  Name::parse("\\200.z.example", root.as_ref()).unwrap())];
+            vec![
+                (
+                    Name::parse("example", root.as_ref()).unwrap(),
+                    Name::parse("a.example", root.as_ref()).unwrap()
+                ),
+                (
+                    Name::parse("a.example", root.as_ref()).unwrap(),
+                    Name::parse("yljkjljk.a.example", root.as_ref()).unwrap()
+                ),
+                (
+                    Name::parse("yljkjljk.a.example", root.as_ref()).unwrap(),
+                    Name::parse("Z.a.example", root.as_ref()).unwrap()
+                ),
+                (
+                    Name::parse("Z.a.example", root.as_ref()).unwrap(),
+                    Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap()
+                ),
+                (
+                    Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap(),
+                    Name::parse("z.example", root.as_ref()).unwrap()
+                ),
+                (
+                    Name::parse("z.example", root.as_ref()).unwrap(),
+                    Name::parse("\\001.z.example", root.as_ref()).unwrap()
+                ),
+                (
+                    Name::parse("\\001.z.example", root.as_ref()).unwrap(),
+                    Name::parse("*.z.example", root.as_ref()).unwrap()
+                ),
+                (
+                    Name::parse("*.z.example", root.as_ref()).unwrap(),
+                    Name::parse("\\200.z.example", root.as_ref()).unwrap()
+                ),
+            ];
 
         for (left, right) in comparisons {
             println!("left: {}, right: {}", left, right);
@@ -848,11 +906,16 @@ mod tests {
     #[test]
     fn test_cmp_ignore_case() {
         let root = Some(Name::with_labels(vec![]));
-        let comparisons: Vec<(Name, Name)> =
-            vec![(Name::parse("ExAmPle", root.as_ref()).unwrap(),
-                  Name::parse("example", root.as_ref()).unwrap()),
-                 (Name::parse("A.example", root.as_ref()).unwrap(),
-                  Name::parse("a.example", root.as_ref()).unwrap())];
+        let comparisons: Vec<(Name, Name)> = vec![
+            (
+                Name::parse("ExAmPle", root.as_ref()).unwrap(),
+                Name::parse("example", root.as_ref()).unwrap()
+            ),
+            (
+                Name::parse("A.example", root.as_ref()).unwrap(),
+                Name::parse("a.example", root.as_ref()).unwrap()
+            ),
+        ];
 
         for (left, right) in comparisons {
             println!("left: {}, right: {}", left, right);
@@ -914,5 +977,14 @@ mod tests {
             .label("arpa");
 
         assert_eq!(Into::<Name>::into(ip), name);
+    }
+
+    #[test]
+    fn test_from_str() {
+        assert_eq!(
+            Name::from_str("www.example.com.").unwrap(),
+            Name::from_labels(vec!["www", "example", "com"])
+        );
+        assert_eq!(Name::from_str(".").unwrap(), Name::with_labels(vec![]));
     }
 }
