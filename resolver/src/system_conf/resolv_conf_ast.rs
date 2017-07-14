@@ -5,11 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::net::IpAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::time::Duration;
 
 use trust_dns::rr::Name;
+
+use config::*;
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum ConfigOption<'input> {
@@ -30,6 +32,41 @@ pub enum BasicOption<'input> {
     /// Sort list for ordering ip addresses
     SortList(&'input str),
 }
+
+impl<'input> BasicOption<'input> {
+    // TODO: think about protocol support, one per line, or a config block where one line could be each protocol...
+    pub fn push_nameserver(
+        self,
+        servers: &mut Vec<NameServerConfig>,
+    ) -> Result<() /*Vec<NameServerConfig>*/, BasicOption<'input>> {
+        if let BasicOption::Nameserver(ip) = self {
+            let socket_addr = SocketAddr::new(ip, 53);
+
+            servers.push(NameServerConfig {
+                socket_addr,
+                protocol: Protocol::Udp,
+            });
+            servers.push(NameServerConfig {
+                socket_addr,
+                protocol: Protocol::Tcp,
+            });
+            // Ok(vec![
+            //     NameServerConfig {
+            //         socket_addr,
+            //         protocol: Protocol::Udp,
+            //     },
+            //     NameServerConfig {
+            //         socket_addr,
+            //         protocol: Protocol::Tcp,
+            //     },
+            // ])
+            Ok(())
+        } else {
+            Err(self)
+        }
+    }
+}
+
 
 #[derive(Debug, Eq, PartialEq)]
 pub enum AdvancedOption<'input> {

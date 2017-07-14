@@ -58,6 +58,18 @@
 //! }
 //! ```
 //!
+//! ## Using the host system config
+//!
+//! On Unix systems, the `/etc/resolv.conf` can be used for configuration. Not all options specified in the host systems `resolv.conf` are applicable or compatible with this software. In addition there may be additional options supported which the host system does not. Example:
+//!
+//! ```rust,no_run
+//! # use std::net::*;
+//! # use trust_dns_resolver::Resolver;
+//! // Use the host OS'es `/etc/resolv.conf`
+//! let mut resolver = Resolver::from_system_conf().unwrap();
+//! let mut response = resolver.lookup_ip("www.example.com.").unwrap();
+//! ```
+//!
 //! ## Using the Tokio/Async Resolver
 //!
 //! For more advanced asynchronous usage, the ResolverFuture is integrated with Tokio. In fact, the ResolverFuture is used by the synchronous Resolver for all lookups.
@@ -103,10 +115,10 @@
 //!
 //! ```c
 //! let result = io_loop.run(lookup_future.and_then(|ips| {
-//!                              let ip = ips.next().unwrap();
-//!                              TcpStream::connect()
-//!                          }).and_then(|conn| /* do something with the connection... */)
-//! ).unwrap();
+//!                                  let ip = ips.next().unwrap();
+//!                                  TcpStream::connect()
+//!                              }).and_then(|conn| /* do something with the connection... */)
+//!                          ).unwrap();
 //! ```
 //! 
 //! It's beyond the scope of these examples to show how to deal with connection failures and looping etc. But if you wanted to say try a different address from the result set after a connection failure, it will be necessary to create a type that implements the `Future` trait. Inside the `Future::poll` method would be the place to implement a loop over the different IP addresses.

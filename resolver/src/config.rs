@@ -9,16 +9,40 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::time::Duration;
 
+use trust_dns::rr::Name;
+
 /// Configuration for the upstream nameservers to use for resolution
 #[derive(Clone, Debug)]
 pub struct ResolverConfig {
+    // base search domain
+    domain: Name,
+    // search domains
+    search: Vec<Name>,
+    // nameservers to use for resolution.
     name_servers: Vec<NameServerConfig>,
 }
 
 impl ResolverConfig {
     /// Creates a new empty configuration
     pub fn new() -> Self {
-        ResolverConfig { name_servers: vec![] }
+        // TODO: default to host FQDN then root if not available
+        ResolverConfig {
+            domain: Name::root(),
+            search: vec![],
+            name_servers: vec![],
+        }
+    }
+
+    pub(crate) fn from_parts(
+        domain: Name,
+        search: Vec<Name>,
+        name_servers: Vec<NameServerConfig>,
+    ) -> Self {
+        ResolverConfig {
+            domain,
+            search,
+            name_servers,
+        }
     }
 
     // TODO: consider allowing options per NameServer... like different timeouts?
@@ -27,7 +51,7 @@ impl ResolverConfig {
         self.name_servers.push(name_server);
     }
 
-    /// Returns a reference to the name servers 
+    /// Returns a reference to the name servers
     pub fn name_servers(&self) -> &[NameServerConfig] {
         &self.name_servers
     }
@@ -36,6 +60,7 @@ impl ResolverConfig {
 impl Default for ResolverConfig {
     /// Creates a default configuration, using 8.8.8.8:53 and 8.8.4.4:53 (thank you, Google).
     fn default() -> Self {
+        let domain = Name::root();
         let google_ns1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
             protocol: Protocol::Udp,
@@ -45,7 +70,11 @@ impl Default for ResolverConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)), 53),
             protocol: Protocol::Udp,
         };
-        ResolverConfig { name_servers: vec![google_ns1, google_ns2] }
+        ResolverConfig {
+            domain,
+            search: vec![],
+            name_servers: vec![google_ns1, google_ns2],
+        }
     }
 }
 
@@ -99,19 +128,19 @@ pub struct ResolverOpts {
     ///  that must appear before a query is assumted to include the TLD. The default is one, which
     ///  means that `www` would never be assumed to be a TLD, and would always be appended to either
     ///  the search
-    /*pub*/ ndots: usize,
+    pub(crate) ndots: usize,
     /// Specify the timeout for a request. Defaults to 5 seconds
     pub timeout: Duration,
     /// Number of attempts before giving up. Defaults to 2
-    /*pub*/ attempts: usize,
+    pub(crate) attempts: usize,
     /// Rotate through the resource records in the response (if there is more than one for a given name)
-    /*pub*/ rotate: bool,
+    pub(crate) rotate: bool,
     /// Validate the names in the response
-    /*pub*/ check_names: bool,
+    pub(crate) check_names: bool,
     /// Enable edns, for larger records
-    /*pub*/ edns0: bool,
+    pub(crate) edns0: bool,
     /// Use DNSSec to validate the request
-    /*pub*/ validate: bool,
+    pub(crate) validate: bool,
     /// The ip_strategy for the Resolver to use when lookup Ipv4 or Ipv6 addresses
     pub ip_strategy: LookupIpStrategy,
 }
