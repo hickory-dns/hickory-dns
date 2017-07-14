@@ -16,10 +16,101 @@
 // TODO: make crate only...
 mod resolv_conf_ast;
 
-pub mod resolv_conf {
+use std::fs::File;
+use std::io;
+use std::io::Read;
+use std::path::Path;
+
+use trust_dns::rr::Name;
+
+use config::*;
+use self::resolv_conf_ast::*;
+
+pub(crate) mod resolv_conf {
+    #![allow(unused)]
     // lalrpop from the build script generates the grammar to this file,
     //  see build.rs for the resolver for details.
     include!(concat!(env!("OUT_DIR"), "/system_conf/resolv_conf.rs"));
+}
+
+#[cfg(unix)]
+pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
+    read_resolv_conf("/etc/resolv.conf")
+}
+
+#[cfg(not(unix))]
+pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
+    Err(io::Error::new(
+        io::ErrorKind::NotFound,
+        format!(
+            "Unsupported OS, pass explicit configuration to Resolver::new(..)"
+        ),
+    ))
+}
+
+pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
+    let mut data = String::new();
+    let mut file = File::open(path)?;
+    file.read_to_string(&mut data)?;
+
+    // TODO: what to do with these errors?
+    let mut errors = Vec::new();
+    let conf = resolv_conf::parse_config(&mut errors, &data).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::Other,
+            format!("Error parsing resolv.conf: {:?}", e),
+        )
+    })?;
+
+    Ok(into_resolver_config(conf))
+}
+
+pub fn into_resolver_config(config_opts: Vec<ConfigOption>) -> (ResolverConfig, ResolverOpts) {
+    let mut domain = Option::None::<Name>;
+    let mut search = Option::None::<Vec<Name>>;
+    let mut nameservers = Vec::<NameServerConfig>::new();
+    let mut options = Option::None::<ResolverOpts>;
+
+    for config_opt in config_opts {
+        match config_opt {
+            ConfigOption::Basic(BasicOption::Domain(name)) => domain = Some(name),
+            ConfigOption::Basic(BasicOption::Search(names)) => search = Some(names),
+            ConfigOption::Basic(nameserver) => {
+                nameserver.push_nameserver(&mut nameservers).ok();
+            }
+            ConfigOption::Advanced(advanced_opts) => {
+                options = Some(advanced_opts.into_iter().fold(
+                    ResolverOpts::default(),
+                    |mut ropts, advanced| {
+                        match advanced {
+                            AdvancedOption::NumberOfDots(ndots) => ropts.ndots = ndots as usize,
+                            AdvancedOption::Timeout(dur) => ropts.timeout = dur,
+                            AdvancedOption::Attempts(attempts) => {
+                                ropts.attempts = attempts as usize
+                            }
+                            AdvancedOption::Unknown(..) => (),
+                        }
+                        ropts
+                    },
+                ))
+            }
+            //_ => (),
+        }
+    }
+
+    let config = ResolverConfig::from_parts(
+        domain.unwrap_or_else(Name::root),
+        search.unwrap_or_else(Vec::new),
+        nameservers,
+    );
+
+
+    // if there are no nameservers, let's get some defaults
+    if config.name_servers().is_empty() {
+        warn!("no nameservers found in config");
+    }
+
+    (config, options.unwrap_or_else(ResolverOpts::default))
 }
 
 #[cfg(test)]
@@ -31,7 +122,6 @@ mod tests {
     use std::time::Duration;
     use trust_dns::rr::Name;
     use super::*;
-    use super::resolv_conf_ast::*;
 
     #[test]
     fn test_comment() {
@@ -284,5 +374,12 @@ mod tests {
             resolv_conf::parse_config(&mut errors, &data).expect("failed"),
             configuration
         );
+    }
+
+    #[test]
+    fn test_read_resolv_conf() {
+        read_resolv_conf("tests/resolv.conf-simple").expect("simple failed");
+        read_resolv_conf("tests/resolv.conf-macos").expect("macos failed");
+        read_resolv_conf("tests/resolv.conf-linux").expect("linux failed");
     }
 }

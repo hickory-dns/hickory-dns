@@ -7,7 +7,6 @@
 
 use std::str::FromStr;
 use std::net::IpAddr;
-use std::time::Duration;
 
 use lalrpop_util::ErrorRecovery;
 use trust_dns::rr::Name;
@@ -36,10 +35,6 @@ pub advanced_options: Vec<AdvancedOption<'input>> = {
 };
 
 pub advanced_option: AdvancedOption<'input> = {
-//	"ndots:" <n:u8> => AdvancedOption::NumberOfDots(n),
-//	"timeout:" <n:u8> => AdvancedOption::Timeout(Duration::from_secs(n as u64)),
-//	"attempts:" <n:u8> => AdvancedOption::Attempts(n),
-//	r"[[:alpha:]]+:?\w?" => AdvancedOption::Unknown(<>),
 	r"[[:alpha:]][[:alnum:]-_]+:?\w?" => AdvancedOption::parse(<>),
 };
 
@@ -47,16 +42,11 @@ pub basic_option: BasicOption<'input> = {
 	"nameserver" <i:ip_addr> => BasicOption::Nameserver(i),
 	"domain" <n:name> => BasicOption::Domain(n),
 	"search" <n:name+> => BasicOption::Search(n),
-	r"sortlist [ 0-9\./]+" => BasicOption::SortList(<>),
+	r"sortlist ([ 0-9\./]+)" => BasicOption::SortList(<>),
 };
 
 pub comment: () = r"[#;][^\n]*" => ();
 
-//pub ip_addr_mask: IpAddrAndMask = {
-//	r"([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}(?:/[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})?)" => IpAddrAndMask::parse(<>),
-	//<i:ip_addr> => IpAddrAndMask(i, None),
-//};
-//pub ip_mask: IpAddr = "/" <i:ip_addr> => i; 
 pub ip_addr: IpAddr = r"([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|(?:[0-9a-f]{0,4}:){2,7}[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}|(?:[0-9a-f]{0,4}:){2,7}[0-9a-f]{1,4})" => IpAddr::from_str(<>).expect("failed to parse IpAddr");
 
 // gah, needed the capture statement!

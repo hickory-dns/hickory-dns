@@ -15,6 +15,7 @@ use tokio_core::reactor::Core;
 use config::{ResolverConfig, ResolverOpts};
 use lookup_ip::LookupIp;
 use ResolverFuture;
+use system_conf;
 
 /// The Resolver is used for performing DNS queries.
 ///
@@ -26,7 +27,7 @@ pub struct Resolver {
 
 
 impl Resolver {
-    /// Construct a new Resolver with the given ClientConnection, see UdpClientConnection and/or TcpCLientConnection
+    /// Constructs a new Resolver with the given ClientConnection, see UdpClientConnection and/or TcpCLientConnection
     ///
     /// # Arguments
     /// * `config` - configuration for the resolver
@@ -43,6 +44,14 @@ impl Resolver {
             resolver_future: RefCell::new(resolver),
             io_loop: RefCell::new(io_loop),
         })
+    }
+
+    /// Constructs a new Resolver with the given ClientConnection, see UdpClientConnection and/or TcpCLientConnection
+    ///
+    /// This will read the systems `/etc/cresolv.conf`. Only Unix like OSes are currently supported.
+    pub fn from_system_conf() -> io::Result<Self> {
+        let (config, options) = system_conf::read_system_conf()?;
+        Self::new(config, options)
     }
 
     // TODO: need to support ndot lookup options...
@@ -74,6 +83,36 @@ mod tests {
     fn test_lookup() {
         let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default())
             .unwrap();
+
+        let response = resolver.lookup_ip("www.example.com.").unwrap();
+        println!("response records: {:?}", response);
+
+        assert_eq!(response.iter().count(), 2);
+        for address in response {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert_eq!(
+                    address,
+                    IpAddr::V6(Ipv6Addr::new(
+                        0x2606,
+                        0x2800,
+                        0x220,
+                        0x1,
+                        0x248,
+                        0x1893,
+                        0x25c8,
+                        0x1946,
+                    ))
+                );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore]
+    fn test_system_lookup() {
+        let mut resolver = Resolver::from_system_conf().unwrap();
 
         let response = resolver.lookup_ip("www.example.com.").unwrap();
         println!("response records: {:?}", response);
