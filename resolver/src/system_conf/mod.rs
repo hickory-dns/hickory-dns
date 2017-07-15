@@ -115,6 +115,7 @@ pub fn into_resolver_config(config_opts: Vec<ConfigOption>) -> (ResolverConfig, 
 
 #[cfg(test)]
 mod tests {
+    use std::env;
     use std::fs::File;
     use std::io::Read;
     use std::net::*;
@@ -122,6 +123,11 @@ mod tests {
     use std::time::Duration;
     use trust_dns::rr::Name;
     use super::*;
+
+    fn tests_dir() -> String {
+        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+        format!{"{}/../resolver/tests", server_path}
+    }
 
     #[test]
     fn test_comment() {
@@ -290,7 +296,7 @@ mod tests {
     #[test]
     fn test_resolv_conf_macos() {
         let mut data = String::new();
-        let mut file = File::open("tests/resolv.conf-macos").unwrap();
+        let mut file = File::open(format!("{}/resolv.conf-macos", tests_dir())).unwrap();
         file.read_to_string(&mut data).unwrap();
 
         let configuration = vec![
@@ -330,7 +336,7 @@ mod tests {
     #[test]
     fn test_resolv_conf_linux() {
         let mut data = String::new();
-        let mut file = File::open("tests/resolv.conf-linux").unwrap();
+        let mut file = File::open(format!("{}/resolv.conf-linux", tests_dir())).unwrap();
         file.read_to_string(&mut data).unwrap();
 
         let configuration =
@@ -378,8 +384,8 @@ mod tests {
 
     #[test]
     fn test_read_resolv_conf() {
-        read_resolv_conf("tests/resolv.conf-simple").expect("simple failed");
-        read_resolv_conf("tests/resolv.conf-macos").expect("macos failed");
-        read_resolv_conf("tests/resolv.conf-linux").expect("linux failed");
+        read_resolv_conf(format!("{}/resolv.conf-simple", tests_dir())).expect("simple failed");
+        read_resolv_conf(format!("{}/resolv.conf-macos", tests_dir())).expect("macos failed");
+        read_resolv_conf(format!("{}/resolv.conf-linux", tests_dir())).expect("linux failed");
     }
 }
