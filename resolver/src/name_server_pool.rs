@@ -169,15 +169,15 @@ pub(crate) struct NameServer {
 }
 
 impl NameServer {
-    fn new_connection(config: &NameServerConfig, options: &ResolverOpts, reactor: Handle) -> BasicClientHandle {
+    fn new_connection(config: &NameServerConfig, options: &ResolverOpts, reactor: &Handle) -> BasicClientHandle {
         match config.protocol {
             Protocol::Udp => {
-                let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor.clone());
+                let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor);
                 // TODO: need config for Signer...
                 ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
             }
             Protocol::Tcp => {
-                let (stream, handle) = TcpClientStream::with_timeout(config.socket_addr, reactor.clone(), options.timeout);
+                let (stream, handle) = TcpClientStream::with_timeout(config.socket_addr, reactor, options.timeout);
                 // TODO: need config for Signer...
                 ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
             }
@@ -186,8 +186,8 @@ impl NameServer {
         }
     }
 
-    pub fn new(config: NameServerConfig, options: ResolverOpts, reactor: Handle) -> Self {
-        let client = Self::new_connection(&config, &options, reactor.clone());
+    pub fn new(config: NameServerConfig, options: ResolverOpts, reactor: &Handle) -> Self {
+        let client = Self::new_connection(&config, &options, reactor);
 
         // FIXME: setup EDNS
         NameServer {
@@ -195,7 +195,7 @@ impl NameServer {
             options,
             client,
             stats: Arc::new(Mutex::new(NameServerStats::default())),
-            reactor,
+            reactor: reactor.clone(),
         }
     }
 
@@ -239,7 +239,7 @@ impl NameServer {
             if Instant::now().duration_since(when) > retry_delay {
                 println!("reconnecting: {:?}", self.config);
                 // establish a new connection
-                let client = Self::new_connection(&self.config, &self.options, self.reactor.clone());
+                let client = Self::new_connection(&self.config, &self.options, &self.reactor);
                 mem::replace(&mut self.client, client);
 
                 // reinitialize the mutex (in case it was poisoned before)
@@ -344,12 +344,12 @@ pub(crate) struct NameServerPool {
 impl NameServerPool {
     pub fn from_config(config: &ResolverConfig,
                        options: &ResolverOpts,
-                       reactor: Handle)
+                       reactor: &Handle)
                        -> NameServerPool {
         let conns: BinaryHeap<NameServer> = config
             .name_servers()
             .iter()
-            .map(|ns_config| NameServer::new(ns_config.clone(), options.clone(), reactor.clone()))
+            .map(|ns_config| NameServer::new(ns_config.clone(), options.clone(), reactor))
             .collect();
 
         NameServerPool {
@@ -437,7 +437,7 @@ mod tests {
             protocol: Protocol::Udp,
         };
         let mut io_loop = Core::new().unwrap();
-        let mut name_server = NameServer::new(config, ResolverOpts::default(), io_loop.handle());
+        let mut name_server = NameServer::new(config, ResolverOpts::default(), &io_loop.handle());
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = io_loop
@@ -455,7 +455,7 @@ mod tests {
             protocol: Protocol::Udp,
         };
         let mut io_loop = Core::new().unwrap();
-        let mut name_server = NameServer::new(config, options, io_loop.handle());
+        let mut name_server = NameServer::new(config, options, &io_loop.handle());
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(io_loop
@@ -483,7 +483,7 @@ mod tests {
         let mut io_loop = Core::new().unwrap();
         let mut pool = NameServerPool::from_config(&resolver_config,
                                                    &ResolverOpts::default(),
-                                                   io_loop.handle());
+                                                   &io_loop.handle());
 
         let name = Name::parse("www.example.com.", None).unwrap();
 

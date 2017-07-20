@@ -92,7 +92,7 @@ impl TcpStream<TokioTcpStream> {
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
     pub fn new
         (name_server: SocketAddr,
-         loop_handle: Handle)
+         loop_handle: &Handle)
          -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
         Self::with_timeout(name_server, loop_handle, Duration::from_secs(5))
     }
@@ -106,7 +106,7 @@ impl TcpStream<TokioTcpStream> {
     /// * `timeout` - connection timeout
     pub fn with_timeout
         (name_server: SocketAddr,
-         loop_handle: Handle,
+         loop_handle: &Handle,
          timeout: Duration)
          -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
@@ -496,7 +496,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-    let (stream, sender) = TcpStream::new(server_addr, io_loop.handle());
+    let (stream, sender) = TcpStream::new(server_addr, &io_loop.handle());
 
     let mut stream = io_loop
         .run(stream)

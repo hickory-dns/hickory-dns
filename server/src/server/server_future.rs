@@ -45,7 +45,7 @@ impl <T: RequestHandler> ServerFuture <T> {
         debug!("registered udp: {:?}", socket);
 
         // create the new UdpStream
-        let (buf_stream, stream_handle) = UdpStream::with_bound(socket, self.io_loop.handle());
+        let (buf_stream, stream_handle) = UdpStream::with_bound(socket, &self.io_loop.handle());
         let request_stream = RequestStream::new(buf_stream, stream_handle);
         let handler = self.handler.clone();
 
@@ -93,7 +93,7 @@ impl <T: RequestHandler> ServerFuture <T> {
                 debug!("accepted request from: {}", src_addr);
                 // take the created stream...
                 let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
-                let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
+                let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, &handle));
                 let request_stream = RequestStream::new(timeout_stream, stream_handle);
                 let handler = handler.clone();
 
@@ -174,7 +174,7 @@ impl <T: RequestHandler> ServerFuture <T> {
                               .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
                               .and_then(move |tls_stream| {
                                   let (buf_stream, stream_handle) = TlsStream::from_stream(tls_stream, src_addr.clone());
-                                  let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, handle.clone()));
+                                  let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, &handle));
                                   let request_stream = RequestStream::new(timeout_stream, stream_handle);
                                   let handler = handler.clone();
 

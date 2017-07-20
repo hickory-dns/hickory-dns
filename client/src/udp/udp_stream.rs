@@ -49,7 +49,7 @@ impl UdpStream {
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
     pub fn new(name_server: SocketAddr,
-               loop_handle: Handle)
+               loop_handle: &Handle)
                -> (Box<Future<Item = UdpStream, Error = io::Error>>, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
 
@@ -60,8 +60,10 @@ impl UdpStream {
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
         let stream: Box<Future<Item = UdpStream, Error = io::Error>> =
+        {
+            let handle = loop_handle.clone();
             Box::new(next_socket.map(move |socket| {
-                    tokio_core::net::UdpSocket::from_socket(socket, &loop_handle)
+                    tokio_core::net::UdpSocket::from_socket(socket, &handle)
                         .expect("something wrong with the handle?")
                 })
                 .map(move |socket| {
@@ -69,7 +71,8 @@ impl UdpStream {
                         socket: socket,
                         outbound_messages: outbound_messages.fuse().peekable(),
                     }
-                }));
+                }))
+        };
 
         (stream, message_sender)
     }
@@ -88,7 +91,7 @@ impl UdpStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn with_bound(socket: std::net::UdpSocket, loop_handle: Handle) -> (Self, BufStreamHandle) {
+    pub fn with_bound(socket: std::net::UdpSocket, loop_handle: &Handle) -> (Self, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
 
         // TODO: consider making this return a Result...
@@ -203,7 +206,7 @@ fn test_next_random_socket() {
                                                                                     0,
                                                                                     1)),
                                        52),
-                       io_loop.handle());
+                       &io_loop.handle());
     drop(io_loop.run(stream).ok().expect("failed to get next socket address"));
 }
 
@@ -283,7 +286,7 @@ fn udp_stream_test(server_addr: std::net::IpAddr) {
     };
 
     let socket = std::net::UdpSocket::bind(client_addr).expect("could not create socket"); // some random address...
-    let (mut stream, sender) = UdpStream::with_bound(socket, io_loop.handle());
+    let (mut stream, sender) = UdpStream::with_bound(socket, &io_loop.handle());
     //let mut stream: UdpStream = io_loop.run(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {

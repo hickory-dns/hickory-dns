@@ -368,7 +368,7 @@ impl SyncClient {
 where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static{
         let (io_loop, stream, stream_handle) = client_connection.unwrap();
 
-        let client = ClientFuture::new(stream, stream_handle, io_loop.handle(), None);
+        let client = ClientFuture::new(stream, stream_handle, &io_loop.handle(), None);
 
         SyncClient {
             client_handle: RefCell::new(client),
@@ -388,7 +388,7 @@ where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Er
 where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static{
         let (io_loop, stream, stream_handle) = client_connection.unwrap();
 
-        let client = ClientFuture::new(stream, stream_handle, io_loop.handle(), Some(signer));
+        let client = ClientFuture::new(stream, stream_handle, &io_loop.handle(), Some(signer));
 
         SyncClient {
             client_handle: RefCell::new(client),
@@ -519,7 +519,7 @@ where CC: ClientConnection,
     let client = ClientFuture::new(
       stream,
       stream_handle,
-      io_loop.handle(),
+      &io_loop.handle(),
       self.signer);
 
     let client = SecureClientHandle::with_trust_anchor(client, self.trust_anchor.unwrap_or(Default::default()));

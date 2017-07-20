@@ -37,7 +37,7 @@ impl Resolver {
     /// A new Resolver
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
         let io_loop = Core::new()?;
-        let resolver = ResolverFuture::new(config, options, io_loop.handle());
+        let resolver = ResolverFuture::new(config, options, &io_loop.handle());
 
         Ok(Resolver {
             resolver_future: RefCell::new(resolver),

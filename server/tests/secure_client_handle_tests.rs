@@ -219,7 +219,7 @@ fn with_nonet<F>(test: F)
 
     let io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
@@ -255,8 +255,8 @@ fn with_udp<F>(test: F)
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+    let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
@@ -292,8 +292,8 @@ fn with_tcp<F>(test: F)
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+    let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 

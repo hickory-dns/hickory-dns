@@ -16,7 +16,7 @@ fn test_no_timeout() {
         .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
     let mut core = Core::new().expect("could not get core");
 
-    let timeout_stream = TimeoutStream::new(sequence, Duration::from_secs(360), core.handle())
+    let timeout_stream = TimeoutStream::new(sequence, Duration::from_secs(360), &core.handle())
         .expect("could not create timeout_stream");
 
     let (val, timeout_stream) =
@@ -52,7 +52,7 @@ impl Stream for NeverStream {
 fn test_timeout() {
     let mut core = Core::new().expect("could not get core");
     let timeout_stream =
-        TimeoutStream::new(NeverStream {}, Duration::from_millis(1), core.handle())
+        TimeoutStream::new(NeverStream {}, Duration::from_millis(1), &core.handle())
             .expect("could not create timeout_stream");
 
     assert!(core.run(timeout_stream.into_future()).is_err());

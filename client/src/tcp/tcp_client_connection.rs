@@ -61,7 +61,7 @@ impl TcpClientConnection {
     pub fn with_timeout(name_server: SocketAddr, timeout: Duration) -> ClientResult<Self> {
         let io_loop = try!(Core::new());
         let (tcp_client_stream, handle) =
-            TcpClientStream::<TcpStream>::with_timeout(name_server, io_loop.handle(), timeout);
+            TcpClientStream::<TcpStream>::with_timeout(name_server, &io_loop.handle(), timeout);
 
         Ok(TcpClientConnection {
                io_loop: io_loop,
