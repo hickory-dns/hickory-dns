@@ -11,6 +11,9 @@ environment:
     OPENSSL_DIR: C:\OpenSSL
     RUST_BACKTRACE: 1
 
+init:
+  - ps: Disable-NetFirewallRule -DisplayName 'Core Networking - Group Policy (LSASS-Out)'
+
 install:
   # Install OpenSSL
   - ps: Start-FileDownload "http://slproweb.com/download/Win${env:BITS}OpenSSL-${env:OPENSSL_VERSION}.exe"
