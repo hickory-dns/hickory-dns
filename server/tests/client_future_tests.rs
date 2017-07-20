@@ -37,7 +37,7 @@ fn test_query_nonet() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     io_loop.run(test_query(&mut client)).unwrap();
     io_loop.run(test_query(&mut client)).unwrap();
@@ -55,8 +55,8 @@ fn test_query_udp_ipv4() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -75,8 +75,8 @@ fn test_query_udp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -95,8 +95,8 @@ fn test_query_tcp_ipv4() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -115,8 +115,8 @@ fn test_query_tcp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -165,7 +165,7 @@ fn test_notify() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     let name = domain::Name::with_labels(vec!["ping".to_string(),
                                               "example".to_string(),
@@ -211,7 +211,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     catalog.upsert(authority.origin().clone(), authority);
 
     let (stream, sender) = TestClientStream::new(catalog);
-    let client = ClientFuture::new(stream, sender, io_loop.handle(), Some(signer));
+    let client = ClientFuture::new(stream, sender, &io_loop.handle(), Some(signer));
 
     (client, origin)
 }
@@ -830,7 +830,7 @@ fn test_timeout_query_nonet() {
     let (stream, sender) = NeverReturnsClientStream::new();
     let client = ClientFuture::with_timeout(stream,
                                             sender,
-                                            io_loop.handle(),
+                                            &io_loop.handle(),
                                             std::time::Duration::from_millis(1),
                                             None);
     test_timeout_query(client, io_loop);
@@ -846,10 +846,10 @@ fn test_timeout_query_udp() {
         .next()
         .unwrap();
 
-    let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
+    let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
     let client = ClientFuture::with_timeout(stream,
                                             sender,
-                                            io_loop.handle(),
+                                            &io_loop.handle(),
                                             std::time::Duration::from_millis(1),
                                             None);
     test_timeout_query(client, io_loop);
@@ -866,10 +866,10 @@ fn test_timeout_query_tcp() {
         .unwrap();
 
     let (stream, sender) =
-        TcpClientStream::with_timeout(addr, io_loop.handle(), std::time::Duration::from_millis(1));
+        TcpClientStream::with_timeout(addr, &io_loop.handle(), std::time::Duration::from_millis(1));
     let client = ClientFuture::with_timeout(stream,
                                             sender,
-                                            io_loop.handle(),
+                                            &io_loop.handle(),
                                             std::time::Duration::from_millis(1),
                                             None);
     test_timeout_query(client, io_loop);

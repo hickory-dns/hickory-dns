@@ -119,7 +119,7 @@ impl TlsStreamBuilder {
     pub fn build(self,
                  name_server: SocketAddr,
                  subject_name: String,
-                 loop_handle: Handle)
+                 loop_handle: &Handle)
                  -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
         let tls_connector =

@@ -21,7 +21,7 @@ pub struct ResolverFuture {
 
 impl ResolverFuture {
     /// Construct a new ResolverFuture with the associated Client.
-    pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: Handle) -> Self {
+    pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
         let pool = NameServerPool::from_config(&config, &options, reactor);
         ResolverFuture { options, pool }
     }
@@ -57,7 +57,7 @@ mod tests {
         let mut resolver = ResolverFuture::new(
             ResolverConfig::default(),
             ResolverOpts::default(),
-            io_loop.handle(),
+            &io_loop.handle(),
         );
 
         let response = io_loop.run(resolver.lookup_ip("www.example.com.")).expect("failed to run lookup");

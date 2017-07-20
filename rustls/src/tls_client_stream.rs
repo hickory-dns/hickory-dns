@@ -53,7 +53,7 @@ impl TlsClientStreamBuilder {
         (self,
          name_server: SocketAddr,
          subject_name: String,
-         loop_handle: Handle)
+         loop_handle: &Handle)
          -> (Box<Future<Item = TlsClientStream, Error = io::Error>>, Box<ClientStreamHandle>) {
         let (stream_future, sender) = self.0.build(name_server, subject_name, loop_handle);
 

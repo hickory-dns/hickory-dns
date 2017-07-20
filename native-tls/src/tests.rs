@@ -173,7 +173,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     //     config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
     // }
 
-    let (stream, sender) = builder.build(server_addr, subject_name.to_string(), io_loop.handle());
+    let (stream, sender) = builder.build(server_addr, subject_name.to_string(), &io_loop.handle());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
     let mut stream = io_loop

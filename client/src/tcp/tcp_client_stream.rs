@@ -36,7 +36,7 @@ impl TcpClientStream<TokioTcpStream> {
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
     pub fn new(name_server: SocketAddr,
-               loop_handle: Handle)
+               loop_handle: &Handle)
                -> (Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
                    Box<ClientStreamHandle>) {
         Self::with_timeout(name_server, loop_handle, Duration::from_secs(5))
@@ -50,7 +50,7 @@ impl TcpClientStream<TokioTcpStream> {
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
     /// * `timeout` - connection timeout
     pub fn with_timeout(name_server: SocketAddr,
-                        loop_handle: Handle,
+                        loop_handle: &Handle,
                         timeout: Duration)
                         -> (Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
                             Box<ClientStreamHandle>) {
@@ -203,7 +203,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-    let (stream, mut sender) = TcpClientStream::new(server_addr, io_loop.handle());
+    let (stream, mut sender) = TcpClientStream::new(server_addr, &io_loop.handle());
 
     let mut stream = io_loop
         .run(stream)

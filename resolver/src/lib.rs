@@ -77,7 +77,7 @@
 //! let mut io_loop = Core::new().unwrap(); 
 //!
 //! // Construct a new Resolver with default configuration options
-//! let mut resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), io_loop.handle());
+//! let mut resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), &io_loop.handle());
 //! 
 //! // Lookup the IP addresses associated with a name.
 //! // NOTE: do not forget the final dot, as the resolver does not yet support search paths.

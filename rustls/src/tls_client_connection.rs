@@ -82,7 +82,7 @@ impl TlsClientConnectionBuilder {
                  subject_name: String)
                  -> ClientResult<TlsClientConnection> {
         let io_loop = try!(Core::new());
-        let (tls_client_stream, handle) = self.0.build(name_server, subject_name, io_loop.handle());
+        let (tls_client_stream, handle) = self.0.build(name_server, subject_name, &io_loop.handle());
 
         Ok(TlsClientConnection {
                io_loop: io_loop,

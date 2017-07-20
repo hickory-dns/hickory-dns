@@ -44,7 +44,7 @@ impl UdpClientConnection {
     /// * `name_server` - address of the name server to use for queries
     pub fn new(name_server: SocketAddr) -> ClientResult<Self> {
         let io_loop = try!(Core::new());
-        let (udp_client_stream, handle) = UdpClientStream::new(name_server, io_loop.handle());
+        let (udp_client_stream, handle) = UdpClientStream::new(name_server, &io_loop.handle());
 
         Ok(UdpClientConnection {
                io_loop: io_loop,
