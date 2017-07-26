@@ -9,10 +9,11 @@
 use std::io;
 
 use tokio_core::reactor::Handle;
+use trust_dns::rr::Name;
 
 use config::{ResolverConfig, ResolverOpts};
 use name_server_pool::NameServerPool;
-use lookup_ip::LookupIpFuture;
+use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use system_conf;
 
 /// A Resolver for DNS records.
@@ -44,8 +45,18 @@ impl ResolverFuture {
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
     pub fn lookup_ip(&mut self, host: &str) -> LookupIpFuture {
+        // FIXME: check for FQDN...
+        let name = match Name::parse(host, None) {
+            Ok(name) => name,
+            Err(err) => {
+                return InnerLookupIpFuture::error(self.pool.clone(), err)
+            }
+        };
+
+        // TODO: create list of names to lookup, unless FQDN = only query that
+
         // create the lookup
-        LookupIpFuture::lookup(host, self.options.ip_strategy, &mut self.pool)
+        LookupIpFuture::lookup(vec![name], self.options.ip_strategy, &mut self.pool)
     }
 }
 

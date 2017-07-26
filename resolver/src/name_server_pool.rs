@@ -335,14 +335,18 @@ impl PartialEq for NameServer {
 
 impl Eq for NameServer {}
 
+/// A pool of NameServers
+///
+/// This is not expected to be used directly, see `ResolverFuture`.
 #[derive(Clone)]
-pub(crate) struct NameServerPool {
+pub struct NameServerPool {
+    // FIXME: This should be an Arc so that the Heap itself isn't copied, but then needs a mutex...
     conns: BinaryHeap<NameServer>,
     options: ResolverOpts,
 }
 
 impl NameServerPool {
-    pub fn from_config(config: &ResolverConfig,
+    pub(crate) fn from_config(config: &ResolverConfig,
                        options: &ResolverOpts,
                        reactor: &Handle)
                        -> NameServerPool {
