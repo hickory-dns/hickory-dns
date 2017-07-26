@@ -1,6 +1,20 @@
-# Change Log: TRust-DNS Resolver 
+# Change Log: TRust-DNS Resolver
+
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
+
+## 0.3.0
+
+### Added
+
+- Added support for domain name search in `ResolverConfig` and `LookupIpFuture`
+- Added support for search names in `ResolverConfig` and `LookupIpFuture`
+- Added `LookupIpFuture` type alias to `InnerLookupIpFuture<NameServerPool>` *compatibility*
+
+### Changed
+
+- *breaking* `LookupIpFuture` renamed to `InnerLookupIpFuture`
+- *breaking* `InnerLookupIpFuture` now takes a generic parameter, generally `<NameServerPool>`
 
 ## 0.2.0
 
