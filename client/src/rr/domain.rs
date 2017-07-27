@@ -33,18 +33,24 @@ use error::*;
 /// TODO: Currently this probably doesn't support binary names, it would be nice to do that.
 #[derive(Debug, Eq, Clone)]
 pub struct Name {
+    is_fqdn: bool,
     labels: Rc<Vec<Rc<String>>>,
 }
 
 impl Name {
     /// Create a new domain::Name, i.e. label
     pub fn new() -> Self {
-        Name { labels: Rc::new(Vec::new()) }
+        Name {
+            is_fqdn: false,
+            labels: Rc::new(Vec::new()),
+        }
     }
 
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
     pub fn root() -> Self {
-        Self::new()
+        let mut this = Self::new();
+        this.is_fqdn = true;
+        this
     }
 
     /// Returns true if there are no labels, i.e. it's empty.
@@ -61,6 +67,32 @@ impl Name {
     /// ```
     pub fn is_root(&self) -> bool {
         self.labels.is_empty()
+    }
+
+    /// Returns true if the name is a fully qualified domain name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns::rr::domain::Name;
+    ///
+    /// let name = Name::from_str("www").unwrap();
+    /// assert!(!name.is_fqdn());
+    ///
+    /// let name = Name::from_str("www.example.com").unwrap();
+    /// assert!(!name.is_fqdn());
+    ///
+    /// let name = Name::from_str("www.example.com.").unwrap();
+    /// assert!(name.is_fqdn());
+    /// ```
+    pub fn is_fqdn(&self) -> bool {
+        self.is_fqdn
+    }
+
+    /// Specifies this name is a fully qualified domain name
+    pub fn set_fqdn(&mut self, val: bool) {
+        self.is_fqdn = val
     }
 
     /// inline builder
@@ -86,14 +118,17 @@ impl Name {
     /// use trust_dns::rr::domain::Name;
     ///
     /// let from_labels = Name::from_labels(vec!["www", "example", "com"]);
-    /// assert_eq!(from_labels, Name::from_str("www.example.com.").unwrap());
+    /// assert_eq!(from_labels, Name::from_str("www.example.com").unwrap());
     ///
     /// let root = Name::from_labels::<String>(vec![]);
     /// assert!(root.is_root());
     /// ```
     pub fn from_labels<S: Into<String>>(labels: Vec<S>) -> Self {
         assert!(labels.len() < 256); // this should be an error
-        Name { labels: Rc::new(labels.into_iter().map(|s| Rc::new(s.into())).collect()) }
+        Name {
+            is_fqdn: false,
+            labels: Rc::new(labels.into_iter().map(|s| Rc::new(s.into())).collect()),
+        }
     }
 
     /// Deprecated in favor of `from_labels`
@@ -112,7 +147,10 @@ impl Name {
         }
 
         assert!(new_labels.len() < 256); // this should be an error
-        Name { labels: Rc::new(new_labels) }
+        Name {
+            is_fqdn: self.is_fqdn,
+            labels: Rc::new(new_labels),
+        }
     }
 
     /// appends the String to this label at the end
@@ -145,13 +183,15 @@ impl Name {
     /// let example_com = Name::new().label("Example").label("Com");
     /// assert_eq!(example_com.to_lowercase().cmp_with_case(&Name::new().label("example").label("com"), false), Ordering::Equal);
     /// ```
-    pub fn to_lowercase(&self) -> Name {
+    pub fn to_lowercase(&self) -> Self {
         let mut new_labels = Vec::with_capacity(self.labels.len());
         for label in self.labels.iter() {
             new_labels.push(label.to_lowercase());
         }
 
-        Self::from_labels(new_labels)
+        let mut this = Self::from_labels(new_labels);
+        this.is_fqdn = self.is_fqdn;
+        this
     }
 
     /// Trims off the first part of the name, to help with searching for the domain piece
@@ -190,7 +230,10 @@ impl Name {
     pub fn trim_to(&self, num_labels: usize) -> Name {
         if self.labels.len() >= num_labels {
             let trim = self.labels.len() - num_labels;
-            Name { labels: Rc::new(self.labels[trim..].to_vec()) }
+            Name {
+                is_fqdn: self.is_fqdn,
+                labels: Rc::new(self.labels[trim..].to_vec()),
+            }
         } else {
             Self::root()
         }
@@ -282,6 +325,7 @@ impl Name {
 
         // short cirtuit root parse
         if local == "." {
+            name.set_fqdn(true);
             return Ok(name);
         }
 
@@ -363,10 +407,14 @@ impl Name {
         //   }
         // }
 
-        if !local.ends_with('.') {
-            name.append(try!(origin.ok_or(ParseError::from(
-                ParseErrorKind::Message("$ORIGIN was not specified"),
-            ))));
+        // FIXME: mark as FQDN or not_FQDN
+        if local.ends_with('.') {
+            name.set_fqdn(true);
+        } else {
+            if let Some(other) = origin {
+                name.append(other);
+                name.set_fqdn(true);
+            }
         }
 
         Ok(name)
@@ -628,7 +676,10 @@ impl BinSerializable<Name> for Name {
             }
         }
 
-        Ok(Name { labels: Rc::new(labels) })
+        Ok(Name {
+            is_fqdn: true,
+            labels: Rc::new(labels),
+        })
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
@@ -738,7 +789,7 @@ mod tests {
     }
 
     #[test]
-    fn num_labels() {
+    fn test_num_labels() {
         assert_eq!(Name::new().label("*").num_labels(), 0);
         assert_eq!(Name::new().label("a").num_labels(), 1);
         assert_eq!(Name::new().label("*").label("b").num_labels(), 1);
@@ -748,12 +799,12 @@ mod tests {
     }
 
     #[test]
-    fn parse() {
+    fn test_read() {
         test_read_data_set(get_data(), |ref mut d| Name::read(d));
     }
 
     #[test]
-    fn write_to() {
+    fn test_write_to() {
         test_emit_data_set(get_data(), |e, n| n.emit(e));
     }
 
@@ -843,7 +894,7 @@ mod tests {
 
     #[test]
     fn test_partial_cmp_eq() {
-        let root = Some(Name::with_labels(vec![]));
+        let root = Some(Name::from_labels(Vec::<String>::new()));
         let comparisons: Vec<(Name, Name)> = vec![
             (root.clone().unwrap(), root.clone().unwrap()),
             (
@@ -860,7 +911,7 @@ mod tests {
 
     #[test]
     fn test_partial_cmp() {
-        let root = Some(Name::with_labels(vec![]));
+        let root = Some(Name::from_labels(Vec::<String>::new()));
         let comparisons: Vec<(Name, Name)> =
             vec![
                 (
@@ -905,7 +956,7 @@ mod tests {
 
     #[test]
     fn test_cmp_ignore_case() {
-        let root = Some(Name::with_labels(vec![]));
+        let root = Some(Name::from_labels(Vec::<String>::new()));
         let comparisons: Vec<(Name, Name)> = vec![
             (
                 Name::parse("ExAmPle", root.as_ref()).unwrap(),
@@ -985,6 +1036,19 @@ mod tests {
             Name::from_str("www.example.com.").unwrap(),
             Name::from_labels(vec!["www", "example", "com"])
         );
-        assert_eq!(Name::from_str(".").unwrap(), Name::with_labels(vec![]));
+        assert_eq!(Name::from_str(".").unwrap(), Name::from_labels(Vec::<String>::new()));
+    }
+
+    #[test]
+    fn test_fqdn() {
+        assert!(Name::root().is_fqdn());
+        assert!(Name::from_str(".").unwrap().is_fqdn());
+        assert!(Name::from_str("www.example.com.").unwrap().is_fqdn());
+
+        assert!(!Name::new().is_fqdn());
+        assert!(!Name::from_labels(vec!["www", "example", "com"]).is_fqdn());
+        assert!(!Name::from_str("www.example.com").unwrap().is_fqdn());
+        assert!(!Name::from_str("www.example").unwrap().is_fqdn());
+        assert!(!Name::from_str("www").unwrap().is_fqdn());
     }
 }

@@ -659,10 +659,11 @@ pub enum RData {
 
 impl RData {
     /// Parse the RData from a set of Tokens
-    pub fn parse(record_type: RecordType,
-                 tokens: &Vec<Token>,
-                 origin: Option<&Name>)
-                 -> ParseResult<Self> {
+    pub fn parse(
+        record_type: RecordType,
+        tokens: &Vec<Token>,
+        origin: Option<&Name>,
+    ) -> ParseResult<Self> {
         let rdata = match record_type {
             RecordType::A => RData::A(try!(rdata::a::parse(tokens))),
             RecordType::AAAA => RData::AAAA(try!(rdata::aaaa::parse(tokens))),
@@ -695,20 +696,20 @@ impl RData {
         let mut buf: Vec<u8> = Vec::new();
         {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
-            self.emit(&mut encoder)
-                .unwrap_or_else(|_| {
-                                    warn!("could not encode RDATA: {:?}", self);
-                                    ()
-                                });
+            self.emit(&mut encoder).unwrap_or_else(|_| {
+                warn!("could not encode RDATA: {:?}", self);
+                ()
+            });
         }
         buf
     }
 
     /// Read the RData from the given Decoder
-    pub fn read(decoder: &mut BinDecoder,
-                record_type: RecordType,
-                rdata_length: u16)
-                -> DecodeResult<Self> {
+    pub fn read(
+        decoder: &mut BinDecoder,
+        record_type: RecordType,
+        rdata_length: u16,
+    ) -> DecodeResult<Self> {
         let start_idx = decoder.index();
 
         let result = match record_type {
@@ -802,8 +803,9 @@ impl RData {
         // we should have read rdata_length, but we did not
         let read = decoder.index() - start_idx;
         if read != rdata_length as usize {
-            return Err(DecodeErrorKind::IncorrectRDataLengthRead(read, rdata_length as usize)
-                           .into());
+            return Err(
+                DecodeErrorKind::IncorrectRDataLengthRead(read, rdata_length as usize).into(),
+            );
         }
         Ok(result)
     }
@@ -953,125 +955,263 @@ mod tests {
     use rr::rdata::{MX, SOA, SRV, TXT};
 
     fn get_data() -> Vec<(RData, Vec<u8>)> {
-        vec![(RData::CNAME(Name::with_labels(vec!["www".to_string(),
-                                                  "example".to_string(),
-                                                  "com".to_string()])),
-              vec![3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
-                   b'o', b'm', 0]),
-             (RData::MX(MX::new(256, Name::with_labels(vec!["n".to_string()]))),
-              vec![1, 0, 1, b'n', 0]),
-             (RData::NS(Name::with_labels(vec!["www".to_string(),
-                                               "example".to_string(),
-                                               "com".to_string()])),
-              vec![3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
-                   b'o', b'm', 0]),
-             (RData::PTR(Name::with_labels(vec!["www".to_string(),
-                                                "example".to_string(),
-                                                "com".to_string()])),
-              vec![3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
-                   b'o', b'm', 0]),
-             (RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),
-                                                         "example".to_string(),
-                                                         "com".to_string()]),
-                                  Name::with_labels(vec!["xxx".to_string(),
-                                                         "example".to_string(),
-                                                         "com".to_string()]),
-                                  u32::max_value(),
-                                  -1 as i32,
-                                  -1 as i32,
-                                  -1 as i32,
-                                  u32::max_value())),
-              vec![3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
-                   b'o', b'm', 0, 3, b'x', b'x', b'x', 0xC0, 0x04, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                   0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
-                   0xFF, 0xFF]),
-             (RData::TXT(TXT::new(vec!["abcdef".to_string(),
-                                       "ghi".to_string(),
-                                       "".to_string(),
-                                       "j".to_string()])),
-              vec![6, b'a', b'b', b'c', b'd', b'e', b'f', 3, b'g', b'h', b'i', 0, 1, b'j']),
-             (RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()), vec![0, 0, 0, 0]),
-             (RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
-              vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-             (RData::SRV(SRV::new(1,
-                                  2,
-                                  3,
-                                  Name::with_labels(vec!["www".to_string(),
-                                                         "example".to_string(),
-                                                         "com".to_string()]))),
-              vec![0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 3, b'w', b'w', b'w', 7, b'e', b'x', b'a',
-                   b'm', b'p', b'l', b'e', 3, b'c', b'o', b'm', 0])]
+        vec![
+            (
+                RData::CNAME(Name::from_labels(vec!["www", "example", "com"])),
+                vec![
+                    3,
+                    b'w',
+                    b'w',
+                    b'w',
+                    7,
+                    b'e',
+                    b'x',
+                    b'a',
+                    b'm',
+                    b'p',
+                    b'l',
+                    b'e',
+                    3,
+                    b'c',
+                    b'o',
+                    b'm',
+                    0,
+                ]
+            ),
+            (
+                RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
+                vec![1, 0, 1, b'n', 0]
+            ),
+            (
+                RData::NS(Name::from_labels(vec!["www", "example", "com"])),
+                vec![
+                    3,
+                    b'w',
+                    b'w',
+                    b'w',
+                    7,
+                    b'e',
+                    b'x',
+                    b'a',
+                    b'm',
+                    b'p',
+                    b'l',
+                    b'e',
+                    3,
+                    b'c',
+                    b'o',
+                    b'm',
+                    0,
+                ]
+            ),
+            (
+                RData::PTR(Name::from_labels(vec!["www", "example", "com"])),
+                vec![
+                    3,
+                    b'w',
+                    b'w',
+                    b'w',
+                    7,
+                    b'e',
+                    b'x',
+                    b'a',
+                    b'm',
+                    b'p',
+                    b'l',
+                    b'e',
+                    3,
+                    b'c',
+                    b'o',
+                    b'm',
+                    0,
+                ]
+            ),
+            (
+                RData::SOA(SOA::new(
+                    Name::from_labels(vec!["www", "example", "com"]),
+                    Name::from_labels(vec!["xxx", "example", "com"]),
+                    u32::max_value(),
+                    -1 as i32,
+                    -1 as i32,
+                    -1 as i32,
+                    u32::max_value(),
+                )),
+                vec![
+                    3,
+                    b'w',
+                    b'w',
+                    b'w',
+                    7,
+                    b'e',
+                    b'x',
+                    b'a',
+                    b'm',
+                    b'p',
+                    b'l',
+                    b'e',
+                    3,
+                    b'c',
+                    b'o',
+                    b'm',
+                    0,
+                    3,
+                    b'x',
+                    b'x',
+                    b'x',
+                    0xC0,
+                    0x04,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                    0xFF,
+                ]
+            ),
+            (
+                RData::TXT(TXT::new(vec![
+                    "abcdef".to_string(),
+                    "ghi".to_string(),
+                    "".to_string(),
+                    "j".to_string(),
+                ])),
+                vec![
+                    6,
+                    b'a',
+                    b'b',
+                    b'c',
+                    b'd',
+                    b'e',
+                    b'f',
+                    3,
+                    b'g',
+                    b'h',
+                    b'i',
+                    0,
+                    1,
+                    b'j',
+                ]
+            ),
+            (
+                RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
+                vec![0, 0, 0, 0]
+            ),
+            (
+                RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            ),
+            (
+                RData::SRV(SRV::new(
+                    1,
+                    2,
+                    3,
+                    Name::from_labels(vec!["www", "example", "com"]),
+                )),
+                vec![
+                    0x00,
+                    0x01,
+                    0x00,
+                    0x02,
+                    0x00,
+                    0x03,
+                    3,
+                    b'w',
+                    b'w',
+                    b'w',
+                    7,
+                    b'e',
+                    b'x',
+                    b'a',
+                    b'm',
+                    b'p',
+                    b'l',
+                    b'e',
+                    3,
+                    b'c',
+                    b'o',
+                    b'm',
+                    0,
+                ]
+            ),
+        ]
     }
 
     // TODO this test kinda sucks, shows the problem with not storing the binary parts
     #[test]
     fn test_order() {
-        let ordered: Vec<RData> = vec![RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
-                 RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
-                 RData::SRV(SRV::new(1,
-                                     2,
-                                     3,
-                                     Name::with_labels(vec!["www".to_string(),
-                                                            "example".to_string(),
-                                                            "com".to_string()]))),
-                 RData::MX(MX::new(256, Name::with_labels(vec!["n".to_string()]))),
-                 RData::CNAME(Name::with_labels(vec!["www".to_string(),
-                                                     "example".to_string(),
-                                                     "com".to_string()])),
-                 RData::PTR(Name::with_labels(vec!["www".to_string(),
-                                                   "example".to_string(),
-                                                   "com".to_string()])),
-                 RData::NS(Name::with_labels(vec!["www".to_string(),
-                                                  "example".to_string(),
-                                                  "com".to_string()])),
-                 RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),
-                                                            "example".to_string(),
-                                                            "com".to_string()]),
-                                     Name::with_labels(vec!["xxx".to_string(),
-                                                            "example".to_string(),
-                                                            "com".to_string()]),
-                                     u32::max_value(),
-                                     -1 as i32,
-                                     -1 as i32,
-                                     -1 as i32,
-                                     u32::max_value())),
-                 RData::TXT(TXT::new(vec!["abcdef".to_string(),
-                                          "ghi".to_string(),
-                                          "".to_string(),
-                                          "j".to_string()]))];
-        let mut unordered = vec![RData::CNAME(Name::with_labels(vec!["www".to_string(),
-                                                                     "example".to_string(),
-                                                                     "com".to_string()])),
-                                 RData::MX(MX::new(256, Name::with_labels(vec!["n".to_string()]))),
-                                 RData::PTR(Name::with_labels(vec!["www".to_string(),
-                                                                   "example".to_string(),
-                                                                   "com".to_string()])),
-                                 RData::NS(Name::with_labels(vec!["www".to_string(),
-                                                                  "example".to_string(),
-                                                                  "com".to_string()])),
-                                 RData::SOA(SOA::new(Name::with_labels(vec!["www".to_string(),
-                                                            "example".to_string(),
-                                                            "com".to_string()]),
-                                                     Name::with_labels(vec!["xxx".to_string(),
-                                                            "example".to_string(),
-                                                            "com".to_string()]),
-                                                     u32::max_value(),
-                                                     -1 as i32,
-                                                     -1 as i32,
-                                                     -1 as i32,
-                                                     u32::max_value())),
-                                 RData::TXT(TXT::new(vec!["abcdef".to_string(),
-                                                          "ghi".to_string(),
-                                                          "".to_string(),
-                                                          "j".to_string()])),
-                                 RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
-                                 RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
-                                 RData::SRV(SRV::new(1,
-                                                     2,
-                                                     3,
-                                                     Name::with_labels(vec!["www".to_string(),
-                                                            "example".to_string(),
-                                                            "com".to_string()])))];
+        let ordered: Vec<RData> =
+            vec![
+                RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
+                RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
+                RData::SRV(SRV::new(
+                    1,
+                    2,
+                    3,
+                    Name::from_labels(vec!["www", "example", "com"]),
+                )),
+                RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
+                RData::CNAME(Name::from_labels(vec!["www", "example", "com"])),
+                RData::PTR(Name::from_labels(vec!["www", "example", "com"])),
+                RData::NS(Name::from_labels(vec!["www", "example", "com"])),
+                RData::SOA(SOA::new(
+                    Name::from_labels(vec!["www", "example", "com"]),
+                    Name::from_labels(vec!["xxx", "example", "com"]),
+                    u32::max_value(),
+                    -1 as i32,
+                    -1 as i32,
+                    -1 as i32,
+                    u32::max_value(),
+                )),
+                RData::TXT(TXT::new(vec![
+                    "abcdef".to_string(),
+                    "ghi".to_string(),
+                    "".to_string(),
+                    "j".to_string(),
+                ])),
+            ];
+        let mut unordered = vec![
+            RData::CNAME(Name::from_labels(vec!["www", "example", "com"])),
+            RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
+            RData::PTR(Name::from_labels(vec!["www", "example", "com"])),
+            RData::NS(Name::from_labels(vec!["www", "example", "com"])),
+            RData::SOA(SOA::new(
+                Name::from_labels(vec!["www", "example", "com"]),
+                Name::from_labels(vec!["xxx", "example", "com"]),
+                u32::max_value(),
+                -1 as i32,
+                -1 as i32,
+                -1 as i32,
+                u32::max_value(),
+            )),
+            RData::TXT(TXT::new(vec![
+                "abcdef".to_string(),
+                "ghi".to_string(),
+                "".to_string(),
+                "j".to_string(),
+            ])),
+            RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
+            RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
+            RData::SRV(SRV::new(
+                1,
+                2,
+                3,
+                Name::from_labels(vec!["www", "example", "com"]),
+            )),
+        ];
 
         unordered.sort();
         assert_eq!(ordered, unordered);
@@ -1086,11 +1226,14 @@ mod tests {
             let length = binary.len() as u16; // pre exclusive borrow
             let mut decoder = BinDecoder::new(&binary);
 
-            assert_eq!(RData::read(&mut decoder,
-                                   ::rr::record_type::RecordType::from(&expect),
-                                   length)
-                               .unwrap(),
-                       expect);
+            assert_eq!(
+                RData::read(
+                    &mut decoder,
+                    ::rr::record_type::RecordType::from(&expect),
+                    length,
+                ).unwrap(),
+                expect
+            );
         }
     }
 
