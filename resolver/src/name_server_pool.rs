@@ -34,9 +34,9 @@ enum NameServerState {
     /// There has been successful communication with the remote.
     ///  if no Edns is associated, then the remote does not support Edns
     Established { remote_edns: Option<Edns> },
-    /// For some reason the connection failed. For UDP this would only be a timeout
+    /// For some reason the connection failed. For UDP this would generally be a timeout
     ///  for TCP this could be either Connection could never be established, or it
-    ///  failed at some point after. The Failed state should not be entered due to the
+    ///  failed at some point after. The Failed state should *not* be entered due to an
     ///  error contained in a Message recieved from the server. In All cases to reestablish
     ///  a new connection will need to be created.
     Failed { error: ClientError, when: Instant }, // TODO: make error Arc...
@@ -101,19 +101,23 @@ impl NameServerStats {
         // update current state
 
         if remote_edns.is_some() {
-            mem::replace(&mut self.state,
-                         NameServerState::Established { remote_edns });
+            mem::replace(
+                &mut self.state,
+                NameServerState::Established { remote_edns },
+            );
         } else {
             // preserve existing EDNS if it exists
-            let remote_edns = if let NameServerState::Established { ref remote_edns } =
-                self.state {
-                remote_edns.clone()
-            } else {
-                None
-            };
+            let remote_edns =
+                if let NameServerState::Established { ref remote_edns } = self.state {
+                    remote_edns.clone()
+                } else {
+                    None
+                };
 
-            mem::replace(&mut self.state,
-                         NameServerState::Established { remote_edns });
+            mem::replace(
+                &mut self.state,
+                NameServerState::Established { remote_edns },
+            );
         };
     }
 
@@ -169,7 +173,11 @@ pub(crate) struct NameServer {
 }
 
 impl NameServer {
-    fn new_connection(config: &NameServerConfig, options: &ResolverOpts, reactor: &Handle) -> BasicClientHandle {
+    fn new_connection(
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+        reactor: &Handle,
+    ) -> BasicClientHandle {
         match config.protocol {
             Protocol::Udp => {
                 let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor);
@@ -177,7 +185,8 @@ impl NameServer {
                 ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
             }
             Protocol::Tcp => {
-                let (stream, handle) = TcpClientStream::with_timeout(config.socket_addr, reactor, options.timeout);
+                let (stream, handle) =
+                    TcpClientStream::with_timeout(config.socket_addr, reactor, options.timeout);
                 // TODO: need config for Signer...
                 ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
             }
@@ -189,7 +198,7 @@ impl NameServer {
     pub fn new(config: NameServerConfig, options: ResolverOpts, reactor: &Handle) -> Self {
         let client = Self::new_connection(&config, &options, reactor);
 
-        // FIXME: setup EDNS
+        // TODO: setup EDNS
         NameServer {
             config,
             options,
@@ -206,16 +215,20 @@ impl NameServer {
     fn try_reconnect(&mut self) -> ClientResult<()> {
         let error_opt: Option<(ClientError, Instant, usize, usize)> = self.stats
             .lock()
-            .map(|stats| if let NameServerState::Failed { ref error, when } = stats.state {
-                     Some((error.clone(), when, stats.successes, stats.failures))
-                 } else {
-                     None
-                 })
+            .map(|stats| if let NameServerState::Failed {
+                ref error,
+                when,
+            } = stats.state
+            {
+                Some((error.clone(), when, stats.successes, stats.failures))
+            } else {
+                None
+            })
             .map_err(|e| {
-                         ClientErrorKind::Msg(format!("Error acquiring NameServerStats lock: {}",
-                                                      e)
-                                                      .into())
-                     })?;
+                ClientErrorKind::Msg(
+                    format!("Error acquiring NameServerStats lock: {}", e).into(),
+                )
+            })?;
 
         // if this is in a failure state
         if let Some((error, when, successes, failures)) = error_opt {
@@ -243,10 +256,10 @@ impl NameServer {
                 mem::replace(&mut self.client, client);
 
                 // reinitialize the mutex (in case it was poisoned before)
-                mem::replace(&mut self.stats,
-                             Arc::new(Mutex::new(NameServerStats::init(None,
-                                                                       successes,
-                                                                       failures))));
+                mem::replace(
+                    &mut self.stats,
+                    Arc::new(Mutex::new(NameServerStats::init(None, successes, failures))),
+                );
                 Ok(())
             } else {
                 Err(error)
@@ -340,24 +353,26 @@ impl Eq for NameServer {}
 /// This is not expected to be used directly, see `ResolverFuture`.
 #[derive(Clone)]
 pub struct NameServerPool {
-    // FIXME: This should be an Arc so that the Heap itself isn't copied, but then needs a mutex...
-    conns: BinaryHeap<NameServer>,
+    conns: Arc<Mutex<BinaryHeap<NameServer>>>,
     options: ResolverOpts,
 }
 
 impl NameServerPool {
-    pub(crate) fn from_config(config: &ResolverConfig,
-                       options: &ResolverOpts,
-                       reactor: &Handle)
-                       -> NameServerPool {
+    pub(crate) fn from_config(
+        config: &ResolverConfig,
+        options: &ResolverOpts,
+        reactor: &Handle,
+    ) -> NameServerPool {
         let conns: BinaryHeap<NameServer> = config
             .name_servers()
             .iter()
-            .map(|ns_config| NameServer::new(ns_config.clone(), options.clone(), reactor))
+            .map(|ns_config| {
+                NameServer::new(ns_config.clone(), options.clone(), reactor)
+            })
             .collect();
 
         NameServerPool {
-            conns,
+            conns: Arc::new(Mutex::new(conns)),
             options: options.clone(),
         }
     }
@@ -365,12 +380,24 @@ impl NameServerPool {
 
 impl ClientHandle for NameServerPool {
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        // pull a lock on the shared connections, lock releases at the end of the method
+        let conns = self.conns.lock().map_err(|e| {
+            ClientError::from(format!("Error acquiring NameServerPool::conns lock: {}", e))
+        });
+
+        // early return the lock error
+        if conns.is_err() {
+            return Box::new(future::err(conns.map(|_| ()).unwrap_err()));
+        }
+
         // select the highest priority connection
-        let conn = self.conns.peek_mut(); // TODO: how to support parallel connections?
+        let mut conns = conns.unwrap();
+        let conn = conns.peek_mut(); // TODO: how to support parallel connections?
 
         if conn.is_none() {
-            return Box::new(future::err(ClientErrorKind::Message("No connections available")
-                                            .into()));
+            return Box::new(future::err(
+                ClientErrorKind::Message("No connections available").into(),
+            ));
         }
 
         let mut conn = conn.unwrap();
@@ -462,12 +489,15 @@ mod tests {
         let mut name_server = NameServer::new(config, options, &io_loop.handle());
 
         let name = Name::parse("www.example.com.", None).unwrap();
-        assert!(io_loop
-                    .run(name_server.query(name.clone(), DNSClass::IN, RecordType::A))
-                    .is_err());
+        assert!(
+            io_loop
+                .run(name_server.query(name.clone(), DNSClass::IN, RecordType::A))
+                .is_err()
+        );
     }
 
-    #[ignore] // because of there is a real connection that needs a reasonable timeout
+    #[ignore]
+    // because of there is a real connection that needs a reasonable timeout
     #[test]
     fn test_failed_then_success_pool() {
         let config1 = NameServerConfig {
@@ -485,27 +515,33 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let mut io_loop = Core::new().unwrap();
-        let mut pool = NameServerPool::from_config(&resolver_config,
-                                                   &ResolverOpts::default(),
-                                                   &io_loop.handle());
+        let mut pool = NameServerPool::from_config(
+            &resolver_config,
+            &ResolverOpts::default(),
+            &io_loop.handle(),
+        );
 
         let name = Name::parse("www.example.com.", None).unwrap();
 
         // TODO: it's not clear why there are two failures before the
         for i in 0..2 {
-            assert!(io_loop
-                        .run(pool.query(name.clone(), DNSClass::IN, RecordType::A))
-                        .is_err(),
-                    "iter: {}",
-                    i);
+            assert!(
+                io_loop
+                    .run(pool.query(name.clone(), DNSClass::IN, RecordType::A))
+                    .is_err(),
+                "iter: {}",
+                i
+            );
         }
 
         for i in 0..10 {
-            assert!(io_loop
-                        .run(pool.query(name.clone(), DNSClass::IN, RecordType::A))
-                        .is_ok(),
-                    "iter: {}",
-                    i);
+            assert!(
+                io_loop
+                    .run(pool.query(name.clone(), DNSClass::IN, RecordType::A))
+                    .is_ok(),
+                "iter: {}",
+                i
+            );
         }
     }
 }
