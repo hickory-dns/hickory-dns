@@ -2,6 +2,18 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.11.0
+
+### Added
+- `Name::FromStr` for simpler parsing, specify trailing `.` for FQDN
+
+### Changed
+- *breaking* All `ClientHandle` traits now take `&Handle` instead of `Handle` (@rushmorem)
+- *warning* `Name` now tracks if it is a fully qualified domain name, slightly changes name parsing rules, allowing `www.example.com` without the trailing `.`, which means that FQDN names are not enforced.
+
+### Removed
+- deprecated `Name::with_labels` see `Name::from_labels`
+
 ## 0.10.5
 
 ### Added
