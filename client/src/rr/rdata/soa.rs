@@ -16,9 +16,9 @@
 
 //! start of authority record defining ownership and defaults for the zone
 
-use ::serialize::txt::*;
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::txt::*;
+use serialize::binary::*;
+use error::*;
 use rr::domain::Name;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -92,14 +92,15 @@ impl SOA {
     /// # Return value
     ///
     /// The newly created SOA record data.
-    pub fn new(mname: Name,
-               rname: Name,
-               serial: u32,
-               refresh: i32,
-               retry: i32,
-               expire: i32,
-               minimum: u32)
-               -> Self {
+    pub fn new(
+        mname: Name,
+        rname: Name,
+        serial: u32,
+        refresh: i32,
+        retry: i32,
+        expire: i32,
+        minimum: u32,
+    ) -> Self {
         SOA {
             mname: mname,
             rname: rname,
@@ -257,44 +258,74 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> EncodeResult {
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SOA> {
     let mut token = tokens.iter();
 
-    let mname: Name = try!(token.next()
-        .ok_or(ParseErrorKind::MissingToken("mname".to_string()).into())
-        .and_then(|t| if let &Token::CharData(ref s) = t {
-            Name::parse(s, origin)
-        } else {
-            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-        }));
-    let rname: Name = try!(token.next()
-        .ok_or(ParseErrorKind::MissingToken("rname".to_string()).into())
-        .and_then(|t| if let &Token::CharData(ref s) = t {
-            Name::parse(s, origin)
-        } else {
-            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-        }));
-    let mut list = try!(token.next()
-            .ok_or(ParseError::from(ParseErrorKind::MissingToken("List".to_string())))
+    let mname: Name = try!(
+        token
+            .next()
+            .ok_or(ParseErrorKind::MissingToken("mname".to_string()).into())
+            .and_then(|t| if let &Token::CharData(ref s) = t {
+                Name::parse(s, origin)
+            } else {
+                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+            })
+    );
+    let rname: Name = try!(
+        token
+            .next()
+            .ok_or(ParseErrorKind::MissingToken("rname".to_string()).into())
+            .and_then(|t| if let &Token::CharData(ref s) = t {
+                Name::parse(s, origin)
+            } else {
+                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+            })
+    );
+    let mut list = try!(
+        token
+            .next()
+            .ok_or(ParseError::from(
+                ParseErrorKind::MissingToken("List".to_string()),
+            ))
             .and_then(|t| if let &Token::List(ref v) = t {
                 Ok(v)
             } else {
                 Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            }))
-        .iter();
+            })
+    ).iter();
 
-    let serial: u32 = try!(list.next()
-        .ok_or(ParseError::from(ParseErrorKind::MissingToken("serial".to_string())))
-        .and_then(|s| Ok(try!(s.parse()))));
-    let refresh: i32 = try!(list.next()
-        .ok_or(ParseError::from(ParseErrorKind::MissingToken("refresh".to_string())))
-        .and_then(|s| Ok(try!(s.parse()))));
-    let retry: i32 = try!(list.next()
-        .ok_or(ParseError::from(ParseErrorKind::MissingToken("retry".to_string())))
-        .and_then(|s| Ok(try!(s.parse()))));
-    let expire: i32 = try!(list.next()
-        .ok_or(ParseError::from(ParseErrorKind::MissingToken("expire".to_string())))
-        .and_then(|s| Ok(try!(s.parse()))));
-    let minimum: u32 = try!(list.next()
-        .ok_or(ParseError::from(ParseErrorKind::MissingToken("minimum".to_string())))
-        .and_then(|s| Ok(try!(s.parse()))));
+    let serial: u32 = try!(
+        list.next()
+            .ok_or(ParseError::from(
+                ParseErrorKind::MissingToken("serial".to_string()),
+            ))
+            .and_then(|s| Ok(try!(s.parse())))
+    );
+    let refresh: i32 = try!(
+        list.next()
+            .ok_or(ParseError::from(
+                ParseErrorKind::MissingToken("refresh".to_string()),
+            ))
+            .and_then(|s| Ok(try!(s.parse())))
+    );
+    let retry: i32 = try!(
+        list.next()
+            .ok_or(ParseError::from(
+                ParseErrorKind::MissingToken("retry".to_string()),
+            ))
+            .and_then(|s| Ok(try!(s.parse())))
+    );
+    let expire: i32 = try!(
+        list.next()
+            .ok_or(ParseError::from(
+                ParseErrorKind::MissingToken("expire".to_string()),
+            ))
+            .and_then(|s| Ok(try!(s.parse())))
+    );
+    let minimum: u32 = try!(
+        list.next()
+            .ok_or(ParseError::from(
+                ParseErrorKind::MissingToken("minimum".to_string()),
+            ))
+            .and_then(|s| Ok(try!(s.parse())))
+    );
 
 
     // let serial: u32 = try!(token.next().ok_or(ParseError::MissingToken("serial".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
@@ -303,18 +334,28 @@ pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SOA> {
     // let expire: i32 = try!(token.next().ok_or(ParseError::MissingToken("expire".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
     // let minimum: u32 = try!(token.next().ok_or(ParseError::MissingToken("minimum".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
 
-    Ok(SOA::new(mname, rname, serial, refresh, retry, expire, minimum))
+    Ok(SOA::new(
+        mname,
+        rname,
+        serial,
+        refresh,
+        retry,
+        expire,
+        minimum,
+    ))
 }
 
 #[test]
 fn test() {
-    let rdata = SOA::new(Name::new().label("m").label("example").label("com"),
-                         Name::new().label("r").label("example").label("com"),
-                         1,
-                         2,
-                         3,
-                         4,
-                         5);
+    let rdata = SOA::new(
+        Name::from_labels(vec!["m", "example", "com"]),
+        Name::from_labels(vec!["r", "example", "com"]),
+        1,
+        2,
+        3,
+        4,
+        5,
+    );
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -325,7 +366,9 @@ fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }

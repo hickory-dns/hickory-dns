@@ -39,9 +39,9 @@
 //! the description of name server logic in [RFC-1034] for details.
 //! ```
 
-use ::serialize::txt::*;
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::txt::*;
+use serialize::binary::*;
+use error::*;
 use rr::domain::Name;
 
 /// Read the RData from the given Decoder
@@ -77,20 +77,23 @@ pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> EncodeResult {
 pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Name> {
     let mut token = tokens.iter();
 
-    let name: Name = try!(token.next()
-        .ok_or(ParseErrorKind::MissingToken("name".to_string()).into())
-        .and_then(|t| if let &Token::CharData(ref s) = t {
-            Name::parse(s, origin)
-        } else {
-            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-        }));
+    let name: Name = try!(
+        token
+            .next()
+            .ok_or(ParseErrorKind::MissingToken("name".to_string()).into())
+            .and_then(|t| if let &Token::CharData(ref s) = t {
+                Name::parse(s, origin)
+            } else {
+                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+            })
+    );
     Ok(name)
 }
 
 
 #[test]
 pub fn test() {
-    let rdata = Name::new().label("WWW").label("example").label("com");
+    let rdata = Name::from_labels(vec!["WWW", "example", "com"]);
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -101,7 +104,9 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }

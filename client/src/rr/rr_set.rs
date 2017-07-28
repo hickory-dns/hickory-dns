@@ -152,23 +152,24 @@ impl RecordSet {
     /// * `and_rrsigs` - if true, RRSIGs will be returned if they exist
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
-    pub fn records(&self,
-                   and_rrsigs: bool,
-                   supported_algorithms: SupportedAlgorithms)
-                   -> Vec<&Record> {
+    pub fn records(
+        &self,
+        and_rrsigs: bool,
+        supported_algorithms: SupportedAlgorithms,
+    ) -> Vec<&Record> {
         if and_rrsigs {
             let rrsigs = self.rrsigs
                 .iter()
                 .filter(|record| if let &RData::SIG(ref rrsig) = record.rdata() {
-                            supported_algorithms.has(rrsig.algorithm())
-                        } else {
-                            false
-                        })
+                    supported_algorithms.has(rrsig.algorithm())
+                } else {
+                    false
+                })
                 .max_by_key(|record| if let &RData::SIG(ref rrsig) = record.rdata() {
-                                rrsig.algorithm()
-                            } else {
-                                Algorithm::RSASHA1
-                            });
+                    rrsig.algorithm()
+                } else {
+                    Algorithm::RSASHA1
+                });
             self.records.iter().chain(rrsigs).collect()
         } else {
             self.records.iter().collect()
@@ -224,10 +225,9 @@ impl RecordSet {
         record.set_rdata(rdata.clone()); // TODO: remove clone()? this is only needed for the record return
         self.insert(record, 0);
 
-        self.records
-            .iter()
-            .find(|r| *r.rdata() == rdata)
-            .expect("insert failed? 172")
+        self.records.iter().find(|r| *r.rdata() == rdata).expect(
+            "insert failed? 172",
+        )
     }
 
     /// Inserts a new Resource Record into the Set.
@@ -284,9 +284,11 @@ impl RecordSet {
                         &RData::SOA(ref existing_soa) => {
                             if let &RData::SOA(ref new_soa) = record.rdata() {
                                 if new_soa.serial() <= existing_soa.serial() {
-                                    info!("update ignored serial out of data: {:?} <= {:?}",
-                                          new_soa,
-                                          existing_soa);
+                                    info!(
+                                        "update ignored serial out of data: {:?} <= {:?}",
+                                        new_soa,
+                                        existing_soa
+                                    );
                                     return false;
                                 }
                             } else {
@@ -420,13 +422,15 @@ impl IntoIterator for RecordSet {
 
 #[cfg(test)]
 mod test {
+    use std::str::FromStr;
     use std::net::Ipv4Addr;
+
     use rr::*;
     use rr::rdata::SOA;
 
     #[test]
     fn test_insert() {
-        let name = Name::new().label("www").label("example").label("com");
+        let name = Name::from_str("www.example.com.").unwrap();
         let record_type = RecordType::A;
         let mut rr_set = RecordSet::new(&name, record_type, 0);
 
@@ -440,16 +444,12 @@ mod test {
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert_eq!(rr_set.records(false, Default::default()).len(), 1);
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
 
         // dups ignored
         assert!(!rr_set.insert(insert.clone(), 0));
         assert_eq!(rr_set.records(false, Default::default()).len(), 1);
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
 
         // add one
         let insert1 = Record::new()
@@ -461,17 +461,15 @@ mod test {
             .clone();
         assert!(rr_set.insert(insert1.clone(), 0));
         assert_eq!(rr_set.records(false, Default::default()).len(), 2);
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&insert));
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&insert1));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(
+            &&insert1,
+        ));
     }
 
     #[test]
     fn test_insert_soa() {
-        let name = Name::new().label("example").label("com");
+        let name = Name::from_str("example.com.").unwrap();
         let record_type = RecordType::SOA;
         let mut rr_set = RecordSet::new(&name, record_type, 0);
 
@@ -480,74 +478,76 @@ mod test {
             .set_ttl(3600)
             .set_rr_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None).unwrap(),
-                                           Name::parse("noc.dns.icann.org.", None).unwrap(),
-                                           2015082403,
-                                           7200,
-                                           3600,
-                                           1209600,
-                                           3600)))
+            .set_rdata(RData::SOA(SOA::new(
+                Name::from_str("sns.dns.icann.org.").unwrap(),
+                Name::from_str("noc.dns.icann.org.").unwrap(),
+                2015082403,
+                7200,
+                3600,
+                1209600,
+                3600,
+            )))
             .clone();
         let same_serial = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
             .set_rr_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.net.", None).unwrap(),
-                                           Name::parse("noc.dns.icann.net.", None).unwrap(),
-                                           2015082403,
-                                           7200,
-                                           3600,
-                                           1209600,
-                                           3600)))
+            .set_rdata(RData::SOA(SOA::new(
+                Name::from_str("sns.dns.icann.net.").unwrap(),
+                Name::from_str("noc.dns.icann.net.").unwrap(),
+                2015082403,
+                7200,
+                3600,
+                1209600,
+                3600,
+            )))
             .clone();
         let new_serial = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
             .set_rr_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.net.", None).unwrap(),
-                                           Name::parse("noc.dns.icann.net.", None).unwrap(),
-                                           2015082404,
-                                           7200,
-                                           3600,
-                                           1209600,
-                                           3600)))
+            .set_rdata(RData::SOA(SOA::new(
+                Name::from_str("sns.dns.icann.net.").unwrap(),
+                Name::from_str("noc.dns.icann.net.").unwrap(),
+                2015082404,
+                7200,
+                3600,
+                1209600,
+                3600,
+            )))
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
         // same serial number
         assert!(!rr_set.insert(same_serial.clone(), 0));
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&insert));
-        assert!(!rr_set
-                     .records(false, Default::default())
-                     .contains(&&same_serial));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
+        assert!(!rr_set.records(false, Default::default()).contains(
+            &&same_serial,
+        ));
 
         assert!(rr_set.insert(new_serial.clone(), 0));
         assert!(!rr_set.insert(same_serial.clone(), 0));
         assert!(!rr_set.insert(insert.clone(), 0));
 
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&new_serial));
-        assert!(!rr_set
-                     .records(false, Default::default())
-                     .contains(&&insert));
-        assert!(!rr_set
-                     .records(false, Default::default())
-                     .contains(&&same_serial));
+        assert!(rr_set.records(false, Default::default()).contains(
+            &&new_serial,
+        ));
+        assert!(!rr_set.records(false, Default::default()).contains(
+            &&insert,
+        ));
+        assert!(!rr_set.records(false, Default::default()).contains(
+            &&same_serial,
+        ));
     }
 
     #[test]
     fn test_insert_cname() {
-        let name = Name::new().label("web").label("example").label("com");
-        let cname = Name::new().label("www").label("example").label("com");
-        let new_cname = Name::new().label("w2").label("example").label("com");
+        let name = Name::from_str("web.example.com.").unwrap();
+        let cname = Name::from_str("www.example.com.").unwrap();
+        let new_cname = Name::from_str("w2.example.com.").unwrap();
 
         let record_type = RecordType::CNAME;
         let mut rr_set = RecordSet::new(&name, record_type, 0);
@@ -568,23 +568,21 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
 
         // update the record
         assert!(rr_set.insert(new_record.clone(), 0));
-        assert!(!rr_set
-                     .records(false, Default::default())
-                     .contains(&&insert));
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&new_record));
+        assert!(!rr_set.records(false, Default::default()).contains(
+            &&insert,
+        ));
+        assert!(rr_set.records(false, Default::default()).contains(
+            &&new_record,
+        ));
     }
 
     #[test]
     fn test_remove() {
-        let name = Name::new().label("www").label("example").label("com");
+        let name = Name::from_str("www.example.com.").unwrap();
         let record_type = RecordType::A;
         let mut rr_set = RecordSet::new(&name, record_type, 0);
 
@@ -614,7 +612,7 @@ mod test {
 
     #[test]
     fn test_remove_soa() {
-        let name = Name::new().label("example").label("com");
+        let name = Name::from_str("www.example.com.").unwrap();
         let record_type = RecordType::SOA;
         let mut rr_set = RecordSet::new(&name, record_type, 0);
 
@@ -623,25 +621,25 @@ mod test {
             .set_ttl(3600)
             .set_rr_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SOA(SOA::new(Name::parse("sns.dns.icann.org.", None).unwrap(),
-                                           Name::parse("noc.dns.icann.org.", None).unwrap(),
-                                           2015082403,
-                                           7200,
-                                           3600,
-                                           1209600,
-                                           3600)))
+            .set_rdata(RData::SOA(SOA::new(
+                Name::from_str("sns.dns.icann.org.").unwrap(),
+                Name::from_str("noc.dns.icann.org.").unwrap(),
+                2015082403,
+                7200,
+                3600,
+                1209600,
+                3600,
+            )))
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(!rr_set.remove(&insert, 0));
-        assert!(rr_set
-                    .records(false, Default::default())
-                    .contains(&&insert));
+        assert!(rr_set.records(false, Default::default()).contains(&&insert));
     }
 
     #[test]
     fn test_remove_ns() {
-        let name = Name::new().label("example").label("com");
+        let name = Name::from_str("example.com.").unwrap();
         let record_type = RecordType::NS;
         let mut rr_set = RecordSet::new(&name, record_type, 0);
 
@@ -650,14 +648,14 @@ mod test {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+            .set_rdata(RData::NS(Name::from_str("a.iana-servers.net.").unwrap()))
             .clone();
         let ns2 = Record::new()
             .set_name(name.clone())
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+            .set_rdata(RData::NS(Name::from_str("b.iana-servers.net.").unwrap()))
             .clone();
 
         assert!(rr_set.insert(ns1.clone(), 0));
@@ -680,42 +678,50 @@ mod test {
         use rr::dnssec::{Algorithm, SupportedAlgorithms};
 
         let name = Name::root();
-        let rsasha256 = SIG::new(RecordType::A,
-                                 Algorithm::RSASHA256,
-                                 0,
-                                 0,
-                                 0,
-                                 0,
-                                 0,
-                                 Name::root(),
-                                 vec![]);
-        let ecp256 = SIG::new(RecordType::A,
-                              Algorithm::ECDSAP256SHA256,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              Name::root(),
-                              vec![]);
-        let ecp384 = SIG::new(RecordType::A,
-                              Algorithm::ECDSAP384SHA384,
-                              0,
-                              0,
-                              0,
-                              0,
-                              0,
-                              Name::root(),
-                              vec![]);
-        let ed25519 = SIG::new(RecordType::A,
-                               Algorithm::ED25519,
-                               0,
-                               0,
-                               0,
-                               0,
-                               0,
-                               Name::root(),
-                               vec![]);
+        let rsasha256 = SIG::new(
+            RecordType::A,
+            Algorithm::RSASHA256,
+            0,
+            0,
+            0,
+            0,
+            0,
+            Name::root(),
+            vec![],
+        );
+        let ecp256 = SIG::new(
+            RecordType::A,
+            Algorithm::ECDSAP256SHA256,
+            0,
+            0,
+            0,
+            0,
+            0,
+            Name::root(),
+            vec![],
+        );
+        let ecp384 = SIG::new(
+            RecordType::A,
+            Algorithm::ECDSAP384SHA384,
+            0,
+            0,
+            0,
+            0,
+            0,
+            Name::root(),
+            vec![],
+        );
+        let ed25519 = SIG::new(
+            RecordType::A,
+            Algorithm::ED25519,
+            0,
+            0,
+            0,
+            0,
+            0,
+            Name::root(),
+            vec![],
+        );
 
         let rrsig_rsa = Record::new()
             .set_name(name.clone())
@@ -760,24 +766,24 @@ mod test {
         rrset.insert_rrsig(rrsig_ecp384);
         rrset.insert_rrsig(rrsig_ed25519);
 
-        assert!(rrset
-                    .records(true, SupportedAlgorithms::all())
-                    .iter()
-                    .any(|r| if let &RData::SIG(ref sig) = r.rdata() {
-                             sig.algorithm() == Algorithm::ED25519
-                         } else {
-                             false
-                         }));
+        assert!(rrset.records(true, SupportedAlgorithms::all()).iter().any(
+            |r| {
+                if let &RData::SIG(ref sig) = r.rdata() {
+                    sig.algorithm() == Algorithm::ED25519
+                } else {
+                    false
+                }
+            },
+        ));
 
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ECDSAP384SHA384);
-        assert!(rrset
-                    .records(true, supported_algorithms)
-                    .iter()
-                    .any(|r| if let &RData::SIG(ref sig) = r.rdata() {
-                             sig.algorithm() == Algorithm::ECDSAP384SHA384
-                         } else {
-                             false
-                         }));
+        assert!(rrset.records(true, supported_algorithms).iter().any(|r| {
+            if let &RData::SIG(ref sig) = r.rdata() {
+                sig.algorithm() == Algorithm::ECDSAP384SHA384
+            } else {
+                false
+            }
+        }));
     }
 }

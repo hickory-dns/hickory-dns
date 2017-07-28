@@ -168,7 +168,11 @@ impl Nsec3HashAlgorithm {
 
     /// until there is another supported algorithm, just hardcoded to this.
     #[cfg(feature = "openssl")]
-    fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> DnsSecResult<DigestBytes> {
+    fn sha1_recursive_hash(
+        salt: &[u8],
+        bytes: Vec<u8>,
+        iterations: u16,
+    ) -> DnsSecResult<DigestBytes> {
         let digest_type = try!(DigestType::SHA1.to_openssl_digest());
         hash::Hasher::new(digest_type)
             .map_err(|e| e.into())
@@ -197,72 +201,100 @@ impl From<Nsec3HashAlgorithm> for u8 {
 #[cfg(feature = "openssl")]
 fn test_hash() {
 
-    let name = Name::new().label("www").label("example").label("com");
+    let name = Name::from_labels(vec!["www", "example", "com"]);
     let salt: Vec<u8> = vec![1, 2, 3, 4];
 
-    assert_eq!(Nsec3HashAlgorithm::SHA1
-                   .hash(&salt, &name, 0)
-                   .unwrap()
-                   .len(),
-               20);
-    assert_eq!(Nsec3HashAlgorithm::SHA1
-                   .hash(&salt, &name, 1)
-                   .unwrap()
-                   .len(),
-               20);
-    assert_eq!(Nsec3HashAlgorithm::SHA1
-                   .hash(&salt, &name, 3)
-                   .unwrap()
-                   .len(),
-               20);
+    assert_eq!(
+        Nsec3HashAlgorithm::SHA1
+            .hash(&salt, &name, 0)
+            .unwrap()
+            .len(),
+        20
+    );
+    assert_eq!(
+        Nsec3HashAlgorithm::SHA1
+            .hash(&salt, &name, 1)
+            .unwrap()
+            .len(),
+        20
+    );
+    assert_eq!(
+        Nsec3HashAlgorithm::SHA1
+            .hash(&salt, &name, 3)
+            .unwrap()
+            .len(),
+        20
+    );
 }
 
 #[test]
 #[cfg(feature = "openssl")]
 fn test_known_hashes() {
     // H(example)       = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom
-    assert_eq!(hash_with_base32("example"),
-               "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom");
+    assert_eq!(
+        hash_with_base32("example"),
+        "0p9mhaveqvm6t7vbl5lop2u3t2rp3tom"
+    );
 
     // H(a.example)     = 35mthgpgcu1qg68fab165klnsnk3dpvl
-    assert_eq!(hash_with_base32("a.example"),
-               "35mthgpgcu1qg68fab165klnsnk3dpvl");
+    assert_eq!(
+        hash_with_base32("a.example"),
+        "35mthgpgcu1qg68fab165klnsnk3dpvl"
+    );
 
     // H(ai.example)    = gjeqe526plbf1g8mklp59enfd789njgi
-    assert_eq!(hash_with_base32("ai.example"),
-               "gjeqe526plbf1g8mklp59enfd789njgi");
+    assert_eq!(
+        hash_with_base32("ai.example"),
+        "gjeqe526plbf1g8mklp59enfd789njgi"
+    );
 
     // H(ns1.example)   = 2t7b4g4vsa5smi47k61mv5bv1a22bojr
-    assert_eq!(hash_with_base32("ns1.example"),
-               "2t7b4g4vsa5smi47k61mv5bv1a22bojr");
+    assert_eq!(
+        hash_with_base32("ns1.example"),
+        "2t7b4g4vsa5smi47k61mv5bv1a22bojr"
+    );
 
     // H(ns2.example)   = q04jkcevqvmu85r014c7dkba38o0ji5r
-    assert_eq!(hash_with_base32("ns2.example"),
-               "q04jkcevqvmu85r014c7dkba38o0ji5r");
+    assert_eq!(
+        hash_with_base32("ns2.example"),
+        "q04jkcevqvmu85r014c7dkba38o0ji5r"
+    );
 
     // H(w.example)     = k8udemvp1j2f7eg6jebps17vp3n8i58h
-    assert_eq!(hash_with_base32("w.example"),
-               "k8udemvp1j2f7eg6jebps17vp3n8i58h");
+    assert_eq!(
+        hash_with_base32("w.example"),
+        "k8udemvp1j2f7eg6jebps17vp3n8i58h"
+    );
 
     // H(*.w.example)   = r53bq7cc2uvmubfu5ocmm6pers9tk9en
-    assert_eq!(hash_with_base32("*.w.example"),
-               "r53bq7cc2uvmubfu5ocmm6pers9tk9en");
+    assert_eq!(
+        hash_with_base32("*.w.example"),
+        "r53bq7cc2uvmubfu5ocmm6pers9tk9en"
+    );
 
     // H(x.w.example)   = b4um86eghhds6nea196smvmlo4ors995
-    assert_eq!(hash_with_base32("x.w.example"),
-               "b4um86eghhds6nea196smvmlo4ors995");
+    assert_eq!(
+        hash_with_base32("x.w.example"),
+        "b4um86eghhds6nea196smvmlo4ors995"
+    );
 
     // H(y.w.example)   = ji6neoaepv8b5o6k4ev33abha8ht9fgc
-    assert_eq!(hash_with_base32("y.w.example"),
-               "ji6neoaepv8b5o6k4ev33abha8ht9fgc");
+    assert_eq!(
+        hash_with_base32("y.w.example"),
+        "ji6neoaepv8b5o6k4ev33abha8ht9fgc"
+    );
 
     // H(x.y.w.example) = 2vptu5timamqttgl4luu9kg21e0aor3s
-    assert_eq!(hash_with_base32("x.y.w.example"),
-               "2vptu5timamqttgl4luu9kg21e0aor3s");
+    assert_eq!(
+        hash_with_base32("x.y.w.example"),
+        "2vptu5timamqttgl4luu9kg21e0aor3s"
+    );
 
     // H(xx.example)    = t644ebqk9bibcna874givr6joj62mlhv
-    assert_eq!(hash_with_base32("xx.example"),
-               "t644ebqk9bibcna874givr6joj62mlhv");
+    assert_eq!(
+        hash_with_base32("xx.example"),
+        "t644ebqk9bibcna874givr6joj62mlhv"
+    );
 }
 
 #[cfg(test)]
