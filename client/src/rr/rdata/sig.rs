@@ -16,8 +16,8 @@
 
 //! signature record for signing queries, updates, and responses
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use rr::{Name, RecordType};
 use rr::dnssec::Algorithm;
 
@@ -212,16 +212,17 @@ impl SIG {
     /// # Return value
     ///
     /// The new SIG record data.
-    pub fn new(type_covered: RecordType,
-               algorithm: Algorithm,
-               num_labels: u8,
-               original_ttl: u32,
-               sig_expiration: u32,
-               sig_inception: u32,
-               key_tag: u16,
-               signer_name: Name,
-               sig: Vec<u8>)
-               -> SIG {
+    pub fn new(
+        type_covered: RecordType,
+        algorithm: Algorithm,
+        num_labels: u8,
+        original_ttl: u32,
+        sig_expiration: u32,
+        sig_inception: u32,
+        key_tag: u16,
+        signer_name: Name,
+        sig: Vec<u8>,
+    ) -> SIG {
         SIG {
             type_covered: type_covered,
             algorithm: algorithm,
@@ -465,15 +466,17 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<SIG> {
     let bytes_read = decoder.index() - start_idx;
     let sig = try!(decoder.read_vec(rdata_length as usize - bytes_read));
 
-    Ok(SIG::new(type_covered,
-                algorithm,
-                num_labels,
-                original_ttl,
-                sig_expiration,
-                sig_inception,
-                key_tag,
-                signer_name,
-                sig))
+    Ok(SIG::new(
+        type_covered,
+        algorithm,
+        num_labels,
+        original_ttl,
+        sig_expiration,
+        sig_inception,
+        key_tag,
+        signer_name,
+        sig,
+    ))
 }
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
@@ -504,22 +507,26 @@ pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> EncodeResult {
     try!(encoder.emit_u32(sig.sig_expiration()));
     try!(encoder.emit_u32(sig.sig_inception()));
     try!(encoder.emit_u16(sig.key_tag()));
-    try!(sig.signer_name().emit_with_lowercase(encoder, is_canonical_names));
+    try!(sig.signer_name().emit_with_lowercase(
+        encoder,
+        is_canonical_names,
+    ));
     try!(encoder.emit_vec(sig.sig()));
     Ok(())
 }
 
 /// specifically for outputing the RData for an RRSIG, with signer_name in canonical form
-pub fn emit_pre_sig(encoder: &mut BinEncoder,
-                    type_covered: RecordType,
-                    algorithm: Algorithm,
-                    num_labels: u8,
-                    original_ttl: u32,
-                    sig_expiration: u32,
-                    sig_inception: u32,
-                    key_tag: u16,
-                    signer_name: &Name)
-                    -> EncodeResult {
+pub fn emit_pre_sig(
+    encoder: &mut BinEncoder,
+    type_covered: RecordType,
+    algorithm: Algorithm,
+    num_labels: u8,
+    original_ttl: u32,
+    sig_expiration: u32,
+    sig_inception: u32,
+    key_tag: u16,
+    signer_name: &Name,
+) -> EncodeResult {
     try!(type_covered.emit(encoder));
     try!(algorithm.emit(encoder));
     try!(encoder.emit(num_labels));
@@ -533,11 +540,50 @@ pub fn emit_pre_sig(encoder: &mut BinEncoder,
 
 #[test]
 fn test() {
-    let rdata = SIG::new(RecordType::NULL, Algorithm::RSASHA256, 0, 0, 2, 1, 5,
-                       Name::new().label("www").label("example").label("com"),
-                       vec![ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9,10,11,12,13,14,15
-                           ,16,17,18,19,20,21,22,23,24,25,26,27,28,29,29,31], // 32 bytes for SHA256
-  );
+    let rdata = SIG::new(
+        RecordType::NULL,
+        Algorithm::RSASHA256,
+        0,
+        0,
+        2,
+        1,
+        5,
+        Name::from_labels(vec!["www", "example", "com"]),
+        vec![
+            0,
+            1,
+            2,
+            3,
+            4,
+            5,
+            6,
+            7,
+            8,
+            9,
+            10,
+            11,
+            12,
+            13,
+            14,
+            15,
+            16,
+            17,
+            18,
+            19,
+            20,
+            21,
+            22,
+            23,
+            24,
+            25,
+            26,
+            27,
+            28,
+            29,
+            29,
+            31,
+        ], // 32 bytes for SHA256
+    );
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -548,7 +594,9 @@ fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }

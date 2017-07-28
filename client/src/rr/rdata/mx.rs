@@ -136,7 +136,7 @@ pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<MX> {
 
 #[test]
 pub fn test() {
-    let rdata = MX::new(16, Name::new().label("mail").label("example").label("com"));
+    let rdata = MX::new(16, Name::from_labels(vec!["mail","example","com"]));
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

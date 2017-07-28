@@ -16,7 +16,6 @@
 
 //! resource record implementation
 
-use std::sync::Arc as Rc;
 use std::cmp::Ordering;
 
 use serialize::binary::*;
@@ -112,11 +111,12 @@ impl Record {
     /// * `rr_type` - the record type
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
     /// * `rdata` - record data to associate with the Record
-    pub fn from_rdata(name: domain::Name,
-                      ttl: u32,
-                      record_type: RecordType,
-                      rdata: RData)
-                      -> Record {
+    pub fn from_rdata(
+        name: domain::Name,
+        ttl: u32,
+        record_type: RecordType,
+        rdata: RData,
+    ) -> Record {
         Record {
             name_labels: name,
             rr_type: record_type,
@@ -135,8 +135,10 @@ impl Record {
     }
 
     /// Appends a label to a name
+    #[deprecated]
     pub fn add_name(&mut self, label: String) -> &mut Self {
-        self.name_labels.add_label(Rc::new(label));
+        let name = self.name_labels.clone();
+        self.name_labels = name.append_label(label);
         self
     }
 
@@ -192,7 +194,7 @@ impl Record {
     pub fn rr_type(&self) -> RecordType {
         self.rr_type
     }
-    
+
     /// Returns the DNSClass of the Record, generally IN fro internet
     pub fn dns_class(&self) -> DNSClass {
         self.dns_class
@@ -277,12 +279,12 @@ impl BinSerializable<Record> for Record {
         };
 
         Ok(Record {
-               name_labels: name_labels,
-               rr_type: record_type,
-               dns_class: class,
-               ttl: ttl,
-               rdata: rdata,
-           })
+            name_labels: name_labels,
+            rr_type: record_type,
+            dns_class: class,
+            ttl: ttl,
+            rdata: rdata,
+        })
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
@@ -295,9 +297,11 @@ impl BinSerializable<Record> for Record {
         // TODO: should we skip the fixed size header and write the rdata first? then write the header?
         let mut tmp_buf: Vec<u8> = Vec::with_capacity(512);
         {
-            let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(&mut tmp_buf,
-                                                                      encoder.offset() + 2, /*for u16 len*/
-                                                                      EncodeMode::Normal);
+            let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(
+                &mut tmp_buf,
+                encoder.offset() + 2, /*for u16 len*/
+                EncodeMode::Normal,
+            );
             try!(self.rdata.emit(&mut tmp_encoder));
         }
 
@@ -330,7 +334,7 @@ impl PartialEq for Record {
     fn eq(&self, other: &Self) -> bool {
         // self == other && // the same pointer
         self.name_labels == other.name_labels && self.rr_type == other.rr_type &&
-        self.dns_class == other.dns_class && self.rdata == other.rdata
+            self.dns_class == other.dns_class && self.rdata == other.rdata
     }
 
     fn ne(&self, other: &Self) -> bool {
@@ -399,8 +403,9 @@ impl PartialOrd<Record> for Record {
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv4Addr;
     use std::cmp::Ordering;
+    use std::net::Ipv4Addr;
+    use std::str::FromStr;
 
     use super::*;
     #[allow(unused)]
@@ -415,9 +420,7 @@ mod tests {
     fn test_emit_and_read() {
         let mut record = Record::new();
         record
-            .add_name("www".to_string())
-            .add_name("example".to_string())
-            .add_name("com".to_string())
+            .set_name(Name::from_str("www.example.com").unwrap())
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
@@ -440,16 +443,14 @@ mod tests {
     fn test_order() {
         let mut record = Record::new();
         record
-            .add_name("www".to_string())
-            .add_name("example".to_string())
-            .add_name("com".to_string())
+            .set_name(Name::from_str("www.example.com").unwrap())
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_ttl(5)
             .set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 1)));
 
         let mut greater_name = record.clone();
-        greater_name.set_name(Name::new().label("zzz").label("example").label("com"));
+        greater_name.set_name(Name::from_str("zzz.example.com").unwrap());
 
         let mut greater_type = record.clone();
         greater_type.set_rr_type(RecordType::AAAA);
@@ -460,10 +461,12 @@ mod tests {
         let mut greater_rdata = record.clone();
         greater_rdata.set_rdata(RData::A(Ipv4Addr::new(192, 168, 0, 255)));
 
-        let compares = vec![(&record, &greater_name),
-                            (&record, &greater_type),
-                            (&record, &greater_class),
-                            (&record, &greater_rdata)];
+        let compares = vec![
+            (&record, &greater_name),
+            (&record, &greater_type),
+            (&record, &greater_class),
+            (&record, &greater_rdata),
+        ];
 
         assert_eq!(record.clone(), record.clone());
         for (r, g) in compares {

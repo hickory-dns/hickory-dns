@@ -146,11 +146,15 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> EncodeResult {
 pub fn test() {
     use rr::RecordType;
 
-    let rdata = NSEC::new(Name::new().label("www").label("example").label("com"),
-                          vec![RecordType::A,
-                               RecordType::AAAA,
-                               RecordType::DS,
-                               RecordType::RRSIG]);
+    let rdata = NSEC::new(
+        Name::from_labels(vec!["www", "example", "com"]),
+        vec![
+            RecordType::A,
+            RecordType::AAAA,
+            RecordType::DS,
+            RecordType::RRSIG,
+        ],
+    );
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -161,7 +165,9 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }
