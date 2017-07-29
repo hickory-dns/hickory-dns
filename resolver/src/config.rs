@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Configuration for a resolver
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 
 use trust_dns::rr::Name;
@@ -33,7 +33,14 @@ impl ResolverConfig {
         }
     }
 
-    pub(crate) fn from_parts(
+    /// Create a ResolverConfig with all parts specified
+    ///
+    /// # Arguments
+    ///
+    /// * `domain` - domain of the entity querying results. If the `Name` being lookedup is not an FQDN, then this is the first part appended to attempt a lookup. `ndots` in in the `ResolverOption` does take precidence over this. Default should be `.` aka `Name::root`
+    /// * `search` - additional search domains that are attempted if the `Name` is not found in `domain`, defaults to `vec![]`
+    /// * `name_servers` - set of name servers to use for lookups, defaults are Google: `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844`
+    pub fn from_parts(
         domain: Name,
         search: Vec<Name>,
         name_servers: Vec<NameServerConfig>,
@@ -43,6 +50,20 @@ impl ResolverConfig {
             search,
             name_servers,
         }
+    }
+
+    /// Returns the local domain
+    ///
+    /// By default any names will be appended to all non-fully-qualified-domain names, and searched for after any ndots rules
+    pub fn domain(&self) -> &Name {
+        &self.domain
+    }
+
+    /// Returns the search domains
+    ///
+    /// These will be queried after any local domain and then in the order of the set of search domains
+    pub fn search(&self) -> &[Name] {
+        &self.search
     }
 
     // TODO: consider allowing options per NameServer... like different timeouts?
@@ -58,7 +79,7 @@ impl ResolverConfig {
 }
 
 impl Default for ResolverConfig {
-    /// Creates a default configuration, using 8.8.8.8:53 and 8.8.4.4:53 (thank you, Google).
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
     fn default() -> Self {
         let domain = Name::root();
         let google_ns1 = NameServerConfig {
@@ -70,10 +91,45 @@ impl Default for ResolverConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)), 53),
             protocol: Protocol::Udp,
         };
+
+        let google_v6_ns1 = NameServerConfig {
+            socket_addr: SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(
+                    0x20,
+                    0x01,
+                    0x48,
+                    0x60,
+                    0x48,
+                    0x60,
+                    0x88,
+                    0x88,
+                )),
+                53,
+            ),
+            protocol: Protocol::Udp,
+        };
+
+        let google_v6_ns2 = NameServerConfig {
+            socket_addr: SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(
+                    0x20,
+                    0x01,
+                    0x48,
+                    0x60,
+                    0x48,
+                    0x60,
+                    0x88,
+                    0x44,
+                )),
+                53,
+            ),
+            protocol: Protocol::Udp,
+        };
+
         ResolverConfig {
             domain,
             search: vec![],
-            name_servers: vec![google_ns1, google_ns2],
+            name_servers: vec![google_ns1, google_ns2, google_v6_ns1, google_v6_ns2],
         }
     }
 }
@@ -128,11 +184,11 @@ pub struct ResolverOpts {
     ///  that must appear before a query is assumted to include the TLD. The default is one, which
     ///  means that `www` would never be assumed to be a TLD, and would always be appended to either
     ///  the search
-    pub(crate) ndots: usize,
+    pub ndots: usize,
     /// Specify the timeout for a request. Defaults to 5 seconds
     pub timeout: Duration,
     /// Number of attempts before giving up. Defaults to 2
-    pub(crate) attempts: usize,
+    pub attempts: usize,
     /// Rotate through the resource records in the response (if there is more than one for a given name)
     pub(crate) rotate: bool,
     /// Validate the names in the response

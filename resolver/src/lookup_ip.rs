@@ -16,7 +16,7 @@ use std::slice::Iter;
 
 use futures::{Async, future, Future, Poll, task};
 
-use trust_dns::client::ClientHandle;
+use trust_dns::client::{ClientHandle, RetryClientHandle};
 use trust_dns::error::ClientError;
 use trust_dns::op::Message;
 use trust_dns::rr::{DNSClass, Name, RData, RecordType};
@@ -61,18 +61,21 @@ impl<'a> Iterator for LookupIpIter<'a> {
 }
 
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
-pub type LookupIpFuture = InnerLookupIpFuture<NameServerPool>;
+pub type LookupIpFuture = InnerLookupIpFuture<RetryClientHandle<NameServerPool>>;
 
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
-pub struct InnerLookupIpFuture<C: ClientHandle + Clone + 'static> {
+pub struct InnerLookupIpFuture<C: ClientHandle + 'static> {
     client: C,
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     future: Box<Future<Item = LookupIp, Error = io::Error>>,
 }
 
-impl<C: ClientHandle + Clone + 'static> InnerLookupIpFuture<C> {
+impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
     pub(crate) fn lookup(mut names: Vec<Name>, strategy: LookupIpStrategy, client: &mut C) -> Self {
+        // FIXME: remove
+        println!("looking_up: {:?}", names);
+
         let name = names.pop().expect("can not lookup IPs for no names");
 
         let query = LookupIpState::lookup(name, strategy, client);
@@ -84,13 +87,32 @@ impl<C: ClientHandle + Clone + 'static> InnerLookupIpFuture<C> {
         }
     }
 
+    fn new_lookup<F: FnOnce() -> Poll<LookupIp, io::Error>>(
+        &mut self,
+        otherwise: F,
+    ) -> Poll<LookupIp, io::Error> {
+        let name = self.names.pop();
+        if let Some(name) = name {
+            let query = LookupIpState::lookup(name, self.strategy, &mut self.client);
+
+            mem::replace(&mut self.future, Box::new(query));
+            // guarantee that we get scheduled for the next turn...
+            task::current().notify();
+            Ok(Async::NotReady)
+        } else {
+            otherwise()
+        }
+    }
+
     pub(crate) fn error<E: Error>(client: C, error: E) -> Self {
         return InnerLookupIpFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client,
             names: vec![],
             strategy: LookupIpStrategy::default(),
-            future: Box::new(future::err(io::Error::new(io::ErrorKind::Other, format!("{}", error)))),
+            future: Box::new(future::err(
+                io::Error::new(io::ErrorKind::Other, format!("{}", error)),
+            )),
         };
     }
 }
@@ -101,19 +123,16 @@ impl<C: ClientHandle + 'static> Future for InnerLookupIpFuture<C> {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.future.poll() {
-            p @ Ok(_) => p,
-            e @ Err(_) => {
-                let name = self.names.pop();
-                if let Some(name) = name {
-                    let query = LookupIpState::lookup(name, self.strategy, &mut self.client);
-
-                    mem::replace(&mut self.future, Box::new(query));
-                    // guarantee that we get scheduled for the next turn...
-                    task::current().notify();
-                    Ok(Async::NotReady)
+            Ok(Async::Ready(lookup_ip)) => {
+                if lookup_ip.ips.len() == 0 {
+                    return self.new_lookup(|| Ok(Async::Ready(lookup_ip)));
                 } else {
-                    e
+                    return Ok(Async::Ready(lookup_ip));
                 }
+            }
+            p @ Ok(Async::NotReady) => p,
+            e @ Err(_) => {
+                return self.new_lookup(|| e);
             }
         }
     }
@@ -145,6 +164,9 @@ impl LookupIpState {
         strategy: LookupIpStrategy,
         client: &mut C,
     ) -> Self {
+        // FIXME: remove
+        println!("running new lookup: {}", name);
+
         let query_future = lookup(name, strategy, client);
 
         LookupIpState::Query(query_future)

@@ -84,7 +84,8 @@
 //! 
 //! ```rust
 //! use std::net::Ipv4Addr;
-//! # use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SyncClient};
+//! use std::str::FromStr;
+//! # use trust_dns::client::{Client, SyncClient};
 //! # use trust_dns::udp::UdpClientConnection;
 //! use trust_dns::op::Message;
 //! use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
@@ -94,7 +95,7 @@
 //! # let client = SyncClient::new(conn);
 //! 
 //! // Specify the name, note the final '.' which specifies it's an FQDN
-//! let name = Name::parse("www.example.com.", None).unwrap();
+//! let name = Name::from_str("www.example.com.").unwrap();
 //!
 //! // NOTE: see 'Setup a connection' example above
 //! // Send the query and get a message response, see RecordType for all supported options
@@ -131,6 +132,8 @@
 //! use std::fs::File;
 //! use std::io::Read;
 //! use std::net::Ipv4Addr;
+//! use std::str::FromStr;
+//!
 //! use chrono::Duration;
 //! # #[cfg(feature = "openssl")]
 //! use openssl::rsa::Rsa;
@@ -173,7 +176,7 @@
 //! //  associated with KEY record in the server.
 //! let signer = Signer::sig0(sig0key,
 //!                           key,
-//!                           Name::parse("update.example.com.", None).unwrap());
+//!                           Name::from_str("update.example.com.").unwrap());
 //!
 //! // Create the DNS client, see above for creating a the connection
 //! let client = SyncClient::with_signer(conn, signer);
@@ -181,13 +184,13 @@
 //! // At this point we should have a client capable of sending signed SIG(0) records.
 //! 
 //! // Now we can send updates... let's create a new Record
-//! let mut record = Record::with(Name::parse("new.example.com", None).unwrap(),
+//! let mut record = Record::with(Name::from_str("new.example.com").unwrap(),
 //!                               RecordType::A,
 //!                               Duration::minutes(5).num_seconds() as u32);
 //! record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 //! 
 //! // the server must be authoritative for this zone
-//! let origin = Name::parse("example.com", None).unwrap();
+//! let origin = Name::from_str("example.com.").unwrap();
 //!
 //! // Create the record.
 //! let result = client.create(record, origin).unwrap();

@@ -250,7 +250,7 @@ impl NameServer {
             };
 
             if Instant::now().duration_since(when) > retry_delay {
-                println!("reconnecting: {:?}", self.config);
+                debug!("reconnecting: {:?}", self.config);
                 // establish a new connection
                 let client = Self::new_connection(&self.config, &self.options, &self.reactor);
                 mem::replace(&mut self.client, client);
@@ -523,7 +523,7 @@ mod tests {
 
         let name = Name::parse("www.example.com.", None).unwrap();
 
-        // TODO: it's not clear why there are two failures before the
+        // TODO: it's not clear why there are two failures before the success
         for i in 0..2 {
             assert!(
                 io_loop
