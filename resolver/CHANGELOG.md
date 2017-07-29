@@ -7,6 +7,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- Added `options attempts:N` aka `ResolverOpts::attempts` support, aka retries
+- Added Google IPv6 nameservers as defaults for `ResolverConfig::default`
 - Added support for domain name search in `ResolverConfig` and `LookupIpFuture`
 - Added support for search names in `ResolverConfig` and `LookupIpFuture`
 - Added `LookupIpFuture` type alias to `InnerLookupIpFuture<NameServerPool>` *compatibility*

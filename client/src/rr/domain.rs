@@ -251,8 +251,9 @@ impl Name {
     /// use trust_dns::rr::domain::Name;
     /// use std::cmp::Ordering;
     ///
-    /// let example_com = Name::new().label("Example").label("Com");
-    /// assert_eq!(example_com.to_lowercase().cmp_with_case(&Name::new().label("example").label("com"), false), Ordering::Equal);
+    /// let example_com = Name::from_labels(vec!["Example", "Com"]);
+    /// assert_eq!(example_com.cmp_with_case(&Name::from_labels(vec!["example", "com"]), false), Ordering::Less);
+    /// assert_eq!(example_com.to_lowercase().cmp_with_case(&Name::from_labels(vec!["example", "com"]), false), Ordering::Equal);
     /// ```
     pub fn to_lowercase(&self) -> Self {
         let mut new_labels = Vec::with_capacity(self.labels.len());
@@ -272,9 +273,9 @@ impl Name {
     /// ```
     /// use trust_dns::rr::domain::Name;
     ///
-    /// let example_com = Name::new().label("example").label("com");
-    /// assert_eq!(example_com.base_name(), Name::new().label("com"));
-    /// assert_eq!(Name::new().label("com").base_name(), Name::root());
+    /// let example_com = Name::from_labels(vec!["example", "com"]);
+    /// assert_eq!(example_com.base_name(), Name::from_labels(vec!["com"]));
+    /// assert_eq!(Name::from_labels(vec!["com"]).base_name(), Name::root());
     /// assert_eq!(Name::root().base_name(), Name::root());
     /// ```
     pub fn base_name(&self) -> Name {
@@ -293,9 +294,9 @@ impl Name {
     /// ```
     /// use trust_dns::rr::domain::Name;
     ///
-    /// let example_com = Name::new().label("example").label("com");
-    /// assert_eq!(example_com.trim_to(2), Name::new().label("example").label("com"));
-    /// assert_eq!(example_com.trim_to(1), Name::new().label("com"));
+    /// let example_com = Name::from_labels(vec!["example", "com"]);
+    /// assert_eq!(example_com.trim_to(2), Name::from_labels(vec!["example", "com"]));
+    /// assert_eq!(example_com.trim_to(1), Name::from_labels(vec!["com"]));
     /// assert_eq!(example_com.trim_to(0), Name::root());
     /// ```
     pub fn trim_to(&self, num_labels: usize) -> Name {
@@ -311,6 +312,19 @@ impl Name {
     }
 
     /// returns true if the name components of self are all present at the end of name
+    ///
+    /// # Example
+    ///
+    /// ```rust
+    /// use trust_dns::rr::domain::Name;
+    ///
+    /// let name = Name::from_labels(vec!["www", "example", "com"]);
+    /// let name = Name::from_labels(vec!["www", "example", "com"]);
+    /// let zone = Name::from_labels(vec!["example", "com"]);
+    /// let another = Name::from_labels(vec!["example", "net"]);
+    /// assert!(zone.zone_of(&name));
+    /// assert!(!another.zone_of(&name));
+    /// ```
     pub fn zone_of(&self, name: &Self) -> bool {
         let self_len = self.labels.len();
         let name_len = name.labels.len();
@@ -347,10 +361,10 @@ impl Name {
     /// let root = Name::root();
     /// assert_eq!(root.num_labels(), 0);
     ///
-    /// let example_com = Name::new().label("example").label("com");
+    /// let example_com = Name::from_labels(vec!["example", "com"]);
     /// assert_eq!(example_com.num_labels(), 2);
     ///
-    /// let star_example_com = Name::new().label("*").label("example").label("com");
+    /// let star_example_com = Name::from_labels(vec!["*", "example", "com"]);
     /// assert_eq!(star_example_com.num_labels(), 2);
     /// ```
     pub fn num_labels(&self) -> u8 {
@@ -384,7 +398,7 @@ impl Name {
     /// use trust_dns::rr::domain::Name;
     ///
     /// let name = Name::parse("example.com.", None).unwrap();
-    /// assert_eq!(name.base_name(), Name::new().label("com"));
+    /// assert_eq!(name.base_name(), Name::from_labels(vec!["com"]));
     /// assert_eq!(*name[0], String::from("example"));
     /// ```
     pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {

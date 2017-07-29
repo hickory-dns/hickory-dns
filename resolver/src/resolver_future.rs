@@ -7,8 +7,10 @@
 
 //! Structs for creating and using a ResolverFuture
 use std::io;
+use std::str::FromStr;
 
 use tokio_core::reactor::Handle;
+use trust_dns::client::RetryClientHandle;
 use trust_dns::rr::Name;
 
 use config::{ResolverConfig, ResolverOpts};
@@ -18,6 +20,7 @@ use system_conf;
 
 /// A Resolver for DNS records.
 pub struct ResolverFuture {
+    config: ResolverConfig,
     options: ResolverOpts,
     pool: NameServerPool,
 }
@@ -26,7 +29,11 @@ impl ResolverFuture {
     /// Construct a new ResolverFuture with the associated Client.
     pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
         let pool = NameServerPool::from_config(&config, &options, reactor);
-        ResolverFuture { options, pool }
+        ResolverFuture {
+            config,
+            options,
+            pool,
+        }
     }
 
     /// Constructs a new Resolver with the given ClientConnection, see UdpClientConnection and/or TcpCLientConnection
@@ -40,23 +47,59 @@ impl ResolverFuture {
     /// Performs a DNS lookup for the IP for the given hostname.
     ///
     /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
-    ///  returning IpV4 or IpV6 addresses. (*Note*: current release only queries A, IPv4)
+    ///  returning IpV4 or IpV6 addresses. (*Note*: current release only queries A, IPv4). For the least expensive query
+    ///  a fully-qualified-domain-name, FQDN, which ends in a final `.`, e.g. `www.example.com.`, will only issue one query.
+    ///  anything else will always incur the cost of querying the `ResolverConfig::domain` and `ResolverConfig::search`.
     ///
     /// # Arguments
-    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
+    /// * `host` - string hostname, if this is an invalid hostname, an error will be returned from the returned future.
     pub fn lookup_ip(&mut self, host: &str) -> LookupIpFuture {
-        // FIXME: check for FQDN...
-        let name = match Name::parse(host, None) {
+        let name = match Name::from_str(host) {
             Ok(name) => name,
             Err(err) => {
-                return InnerLookupIpFuture::error(self.pool.clone(), err)
+                let client = RetryClientHandle::new(self.pool.clone(), self.options.attempts);
+                return InnerLookupIpFuture::error(client, err);
             }
         };
 
-        // TODO: create list of names to lookup, unless FQDN = only query that
+        // if it's fully qualified, we can short circuit the lookup logic
+        let names = if name.is_fqdn() {
+            vec![name]
+        } else {
 
+            // Otherwise we have to build the search list
+            // Note: the vec is built in reverse order of precedence, for stack semantics
+            let mut names =
+                Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.config.search().len());
+
+            for search in self.config.search().iter().rev() {
+                let name_search = name.clone().append_domain(search);
+                Self::push_name(name_search, &mut names);
+            }
+
+            let domain = name.clone().append_domain(&self.config.domain());
+            Self::push_name(domain, &mut names);
+
+            // this is the direct name lookup
+            // number of dots will always be one less than the number of labels
+            if name.num_labels() as usize > self.options.ndots {
+                // adding the name as though it's an FQDN for lookup
+                names.push(name.clone());
+            }
+
+            names
+        };
+
+        // TODO: consider removing this clone?
         // create the lookup
-        LookupIpFuture::lookup(vec![name], self.options.ip_strategy, &mut self.pool)
+        let mut client = RetryClientHandle::new(self.pool.clone(), self.options.attempts);
+        LookupIpFuture::lookup(names, self.options.ip_strategy, &mut client)
+    }
+
+    fn push_name(name: Name, names: &mut Vec<Name>) {
+        if !names.contains(&name) {
+            names.push(name);
+        }
     }
 }
 
@@ -69,6 +112,8 @@ mod tests {
     use std::net::*;
 
     use self::tokio_core::reactor::Core;
+
+    use config::{NameServerConfig, LookupIpStrategy};
 
     use super::*;
 
@@ -135,6 +180,150 @@ mod tests {
                         0x1946,
                     ))
                 );
+            }
+        }
+    }
+
+    #[test]
+    fn test_fqdn() {
+        let domain = Name::from_str("incorrect.example.com.").unwrap();
+        let search = vec![
+            Name::from_str("bad.example.com.").unwrap(),
+            Name::from_str("wrong.example.com.").unwrap(),
+        ];
+        let name_servers: Vec<NameServerConfig> =
+            ResolverConfig::default().name_servers().to_owned();
+
+        let mut io_loop = Core::new().unwrap();
+        let mut resolver = ResolverFuture::new(
+            ResolverConfig::from_parts(domain, search, name_servers),
+            ResolverOpts {
+                ip_strategy: LookupIpStrategy::Ipv4Only,
+                ..ResolverOpts::default()
+            },
+            &io_loop.handle(),
+        );
+
+        let response = io_loop.run(resolver.lookup_ip("www.example.com.")).expect(
+            "failed to run lookup",
+        );
+
+        assert_eq!(response.iter().count(), 1);
+        for address in response {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert!(false, "should only be looking up IPv4");
+            }
+        }
+    }
+
+    #[test]
+    fn test_ndots() {
+        let domain = Name::from_str("incorrect.example.com.").unwrap();
+        let search = vec![
+            Name::from_str("bad.example.com.").unwrap(),
+            Name::from_str("wrong.example.com.").unwrap(),
+        ];
+        let name_servers: Vec<NameServerConfig> =
+            ResolverConfig::default().name_servers().to_owned();
+
+        let mut io_loop = Core::new().unwrap();
+        let mut resolver = ResolverFuture::new(
+            ResolverConfig::from_parts(domain, search, name_servers),
+            ResolverOpts {
+                // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
+                ndots: 2,
+                ip_strategy: LookupIpStrategy::Ipv4Only,
+                ..ResolverOpts::default()
+            },
+            &io_loop.handle(),
+        );
+
+        // notice this is not a FQDN, no trailing dot.
+        let response = io_loop.run(resolver.lookup_ip("www.example.com")).expect(
+            "failed to run lookup",
+        );
+
+        assert_eq!(response.iter().count(), 1);
+        for address in response {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert!(false, "should only be looking up IPv4");
+            }
+        }
+    }
+
+    #[test]
+    fn test_domain_search() {
+        // domain is good now, shoudl be combined with the name to form www.example.com
+        let domain = Name::from_str("example.com.").unwrap();
+        let search = vec![
+            Name::from_str("bad.example.com.").unwrap(),
+            Name::from_str("wrong.example.com.").unwrap(),
+        ];
+        let name_servers: Vec<NameServerConfig> =
+            ResolverConfig::default().name_servers().to_owned();
+
+        let mut io_loop = Core::new().unwrap();
+        let mut resolver = ResolverFuture::new(
+            ResolverConfig::from_parts(domain, search, name_servers),
+            ResolverOpts {
+                ip_strategy: LookupIpStrategy::Ipv4Only,
+                ..ResolverOpts::default()
+            },
+            &io_loop.handle(),
+        );
+
+        // notice no dots, should not trigger ndots rule
+        let response = io_loop.run(resolver.lookup_ip("www")).expect(
+            "failed to run lookup",
+        );
+
+        assert_eq!(response.iter().count(), 1);
+        for address in response {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert!(false, "should only be looking up IPv4");
+            }
+        }
+    }
+
+    #[test]
+    fn test_search_list() {
+        let domain = Name::from_str("incorrect.example.com.").unwrap();
+        let search = vec![
+            // let's skip one search domain to test the loop...
+            Name::from_str("bad.example.com.").unwrap(),
+            // this should combine with the search name to form www.example.com
+            Name::from_str("example.com.").unwrap(),
+        ];
+        let name_servers: Vec<NameServerConfig> =
+            ResolverConfig::default().name_servers().to_owned();
+
+        let mut io_loop = Core::new().unwrap();
+        let mut resolver = ResolverFuture::new(
+            ResolverConfig::from_parts(domain, search, name_servers),
+            ResolverOpts {
+                ip_strategy: LookupIpStrategy::Ipv4Only,
+                ..ResolverOpts::default()
+            },
+            &io_loop.handle(),
+        );
+
+        // notice no dots, should not trigger ndots rule
+        let response = io_loop.run(resolver.lookup_ip("www")).expect(
+            "failed to run lookup",
+        );
+
+        assert_eq!(response.iter().count(), 1);
+        for address in response {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert!(false, "should only be looking up IPv4");
             }
         }
     }
