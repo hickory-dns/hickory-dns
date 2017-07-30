@@ -42,11 +42,10 @@ fn test_secure_query_example_tcp() {
 }
 
 fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
-    where H: ClientHandle + 'static
+where
+    H: ClientHandle + 'static,
 {
-    let name = domain::Name::with_labels(vec!["www".to_string(),
-                                              "example".to_string(),
-                                              "com".to_string()]);
+    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
@@ -85,11 +84,10 @@ fn test_nsec_query_example_tcp() {
 }
 
 fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
-    where H: ClientHandle + 'static
+where
+    H: ClientHandle + 'static,
 {
-    let name = domain::Name::with_labels(vec!["none".to_string(),
-                                              "example".to_string(),
-                                              "com".to_string()]);
+    let name = domain::Name::from_labels(vec!["none", "example", "com"]);
 
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
@@ -116,11 +114,10 @@ fn test_nsec_query_type_tcp() {
 }
 
 fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
-    where H: ClientHandle + 'static
+where
+    H: ClientHandle + 'static,
 {
-    let name = domain::Name::with_labels(vec!["www".to_string(),
-                                              "example".to_string(),
-                                              "com".to_string()]);
+    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
 
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::NS))
@@ -149,7 +146,8 @@ fn test_dnssec_rollernet_td_tcp_mixed_case() {
 }
 
 fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
-    where H: ClientHandle + 'static
+where
+    H: ClientHandle + 'static,
 {
     let name = domain::Name::parse("rollernet.us.", None).unwrap();
 
@@ -164,7 +162,8 @@ fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: C
 }
 
 fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
-    where H: ClientHandle + 'static
+where
+    H: ClientHandle + 'static,
 {
     let name = domain::Name::parse("RollErnet.Us.", None).unwrap();
 
@@ -179,8 +178,9 @@ fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut
 }
 
 fn with_nonet<F>(test: F)
-    where F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>,
-                Core)
+where
+    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>,
+       Core),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -229,8 +229,9 @@ fn with_nonet<F>(test: F)
 }
 
 fn with_udp<F>(test: F)
-    where F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>,
-                Core)
+where
+    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>,
+       Core),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -250,11 +251,7 @@ fn with_udp<F>(test: F)
         .unwrap();
 
     let io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
+    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
     let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);
@@ -266,8 +263,9 @@ fn with_udp<F>(test: F)
 }
 
 fn with_tcp<F>(test: F)
-    where F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>,
-                Core)
+where
+    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>,
+       Core),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -287,11 +285,7 @@ fn with_tcp<F>(test: F)
         .unwrap();
 
     let io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
+    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
     let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);

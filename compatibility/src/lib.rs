@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+#![allow(dead_code)]
+
 extern crate data_encoding;
 extern crate rand;
 
@@ -49,7 +51,7 @@ impl Drop for NamedProcess {
         self.thread_notice.store(true, Ordering::Relaxed);
 
         println!("----> cleanup work dir: {}", self.working_dir);
-        fs::remove_dir_all(&self.working_dir);
+        fs::remove_dir_all(&self.working_dir).ok();
     }
 }
 

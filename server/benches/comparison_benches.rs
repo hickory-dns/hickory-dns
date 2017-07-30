@@ -48,7 +48,8 @@ impl Drop for NamedProcess {
 }
 
 fn wrap_process<R>(named: Child, io: R, started_str: &str) -> NamedProcess
-    where R: Read + Send + 'static
+where
+    R: Read + Send + 'static,
 {
     let mut named_out = BufReader::new(io);
 
@@ -57,7 +58,9 @@ fn wrap_process<R>(named: Child, io: R, started_str: &str) -> NamedProcess
     let mut found = false;
     for _ in 0..1000 {
         output.clear();
-        named_out.read_line(&mut output).expect("could not read stdout");
+        named_out.read_line(&mut output).expect(
+            "could not read stdout",
+        );
         // stdout().write(b"SRV: ").unwrap();
         // stdout().write(output.as_bytes()).unwrap();
         if output.ends_with(started_str) {
@@ -78,7 +81,9 @@ fn wrap_process<R>(named: Child, io: R, started_str: &str) -> NamedProcess
             let thread_notice = thread_notice_clone;
             while !thread_notice.load(std::sync::atomic::Ordering::Relaxed) {
                 output.clear();
-                named_out.read_line(&mut output).expect("could not read stdout");
+                named_out.read_line(&mut output).expect(
+                    "could not read stdout",
+                );
                 // stdout().write(b"SRV: ").unwrap();
                 // stdout().write(output.as_bytes()).unwrap();
             }
@@ -103,9 +108,14 @@ fn trust_dns_process() -> (NamedProcess, u16) {
     let mut named = Command::new(&format!("{}/../target/debug/named", server_path))
         .stdout(Stdio::piped())
         .arg("-q")
-        .arg(&format!("--config={}/tests/named_test_configs/example.toml",
-                      server_path))
-        .arg(&format!("--zonedir={}/tests/named_test_configs", server_path))
+        .arg(&format!(
+            "--config={}/tests/named_test_configs/example.toml",
+            server_path
+        ))
+        .arg(&format!(
+            "--zonedir={}/tests/named_test_configs",
+            server_path
+        ))
         .arg(&format!("--port={}", test_port))
         .spawn()
         .expect("failed to start named");
@@ -119,15 +129,15 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 
 /// Runs the bench tesk using the specified client
 fn bench(b: &mut Bencher, io_loop: &mut Core, client: &mut BasicClientHandle) {
-    let name = domain::Name::with_labels(vec!["www".to_string(),
-                                              "example".to_string(),
-                                              "com".to_string()]);
+    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
 
     // validate the request
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
-    assert!(!response.is_err(),
-            "request failed: {}",
-            response.unwrap_err());
+    assert!(
+        !response.is_err(),
+        "request failed: {}",
+        response.unwrap_err()
+    );
 
     let response = response.unwrap();
     assert_eq!(response.get_response_code(), ResponseCode::NoError);
@@ -151,7 +161,11 @@ fn trust_dns_udp_bench(b: &mut Bencher) {
     let (named, server_port) = trust_dns_process();
 
     let mut io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("127.0.0.1", server_port).to_socket_addrs().unwrap().next().unwrap();
+    let addr: SocketAddr = ("127.0.0.1", server_port)
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
     let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
     let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
@@ -166,7 +180,11 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
     let (named, server_port) = trust_dns_process();
 
     let mut io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("127.0.0.1", server_port).to_socket_addrs().unwrap().next().unwrap();
+    let addr: SocketAddr = ("127.0.0.1", server_port)
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
     let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
@@ -190,7 +208,9 @@ fn bind_process() -> (NamedProcess, u16) {
     // create the work directory
     let working_dir = format!("{}/../target/bind_pwd", server_path);
     if !Path::new(&working_dir).exists() {
-        DirBuilder::new().create(&working_dir).expect("failed to create dir");
+        DirBuilder::new().create(&working_dir).expect(
+            "failed to create dir",
+        );
     }
 
     let mut named = Command::new(bind_path)
@@ -216,7 +236,11 @@ fn bind_udp_bench(b: &mut Bencher) {
     let (named, server_port) = bind_process();
 
     let mut io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("127.0.0.1", server_port).to_socket_addrs().unwrap().next().unwrap();
+    let addr: SocketAddr = ("127.0.0.1", server_port)
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
     let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
     let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 
@@ -232,7 +256,11 @@ fn bind_tcp_bench(b: &mut Bencher) {
     let (named, server_port) = bind_process();
 
     let mut io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("127.0.0.1", server_port).to_socket_addrs().unwrap().next().unwrap();
+    let addr: SocketAddr = ("127.0.0.1", server_port)
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
     let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
     let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
 

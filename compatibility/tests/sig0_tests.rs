@@ -39,9 +39,9 @@ fn test_get() {
     let client = SyncClient::new(conn);
 
     let name = Name::parse("www.example.com.", None).unwrap();
-    let result = client
-        .query(&name, DNSClass::IN, RecordType::A)
-        .expect("query failed");
+    let result = client.query(&name, DNSClass::IN, RecordType::A).expect(
+        "query failed",
+    );
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
     assert_eq!(result.answers()[0].rr_type(), RecordType::A);
@@ -55,32 +55,34 @@ fn test_get() {
 }
 
 fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient
-    where CC: ClientConnection,
-          <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static
-
+where
+    CC: ClientConnection,
+    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
-    let mut pem = File::open(format!("{}/../compatibility/tests/conf/Kupdate.example.com.+008+56935.pem",
-                                     server_path))
-            .expect("could not find pem file");
+    let mut pem = File::open(format!(
+        "{}/../compatibility/tests/conf/Kupdate.example.com.+008+56935.pem",
+        server_path
+    )).expect("could not find pem file");
 
     let mut pem_buf = Vec::<u8>::new();
-    pem.read_to_end(&mut pem_buf)
-        .expect("failed to read pem");
+    pem.read_to_end(&mut pem_buf).expect("failed to read pem");
     let rsa = Rsa::private_key_from_pem(&pem_buf).expect("something wrong with key from pem");
     let key = KeyPair::from_rsa(rsa).unwrap();
-    let sig0key = KEY::new(Default::default(),
-                           KeyUsage::Entity,
-                           Default::default(),
-                           Default::default(),
-                           Algorithm::RSASHA256,
-                           key.to_public_bytes().unwrap());
+    let sig0key = KEY::new(
+        Default::default(),
+        KeyUsage::Entity,
+        Default::default(),
+        Default::default(),
+        Algorithm::RSASHA256,
+        key.to_public_bytes().unwrap(),
+    );
 
-    let signer = Signer::sig0(sig0key,
-                              key,
-                              Name::with_labels(vec!["update".to_string(),
-                                                     "example".to_string(),
-                                                     "com".to_string()]));
+    let signer = Signer::sig0(
+        sig0key,
+        key,
+        Name::from_labels(vec!["update", "example", "com"]),
+    );
 
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
 
@@ -95,20 +97,20 @@ fn test_create() {
     let conn = UdpClientConnection::new(socket).unwrap();
 
     let client = create_sig0_ready_client(conn);
-    let origin = Name::with_labels(vec!["example".to_string(), "com".to_string()]);
+    let origin = Name::from_labels(vec!["example", "com"]);
 
     // create a record
-    let mut record = Record::with(Name::with_labels(vec!["new".to_string(),
-                                                         "example".to_string(),
-                                                         "com".to_string()]),
-                                  RecordType::A,
-                                  Duration::minutes(5).num_seconds() as u32);
+    let mut record = Record::with(
+        Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
 
-    let result = client
-        .create(record.clone(), origin.clone())
-        .expect("create failed");
+    let result = client.create(record.clone(), origin.clone()).expect(
+        "create failed",
+    );
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = client
         .query(record.name(), record.dns_class(), record.rr_type())
@@ -119,18 +121,18 @@ fn test_create() {
 
     // trying to create again should error
     // TODO: it would be cool to make this
-    let result = client
-        .create(record.clone(), origin.clone())
-        .expect("create failed");
+    let result = client.create(record.clone(), origin.clone()).expect(
+        "create failed",
+    );
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
     let mut record = record.clone();
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
 
-    let result = client
-        .create(record.clone(), origin.clone())
-        .expect("create failed");
+    let result = client.create(record.clone(), origin.clone()).expect(
+        "create failed",
+    );
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 

@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 0.11.0
+## 0.11.0 (Unreleased)
 
 ### Added
 
@@ -14,7 +14,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Changed
 
-- *breaking* all `&mut self` methods on `Name` deprecated as unsafe, Name is now immutable.
+- *breaking* all `&mut self` methods on `Name` deprecated as unsafe, Name labels are now immutable.
 - *breaking* All `ClientHandle` traits now take `&Handle` instead of `Handle` (@rushmorem)
 - *warning* `Name` now tracks if it is a fully qualified domain name, slightly changes name parsing rules, allowing `www.example.com` without the trailing `.`, which means that FQDN names are not enforced.
 
@@ -24,8 +24,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - *deprecated* `Name::append` wasn't clean, see `Name::append_name`
 - *deprecated* `Name::add_label` exposed internal data structure, see `Name::append_label`
 - *deprecated* `Name::label` unclear usage/name, see `Name::append_label`
-- *deprecated* `Name::prepend_label` exposed internal data structure, unclear usage (no replacement)
-- *deprecated* `Record::add_name` unclear usage (no replacement)
+- *deprecated* `Name::prepend_label` exposed internal data structure, unclear usage *no replacement*
+- *deprecated* `Record::add_name` unclear usage *no replacement*
 
 ## 0.10.5
 

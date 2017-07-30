@@ -17,7 +17,8 @@ use trust_dns::rr::*;
 /// Spins up a Server and handles shutting it down after running the test
 #[allow(dead_code)]
 pub fn named_test_harness<F, R>(toml: &str, test: F)
-    where F: FnOnce(u16, u16) -> R + UnwindSafe
+where
+    F: FnOnce(u16, u16) -> R + UnwindSafe,
 {
     // find a random port to listen on
     let (test_port, test_tls_port) = {
@@ -80,9 +81,9 @@ pub fn named_test_harness<F, R>(toml: &str, test: F)
     let mut found = false;
     for _ in 0..1000 {
         output.clear();
-        named_out
-            .read_line(&mut output)
-            .expect("could not read stdout");
+        named_out.read_line(&mut output).expect(
+            "could not read stdout",
+        );
         if !output.is_empty() {
             stdout().write(b"SRV: ").unwrap();
             stdout().write(output.as_bytes()).unwrap();
@@ -104,9 +105,9 @@ pub fn named_test_harness<F, R>(toml: &str, test: F)
             let succeeded = succeeded_clone;
             while !succeeded.load(atomic::Ordering::Relaxed) {
                 output.clear();
-                named_out
-                    .read_line(&mut output)
-                    .expect("could not read stdout");
+                named_out.read_line(&mut output).expect(
+                    "could not read stdout",
+                );
                 if !output.is_empty() {
                     stdout().write(b"SRV: ").unwrap();
                     stdout().write(output.as_bytes()).unwrap();
@@ -130,9 +131,7 @@ pub fn named_test_harness<F, R>(toml: &str, test: F)
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
 #[allow(dead_code)]
 pub fn query(io_loop: &mut Core, client: &mut BasicClientHandle) -> bool {
-    let name = domain::Name::with_labels(vec!["www".to_string(),
-                                              "example".to_string(),
-                                              "com".to_string()]);
+    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
 
     println!("sending request");
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
