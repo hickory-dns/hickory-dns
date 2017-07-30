@@ -128,9 +128,7 @@ fn test_server_www_tls() {
     let subject_key_identifier = SubjectKeyIdentifier::new()
         .build(&x509_build.x509v3_context(None, None))
         .unwrap();
-    x509_build
-        .append_extension(subject_key_identifier)
-        .unwrap();
+    x509_build.append_extension(subject_key_identifier).unwrap();
 
     let authority_key_identifier = AuthorityKeyIdentifier::new()
         .keyid(true)
@@ -165,14 +163,16 @@ fn test_server_www_tls() {
 
     let server_thread = thread::Builder::new()
         .name("test_server:tls:server".to_string())
-        .spawn(move || server_thread_tls(tcp_listener, server_continue2, pkcs12_der))
+        .spawn(move || {
+            server_thread_tls(tcp_listener, server_continue2, pkcs12_der)
+        })
         .unwrap();
 
     let client_thread = thread::Builder::new()
         .name("test_server:tcp:client".to_string())
         .spawn(move || {
-                   client_thread_www(lazy_tls_client(ipaddr, subject_name.to_string(), cert_der))
-               })
+            client_thread_www(lazy_tls_client(ipaddr, subject_name.to_string(), cert_der))
+        })
         .unwrap();
 
     let client_result = client_thread.join();
@@ -190,10 +190,11 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
     TcpClientConnection::new(ipaddr).unwrap()
 }
 
-fn lazy_tls_client(ipaddr: SocketAddr,
-                   subject_name: String,
-                   cert_der: Vec<u8>)
-                   -> TlsClientConnection {
+fn lazy_tls_client(
+    ipaddr: SocketAddr,
+    subject_name: String,
+    cert_der: Vec<u8>,
+) -> TlsClientConnection {
     let mut builder = TlsClientConnection::builder();
 
     let trust_chain = X509::from_der(&cert_der).unwrap();
@@ -203,18 +204,21 @@ fn lazy_tls_client(ipaddr: SocketAddr,
 }
 
 fn client_thread_www<C: ClientConnection>(conn: C)
-    where C::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static
+where
+    C::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
-    let name = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+    let name = Name::from_labels(vec!["www", "example", "com"]);
     let client = SyncClient::new(conn);
 
-    let response = client
-        .query(&name, DNSClass::IN, RecordType::A)
-        .expect("error querying");
+    let response = client.query(&name, DNSClass::IN, RecordType::A).expect(
+        "error querying",
+    );
 
-    assert!(response.response_code() == ResponseCode::NoError,
-            "got an error: {:?}",
-            response.response_code());
+    assert!(
+        response.response_code() == ResponseCode::NoError,
+        "got an error: {:?}",
+        response.response_code()
+    );
 
     let record = &response.answers()[0];
     assert_eq!(record.name(), &name);
@@ -232,11 +236,15 @@ fn client_thread_www<C: ClientConnection>(conn: C)
 
     assert_eq!(ns.len(), 2);
     assert_eq!(ns.first().unwrap().rr_type(), RecordType::NS);
-    assert_eq!(ns.first().unwrap().rdata(),
-               &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()));
+    assert_eq!(
+        ns.first().unwrap().rdata(),
+        &RData::NS(Name::parse("a.iana-servers.net.", None).unwrap())
+    );
     assert_eq!(ns.last().unwrap().rr_type(), RecordType::NS);
-    assert_eq!(ns.last().unwrap().rdata(),
-               &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()));
+    assert_eq!(
+        ns.last().unwrap().rdata(),
+        &RData::NS(Name::parse("b.iana-servers.net.", None).unwrap())
+    );
 }
 
 fn new_catalog() -> Catalog {
@@ -271,9 +279,11 @@ fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>
     }
 }
 
-fn server_thread_tls(tls_listener: TcpListener,
-                     server_continue: Arc<AtomicBool>,
-                     pkcs12_der: Vec<u8>) {
+fn server_thread_tls(
+    tls_listener: TcpListener,
+    server_continue: Arc<AtomicBool>,
+    pkcs12_der: Vec<u8>,
+) {
     let catalog = new_catalog();
     let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
     let pkcs12 = Pkcs12::from_der(&pkcs12_der)

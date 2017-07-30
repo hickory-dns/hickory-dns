@@ -12,7 +12,8 @@ use trust_dns_server::authority::*;
 
 #[test]
 fn test_string() {
-    let lexer = Lexer::new("@   IN  SOA     venera      action\\.domains (
+    let lexer = Lexer::new(
+        "@   IN  SOA     venera      action\\.domains (
                                \
                             20     ; SERIAL
                                7200   ; REFRESH
@@ -50,9 +51,10 @@ _ldap._tcp.service SRV 1 2 3 short
 short 70 A      \
                             26.3.0.104
 venera  A       10.1.0.52
-      A       128.9.0.32");
+      A       128.9.0.32",
+    );
 
-    let records = Parser::new().parse(lexer, Some(Name::new().label("isi").label("edu")));
+    let records = Parser::new().parse(lexer, Some(Name::from_labels(vec!["isi", "edu"])));
     if records.is_err() {
         panic!("failed to parse: {:?}", records.err())
     }
@@ -65,16 +67,19 @@ venera  A       10.1.0.52
     // SOA
     let soa_record = authority.soa().unwrap();
     assert_eq!(RecordType::SOA, soa_record.rr_type());
-    assert_eq!(&Name::new().label("isi").label("edu"),
-               soa_record.name()); // i.e. the origin or domain
+    assert_eq!(&Name::from_labels(vec!["isi", "edu"]), soa_record.name()); // i.e. the origin or domain
     assert_eq!(3600000, soa_record.ttl());
     assert_eq!(DNSClass::IN, soa_record.dns_class());
     if let RData::SOA(ref soa) = *soa_record.rdata() {
         // this should all be lowercased
-        assert_eq!(&Name::new().label("venera").label("isi").label("edu"),
-                   soa.mname());
-        assert_eq!(&Name::new().label("action.domains").label("isi").label("edu"),
-                   soa.rname());
+        assert_eq!(
+            &Name::from_labels(vec!["venera", "isi", "edu"]),
+            soa.mname()
+        );
+        assert_eq!(
+            &Name::from_labels(vec!["action.domains", "isi", "edu"]),
+            soa.rname()
+        );
         assert_eq!(20, soa.serial());
         assert_eq!(7200, soa.refresh());
         assert_eq!(600, soa.retry());
@@ -85,23 +90,25 @@ venera  A       10.1.0.52
     }
 
     // NS
-    let mut ns_records: Vec<&Record> =
-        authority.lookup(&Name::with_labels(vec!["isi".into(), "edu".into()]),
-                         RecordType::NS,
-                         false,
-                         SupportedAlgorithms::new());
-    let mut compare = vec![// this is cool, zip up the expected results... works as long as the order is good.
-                           Name::new().label("a").label("isi").label("edu"),
-                           Name::new().label("venera").label("isi").label("edu"),
-                           Name::new().label("vaxa").label("isi").label("edu")];
+    let mut ns_records: Vec<&Record> = authority.lookup(
+        &Name::from_labels(vec!["isi", "edu"]),
+        RecordType::NS,
+        false,
+        SupportedAlgorithms::new(),
+    );
+    let mut compare = vec![
+        // this is cool, zip up the expected results... works as long as the order is good.
+        Name::from_labels(vec!["a", "isi", "edu"]),
+        Name::from_labels(vec!["venera", "isi", "edu"]),
+        Name::from_labels(vec!["vaxa", "isi", "edu"]),
+    ];
 
     compare.sort();
     ns_records.sort();
     let compare = ns_records.iter().zip(compare);
 
     for (record, ref name) in compare {
-        assert_eq!(&Name::with_labels(vec!["isi".into(), "edu".into()]),
-                   record.name());
+        assert_eq!(&Name::from_labels(vec!["isi", "edu"]), record.name());
         assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::NS, record.rr_type());
@@ -113,12 +120,16 @@ venera  A       10.1.0.52
     }
 
     // MX
-    let mut mx_records: Vec<&Record> = authority.lookup(&Name::new().label("isi").label("edu"),
-                                                        RecordType::MX,
-                                                        false,
-                                                        SupportedAlgorithms::new());
-    let mut compare = vec![(10, Name::new().label("venera").label("isi").label("edu")),
-                           (20, Name::new().label("vaxa").label("isi").label("edu"))];
+    let mut mx_records: Vec<&Record> = authority.lookup(
+        &Name::from_labels(vec!["isi", "edu"]),
+        RecordType::MX,
+        false,
+        SupportedAlgorithms::new(),
+    );
+    let mut compare = vec![
+        (10, Name::from_labels(vec!["venera", "isi", "edu"])),
+        (20, Name::from_labels(vec!["vaxa", "isi", "edu"])),
+    ];
 
     compare.sort();
     mx_records.sort();
@@ -126,7 +137,7 @@ venera  A       10.1.0.52
 
 
     for (record, (num, ref name)) in compare {
-        assert_eq!(&Name::new().label("isi").label("edu"), record.name());
+        assert_eq!(&Name::from_labels(vec!["isi", "edu"]), record.name());
         assert_eq!(60, record.ttl()); // TODO: should this be minimum or expire?
         assert_eq!(DNSClass::IN, record.dns_class());
         assert_eq!(RecordType::MX, record.rr_type());
@@ -139,15 +150,17 @@ venera  A       10.1.0.52
     }
 
     // A
-    let a_record: &Record = authority.lookup(&Name::new().label("a").label("isi").label("edu"),
-                RecordType::A,
-                false,
-                SupportedAlgorithms::new())
+    let a_record: &Record = authority
+        .lookup(
+            &Name::from_labels(vec!["a", "isi", "edu"]),
+            RecordType::A,
+            false,
+            SupportedAlgorithms::new(),
+        )
         .first()
         .cloned()
         .unwrap();
-    assert_eq!(&Name::new().label("a").label("isi").label("edu"),
-               a_record.name());
+    assert_eq!(&Name::from_labels(vec!["a", "isi", "edu"]), a_record.name());
     assert_eq!(60, a_record.ttl()); // TODO: should this be minimum or expire?
     assert_eq!(DNSClass::IN, a_record.dns_class());
     assert_eq!(RecordType::A, a_record.rr_type());
@@ -158,34 +171,44 @@ venera  A       10.1.0.52
     }
 
     // AAAA
-    let aaaa_record: &Record =
-        authority.lookup(&Name::new().label("aaaa").label("isi").label("edu"),
-                    RecordType::AAAA,
-                    false,
-                    SupportedAlgorithms::new())
-            .first()
-            .cloned()
-            .unwrap();
-    assert_eq!(&Name::new().label("aaaa").label("isi").label("edu"),
-               aaaa_record.name());
+    let aaaa_record: &Record = authority
+        .lookup(
+            &Name::from_labels(vec!["aaaa", "isi", "edu"]),
+            RecordType::AAAA,
+            false,
+            SupportedAlgorithms::new(),
+        )
+        .first()
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        &Name::from_labels(vec!["aaaa", "isi", "edu"]),
+        aaaa_record.name()
+    );
     if let RData::AAAA(ref address) = *aaaa_record.rdata() {
-        assert_eq!(&Ipv6Addr::from_str("4321:0:1:2:3:4:567:89ab").unwrap(),
-                   address);
+        assert_eq!(
+            &Ipv6Addr::from_str("4321:0:1:2:3:4:567:89ab").unwrap(),
+            address
+        );
     } else {
         panic!("Not a AAAA record!!!") // valid panic, test code
     }
 
     // SHORT
-    let short_record: &Record =
-        authority.lookup(&Name::new().label("short").label("isi").label("edu"),
-                    RecordType::A,
-                    false,
-                    SupportedAlgorithms::new())
-            .first()
-            .cloned()
-            .unwrap();
-    assert_eq!(&Name::new().label("short").label("isi").label("edu"),
-               short_record.name());
+    let short_record: &Record = authority
+        .lookup(
+            &Name::from_labels(vec!["short", "isi", "edu"]),
+            RecordType::A,
+            false,
+            SupportedAlgorithms::new(),
+        )
+        .first()
+        .cloned()
+        .unwrap();
+    assert_eq!(
+        &Name::from_labels(vec!["short", "isi", "edu"]),
+        short_record.name()
+    );
     assert_eq!(70, short_record.ttl());
     if let RData::A(ref address) = *short_record.rdata() {
         assert_eq!(&Ipv4Addr::new(26u8, 3u8, 0u8, 104u8), address);
@@ -194,23 +217,30 @@ venera  A       10.1.0.52
     }
 
     // TXT
-    let mut txt_records: Vec<&Record> =
-        authority.lookup(&Name::new().label("a").label("isi").label("edu"),
-                         RecordType::TXT,
-                         false,
-                         SupportedAlgorithms::new());
-    let compare = vec![vec!["I".to_string(),
-                            "am".to_string(),
-                            "a".to_string(),
-                            "txt".to_string(),
-                            "record".to_string()],
-                       vec!["I".to_string(),
-                            "am".to_string(),
-                            "another".to_string(),
-                            "txt".to_string(),
-                            "record".to_string()],
-                       vec!["key=val".to_string()],
-                       vec!["I am a different".to_string(), "txt record".to_string()]];
+    let mut txt_records: Vec<&Record> = authority.lookup(
+        &Name::from_labels(vec!["a", "isi", "edu"]),
+        RecordType::TXT,
+        false,
+        SupportedAlgorithms::new(),
+    );
+    let compare = vec![
+        vec![
+            "I".to_string(),
+            "am".to_string(),
+            "a".to_string(),
+            "txt".to_string(),
+            "record".to_string(),
+        ],
+        vec![
+            "I".to_string(),
+            "am".to_string(),
+            "another".to_string(),
+            "txt".to_string(),
+            "record".to_string(),
+        ],
+        vec!["key=val".to_string()],
+        vec!["I am a different".to_string(), "txt record".to_string()],
+    ];
 
     txt_records.sort();
 
@@ -229,35 +259,30 @@ venera  A       10.1.0.52
     }
 
     // PTR
-    let ptr_record: &Record = authority.lookup(&Name::new()
-                    .label("103")
-                    .label("0")
-                    .label("3")
-                    .label("26")
-                    .label("in-addr")
-                    .label("arpa"),
-                RecordType::PTR,
-                false,
-                SupportedAlgorithms::new())
+    let ptr_record: &Record = authority
+        .lookup(
+            &Name::from_labels(vec!["103", "0", "3", "26", "in-addr", "arpa"]),
+            RecordType::PTR,
+            false,
+            SupportedAlgorithms::new(),
+        )
         .first()
         .cloned()
         .unwrap();
     if let RData::PTR(ref ptrdname) = *ptr_record.rdata() {
-        assert_eq!(&Name::new().label("a").label("isi").label("edu"), ptrdname);
+        assert_eq!(&Name::from_labels(vec!["a", "isi", "edu"]), ptrdname);
     } else {
         panic!("Not a PTR record!!!") // valid panic, test code
     }
 
     // SRV
-    let srv_record: &Record = authority.lookup(&Name::new()
-                    .label("_ldap")
-                    .label("_tcp")
-                    .label("service")
-                    .label("isi")
-                    .label("edu"),
-                RecordType::SRV,
-                false,
-                SupportedAlgorithms::new())
+    let srv_record: &Record = authority
+        .lookup(
+            &Name::from_labels(vec!["_ldap", "_tcp", "service", "isi", "edu"]),
+            RecordType::SRV,
+            false,
+            SupportedAlgorithms::new(),
+        )
         .first()
         .cloned()
         .unwrap();
@@ -265,8 +290,10 @@ venera  A       10.1.0.52
         assert_eq!(rdata.priority(), 1);
         assert_eq!(rdata.weight(), 2);
         assert_eq!(rdata.port(), 3);
-        assert_eq!(rdata.target(),
-                   &Name::new().label("short").label("isi").label("edu"));
+        assert_eq!(
+            rdata.target(),
+            &Name::from_labels(vec!["short", "isi", "edu"])
+        );
     } else {
         panic!("Not an SRV record!!!") // valid panic, test code
     }

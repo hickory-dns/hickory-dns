@@ -50,11 +50,7 @@ fn test_query_udp_ipv4() {
     use tokio_core::reactor::Core;
 
     let mut io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
+    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
@@ -90,11 +86,7 @@ fn test_query_tcp_ipv4() {
     use tokio_core::reactor::Core;
 
     let mut io_loop = Core::new().unwrap();
-    let addr: SocketAddr = ("8.8.8.8", 53)
-        .to_socket_addrs()
-        .unwrap()
-        .next()
-        .unwrap();
+    let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
@@ -125,36 +117,38 @@ fn test_query_tcp_ipv6() {
 
 #[cfg(test)]
 fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = ()>> {
-    let name = domain::Name::with_labels(vec!["WWW".to_string(),
-                                              "example".to_string(),
-                                              "com".to_string()]);
+    let name = domain::Name::from_labels(vec!["WWW", "example", "com"]);
 
-    Box::new(client
-                 .query(name.clone(), DNSClass::IN, RecordType::A)
-                 .map(move |response| {
-        println!("response records: {:?}", response);
-        assert_eq!(response
-                       .queries()
-                       .first()
-                       .expect("expected query")
-                       .name()
-                       .cmp_with_case(&name, false),
-                   Ordering::Equal);
+    Box::new(
+        client
+            .query(name.clone(), DNSClass::IN, RecordType::A)
+            .map(move |response| {
+                println!("response records: {:?}", response);
+                assert_eq!(
+                    response
+                        .queries()
+                        .first()
+                        .expect("expected query")
+                        .name()
+                        .cmp_with_case(&name, false),
+                    Ordering::Equal
+                );
 
-        let record = &response.answers()[0];
-        assert_eq!(record.name(), &name);
-        assert_eq!(record.rr_type(), RecordType::A);
-        assert_eq!(record.dns_class(), DNSClass::IN);
+                let record = &response.answers()[0];
+                assert_eq!(record.name(), &name);
+                assert_eq!(record.rr_type(), RecordType::A);
+                assert_eq!(record.dns_class(), DNSClass::IN);
 
-        if let &RData::A(ref address) = record.rdata() {
-            assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
-        } else {
-            assert!(false);
-        }
-    })
-                 .map_err(|e| {
-                              assert!(false, "query failed: {}", e);
-                          }))
+                if let &RData::A(ref address) = record.rdata() {
+                    assert_eq!(address, &Ipv4Addr::new(93, 184, 216, 34))
+                } else {
+                    assert!(false);
+                }
+            })
+            .map_err(|e| {
+                assert!(false, "query failed: {}", e);
+            }),
+    )
 }
 
 #[test]
@@ -167,17 +161,21 @@ fn test_notify() {
     let (stream, sender) = TestClientStream::new(catalog);
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
-    let name = domain::Name::with_labels(vec!["ping".to_string(),
-                                              "example".to_string(),
-                                              "com".to_string()]);
+    let name = domain::Name::from_labels(vec!["ping", "example", "com"]);
 
-    let message =
-        io_loop.run(client.notify(name.clone(), DNSClass::IN, RecordType::A, None::<RecordSet>));
+    let message = io_loop.run(client.notify(
+        name.clone(),
+        DNSClass::IN,
+        RecordType::A,
+        None::<RecordSet>,
+    ));
     assert!(message.is_ok());
     let message = message.unwrap();
-    assert_eq!(message.response_code(),
-               ResponseCode::NotImp,
-               "the catalog must support Notify now, update this");
+    assert_eq!(
+        message.response_code(),
+        ResponseCode::NotImp,
+        "the catalog must support Notify now, update this"
+    );
 }
 
 // update tests
@@ -189,9 +187,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 
-    let trusted_name = domain::Name::with_labels(vec!["trusted".to_string(),
-                                                      "example".to_string(),
-                                                      "com".to_string()]);
+    let trusted_name = domain::Name::from_labels(vec!["trusted", "example", "com"]);
 
     let rsa = Rsa::generate(512).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
@@ -200,9 +196,11 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     let signer = Signer::sig0(sig0_key.clone(), key, trusted_name.clone());
 
     // insert the KEY for the trusted.example.com
-    let mut auth_key = Record::with(trusted_name,
-                                    RecordType::KEY,
-                                    Duration::minutes(5).num_seconds() as u32);
+    let mut auth_key = Record::with(
+        trusted_name,
+        RecordType::KEY,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     auth_key.set_rdata(RData::KEY(sig0_key));
     authority.upsert(auth_key, 0);
 
@@ -222,11 +220,11 @@ fn test_create() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // create a record
-    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(),
-                                                                 "example".to_string(),
-                                                                 "com".to_string()]),
-                                  RecordType::A,
-                                  Duration::minutes(5).num_seconds() as u32);
+    let mut record = Record::with(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
@@ -236,7 +234,11 @@ fn test_create() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            record.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -265,11 +267,11 @@ fn test_create_multi() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // create a record
-    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(),
-                                                                 "example".to_string(),
-                                                                 "com".to_string()]),
-                                  RecordType::A,
-                                  Duration::minutes(5).num_seconds() as u32);
+    let mut record = Record::with(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
@@ -286,7 +288,11 @@ fn test_create_multi() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            record.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -296,9 +302,9 @@ fn test_create_multi() {
 
     // trying to create again should error
     // TODO: it would be cool to make this
-    let result = io_loop
-        .run(client.create(rrset, origin.clone()))
-        .expect("create failed");
+    let result = io_loop.run(client.create(rrset, origin.clone())).expect(
+        "create failed",
+    );
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
@@ -317,11 +323,11 @@ fn test_append() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
-    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(),
-                                                                 "example".to_string(),
-                                                                 "com".to_string()]),
-                                  RecordType::A,
-                                  Duration::minutes(5).num_seconds() as u32);
+    let mut record = Record::with(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
@@ -339,7 +345,11 @@ fn test_append() {
 
     // verify record contents
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            record.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -356,7 +366,11 @@ fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            record.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -371,7 +385,11 @@ fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            record.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -383,11 +401,11 @@ fn test_append_multi() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
-    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(),
-                                                                 "example".to_string(),
-                                                                 "com".to_string()]),
-                                  RecordType::A,
-                                  Duration::minutes(5).num_seconds() as u32);
+    let mut record = Record::with(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
@@ -404,7 +422,11 @@ fn test_append_multi() {
 
     // verify record contents
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            record.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -426,7 +448,11 @@ fn test_append_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            record.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 3);
@@ -443,7 +469,11 @@ fn test_append_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            record.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 3);
@@ -459,11 +489,11 @@ fn test_compare_and_swap() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // create a record
-    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(),
-                                                                 "example".to_string(),
-                                                                 "com".to_string()]),
-                                  RecordType::A,
-                                  Duration::minutes(5).num_seconds() as u32);
+    let mut record = Record::with(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
@@ -478,12 +508,20 @@ fn test_compare_and_swap() {
     let new = new;
 
     let result = io_loop
-        .run(client.compare_and_swap(current.clone(), new.clone(), origin.clone()))
+        .run(client.compare_and_swap(
+            current.clone(),
+            new.clone(),
+            origin.clone(),
+        ))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(new.name().clone(), new.dns_class(), new.rr_type()))
+        .run(client.query(
+            new.name().clone(),
+            new.dns_class(),
+            new.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -496,12 +534,20 @@ fn test_compare_and_swap() {
     let not = not;
 
     let result = io_loop
-        .run(client.compare_and_swap(current, not.clone(), origin.clone()))
+        .run(client.compare_and_swap(
+            current,
+            not.clone(),
+            origin.clone(),
+        ))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
     let result = io_loop
-        .run(client.query(new.name().clone(), new.dns_class(), new.rr_type()))
+        .run(client.query(
+            new.name().clone(),
+            new.dns_class(),
+            new.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -519,11 +565,11 @@ fn test_compare_and_swap_multi() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // create a record
-    let mut current = RecordSet::with_ttl(domain::Name::with_labels(vec!["new".to_string(),
-                                                                         "example".to_string(),
-                                                                         "com".to_string()]),
-                                          RecordType::A,
-                                          Duration::minutes(5).num_seconds() as u32);
+    let mut current = RecordSet::with_ttl(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
 
     let current1 = current
         .new_record(RData::A(Ipv4Addr::new(100, 10, 100, 10)))
@@ -546,12 +592,20 @@ fn test_compare_and_swap_multi() {
     let new = new;
 
     let result = io_loop
-        .run(client.compare_and_swap(current.clone(), new.clone(), origin.clone()))
+        .run(client.compare_and_swap(
+            current.clone(),
+            new.clone(),
+            origin.clone(),
+        ))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(new.name().clone(), new.dns_class(), new.record_type()))
+        .run(client.query(
+            new.name().clone(),
+            new.dns_class(),
+            new.record_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -566,12 +620,20 @@ fn test_compare_and_swap_multi() {
     let not = not;
 
     let result = io_loop
-        .run(client.compare_and_swap(current, not.clone(), origin.clone()))
+        .run(client.compare_and_swap(
+            current,
+            not.clone(),
+            origin.clone(),
+        ))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
     let result = io_loop
-        .run(client.query(new.name().clone(), new.dns_class(), new.record_type()))
+        .run(client.query(
+            new.name().clone(),
+            new.dns_class(),
+            new.record_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -585,11 +647,11 @@ fn test_delete_by_rdata() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
-    let mut record1 = Record::with(domain::Name::with_labels(vec!["new".to_string(),
-                                                                  "example".to_string(),
-                                                                  "com".to_string()]),
-                                   RecordType::A,
-                                   Duration::minutes(5).num_seconds() as u32);
+    let mut record1 = Record::with(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     record1.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
@@ -618,9 +680,11 @@ fn test_delete_by_rdata() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(record1.name().clone(),
-                          record1.dns_class(),
-                          record1.rr_type()))
+        .run(client.query(
+            record1.name().clone(),
+            record1.dns_class(),
+            record1.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -633,11 +697,11 @@ fn test_delete_by_rdata_multi() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
-    let mut rrset = RecordSet::with_ttl(domain::Name::with_labels(vec!["new".to_string(),
-                                                                       "example".to_string(),
-                                                                       "com".to_string()]),
-                                        RecordType::A,
-                                        Duration::minutes(5).num_seconds() as u32);
+    let mut rrset = RecordSet::with_ttl(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
 
     let record1 = rrset
         .new_record(RData::A(Ipv4Addr::new(100, 10, 100, 10)))
@@ -666,11 +730,11 @@ fn test_delete_by_rdata_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     // append a record
-    let mut rrset = RecordSet::with_ttl(domain::Name::with_labels(vec!["new".to_string(),
-                                                                       "example".to_string(),
-                                                                       "com".to_string()]),
-                                        RecordType::A,
-                                        Duration::minutes(5).num_seconds() as u32);
+    let mut rrset = RecordSet::with_ttl(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
 
     let record1 = rrset.new_record(record1.rdata().clone()).clone();
     let record3 = rrset.new_record(record3.rdata().clone()).clone();
@@ -688,9 +752,11 @@ fn test_delete_by_rdata_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(record1.name().clone(),
-                          record1.dns_class(),
-                          record1.rr_type()))
+        .run(client.query(
+            record1.name().clone(),
+            record1.dns_class(),
+            record1.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -706,11 +772,11 @@ fn test_delete_rrset() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
-    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(),
-                                                                 "example".to_string(),
-                                                                 "com".to_string()]),
-                                  RecordType::A,
-                                  Duration::minutes(5).num_seconds() as u32);
+    let mut record = Record::with(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
@@ -739,7 +805,11 @@ fn test_delete_rrset() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            record.rr_type(),
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.answers().len(), 0);
@@ -751,16 +821,20 @@ fn test_delete_all() {
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
     // append a record
-    let mut record = Record::with(domain::Name::with_labels(vec!["new".to_string(),
-                                                                 "example".to_string(),
-                                                                 "com".to_string()]),
-                                  RecordType::A,
-                                  Duration::minutes(5).num_seconds() as u32);
+    let mut record = Record::with(
+        domain::Name::from_labels(vec!["new", "example", "com"]),
+        RecordType::A,
+        Duration::minutes(5).num_seconds() as u32,
+    );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
     // first check the must_exist option
     let result = io_loop
-        .run(client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN))
+        .run(client.delete_all(
+            record.name().clone(),
+            origin.clone(),
+            DNSClass::IN,
+        ))
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -780,27 +854,37 @@ fn test_delete_all() {
 
     // verify record contents
     let result = io_loop
-        .run(client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN))
+        .run(client.delete_all(
+            record.name().clone(),
+            origin.clone(),
+            DNSClass::IN,
+        ))
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), RecordType::A))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            RecordType::A,
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.answers().len(), 0);
 
     let result = io_loop
-        .run(client.query(record.name().clone(), record.dns_class(), RecordType::AAAA))
+        .run(client.query(
+            record.name().clone(),
+            record.dns_class(),
+            RecordType::AAAA,
+        ))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.answers().len(), 0);
 }
 
 fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
-    let name = domain::Name::with_labels(vec!["www".to_string(),
-                                              "example".to_string(),
-                                              "com".to_string()]);
+    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
 
     let err = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
@@ -828,11 +912,13 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
 fn test_timeout_query_nonet() {
     let io_loop = Core::new().unwrap();
     let (stream, sender) = NeverReturnsClientStream::new();
-    let client = ClientFuture::with_timeout(stream,
-                                            sender,
-                                            &io_loop.handle(),
-                                            std::time::Duration::from_millis(1),
-                                            None);
+    let client = ClientFuture::with_timeout(
+        stream,
+        sender,
+        &io_loop.handle(),
+        std::time::Duration::from_millis(1),
+        None,
+    );
     test_timeout_query(client, io_loop);
 }
 
@@ -847,11 +933,13 @@ fn test_timeout_query_udp() {
         .unwrap();
 
     let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
-    let client = ClientFuture::with_timeout(stream,
-                                            sender,
-                                            &io_loop.handle(),
-                                            std::time::Duration::from_millis(1),
-                                            None);
+    let client = ClientFuture::with_timeout(
+        stream,
+        sender,
+        &io_loop.handle(),
+        std::time::Duration::from_millis(1),
+        None,
+    );
     test_timeout_query(client, io_loop);
 }
 
@@ -867,10 +955,12 @@ fn test_timeout_query_tcp() {
 
     let (stream, sender) =
         TcpClientStream::with_timeout(addr, &io_loop.handle(), std::time::Duration::from_millis(1));
-    let client = ClientFuture::with_timeout(stream,
-                                            sender,
-                                            &io_loop.handle(),
-                                            std::time::Duration::from_millis(1),
-                                            None);
+    let client = ClientFuture::with_timeout(
+        stream,
+        sender,
+        &io_loop.handle(),
+        std::time::Duration::from_millis(1),
+        None,
+    );
     test_timeout_query(client, io_loop);
 }

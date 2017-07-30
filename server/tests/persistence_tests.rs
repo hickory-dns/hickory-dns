@@ -14,8 +14,10 @@ use trust_dns_server::authority::persistence::CURRENT_VERSION;
 #[test]
 fn test_new_journal() {
     let conn = Connection::open_in_memory().expect("could not create in memory DB");
-    assert_eq!(Journal::new(conn).expect("new Journal").schema_version(),
-               -1);
+    assert_eq!(
+        Journal::new(conn).expect("new Journal").schema_version(),
+        -1
+    );
 }
 
 #[test]
@@ -24,12 +26,14 @@ fn test_init_journal() {
     let mut journal = Journal::new(conn).unwrap();
     let version = journal.schema_up().unwrap();
     assert_eq!(version, CURRENT_VERSION);
-    assert_eq!(Journal::select_schema_version(journal.conn()).unwrap(),
-               CURRENT_VERSION);
+    assert_eq!(
+        Journal::select_schema_version(journal.conn()).unwrap(),
+        CURRENT_VERSION
+    );
 }
 
 fn create_test_journal() -> (Record, Journal) {
-    let www = Name::with_labels(vec!["www".to_string(), "example".to_string(), "com".to_string()]);
+    let www = Name::from_labels(vec!["www", "example", "com"]);
 
     let mut record = Record::new();
     record.set_name(www);
@@ -56,19 +60,25 @@ fn test_insert_and_select_record() {
     let (mut record, journal) = create_test_journal();
 
     // select the record
-    let (row_id, journal_record) =
-        journal.select_record(0).expect("persistence error").expect("none");
+    let (row_id, journal_record) = journal
+        .select_record(0)
+        .expect("persistence error")
+        .expect("none");
     record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.0.1").unwrap()));
     assert_eq!(journal_record, record);
 
     // test another
-    let (row_id, journal_record) =
-        journal.select_record(row_id + 1).expect("persistence error").expect("none");
+    let (row_id, journal_record) = journal
+        .select_record(row_id + 1)
+        .expect("persistence error")
+        .expect("none");
     record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.1.1").unwrap()));
     assert_eq!(journal_record, record);
 
     // check that we get nothing for id over row_id
-    let option_none = journal.select_record(row_id + 1).expect("persistence error");
+    let option_none = journal.select_record(row_id + 1).expect(
+        "persistence error",
+    );
     assert!(option_none.is_none());
 }
 
@@ -78,9 +88,13 @@ fn test_iterator() {
 
     let mut iter = journal.iter();
 
-    assert_eq!(record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.0.1").unwrap())),
-               &iter.next().unwrap());
-    assert_eq!(record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.1.1").unwrap())),
-               &iter.next().unwrap());
+    assert_eq!(
+        record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.0.1").unwrap())),
+        &iter.next().unwrap()
+    );
+    assert_eq!(
+        record.set_rdata(RData::A(Ipv4Addr::from_str("127.0.1.1").unwrap())),
+        &iter.next().unwrap()
+    );
     assert_eq!(None, iter.next());
 }
