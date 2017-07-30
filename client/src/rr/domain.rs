@@ -49,7 +49,6 @@ impl Name {
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
     pub fn root() -> Self {
         let mut this = Self::new();
-        // FIXME: what does FQDN mean in the context of appends/prepends?
         this.is_fqdn = true;
         this
     }
@@ -75,6 +74,8 @@ impl Name {
     /// If this is true, it has effects like only querying for this single name, as opposed to building
     ///  up a search list in resolvers.
     ///
+    /// *warning: this interface is unstable and may change in the future*
+    ///
     /// # Examples
     ///
     /// ```
@@ -95,11 +96,15 @@ impl Name {
     }
 
     /// Specifies this name is a fully qualified domain name
+    ///
+    /// *warning: this interface is unstable and may change in the future*
     pub fn set_fqdn(&mut self, val: bool) {
         self.is_fqdn = val
     }
 
     /// inline builder
+    ///
+    /// *see: `append_label` for replacement*
     #[deprecated]
     pub fn label(mut self, label: &'static str) -> Self {
         // TODO get_mut() on Arc was unstable when this was written
@@ -161,6 +166,10 @@ impl Name {
     }
 
     /// Prepends the label to this Name, returning a new name
+    ///
+    /// Carries forward is_fqdn from self.
+    ///
+    /// *no direct replacement, consider reordering prepends to conform with appends*
     #[deprecated]
     pub fn prepend_label(&self, label: Rc<String>) -> Self {
         let mut new_labels: Vec<Rc<String>> = Vec::with_capacity(self.labels.len() + 1);
@@ -178,6 +187,8 @@ impl Name {
     }
 
     /// appends the String to this label at the end
+    ///
+    /// *see: `append_label` for replacement*
     #[deprecated]
     pub fn add_label(&mut self, label: Rc<String>) -> &mut Self {
         // TODO get_mut() on Arc was unstable when this was written
@@ -187,6 +198,8 @@ impl Name {
     }
 
     /// appends the other to this name
+    ///
+    /// *see: `append_name` and `append_domain` for replacements*
     #[deprecated]
     #[allow(deprecated)]
     pub fn append(&mut self, other: &Self) -> &mut Self {
@@ -197,7 +210,9 @@ impl Name {
         self
     }
 
-    /// Appends other Name to self, returning a new Name
+    /// Appends `other` to `self`, returning a new `Name`
+    ///
+    /// Carries forward `is_fqdn` from `other`.
     ///
     /// # Examples
     ///
@@ -207,9 +222,18 @@ impl Name {
     ///
     /// let local = Name::from_str("www").unwrap();
     /// let domain = Name::from_str("example.com").unwrap();
-    /// let name = local.append_name(&domain);
+    /// assert!(!domain.is_fqdn());
+    ///
+    /// let name = local.clone().append_name(&domain);
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
-    /// assert!(!name.is_fqdn())
+    /// assert!(!name.is_fqdn());
+    ///
+    /// // see also `Name::append_domain`
+    /// let domain = Name::from_str("example.com.").unwrap();
+    /// assert!(domain.is_fqdn());
+    /// let name = local.append_name(&domain);
+    /// assert_eq!(name, Name::from_str("www.example.com.").unwrap());
+    /// assert!(name.is_fqdn());
     /// ```
     pub fn append_name(mut self, other: &Self) -> Self {
         self.labels.reserve_exact(other.labels.len());
@@ -217,10 +241,11 @@ impl Name {
             self.labels.push(label.clone());
         }
 
+        self.is_fqdn = other.is_fqdn;
         self
     }
 
-    /// Appends the domain name to this name, making the new name an FQDN
+    /// Appends the `domain` to `self`, making the new Name an FQDN
     ///
     /// This is an alias for append_name with the added effect of marking the new Name as
     ///  a fully-qualified-domain-name.
@@ -404,8 +429,7 @@ impl Name {
     pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {
         let mut name = Name::new();
         let mut label = String::new();
-        // split the local part
-
+        
         let mut state = ParseState::Label;
 
         // short cirtuit root parse
@@ -484,13 +508,6 @@ impl Name {
         if !label.is_empty() {
             name.labels.push(Rc::new(label));
         }
-
-        // TODO: this should be a real lexer, to varify all data is legal name...
-        // for s in local.split('.') {
-        //   if s.len() > 0 {
-        //     build.add_label(Rc::new(s.to_string().to_lowercase())); // all names stored in lowercase
-        //   }
-        // }
 
         if local.ends_with('.') {
             name.set_fqdn(true);
@@ -769,7 +786,6 @@ impl BinSerializable<Name> for Name {
     }
 }
 
-/// FIXME: this needs to escape characters in the labels.
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         for label in &*self.labels {

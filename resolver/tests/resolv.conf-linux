@@ -14,6 +14,6 @@ nameserver 8.8.4.4
 options rotate
 options inet6 no-tld-query
 
-# A basic option no supported
+# A basic option not supported
 sortlist 130.155.160.0/255.255.240.0 130.155.0.0
 
