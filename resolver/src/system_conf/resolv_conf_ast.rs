@@ -30,7 +30,7 @@ pub enum BasicOption<'input> {
     /// Search list for host-name lookup
     Search(Vec<Name>),
     /// Sort list for ordering ip addresses
-    SortList(&'input str),
+    SortList(Vec<&'input str>),
 }
 
 impl<'input> BasicOption<'input> {
