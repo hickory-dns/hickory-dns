@@ -73,9 +73,6 @@ pub struct InnerLookupIpFuture<C: ClientHandle + 'static> {
 
 impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
     pub(crate) fn lookup(mut names: Vec<Name>, strategy: LookupIpStrategy, client: &mut C) -> Self {
-        // FIXME: remove
-        println!("looking_up: {:?}", names);
-
         let name = names.pop().expect("can not lookup IPs for no names");
 
         let query = LookupIpState::lookup(name, strategy, client);
@@ -164,9 +161,6 @@ impl LookupIpState {
         strategy: LookupIpStrategy,
         client: &mut C,
     ) -> Self {
-        // FIXME: remove
-        println!("running new lookup: {}", name);
-
         let query_future = lookup(name, strategy, client);
 
         LookupIpState::Query(query_future)
