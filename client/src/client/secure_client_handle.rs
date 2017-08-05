@@ -345,6 +345,7 @@ impl Future for VerifyRrsetsFuture {
                 let answers = message_result
                     .take_answers()
                     .into_iter()
+                    .chain(message_result.take_additionals().into_iter())
                     .filter(|record| {
                         self.verified_rrsets.contains(&(
                             record.name().clone(),
