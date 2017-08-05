@@ -84,8 +84,8 @@ impl Resolver {
 
     /// Constructs a new Resolver with the system configuration.
     ///
-    /// This will read the systems `/etc/cresolv.conf`. Only Unix like OSes are currently supported.
-    #[cfg(unix)]
+    /// This will read the systems `/etc/cresolv.conf` on Unix OSes.
+    #[cfg(not(all(target_os = "windows", target_pointer_width = "32")))]
     pub fn from_system_conf() -> io::Result<Self> {
         let (config, options) = system_conf::read_system_conf()?;
         Self::new(config, options)
@@ -191,7 +191,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    #[cfg(unix)]
+    #[cfg(not(all(target_os = "windows", target_pointer_width = "32")))]
     fn test_system_lookup() {
         let resolver = Resolver::from_system_conf().unwrap();
 
