@@ -34,7 +34,7 @@
 //!
 //! ## Using the Synchronous Resolver
 //!
-//! This uses the default configuration. Currently this sets the google resolvers as the upstream resolvers.
+//! This uses the default configuration, which sets the [Google Public DNS](https://developers.google.com/speed/public-dns/) as the upstream resolvers. Please see their [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS.
 //!
 //! ```rust
 //! use std::net::*;
