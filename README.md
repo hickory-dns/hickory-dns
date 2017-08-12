@@ -19,7 +19,7 @@ This repo consists of multiple crates:
 
     Use to host DNS records, this also has a `named` binary for running in a daemon form.
 
-- Resolver [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) ![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)(https://docs.rs/trust-dns-resolver)
+- Resolver [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver)
 
     Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities.
 
