@@ -16,7 +16,7 @@ use std::slice::Iter;
 
 use futures::{Async, future, Future, Poll, task};
 
-use trust_dns::client::{ClientHandle, RetryClientHandle};
+use trust_dns::client::{ClientHandle, RetryClientHandle, SecureClientHandle};
 use trust_dns::error::ClientError;
 use trust_dns::op::Message;
 use trust_dns::rr::{DNSClass, Name, RData, RecordType};
@@ -60,9 +60,39 @@ impl<'a> Iterator for LookupIpIter<'a> {
     }
 }
 
-/// The Future returned from ResolverFuture when performing an A or AAAA lookup.
-pub type LookupIpFuture = InnerLookupIpFuture<RetryClientHandle<NameServerPool>>;
+/// Different lookup options for the lookup strategy
+#[derive(Clone)]
+#[doc(hidden)]
+pub enum LookupIpEither {
+    Retry(RetryClientHandle<NameServerPool>),
+    Secure(SecureClientHandle<RetryClientHandle<NameServerPool>>),
+}
 
+impl ClientHandle for LookupIpEither {
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        match *self {
+             LookupIpEither::Retry(ref mut c) => c.send(message),
+             LookupIpEither::Secure(ref mut c) => c.send(message),
+         }
+    }
+}
+
+// impl Future for LookupIpEither {
+//     type Item = LookupIp;
+//     type Error = io::Error;
+
+//     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+//         match self {
+//             LookupIpEither::Retry(f) => f.poll(),
+//             LookupIpEither::Secure(f) => f.poll(),
+//         }
+//     }
+// }
+
+/// The Future returned from ResolverFuture when performing an A or AAAA lookup.
+pub type LookupIpFuture = InnerLookupIpFuture<LookupIpEither>;
+
+#[doc(hidden)]
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
 pub struct InnerLookupIpFuture<C: ClientHandle + 'static> {
     client: C,

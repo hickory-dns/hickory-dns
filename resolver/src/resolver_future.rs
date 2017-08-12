@@ -10,12 +10,12 @@ use std::io;
 use std::str::FromStr;
 
 use tokio_core::reactor::Handle;
-use trust_dns::client::RetryClientHandle;
+use trust_dns::client::{RetryClientHandle, SecureClientHandle};
 use trust_dns::rr::Name;
 
 use config::{ResolverConfig, ResolverOpts};
 use name_server_pool::NameServerPool;
-use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
+use lookup_ip::{InnerLookupIpFuture, LookupIpEither, LookupIpFuture};
 use system_conf;
 
 /// A Resolver for DNS records.
@@ -58,7 +58,7 @@ impl ResolverFuture {
             Ok(name) => name,
             Err(err) => {
                 let client = RetryClientHandle::new(self.pool.clone(), self.options.attempts);
-                return InnerLookupIpFuture::error(client, err);
+                return InnerLookupIpFuture::error(LookupIpEither::Retry(client), err);
             }
         };
 
@@ -92,8 +92,15 @@ impl ResolverFuture {
 
         // TODO: consider removing this clone?
         // create the lookup
-        let mut client = RetryClientHandle::new(self.pool.clone(), self.options.attempts);
-        LookupIpFuture::lookup(names, self.options.ip_strategy, &mut client)
+        let mut either;
+        let client = RetryClientHandle::new(self.pool.clone(), self.options.attempts);
+        if self.options.validate {
+            either = LookupIpEither::Secure(SecureClientHandle::new(client));
+        } else {
+            either = LookupIpEither::Retry(client);
+        }
+
+        LookupIpFuture::lookup(names, self.options.ip_strategy, &mut either)
     }
 
     fn push_name(name: Name, names: &mut Vec<Name>) {
@@ -327,4 +334,10 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_dnssec() {}
+
+    #[test]
+    fn test_dnssec_fails() {}
 }
