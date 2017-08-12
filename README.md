@@ -11,23 +11,23 @@ ground up.
 
 This repo consists of multiple crates:
 
-- client [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns) ![trust-dns](https://docs.rs/trust-dns/badge.svg)
+- Client [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns) [![trust-dns](https://docs.rs/trust-dns/badge.svg)](https://docs.rs/trust-dns)
 
     Used for sending `query`, `update`, and `notify` messages direction to a DNS server.
 
-- server [![](http://meritbadge.herokuapp.com/trust-dns-server)](https://crates.io/crates/trust-dns-server) ![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)
+- Server [![](http://meritbadge.herokuapp.com/trust-dns-server)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server)
 
     Use to host DNS records, this also has a `named` binary for running in a daemon form.
 
-- resolver [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) ![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)
+- Resolver [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) ![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)(https://docs.rs/trust-dns-resolver)
 
     Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities.
 
-- rustls [![](http://meritbadge.herokuapp.com/trust_dns_rustls)](https://crates.io/crates/trust_dns_rustls) ![trust_dns_rustls](https://docs.rs/trust_dns_rustls/badge.svg)
+- Rustls [![](http://meritbadge.herokuapp.com/trust-dns-rustls)](https://crates.io/crates/trust_dns_rustls) [![trust-dns-rustls](https://docs.rs/trust-dns-rustls/badge.svg)](https://docs.rs/trust-dns-rustls)
 
     Implementation of DNS over TLS protocol using the rustls and ring libraries.
 
-- native_tls [![](http://meritbadge.herokuapp.com/trust_dns_native_tls)](https://crates.io/crates/trust_dns_native_tls) ![trust_dns_native_tls](https://docs.rs/trust_dns_native_tls/badge.svg)
+- NativeTls [![](http://meritbadge.herokuapp.com/trust-dns-native-tls)](https://crates.io/crates/trust_dns_native_tls) [![trust-dns-native-tls](https://docs.rs/trust-dns-native-tls/badge.svg)](https://docs.rs/trust-dns-native-tls)
 
     Implementation of DNS over TLS protocol using the Host OS' provided default TLS libraries
 
