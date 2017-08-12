@@ -1,7 +1,6 @@
 [![Build Status](https://travis-ci.org/bluejekyll/trust-dns.svg?branch=master)](https://travis-ci.org/bluejekyll/trust-dns)
 [![Build status](https://ci.appveyor.com/api/projects/status/tmlih8wdt7628vyl/branch/master?svg=true)](https://ci.appveyor.com/project/bluejekyll/trust-dns/branch/master)
 [![Coverage Status](https://coveralls.io/repos/github/bluejekyll/trust-dns/badge.svg?branch=master)](https://coveralls.io/github/bluejekyll/trust-dns?branch=master)
-[![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
 
@@ -10,7 +9,27 @@
 A Rust based DNS client and server, built to be safe and secure from the
 ground up.
 
-[API documentation](https://docs.rs/trust-dns)
+This repo consists of multiple crates:
+
+- client [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns) ![trust-dns](https://docs.rs/trust-dns/badge.svg)
+
+    Used for sending `query`, `update`, and `notify` messages direction to a DNS server.
+
+- server [![](http://meritbadge.herokuapp.com/trust-dns-server)](https://crates.io/crates/trust-dns-server) ![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)
+
+    Use to host DNS records, this also has a `named` binary for running in a daemon form.
+
+- resolver [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) ![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)
+
+    Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities.
+
+- rustls [![](http://meritbadge.herokuapp.com/trust_dns_rustls)](https://crates.io/crates/trust_dns_rustls) ![trust_dns_rustls](https://docs.rs/trust_dns_rustls/badge.svg)
+
+    Implementation of DNS over TLS protocol using the rustls and ring libraries.
+
+- native_tls [![](http://meritbadge.herokuapp.com/trust_dns_native_tls)](https://crates.io/crates/trust_dns_native_tls) ![trust_dns_native_tls](https://docs.rs/trust_dns_native_tls/badge.svg)
+
+    Implementation of DNS over TLS protocol using the Host OS' provided default TLS libraries
 
 # Goals
 
