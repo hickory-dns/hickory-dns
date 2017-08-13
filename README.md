@@ -11,25 +11,13 @@ ground up.
 
 This repo consists of multiple crates:
 
-- **Client** [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns) [![trust-dns](https://docs.rs/trust-dns/badge.svg)](https://docs.rs/trust-dns)
-
-    Used for sending `query`, `update`, and `notify` messages direct to a DNS server.
-
-- **Server** [![](http://meritbadge.herokuapp.com/trust-dns-server)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server)
-
-    Use to host DNS records, this also has a `named` binary for running in a daemon form.
-
-- **Resolver** [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver)
-
-    Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities.
-
-- **Rustls** [![](http://meritbadge.herokuapp.com/trust-dns-rustls)](https://crates.io/crates/trust_dns_rustls) [![trust-dns-rustls](https://docs.rs/trust-dns-rustls/badge.svg)](https://docs.rs/trust-dns-rustls)
-
-    Implementation of DNS over TLS protocol using the rustls and ring libraries.
-
-- **NativeTls** [![](http://meritbadge.herokuapp.com/trust-dns-native-tls)](https://crates.io/crates/trust_dns_native_tls) [![trust-dns-native-tls](https://docs.rs/trust-dns-native-tls/badge.svg)](https://docs.rs/trust-dns-native-tls)
-
-    Implementation of DNS over TLS protocol using the Host OS' provided default TLS libraries
+| Library | Status | Description |
+|---------|--------|-------------|
+| **Client** | [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns) [![trust-dns](https://docs.rs/trust-dns/badge.svg)](https://docs.rs/trust-dns) | Used for sending `query`, `update`, and `notify` messages directly to a DNS server. |
+| **Server** | [![](http://meritbadge.herokuapp.com/trust-dns-server)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) | Use to host DNS records, this also has a `named` binary for running in a daemon form. |
+| **Resolver** | [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) | Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
+| **Rustls** | [![](http://meritbadge.herokuapp.com/trust-dns-rustls)](https://crates.io/crates/trust_dns_rustls) [![trust-dns-rustls](https://docs.rs/trust-dns-rustls/badge.svg)](https://docs.rs/trust-dns-rustls) | Implementation of DNS over TLS protocol using the rustls and ring libraries. |
+| **NativeTls** | [![](http://meritbadge.herokuapp.com/trust-dns-native-tls)](https://crates.io/crates/trust_dns_native_tls) [![trust-dns-native-tls](https://docs.rs/trust-dns-native-tls/badge.svg)](https://docs.rs/trust-dns-native-tls) | Implementation of DNS over TLS protocol using the Host OS' provided default TLS libraries |
 
 # Goals
 
@@ -61,13 +49,16 @@ Using the ClientFuture is safe. ClientFuture is a brand new rewrite of the old
 These are standards supported by the DNS protocol. The client implements them
  as high level interfaces, which is a bit more rare.
 
-* [secure_query](https://docs.rs/trust-dns/0.8.1/trust_dns/client/struct.Client.html#method.secure_query) - DNSSec validation
-* [create](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.create) - atomic create of a record, with authenticated request
-* [append](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.append) - verify existence of a record and append to it
-* [compare_and_swap](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.compare_and_swap) - atomic (depends on server) compare and swap
-* [delete_by_rdata](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.delete_by_rdata) - delete a specific record
-* [delete_rrset](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.delete_rrset) - delete an entire record set
-* [delete_all](https://docs.rs/trust-dns/0.8.1/trust_dns/client/trait.ClientHandle.html#method.delete_all) - delete all records sets with a given name
+| Feature | Description |
+|---------|-------------|
+| [SecureSyncClient](https://docs.rs/trust-dns/0.11.0/trust_dns/client/struct.SecureSyncClient.html) | DNSSec validation |
+| [create](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.create) | atomic create of a record, with authenticated request |
+| [append](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.append) | verify existence of a record and append to it |
+| [compare_and_swap](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap |
+| [delete_by_rdata](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_by_rdata) | delete a specific record |
+| [delete_rrset](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_rrset) | delete an entire record set |
+| [delete_all](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_all) | delete all records sets with a given name |
+| [notify](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.notify) | notify server that it should reload a zone |
 
 ### DNS over TLS on the Client
 

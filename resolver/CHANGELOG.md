@@ -3,6 +3,10 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.4.0
+
+- Added support for DNSSec validation
+
 ## 0.3.0
 
 ### Added
