@@ -160,6 +160,67 @@ mod tests {
     }
 
     #[test]
+    fn test_sec_lookup() {
+        let mut io_loop = Core::new().unwrap();
+        let mut resolver = ResolverFuture::new(
+            ResolverConfig::default(),
+            ResolverOpts {
+                validate: true,
+                ..ResolverOpts::default()
+            },
+            &io_loop.handle(),
+        );
+
+        let response = io_loop.run(resolver.lookup_ip("www.example.com.")).expect(
+            "failed to run lookup",
+        );
+
+        assert_eq!(response.iter().count(), 2);
+        for address in response {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert_eq!(
+                    address,
+                    IpAddr::V6(Ipv6Addr::new(
+                        0x2606,
+                        0x2800,
+                        0x220,
+                        0x1,
+                        0x248,
+                        0x1893,
+                        0x25c8,
+                        0x1946,
+                    ))
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn test_sec_lookup_fails() {
+        let mut io_loop = Core::new().unwrap();
+        let mut resolver = ResolverFuture::new(
+            ResolverConfig::default(),
+            ResolverOpts {
+                validate: true,
+                ip_strategy: LookupIpStrategy::Ipv4Only,
+                ..ResolverOpts::default()
+            },
+            &io_loop.handle(),
+        );
+
+        // needs to be a domain that exists, but is not signed (eventually this will be)
+        let response = io_loop.run(resolver.lookup_ip("www.trust-dns.org."));
+
+        assert!(response.is_err());
+        let error = response.unwrap_err();
+
+        assert_eq!(error.kind(), io::ErrorKind::Other);
+        assert_eq!(format!("{}", error.into_inner().unwrap()), "ClientError: no RRSIGs available for validation: www.trust-dns.org., A");
+    }
+
+    #[test]
     #[ignore]
     fn test_system_lookup() {
         let mut io_loop = Core::new().unwrap();
