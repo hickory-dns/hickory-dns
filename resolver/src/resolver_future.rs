@@ -160,6 +160,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // these appear to not work on travis
     fn test_sec_lookup() {
         let mut io_loop = Core::new().unwrap();
         let mut resolver = ResolverFuture::new(
@@ -198,6 +199,7 @@ mod tests {
     }
 
     #[test]
+    #[ignore] // these appear to not work on travis
     fn test_sec_lookup_fails() {
         let mut io_loop = Core::new().unwrap();
         let mut resolver = ResolverFuture::new(
@@ -217,7 +219,10 @@ mod tests {
         let error = response.unwrap_err();
 
         assert_eq!(error.kind(), io::ErrorKind::Other);
-        assert_eq!(format!("{}", error.into_inner().unwrap()), "ClientError: no RRSIGs available for validation: www.trust-dns.org., A");
+        assert_eq!(
+            format!("{}", error.into_inner().unwrap()),
+            "ClientError: no RRSIGs available for validation: www.trust-dns.org., A"
+        );
     }
 
     #[test]
