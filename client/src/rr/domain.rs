@@ -66,7 +66,7 @@ impl Name {
     /// assert_eq!(&root.to_string(), ".");
     /// ```
     pub fn is_root(&self) -> bool {
-        self.labels.is_empty()
+        self.labels.is_empty() && self.is_fqdn()
     }
 
     /// Returns true if the name is a fully qualified domain name.
@@ -154,7 +154,7 @@ impl Name {
     pub fn from_labels<S: Into<String>>(labels: Vec<S>) -> Self {
         assert!(labels.len() < 256); // this should be an error
         Name {
-            is_fqdn: false,
+            is_fqdn: true,
             labels: labels.into_iter().map(|s| Rc::new(s.into())).collect(),
         }
     }
@@ -306,10 +306,9 @@ impl Name {
     pub fn base_name(&self) -> Name {
         let length = self.labels.len();
         if length > 0 {
-            self.trim_to(length - 1)
-        } else {
-            Self::root()
+            return self.trim_to(length - 1);
         }
+        self.clone()
     }
 
     /// Trims to the number of labels specified
@@ -1142,9 +1141,9 @@ mod tests {
         assert!(Name::root().is_fqdn());
         assert!(Name::from_str(".").unwrap().is_fqdn());
         assert!(Name::from_str("www.example.com.").unwrap().is_fqdn());
+        assert!(Name::from_labels(vec!["www", "example", "com"]).is_fqdn());
 
         assert!(!Name::new().is_fqdn());
-        assert!(!Name::from_labels(vec!["www", "example", "com"]).is_fqdn());
         assert!(!Name::from_str("www.example.com").unwrap().is_fqdn());
         assert!(!Name::from_str("www.example").unwrap().is_fqdn());
         assert!(!Name::from_str("www").unwrap().is_fqdn());
