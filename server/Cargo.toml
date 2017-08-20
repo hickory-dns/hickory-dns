@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-server"
-version = "0.10.7"
+version = "0.10.8"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -22,7 +22,7 @@ repository = "https://github.com/bluejekyll/trust-dns"
 
 # This points to a file in the repository (relative to this Cargo.toml). The
 # contents of this file are stored and indexed in the registry.
-readme = "../README.md"
+readme = "README.md"
 
 # This is a small list of keywords used to categorize and search for this
 # package.
