@@ -2,22 +2,20 @@
 
 TRust-DNS is a library which implements the DNS protocol and client side functions.
 
-This library contains basic implementations for DNS record serialization, and communication. It is capable of performing `query`, `update`, and `notify` operations. For `update` is has been proven to be compatible with `BIND9` and `SIG0` signed records for updates. It is built on top of the [tokio](https://tokio.rs) async-io project, this allows it to be integrated into other systems using the tokio and futures libraries. The TRust-DNS [project](https://github.com/bluejekyll/trust-dns) contains other libraries for DNS: a [resolver library](https://crates.io/crates/trust-dns-resolver) for lookups, a [server library](https://crates.io/crates/trust-dns-server) for hosting zones, and variations on the TLS implementation over [rustls](https://crates.io/crates/trust-dns-rustls) and [native-tls](https://crates.io/crates/trust-dns-native-tls).
+This library contains basic implementations for DNS record serialization, and communication. It is capable of performing `query`, `update`, and `notify` operations. `update` has been proven to be compatible with `BIND9` and `SIG0` signed records for updates. It is built on top of the [tokio](https://tokio.rs) async-io project, this allows it to be integrated into other systems using the tokio and futures libraries. The TRust-DNS [project](https://github.com/bluejekyll/trust-dns) contains other libraries for DNS: a [resolver library](https://crates.io/crates/trust-dns-resolver) for lookups, a [server library](https://crates.io/crates/trust-dns-server) for hosting zones, and variations on the TLS implementation over [rustls](https://crates.io/crates/trust-dns-rustls) and [native-tls](https://crates.io/crates/trust-dns-native-tls).
 
 ## Features
 
 The `client` is capable of DNSSec validation as well as offering higher order functions for performing DNS operations:
 
-| Feature | Description |
-|---------|-------------|
-| [SecureSyncClient](https://docs.rs/trust-dns/0.11.0/trust_dns/client/struct.SecureSyncClient.html) | DNSSec validation |
-| [create](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.create) | atomic create of a record, with authenticated request |
-| [append](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.append) | verify existence of a record and append to it |
-| [compare_and_swap](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.compare_and_swap) | atomic (depends on server) compare and swap |
-| [delete_by_rdata](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_by_rdata) | delete a specific record |
-| [delete_rrset](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_rrset) | delete an entire record set |
-| [delete_all](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_all) | delete all records sets with a given name |
-| [notify](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.notify) | notify server that it should reload a zone |
+- [SecureSyncClient](https://docs.rs/trust-dns/0.11.0/trust_dns/client/struct.SecureSyncClient.html) - DNSSec validation
+- [create](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.create) - atomic create of a record, with authenticated request
+- [append](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.append) - verify existence of a record and append to it
+- [compare_and_swap](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.compare_and_swap) - atomic (depends on server) compare and swap
+- [delete_by_rdata](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_by_rdata) - delete a specific record
+- [delete_rrset](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_rrset) - delete an entire record set
+- [delete_all](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.delete_all) - delete all records sets with a given name
+- [notify](https://docs.rs/trust-dns/0.11.0/trust_dns/client/trait.Client.html#method.notify) - notify server that it should reload a zone
 
 ## Example
 
