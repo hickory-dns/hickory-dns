@@ -3,6 +3,16 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.11.1
+
+### Changed
+
+- Updates to `Name::is_fqdn` for more accuracy (@rushmorem)
+
+### Added
+
+- per project Readme.md for crates.io
+
 ## 0.11.0
 
 ### Added
