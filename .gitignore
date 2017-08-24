@@ -1,5 +1,7 @@
 .vscode/
 
+*.swp
+
 # Compiled files
 *.o
 *.so
