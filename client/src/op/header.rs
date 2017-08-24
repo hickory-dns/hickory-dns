@@ -416,20 +416,20 @@ impl BinSerializable<Header> for Header {
         // TODO: question, should this use the builder pattern instead? might be cleaner code, but
         //  this guarantees that the Header is fully instantiated with all values...
         Ok(Header {
-               id: id,
-               message_type: message_type,
-               op_code: op_code,
-               authoritative: authoritative,
-               truncation: truncation,
-               recursion_desired: recursion_desired,
-               recursion_available: recursion_available,
-               authentic_data: authentic_data,
-               checking_disabled: checking_disabled,
-               response_code: response_code,
-               query_count: query_count,
-               answer_count: answer_count,
-               name_server_count: name_server_count,
-               additional_count: additional_count,
+               id,
+               message_type,
+               op_code,
+               authoritative,
+               truncation,
+               recursion_desired,
+               recursion_available,
+               authentic_data,
+               checking_disabled,
+               response_code,
+               query_count,
+               answer_count,
+               name_server_count,
+               additional_count,
            })
     }
 
