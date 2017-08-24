@@ -391,22 +391,22 @@ impl BinSerializable<Header> for Header {
 
         let q_opcd_a_t_r = try!(decoder.pop());
         // if the first bit is set
-        let message_type = if (0x80 & q_opcd_a_t_r) == 0x80 {
+        let message_type = if (0b1000_0000 & q_opcd_a_t_r) == 0b1000_0000 {
             MessageType::Response
         } else {
             MessageType::Query
         };
         // the 4bit opcode, masked and then shifted right 3bits for the u8...
-        let op_code: OpCode = try!(OpCode::from_u8((0x78 & q_opcd_a_t_r) >> 3));
-        let authoritative = (0x4 & q_opcd_a_t_r) == 0x4;
-        let truncation = (0x2 & q_opcd_a_t_r) == 0x2;
-        let recursion_desired = (0x1 & q_opcd_a_t_r) == 0x1;
+        let op_code: OpCode = try!(OpCode::from_u8((0b0111_1000 & q_opcd_a_t_r) >> 3));
+        let authoritative = (0b0000_0100 & q_opcd_a_t_r) == 0b0000_0100;
+        let truncation = (0b0000_0010 & q_opcd_a_t_r) == 0b0000_0010;
+        let recursion_desired = (0b0000_0001 & q_opcd_a_t_r) == 0b0000_0001;
 
         let r_z_ad_cd_rcod = try!(decoder.pop()); // fail fast...
         let recursion_available = (0b1000_0000 & r_z_ad_cd_rcod) == 0b1000_0000;
         let authentic_data = (0b0010_0000 & r_z_ad_cd_rcod) == 0b0010_0000;
         let checking_disabled = (0b0001_0000 & r_z_ad_cd_rcod) == 0b0001_0000;
-        let response_code: u8 = 0x0F & r_z_ad_cd_rcod;
+        let response_code: u8 = 0b0000_1111 & r_z_ad_cd_rcod;
 
         let query_count = try!(decoder.read_u16());
         let answer_count = try!(decoder.read_u16());
