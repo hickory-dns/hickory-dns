@@ -88,13 +88,13 @@ mod tests {
         println!("response records: {:?}", response);
 
         assert_eq!(response.iter().count(), 2);
-        for address in response {
+        for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, &IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
                     address,
-                    IpAddr::V6(Ipv6Addr::new(
+                    &IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
                         0x220,
@@ -118,13 +118,13 @@ mod tests {
         println!("response records: {:?}", response);
 
         assert_eq!(response.iter().count(), 2);
-        for address in response {
+        for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, &IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
                     address,
-                    IpAddr::V6(Ipv6Addr::new(
+                    &IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
                         0x220,
