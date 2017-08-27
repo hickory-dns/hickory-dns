@@ -8,12 +8,14 @@
 //! Structs for creating and using a ResolverFuture
 use std::io;
 use std::str::FromStr;
+use std::sync::{Arc, Mutex};
 
 use tokio_core::reactor::Handle;
 use trust_dns::client::{RetryClientHandle, SecureClientHandle};
 use trust_dns::rr::Name;
 
 use config::{ResolverConfig, ResolverOpts};
+use lru::DnsLru;
 use name_server_pool::NameServerPool;
 use lookup_ip::{InnerLookupIpFuture, LookupIpEither, LookupIpFuture};
 use system_conf;
@@ -23,16 +25,19 @@ pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
     pool: NameServerPool,
+    lru: Arc<Mutex<DnsLru>>,
 }
 
 impl ResolverFuture {
     /// Construct a new ResolverFuture with the associated Client.
     pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
         let pool = NameServerPool::from_config(&config, &options, reactor);
+        // FIXME: how to specify cache? optional? or just size?
         ResolverFuture {
             config,
             options,
             pool,
+            lru: Arc::new(Mutex::new(DnsLru::new(10)))
         }
     }
 
@@ -100,7 +105,8 @@ impl ResolverFuture {
             either = LookupIpEither::Retry(client);
         }
 
-        LookupIpFuture::lookup(names, self.options.ip_strategy, &mut either)
+        // FIXME: change this Client in signature to own client
+        LookupIpFuture::lookup(names, self.options.ip_strategy, &mut either, Some(self.lru.clone()))
     }
 
     fn push_name(name: Name, names: &mut Vec<Name>) {
@@ -138,12 +144,12 @@ mod tests {
         );
 
         assert_eq!(response.iter().count(), 2);
-        for address in response {
+        for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
-                    address,
+                    *address,
                     IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
@@ -177,12 +183,12 @@ mod tests {
         );
 
         assert_eq!(response.iter().count(), 2);
-        for address in response {
+        for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
-                    address,
+                    *address,
                     IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
@@ -236,12 +242,12 @@ mod tests {
         );
 
         assert_eq!(response.iter().count(), 2);
-        for address in response {
+        for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
-                    address,
+                    *address,
                     IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
@@ -282,9 +288,9 @@ mod tests {
         );
 
         assert_eq!(response.iter().count(), 1);
-        for address in response {
+        for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert!(false, "should only be looking up IPv4");
             }
@@ -319,9 +325,9 @@ mod tests {
         );
 
         assert_eq!(response.iter().count(), 1);
-        for address in response {
+        for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert!(false, "should only be looking up IPv4");
             }
@@ -355,9 +361,9 @@ mod tests {
         );
 
         assert_eq!(response.iter().count(), 1);
-        for address in response {
+        for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert!(false, "should only be looking up IPv4");
             }
@@ -392,9 +398,9 @@ mod tests {
         );
 
         assert_eq!(response.iter().count(), 1);
-        for address in response {
+        for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert!(false, "should only be looking up IPv4");
             }

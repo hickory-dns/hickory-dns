@@ -50,11 +50,11 @@
 //!
 //! // There can be many addresses associated with the name,
 //! //  this can return IPv4 and/or IPv6 addresses
-//! let address = response.next().expect("no addresses returned!");
+//! let address = response.iter().next().expect("no addresses returned!");
 //! if address.is_ipv4() {
-//!     assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+//!     assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
 //! } else {
-//!     assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
+//!     assert_eq!(*address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
 //! }
 //! ```
 //!
@@ -102,11 +102,11 @@
 //!
 //! // There can be many addresses associated with the name,
 //! //  this can return IPv4 and/or IPv6 addresses
-//! let address = response.next().expect("no addresses returned!");
+//! let address = response.iter().next().expect("no addresses returned!");
 //! if address.is_ipv4() {
-//!     assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+//!     assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
 //! } else {
-//!     assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
+//!     assert_eq!(*address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
 //! }
 //! # }
 //! ```
@@ -129,11 +129,13 @@ extern crate futures;
 extern crate lalrpop_util;
 #[macro_use]
 extern crate log;
+extern crate lru_cache;
 extern crate tokio_core;
 extern crate trust_dns;
 
 pub mod config;
 pub mod lookup_ip;
+mod lru;
 mod name_server_pool;
 mod resolver;
 pub mod system_conf;

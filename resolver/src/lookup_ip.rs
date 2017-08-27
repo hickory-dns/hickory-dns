@@ -13,6 +13,8 @@ use std::io;
 use std::mem;
 use std::net::IpAddr;
 use std::slice::Iter;
+use std::sync::{Arc, Mutex, TryLockError};
+use std::time::Instant;
 
 use futures::{Async, future, Future, Poll, task};
 
@@ -22,30 +24,25 @@ use trust_dns::op::Message;
 use trust_dns::rr::{DNSClass, Name, RData, RecordType};
 
 use config::LookupIpStrategy;
+use lru::DnsLru;
 use name_server_pool::NameServerPool;
 
 /// Result of a DNS query when querying for A or AAAA records.
-#[derive(Debug)]
+///
+/// When resolving IP records, there can be many IPs that match a given name. A consumer of this should expect that there are more than a single address potentially returned. Generally there are multiple IPs stored for a given service in DNS so that there is a form of high availability offered for a given name. The service implementation is resposible for the seymantics around which IP should be used and when, but in general if a connection fails to one, the next in the list should be attempted.
+#[derive(Debug, Clone)]
 pub struct LookupIp {
-    ips: Vec<IpAddr>,
+    ips: Arc<Vec<IpAddr>>,
 }
 
 impl LookupIp {
-    fn new(ips: Vec<IpAddr>) -> Self {
+    pub(crate) fn new(ips: Arc<Vec<IpAddr>>) -> Self {
         LookupIp { ips }
     }
 
     /// Returns a borrowed iterator of the returned IPs
     pub fn iter(&self) -> LookupIpIter {
         LookupIpIter(self.ips.iter())
-    }
-}
-
-impl Iterator for LookupIp {
-    type Item = IpAddr;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        self.ips.pop()
     }
 }
 
@@ -71,9 +68,9 @@ pub enum LookupIpEither {
 impl ClientHandle for LookupIpEither {
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         match *self {
-             LookupIpEither::Retry(ref mut c) => c.send(message),
-             LookupIpEither::Secure(ref mut c) => c.send(message),
-         }
+            LookupIpEither::Retry(ref mut c) => c.send(message),
+            LookupIpEither::Secure(ref mut c) => c.send(message),
+        }
     }
 }
 
@@ -99,28 +96,45 @@ pub struct InnerLookupIpFuture<C: ClientHandle + 'static> {
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     future: Box<Future<Item = LookupIp, Error = io::Error>>,
+    // TODO: zero lock datastructure instead?
+    cache: Option<Arc<Mutex<DnsLru>>>,
 }
 
 impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
-    pub(crate) fn lookup(mut names: Vec<Name>, strategy: LookupIpStrategy, client: &mut C) -> Self {
+    /// Perform a lookup from a hostname to a set of IPs
+    ///
+    /// # Arguments
+    ///
+    /// * `names` - a set of DNS names to attempt to resolve, they will be attempted in queue order, i.e. the first is `names.pop()`. Upon each failure, the next will be attempted.
+    /// * `strategy` - the lookup IP strategy to use
+    /// * `client` - connection to use for performing all lookups
+    /// * `cache` - an optional cache from which to attempt to load records prior to lookup
+    pub(crate) fn lookup(
+        mut names: Vec<Name>,
+        strategy: LookupIpStrategy,
+        client: &mut C,
+        cache: Option<Arc<Mutex<DnsLru>>>,
+    ) -> Self {
         let name = names.pop().expect("can not lookup IPs for no names");
 
-        let query = LookupIpState::lookup(name, strategy, client);
+        let query = LookupIpState::lookup(name, strategy, client, cache.clone());
         InnerLookupIpFuture {
             client: client.clone(),
             names,
             strategy,
             future: Box::new(query),
+            cache,
         }
     }
 
-    fn new_lookup<F: FnOnce() -> Poll<LookupIp, io::Error>>(
+    fn next_lookup<F: FnOnce() -> Poll<LookupIp, io::Error>>(
         &mut self,
         otherwise: F,
     ) -> Poll<LookupIp, io::Error> {
         let name = self.names.pop();
         if let Some(name) = name {
-            let query = LookupIpState::lookup(name, self.strategy, &mut self.client);
+            let query =
+                LookupIpState::lookup(name, self.strategy, &mut self.client, self.cache.clone());
 
             mem::replace(&mut self.future, Box::new(query));
             // guarantee that we get scheduled for the next turn...
@@ -140,6 +154,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
             future: Box::new(future::err(
                 io::Error::new(io::ErrorKind::Other, format!("{}", error)),
             )),
+            cache: None,
         };
     }
 }
@@ -152,14 +167,14 @@ impl<C: ClientHandle + 'static> Future for InnerLookupIpFuture<C> {
         match self.future.poll() {
             Ok(Async::Ready(lookup_ip)) => {
                 if lookup_ip.ips.len() == 0 {
-                    return self.new_lookup(|| Ok(Async::Ready(lookup_ip)));
+                    return self.next_lookup(|| Ok(Async::Ready(lookup_ip)));
                 } else {
                     return Ok(Async::Ready(lookup_ip));
                 }
             }
             p @ Ok(Async::NotReady) => p,
             e @ Err(_) => {
-                return self.new_lookup(|| e);
+                return self.next_lookup(|| e);
             }
         }
     }
@@ -180,35 +195,96 @@ impl<C: ClientHandle + 'static> Future for InnerLookupIpFuture<C> {
 //     }
 // }
 
-enum LookupIpState {
-    Query(Box<Future<Item = Vec<IpAddr>, Error = ClientError>>),
-    Fin(Vec<IpAddr>),
+struct FromCache {
+    name: Name,
+    strategy: LookupIpStrategy,
+    cache: Arc<Mutex<DnsLru>>,
 }
 
-impl LookupIpState {
-    pub fn lookup<C: ClientHandle + 'static>(
+impl Future for FromCache {
+    type Item = Option<LookupIp>;
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        // first transition any polling that is needed (mutable refs...)
+        match self.cache.try_lock() {
+            Err(TryLockError::WouldBlock) => {
+                task::current().notify(); // yield
+                return Ok(Async::NotReady);
+            }
+            // TODO: need to figure out a way to recover from this.
+            // It requires unwrapping the poisoned error and recreating the Mutex at a higher layer...
+            Err(TryLockError::Poisoned(poison)) => Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("poisoned: {}", poison),
+            )),
+            Ok(mut lru) => {
+                return Ok(Async::Ready(lru.get_mut(&self.name, Instant::now())));
+            }
+        }
+    }
+}
+
+
+enum LookupIpState<C: ClientHandle + 'static> {
+    /// In the FromCache state we evaluate cache entries for any results
+    FromCache(FromCache, C),
+    /// In the query state there is an active query that's been started, see Self::lookup()
+    Query(Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>>),
+    /// In the Store state we put a result into the cache
+    // Store{ query: Query, ttl: u32, rdata: RData },
+    /// In the Fin state, there is a result that has been acquired
+    Fin(LookupIp),
+    Error,
+}
+
+impl<C: ClientHandle + 'static> LookupIpState<C> {
+    pub(crate) fn lookup(
         name: Name,
         strategy: LookupIpStrategy,
         client: &mut C,
-    ) -> Self {
-        let query_future = lookup(name, strategy, client);
-
-        LookupIpState::Query(query_future)
+        cache: Option<Arc<Mutex<DnsLru>>>,
+    ) -> LookupIpState<C> {
+        if let Some(cache) = cache {
+            LookupIpState::FromCache(
+                FromCache {
+                    name,
+                    strategy,
+                    cache,
+                },
+                client.clone(),
+            )
+        } else {
+            let query_future = strategic_lookup(name, strategy, client);
+            LookupIpState::Query(query_future)
+        }
     }
 
-    fn transition_query(&mut self, ips: Vec<IpAddr>) {
-        assert!(if let LookupIpState::Query(_) = *self {
-            true
-        } else {
-            false
-        });
+    /// Query after a failed cache lookup
+    ///
+    /// # Panics
+    ///
+    /// This will panic if the current state is not FromCache.
+    fn query_after_cache(&mut self) {
+        let from_cache_state = mem::replace(self, LookupIpState::Error);
 
-        // transition
+        // TODO: with specialization, could we define a custom query only on the FromCache type?
+        match from_cache_state {
+            LookupIpState::FromCache(from_cache, mut client) => {
+                let query_future =
+                    strategic_lookup(from_cache.name, from_cache.strategy, &mut client);
+                mem::replace(self, LookupIpState::Query(query_future));
+            }
+            _ => panic!("bad state, expected FromCache"),
+        }
+    }
+
+    fn finalize(&mut self, ips: LookupIp) {
         mem::replace(self, LookupIpState::Fin(ips));
     }
 }
 
-impl Future for LookupIpState {
+impl<C: ClientHandle + 'static> Future for LookupIpState<C> {
     type Item = LookupIp;
     type Error = io::Error;
 
@@ -216,6 +292,20 @@ impl Future for LookupIpState {
         // first transition any polling that is needed (mutable refs...)
         let poll;
         match *self {
+            LookupIpState::FromCache(ref mut from_cache, ..) => {
+                // all of these returns will require a yield
+                task::current().notify(); // yield
+
+                match from_cache.poll() {
+                    // need to query since it wasn't in the cache
+                    Ok(Async::Ready(None)) => (), // handled below
+                    Ok(Async::Ready(Some(ips))) => return Ok(Async::Ready(ips)),
+                    Ok(Async::NotReady) => return Ok(Async::NotReady),
+                    Err(error) => return Err(error),
+                };
+
+                poll = Ok(Async::NotReady);
+            }
             LookupIpState::Query(ref mut query) => {
                 poll = query.poll().map_err(|e| e.into());
                 match poll {
@@ -229,33 +319,42 @@ impl Future for LookupIpState {
                 }
             }
             LookupIpState::Fin(ref mut ips) => {
-                let ips = mem::replace(ips, Vec::<IpAddr>::new());
-                let ips = LookupIp::new(ips);
+                let ips = mem::replace(ips, LookupIp::new(Arc::new(Vec::<IpAddr>::new())));
                 return Ok(Async::Ready(ips));
             }
+            LookupIpState::Error => panic!("invalid error state"),
         }
 
         // getting here means there are Aync::Ready available.
+        // FIXME: try moving this upstairs
         match *self {
+            LookupIpState::FromCache(..) => self.query_after_cache(),
             LookupIpState::Query(_) => {
                 match poll {
-                    Ok(Async::Ready(ips)) => self.transition_query(ips),
+                    Ok(Async::Ready(ips)) => {
+                        let ips = ips.into_iter().map(|(ip, _)| ip).collect();
+                        // FIXME: need to store in cache here...
+                        self.finalize(LookupIp::new(Arc::new(ips)));
+
+                    }
                     _ => panic!("should have returned earlier"),
                 }
             }
-            LookupIpState::Fin(_) => panic!("should have returned earlier"),
+            _ => panic!("should have returned earlier"),            
         }
 
         task::current().notify(); // yield
-        Ok(Async::NotReady)
+        return Ok(Async::NotReady);
     }
 }
 
-fn lookup<C: ClientHandle + 'static>(
+// TODO: rename this to query?
+/// returns a new future for lookup
+fn strategic_lookup<C: ClientHandle + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: &mut C,
-) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+) -> Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>> {
     match strategy {
         LookupIpStrategy::Ipv4Only => ipv4_only(name, client),
         LookupIpStrategy::Ipv6Only => ipv6_only(name, client),
@@ -265,14 +364,17 @@ fn lookup<C: ClientHandle + 'static>(
     }
 }
 
-fn map_message_to_ipaddr(mut message: Message) -> Vec<IpAddr> {
+fn map_message_to_ipaddr(mut message: Message) -> Vec<(IpAddr, u32)> {
     message
         .take_answers()
         .iter()
-        .filter_map(|r| match *r.rdata() {
-            RData::A(ipaddr) => Some(IpAddr::V4(ipaddr)),
-            RData::AAAA(ipaddr) => Some(IpAddr::V6(ipaddr)),
-            _ => None,
+        .filter_map(|r| {
+            let ttl = r.ttl();
+            match *r.rdata() {
+                RData::A(ipaddr) => Some((IpAddr::V4(ipaddr), ttl)),
+                RData::AAAA(ipaddr) => Some((IpAddr::V6(ipaddr), ttl)),
+                _ => None,
+            }
         })
         .collect()
 }
@@ -281,7 +383,7 @@ fn map_message_to_ipaddr(mut message: Message) -> Vec<IpAddr> {
 fn ipv4_only<C: ClientHandle>(
     name: Name,
     client: &mut C,
-) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+) -> Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>> {
     Box::new(client.query(name, DNSClass::IN, RecordType::A).map(
         map_message_to_ipaddr,
     ))
@@ -291,7 +393,7 @@ fn ipv4_only<C: ClientHandle>(
 fn ipv6_only<C: ClientHandle>(
     name: Name,
     client: &mut C,
-) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+) -> Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>> {
     Box::new(client.query(name, DNSClass::IN, RecordType::AAAA).map(
         map_message_to_ipaddr,
     ))
@@ -301,7 +403,7 @@ fn ipv6_only<C: ClientHandle>(
 fn ipv4_and_ipv6<C: ClientHandle>(
     name: Name,
     client: &mut C,
-) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+) -> Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>> {
     Box::new(
         client
             .query(name.clone(), DNSClass::IN, RecordType::A)
@@ -323,7 +425,7 @@ fn ipv4_and_ipv6<C: ClientHandle>(
                             Err(_) => future::ok(ips),
                         })) as
                             // This cast is to resolve a comilation error, not sure of it's necessity
-                            Box<Future<Item = Vec<IpAddr>, Error = ClientError>>
+                            Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>>
                     }
 
                     // One failed, just return the other
@@ -337,7 +439,7 @@ fn ipv4_and_ipv6<C: ClientHandle>(
 fn ipv6_then_ipv4<C: ClientHandle + 'static>(
     name: Name,
     client: &mut C,
-) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+) -> Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>> {
     rt_then_swap(name, client, RecordType::AAAA, RecordType::A)
 }
 
@@ -345,7 +447,7 @@ fn ipv6_then_ipv4<C: ClientHandle + 'static>(
 fn ipv4_then_ipv6<C: ClientHandle + 'static>(
     name: Name,
     client: &mut C,
-) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+) -> Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>> {
     rt_then_swap(name, client, RecordType::A, RecordType::AAAA)
 }
 
@@ -355,7 +457,7 @@ fn rt_then_swap<C: ClientHandle + 'static>(
     client: &mut C,
     first_type: RecordType,
     second_type: RecordType,
-) -> Box<Future<Item = Vec<IpAddr>, Error = ClientError>> {
+) -> Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>> {
     let mut or_client = client.clone();
     Box::new(
         client
@@ -374,10 +476,10 @@ fn rt_then_swap<C: ClientHandle + 'static>(
                                     .query(name.clone(), DNSClass::IN, second_type)
                                     .map(map_message_to_ipaddr),
                             ) as
-                                Box<Future<Item = Vec<IpAddr>, Error = ClientError>>
+                                Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>>
                         } else {
                             Box::new(future::ok(ips)) as
-                                Box<Future<Item = Vec<IpAddr>, Error = ClientError>>
+                                Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>>
                         }
                     }
                     Err(_) => {
@@ -462,7 +564,10 @@ mod tests {
         assert_eq!(
             ipv4_only(Name::root(), &mut mock(vec![v4_message()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
         );
     }
@@ -472,7 +577,10 @@ mod tests {
         assert_eq!(
             ipv6_only(Name::root(), &mut mock(vec![v6_message()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
     }
@@ -483,7 +591,10 @@ mod tests {
         assert_eq!(
             ipv4_and_ipv6(Name::root(), &mut mock(vec![v4_message(), v6_message()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![
                 IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
                 IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
@@ -494,7 +605,10 @@ mod tests {
         assert_eq!(
             ipv4_and_ipv6(Name::root(), &mut mock(vec![v4_message()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))]
         );
 
@@ -502,7 +616,10 @@ mod tests {
         assert_eq!(
             ipv4_and_ipv6(Name::root(), &mut mock(vec![v6_message()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
 
@@ -510,7 +627,10 @@ mod tests {
         assert_eq!(
             ipv4_and_ipv6(Name::root(), &mut mock(vec![error(), v6_message()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
     }
@@ -521,7 +641,10 @@ mod tests {
         assert_eq!(
             ipv6_then_ipv4(Name::root(), &mut mock(vec![v6_message()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
 
@@ -529,7 +652,10 @@ mod tests {
         assert_eq!(
             ipv6_then_ipv4(Name::root(), &mut mock(vec![v4_message(), empty()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
         );
 
@@ -537,7 +663,10 @@ mod tests {
         assert_eq!(
             ipv6_then_ipv4(Name::root(), &mut mock(vec![v4_message(), error()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
         );
     }
@@ -548,7 +677,10 @@ mod tests {
         assert_eq!(
             ipv4_then_ipv6(Name::root(), &mut mock(vec![v4_message()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
         );
 
@@ -556,7 +688,10 @@ mod tests {
         assert_eq!(
             ipv4_then_ipv6(Name::root(), &mut mock(vec![v6_message(), empty()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
 
@@ -564,7 +699,10 @@ mod tests {
         assert_eq!(
             ipv4_then_ipv6(Name::root(), &mut mock(vec![v6_message(), error()]))
                 .wait()
-                .unwrap(),
+                .unwrap()
+                .into_iter()
+                .map(|(ip, _)| ip)
+                .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
         );
     }

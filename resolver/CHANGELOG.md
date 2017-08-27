@@ -5,17 +5,24 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.4.0
 
-- Added support for DNSSec validation
+### Removed
+
+- *breaking* impl `Iterator` removed from `IpLookup` result type, see `LookupIp::iter` for replacement
+
+### Added
+
+- Support for DNSSec validation
+- LRU Cache
 
 ## 0.3.0
 
 ### Added
 
-- Added `options attempts:N` aka `ResolverOpts::attempts` support, aka retries
-- Added Google IPv6 nameservers as defaults for `ResolverConfig::default`
-- Added support for domain name search in `ResolverConfig` and `LookupIpFuture`
-- Added support for search names in `ResolverConfig` and `LookupIpFuture`
-- Added `LookupIpFuture` type alias to `InnerLookupIpFuture<NameServerPool>` *compatibility*
+- `options attempts:N` aka `ResolverOpts::attempts` support, aka retries
+- Google IPv6 nameservers as defaults for `ResolverConfig::default`
+- support for domain name search in `ResolverConfig` and `LookupIpFuture`
+- support for search names in `ResolverConfig` and `LookupIpFuture`
+- `LookupIpFuture` type alias to `InnerLookupIpFuture<NameServerPool>` *compatibility*
 
 ### Changed
 
