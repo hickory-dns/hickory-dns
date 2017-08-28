@@ -219,7 +219,7 @@ impl Future for FromCache {
                 format!("poisoned: {}", poison),
             )),
             Ok(mut lru) => {
-                return Ok(Async::Ready(lru.get_mut(&self.name, Instant::now())));
+                return Ok(Async::Ready(lru.get(&self.name, Instant::now())));
             }
         }
     }
