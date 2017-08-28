@@ -105,8 +105,7 @@ impl ResolverFuture {
             either = LookupIpEither::Retry(client);
         }
 
-        // FIXME: change this Client in signature to own client
-        LookupIpFuture::lookup(names, self.options.ip_strategy, &mut either, Some(self.lru.clone()))
+        LookupIpFuture::lookup(names, self.options.ip_strategy, &mut either, self.lru.clone())
     }
 
     fn push_name(name: Name, names: &mut Vec<Name>) {
