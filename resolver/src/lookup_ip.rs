@@ -97,7 +97,7 @@ pub struct InnerLookupIpFuture<C: ClientHandle + 'static> {
     strategy: LookupIpStrategy,
     future: Box<Future<Item = LookupIp, Error = io::Error>>,
     // TODO: zero lock datastructure instead?
-    cache: Option<Arc<Mutex<DnsLru>>>,
+    cache: Arc<Mutex<DnsLru>>,
 }
 
 impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
@@ -113,7 +113,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
         mut names: Vec<Name>,
         strategy: LookupIpStrategy,
         client: &mut C,
-        cache: Option<Arc<Mutex<DnsLru>>>,
+        cache: Arc<Mutex<DnsLru>>,
     ) -> Self {
         let name = names.pop().expect("can not lookup IPs for no names");
 
@@ -154,7 +154,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
             future: Box::new(future::err(
                 io::Error::new(io::ErrorKind::Other, format!("{}", error)),
             )),
-            cache: None,
+            cache: Arc::new(Mutex::new(DnsLru::new(0))),
         };
     }
 }
@@ -225,16 +225,50 @@ impl Future for FromCache {
     }
 }
 
+struct InsertCache {
+    ips: Vec<(IpAddr, u32)>,
+    name: Name,
+    cache: Arc<Mutex<DnsLru>>,
+}
+
+impl Future for InsertCache {
+    type Item = LookupIp;
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        // first transition any polling that is needed (mutable refs...)
+        match self.cache.try_lock() {
+            Err(TryLockError::WouldBlock) => {
+                task::current().notify(); // yield
+                return Ok(Async::NotReady);
+            }
+            // TODO: need to figure out a way to recover from this.
+            // It requires unwrapping the poisoned error and recreating the Mutex at a higher layer...
+            Err(TryLockError::Poisoned(poison)) => Err(io::Error::new(
+                io::ErrorKind::Other,
+                format!("poisoned: {}", poison),
+            )),
+            Ok(mut lru) => {
+                // this will put this object into an inconsistent state, but no one should call poll again...
+                let name = mem::replace(&mut self.name, Name::root());
+                let ips = mem::replace(&mut self.ips, vec![]);
+
+                return Ok(Async::Ready(
+                    lru.insert(name, ips, Instant::now()),
+                ));
+            }
+        }
+    }
+}
 
 enum LookupIpState<C: ClientHandle + 'static> {
     /// In the FromCache state we evaluate cache entries for any results
     FromCache(FromCache, C),
     /// In the query state there is an active query that's been started, see Self::lookup()
-    Query(Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>>),
-    /// In the Store state we put a result into the cache
-    // Store{ query: Query, ttl: u32, rdata: RData },
-    /// In the Fin state, there is a result that has been acquired
-    Fin(LookupIp),
+    Query(Box<Future<Item = Vec<(IpAddr, u32)>, Error = ClientError>>, Name, Arc<Mutex<DnsLru>>),
+    /// State of adding the item to the cache
+    InsertCache(InsertCache),
+    /// A state which should not occur
     Error,
 }
 
@@ -243,21 +277,16 @@ impl<C: ClientHandle + 'static> LookupIpState<C> {
         name: Name,
         strategy: LookupIpStrategy,
         client: &mut C,
-        cache: Option<Arc<Mutex<DnsLru>>>,
+        cache: Arc<Mutex<DnsLru>>,
     ) -> LookupIpState<C> {
-        if let Some(cache) = cache {
-            LookupIpState::FromCache(
-                FromCache {
-                    name,
-                    strategy,
-                    cache,
-                },
-                client.clone(),
-            )
-        } else {
-            let query_future = strategic_lookup(name, strategy, client);
-            LookupIpState::Query(query_future)
-        }
+        LookupIpState::FromCache(
+            FromCache {
+                name,
+                strategy,
+                cache,
+            },
+            client.clone(),
+        )
     }
 
     /// Query after a failed cache lookup
@@ -272,15 +301,29 @@ impl<C: ClientHandle + 'static> LookupIpState<C> {
         match from_cache_state {
             LookupIpState::FromCache(from_cache, mut client) => {
                 let query_future =
-                    strategic_lookup(from_cache.name, from_cache.strategy, &mut client);
-                mem::replace(self, LookupIpState::Query(query_future));
+                    strategic_lookup(from_cache.name.clone(), from_cache.strategy, &mut client);
+                mem::replace(
+                    self,
+                    LookupIpState::Query(query_future, from_cache.name, from_cache.cache),
+                );
             }
             _ => panic!("bad state, expected FromCache"),
         }
     }
 
-    fn finalize(&mut self, ips: LookupIp) {
-        mem::replace(self, LookupIpState::Fin(ips));
+    fn cache(&mut self, ips: Vec<(IpAddr, u32)>) {
+        // The error state, this query is complete...
+        let query_state = mem::replace(self, LookupIpState::Error);
+
+        match query_state {
+            LookupIpState::Query(_, name, cache) => {
+                mem::replace(
+                    self,
+                    LookupIpState::InsertCache(InsertCache { ips, name, cache }),
+                );
+            }
+            _ => panic!("bad state, expected Query"),
+        }
     }
 }
 
@@ -293,9 +336,6 @@ impl<C: ClientHandle + 'static> Future for LookupIpState<C> {
         let poll;
         match *self {
             LookupIpState::FromCache(ref mut from_cache, ..) => {
-                // all of these returns will require a yield
-                task::current().notify(); // yield
-
                 match from_cache.poll() {
                     // need to query since it wasn't in the cache
                     Ok(Async::Ready(None)) => (), // handled below
@@ -306,7 +346,7 @@ impl<C: ClientHandle + 'static> Future for LookupIpState<C> {
 
                 poll = Ok(Async::NotReady);
             }
-            LookupIpState::Query(ref mut query) => {
+            LookupIpState::Query(ref mut query, ..) => {
                 poll = query.poll().map_err(|e| e.into());
                 match poll {
                     Ok(Async::NotReady) => {
@@ -318,24 +358,25 @@ impl<C: ClientHandle + 'static> Future for LookupIpState<C> {
                     }
                 }
             }
-            LookupIpState::Fin(ref mut ips) => {
-                let ips = mem::replace(ips, LookupIp::new(Arc::new(Vec::<IpAddr>::new())));
-                return Ok(Async::Ready(ips));
+            LookupIpState::InsertCache(ref mut insert_cache) => {
+                return insert_cache.poll();
+                // match insert_cache.poll() {
+                //     // need to query since it wasn't in the cache
+                //     Ok(Async::Ready(ips)) => return Ok(Async::Ready(ips)),
+                //     Ok(Async::NotReady) => return Ok(Async::NotReady),
+                //     Err(error) => return Err(error),
+                // }
             }
             LookupIpState::Error => panic!("invalid error state"),
         }
 
         // getting here means there are Aync::Ready available.
-        // FIXME: try moving this upstairs
         match *self {
             LookupIpState::FromCache(..) => self.query_after_cache(),
-            LookupIpState::Query(_) => {
+            LookupIpState::Query(..) => {
                 match poll {
                     Ok(Async::Ready(ips)) => {
-                        let ips = ips.into_iter().map(|(ip, _)| ip).collect();
-                        // FIXME: need to store in cache here...
-                        self.finalize(LookupIp::new(Arc::new(ips)));
-
+                        self.cache(ips.clone());
                     }
                     _ => panic!("should have returned earlier"),
                 }
