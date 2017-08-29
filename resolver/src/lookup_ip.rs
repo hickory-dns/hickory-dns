@@ -96,7 +96,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
     /// * `names` - a set of DNS names to attempt to resolve, they will be attempted in queue order, i.e. the first is `names.pop()`. Upon each failure, the next will be attempted.
     /// * `strategy` - the lookup IP strategy to use
     /// * `client` - connection to use for performing all lookups
-    /// * `cache` - an optional cache from which to attempt to load records prior to lookup
+    /// * `cache` - a cache from which to attempt to load records prior to lookup
     pub(crate) fn lookup(
         mut names: Vec<Name>,
         strategy: LookupIpStrategy,
