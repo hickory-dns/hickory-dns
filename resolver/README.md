@@ -2,7 +2,7 @@
 
 TRust-DNS Resolver is a library which implements the DNS resolver over the TRust-DNS Client library.
 
-This library contains basic implementations for IPv4 and IPv6 resolution, more features are in the works. It is built on top of the [tokio](https://tokio.rs) async-io project, this allows it to be integrated into other systems using the tokio and futures libraries. The TRust-DNS [project](https://github.com/bluejekyll/trust-dns) contains other libraries for DNS: a [client library](https://crates.io/crates/trust-dns) for raw protocol usage, a [server library](https://crates.io/crates/trust-dns-server) for hosting zones, and variations on the TLS implementation over [rustls](https://crates.io/crates/trust-dns-rustls) and [native-tls](https://crates.io/crates/trust-dns-native-tls).
+This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, more features are in the works. It is built on top of the [tokio](https://tokio.rs) async-io project, this allows it to be integrated into other systems using the tokio and futures libraries. The TRust-DNS [project](https://github.com/bluejekyll/trust-dns) contains other libraries for DNS: a [client library](https://crates.io/crates/trust-dns) for raw protocol usage, a [server library](https://crates.io/crates/trust-dns-server) for hosting zones, and variations on the TLS implementation over [rustls](https://crates.io/crates/trust-dns-rustls) and [native-tls](https://crates.io/crates/trust-dns-native-tls).
 
 ## Features
 
@@ -11,6 +11,7 @@ This library contains basic implementations for IPv4 and IPv6 resolution, more f
 - NameServer pools with performance based priority usage
 - Caching of query results
 - DNSSec validation
+- *TBD* Generic Record Type Lookup (the Client can be used in the interim)
 - *TBD* TLS integration
 
 ## Example
