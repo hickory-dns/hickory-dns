@@ -408,10 +408,4 @@ mod tests {
             }
         }
     }
-
-    #[test]
-    fn test_dnssec() {}
-
-    #[test]
-    fn test_dnssec_fails() {}
 }
