@@ -74,18 +74,6 @@ impl ClientHandle for LookupIpEither {
     }
 }
 
-// impl Future for LookupIpEither {
-//     type Item = LookupIp;
-//     type Error = io::Error;
-
-//     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-//         match self {
-//             LookupIpEither::Retry(f) => f.poll(),
-//             LookupIpEither::Secure(f) => f.poll(),
-//         }
-//     }
-// }
-
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
 pub type LookupIpFuture = InnerLookupIpFuture<LookupIpEither>;
 
@@ -253,9 +241,7 @@ impl Future for InsertCache {
                 let name = mem::replace(&mut self.name, Name::root());
                 let ips = mem::replace(&mut self.ips, vec![]);
 
-                return Ok(Async::Ready(
-                    lru.insert(name, ips, Instant::now()),
-                ));
+                return Ok(Async::Ready(lru.insert(name, ips, Instant::now())));
             }
         }
     }
@@ -389,7 +375,6 @@ impl<C: ClientHandle + 'static> Future for LookupIpState<C> {
     }
 }
 
-// TODO: rename this to query?
 /// returns a new future for lookup
 fn strategic_lookup<C: ClientHandle + 'static>(
     name: Name,
@@ -567,7 +552,7 @@ mod tests {
         message.insert_answers(vec![
             Record::from_rdata(
                 Name::root(),
-                0,
+                86400,
                 RecordType::A,
                 RData::A(Ipv4Addr::new(127, 0, 0, 1))
             ),
@@ -580,7 +565,7 @@ mod tests {
         message.insert_answers(vec![
             Record::from_rdata(
                 Name::root(),
-                0,
+                86400,
                 RecordType::AAAA,
                 RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))
             ),
@@ -745,6 +730,76 @@ mod tests {
                 .map(|(ip, _)| ip)
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+        );
+    }
+
+    #[test]
+    fn test_empty_cache() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        let mut client = mock(vec![empty()]);
+
+        let ips =
+            LookupIpState::lookup(Name::root(), LookupIpStrategy::Ipv4Only, &mut client, cache)
+                .wait()
+                .unwrap();
+
+        assert!(ips.iter().next().is_none());
+    }
+
+    #[test]
+    fn test_from_cache() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        cache.lock().unwrap().insert(
+            Name::root(),
+            vec![
+                (IpAddr::from(Ipv4Addr::new(127, 0, 0, 1)), u32::max_value()),
+            ],
+            Instant::now(),
+        );
+
+        let mut client = mock(vec![empty()]);
+
+        let ips =
+            LookupIpState::lookup(Name::root(), LookupIpStrategy::Ipv4Only, &mut client, cache)
+                .wait()
+                .unwrap();
+
+        assert_eq!(
+            ips.iter().cloned().collect::<Vec<IpAddr>>(),
+            vec![Ipv4Addr::new(127, 0, 0, 1)]
+        );
+    }
+
+    #[test]
+    fn test_no_cache_insert() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        // first should come from client...
+        let mut client = mock(vec![v4_message()]);
+
+        let ips = LookupIpState::lookup(
+            Name::root(),
+            LookupIpStrategy::Ipv4Only,
+            &mut client,
+            cache.clone(),
+        ).wait()
+            .unwrap();
+
+        assert_eq!(
+            ips.iter().cloned().collect::<Vec<IpAddr>>(),
+            vec![Ipv4Addr::new(127, 0, 0, 1)]
+        );
+
+        // next should come from cache...
+        let mut client = mock(vec![empty()]);
+
+        let ips =
+            LookupIpState::lookup(Name::root(), LookupIpStrategy::Ipv4Only, &mut client, cache)
+                .wait()
+                .unwrap();
+
+        assert_eq!(
+            ips.iter().cloned().collect::<Vec<IpAddr>>(),
+            vec![Ipv4Addr::new(127, 0, 0, 1)]
         );
     }
 }

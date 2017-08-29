@@ -32,12 +32,11 @@ impl ResolverFuture {
     /// Construct a new ResolverFuture with the associated Client.
     pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
         let pool = NameServerPool::from_config(&config, &options, reactor);
-        // FIXME: how to specify cache? optional? or just size?
         ResolverFuture {
             config,
             options,
             pool,
-            lru: Arc::new(Mutex::new(DnsLru::new(10)))
+            lru: Arc::new(Mutex::new(DnsLru::new(options.cache_size))),
         }
     }
 
@@ -71,7 +70,6 @@ impl ResolverFuture {
         let names = if name.is_fqdn() {
             vec![name]
         } else {
-
             // Otherwise we have to build the search list
             // Note: the vec is built in reverse order of precedence, for stack semantics
             let mut names =
@@ -105,7 +103,12 @@ impl ResolverFuture {
             either = LookupIpEither::Retry(client);
         }
 
-        LookupIpFuture::lookup(names, self.options.ip_strategy, &mut either, self.lru.clone())
+        LookupIpFuture::lookup(
+            names,
+            self.options.ip_strategy,
+            &mut either,
+            self.lru.clone(),
+        )
     }
 
     fn push_name(name: Name, names: &mut Vec<Name>) {

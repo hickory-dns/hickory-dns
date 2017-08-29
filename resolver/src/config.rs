@@ -201,6 +201,8 @@ pub struct ResolverOpts {
     pub validate: bool,
     /// The ip_strategy for the Resolver to use when lookup Ipv4 or Ipv6 addresses
     pub ip_strategy: LookupIpStrategy,
+    /// Cache size is in number of records (some records can be large)
+    pub cache_size: usize,
 }
 
 impl Default for ResolverOpts {
@@ -217,6 +219,7 @@ impl Default for ResolverOpts {
             edns0: false,
             validate: false,
             ip_strategy: LookupIpStrategy::default(),
+            cache_size: 32,
         }
     }
 }
