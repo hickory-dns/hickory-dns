@@ -25,7 +25,6 @@ use trust_dns_resolver::config::*;
 let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 
 // Lookup the IP addresses associated with a name.
-// NOTE: do not forget the final dot, as the resolver does not yet support search paths.
 let mut response = resolver.lookup_ip("www.example.com.").unwrap();
 
 // There can be many addresses associated with the name,

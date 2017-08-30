@@ -7,7 +7,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Removed
 
-- *breaking* impl `Iterator` removed from `IpLookup` result type, see `LookupIp::iter` for replacement
+- *breaking* impl `Iterator` removed from `LookupIp` result type, see `LookupIp::iter` for replacement
 
 ### Added
 
