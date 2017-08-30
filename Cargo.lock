@@ -985,7 +985,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-resolver"
-version = "0.3.1"
+version = "0.4.0"
 dependencies = [
  "futures 0.1.14 (registry+https://github.com/rust-lang/crates.io-index)",
  "lalrpop 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",
