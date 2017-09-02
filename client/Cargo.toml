@@ -67,7 +67,7 @@ lazy_static = "^0.2.1"
 log = "^0.3.5"
 openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
 rand = "^0.3"
-ring = { version = "^0.11", optional = true }
+ring = { version = "^0.12", optional = true }
 rustc-serialize = "^0.3.18"
 time = "^0.1"
 tokio-core = "^0.1"
