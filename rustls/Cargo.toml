@@ -47,9 +47,9 @@ path = "src/lib.rs"
 
 [dependencies]
 futures = "^0.1.6"
-rustls = "^0.9.0"
+rustls = "^0.11.0"
 tokio-core = "^0.1"
-tokio-rustls = "^0.2"
+tokio-rustls = "^0.4"
 # disables default features, i.e. openssl...
 trust-dns = { version = "^0.11.0", path = "../client", default-features = false }
 
