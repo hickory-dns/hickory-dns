@@ -92,7 +92,6 @@
 //! let mut resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), &io_loop.handle());
 //! 
 //! // Lookup the IP addresses associated with a name.
-//! // NOTE: do not forget the final dot, as the resolver does not yet support search paths.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
 //! //  to get the actual result.
 //! let lookup_future = resolver.lookup_ip("www.example.com.");
