@@ -8,7 +8,6 @@
 //! Structs for creating and using a ResolverFuture
 use std::io;
 use std::str::FromStr;
-use std::sync::{Arc, Mutex};
 
 use tokio_core::reactor::Handle;
 use trust_dns::client::{RetryClientHandle, SecureClientHandle};
@@ -24,19 +23,25 @@ use system_conf;
 pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
-    pool: NameServerPool,
-    lru: Arc<Mutex<DnsLru>>,
+    client_cache: DnsLru<LookupIpEither>,
 }
 
 impl ResolverFuture {
     /// Construct a new ResolverFuture with the associated Client.
     pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
         let pool = NameServerPool::from_config(&config, &options, reactor);
+        let either;
+        let client = RetryClientHandle::new(pool.clone(), options.attempts);
+        if options.validate {
+            either = LookupIpEither::Secure(SecureClientHandle::new(client));
+        } else {
+            either = LookupIpEither::Retry(client);
+        }
+
         ResolverFuture {
             config,
             options,
-            pool,
-            lru: Arc::new(Mutex::new(DnsLru::new(options.cache_size))),
+            client_cache: DnsLru::new(options.cache_size, either),
         }
     }
 
@@ -61,8 +66,7 @@ impl ResolverFuture {
         let name = match Name::from_str(host) {
             Ok(name) => name,
             Err(err) => {
-                let client = RetryClientHandle::new(self.pool.clone(), self.options.attempts);
-                return InnerLookupIpFuture::error(LookupIpEither::Retry(client), err);
+                return InnerLookupIpFuture::error(self.client_cache.clone(), err);
             }
         };
 
@@ -93,21 +97,10 @@ impl ResolverFuture {
             names
         };
 
-        // TODO: consider removing this clone?
-        // create the lookup
-        let mut either;
-        let client = RetryClientHandle::new(self.pool.clone(), self.options.attempts);
-        if self.options.validate {
-            either = LookupIpEither::Secure(SecureClientHandle::new(client));
-        } else {
-            either = LookupIpEither::Retry(client);
-        }
-
         LookupIpFuture::lookup(
             names,
             self.options.ip_strategy,
-            &mut either,
-            self.lru.clone(),
+            &mut self.client_cache.clone(),
         )
     }
 
@@ -116,6 +109,11 @@ impl ResolverFuture {
             names.push(name);
         }
     }
+
+    // TODO: generic lookup
+    // pub fn lookup(&mut self, host: &str) -> Lookup {
+
+    // }
 }
 
 

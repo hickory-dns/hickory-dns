@@ -19,8 +19,8 @@
 use rr::domain::Name;
 use rr::record_type::RecordType;
 use rr::dns_class::DNSClass;
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 
 /// Query struct for looking up resource records, basically a resource record without RDATA.
 ///
@@ -59,6 +59,15 @@ impl Query {
         Query {
             name: Name::new(),
             query_type: RecordType::A,
+            query_class: DNSClass::IN,
+        }
+    }
+
+    /// Create a new query from name and type, class defaults to IN
+    pub fn query(name: Name, query_type: RecordType) -> Self {
+        Query {
+            name,
+            query_type,
             query_class: DNSClass::IN,
         }
     }
