@@ -1,6 +1,14 @@
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+//! Caching related functionality for the Resolver.
+
 use std::io;
 use std::mem;
-use std::net::IpAddr;
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
@@ -11,7 +19,7 @@ use trust_dns::error::ClientError;
 use trust_dns::op::{Query, Message};
 use trust_dns::rr::RData;
 
-use lookup_ip::LookupIp;
+use lookup::Lookup;
 use lru_cache::LruCache;
 
 /// Maximum TTL as defined in https://tools.ietf.org/html/rfc2181
@@ -19,8 +27,7 @@ const MAX_TTL: u32 = 2147483647_u32;
 
 #[derive(Debug)]
 struct LruValue {
-    // FIXME: change to RData
-    ips: LookupIp,
+    lookup: Lookup,
     ttl_until: Instant,
 }
 
@@ -31,6 +38,8 @@ impl LruValue {
     }
 }
 
+// TODO: need to consider this storage type as it compares to Authority in server...
+//       should it just be an variation on Authority?
 #[derive(Clone, Debug)]
 pub(crate) struct DnsLru<C: ClientHandle> {
     lru: Arc<Mutex<LruCache<Query, LruValue>>>,
@@ -45,7 +54,7 @@ impl<C: ClientHandle + 'static> DnsLru<C> {
         }
     }
 
-    pub fn lookup(&mut self, query: Query) -> Box<Future<Item = LookupIp, Error = io::Error>> {
+    pub fn lookup(&mut self, query: Query) -> Box<Future<Item = Lookup, Error = io::Error>> {
         Box::new(QueryState::lookup(
             query,
             &mut self.client,
@@ -58,42 +67,43 @@ impl<C: ClientHandle + 'static> DnsLru<C> {
 fn insert(
     lru: &mut LruCache<Query, LruValue>,
     query: Query,
-    ips_and_ttl: Vec<(IpAddr, u32)>,
+    rdatas_and_ttl: Vec<(RData, u32)>,
     now: Instant,
-) -> LookupIp {
-    let len = ips_and_ttl.len();
+) -> Lookup {
+    let len = rdatas_and_ttl.len();
     // collapse the values, we're going to take the Minimum TTL as the correct one
-    let (ips, ttl): (Vec<IpAddr>, u32) = ips_and_ttl.into_iter().fold(
-        (Vec::with_capacity(len), MAX_TTL),
-        |(mut ips, mut min_ttl),
-         (ip, ttl)| {
-            ips.push(ip);
-            min_ttl = if ttl < min_ttl { ttl } else { min_ttl };
-            (ips, min_ttl)
-        },
-    );
+    let (rdatas, ttl): (Vec<RData>, u32) =
+        rdatas_and_ttl.into_iter().fold(
+            (Vec::with_capacity(len), MAX_TTL),
+            |(mut rdatas, mut min_ttl),
+             (rdata, ttl)| {
+                rdatas.push(rdata);
+                min_ttl = if ttl < min_ttl { ttl } else { min_ttl };
+                (rdatas, min_ttl)
+            },
+        );
 
     let ttl = Duration::from_secs(ttl as u64);
     let ttl_until = now + ttl;
 
     // insert into the LRU
-    let ips = LookupIp::new(Arc::new(ips));
+    let lookup = Lookup::new(Arc::new(rdatas));
     lru.insert(
         query,
         LruValue {
-            ips: ips.clone(),
+            lookup: lookup.clone(),
             ttl_until,
         },
     );
 
-    ips
+    lookup
 }
 
 /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
-fn get(lru: &mut LruCache<Query, LruValue>, query: &Query, now: Instant) -> Option<LookupIp> {
-    let ips = lru.get_mut(query).and_then(
+fn get(lru: &mut LruCache<Query, LruValue>, query: &Query, now: Instant) -> Option<Lookup> {
+    let lookup = lru.get_mut(query).and_then(
         |value| if value.is_current(now) {
-            Some(value.ips.clone())
+            Some(value.lookup.clone())
         } else {
             None
         },
@@ -102,11 +112,11 @@ fn get(lru: &mut LruCache<Query, LruValue>, query: &Query, now: Instant) -> Opti
     // in this case, we can preemtively remove out of data elements
     // this assumes time is always moving forward, this would only not be true in contrived situations where now
     //  is not current time, like tests...
-    if ips.is_none() {
+    if lookup.is_none() {
         lru.remove(query);
     }
 
-    ips
+    lookup
 }
 
 struct FromCache {
@@ -115,7 +125,7 @@ struct FromCache {
 }
 
 impl Future for FromCache {
-    type Item = Option<LookupIp>;
+    type Item = Option<Lookup>;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -138,6 +148,7 @@ impl Future for FromCache {
     }
 }
 
+/// This is the Future responsible for performing an actual query.
 struct QueryFuture {
     message_future: Box<Future<Item = Message, Error = ClientError>>,
     query: Query,
@@ -145,22 +156,24 @@ struct QueryFuture {
 }
 
 impl Future for QueryFuture {
-    type Item = Vec<(IpAddr, u32)>;
+    type Item = Vec<(RData, u32)>;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.message_future.poll() {
             Ok(Async::Ready(mut message)) => {
                 let records = message
+                // TODO: consider taking other responses?
                     .take_answers()
-                    .iter()
+                    .into_iter()
                     .filter_map(|r| {
-                        // FIXME: need to store RData, not IP
                         let ttl = r.ttl();
-                        match *r.rdata() {
-                            RData::A(ipaddr) => Some((IpAddr::V4(ipaddr), ttl)),
-                            RData::AAAA(ipaddr) => Some((IpAddr::V6(ipaddr), ttl)),
-                            _ => None,
+                        // TODO: validate names in response?
+                        // restrict to the RData type requested
+                        if self.query.query_type() == r.rr_type() {
+                            Some((r.unwrap_rdata(), ttl))
+                        } else {
+                            None
                         }
                     })
                     .collect();
@@ -174,13 +187,13 @@ impl Future for QueryFuture {
 }
 
 struct InsertCache {
-    ips: Vec<(IpAddr, u32)>,
+    rdatas: Vec<(RData, u32)>,
     query: Query,
     cache: Arc<Mutex<LruCache<Query, LruValue>>>,
 }
 
 impl Future for InsertCache {
-    type Item = LookupIp;
+    type Item = Lookup;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -199,9 +212,11 @@ impl Future for InsertCache {
             Ok(mut lru) => {
                 // this will put this object into an inconsistent state, but no one should call poll again...
                 let query = mem::replace(&mut self.query, Query::new());
-                let ips = mem::replace(&mut self.ips, vec![]);
+                let rdata = mem::replace(&mut self.rdatas, vec![]);
 
-                return Ok(Async::Ready(insert(&mut *lru, query, ips, Instant::now())));
+                return Ok(Async::Ready(
+                    insert(&mut *lru, query, rdata, Instant::now()),
+                ));
             }
         }
     }
@@ -253,7 +268,7 @@ impl<C: ClientHandle + 'static> QueryState<C> {
         }
     }
 
-    fn cache(&mut self, ips: Vec<(IpAddr, u32)>) {
+    fn cache(&mut self, rdatas: Vec<(RData, u32)>) {
         // The error state, this query is complete...
         let query_state = mem::replace(self, QueryState::Error);
 
@@ -265,7 +280,11 @@ impl<C: ClientHandle + 'static> QueryState<C> {
                               }) => {
                 mem::replace(
                     self,
-                    QueryState::InsertCache(InsertCache { ips, query, cache }),
+                    QueryState::InsertCache(InsertCache {
+                        rdatas,
+                        query,
+                        cache,
+                    }),
                 );
             }
             _ => panic!("bad state, expected Query"),
@@ -274,7 +293,7 @@ impl<C: ClientHandle + 'static> QueryState<C> {
 }
 
 impl<C: ClientHandle + 'static> Future for QueryState<C> {
-    type Item = LookupIp;
+    type Item = Lookup;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -321,8 +340,8 @@ impl<C: ClientHandle + 'static> Future for QueryState<C> {
             QueryState::FromCache(..) => self.query_after_cache(),
             QueryState::Query(..) => {
                 match poll {
-                    Ok(Async::Ready(ips)) => {
-                        self.cache(ips);
+                    Ok(Async::Ready(rdatas)) => {
+                        self.cache(rdatas);
                     }
                     _ => panic!("should have returned earlier"),
                 }
@@ -356,7 +375,7 @@ mod tests {
         let past_the_future = now + Duration::from_secs(6);
 
         let value = LruValue {
-            ips: LookupIp::new(Arc::new(vec![])),
+            lookup: Lookup::new(Arc::new(vec![])),
             ttl_until: future,
         };
 
@@ -370,8 +389,8 @@ mod tests {
     fn test_insert() {
         let now = Instant::now();
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-        let ips_ttl = vec![(IpAddr::from(Ipv4Addr::new(127, 0, 0, 1)), 1)];
-        let ips = vec![IpAddr::from(Ipv4Addr::new(127, 0, 0, 1))];
+        let ips_ttl = vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), 1)];
+        let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
         let mut lru = LruCache::new(1);
 
         let rc_ips = insert(&mut lru, name.clone(), ips_ttl, now);
@@ -387,12 +406,12 @@ mod tests {
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         // TTL should be 1
         let ips_ttl = vec![
-            (IpAddr::from(Ipv4Addr::new(127, 0, 0, 1)), 1),
-            (IpAddr::from(Ipv4Addr::new(127, 0, 0, 2)), 2),
+            (RData::A(Ipv4Addr::new(127, 0, 0, 1)), 1),
+            (RData::A(Ipv4Addr::new(127, 0, 0, 2)), 2),
         ];
         let ips = vec![
-            IpAddr::from(Ipv4Addr::new(127, 0, 0, 1)),
-            IpAddr::from(Ipv4Addr::new(127, 0, 0, 2)),
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            RData::A(Ipv4Addr::new(127, 0, 0, 2)),
         ];
         let mut lru = LruCache::new(1);
 
@@ -426,7 +445,7 @@ mod tests {
             &mut cache.lock().unwrap(),
             Query::new(),
             vec![
-                (IpAddr::from(Ipv4Addr::new(127, 0, 0, 1)), u32::max_value()),
+                (RData::A(Ipv4Addr::new(127, 0, 0, 1)), u32::max_value()),
             ],
             Instant::now(),
         );
@@ -438,8 +457,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            ips.iter().cloned().collect::<Vec<_>>(),
+            vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
         );
     }
 
@@ -454,8 +473,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            ips.iter().cloned().collect::<Vec<_>>(),
+            vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
         );
 
         // next should come from cache...
@@ -466,8 +485,8 @@ mod tests {
             .unwrap();
 
         assert_eq!(
-            ips.iter().cloned().collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            ips.iter().cloned().collect::<Vec<_>>(),
+            vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
         );
     }
 }

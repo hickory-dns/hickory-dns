@@ -11,19 +11,20 @@ use std::str::FromStr;
 
 use tokio_core::reactor::Handle;
 use trust_dns::client::{RetryClientHandle, SecureClientHandle};
-use trust_dns::rr::Name;
+use trust_dns::rr::{Name, RecordType};
 
 use config::{ResolverConfig, ResolverOpts};
 use lru::DnsLru;
 use name_server_pool::NameServerPool;
-use lookup_ip::{InnerLookupIpFuture, LookupIpEither, LookupIpFuture};
+use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
+use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
 use system_conf;
 
 /// A Resolver for DNS records.
 pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
-    client_cache: DnsLru<LookupIpEither>,
+    client_cache: DnsLru<LookupEither>,
 }
 
 impl ResolverFuture {
@@ -33,9 +34,9 @@ impl ResolverFuture {
         let either;
         let client = RetryClientHandle::new(pool.clone(), options.attempts);
         if options.validate {
-            either = LookupIpEither::Secure(SecureClientHandle::new(client));
+            either = LookupEither::Secure(SecureClientHandle::new(client));
         } else {
-            either = LookupIpEither::Retry(client);
+            either = LookupEither::Retry(client);
         }
 
         ResolverFuture {
@@ -70,8 +71,24 @@ impl ResolverFuture {
             }
         };
 
+        let names = self.build_names(name);
+
+        LookupIpFuture::lookup(
+            names,
+            self.options.ip_strategy,
+            &mut self.client_cache.clone(),
+        )
+    }
+
+    fn push_name(name: Name, names: &mut Vec<Name>) {
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
+
+    fn build_names(&self, name: Name) -> Vec<Name> {
         // if it's fully qualified, we can short circuit the lookup logic
-        let names = if name.is_fqdn() {
+        if name.is_fqdn() {
             vec![name]
         } else {
             // Otherwise we have to build the search list
@@ -95,25 +112,31 @@ impl ResolverFuture {
             }
 
             names
-        };
-
-        LookupIpFuture::lookup(
-            names,
-            self.options.ip_strategy,
-            &mut self.client_cache.clone(),
-        )
-    }
-
-    fn push_name(name: Name, names: &mut Vec<Name>) {
-        if !names.contains(&name) {
-            names.push(name);
         }
     }
 
-    // TODO: generic lookup
-    // pub fn lookup(&mut self, host: &str) -> Lookup {
+    /// Generic lookup for any RecordType
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
+    /// * `record_type` - type of record to lookup
+    pub fn lookup(&mut self, name: &str, record_type: RecordType) -> LookupFuture {
+       let name = match Name::from_str(name) {
+            Ok(name) => name,
+            Err(err) => {
+                return InnerLookupFuture::error(self.client_cache.clone(), err);
+            }
+        };
 
-    // }
+        let names = self.build_names(name);
+
+        LookupFuture::lookup(
+            names,
+            record_type,
+            &mut self.client_cache.clone(),
+        )
+    }
 }
 
 
@@ -146,10 +169,10 @@ mod tests {
         assert_eq!(response.iter().count(), 2);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
-                    *address,
+                    address,
                     IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
@@ -185,10 +208,10 @@ mod tests {
         assert_eq!(response.iter().count(), 2);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
-                    *address,
+                    address,
                     IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
@@ -244,10 +267,10 @@ mod tests {
         assert_eq!(response.iter().count(), 2);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
-                    *address,
+                    address,
                     IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
@@ -290,7 +313,7 @@ mod tests {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert!(false, "should only be looking up IPv4");
             }
@@ -327,7 +350,7 @@ mod tests {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert!(false, "should only be looking up IPv4");
             }
@@ -363,7 +386,7 @@ mod tests {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert!(false, "should only be looking up IPv4");
             }
@@ -400,7 +423,7 @@ mod tests {
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert!(false, "should only be looking up IPv4");
             }

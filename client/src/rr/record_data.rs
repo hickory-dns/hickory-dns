@@ -16,7 +16,7 @@
 
 //! record data enum variants
 
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 #[cfg(test)]
 use std::convert::From;
 use std::cmp::Ordering;
@@ -877,6 +877,15 @@ impl RData {
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
             RData::TXT(..) => RecordType::TXT,
+        }
+    }
+
+    /// If this is an A or AAAA record type, then an IpAddr will be returned
+    pub fn to_ip_addr(&self) -> Option<IpAddr> {
+        match *self {
+            RData::A(a) => Some(IpAddr::from(a)),
+            RData::AAAA(aaaa) => Some(IpAddr::from(aaaa)),
+            _ => None,
         }
     }
 }
