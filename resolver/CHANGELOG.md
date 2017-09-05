@@ -5,6 +5,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.5.0
 
+### Changed
+
+- *breaking* `LookupIp` now returns an iterator over owned data (IpAddr is Copy + Clone ref not necessary)
+- rewrote much of the caching and lookup functionality for generic RecordType lookups
+
 ### Added
 
 - Generic record type lookup

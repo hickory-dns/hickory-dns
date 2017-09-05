@@ -52,9 +52,9 @@
 //! //  this can return IPv4 and/or IPv6 addresses
 //! let address = response.iter().next().expect("no addresses returned!");
 //! if address.is_ipv4() {
-//!     assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+//!     assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
 //! } else {
-//!     assert_eq!(*address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
+//!     assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
 //! }
 //! ```
 //!
@@ -103,9 +103,9 @@
 //! //  this can return IPv4 and/or IPv6 addresses
 //! let address = response.iter().next().expect("no addresses returned!");
 //! if address.is_ipv4() {
-//!     assert_eq!(*address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+//!     assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
 //! } else {
-//!     assert_eq!(*address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
+//!     assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
 //! }
 //! # }
 //! ```
@@ -134,6 +134,8 @@ extern crate trust_dns;
 
 pub mod config;
 pub mod lookup_ip;
+pub mod lookup;
+// TODO: perhaps rename lru, or move most of the methods into lookup?
 mod lru;
 mod name_server_pool;
 mod resolver;

@@ -11,8 +11,10 @@ use std::cell::RefCell;
 use std::io;
 
 use tokio_core::reactor::Core;
+use trust_dns::rr::RecordType;
 
 use config::{ResolverConfig, ResolverOpts};
+use lookup::Lookup;
 use lookup_ip::LookupIp;
 use ResolverFuture;
 use system_conf;
@@ -61,12 +63,27 @@ impl Resolver {
     ///  returning IpV4 or IpV6 addresses. (*Note*: current release only queries A, IPv4)
     ///
     /// # Arguments
+    ///
     /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
     pub fn lookup_ip(&mut self, host: &str) -> io::Result<LookupIp> {
         self.io_loop.borrow_mut().run(
             self.resolver_future
                 .borrow_mut()
                 .lookup_ip(host),
+        )
+    }
+
+    /// Generic lookup for any RecordType
+    ///
+    /// # Arguments
+    ///
+    /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
+    /// * `record_type` - type of record to lookup
+    pub fn lookup(&mut self, name: &str, record_type: RecordType) -> io::Result<Lookup> {
+        self.io_loop.borrow_mut().run(
+            self.resolver_future
+                .borrow_mut()
+                .lookup(name, record_type),
         )
     }
 }
@@ -90,11 +107,11 @@ mod tests {
         assert_eq!(response.iter().count(), 2);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, &IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
                     address,
-                    &IpAddr::V6(Ipv6Addr::new(
+                    IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
                         0x220,
@@ -120,11 +137,11 @@ mod tests {
         assert_eq!(response.iter().count(), 2);
         for address in response.iter() {
             if address.is_ipv4() {
-                assert_eq!(address, &IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
             } else {
                 assert_eq!(
                     address,
-                    &IpAddr::V6(Ipv6Addr::new(
+                    IpAddr::V6(Ipv6Addr::new(
                         0x2606,
                         0x2800,
                         0x220,
