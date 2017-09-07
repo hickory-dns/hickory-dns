@@ -113,13 +113,13 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
     pub(crate) fn lookup(
         mut names: Vec<Name>,
         record_type: RecordType,
-        client_cache: &mut DnsLru<C>,
+        client_cache: DnsLru<C>,
     ) -> Self {
         let name = names.pop().expect("can not lookup IPs for no names");
 
-        let query = lookup(name, record_type, client_cache);
+        let query = lookup(name, record_type, client_cache.clone());
         InnerLookupFuture {
-            client_cache: client_cache.clone(),
+            client_cache: client_cache,
             names,
             record_type,
             future: Box::new(query),
@@ -132,7 +132,7 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
     ) -> Poll<Lookup, io::Error> {
         let name = self.names.pop();
         if let Some(name) = name {
-            let query = lookup(name, self.record_type, &mut self.client_cache);
+            let query = lookup(name, self.record_type, self.client_cache.clone());
 
             mem::replace(&mut self.future, Box::new(query));
             // guarantee that we get scheduled for the next turn...
@@ -181,7 +181,7 @@ impl<C: ClientHandle + 'static> Future for InnerLookupFuture<C> {
 fn lookup<C: ClientHandle + 'static>(
     name: Name,
     record_type: RecordType,
-    client_cache: &mut DnsLru<C>,
+    mut client_cache: DnsLru<C>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
     client_cache.lookup(Query::query(name, record_type))
 }
@@ -261,12 +261,42 @@ impl Future for $f {
 }
 
 // Generate all Lookup record types
-lookup_type!(ReverseLookup, ReverseLookupIter, ReverseLookupFuture, RData::PTR, Name);
-lookup_type!(Ipv4Lookup, Ipv4LookupIter, Ipv4LookupFuture, RData::A, Ipv4Addr);
-lookup_type!(Ipv6Lookup, Ipv6LookupIter, Ipv6LookupFuture, RData::AAAA, Ipv6Addr);
+lookup_type!(
+    ReverseLookup,
+    ReverseLookupIter,
+    ReverseLookupFuture,
+    RData::PTR,
+    Name
+);
+lookup_type!(
+    Ipv4Lookup,
+    Ipv4LookupIter,
+    Ipv4LookupFuture,
+    RData::A,
+    Ipv4Addr
+);
+lookup_type!(
+    Ipv6Lookup,
+    Ipv6LookupIter,
+    Ipv6LookupFuture,
+    RData::AAAA,
+    Ipv6Addr
+);
 lookup_type!(MxLookup, MxLookupIter, MxLookupFuture, RData::MX, rdata::MX);
-lookup_type!(SrvLookup, SrvLookupIter, SrvLookupFuture, RData::SRV, rdata::SRV);
-lookup_type!(TxtLookup, TxtLookupIter, TxtLookupFuture, RData::TXT, rdata::TXT);
+lookup_type!(
+    SrvLookup,
+    SrvLookupIter,
+    SrvLookupFuture,
+    RData::SRV,
+    rdata::SRV
+);
+lookup_type!(
+    TxtLookup,
+    TxtLookupIter,
+    TxtLookupFuture,
+    RData::TXT,
+    rdata::TXT
+);
 
 #[cfg(test)]
 pub mod tests {
@@ -326,7 +356,7 @@ pub mod tests {
             lookup(
                 Name::root(),
                 RecordType::A,
-                &mut DnsLru::new(0, mock(vec![v4_message()])),
+                DnsLru::new(0, mock(vec![v4_message()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -342,7 +372,7 @@ pub mod tests {
             lookup(
                 Name::root(),
                 RecordType::A,
-                &mut DnsLru::new(0, mock(vec![error()])),
+                DnsLru::new(0, mock(vec![error()])),
             ).wait()
                 .is_err()
         );
@@ -354,7 +384,7 @@ pub mod tests {
             lookup(
                 Name::root(),
                 RecordType::A,
-                &mut DnsLru::new(0, mock(vec![empty()])),
+                DnsLru::new(0, mock(vec![empty()])),
             ).wait()
                 .unwrap()
                 .iter()
