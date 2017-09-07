@@ -8,7 +8,7 @@
 //! Structs for creating and using a Resolver
 
 use std::cell::RefCell;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 use std::io;
 
 use tokio_core::reactor::Core;
@@ -38,10 +38,10 @@ macro_rules! lookup_fn {
 /// # Arguments
 ///
 /// * `query` - a str which parses to a domain name, failure to parse will return an error
-pub fn $p(&mut self, query: &str) -> io::Result<$l> {
+pub fn $p(&self, query: &str) -> io::Result<$l> {
     self.io_loop.borrow_mut().run(
             self.resolver_future
-                .borrow_mut()
+                .borrow()
                 .$p(query),
         )
 }
@@ -52,10 +52,10 @@ pub fn $p(&mut self, query: &str) -> io::Result<$l> {
 /// # Arguments
 ///
 /// * `query` - a type which can be converted to `Name` via `From`.
-pub fn $p(&mut self, query: $t) -> io::Result<$l> {
+pub fn $p(&self, query: $t) -> io::Result<$l> {
     self.io_loop.borrow_mut().run(
             self.resolver_future
-                .borrow_mut()
+                .borrow()            
                 .$p(query),
         )
 }
@@ -96,10 +96,10 @@ impl Resolver {
     ///
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
     /// * `record_type` - type of record to lookup
-    pub fn lookup(&mut self, name: &str, record_type: RecordType) -> io::Result<Lookup> {
+    pub fn lookup(&self, name: &str, record_type: RecordType) -> io::Result<Lookup> {
         self.io_loop.borrow_mut().run(
             self.resolver_future
-                .borrow_mut()
+                .borrow()
                 .lookup(name, record_type),
         )
     }
@@ -116,7 +116,7 @@ impl Resolver {
     pub fn lookup_ip(&self, host: &str) -> io::Result<LookupIp> {
         self.io_loop.borrow_mut().run(
             self.resolver_future
-                .borrow_mut()
+                .borrow()
                 .lookup_ip(host),
         )
     }
@@ -139,7 +139,7 @@ mod tests {
 
     #[test]
     fn test_lookup() {
-        let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default())
+        let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default())
             .unwrap();
 
         let response = resolver.lookup_ip("www.example.com.").unwrap();
@@ -170,7 +170,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_system_lookup() {
-        let mut resolver = Resolver::from_system_conf().unwrap();
+        let resolver = Resolver::from_system_conf().unwrap();
 
         let response = resolver.lookup_ip("www.example.com.").unwrap();
         println!("response records: {:?}", response);

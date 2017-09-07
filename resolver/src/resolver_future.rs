@@ -7,10 +7,9 @@
 
 //! Structs for creating and using a ResolverFuture
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 use std::str::FromStr;
 
-use futures::{Async, Future, Poll};
 use tokio_core::reactor::Handle;
 use trust_dns::client::{RetryClientHandle, SecureClientHandle};
 use trust_dns::rr::{Name, RecordType};
@@ -20,7 +19,7 @@ use lru::DnsLru;
 use name_server_pool::NameServerPool;
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use lookup;
-use lookup::{InnerLookupFuture, Lookup, LookupEither, LookupIter, LookupFuture};
+use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
 use system_conf;
 
 /// A Resolver for DNS records.
@@ -39,7 +38,7 @@ macro_rules! lookup_fn {
 /// # Arguments
 ///
 /// * `query` - a str which parses to a domain name, failure to parse will return an error
-pub fn $p(&mut self, query: &str) -> $f {
+pub fn $p(&self, query: &str) -> $f {
     let name = match Name::from_str(query) {
         Ok(name) => name,
         Err(err) => {
@@ -56,7 +55,7 @@ pub fn $p(&mut self, query: &str) -> $f {
 /// # Arguments
 ///
 /// * `query` - a type which can be converted to `Name` via `From`.
-pub fn $p(&mut self, query: $t) -> $f {
+pub fn $p(&self, query: $t) -> $f {
     let name = Name::from(query);
     self.inner_lookup(name, $r).into()
 }
@@ -135,8 +134,7 @@ impl ResolverFuture {
     /// # Returns
     ///
     //  A future for the returned Lookup RData
-    // FIXME: should not take &mut self
-    pub fn lookup(&mut self, name: &str, record_type: RecordType) -> LookupFuture {
+    pub fn lookup(&self, name: &str, record_type: RecordType) -> LookupFuture {
         let name = match Name::from_str(name) {
             Ok(name) => name,
             Err(err) => {
@@ -147,9 +145,9 @@ impl ResolverFuture {
         self.inner_lookup(name, record_type)
     }
 
-    fn inner_lookup(&mut self, name: Name, record_type: RecordType) -> LookupFuture {
+    fn inner_lookup(&self, name: Name, record_type: RecordType) -> LookupFuture {
         let names = self.build_names(name);
-        LookupFuture::lookup(names, record_type, &mut self.client_cache.clone())
+        LookupFuture::lookup(names, record_type, self.client_cache.clone())
     }
 
     /// Performs a DNS lookup for the IP for the given hostname.
@@ -161,7 +159,7 @@ impl ResolverFuture {
     ///
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned from the returned future.
-    pub fn lookup_ip(&mut self, host: &str) -> LookupIpFuture {
+    pub fn lookup_ip(&self, host: &str) -> LookupIpFuture {
         let name = match Name::from_str(host) {
             Ok(name) => name,
             Err(err) => {
@@ -174,7 +172,7 @@ impl ResolverFuture {
         LookupIpFuture::lookup(
             names,
             self.options.ip_strategy,
-            &mut self.client_cache.clone(),
+            self.client_cache.clone(),
         )
     }
 
@@ -206,7 +204,7 @@ mod tests {
     #[test]
     fn test_lookup() {
         let mut io_loop = Core::new().unwrap();
-        let mut resolver = ResolverFuture::new(
+        let resolver = ResolverFuture::new(
             ResolverConfig::default(),
             ResolverOpts::default(),
             &io_loop.handle(),
@@ -242,7 +240,7 @@ mod tests {
     #[ignore] // these appear to not work on travis
     fn test_sec_lookup() {
         let mut io_loop = Core::new().unwrap();
-        let mut resolver = ResolverFuture::new(
+        let resolver = ResolverFuture::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -281,7 +279,7 @@ mod tests {
     #[ignore] // these appear to not work on travis
     fn test_sec_lookup_fails() {
         let mut io_loop = Core::new().unwrap();
-        let mut resolver = ResolverFuture::new(
+        let resolver = ResolverFuture::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -308,7 +306,7 @@ mod tests {
     #[ignore]
     fn test_system_lookup() {
         let mut io_loop = Core::new().unwrap();
-        let mut resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
+        let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
 
         let response = io_loop.run(resolver.lookup_ip("www.example.com.")).expect(
             "failed to run lookup",
@@ -347,7 +345,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Core::new().unwrap();
-        let mut resolver = ResolverFuture::new(
+        let resolver = ResolverFuture::new(
             ResolverConfig::from_parts(domain, search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -381,7 +379,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Core::new().unwrap();
-        let mut resolver = ResolverFuture::new(
+        let resolver = ResolverFuture::new(
             ResolverConfig::from_parts(domain, search, name_servers),
             ResolverOpts {
                 // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
@@ -419,7 +417,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Core::new().unwrap();
-        let mut resolver = ResolverFuture::new(
+        let resolver = ResolverFuture::new(
             ResolverConfig::from_parts(domain, search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -456,7 +454,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Core::new().unwrap();
-        let mut resolver = ResolverFuture::new(
+        let resolver = ResolverFuture::new(
             ResolverConfig::from_parts(domain, search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
