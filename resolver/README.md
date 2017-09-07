@@ -10,8 +10,9 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - `/etc/resolv.conf` based configuration on Unix/Posix systems
 - NameServer pools with performance based priority usage
 - Caching of query results
+- *TBD* NXDOMAIN caching (negative caching)
 - DNSSec validation
-- *TBD* Generic Record Type Lookup (the Client can be used in the interim)
+- Generic Record Type Lookup (the Client can be used in the interim)
 - *TBD* TLS integration
 
 ## Example
@@ -23,6 +24,9 @@ use trust_dns_resolver::config::*;
 
 // Construct a new Resolver with default configuration options
 let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+
+// On Unix/Posix systems, this will read the /etc/resolv.conf
+// let mut resolver = Resolver::from_system_conf().unwrap();
 
 // Lookup the IP addresses associated with a name.
 let mut response = resolver.lookup_ip("www.example.com.").unwrap();
