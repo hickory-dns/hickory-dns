@@ -13,6 +13,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Added
 
 - Generic record type lookup
+- reverse_lookup for IP to Name lookups
+- ipv4_lookup for looking up *only* ipv4 (lookup_ip has options for dual-stack)
+- ipv6_lookup for looking up *only* ipv6 (lookup_ip has options for dual-stack)
+- mx_lookup for querying mail exchanges
+- srv_lookup for service records
+- txt_lookup for text record lookups
 
 ### Changed
 
