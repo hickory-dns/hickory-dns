@@ -9,6 +9,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - *breaking* `LookupIp` now returns an iterator over owned data (IpAddr is Copy + Clone ref not necessary)
 - rewrote much of the caching and lookup functionality for generic RecordType lookups
+- removed &mut from resolver fn interfaces, make it easier to use
 
 ### Added
 
