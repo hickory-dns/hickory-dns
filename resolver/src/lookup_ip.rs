@@ -7,7 +7,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! LookupIp result from a resolution of ipv4 and ipv6 records with a Resolver.
-//! 
+//!
 //! At it's heart LookupIp uses Lookup for performing all lookups. It is unlike other standard lookups in that there are customizations around A and AAAA resolutions.
 
 use std::error::Error;
@@ -22,43 +22,41 @@ use trust_dns::op::Query;
 use trust_dns::rr::{Name, RData, RecordType};
 
 use config::LookupIpStrategy;
-use lookup::{Lookup, LookupEither};
+use lookup::{Lookup, LookupEither, LookupIter};
 use lru::DnsLru;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
 /// When resolving IP records, there can be many IPs that match a given name. A consumer of this should expect that there are more than a single address potentially returned. Generally there are multiple IPs stored for a given service in DNS so that there is a form of high availability offered for a given name. The service implementation is resposible for the seymantics around which IP should be used and when, but in general if a connection fails to one, the next in the list should be attempted.
 #[derive(Debug, Clone)]
-pub struct LookupIp {
-    lookup: Lookup,
-}
+pub struct LookupIp(Lookup);
 
 impl LookupIp {
-    pub(crate) fn new(lookup: Lookup) -> Self {
-        LookupIp { lookup }
-    }
-
     /// Returns a borrowed iterator of the returned IPs
     pub fn iter(&self) -> LookupIpIter {
-        LookupIpIter(Box::new(
-            self.lookup.iter().filter_map(|rdata| match *rdata {
-                RData::A(ip) => Some(IpAddr::from(ip)),
-                RData::AAAA(ip) => Some(IpAddr::from(ip)),
-                _ => None,
-            }),
-        ) as Box<Iterator<Item = IpAddr>>)
+        LookupIpIter(self.0.iter())
+    }
+}
 
+impl From<Lookup> for LookupIp {
+    fn from(lookup: Lookup) -> Self {
+        LookupIp(lookup)
     }
 }
 
 /// Borrowed view of set of IPs returned from a LookupIp
-pub struct LookupIpIter<'i>(Box<Iterator<Item = IpAddr> + 'i>);
+pub struct LookupIpIter<'i>(LookupIter<'i>);
 
 impl<'i> Iterator for LookupIpIter<'i> {
     type Item = IpAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.0.next()
+        let iter: &mut _ = &mut self.0;
+        iter.filter_map(|rdata| match *rdata {
+            RData::A(ip) => Some(IpAddr::from(ip)),
+            RData::AAAA(ip) => Some(IpAddr::from(ip)),
+            _ => None,
+        }).next()
     }
 }
 
@@ -136,9 +134,9 @@ impl<C: ClientHandle + 'static> Future for InnerLookupIpFuture<C> {
         match self.future.poll() {
             Ok(Async::Ready(lookup)) => {
                 if lookup.is_empty() {
-                    return self.next_lookup(|| Ok(Async::Ready(LookupIp::new(lookup))));
+                    return self.next_lookup(|| Ok(Async::Ready(LookupIp::from(lookup))));
                 } else {
-                    return Ok(Async::Ready(LookupIp::new(lookup)));
+                    return Ok(Async::Ready(LookupIp::from(lookup)));
                 }
             }
             Ok(Async::NotReady) => Ok(Async::NotReady),

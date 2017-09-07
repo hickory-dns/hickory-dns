@@ -8,12 +8,14 @@
 //! Structs for creating and using a Resolver
 
 use std::cell::RefCell;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::io;
 
 use tokio_core::reactor::Core;
 use trust_dns::rr::RecordType;
 
 use config::{ResolverConfig, ResolverOpts};
+use lookup;
 use lookup::Lookup;
 use lookup_ip::LookupIp;
 use ResolverFuture;
@@ -27,6 +29,38 @@ pub struct Resolver {
     io_loop: RefCell<Core>,
 }
 
+macro_rules! lookup_fn {
+    ($p:ident, $l:ty) => {
+/// Performs a lookup for the associated type.
+///
+/// *hint* queries that end with a '.' are fully qualified names and are cheaper lookups
+///
+/// # Arguments
+///
+/// * `query` - a str which parses to a domain name, failure to parse will return an error
+pub fn $p(&mut self, query: &str) -> io::Result<$l> {
+    self.io_loop.borrow_mut().run(
+            self.resolver_future
+                .borrow_mut()
+                .$p(query),
+        )
+}
+    };
+    ($p:ident, $l:ty, $t:ty) => {
+/// Performs a lookup for the associated type.
+///
+/// # Arguments
+///
+/// * `query` - a type which can be converted to `Name` via `From`.
+pub fn $p(&mut self, query: $t) -> io::Result<$l> {
+    self.io_loop.borrow_mut().run(
+            self.resolver_future
+                .borrow_mut()
+                .$p(query),
+        )
+}
+    };
+}
 
 impl Resolver {
     /// Constructs a new Resolver with the given ClientConnection, see UdpClientConnection and/or TcpCLientConnection
@@ -56,23 +90,6 @@ impl Resolver {
         Self::new(config, options)
     }
 
-    // TODO: need to support ndot lookup options...
-    /// Performs a DNS lookup for the IP for the given hostname.
-    ///
-    /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
-    ///  returning IpV4 or IpV6 addresses. (*Note*: current release only queries A, IPv4)
-    ///
-    /// # Arguments
-    ///
-    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
-    pub fn lookup_ip(&mut self, host: &str) -> io::Result<LookupIp> {
-        self.io_loop.borrow_mut().run(
-            self.resolver_future
-                .borrow_mut()
-                .lookup_ip(host),
-        )
-    }
-
     /// Generic lookup for any RecordType
     ///
     /// # Arguments
@@ -86,6 +103,30 @@ impl Resolver {
                 .lookup(name, record_type),
         )
     }
+
+    // TODO: need to support ndot lookup options...
+    /// Performs a DNS lookup for the IP for the given hostname.
+    ///
+    /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
+    ///  returning IpV4 or IpV6 addresses. (*Note*: current release only queries A, IPv4)
+    ///
+    /// # Arguments
+    ///
+    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
+    pub fn lookup_ip(&self, host: &str) -> io::Result<LookupIp> {
+        self.io_loop.borrow_mut().run(
+            self.resolver_future
+                .borrow_mut()
+                .lookup_ip(host),
+        )
+    }
+
+    lookup_fn!(reverse_lookup, lookup::ReverseLookup, IpAddr);
+    lookup_fn!(ipv4_lookup, lookup::Ipv4Lookup);
+    lookup_fn!(ipv6_lookup, lookup::Ipv6Lookup);
+    lookup_fn!(mx_lookup, lookup::MxLookup);
+    lookup_fn!(srv_lookup, lookup::SrvLookup);
+    lookup_fn!(txt_lookup, lookup::TxtLookup);
 }
 
 #[cfg(test)]

@@ -10,6 +10,7 @@
 
 use std::error::Error;
 use std::io;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::mem;
 use std::slice::Iter;
 use std::sync::Arc;
@@ -20,6 +21,7 @@ use trust_dns::client::{ClientHandle, RetryClientHandle, SecureClientHandle};
 use trust_dns::error::ClientError;
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RecordType, RData};
+use trust_dns::rr::rdata;
 
 use lru::DnsLru;
 use name_server_pool::NameServerPool;
@@ -199,6 +201,72 @@ fn lookup<C: ClientHandle + 'static>(
 //     }
 // }
 
+/// Creates a Lookup result type from the specified components
+macro_rules! lookup_type {
+    ($l:ident, $i:ident, $f:ident, $r:path, $t:path) => {
+/// Contains the results of a lookup for the associated RecordType
+#[derive(Debug, Clone)]
+pub struct $l(Lookup);
+
+impl $l {
+    /// Returns an iterator over the RData
+    pub fn iter(&self) -> $i {
+        $i(self.0.iter())
+    }
+}
+
+impl From<Lookup> for $l {
+    fn from(lookup: Lookup) -> Self {
+        $l(lookup)
+    }
+}
+
+/// An iterator over the Lookup type
+pub struct $i<'i>(LookupIter<'i>);
+
+impl<'i> Iterator for $i<'i> {
+    type Item = &'i $t;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let iter: &mut _ = &mut self.0;
+        iter.filter_map(|rdata| match *rdata {
+            $r(ref data) => Some(data),
+            _ => None,
+        }).next()
+    }
+}
+
+/// A Future while resolves to the Lookup type
+pub struct $f(LookupFuture);
+
+impl From<LookupFuture> for $f {
+    fn from(lookup_future: LookupFuture) -> Self {
+        $f(lookup_future)
+    }
+}
+
+impl Future for $f {
+    type Item = $l;
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self.0.poll() {
+            Ok(Async::Ready(lookup)) => Ok(Async::Ready($l(lookup))),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(e) => Err(e),
+        }
+    }
+}
+    }
+}
+
+// Generate all Lookup record types
+lookup_type!(ReverseLookup, ReverseLookupIter, ReverseLookupFuture, RData::PTR, Name);
+lookup_type!(Ipv4Lookup, Ipv4LookupIter, Ipv4LookupFuture, RData::A, Ipv4Addr);
+lookup_type!(Ipv6Lookup, Ipv6LookupIter, Ipv6LookupFuture, RData::AAAA, Ipv6Addr);
+lookup_type!(MxLookup, MxLookupIter, MxLookupFuture, RData::MX, rdata::MX);
+lookup_type!(SrvLookup, SrvLookupIter, SrvLookupFuture, RData::SRV, rdata::SRV);
+lookup_type!(TxtLookup, TxtLookupIter, TxtLookupFuture, RData::TXT, rdata::TXT);
 
 #[cfg(test)]
 pub mod tests {

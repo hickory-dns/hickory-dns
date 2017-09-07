@@ -7,8 +7,10 @@
 
 //! Structs for creating and using a ResolverFuture
 use std::io;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
+use futures::{Async, Future, Poll};
 use tokio_core::reactor::Handle;
 use trust_dns::client::{RetryClientHandle, SecureClientHandle};
 use trust_dns::rr::{Name, RecordType};
@@ -17,7 +19,8 @@ use config::{ResolverConfig, ResolverOpts};
 use lru::DnsLru;
 use name_server_pool::NameServerPool;
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
-use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
+use lookup;
+use lookup::{InnerLookupFuture, Lookup, LookupEither, LookupIter, LookupFuture};
 use system_conf;
 
 /// A Resolver for DNS records.
@@ -25,6 +28,39 @@ pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
     client_cache: DnsLru<LookupEither>,
+}
+
+macro_rules! lookup_fn {
+    ($p:ident, $f:ty, $r:path) => {
+/// Performs a lookup for the associated type.
+///
+/// *hint* queries that end with a '.' are fully qualified names and are cheaper lookups
+///
+/// # Arguments
+///
+/// * `query` - a str which parses to a domain name, failure to parse will return an error
+pub fn $p(&mut self, query: &str) -> $f {
+    let name = match Name::from_str(query) {
+        Ok(name) => name,
+        Err(err) => {
+            return InnerLookupFuture::error(self.client_cache.clone(), err).into();
+        }
+    };
+
+    self.inner_lookup(name, $r).into()
+}
+    };
+    ($p:ident, $f:ty, $r:path, $t:ty) => {
+/// Performs a lookup for the associated type.
+///
+/// # Arguments
+///
+/// * `query` - a type which can be converted to `Name` via `From`.
+pub fn $p(&mut self, query: $t) -> $f {
+    let name = Name::from(query);
+    self.inner_lookup(name, $r).into()
+}
+    };
 }
 
 impl ResolverFuture {
@@ -52,32 +88,6 @@ impl ResolverFuture {
     pub fn from_system_conf(reactor: &Handle) -> io::Result<Self> {
         let (config, options) = system_conf::read_system_conf()?;
         Ok(Self::new(config, options, reactor))
-    }
-
-    /// Performs a DNS lookup for the IP for the given hostname.
-    ///
-    /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
-    ///  returning IpV4 or IpV6 addresses. (*Note*: current release only queries A, IPv4). For the least expensive query
-    ///  a fully-qualified-domain-name, FQDN, which ends in a final `.`, e.g. `www.example.com.`, will only issue one query.
-    ///  anything else will always incur the cost of querying the `ResolverConfig::domain` and `ResolverConfig::search`.
-    ///
-    /// # Arguments
-    /// * `host` - string hostname, if this is an invalid hostname, an error will be returned from the returned future.
-    pub fn lookup_ip(&mut self, host: &str) -> LookupIpFuture {
-        let name = match Name::from_str(host) {
-            Ok(name) => name,
-            Err(err) => {
-                return InnerLookupIpFuture::error(self.client_cache.clone(), err);
-            }
-        };
-
-        let names = self.build_names(name);
-
-        LookupIpFuture::lookup(
-            names,
-            self.options.ip_strategy,
-            &mut self.client_cache.clone(),
-        )
     }
 
     fn push_name(name: Name, names: &mut Vec<Name>) {
@@ -121,25 +131,65 @@ impl ResolverFuture {
     ///
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
     /// * `record_type` - type of record to lookup
+    ///
+    /// # Returns
+    ///
+    //  A future for the returned Lookup RData
+    // FIXME: should not take &mut self
     pub fn lookup(&mut self, name: &str, record_type: RecordType) -> LookupFuture {
-       let name = match Name::from_str(name) {
+        let name = match Name::from_str(name) {
             Ok(name) => name,
             Err(err) => {
                 return InnerLookupFuture::error(self.client_cache.clone(), err);
             }
         };
 
+        self.inner_lookup(name, record_type)
+    }
+
+    fn inner_lookup(&mut self, name: Name, record_type: RecordType) -> LookupFuture {
+        let names = self.build_names(name);
+        LookupFuture::lookup(names, record_type, &mut self.client_cache.clone())
+    }
+
+    /// Performs a DNS lookup for the IP for the given hostname.
+    ///
+    /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
+    ///  returning IpV4 or IpV6 addresses. For the least expensive query
+    ///  a fully-qualified-domain-name, FQDN, which ends in a final `.`, e.g. `www.example.com.`, will only issue one query.
+    ///  Anything else will always incur the cost of querying the `ResolverConfig::domain` and `ResolverConfig::search`.
+    ///
+    /// # Arguments
+    /// * `host` - string hostname, if this is an invalid hostname, an error will be returned from the returned future.
+    pub fn lookup_ip(&mut self, host: &str) -> LookupIpFuture {
+        let name = match Name::from_str(host) {
+            Ok(name) => name,
+            Err(err) => {
+                return InnerLookupIpFuture::error(self.client_cache.clone(), err);
+            }
+        };
+
         let names = self.build_names(name);
 
-        LookupFuture::lookup(
+        LookupIpFuture::lookup(
             names,
-            record_type,
+            self.options.ip_strategy,
             &mut self.client_cache.clone(),
         )
     }
+
+    lookup_fn!(
+        reverse_lookup,
+        lookup::ReverseLookupFuture,
+        RecordType::PTR,
+        IpAddr
+    );
+    lookup_fn!(ipv4_lookup, lookup::Ipv4LookupFuture, RecordType::A);
+    lookup_fn!(ipv6_lookup, lookup::Ipv6LookupFuture, RecordType::AAAA);
+    lookup_fn!(mx_lookup, lookup::MxLookupFuture, RecordType::MX);
+    lookup_fn!(srv_lookup, lookup::SrvLookupFuture, RecordType::SRV);
+    lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
 }
-
-
 
 #[cfg(test)]
 mod tests {
