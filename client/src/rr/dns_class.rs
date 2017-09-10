@@ -18,6 +18,8 @@
 
 use std::convert::From;
 use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 use serialize::binary::*;
 use error::*;
@@ -152,19 +154,28 @@ impl Ord for DNSClass {
     }
 }
 
+impl Display for DNSClass {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        f.write_str(Into::<&str>::into(*self))
+    }
+}
 
 #[test]
 fn test_order() {
-    let ordered = vec![DNSClass::IN,
-                       DNSClass::CH,
-                       DNSClass::HS,
-                       DNSClass::NONE,
-                       DNSClass::ANY];
-    let mut unordered = vec![DNSClass::NONE,
-                             DNSClass::HS,
-                             DNSClass::CH,
-                             DNSClass::IN,
-                             DNSClass::ANY];
+    let ordered = vec![
+        DNSClass::IN,
+        DNSClass::CH,
+        DNSClass::HS,
+        DNSClass::NONE,
+        DNSClass::ANY,
+    ];
+    let mut unordered = vec![
+        DNSClass::NONE,
+        DNSClass::HS,
+        DNSClass::CH,
+        DNSClass::IN,
+        DNSClass::ANY,
+    ];
 
     unordered.sort();
 

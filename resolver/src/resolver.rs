@@ -139,8 +139,7 @@ mod tests {
 
     #[test]
     fn test_lookup() {
-        let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default())
-            .unwrap();
+        let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 
         let response = resolver.lookup_ip("www.example.com.").unwrap();
         println!("response records: {:?}", response);

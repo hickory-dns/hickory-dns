@@ -386,11 +386,9 @@ pub mod tests {
                 RecordType::A,
                 DnsLru::new(0, mock(vec![empty()])),
             ).wait()
-                .unwrap()
-                .iter()
-                .map(|r| r.to_ip_addr().unwrap())
-                .collect::<Vec<IpAddr>>(),
-            Vec::<IpAddr>::new()
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::AddrNotAvailable
         );
     }
 }

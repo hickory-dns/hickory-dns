@@ -166,13 +166,18 @@ mod tests {
         );
 
         assert_eq!(
-            resolv_conf::parse_basic_option(&mut errors, "nameserver 2001:db8:85a3:8d3:1319:8a2e:370:7348")
-                .expect("failed"),
-            BasicOption::Nameserver(IpAddr::from_str("2001:db8:85a3:8d3:1319:8a2e:370:7348").unwrap())
+            resolv_conf::parse_basic_option(
+                &mut errors,
+                "nameserver 2001:db8:85a3:8d3:1319:8a2e:370:7348",
+            ).expect("failed"),
+            BasicOption::Nameserver(
+                IpAddr::from_str("2001:db8:85a3:8d3:1319:8a2e:370:7348").unwrap(),
+            )
         );
 
         assert_eq!(
-            resolv_conf::parse_basic_option(&mut errors, "nameserver ::ffff:192.0.2.128").expect("failed"),
+            resolv_conf::parse_basic_option(&mut errors, "nameserver ::ffff:192.0.2.128")
+                .expect("failed"),
             BasicOption::Nameserver(IpAddr::from_str("::ffff:192.0.2.128").unwrap())
         );
     }
