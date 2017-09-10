@@ -15,7 +15,7 @@ use trust_dns::client::{RetryClientHandle, SecureClientHandle};
 use trust_dns::rr::{Name, RecordType};
 
 use config::{ResolverConfig, ResolverOpts};
-use lru::DnsLru;
+use lookup_state::DnsLru;
 use name_server_pool::NameServerPool;
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use lookup;

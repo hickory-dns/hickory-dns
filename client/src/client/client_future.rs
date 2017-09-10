@@ -38,7 +38,7 @@ pub trait ClientStreamHandle {
 
 impl ClientStreamHandle for StreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
-        UnboundedSender::send(self, buffer).map_err(|_| {
+        UnboundedSender::unbounded_send(self, buffer).map_err(|_| {
             io::Error::new(io::ErrorKind::Other, "unknown")
         })
     }
@@ -402,7 +402,7 @@ impl ClientHandle for BasicClientHandle {
         let message_sender: &mut _ = &mut self.message_sender;
 
         // TODO: update to use Sink::send
-        let receiver = match UnboundedSender::send(message_sender, (message, complete)) {
+        let receiver = match UnboundedSender::unbounded_send(message_sender, (message, complete)) {
             Ok(()) => receiver,
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();

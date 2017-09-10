@@ -23,7 +23,7 @@ use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RecordType, RData};
 use trust_dns::rr::rdata;
 
-use lru::DnsLru;
+use lookup_state::DnsLru;
 use name_server_pool::NameServerPool;
 
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Client library.

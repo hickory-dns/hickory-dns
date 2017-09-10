@@ -23,7 +23,7 @@ use trust_dns::rr::{Name, RData, RecordType};
 
 use config::LookupIpStrategy;
 use lookup::{Lookup, LookupEither, LookupIter};
-use lru::DnsLru;
+use lookup_state::DnsLru;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///

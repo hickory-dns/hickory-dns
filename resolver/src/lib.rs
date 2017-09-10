@@ -135,8 +135,7 @@ extern crate trust_dns;
 pub mod config;
 pub mod lookup_ip;
 pub mod lookup;
-// TODO: perhaps rename lru, or move most of the methods into lookup?
-mod lru;
+mod lookup_state;
 mod name_server_pool;
 mod resolver;
 pub mod system_conf;
