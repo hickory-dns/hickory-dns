@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Caching related functionality for the Resolver.
+//! FIXME: rename this to LookupState?
 
 use std::io;
 use std::mem;
@@ -16,8 +17,8 @@ use futures::{Async, Future, Poll, task};
 
 use trust_dns::client::ClientHandle;
 use trust_dns::error::ClientError;
-use trust_dns::op::{Query, Message};
-use trust_dns::rr::RData;
+use trust_dns::op::{Message, Query, ResponseCode};
+use trust_dns::rr::{RData, RecordType};
 
 use lookup::Lookup;
 use lru_cache::LruCache;
@@ -27,7 +28,8 @@ const MAX_TTL: u32 = 2147483647_u32;
 
 #[derive(Debug)]
 struct LruValue {
-    lookup: Lookup,
+    // In the None case, this represents an NXDomain
+    lookup: Option<Lookup>,
     ttl_until: Instant,
 }
 
@@ -91,7 +93,7 @@ fn insert(
     lru.insert(
         query,
         LruValue {
-            lookup: lookup.clone(),
+            lookup: Some(lookup.clone()),
             ttl_until,
         },
     );
@@ -99,12 +101,45 @@ fn insert(
     lookup
 }
 
+fn nx_error(query: Query) -> io::Error {
+    io::Error::new(
+        io::ErrorKind::AddrNotAvailable,
+        format!("Addr does not exist for: {}", query),
+    )
+}
+
+fn negative(
+    lru: &mut LruCache<Query, LruValue>,
+    query: Query,
+    ttl: u32,
+    now: Instant,
+) -> io::Error {
+    // TODO: if we are getting a negative response, should we instead fallback to cache?
+    //   this would cache indefinitely, probably not correct
+
+    let ttl = Duration::from_secs(ttl as u64);
+    let ttl_until = now + ttl;
+
+    lru.insert(
+        query.clone(),
+        LruValue {
+            lookup: None,
+            ttl_until,
+        },
+    );
+
+    nx_error(query)
+}
+
 /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
 fn get(lru: &mut LruCache<Query, LruValue>, query: &Query, now: Instant) -> Option<Lookup> {
+    let mut out_of_date = false;
     let lookup = lru.get_mut(query).and_then(
         |value| if value.is_current(now) {
-            Some(value.lookup.clone())
+            out_of_date = false;
+            value.lookup.clone()
         } else {
+            out_of_date = true;
             None
         },
     );
@@ -112,7 +147,7 @@ fn get(lru: &mut LruCache<Query, LruValue>, query: &Query, now: Instant) -> Opti
     // in this case, we can preemtively remove out of data elements
     // this assumes time is always moving forward, this would only not be true in contrived situations where now
     //  is not current time, like tests...
-    if lookup.is_none() {
+    if out_of_date {
         lru.remove(query);
     }
 
@@ -155,30 +190,86 @@ struct QueryFuture {
     cache: Arc<Mutex<LruCache<Query, LruValue>>>,
 }
 
+enum Records {
+    /// The records exists, a vec of rdata with ttl
+    Exists(Vec<(RData, u32)>),
+    /// Records do not exist, ttl for negative caching
+    NoData(Option<u32>),
+}
+
+impl QueryFuture {
+    fn handle_noerror(&self, mut message: Message) -> Records {
+        let records = message
+            .take_answers()
+            .into_iter()
+            .filter_map(|r| {
+                let ttl = r.ttl();
+                // TODO: validate names in response?
+                // restrict to the RData type requested
+                if self.query.query_type() == r.rr_type() {
+                    Some((r.unwrap_rdata(), ttl))
+                } else {
+                    None
+                }
+            })
+            .collect::<Vec<_>>();
+
+        if !records.is_empty() {
+            Records::Exists(records)
+        } else {
+            // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
+            // FIXME: DNSSec we should only cache negative response if NSEC was validated...
+            self.handle_nxdomain(message)
+        }
+    }
+
+    /// See https://tools.ietf.org/html/rfc2308
+    ///
+    /// For now we will regard NXDomain to strictly mean the query failed
+    ///  and a record for the name, regardless of CNAME presence, what have you
+    ///  ultimately does not exist.
+    ///
+    /// This also handles empty responses in the same way
+    ///
+    /// TODO: in DNSSec mode, we should only cache if there were validated NSEC records
+    fn handle_nxdomain(&self, mut message: Message) -> Records {
+        // FIXME: if we're in DNSSec mode, NxDomain should not have been returned, we should only cache
+        //  if there were validated NSEC records
+        let soa = message.take_name_servers().into_iter().find(|r| {
+            r.rr_type() == RecordType::SOA
+        });
+
+        let ttl = if let Some(RData::SOA(soa)) = soa.map(|r| r.unwrap_rdata()) {
+            Some(soa.minimum())
+        } else {
+            // TODO: figure out a looping lookup to get SOA
+            None
+        };
+
+        Records::NoData(ttl)
+    }
+}
+
 impl Future for QueryFuture {
-    type Item = Vec<(RData, u32)>;
+    type Item = Records;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.message_future.poll() {
-            Ok(Async::Ready(mut message)) => {
-                let records = message
-                // TODO: consider taking other responses?
-                    .take_answers()
-                    .into_iter()
-                    .filter_map(|r| {
-                        let ttl = r.ttl();
-                        // TODO: validate names in response?
-                        // restrict to the RData type requested
-                        if self.query.query_type() == r.rr_type() {
-                            Some((r.unwrap_rdata(), ttl))
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
+            Ok(Async::Ready(message)) => {
+                // TODO: take all records and cache them?
+                //  if it's DNSSec they must be signed, otherwise?
 
-                Ok(Async::Ready(records))
+                match message.response_code() {
+                    ResponseCode::NXDomain => Ok(Async::Ready(self.handle_nxdomain(message))),
+                    ResponseCode::NoError => Ok(Async::Ready(self.handle_noerror(message))),
+                    r @ _ => Err(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("DNS Error: {}", r),
+                    )),
+                }
+
+
             }
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(err) => Err(err.into()),
@@ -187,7 +278,7 @@ impl Future for QueryFuture {
 }
 
 struct InsertCache {
-    rdatas: Vec<(RData, u32)>,
+    rdatas: Records,
     query: Query,
     cache: Arc<Mutex<LruCache<Query, LruValue>>>,
 }
@@ -212,11 +303,17 @@ impl Future for InsertCache {
             Ok(mut lru) => {
                 // this will put this object into an inconsistent state, but no one should call poll again...
                 let query = mem::replace(&mut self.query, Query::new());
-                let rdata = mem::replace(&mut self.rdatas, vec![]);
+                let rdata = mem::replace(&mut self.rdatas, Records::NoData(None));
 
-                return Ok(Async::Ready(
-                    insert(&mut *lru, query, rdata, Instant::now()),
-                ));
+                match rdata {
+                    Records::Exists(rdata) => Ok(Async::Ready(
+                        insert(&mut *lru, query, rdata, Instant::now()),
+                    )),
+                    Records::NoData(Some(ttl)) => Err(
+                        negative(&mut *lru, query, ttl, Instant::now()),
+                    ),
+                    _ => Err(nx_error(query)),
+                }
             }
         }
     }
@@ -268,7 +365,7 @@ impl<C: ClientHandle + 'static> QueryState<C> {
         }
     }
 
-    fn cache(&mut self, rdatas: Vec<(RData, u32)>) {
+    fn cache(&mut self, rdatas: Records) {
         // The error state, this query is complete...
         let query_state = mem::replace(self, QueryState::Error);
 
@@ -375,7 +472,7 @@ mod tests {
         let past_the_future = now + Duration::from_secs(6);
 
         let value = LruValue {
-            lookup: Lookup::new(Arc::new(vec![])),
+            lookup: None,
             ttl_until: future,
         };
 
@@ -431,11 +528,13 @@ mod tests {
         let cache = Arc::new(Mutex::new(LruCache::new(1)));
         let mut client = mock(vec![empty()]);
 
-        let ips = QueryState::lookup(Query::new(), &mut client, cache)
-            .wait()
-            .unwrap();
-
-        assert!(ips.iter().next().is_none());
+        assert_eq!(
+            QueryState::lookup(Query::new(), &mut client, cache)
+                .wait()
+                .unwrap_err()
+                .kind(),
+            io::ErrorKind::AddrNotAvailable
+        );
     }
 
     #[test]
@@ -444,9 +543,7 @@ mod tests {
         insert(
             &mut cache.lock().unwrap(),
             Query::new(),
-            vec![
-                (RData::A(Ipv4Addr::new(127, 0, 0, 1)), u32::max_value()),
-            ],
+            vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), u32::max_value())],
             Instant::now(),
         );
 

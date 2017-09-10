@@ -40,10 +40,12 @@ impl RequestHandler for Catalog {
     /// * `request` - the requested action to perform.
     fn handle_request(&self, request: &Request) -> Message {
         let request_message = &request.message;
-        info!("request id: {} type: {:?} op_code: {:?}",
-              request_message.id(),
-              request_message.message_type(),
-              request_message.op_code());
+        info!(
+            "request id: {} type: {:?} op_code: {:?}",
+            request_message.id(),
+            request_message.message_type(),
+            request_message.op_code()
+        );
         debug!("request: {:?}", request_message);
 
         let mut resp_edns_opt: Option<Edns> = None;
@@ -60,16 +62,18 @@ impl RequestHandler for Catalog {
             let our_version = 0;
             resp_edns.set_dnssec_ok(true);
             resp_edns.set_max_payload(if req_edns.max_payload() < 512 {
-                                          512
-                                      } else {
-                                          req_edns.max_payload()
-                                      });
+                512
+            } else {
+                req_edns.max_payload()
+            });
             resp_edns.set_version(our_version);
 
             if req_edns.version() > our_version {
-                warn!("request edns version greater than {}: {}",
-                      our_version,
-                      req_edns.version());
+                warn!(
+                    "request edns version greater than {}: {}",
+                    our_version,
+                    req_edns.version()
+                );
                 response.set_response_code(ResponseCode::BADVERS);
                 response.set_edns(resp_edns);
                 return response;
@@ -101,13 +105,24 @@ impl RequestHandler for Catalog {
                     }
                     c @ _ => {
                         error!("unimplemented op_code: {:?}", c);
-                        Message::error_msg(request_message.id(), request_message.op_code(), ResponseCode::NotImp)
+                        Message::error_msg(
+                            request_message.id(),
+                            request_message.op_code(),
+                            ResponseCode::NotImp,
+                        )
                     }
                 }
             }
             MessageType::Response => {
-                warn!("got a response as a request from id: {}", request_message.id());
-                Message::error_msg(request_message.id(), request_message.op_code(), ResponseCode::NotImp)
+                warn!(
+                    "got a response as a request from id: {}",
+                    request_message.id()
+                );
+                Message::error_msg(
+                    request_message.id(),
+                    request_message.op_code(),
+                    ResponseCode::NotImp,
+                )
             }
         };
 
@@ -269,18 +284,20 @@ impl Catalog {
             if let Some(ref_authority) = self.find_auth_recurse(query.name()) {
                 let authority = &ref_authority.read().unwrap(); // poison errors should panic
                 debug!("found authority: {:?}", authority.origin());
-                let (is_dnssec, supported_algorithms) = request
-                    .edns()
-                    .map_or((false, SupportedAlgorithms::new()), |edns| {
-                        let supported_algorithms = if let Some(&EdnsOption::DAU(algs)) =
-                            edns.option(&EdnsCode::DAU) {
-                            algs
-                        } else {
-                            Default::default()
-                        };
+                let (is_dnssec, supported_algorithms) =
+                    request.edns().map_or(
+                        (false, SupportedAlgorithms::new()),
+                        |edns| {
+                            let supported_algorithms =
+                                if let Some(&EdnsOption::DAU(algs)) = edns.option(&EdnsCode::DAU) {
+                                    algs
+                                } else {
+                                    Default::default()
+                                };
 
-                        (edns.dnssec_ok(), supported_algorithms)
-                    });
+                            (edns.dnssec_ok(), supported_algorithms)
+                        },
+                    );
 
                 let records = authority.search(query, is_dnssec, supported_algorithms);
                 if !records.is_empty() {
@@ -298,13 +315,16 @@ impl Catalog {
                 } else {
                     if is_dnssec {
                         // get NSEC records
-                        let nsecs = authority.get_nsec_records(query.name(),
-                                                               is_dnssec,
-                                                               supported_algorithms);
+                        let nsecs = authority.get_nsec_records(
+                            query.name(),
+                            is_dnssec,
+                            supported_algorithms,
+                        );
                         response.add_name_servers(nsecs.into_iter().cloned());
                     }
 
                     // in the not found case it's standard to return the SOA in the authority section
+                    // TODO: improve: see https://tools.ietf.org/html/rfc2308 for proper response construct
                     response.set_response_code(ResponseCode::NXDomain);
 
                     let soa = authority.soa_secure(is_dnssec, supported_algorithms);
@@ -316,6 +336,7 @@ impl Catalog {
                 }
             } else {
                 // we found nothing.
+                // TODO: improve: see https://tools.ietf.org/html/rfc2308 for proper response construct
                 response.set_response_code(ResponseCode::NXDomain);
             }
         }

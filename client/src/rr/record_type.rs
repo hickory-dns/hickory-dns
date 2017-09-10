@@ -18,9 +18,11 @@
 
 use std::convert::From;
 use std::cmp::Ordering;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 
 /// The type of the resource record.
 ///
@@ -34,7 +36,7 @@ pub enum RecordType {
     AAAA,
     //  AFSDB,      //	18	RFC 1183	AFS database record
     /// RFC 1035[1]	All cached records, aka ANY
-    ANY,	
+    ANY,
     //  APL,        //	42	RFC 3123	Address Prefix List
     /// RFC 1035[1]	Authoritative Zone Transfer
     AXFR,
@@ -117,7 +119,9 @@ impl RecordType {
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
             "AXFR" => Ok(RecordType::AXFR),
-            _ => Err(DecodeErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
+            _ => Err(
+                DecodeErrorKind::UnknownRecordTypeStr(str.to_string()).into(),
+            ),
         }
     }
 
@@ -263,33 +267,43 @@ impl Ord for RecordType {
     }
 }
 
+impl Display for RecordType {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        f.write_str(Into::<&str>::into(*self))
+    }
+}
+
 #[test]
 fn test_order() {
-    let ordered = vec![RecordType::NULL,
-                       RecordType::A,
-                       RecordType::NS,
-                       RecordType::CNAME,
-                       RecordType::SOA,
-                       RecordType::PTR,
-                       RecordType::MX,
-                       RecordType::TXT,
-                       RecordType::AAAA,
-                       RecordType::SRV,
-                       RecordType::AXFR,
-                       RecordType::ANY];
+    let ordered = vec![
+        RecordType::NULL,
+        RecordType::A,
+        RecordType::NS,
+        RecordType::CNAME,
+        RecordType::SOA,
+        RecordType::PTR,
+        RecordType::MX,
+        RecordType::TXT,
+        RecordType::AAAA,
+        RecordType::SRV,
+        RecordType::AXFR,
+        RecordType::ANY,
+    ];
 
-    let mut unordered = vec![RecordType::ANY,
-                             RecordType::NULL,
-                             RecordType::AXFR,
-                             RecordType::A,
-                             RecordType::NS,
-                             RecordType::SOA,
-                             RecordType::SRV,
-                             RecordType::PTR,
-                             RecordType::MX,
-                             RecordType::CNAME,
-                             RecordType::TXT,
-                             RecordType::AAAA];
+    let mut unordered = vec![
+        RecordType::ANY,
+        RecordType::NULL,
+        RecordType::AXFR,
+        RecordType::A,
+        RecordType::NS,
+        RecordType::SOA,
+        RecordType::SRV,
+        RecordType::PTR,
+        RecordType::MX,
+        RecordType::CNAME,
+        RecordType::TXT,
+        RecordType::AAAA,
+    ];
 
     unordered.sort();
 

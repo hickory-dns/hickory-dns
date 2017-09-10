@@ -16,6 +16,9 @@
 
 //! Query struct for looking up resource records
 
+use std::fmt;
+use std::fmt::{Display, Formatter};
+
 use rr::domain::Name;
 use rr::record_type::RecordType;
 use rr::dns_class::DNSClass;
@@ -140,6 +143,18 @@ impl BinSerializable<Query> for Query {
         try!(self.query_class.emit(encoder));
 
         Ok(())
+    }
+}
+
+impl Display for Query {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        write!(
+            f,
+            "name: {} type: {} class: {}",
+            self.name,
+            self.query_type,
+            self.query_class
+        )
     }
 }
 

@@ -16,6 +16,9 @@
 
 //! All defined response codes in DNS
 
+use std::fmt;
+use std::fmt::{Display, Formatter};
+
 /// The status code of the response to a query.
 ///
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -164,6 +167,12 @@ impl ResponseCode {
             ResponseCode::BADTRUNC => "Bad truncation", // 22	BADTRUNC	Bad Truncation	[RFC4635]
             ResponseCode::BADCOOKIE => "Bad server cookie", // 23	BADCOOKIE (TEMPORARY - registered 2015-07-26, expires 2016-07-26)	Bad/missing server cookie	[draft-ietf-dnsop-cookies]
         }
+    }
+}
+
+impl Display for ResponseCode {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        f.write_str(self.to_str())
     }
 }
 

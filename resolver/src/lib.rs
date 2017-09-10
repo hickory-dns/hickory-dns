@@ -43,7 +43,7 @@
 //!
 //! // Construct a new Resolver with default configuration options
 //! let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
-//! 
+//!
 //! // Lookup the IP addresses associated with a name.
 //! // NOTE: do not forget the final dot, as the resolver does not yet support search paths.
 //! let mut response = resolver.lookup_ip("www.example.com.").unwrap();
@@ -86,11 +86,11 @@
 //!
 //! // We need a Tokio reactor::Core to run the resolver
 //! //  this is responsible for running all Future tasks and registering interest in IO channels
-//! let mut io_loop = Core::new().unwrap(); 
+//! let mut io_loop = Core::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
 //! let mut resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), &io_loop.handle());
-//! 
+//!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
 //! //  to get the actual result.
@@ -119,7 +119,7 @@
 //!                              }).and_then(|conn| /* do something with the connection... */)
 //!                          ).unwrap();
 //! ```
-//! 
+//!
 //! It's beyond the scope of these examples to show how to deal with connection failures and looping etc. But if you wanted to say try a different address from the result set after a connection failure, it will be necessary to create a type that implements the `Future` trait. Inside the `Future::poll` method would be the place to implement a loop over the different IP addresses.
 
 #![deny(missing_docs)]

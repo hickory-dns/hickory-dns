@@ -169,11 +169,7 @@ impl ResolverFuture {
 
         let names = self.build_names(name);
 
-        LookupIpFuture::lookup(
-            names,
-            self.options.ip_strategy,
-            self.client_cache.clone(),
-        )
+        LookupIpFuture::lookup(names, self.options.ip_strategy, self.client_cache.clone())
     }
 
     lookup_fn!(
@@ -185,6 +181,7 @@ impl ResolverFuture {
     lookup_fn!(ipv4_lookup, lookup::Ipv4LookupFuture, RecordType::A);
     lookup_fn!(ipv6_lookup, lookup::Ipv6LookupFuture, RecordType::AAAA);
     lookup_fn!(mx_lookup, lookup::MxLookupFuture, RecordType::MX);
+    // TODO: SRV records should be constructed from service+protocol+name
     lookup_fn!(srv_lookup, lookup::SrvLookupFuture, RecordType::SRV);
     lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
 }
