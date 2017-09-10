@@ -131,8 +131,6 @@ impl Resolver {
 
 #[cfg(test)]
 mod tests {
-    extern crate tokio_core;
-
     use std::net::*;
 
     use super::*;

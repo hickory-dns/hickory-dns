@@ -90,10 +90,10 @@ impl TcpStream<TokioTcpStream> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
-    pub fn new
-        (name_server: SocketAddr,
-         loop_handle: &Handle)
-         -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
+    pub fn new(
+        name_server: SocketAddr,
+        loop_handle: &Handle,
+    ) -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
         Self::with_timeout(name_server, loop_handle, Duration::from_secs(5))
     }
 
@@ -104,11 +104,11 @@ impl TcpStream<TokioTcpStream> {
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
     /// * `timeout` - connection timeout
-    pub fn with_timeout
-        (name_server: SocketAddr,
-         loop_handle: &Handle,
-         timeout: Duration)
-         -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
+    pub fn with_timeout(
+        name_server: SocketAddr,
+        loop_handle: &Handle,
+        timeout: Duration,
+    ) -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
         let timeout = match Timeout::new(timeout, &loop_handle) {
             Ok(timeout) => timeout,
@@ -120,33 +120,33 @@ impl TcpStream<TokioTcpStream> {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream: Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>> =
-            Box::new(timeout
-                         .select2(tcp)
-                         .then(move |res| match res {
-                                   Ok(Either::A((_, _))) => {
-                                       future::err(io::Error::new(io::ErrorKind::TimedOut, format!("TimedOut connecting to: {}", name_server)))
-                                   }
-                                   Ok(Either::B((tcp_stream, _))) => future::ok((tcp_stream, name_server)),
-                                   Err(Either::A((timeout_err, _))) => {
-                                       future::err(timeout_err)
-                                   }
-                                   Err(Either::B((tcp_err, _))) => {
-                                       future::err(tcp_err)
-                                   }
-                               })
-                         .map(move |(tcp_stream, name_server)| {
-                TcpStream {
-                    socket: tcp_stream,
-                    outbound_messages: outbound_messages.fuse().peekable(),
-                    send_state: None,
-                    read_state: ReadTcpState::LenBytes {
-                        pos: 0,
-                        bytes: [0u8; 2],
-                    },
-                    peer_addr: name_server,
-                }
-            }));
+        let stream: Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>> = Box::new(
+            timeout
+                .select2(tcp)
+                .then(move |res| match res {
+                    Ok(Either::A((_, _))) => {
+                        future::err(io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            format!("TimedOut connecting to: {}", name_server),
+                        ))
+                    }
+                    Ok(Either::B((tcp_stream, _))) => future::ok((tcp_stream, name_server)),
+                    Err(Either::A((timeout_err, _))) => future::err(timeout_err),
+                    Err(Either::B((tcp_err, _))) => future::err(tcp_err),
+                })
+                .map(move |(tcp_stream, name_server)| {
+                    TcpStream {
+                        socket: tcp_stream,
+                        outbound_messages: outbound_messages.fuse().peekable(),
+                        send_state: None,
+                        read_state: ReadTcpState::LenBytes {
+                            pos: 0,
+                            bytes: [0u8; 2],
+                        },
+                        peer_addr: name_server,
+                    }
+                }),
+        );
 
         (stream, message_sender)
     }
@@ -170,10 +170,11 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     }
 
     /// Wrapps a stream where a sender and receiver have already been established
-    pub fn from_stream_with_receiver(stream: S,
-                                     peer_addr: SocketAddr,
-                                     receiver: UnboundedReceiver<(Vec<u8>, SocketAddr)>)
-                                     -> Self {
+    pub fn from_stream_with_receiver(
+        stream: S,
+        peer_addr: SocketAddr,
+        receiver: UnboundedReceiver<(Vec<u8>, SocketAddr)>,
+    ) -> Self {
         TcpStream {
             socket: stream,
             outbound_messages: receiver.fuse().peekable(),
@@ -228,27 +229,33 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                 match current_state {
                     Some(WriteTcpState::LenBytes { pos, length, bytes }) => {
                         if pos < length.len() {
-                            mem::replace(&mut self.send_state,
-                                         Some(WriteTcpState::LenBytes {
-                                                  pos: pos,
-                                                  length: length,
-                                                  bytes: bytes,
-                                              }));
+                            mem::replace(
+                                &mut self.send_state,
+                                Some(WriteTcpState::LenBytes {
+                                    pos: pos,
+                                    length: length,
+                                    bytes: bytes,
+                                }),
+                            );
                         } else {
-                            mem::replace(&mut self.send_state,
-                                         Some(WriteTcpState::Bytes {
-                                                  pos: 0,
-                                                  bytes: bytes,
-                                              }));
+                            mem::replace(
+                                &mut self.send_state,
+                                Some(WriteTcpState::Bytes {
+                                    pos: 0,
+                                    bytes: bytes,
+                                }),
+                            );
                         }
                     }
                     Some(WriteTcpState::Bytes { pos, bytes }) => {
                         if pos < bytes.len() {
-                            mem::replace(&mut self.send_state,
-                                         Some(WriteTcpState::Bytes {
-                                                  pos: pos,
-                                                  bytes: bytes,
-                                              }));
+                            mem::replace(
+                                &mut self.send_state,
+                                Some(WriteTcpState::Bytes {
+                                    pos: pos,
+                                    bytes: bytes,
+                                }),
+                            );
                         } else {
                             // At this point we successfully delivered the entire message.
                             //  flush
@@ -312,8 +319,10 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                             // Since this is the start of the next message, we have a clean end
                             return Ok(Async::Ready(None));
                         } else {
-                            return Err(io::Error::new(io::ErrorKind::BrokenPipe,
-                                                      "closed while reading length"));
+                            return Err(io::Error::new(
+                                io::ErrorKind::BrokenPipe,
+                                "closed while reading length",
+                            ));
                         }
                     }
                     debug!("in ReadTcpState::LenBytes: {}", pos);
@@ -330,9 +339,9 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
 
                         debug!("move ReadTcpState::Bytes: {}", bytes.len());
                         Some(ReadTcpState::Bytes {
-                                 pos: 0,
-                                 bytes: bytes,
-                             })
+                            pos: 0,
+                            bytes: bytes,
+                        })
                     }
                 }
                 ReadTcpState::Bytes {
@@ -346,8 +355,10 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
 
                         // Since this is the start of the next message, we have a clean end
                         // try!(self.socket.shutdown(Shutdown::Both));  // FIXME: add generic shutdown function
-                        return Err(io::Error::new(io::ErrorKind::BrokenPipe,
-                                                  "closed while reading message"));
+                        return Err(io::Error::new(
+                            io::ErrorKind::BrokenPipe,
+                            "closed while reading message",
+                        ));
                     }
 
                     debug!("in ReadTcpState::Bytes: {}", bytes.len());
@@ -359,9 +370,9 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                     } else {
                         debug!("reset ReadTcpState::LenBytes: {}", 0);
                         Some(ReadTcpState::LenBytes {
-                                 pos: 0,
-                                 bytes: [0u8; 2],
-                             })
+                            pos: 0,
+                            bytes: [0u8; 2],
+                        })
                     }
                 }
             };
@@ -465,9 +476,9 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             for _ in 0..send_recv_times {
                 // wait for some bytes...
                 let mut len_bytes = [0_u8; 2];
-                socket
-                    .read_exact(&mut len_bytes)
-                    .expect("SERVER: receive failed");
+                socket.read_exact(&mut len_bytes).expect(
+                    "SERVER: receive failed",
+                );
                 let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
@@ -478,12 +489,12 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 assert_eq!(&buffer, TEST_BYTES);
 
                 // bounce them right back...
-                socket
-                    .write_all(&len_bytes)
-                    .expect("SERVER: send length failed");
-                socket
-                    .write_all(&buffer)
-                    .expect("SERVER: send buffer failed");
+                socket.write_all(&len_bytes).expect(
+                    "SERVER: send length failed",
+                );
+                socket.write_all(&buffer).expect(
+                    "SERVER: send buffer failed",
+                );
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
@@ -498,20 +509,16 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
     let (stream, sender) = TcpStream::new(server_addr, &io_loop.handle());
 
-    let mut stream = io_loop
-        .run(stream)
-        .ok()
-        .expect("run failed to get stream");
+    let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
         sender
-            .send((TEST_BYTES.to_vec(), server_addr))
+            .unbounded_send((TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = io_loop
-            .run(stream.into_future())
-            .ok()
-            .expect("future iteration run failed");
+        let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect(
+            "future iteration run failed",
+        );
         stream = stream_tmp;
         let (buffer, _) = buffer.expect("no buffer received");
         assert_eq!(&buffer, TEST_BYTES);

@@ -133,10 +133,11 @@ impl Parser {
     /// # Return
     ///
     /// A pair of the Zone origin name and a map of all Keys to RecordSets
-    pub fn parse(&mut self,
-                 lexer: Lexer,
-                 origin: Option<Name>)
-                 -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
+    pub fn parse(
+        &mut self,
+        lexer: Lexer,
+        origin: Option<Name>,
+    ) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
         let mut lexer = lexer;
         let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
 
@@ -237,16 +238,28 @@ impl Parser {
                     match t {
                         Token::EOL => {
                             // call out to parsers for difference record types
-                            let rdata = try!(RData::parse(try!(rtype.ok_or(ParseError::from(ParseErrorKind::Message("record type not specified")))), &tokens, origin.as_ref()));
+                            let rdata = try!(RData::parse(
+                                try!(rtype.ok_or(ParseError::from(
+                                    ParseErrorKind::Message("record type not specified"),
+                                ))),
+                                &tokens,
+                                origin.as_ref(),
+                            ));
 
                             // verify that we have everything we need for the record
                             let mut record = Record::new();
                             // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
                             //  might want to wait until RC.weak() stabilizes, as that would be needed for global
                             //  memory where you want
-                            record.set_name(try!(current_name.clone().ok_or(ParseError::from(ParseErrorKind::Message("record name not specified")))));
+                            record.set_name(try!(current_name.clone().ok_or(ParseError::from(
+                                ParseErrorKind::Message(
+                                    "record name not specified",
+                                ),
+                            ))));
                             record.set_rr_type(rtype.unwrap());
-                            record.set_dns_class(try!(class.ok_or(ParseError::from(ParseErrorKind::Message("record class not specified")))));
+                            record.set_dns_class(try!(class.ok_or(ParseError::from(
+                                ParseErrorKind::Message("record class not specified"),
+                            ))));
 
                             // slightly annoying, need to grab the TTL, then move rdata into the record,
                             //  then check the Type again and have custom add logic.
@@ -261,13 +274,17 @@ impl Parser {
                                             ttl = Some(soa.minimum());
                                         } // TODO: should this only set it if it's not set?
                                     } else {
-                                        assert!(false,
-                                                "Invalid RData here, expected SOA: {:?}",
-                                                rdata);
+                                        assert!(
+                                            false,
+                                            "Invalid RData here, expected SOA: {:?}",
+                                            rdata
+                                        );
                                     }
                                 }
                                 _ => {
-                                    record.set_ttl(try!(ttl.ok_or(ParseError::from(ParseErrorKind::Message("record ttl not specified")))));
+                                    record.set_ttl(try!(ttl.ok_or(ParseError::from(
+                                        ParseErrorKind::Message("record ttl not specified"),
+                                    ))));
                                 }
                             }
 
@@ -283,18 +300,21 @@ impl Parser {
                                 RecordType::SOA => {
                                     let set = record.into_record_set();
                                     if records.insert(key, set).is_some() {
-                                        return Err(ParseErrorKind::Message("SOA is already \
-                                                                            specified")
-                                                           .into());
+                                        return Err(
+                                            ParseErrorKind::Message(
+                                                "SOA is already \
+                                                                            specified",
+                                            ).into(),
+                                        );
                                     }
                                 }
                                 _ => {
                                     // add a Vec if it's not there, then add the record to the list
-                                    let mut set = records
-                                        .entry(key)
-                                        .or_insert(RecordSet::new(record.name(),
-                                                                  record.rr_type(),
-                                                                  0));
+                                    let set = records.entry(key).or_insert(RecordSet::new(
+                                        record.name(),
+                                        record.rr_type(),
+                                        0,
+                                    ));
                                     set.insert(record, 0);
                                 }
                             }
@@ -312,7 +332,9 @@ impl Parser {
 
         //
         // build the Authority and return.
-        let origin = try!(origin.ok_or(ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))));
+        let origin = try!(origin.ok_or(ParseError::from(
+            ParseErrorKind::Message("$ORIGIN was not specified"),
+        )));
         Ok((origin, records))
     }
 

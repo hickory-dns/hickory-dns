@@ -35,9 +35,9 @@
 //!
 //! # Usage
 //!
-//! This shows basic usage of the SyncClient. More examples will be associated directly with other types. 
+//! This shows basic usage of the SyncClient. More examples will be associated directly with other types.
 //!
-//! ## Dependency 
+//! ## Dependency
 //!
 //! ```toml
 //! [dependencies]
@@ -68,20 +68,20 @@
 //! ```rust
 //! use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SyncClient};
 //! use trust_dns::udp::UdpClientConnection;
-//! 
+//!
 //! let address = "8.8.8.8:53".parse().unwrap();
 //! let conn = UdpClientConnection::new(address).unwrap();
-//! 
+//!
 //! // and then create the Client
 //! let client = SyncClient::new(conn);
 //! ```
-//! 
+//!
 //! At this point the client is ready to be used. See also `client::SecureSyncClient` for DNSSec validation. The rest of these examples will assume that the above boilerplate has already been performed.
 //!
 //! ## Querying
-//! 
+//!
 //! Using the Client to query for DNS records is easy enough, though it performs no resolution. The `trust-dns-resolver` has a simpler interface if that's what is desired. Over time that library will gain more features to generically query for differnet types.
-//! 
+//!
 //! ```rust
 //! use std::net::Ipv4Addr;
 //! use std::str::FromStr;
@@ -93,7 +93,7 @@
 //! # let address = "8.8.8.8:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
 //! # let client = SyncClient::new(conn);
-//! 
+//!
 //! // Specify the name, note the final '.' which specifies it's an FQDN
 //! let name = Name::from_str("www.example.com.").unwrap();
 //!
@@ -149,7 +149,7 @@
 //! # fn main() {
 //! # let address = "0.0.0.0:53".parse().unwrap();
 //! # let conn = UdpClientConnection::new(address).unwrap();
-//! 
+//!
 //! // The format of the key is dependent on the KeyPair type, in this example we're using RSA
 //! //  if the key was generated with BIND, the binary in TRust-DNS client lib `dnskey-to-pem`
 //! //  can be used to convert this to a pem file
@@ -182,13 +182,13 @@
 //! let client = SyncClient::with_signer(conn, signer);
 //!
 //! // At this point we should have a client capable of sending signed SIG(0) records.
-//! 
+//!
 //! // Now we can send updates... let's create a new Record
 //! let mut record = Record::with(Name::from_str("new.example.com").unwrap(),
 //!                               RecordType::A,
 //!                               Duration::minutes(5).num_seconds() as u32);
 //! record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
-//! 
+//!
 //! // the server must be authoritative for this zone
 //! let origin = Name::from_str("example.com.").unwrap();
 //!
@@ -203,11 +203,12 @@
 //!
 //! *Note*: The dynamic DNS functions defined by TRust-DNS are expressed as atomic operations, but this depends on support of the remote server. For example, the `create` operation shown above, should only succeed if there is no `RecordSet` of the specified type at the specified label. The other update operations are `append`, `compare_and_swap`, `delete_by_rdata`, `delete_rrset`, and `delete_all`. See the documentation for each of these methods on the `Client` trait.
 
-extern crate backtrace;
+
+extern crate chrono;
+#[cfg(test)]
+extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
-extern crate chrono;
-extern crate data_encoding;
 #[macro_use]
 extern crate futures;
 #[macro_use]
@@ -222,7 +223,6 @@ extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
 extern crate rustc_serialize;
-extern crate time;
 extern crate tokio_io;
 #[macro_use]
 extern crate tokio_core;
@@ -293,9 +293,9 @@ impl ClientStreamHandle for BufClientStreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
         let name_server: SocketAddr = self.name_server;
         let sender: &mut _ = &mut self.sender;
-        sender
-            .send((buffer, name_server))
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
+        sender.unbounded_send((buffer, name_server)).map_err(|_| {
+            io::Error::new(io::ErrorKind::Other, "unknown")
+        })
     }
 }
 
