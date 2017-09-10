@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - *breaking* `LookupIp` now returns an iterator over owned data (IpAddr is Copy + Clone ref not necessary)
+- *breaking* `Resolver::lookup` will now return an Err on NxDomain and NoData responses
 - rewrote much of the caching and lookup functionality for generic RecordType lookups
 - removed &mut from resolver fn interfaces, make it easier to use
 
@@ -20,10 +21,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - mx_lookup for querying mail exchanges
 - srv_lookup for service records
 - txt_lookup for text record lookups
-
-### Changed
-
-- refactored lru cache and resolver to better cache other record types
 
 ## 0.4.0
 

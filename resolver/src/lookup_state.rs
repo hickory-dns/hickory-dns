@@ -40,18 +40,106 @@ impl LruValue {
     }
 }
 
+#[derive(Debug)]
+struct DnsLru(LruCache<Query, LruValue>);
+
+impl DnsLru {
+    fn new(capacity: usize) -> Self {
+        DnsLru(LruCache::new(capacity))
+    }
+
+    // TODO: need to consider NXDomain storage...
+    fn insert(&mut self, query: Query, rdatas_and_ttl: Vec<(RData, u32)>, now: Instant) -> Lookup {
+        let len = rdatas_and_ttl.len();
+        // collapse the values, we're going to take the Minimum TTL as the correct one
+        let (rdatas, ttl): (Vec<RData>, u32) =
+            rdatas_and_ttl.into_iter().fold(
+                (Vec::with_capacity(len), MAX_TTL),
+                |(mut rdatas, mut min_ttl),
+                 (rdata, ttl)| {
+                    rdatas.push(rdata);
+                    min_ttl = if ttl < min_ttl { ttl } else { min_ttl };
+                    (rdatas, min_ttl)
+                },
+            );
+
+        let ttl = Duration::from_secs(ttl as u64);
+        let ttl_until = now + ttl;
+
+        // insert into the LRU
+        let lookup = Lookup::new(Arc::new(rdatas));
+        self.0.insert(
+            query,
+            LruValue {
+                lookup: Some(lookup.clone()),
+                ttl_until,
+            },
+        );
+
+        lookup
+    }
+
+    fn nx_error(query: Query) -> io::Error {
+        io::Error::new(
+            io::ErrorKind::AddrNotAvailable,
+            format!("Addr does not exist for: {}", query),
+        )
+    }
+
+    fn negative(&mut self, query: Query, ttl: u32, now: Instant) -> io::Error {
+        // TODO: if we are getting a negative response, should we instead fallback to cache?
+        //   this would cache indefinitely, probably not correct
+
+        let ttl = Duration::from_secs(ttl as u64);
+        let ttl_until = now + ttl;
+
+        self.0.insert(
+            query.clone(),
+            LruValue {
+                lookup: None,
+                ttl_until,
+            },
+        );
+
+        Self::nx_error(query)
+    }
+
+    /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
+    fn get(&mut self, query: &Query, now: Instant) -> Option<Lookup> {
+        let mut out_of_date = false;
+        let lookup = self.0.get_mut(query).and_then(
+            |value| if value.is_current(now) {
+                out_of_date = false;
+                value.lookup.clone()
+            } else {
+                out_of_date = true;
+                None
+            },
+        );
+
+        // in this case, we can preemtively remove out of data elements
+        // this assumes time is always moving forward, this would only not be true in contrived situations where now
+        //  is not current time, like tests...
+        if out_of_date {
+            self.0.remove(query);
+        }
+
+        lookup
+    }
+}
+
 // TODO: need to consider this storage type as it compares to Authority in server...
 //       should it just be an variation on Authority?
 #[derive(Clone, Debug)]
-pub(crate) struct DnsLru<C: ClientHandle> {
-    lru: Arc<Mutex<LruCache<Query, LruValue>>>,
+pub(crate) struct CachingClient<C: ClientHandle> {
+    lru: Arc<Mutex<DnsLru>>,
     client: C,
 }
 
-impl<C: ClientHandle + 'static> DnsLru<C> {
+impl<C: ClientHandle + 'static> CachingClient<C> {
     pub(crate) fn new(max_size: usize, client: C) -> Self {
-        DnsLru {
-            lru: Arc::new(Mutex::new(LruCache::new(max_size))),
+        CachingClient {
+            lru: Arc::new(Mutex::new(DnsLru::new(max_size))),
             client,
         }
     }
@@ -65,98 +153,9 @@ impl<C: ClientHandle + 'static> DnsLru<C> {
     }
 }
 
-// TODO: need to consider NXDomain storage...
-fn insert(
-    lru: &mut LruCache<Query, LruValue>,
-    query: Query,
-    rdatas_and_ttl: Vec<(RData, u32)>,
-    now: Instant,
-) -> Lookup {
-    let len = rdatas_and_ttl.len();
-    // collapse the values, we're going to take the Minimum TTL as the correct one
-    let (rdatas, ttl): (Vec<RData>, u32) =
-        rdatas_and_ttl.into_iter().fold(
-            (Vec::with_capacity(len), MAX_TTL),
-            |(mut rdatas, mut min_ttl),
-             (rdata, ttl)| {
-                rdatas.push(rdata);
-                min_ttl = if ttl < min_ttl { ttl } else { min_ttl };
-                (rdatas, min_ttl)
-            },
-        );
-
-    let ttl = Duration::from_secs(ttl as u64);
-    let ttl_until = now + ttl;
-
-    // insert into the LRU
-    let lookup = Lookup::new(Arc::new(rdatas));
-    lru.insert(
-        query,
-        LruValue {
-            lookup: Some(lookup.clone()),
-            ttl_until,
-        },
-    );
-
-    lookup
-}
-
-fn nx_error(query: Query) -> io::Error {
-    io::Error::new(
-        io::ErrorKind::AddrNotAvailable,
-        format!("Addr does not exist for: {}", query),
-    )
-}
-
-fn negative(
-    lru: &mut LruCache<Query, LruValue>,
-    query: Query,
-    ttl: u32,
-    now: Instant,
-) -> io::Error {
-    // TODO: if we are getting a negative response, should we instead fallback to cache?
-    //   this would cache indefinitely, probably not correct
-
-    let ttl = Duration::from_secs(ttl as u64);
-    let ttl_until = now + ttl;
-
-    lru.insert(
-        query.clone(),
-        LruValue {
-            lookup: None,
-            ttl_until,
-        },
-    );
-
-    nx_error(query)
-}
-
-/// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
-fn get(lru: &mut LruCache<Query, LruValue>, query: &Query, now: Instant) -> Option<Lookup> {
-    let mut out_of_date = false;
-    let lookup = lru.get_mut(query).and_then(
-        |value| if value.is_current(now) {
-            out_of_date = false;
-            value.lookup.clone()
-        } else {
-            out_of_date = true;
-            None
-        },
-    );
-
-    // in this case, we can preemtively remove out of data elements
-    // this assumes time is always moving forward, this would only not be true in contrived situations where now
-    //  is not current time, like tests...
-    if out_of_date {
-        lru.remove(query);
-    }
-
-    lookup
-}
-
 struct FromCache {
     query: Query,
-    cache: Arc<Mutex<LruCache<Query, LruValue>>>,
+    cache: Arc<Mutex<DnsLru>>,
 }
 
 impl Future for FromCache {
@@ -177,7 +176,7 @@ impl Future for FromCache {
                 format!("poisoned: {}", poison),
             )),
             Ok(mut lru) => {
-                return Ok(Async::Ready(get(&mut lru, &self.query, Instant::now())));
+                return Ok(Async::Ready(lru.get(&self.query, Instant::now())));
             }
         }
     }
@@ -187,7 +186,7 @@ impl Future for FromCache {
 struct QueryFuture {
     message_future: Box<Future<Item = Message, Error = ClientError>>,
     query: Query,
-    cache: Arc<Mutex<LruCache<Query, LruValue>>>,
+    cache: Arc<Mutex<DnsLru>>,
 }
 
 enum Records {
@@ -280,7 +279,7 @@ impl Future for QueryFuture {
 struct InsertCache {
     rdatas: Records,
     query: Query,
-    cache: Arc<Mutex<LruCache<Query, LruValue>>>,
+    cache: Arc<Mutex<DnsLru>>,
 }
 
 impl Future for InsertCache {
@@ -307,12 +306,10 @@ impl Future for InsertCache {
 
                 match rdata {
                     Records::Exists(rdata) => Ok(Async::Ready(
-                        insert(&mut *lru, query, rdata, Instant::now()),
+                        lru.insert(query, rdata, Instant::now()),
                     )),
-                    Records::NoData(Some(ttl)) => Err(
-                        negative(&mut *lru, query, ttl, Instant::now()),
-                    ),
-                    _ => Err(nx_error(query)),
+                    Records::NoData(Some(ttl)) => Err(lru.negative(query, ttl, Instant::now())),
+                    _ => Err(DnsLru::nx_error(query)),
                 }
             }
         }
@@ -331,11 +328,7 @@ enum QueryState<C: ClientHandle + 'static> {
 }
 
 impl<C: ClientHandle + 'static> QueryState<C> {
-    pub(crate) fn lookup(
-        query: Query,
-        client: &mut C,
-        cache: Arc<Mutex<LruCache<Query, LruValue>>>,
-    ) -> QueryState<C> {
+    pub(crate) fn lookup(query: Query, client: &mut C, cache: Arc<Mutex<DnsLru>>) -> QueryState<C> {
         QueryState::FromCache(FromCache { query, cache }, client.clone())
     }
 
@@ -457,7 +450,6 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use lru_cache::LruCache;
     use trust_dns::op::Query;
     use trust_dns::rr::{Name, RecordType};
 
@@ -488,12 +480,12 @@ mod tests {
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         let ips_ttl = vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), 1)];
         let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
-        let mut lru = LruCache::new(1);
+        let mut lru = DnsLru::new(1);
 
-        let rc_ips = insert(&mut lru, name.clone(), ips_ttl, now);
+        let rc_ips = lru.insert(name.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
 
-        let rc_ips = get(&mut lru, &name, now).unwrap();
+        let rc_ips = lru.get(&name, now).unwrap();
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
     }
 
@@ -510,22 +502,22 @@ mod tests {
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
             RData::A(Ipv4Addr::new(127, 0, 0, 2)),
         ];
-        let mut lru = LruCache::new(1);
+        let mut lru = DnsLru::new(1);
 
-        insert(&mut lru, name.clone(), ips_ttl, now);
+        lru.insert(name.clone(), ips_ttl, now);
 
         // still valid
-        let rc_ips = get(&mut lru, &name, now + Duration::from_secs(1)).unwrap();
+        let rc_ips = lru.get(&name, now + Duration::from_secs(1)).unwrap();
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
 
         // 2 should be one too far
-        let rc_ips = get(&mut lru, &name, now + Duration::from_secs(2));
+        let rc_ips = lru.get(&name, now + Duration::from_secs(2));
         assert!(rc_ips.is_none());
     }
 
     #[test]
     fn test_empty_cache() {
-        let cache = Arc::new(Mutex::new(LruCache::new(1)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
         let mut client = mock(vec![empty()]);
 
         assert_eq!(
@@ -539,9 +531,8 @@ mod tests {
 
     #[test]
     fn test_from_cache() {
-        let cache = Arc::new(Mutex::new(LruCache::new(1)));
-        insert(
-            &mut cache.lock().unwrap(),
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        cache.lock().unwrap().insert(
             Query::new(),
             vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), u32::max_value())],
             Instant::now(),
@@ -561,7 +552,7 @@ mod tests {
 
     #[test]
     fn test_no_cache_insert() {
-        let cache = Arc::new(Mutex::new(LruCache::new(1)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
         // first should come from client...
         let mut client = mock(vec![v4_message()]);
 

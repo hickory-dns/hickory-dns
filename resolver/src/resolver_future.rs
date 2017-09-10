@@ -15,7 +15,7 @@ use trust_dns::client::{RetryClientHandle, SecureClientHandle};
 use trust_dns::rr::{Name, RecordType};
 
 use config::{ResolverConfig, ResolverOpts};
-use lookup_state::DnsLru;
+use lookup_state::CachingClient;
 use name_server_pool::NameServerPool;
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use lookup;
@@ -26,7 +26,7 @@ use system_conf;
 pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
-    client_cache: DnsLru<LookupEither>,
+    client_cache: CachingClient<LookupEither>,
 }
 
 macro_rules! lookup_fn {
@@ -77,7 +77,7 @@ impl ResolverFuture {
         ResolverFuture {
             config,
             options,
-            client_cache: DnsLru::new(options.cache_size, either),
+            client_cache: CachingClient::new(options.cache_size, either),
         }
     }
 

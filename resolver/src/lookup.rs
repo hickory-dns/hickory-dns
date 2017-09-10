@@ -23,7 +23,7 @@ use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RecordType, RData};
 use trust_dns::rr::rdata;
 
-use lookup_state::DnsLru;
+use lookup_state::CachingClient;
 use name_server_pool::NameServerPool;
 
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Client library.
@@ -96,7 +96,7 @@ pub type LookupFuture = InnerLookupFuture<LookupEither>;
 #[doc(hidden)]
 /// The Future returned from ResolverFuture when performing a lookup.
 pub struct InnerLookupFuture<C: ClientHandle + 'static> {
-    client_cache: DnsLru<C>,
+    client_cache: CachingClient<C>,
     names: Vec<Name>,
     record_type: RecordType,
     future: Box<Future<Item = Lookup, Error = io::Error>>,
@@ -113,7 +113,7 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
     pub(crate) fn lookup(
         mut names: Vec<Name>,
         record_type: RecordType,
-        client_cache: DnsLru<C>,
+        client_cache: CachingClient<C>,
     ) -> Self {
         let name = names.pop().expect("can not lookup IPs for no names");
 
@@ -143,7 +143,7 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
         }
     }
 
-    pub(crate) fn error<E: Error>(client_cache: DnsLru<C>, error: E) -> Self {
+    pub(crate) fn error<E: Error>(client_cache: CachingClient<C>, error: E) -> Self {
         return InnerLookupFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client_cache,
@@ -181,7 +181,7 @@ impl<C: ClientHandle + 'static> Future for InnerLookupFuture<C> {
 fn lookup<C: ClientHandle + 'static>(
     name: Name,
     record_type: RecordType,
-    mut client_cache: DnsLru<C>,
+    mut client_cache: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
     client_cache.lookup(Query::query(name, record_type))
 }
@@ -356,7 +356,7 @@ pub mod tests {
             lookup(
                 Name::root(),
                 RecordType::A,
-                DnsLru::new(0, mock(vec![v4_message()])),
+                CachingClient::new(0, mock(vec![v4_message()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -372,7 +372,7 @@ pub mod tests {
             lookup(
                 Name::root(),
                 RecordType::A,
-                DnsLru::new(0, mock(vec![error()])),
+                CachingClient::new(0, mock(vec![error()])),
             ).wait()
                 .is_err()
         );
@@ -384,7 +384,7 @@ pub mod tests {
             lookup(
                 Name::root(),
                 RecordType::A,
-                DnsLru::new(0, mock(vec![empty()])),
+                CachingClient::new(0, mock(vec![empty()])),
             ).wait()
                 .unwrap_err()
                 .kind(),

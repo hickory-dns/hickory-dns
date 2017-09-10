@@ -23,7 +23,7 @@ use trust_dns::rr::{Name, RData, RecordType};
 
 use config::LookupIpStrategy;
 use lookup::{Lookup, LookupEither, LookupIter};
-use lookup_state::DnsLru;
+use lookup_state::CachingClient;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -66,7 +66,7 @@ pub type LookupIpFuture = InnerLookupIpFuture<LookupEither>;
 #[doc(hidden)]
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
 pub struct InnerLookupIpFuture<C: ClientHandle + 'static> {
-    client_cache: DnsLru<C>,
+    client_cache: CachingClient<C>,
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     future: Box<Future<Item = Lookup, Error = io::Error>>,
@@ -83,7 +83,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
     pub(crate) fn lookup(
         mut names: Vec<Name>,
         strategy: LookupIpStrategy,
-        client_cache: DnsLru<C>,
+        client_cache: CachingClient<C>,
     ) -> Self {
         let name = names.pop().expect("can not lookup IPs for no names");
 
@@ -113,7 +113,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
         }
     }
 
-    pub(crate) fn error<E: Error>(client_cache: DnsLru<C>, error: E) -> Self {
+    pub(crate) fn error<E: Error>(client_cache: CachingClient<C>, error: E) -> Self {
         return InnerLookupIpFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client_cache,
@@ -151,7 +151,7 @@ impl<C: ClientHandle + 'static> Future for InnerLookupIpFuture<C> {
 fn strategic_lookup<C: ClientHandle + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
-    client: DnsLru<C>,
+    client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
     match strategy {
         LookupIpStrategy::Ipv4Only => ipv4_only(name, client),
@@ -165,7 +165,7 @@ fn strategic_lookup<C: ClientHandle + 'static>(
 /// queries only for A records
 fn ipv4_only<C: ClientHandle + 'static>(
     name: Name,
-    mut client: DnsLru<C>,
+    mut client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
     client.lookup(Query::query(name, RecordType::A))
 }
@@ -173,7 +173,7 @@ fn ipv4_only<C: ClientHandle + 'static>(
 /// queries only for AAAA records
 fn ipv6_only<C: ClientHandle + 'static>(
     name: Name,
-    mut client: DnsLru<C>,
+    mut client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
     client.lookup(Query::query(name, RecordType::AAAA))
 }
@@ -181,7 +181,7 @@ fn ipv6_only<C: ClientHandle + 'static>(
 /// queries only for A and AAAA in parallel
 fn ipv4_and_ipv6<C: ClientHandle + 'static>(
     name: Name,
-    mut client: DnsLru<C>,
+    mut client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
     Box::new(
         client
@@ -215,7 +215,7 @@ fn ipv4_and_ipv6<C: ClientHandle + 'static>(
 /// queries only for AAAA and on no results queries for A
 fn ipv6_then_ipv4<C: ClientHandle + 'static>(
     name: Name,
-    client: DnsLru<C>,
+    client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
     rt_then_swap(name, client, RecordType::AAAA, RecordType::A)
 }
@@ -223,7 +223,7 @@ fn ipv6_then_ipv4<C: ClientHandle + 'static>(
 /// queries only for A and on no results queries for AAAA
 fn ipv4_then_ipv6<C: ClientHandle + 'static>(
     name: Name,
-    client: DnsLru<C>,
+    client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
     rt_then_swap(name, client, RecordType::A, RecordType::AAAA)
 }
@@ -231,7 +231,7 @@ fn ipv4_then_ipv6<C: ClientHandle + 'static>(
 /// queries only for first_type and on no results queries for second_type
 fn rt_then_swap<C: ClientHandle + 'static>(
     name: Name,
-    mut client: DnsLru<C>,
+    mut client: CachingClient<C>,
     first_type: RecordType,
     second_type: RecordType,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
@@ -337,7 +337,7 @@ pub mod tests {
     #[test]
     fn test_ipv4_only_strategy() {
         assert_eq!(
-            ipv4_only(Name::root(), DnsLru::new(0, mock(vec![v4_message()])))
+            ipv4_only(Name::root(), CachingClient::new(0, mock(vec![v4_message()])))
                 .wait()
                 .unwrap()
                 .iter()
@@ -350,7 +350,7 @@ pub mod tests {
     #[test]
     fn test_ipv6_only_strategy() {
         assert_eq!(
-            ipv6_only(Name::root(), DnsLru::new(0, mock(vec![v6_message()])))
+            ipv6_only(Name::root(), CachingClient::new(0, mock(vec![v6_message()])))
                 .wait()
                 .unwrap()
                 .iter()
@@ -367,7 +367,7 @@ pub mod tests {
         assert_eq!(
             ipv4_and_ipv6(
                 Name::root(),
-                DnsLru::new(0, mock(vec![v6_message(), v4_message()])),
+                CachingClient::new(0, mock(vec![v6_message(), v4_message()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -383,7 +383,7 @@ pub mod tests {
         assert_eq!(
             ipv4_and_ipv6(
                 Name::root(),
-                DnsLru::new(0, mock(vec![empty(), v4_message()])),
+                CachingClient::new(0, mock(vec![empty(), v4_message()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -396,7 +396,7 @@ pub mod tests {
         assert_eq!(
             ipv4_and_ipv6(
                 Name::root(),
-                DnsLru::new(0, mock(vec![error(), v4_message()])),
+                CachingClient::new(0, mock(vec![error(), v4_message()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -410,7 +410,7 @@ pub mod tests {
         assert_eq!(
             ipv4_and_ipv6(
                 Name::root(),
-                DnsLru::new(0, mock(vec![v6_message(), empty()])),
+                CachingClient::new(0, mock(vec![v6_message(), empty()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -423,7 +423,7 @@ pub mod tests {
         assert_eq!(
             ipv4_and_ipv6(
                 Name::root(),
-                DnsLru::new(0, mock(vec![v6_message(), error()])),
+                CachingClient::new(0, mock(vec![v6_message(), error()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -437,7 +437,7 @@ pub mod tests {
     fn test_ipv6_then_ipv4_strategy() {
         // ipv6 first
         assert_eq!(
-            ipv6_then_ipv4(Name::root(), DnsLru::new(0, mock(vec![v6_message()])))
+            ipv6_then_ipv4(Name::root(), CachingClient::new(0, mock(vec![v6_message()])))
                 .wait()
                 .unwrap()
                 .iter()
@@ -450,7 +450,7 @@ pub mod tests {
         assert_eq!(
             ipv6_then_ipv4(
                 Name::root(),
-                DnsLru::new(0, mock(vec![v4_message(), empty()])),
+                CachingClient::new(0, mock(vec![v4_message(), empty()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -463,7 +463,7 @@ pub mod tests {
         assert_eq!(
             ipv6_then_ipv4(
                 Name::root(),
-                DnsLru::new(0, mock(vec![v4_message(), error()])),
+                CachingClient::new(0, mock(vec![v4_message(), error()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -477,7 +477,7 @@ pub mod tests {
     fn test_ipv4_then_ipv6_strategy() {
         // ipv6 first
         assert_eq!(
-            ipv4_then_ipv6(Name::root(), DnsLru::new(0, mock(vec![v4_message()])))
+            ipv4_then_ipv6(Name::root(), CachingClient::new(0, mock(vec![v4_message()])))
                 .wait()
                 .unwrap()
                 .iter()
@@ -490,7 +490,7 @@ pub mod tests {
         assert_eq!(
             ipv4_then_ipv6(
                 Name::root(),
-                DnsLru::new(0, mock(vec![v6_message(), empty()])),
+                CachingClient::new(0, mock(vec![v6_message(), empty()])),
             ).wait()
                 .unwrap()
                 .iter()
@@ -503,7 +503,7 @@ pub mod tests {
         assert_eq!(
             ipv4_then_ipv6(
                 Name::root(),
-                DnsLru::new(0, mock(vec![v6_message(), error()])),
+                CachingClient::new(0, mock(vec![v6_message(), error()])),
             ).wait()
                 .unwrap()
                 .iter()
