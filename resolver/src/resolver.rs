@@ -121,6 +121,30 @@ impl Resolver {
         )
     }
 
+    // Performs a DNS lookup for an SRV record for the speicified service type and protocol at the given name.
+    ///
+    /// This is a convenience method over `lookup_srv`, it combines the service, protocol and name into a single name: `_service._protocol.name`.
+    ///
+    /// # Arguments
+    ///
+    /// * `service` - service to lookup, e.g. ldap or http
+    /// * `protocol` - wire protocol, e.g. udp or tcp
+    /// * `name` - zone or other name at which the service is located.
+    pub fn lookup_service(
+        &self,
+        service: &str,
+        protocol: &str,
+        name: &str,
+    ) -> io::Result<lookup::SrvLookup> {
+        self.io_loop.borrow_mut().run(
+            self.resolver_future.borrow().lookup_service(
+                service,
+                protocol,
+                name,
+            ),
+        )
+    }
+
     lookup_fn!(reverse_lookup, lookup::ReverseLookup, IpAddr);
     lookup_fn!(ipv4_lookup, lookup::Ipv4Lookup);
     lookup_fn!(ipv6_lookup, lookup::Ipv6Lookup);

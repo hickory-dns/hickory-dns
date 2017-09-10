@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Caching related functionality for the Resolver.
-//! FIXME: rename this to LookupState?
 
 use std::io;
 use std::mem;
@@ -415,12 +414,6 @@ impl<C: ClientHandle + 'static> Future for QueryState<C> {
             }
             QueryState::InsertCache(ref mut insert_cache) => {
                 return insert_cache.poll();
-                // match insert_cache.poll() {
-                //     // need to query since it wasn't in the cache
-                //     Ok(Async::Ready(ips)) => return Ok(Async::Ready(ips)),
-                //     Ok(Async::NotReady) => return Ok(Async::NotReady),
-                //     Err(error) => return Err(error),
-                // }
             }
             QueryState::Error => panic!("invalid error state"),
         }
