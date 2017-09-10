@@ -168,8 +168,26 @@ impl ResolverFuture {
         };
 
         let names = self.build_names(name);
-
         LookupIpFuture::lookup(names, self.options.ip_strategy, self.client_cache.clone())
+    }
+
+    /// Performs a DNS lookup for an SRV record for the speicified service type and protocol at the given name.
+    ///
+    /// This is a convenience method over `lookup_srv`, it combines the service, protocol and name into a single name: `_service._protocol.name`.
+    ///
+    /// # Arguments
+    ///
+    /// * `service` - service to lookup, e.g. ldap or http
+    /// * `protocol` - wire protocol, e.g. udp or tcp
+    /// * `name` - zone or other name at which the service is located.
+    pub fn lookup_service(
+        &self,
+        service: &str,
+        protocol: &str,
+        name: &str,
+    ) -> lookup::SrvLookupFuture {
+        let name = format!("_{}._{}.{}", service, protocol, name);
+        self.srv_lookup(&name)
     }
 
     lookup_fn!(
@@ -181,7 +199,6 @@ impl ResolverFuture {
     lookup_fn!(ipv4_lookup, lookup::Ipv4LookupFuture, RecordType::A);
     lookup_fn!(ipv6_lookup, lookup::Ipv6LookupFuture, RecordType::AAAA);
     lookup_fn!(mx_lookup, lookup::MxLookupFuture, RecordType::MX);
-    // TODO: SRV records should be constructed from service+protocol+name
     lookup_fn!(srv_lookup, lookup::SrvLookupFuture, RecordType::SRV);
     lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
 }
