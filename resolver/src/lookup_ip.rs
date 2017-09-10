@@ -289,6 +289,10 @@ pub mod tests {
     }
 
     impl ClientHandle for MockClientHandle {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
+        }
+
         fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
@@ -337,8 +341,10 @@ pub mod tests {
     #[test]
     fn test_ipv4_only_strategy() {
         assert_eq!(
-            ipv4_only(Name::root(), CachingClient::new(0, mock(vec![v4_message()])))
-                .wait()
+            ipv4_only(
+                Name::root(),
+                CachingClient::new(0, mock(vec![v4_message()])),
+            ).wait()
                 .unwrap()
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
@@ -350,8 +356,10 @@ pub mod tests {
     #[test]
     fn test_ipv6_only_strategy() {
         assert_eq!(
-            ipv6_only(Name::root(), CachingClient::new(0, mock(vec![v6_message()])))
-                .wait()
+            ipv6_only(
+                Name::root(),
+                CachingClient::new(0, mock(vec![v6_message()])),
+            ).wait()
                 .unwrap()
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
@@ -437,8 +445,10 @@ pub mod tests {
     fn test_ipv6_then_ipv4_strategy() {
         // ipv6 first
         assert_eq!(
-            ipv6_then_ipv4(Name::root(), CachingClient::new(0, mock(vec![v6_message()])))
-                .wait()
+            ipv6_then_ipv4(
+                Name::root(),
+                CachingClient::new(0, mock(vec![v6_message()])),
+            ).wait()
                 .unwrap()
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
@@ -477,8 +487,10 @@ pub mod tests {
     fn test_ipv4_then_ipv6_strategy() {
         // ipv6 first
         assert_eq!(
-            ipv4_then_ipv6(Name::root(), CachingClient::new(0, mock(vec![v4_message()])))
-                .wait()
+            ipv4_then_ipv6(
+                Name::root(),
+                CachingClient::new(0, mock(vec![v4_message()])),
+            ).wait()
                 .unwrap()
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())

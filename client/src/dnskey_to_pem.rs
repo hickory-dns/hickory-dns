@@ -27,19 +27,25 @@ fn args<'a>() -> ArgMatches<'a> {
     App::new("TRust-DNS dnskey-to-pem")
         .version(trust_dns::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
-        .about("Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format")
-        .arg(Arg::with_name("key")
-                 .value_name("PRIVATE_KEY_FILE")
-                 .help("Input FILE from which to read the DNSSec private key")
-                 .required(true)
-                 .index(1))
-        .arg(Arg::with_name("output")
-                 .value_name("OUTPUT_FILE")
-                 .long("output")
-                 .short("o")
-                 .takes_value(true)
-                 .help("Output FILE to write to")
-                 .default_value("out.pem"))
+        .about(
+            "Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format",
+        )
+        .arg(
+            Arg::with_name("key")
+                .value_name("PRIVATE_KEY_FILE")
+                .help("Input FILE from which to read the DNSSec private key")
+                .required(true)
+                .index(1),
+        )
+        .arg(
+            Arg::with_name("output")
+                .value_name("OUTPUT_FILE")
+                .long("output")
+                .short("o")
+                .takes_value(true)
+                .help("Output FILE to write to")
+                .default_value("out.pem"),
+        )
         .get_matches()
 }
 
@@ -80,16 +86,16 @@ pub fn main() {
     if key != "Algorithm" {
         panic!("Algorithm line not found: {}", next_line)
     }
-    let algorithm_num =
-        u8::from_str(value
-                         .split(" ")
-                         .next()
-                         .expect(&format!("bad algorithm format, expected '# STR': {}",
-                                          next_line)))
-                .expect(&format!("bad algorithm format, expected '# STR': {}", next_line));
+    let algorithm_num = u8::from_str(value.split(" ").next().expect(&format!(
+        "bad algorithm format, expected '# STR': {}",
+        next_line
+    ))).expect(&format!(
+        "bad algorithm format, expected '# STR': {}",
+        next_line
+    ));
 
-    let algorithm = Algorithm::from_u8(algorithm_num).expect(&format!("unsupported algorithm: {}",
-                                                                      next_line));
+    let algorithm =
+        Algorithm::from_u8(algorithm_num).expect(&format!("unsupported algorithm: {}", next_line));
 
     let pem_bytes = match algorithm {
         Algorithm::RSASHA256 => read_rsa(lines),
@@ -103,8 +109,10 @@ pub fn main() {
         .open(output_path)
         .expect(&format!("could not create file: {}", output_path));
 
-    file.write_all(&pem_bytes)
-        .expect(&format!("could not write to file: {}", output_path));
+    file.write_all(&pem_bytes).expect(&format!(
+        "could not write to file: {}",
+        output_path
+    ));
 }
 
 fn split_field_value(line: &str) -> (&str, &str) {
@@ -130,7 +138,12 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
         let line = line.expect("error reading private key file");
         let (field, value) = split_field_value(&line);
 
-        let num = Some(BigNum::from_slice(&base64::decode(value.as_bytes()).expect(&format!("badly formated line, expected base64: {}", line))).unwrap());
+        let num = Some(
+            BigNum::from_slice(&base64::decode(value.as_bytes()).expect(&format!(
+                "badly formated line, expected base64: {}",
+                line
+            ))).unwrap(),
+        );
 
         match field {
             "Modulus" => modulus = num,
@@ -145,15 +158,16 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
         }
     }
 
-    let rsa = Rsa::from_private_components(modulus.expect("Missing Modulus"),
-                                           public_exponent.expect("Missing PublicExponent"),
-                                           private_exponent.expect("Missing PrivateExponent"),
-                                           prime1.expect("Missing Prime1"),
-                                           prime2.expect("Missing Prime2"),
-                                           exponent1.expect("Missing Exponent1"),
-                                           exponent2.expect("Missing Exponent2"),
-                                           coefficient.expect("Missing Coefficient"))
-            .unwrap();
+    let rsa = Rsa::from_private_components(
+        modulus.expect("Missing Modulus"),
+        public_exponent.expect("Missing PublicExponent"),
+        private_exponent.expect("Missing PrivateExponent"),
+        prime1.expect("Missing Prime1"),
+        prime2.expect("Missing Prime2"),
+        exponent1.expect("Missing Exponent1"),
+        exponent2.expect("Missing Exponent2"),
+        coefficient.expect("Missing Coefficient"),
+    ).unwrap();
 
     rsa.private_key_to_pem().unwrap()
 }

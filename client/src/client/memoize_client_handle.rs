@@ -24,13 +24,13 @@ use op::{Message, Query};
 #[must_use = "queries can only be sent through a ClientHandle"]
 pub struct MemoizeClientHandle<H: ClientHandle> {
     client: H,
-    active_queries: Rc<RefCell<HashMap<Query,
-                                       RcFuture<Box<Future<Item = Message,
-                                                           Error = ClientError>>>>>>,
+    active_queries:
+        Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item = Message, Error = ClientError>>>>>>,
 }
 
 impl<H> MemoizeClientHandle<H>
-    where H: ClientHandle
+where
+    H: ClientHandle,
 {
     /// Returns a new handle wrapping the specified client
     pub fn new(client: H) -> MemoizeClientHandle<H> {
@@ -42,13 +42,15 @@ impl<H> MemoizeClientHandle<H>
 }
 
 impl<H> ClientHandle for MemoizeClientHandle<H>
-    where H: ClientHandle
+where
+    H: ClientHandle,
 {
+    fn is_verifying_dnssec(&self) -> bool {
+        self.client.is_verifying_dnssec()
+    }
+
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-        let query = message.queries()
-            .first()
-            .expect("no query!")
-            .clone();
+        let query = message.queries().first().expect("no query!").clone();
 
         if let Some(rc_future) = self.active_queries.borrow().get(&query) {
             // FIXME check TTLs?
@@ -108,29 +110,17 @@ mod test {
         let mut test2 = Message::new();
         test2.add_query(Query::new().set_query_type(RecordType::AAAA).clone());
 
-        let result = client.send(test1.clone())
-            .wait()
-            .ok()
-            .unwrap();
+        let result = client.send(test1.clone()).wait().ok().unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = client.send(test2.clone())
-            .wait()
-            .ok()
-            .unwrap();
+        let result = client.send(test2.clone()).wait().ok().unwrap();
         assert_eq!(result.id(), 1);
 
         // should get the same result for each...
-        let result = client.send(test1)
-            .wait()
-            .ok()
-            .unwrap();
+        let result = client.send(test1).wait().ok().unwrap();
         assert_eq!(result.id(), 0);
 
-        let result = client.send(test2)
-            .wait()
-            .ok()
-            .unwrap();
+        let result = client.send(test2).wait().ok().unwrap();
         assert_eq!(result.id(), 1);
     }
 
