@@ -58,6 +58,7 @@ path = "src/dnskey_to_pem.rs"
 [dependencies]
 chrono = "^0.4"
 clap = "^2.23.3"
+data-encoding = "^1.2.0"
 env_logger = "0.4.2"
 error-chain = "0.1.12"
 futures = "^0.1.6"
@@ -74,5 +75,4 @@ tokio-openssl = { version = "^0.1", optional = true }
 untrusted = "^0.5"
 
 [dev-dependencies]
-data-encoding = "^1.2.0"
 openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = false }

@@ -272,6 +272,10 @@ impl NameServer {
 
 // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
 impl ClientHandle for NameServer {
+    fn is_verifying_dnssec(&self) -> bool {
+        self.client.is_verifying_dnssec()
+    }
+
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         // if state is failed, return future::err(), unless retry delay expired...
         if let Err(error) = self.try_reconnect() {
@@ -379,6 +383,13 @@ impl NameServerPool {
 }
 
 impl ClientHandle for NameServerPool {
+    fn is_verifying_dnssec(&self) -> bool {
+        // don't pull a lock on this
+        // it is expected that a validating client will wrap this, as opposed to the other direction.
+        // so pool -> nameserver -> basic_client_handle will always return false anyway
+        false
+    }
+
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         // pull a lock on the shared connections, lock releases at the end of the method
         let conns = self.conns.lock().map_err(|e| {

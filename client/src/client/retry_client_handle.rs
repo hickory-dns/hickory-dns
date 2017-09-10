@@ -22,7 +22,8 @@ pub struct RetryClientHandle<H: ClientHandle> {
 }
 
 impl<H> RetryClientHandle<H>
-    where H: ClientHandle
+where
+    H: ClientHandle,
 {
     /// Creates a new Client handler for reattempting requests on failures.
     ///
@@ -39,19 +40,24 @@ impl<H> RetryClientHandle<H>
 }
 
 impl<H> ClientHandle for RetryClientHandle<H>
-    where H: ClientHandle + 'static
+where
+    H: ClientHandle + 'static,
 {
+    fn is_verifying_dnssec(&self) -> bool {
+        self.client.is_verifying_dnssec()
+    }
+
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         // need to clone here so that the retry can resend if necessary...
         //  obviously it would be nice to be lazy about this...
         let future = self.client.send(message.clone());
 
         return Box::new(RetrySendFuture {
-                            message: message,
-                            client: self.client.clone(),
-                            future: future,
-                            remaining_attempts: self.attempts,
-                        });
+            message: message,
+            client: self.client.clone(),
+            future: future,
+            remaining_attempts: self.attempts,
+        });
     }
 }
 
@@ -64,7 +70,8 @@ struct RetrySendFuture<H: ClientHandle> {
 }
 
 impl<H> Future for RetrySendFuture<H>
-    where H: ClientHandle
+where
+    H: ClientHandle,
 {
     type Item = Message;
     type Error = ClientError;
@@ -118,34 +125,39 @@ mod test {
             }
 
             self.attempts.set(i + 1);
-            return Box::new(failed(ClientErrorKind::Message("last retry set to fail").into()));
+            return Box::new(failed(
+                ClientErrorKind::Message("last retry set to fail").into(),
+            ));
         }
     }
 
     #[test]
     fn test_retry() {
-        let mut client = RetryClientHandle::new(TestClient {
-                                                    last_succeed: true,
-                                                    retries: 1,
-                                                    attempts: Cell::new(0),
-                                                },
-                                                2);
+        let mut client = RetryClientHandle::new(
+            TestClient {
+                last_succeed: true,
+                retries: 1,
+                attempts: Cell::new(0),
+            },
+            2,
+        );
         let test1 = Message::new();
-        let result = client.send(test1)
-            .wait()
-            .ok()
-            .expect("should have succeeded");
+        let result = client.send(test1).wait().ok().expect(
+            "should have succeeded",
+        );
         assert_eq!(result.id(), 1); // this is checking the number of iterations the TestCient ran
     }
 
     #[test]
     fn test_error() {
-        let mut client = RetryClientHandle::new(TestClient {
-                                                    last_succeed: false,
-                                                    retries: 1,
-                                                    attempts: Cell::new(0),
-                                                },
-                                                2);
+        let mut client = RetryClientHandle::new(
+            TestClient {
+                last_succeed: false,
+                retries: 1,
+                attempts: Cell::new(0),
+            },
+            2,
+        );
         let test1 = Message::new();
         assert!(client.send(test1).wait().is_err());
 

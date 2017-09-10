@@ -46,7 +46,8 @@ pub struct SecureClientHandle<H: ClientHandle + 'static> {
 }
 
 impl<H> SecureClientHandle<H>
-    where H: ClientHandle + 'static
+where
+    H: ClientHandle + 'static,
 {
     /// Create a new SecureClientHandle wrapping the speicified client.
     ///
@@ -90,13 +91,21 @@ impl<H> SecureClientHandle<H>
 }
 
 impl<H> ClientHandle for SecureClientHandle<H>
-    where H: ClientHandle + 'static
+where
+    H: ClientHandle + 'static,
 {
+    fn is_verifying_dnssec(&self) -> bool {
+        // This handler is always verifying...
+        true
+    }
+
     fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
-            return Box::new(failed(ClientErrorKind::Message("exceeded max validation depth")
-                                       .into()));
+            return Box::new(failed(
+                ClientErrorKind::Message("exceeded max validation depth")
+                    .into(),
+            ));
         }
 
         // dnssec only matters on queries.
@@ -121,8 +130,7 @@ impl<H> ClientHandle for SecureClientHandle<H>
                     algorithms.set(Algorithm::ECDSAP256SHA256);
                     algorithms.set(Algorithm::ECDSAP384SHA384);
                 }
-                #[cfg(feature = "ring")]
-                algorithms.set(Algorithm::ED25519);
+                #[cfg(feature = "ring")] algorithms.set(Algorithm::ED25519);
 
                 let dau = EdnsOption::DAU(algorithms);
                 let dhu = EdnsOption::DHU(algorithms);
@@ -133,41 +141,45 @@ impl<H> ClientHandle for SecureClientHandle<H>
 
             message.set_authentic_data(true);
             message.set_checking_disabled(false);
-            let dns_class = message
-                .queries()
-                .first()
-                .map_or(DNSClass::IN, |q| q.query_class());
+            let dns_class = message.queries().first().map_or(
+                DNSClass::IN,
+                |q| q.query_class(),
+            );
 
-            return Box::new(self.client
-                                .send(message)
-                                .and_then(move |message_response| {
-                                              // group the record sets by name and type
-                                              //  each rrset type needs to validated independently
-                                              debug!("validating message_response: {}",
-                                                     message_response.id());
-                                              verify_rrsets(client, message_response, dns_class)
-                                          })
-                                .and_then(move |verified_message| {
-                // at this point all of the message is verified.
-                //  This is where NSEC (and possibly NSEC3) validation occurs
-                // As of now, only NSEC is supported.
-                if verified_message.answers().is_empty() {
-                    let nsecs = verified_message
-                        .name_servers()
-                        .iter()
-                        .filter(|rr| rr.rr_type() == RecordType::NSEC)
-                        .collect::<Vec<_>>();
+            return Box::new(
+                self.client
+                    .send(message)
+                    .and_then(move |message_response| {
+                        // group the record sets by name and type
+                        //  each rrset type needs to validated independently
+                        debug!("validating message_response: {}", message_response.id());
+                        verify_rrsets(client, message_response, dns_class)
+                    })
+                    .and_then(move |verified_message| {
+                        // at this point all of the message is verified.
+                        //  This is where NSEC (and possibly NSEC3) validation occurs
+                        // As of now, only NSEC is supported.
+                        if verified_message.answers().is_empty() {
+                            let nsecs = verified_message
+                                .name_servers()
+                                .iter()
+                                .filter(|rr| rr.rr_type() == RecordType::NSEC)
+                                .collect::<Vec<_>>();
 
-                    if !verify_nsec(&query, nsecs) {
-                        // TODO change this to remove the NSECs, like we do for the others?
-                        return Err(ClientErrorKind::Message("could not validate nxdomain \
-                                                                 with NSEC")
-                                           .into());
-                    }
-                }
+                            if !verify_nsec(&query, nsecs) {
+                                // TODO change this to remove the NSECs, like we do for the others?
+                                return Err(
+                                    ClientErrorKind::Message(
+                                        "could not validate nxdomain \
+                                                                 with NSEC",
+                                    ).into(),
+                                );
+                            }
+                        }
 
-                Ok(verified_message)
-            }));
+                        Ok(verified_message)
+                    }),
+            );
         }
 
         self.client.send(message)
@@ -183,11 +195,13 @@ struct VerifyRrsetsFuture {
 
 /// this pulls all records returned in a Message respons and returns a future which will
 ///  validate all of them.
-fn verify_rrsets<H>(client: SecureClientHandle<H>,
-                    message_result: Message,
-                    dns_class: DNSClass)
-                    -> Box<Future<Item = Message, Error = ClientError>>
-    where H: ClientHandle
+fn verify_rrsets<H>(
+    client: SecureClientHandle<H>,
+    message_result: Message,
+    dns_class: DNSClass,
+) -> Box<Future<Item = Message, Error = ClientError>>
+where
+    H: ClientHandle,
 {
     let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
     for rrset in message_result.answers()
@@ -214,7 +228,9 @@ fn verify_rrsets<H>(client: SecureClientHandle<H>,
         message_result.take_name_servers();
         message_result.take_additionals();
 
-        return Box::new(failed(ClientErrorKind::Message("no results to verify").into()));
+        return Box::new(failed(
+            ClientErrorKind::Message("no results to verify").into(),
+        ));
     }
 
 
@@ -241,10 +257,10 @@ fn verify_rrsets<H>(client: SecureClientHandle<H>,
             .chain(message_result.additionals())
             .filter(|rr| rr.rr_type() == RecordType::RRSIG)
             .filter(|rr| if let &RData::SIG(ref rrsig) = rr.rdata() {
-                        rrsig.type_covered() == record_type
-                    } else {
-                        false
-                    })
+                rrsig.type_covered() == record_type
+            } else {
+                false
+            })
             .cloned()
             .collect();
 
@@ -258,10 +274,12 @@ fn verify_rrsets<H>(client: SecureClientHandle<H>,
         };
 
         // TODO: support non-IN classes?
-        debug!("verifying: {}, record_type: {:?}, rrsigs: {}",
-               rrset.name,
-               record_type,
-               rrsigs.len());
+        debug!(
+            "verifying: {}, record_type: {:?}, rrsigs: {}",
+            rrset.name,
+            record_type,
+            rrsigs.len()
+        );
         rrsets.push(verify_rrset(client.clone_with_context(), rrset, rrsigs));
     }
 
@@ -270,10 +288,10 @@ fn verify_rrsets<H>(client: SecureClientHandle<H>,
 
     // return the full Message validator
     Box::new(VerifyRrsetsFuture {
-                 message_result: Some(message_result),
-                 rrsets: rrsets_to_verify,
-                 verified_rrsets: HashSet::new(),
-             })
+        message_result: Some(message_result),
+        rrsets: rrsets_to_verify,
+        verified_rrsets: HashSet::new(),
+    })
 }
 
 impl Future for VerifyRrsetsFuture {
@@ -293,11 +311,12 @@ impl Future for VerifyRrsetsFuture {
                 Ok(Async::NotReady) => return Ok(Async::NotReady),
                 // all rrsets verified! woop!
                 Ok(Async::Ready((rrset, _, remaining))) => {
-                    debug!("an rrset was verified: {}, {:?}",
-                           rrset.name,
-                           rrset.record_type);
-                    self.verified_rrsets
-                        .insert((rrset.name, rrset.record_type));
+                    debug!(
+                        "an rrset was verified: {}, {:?}",
+                        rrset.name,
+                        rrset.record_type
+                    );
+                    self.verified_rrsets.insert((rrset.name, rrset.record_type));
                     remaining
                 }
                 // TODO, should we return the Message on errors? Allow the consumer to decide what to do
@@ -327,27 +346,33 @@ impl Future for VerifyRrsetsFuture {
                     .take_answers()
                     .into_iter()
                     .filter(|record| {
-                                self.verified_rrsets
-                                    .contains(&(record.name().clone(), record.rr_type()))
-                            })
+                        self.verified_rrsets.contains(&(
+                            record.name().clone(),
+                            record.rr_type(),
+                        ))
+                    })
                     .collect::<Vec<Record>>();
 
                 let name_servers = message_result
                     .take_name_servers()
                     .into_iter()
                     .filter(|record| {
-                                self.verified_rrsets
-                                    .contains(&(record.name().clone(), record.rr_type()))
-                            })
+                        self.verified_rrsets.contains(&(
+                            record.name().clone(),
+                            record.rr_type(),
+                        ))
+                    })
                     .collect::<Vec<Record>>();
 
                 let additionals = message_result
                     .take_additionals()
                     .into_iter()
                     .filter(|record| {
-                                self.verified_rrsets
-                                    .contains(&(record.name().clone(), record.rr_type()))
-                            })
+                        self.verified_rrsets.contains(&(
+                            record.name().clone(),
+                            record.rr_type(),
+                        ))
+                    })
                     .collect::<Vec<Record>>();
 
                 // add the filtered records back to the message
@@ -370,11 +395,13 @@ impl Future for VerifyRrsetsFuture {
 ///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
 ///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
 ///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
-fn verify_rrset<H>(client: SecureClientHandle<H>,
-                   rrset: Rrset,
-                   rrsigs: Vec<Record>)
-                   -> Box<Future<Item = Rrset, Error = ClientError>>
-    where H: ClientHandle
+fn verify_rrset<H>(
+    client: SecureClientHandle<H>,
+    rrset: Rrset,
+    rrsigs: Vec<Record>,
+) -> Box<Future<Item = Rrset, Error = ClientError>>
+where
+    H: ClientHandle,
 {
     // Special case for unsigned DNSKEYs, it's valid for a DNSKEY to be bare in the zone if
     //  it's a trust_anchor, though some DNS servers choose to self-sign in this case,
@@ -410,14 +437,18 @@ fn verify_rrset<H>(client: SecureClientHandle<H>,
 /// This first checks to see if the key is in the set of trust_anchors. If so then it's returned
 ///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
 ///  against the DS record.
-fn verify_dnskey_rrset<H>(mut client: SecureClientHandle<H>,
-                          rrset: Rrset)
-                          -> Box<Future<Item = Rrset, Error = ClientError>>
-    where H: ClientHandle
+fn verify_dnskey_rrset<H>(
+    mut client: SecureClientHandle<H>,
+    rrset: Rrset,
+) -> Box<Future<Item = Rrset, Error = ClientError>>
+where
+    H: ClientHandle,
 {
-    debug!("dnskey validation {}, record_type: {:?}",
-           rrset.name,
-           rrset.record_type);
+    debug!(
+        "dnskey validation {}, record_type: {:?}",
+        rrset.name,
+        rrset.record_type
+    );
 
     // check the DNSKEYS against the trust_anchor, if it's approved allow it.
     {
@@ -427,25 +458,30 @@ fn verify_dnskey_rrset<H>(mut client: SecureClientHandle<H>,
             .enumerate()
             .filter(|&(_, rr)| rr.rr_type() == RecordType::DNSKEY)
             .filter_map(|(i, rr)| if let &RData::DNSKEY(ref rdata) = rr.rdata() {
-                            Some((i, rdata))
-                        } else {
-                            None
-                        })
-            .filter_map(|(i, rdata)| if client.trust_anchor.contains(rdata.public_key()) {
-                            debug!("in trust_anchor");
-                            Some(i)
-                        } else {
-                            None
-                        })
+                Some((i, rdata))
+            } else {
+                None
+            })
+            .filter_map(|(i, rdata)| if client.trust_anchor.contains(
+                rdata.public_key(),
+            )
+            {
+                debug!("in trust_anchor");
+                Some(i)
+            } else {
+                None
+            })
             .collect::<Vec<usize>>();
 
         if !anchored_keys.is_empty() {
             let mut rrset = rrset;
             preserve(&mut rrset.records, anchored_keys);
 
-            debug!("validated dnskey with trust_anchor: {}, {}",
-                   rrset.name,
-                   rrset.records.len());
+            debug!(
+                "validated dnskey with trust_anchor: {}, {}",
+                rrset.name,
+                rrset.records.len()
+            );
             return Box::new(finished((rrset)));
         }
     }
@@ -460,10 +496,10 @@ fn verify_dnskey_rrset<H>(mut client: SecureClientHandle<H>,
                 .enumerate()
                 .filter(|&(_, rr)| rr.rr_type() == RecordType::DNSKEY)
                 .filter_map(|(i, rr)| if let &RData::DNSKEY(ref rdata) = rr.rdata() {
-                                Some((i, rdata))
-                            } else {
-                                None
-                            })
+                    Some((i, rdata))
+                } else {
+                    None
+                })
                 .filter(|&(_, key_rdata)| {
                     ds_message.answers()
                               .iter()
@@ -487,7 +523,9 @@ fn verify_dnskey_rrset<H>(mut client: SecureClientHandle<H>,
                 debug!("validated dnskey: {}, {}", rrset.name, rrset.records.len());
                 Ok(rrset)
             } else {
-                Err(ClientErrorKind::Message("Could not validate all DNSKEYs").into())
+                Err(
+                    ClientErrorKind::Message("Could not validate all DNSKEYs").into(),
+                )
             }
         });
 
@@ -501,8 +539,9 @@ fn verify_dnskey_rrset<H>(mut client: SecureClientHandle<H>,
 /// * `vec` - vec to mutate
 /// * `indexes` - ordered list of indexes to remove
 fn preserve<T, I>(vec: &mut Vec<T>, indexes: I)
-    where I: IntoIterator<Item = usize>,
-          <I as IntoIterator>::IntoIter: DoubleEndedIterator
+where
+    I: IntoIterator<Item = usize>,
+    <I as IntoIterator>::IntoIter: DoubleEndedIterator,
 {
     // this removes all indexes theat were not part of the anchored keys
     let mut indexes_iter = indexes.into_iter().rev();
@@ -557,28 +596,32 @@ fn test_preserve() {
 /// Invalid RRSIGs will be ignored. RRSIGs will only be validated against DNSKEYs which can
 ///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
 ///  then the RRSET will be valid.
-fn verify_default_rrset<H>(client: SecureClientHandle<H>,
-                           rrset: Rrset,
-                           rrsigs: Vec<Record>)
-                           -> Box<Future<Item = Rrset, Error = ClientError>>
-    where H: ClientHandle
+fn verify_default_rrset<H>(
+    client: SecureClientHandle<H>,
+    rrset: Rrset,
+    rrsigs: Vec<Record>,
+) -> Box<Future<Item = Rrset, Error = ClientError>>
+where
+    H: ClientHandle,
 {
     // the record set is going to be shared across a bunch of futures, Rc for that.
     let rrset = Rc::new(rrset);
-    debug!("default validation {}, record_type: {:?}",
-           rrset.name,
-           rrset.record_type);
+    debug!(
+        "default validation {}, record_type: {:?}",
+        rrset.name,
+        rrset.record_type
+    );
 
     // Special case for self-signed DNSKEYS, validate with itself...
     if rrsigs
-           .iter()
-           .filter(|rrsig| rrsig.rr_type() == RecordType::RRSIG)
-           .any(|rrsig| if let &RData::SIG(ref sig) = rrsig.rdata() {
-                    return RecordType::DNSKEY == rrset.record_type &&
-                           sig.signer_name() == &rrset.name;
-                } else {
-                    panic!("expected a SIG here");
-                }) {
+        .iter()
+        .filter(|rrsig| rrsig.rr_type() == RecordType::RRSIG)
+        .any(|rrsig| if let &RData::SIG(ref sig) = rrsig.rdata() {
+            return RecordType::DNSKEY == rrset.record_type && sig.signer_name() == &rrset.name;
+        } else {
+            panic!("expected a SIG here");
+        })
+    {
         // in this case it was looks like a self-signed key, first validate the signature
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
@@ -662,16 +705,18 @@ fn verify_default_rrset<H>(client: SecureClientHandle<H>,
 
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
-        return Box::new(failed(ClientErrorKind::Msg(format!("no RRSIGs available for \
+        return Box::new(failed(
+            ClientErrorKind::Msg(format!(
+                "no RRSIGs available for \
                                                              validation: {}, {:?}",
-                                                            rrset.name,
-                                                            rrset.record_type))
-                                       .into()));
+                rrset.name,
+                rrset.record_type
+            )).into(),
+        ));
     }
 
     // as long as any of the verifcations is good, then the RRSET is valid.
-    let select =
-        select_ok(verifications)
+    let select = select_ok(verifications)
                           // getting here means at least one of the rrsigs succeeded...
                           .map(move |(rrset, rest)| {
                               drop(rest); // drop all others, should free up Rc
@@ -695,13 +740,17 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
         return Err(ClientErrorKind::Message("mismatched algorithm").into());
     }
 
-    dnskey.verify_rrsig(&rrset.name, rrset.record_class, sig, &rrset.records).map_err(Into::into)
+    dnskey
+        .verify_rrsig(&rrset.name, rrset.record_class, sig, &rrset.records)
+        .map_err(Into::into)
 }
 
 /// Will always return an error. To enable record verification compile with the openssl feature.
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
 fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ClientResult<()> {
-    Err(ClientErrorKind::Message("openssl or ring feature(s) not enabled").into())
+    Err(
+        ClientErrorKind::Message("openssl or ring feature(s) not enabled").into(),
+    )
 }
 
 

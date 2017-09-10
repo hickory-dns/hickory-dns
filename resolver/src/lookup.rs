@@ -82,6 +82,13 @@ pub enum LookupEither {
 }
 
 impl ClientHandle for LookupEither {
+    fn is_verifying_dnssec(&self) -> bool {
+        match *self {
+            LookupEither::Retry(ref c) => c.is_verifying_dnssec(),
+            LookupEither::Secure(ref c) => c.is_verifying_dnssec(),
+        }
+    }
+
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         match *self {
             LookupEither::Retry(ref mut c) => c.send(message),
@@ -318,6 +325,10 @@ pub mod tests {
     }
 
     impl ClientHandle for MockClientHandle {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
+        }
+
         fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),

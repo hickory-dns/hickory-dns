@@ -47,7 +47,6 @@ impl DnsLru {
         DnsLru(LruCache::new(capacity))
     }
 
-    // TODO: need to consider NXDomain storage...
     fn insert(&mut self, query: Query, rdatas_and_ttl: Vec<(RData, u32)>, now: Instant) -> Lookup {
         let len = rdatas_and_ttl.len();
         // collapse the values, we're going to take the Minimum TTL as the correct one
@@ -186,6 +185,8 @@ struct QueryFuture {
     message_future: Box<Future<Item = Message, Error = ClientError>>,
     query: Query,
     cache: Arc<Mutex<DnsLru>>,
+    /// is this a DNSSec validating client?
+    dnssec: bool,
 }
 
 enum Records {
@@ -197,6 +198,9 @@ enum Records {
 
 impl QueryFuture {
     fn handle_noerror(&self, mut message: Message) -> Records {
+        // TODO: here we might be getting CNAME records back, we should do a chained lookup.
+        //  needs to cary a reference to the CachingClient for these chained lookups...
+
         let records = message
             .take_answers()
             .into_iter()
@@ -216,8 +220,9 @@ impl QueryFuture {
             Records::Exists(records)
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
-            // FIXME: DNSSec we should only cache negative response if NSEC was validated...
-            self.handle_nxdomain(message)
+            // Note on DNSSec, in secure_client_hanle, if verify_nsec fails then the request fails.
+            //   this will mean that no unverified negative caches will make it to this point and be stored
+            self.handle_nxdomain(message, true)
         }
     }
 
@@ -227,24 +232,31 @@ impl QueryFuture {
     ///  and a record for the name, regardless of CNAME presence, what have you
     ///  ultimately does not exist.
     ///
-    /// This also handles empty responses in the same way
+    /// This also handles empty responses in the same way. When performing DNSSec enabled queries, we should
+    ///  never enter here, and should never cache unless verified requests.
     ///
-    /// TODO: in DNSSec mode, we should only cache if there were validated NSEC records
-    fn handle_nxdomain(&self, mut message: Message) -> Records {
-        // FIXME: if we're in DNSSec mode, NxDomain should not have been returned, we should only cache
-        //  if there were validated NSEC records
-        let soa = message.take_name_servers().into_iter().find(|r| {
-            r.rr_type() == RecordType::SOA
-        });
+    /// # Arguments
+    ///
+    /// * `message` - message to extract SOA, etc, from for caching failed requests
+    /// * `valid_nsec` - species that in DNSSec mode, this request is safe to cache
+    fn handle_nxdomain(&self, mut message: Message, valid_nsec: bool) -> Records {
+        if valid_nsec || !self.dnssec {
+            //  if there were validated NSEC records
+            let soa = message.take_name_servers().into_iter().find(|r| {
+                r.rr_type() == RecordType::SOA
+            });
 
-        let ttl = if let Some(RData::SOA(soa)) = soa.map(|r| r.unwrap_rdata()) {
-            Some(soa.minimum())
+            let ttl = if let Some(RData::SOA(soa)) = soa.map(|r| r.unwrap_rdata()) {
+                Some(soa.minimum())
+            } else {
+                // TODO: figure out a looping lookup to get SOA
+                None
+            };
+
+            Records::NoData(ttl)
         } else {
-            // TODO: figure out a looping lookup to get SOA
-            None
-        };
-
-        Records::NoData(ttl)
+            Records::NoData(None)
+        }
     }
 }
 
@@ -259,7 +271,10 @@ impl Future for QueryFuture {
                 //  if it's DNSSec they must be signed, otherwise?
 
                 match message.response_code() {
-                    ResponseCode::NXDomain => Ok(Async::Ready(self.handle_nxdomain(message))),
+                    ResponseCode::NXDomain => Ok(Async::Ready(self.handle_nxdomain(
+                        message,
+                        false, /* false b/c DNSSec should not cache NXDomain */
+                    ))),
                     ResponseCode::NoError => Ok(Async::Ready(self.handle_noerror(message))),
                     r @ _ => Err(io::Error::new(
                         io::ErrorKind::Other,
@@ -350,6 +365,7 @@ impl<C: ClientHandle + 'static> QueryState<C> {
                         message_future,
                         query,
                         cache: from_cache.cache,
+                        dnssec: client.is_verifying_dnssec(),
                     }),
                 );
             }
@@ -366,6 +382,7 @@ impl<C: ClientHandle + 'static> QueryState<C> {
                                   message_future: _,
                                   query,
                                   cache,
+                                  dnssec: _,
                               }) => {
                 mem::replace(
                     self,
