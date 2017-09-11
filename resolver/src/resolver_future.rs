@@ -81,7 +81,7 @@ impl ResolverFuture {
         }
     }
 
-    /// Constructs a new Resolver with the given ClientConnection, see UdpClientConnection and/or TcpCLientConnection
+    /// Constructs a new Resolver with the system configuration.
     ///
     /// This will read the systems `/etc/cresolv.conf`. Only Unix like OSes are currently supported.
     pub fn from_system_conf(reactor: &Handle) -> io::Result<Self> {
@@ -125,6 +125,8 @@ impl ResolverFuture {
     }
 
     /// Generic lookup for any RecordType
+    ///
+    /// *WARNING* this interface may change in the future, see if one of the specializations would be better.
     ///
     /// # Arguments
     ///

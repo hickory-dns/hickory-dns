@@ -45,7 +45,8 @@
 //! let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 //!
 //! // Lookup the IP addresses associated with a name.
-//! // NOTE: do not forget the final dot, as the resolver does not yet support search paths.
+//! // The final dot forces this to be an FQDN, otherwise the lookup rules as specified
+//! //  in `ResolverOpts` will take effect
 //! let mut response = resolver.lookup_ip("www.example.com.").unwrap();
 //!
 //! // There can be many addresses associated with the name,
