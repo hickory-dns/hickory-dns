@@ -4,7 +4,7 @@ extern crate log;
 extern crate native_tls;
 extern crate openssl;
 extern crate tokio_core;
-extern crate tokio_tls;
+//extern crate tokio_tls;
 extern crate trust_dns;
 extern crate trust_dns_native_tls;
 extern crate trust_dns_server;
@@ -32,13 +32,19 @@ fn test_example_tls_toml_startup() {
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
         println!("using server src path: {}", server_path);
 
-        File::open(&format!("{}/tests/named_test_configs/sec/example.cert", server_path))
-            .unwrap()
+        File::open(&format!(
+            "{}/tests/named_test_configs/sec/example.cert",
+            server_path
+        )).unwrap()
             .read_to_end(&mut cert_der)
             .unwrap();
 
         let mut io_loop = Core::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", tls_port).to_socket_addrs().unwrap().next().unwrap();
+        let addr: SocketAddr = ("127.0.0.1", tls_port)
+            .to_socket_addrs()
+            .unwrap()
+            .next()
+            .unwrap();
         let mut tls_conn_builder = TlsClientStreamBuilder::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
@@ -49,7 +55,11 @@ fn test_example_tls_toml_startup() {
         // ipv4 should succeed
         assert!(query(&mut io_loop, &mut client));
 
-        let addr: SocketAddr = ("127.0.0.1", tls_port).to_socket_addrs().unwrap().next().unwrap();
+        let addr: SocketAddr = ("127.0.0.1", tls_port)
+            .to_socket_addrs()
+            .unwrap()
+            .next()
+            .unwrap();
         let mut tls_conn_builder = TlsClientStreamBuilder::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);

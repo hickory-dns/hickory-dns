@@ -60,8 +60,10 @@ fn read_file(path: &str) -> Vec<u8> {
     let mut bytes = vec![];
 
     let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
-    file.read_to_end(&mut bytes)
-        .expect(&format!("failed to read file: {}", path));
+    file.read_to_end(&mut bytes).expect(&format!(
+        "failed to read file: {}",
+        path
+    ));
     bytes
 }
 
@@ -86,10 +88,10 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
     println!("using server src path: {}", server_path);
-   
+
     let root_cert_der = read_file(&format!("{}/../tests/ca.der", server_path));
     let root_cert_der_copy = root_cert_der.clone();
-    
+
     // Generate X509 certificate
     let subject_name = "ns.example.com";
     let server_pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
@@ -106,11 +108,12 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             let pkcs12 = Pkcs12::from_der(&server_pkcs12_der)
                 .and_then(|p| p.parse("mypass"))
                 .expect("Pkcs12::from_der");
-            let mut tls = SslAcceptorBuilder::mozilla_modern(SslMethod::tls(),
-                                                             &pkcs12.pkey,
-                                                             &pkcs12.cert,
-                                                             &pkcs12.chain)
-                    .expect("mozilla_modern failed");
+            let mut tls = SslAcceptorBuilder::mozilla_modern(
+                SslMethod::tls(),
+                &pkcs12.pkey,
+                &pkcs12.cert,
+                &pkcs12.chain,
+            ).expect("mozilla_modern failed");
 
             {
                 let mut openssl_ctx_builder = tls.builder_mut();
@@ -152,9 +155,9 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             for _ in 0..send_recv_times {
                 // wait for some bytes...
                 let mut len_bytes = [0_u8; 2];
-                socket
-                    .read_exact(&mut len_bytes)
-                    .expect("SERVER: receive failed");
+                socket.read_exact(&mut len_bytes).expect(
+                    "SERVER: receive failed",
+                );
                 let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
@@ -165,12 +168,12 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 assert_eq!(&buffer, TEST_BYTES);
 
                 // bounce them right back...
-                socket
-                    .write_all(&len_bytes)
-                    .expect("SERVER: send length failed");
-                socket
-                    .write_all(&buffer)
-                    .expect("SERVER: send buffer failed");
+                socket.write_all(&len_bytes).expect(
+                    "SERVER: send length failed",
+                );
+                socket.write_all(&buffer).expect(
+                    "SERVER: send buffer failed",
+                );
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
@@ -201,20 +204,16 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let (stream, sender) = builder.build(server_addr, subject_name.to_string(), &io_loop.handle());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
-    let mut stream = io_loop
-        .run(stream)
-        .ok()
-        .expect("run failed to get stream");
+    let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
         sender
-            .send((TEST_BYTES.to_vec(), server_addr))
+            .unbounded_send((TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = io_loop
-            .run(stream.into_future())
-            .ok()
-            .expect("future iteration run failed");
+        let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect(
+            "future iteration run failed",
+        );
         stream = stream_tmp;
         let (buffer, _) = buffer.expect("no buffer received");
         assert_eq!(&buffer, TEST_BYTES);

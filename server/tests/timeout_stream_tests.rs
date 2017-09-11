@@ -12,15 +12,16 @@ use trust_dns_server::server::TimeoutStream;
 
 #[test]
 fn test_no_timeout() {
-    let sequence = iter(vec![Ok(1), Err("error"), Ok(2)])
-        .map_err(|e| io::Error::new(io::ErrorKind::Other, e));
+    let sequence =
+        iter(vec![Ok(1), Err("error"), Ok(2)]).map_err(|e| io::Error::new(io::ErrorKind::Other, e));
     let mut core = Core::new().expect("could not get core");
 
     let timeout_stream = TimeoutStream::new(sequence, Duration::from_secs(360), &core.handle())
         .expect("could not create timeout_stream");
 
-    let (val, timeout_stream) =
-        core.run(timeout_stream.into_future()).ok().expect("first run failed");
+    let (val, timeout_stream) = core.run(timeout_stream.into_future()).ok().expect(
+        "first run failed",
+    );
     assert_eq!(val, Some(1));
 
     let error = core.run(timeout_stream.into_future());
@@ -28,11 +29,14 @@ fn test_no_timeout() {
 
     let (_, timeout_stream) = error.err().unwrap();
 
-    let (val, timeout_stream) =
-        core.run(timeout_stream.into_future()).ok().expect("third run failed");
+    let (val, timeout_stream) = core.run(timeout_stream.into_future()).ok().expect(
+        "third run failed",
+    );
     assert_eq!(val, Some(2));
 
-    let (val, _) = core.run(timeout_stream.into_future()).ok().expect("fourth run failed");
+    let (val, _) = core.run(timeout_stream.into_future()).ok().expect(
+        "fourth run failed",
+    );
     assert!(val.is_none())
 }
 

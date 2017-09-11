@@ -26,15 +26,15 @@ fn tls_new(certs: &[Certificate] /*, pkcs12: Option<Pkcs12>*/) -> io::Result<Arc
 
     // mutate the trust_store
     {
-        let mut trust_store = &mut builder.root_store;
+        let trust_store = &mut builder.root_store;
 
         for cert in certs {
-            try!(trust_store
-                     .add(cert)
-                     .map_err(|e| {
-                                  io::Error::new(io::ErrorKind::ConnectionRefused,
-                                                 format!("tls error: {:?}", e))
-                              }));
+            try!(trust_store.add(cert).map_err(|e| {
+                io::Error::new(
+                    io::ErrorKind::ConnectionRefused,
+                    format!("tls error: {:?}", e),
+                )
+            }));
         }
     }
 
@@ -53,9 +53,10 @@ fn tls_new(certs: &[Certificate] /*, pkcs12: Option<Pkcs12>*/) -> io::Result<Arc
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream(stream: TokioTlsStream<TokioTcpStream, ClientSession>,
-                       peer_addr: SocketAddr)
-                       -> (TlsStream, BufStreamHandle) {
+pub fn tls_from_stream(
+    stream: TokioTlsStream<TokioTcpStream, ClientSession>,
+    peer_addr: SocketAddr,
+) -> (TlsStream, BufStreamHandle) {
     let (message_sender, outbound_messages) = unbounded();
 
     let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
@@ -116,46 +117,53 @@ impl TlsStreamBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `subject_name` - The Subject Public Key Info (SPKI) name as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
-    pub fn build(self,
-                 name_server: SocketAddr,
-                 subject_name: String,
-                 loop_handle: &Handle)
-                 -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle) {
+    pub fn build(
+        self,
+        name_server: SocketAddr,
+        subject_name: String,
+        loop_handle: &Handle,
+    ) -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle) {
         let (message_sender, outbound_messages) = unbounded();
-        let tls_connector =
-            match ::tls_stream::tls_new(&self.ca_chain /*, self.identity*/) {
-                Ok(c) => c,
-                Err(e) => {
-                return (Box::new(future::err(e).into_future().map_err(|e| {
-                            io::Error::new(io::ErrorKind::ConnectionRefused,
-                                           format!("tls error: {}", e))
-                        })),
-                        message_sender)
+        let tls_connector = match ::tls_stream::tls_new(&self.ca_chain /*, self.identity*/) {
+            Ok(c) => c,
+            Err(e) => {
+                return (
+                    Box::new(future::err(e).into_future().map_err(|e| {
+                        io::Error::new(
+                            io::ErrorKind::ConnectionRefused,
+                            format!("tls error: {}", e),
+                        )
+                    })),
+                    message_sender,
+                )
             }
-            };
+        };
 
         let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
         let stream: Box<Future<Item = TlsStream, Error = io::Error>> =
-            Box::new(tcp.and_then(move |tcp_stream| {
+            Box::new(
+                tcp.and_then(move |tcp_stream| {
                     tls_connector
                         .connect_async(&subject_name, tcp_stream)
                         .map(move |s| {
-                                 TcpStream::from_stream_with_receiver(s,
-                                                                      name_server,
-                                                                      outbound_messages)
-                             })
+                            TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
+                        })
                         .map_err(|e| {
-                                     io::Error::new(io::ErrorKind::ConnectionRefused,
-                                                    format!("tls error: {}", e))
-                                 })
-                })
-                         .map_err(|e| {
-                                      io::Error::new(io::ErrorKind::ConnectionRefused,
-                                                     format!("tls error: {}", e))
-                                  }));
+                            io::Error::new(
+                                io::ErrorKind::ConnectionRefused,
+                                format!("tls error: {}", e),
+                            )
+                        })
+                }).map_err(|e| {
+                        io::Error::new(
+                            io::ErrorKind::ConnectionRefused,
+                            format!("tls error: {}", e),
+                        )
+                    }),
+            );
 
         (stream, message_sender)
     }
