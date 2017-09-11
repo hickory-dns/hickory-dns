@@ -69,6 +69,7 @@
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
 //! let mut resolver = Resolver::from_system_conf().unwrap();
+//! # #[cfg(unix)]
 //! let mut response = resolver.lookup_ip("www.example.com.").unwrap();
 //! ```
 //!
