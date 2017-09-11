@@ -41,7 +41,8 @@ impl<S> RequestStream<S> {
 }
 
 impl<S> Stream for RequestStream<S>
-    where S: Stream<Item = (Vec<u8>, SocketAddr), Error = io::Error>
+where
+    S: Stream<Item = (Vec<u8>, SocketAddr), Error = io::Error>,
 {
     type Item = (Request, ResponseHandle);
     type Error = io::Error;
@@ -104,12 +105,14 @@ impl ResponseHandle {
         };
 
         try!(encode_result.map_err(|e| {
-            io::Error::new(io::ErrorKind::Other,
-                           format!("error encoding message: {}", e))
+            io::Error::new(
+                io::ErrorKind::Other,
+                format!("error encoding message: {}", e),
+            )
         }));
 
         self.stream_handle
-            .send((buffer, self.dst))
+            .unbounded_send((buffer, self.dst))
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
     }
 }

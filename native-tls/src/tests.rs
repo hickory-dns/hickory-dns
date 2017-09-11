@@ -55,8 +55,10 @@ fn read_file(path: &str) -> Vec<u8> {
     let mut bytes = vec![];
 
     let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
-    file.read_to_end(&mut bytes)
-        .expect(&format!("failed to read file: {}", path));
+    file.read_to_end(&mut bytes).expect(&format!(
+        "failed to read file: {}",
+        path
+    ));
     bytes
 }
 
@@ -81,7 +83,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
     println!("using server src path: {}", server_path);
-   
+
     let root_cert_der = read_file(&format!("{}/../tests/ca.der", server_path));
 
     // Generate X509 certificate
@@ -94,63 +96,77 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     let send_recv_times = 4;
 
-    let server_handle = thread::Builder::new().name("test_tls_client_stream:server".to_string()).spawn(move || {
-    let pkcs12 = native_tls::Pkcs12::from_der(&server_pkcs12_der, "mypass").expect("Pkcs12::from_der");
-    let mut tls = TlsAcceptor::builder(pkcs12).expect("build with pkcs12 failed");
+    let server_handle = thread::Builder::new()
+        .name("test_tls_client_stream:server".to_string())
+        .spawn(move || {
+            let pkcs12 = native_tls::Pkcs12::from_der(&server_pkcs12_der, "mypass")
+                .expect("Pkcs12::from_der");
+            let mut tls = TlsAcceptor::builder(pkcs12).expect("build with pkcs12 failed");
 
-    // #[cfg(target_os = "linux")]
-    // {
-    //   let mut openssl_builder = tls.builder_mut();
-    //   let mut openssl_ctx_builder = openssl_builder.builder_mut();
+            // #[cfg(target_os = "linux")]
+            // {
+            //   let mut openssl_builder = tls.builder_mut();
+            //   let mut openssl_ctx_builder = openssl_builder.builder_mut();
 
-    //   let mut mode = openssl::ssl::SslVerifyMode::empty();
+            //   let mut mode = openssl::ssl::SslVerifyMode::empty();
 
-    //   // FIXME: mtls tests hang on Linux...
-    //   if mtls {
-    //     //   mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
-        
-    //     // let mut store = X509StoreBuilder::new().unwrap();
-    //     // let root_ca = X509::from_der(&root_cert_der_copy).unwrap();
-    //     // store.add_cert(root_ca).unwrap();
-    //     // openssl_ctx_builder.set_verify_cert_store(store.build()).unwrap();
-    //   } else {
-    //     mode.insert(SSL_VERIFY_NONE);
-    //   }
+            //   // FIXME: mtls tests hang on Linux...
+            //   if mtls {
+            //     //   mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
 
-    //   openssl_ctx_builder.set_verify(mode);
-    // }
+            //     // let mut store = X509StoreBuilder::new().unwrap();
+            //     // let root_ca = X509::from_der(&root_cert_der_copy).unwrap();
+            //     // store.add_cert(root_ca).unwrap();
+            //     // openssl_ctx_builder.set_verify_cert_store(store.build()).unwrap();
+            //   } else {
+            //     mode.insert(SSL_VERIFY_NONE);
+            //   }
 
-    // FIXME: add CA on macOS
-    
-    let tls = tls.build().expect("tls build failed");
+            //   openssl_ctx_builder.set_verify(mode);
+            // }
 
-    // server_barrier.wait();
-    let (socket, _) = server.accept().expect("tcp accept failed");
-    socket.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
-    socket.set_write_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
+            // FIXME: add CA on macOS
 
-    let mut socket = tls.accept(socket).expect("tls accept failed");
+            let tls = tls.build().expect("tls build failed");
 
-    for _ in 0..send_recv_times {
-      // wait for some bytes...
-      let mut len_bytes = [0_u8; 2];
-      socket.read_exact(&mut len_bytes).expect("SERVER: receive failed");
-      let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
-      assert_eq!(length as usize, TEST_BYTES_LEN);
+            // server_barrier.wait();
+            let (socket, _) = server.accept().expect("tcp accept failed");
+            socket
+                .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap(); // should recieve something within 5 seconds...
+            socket
+                .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+                .unwrap(); // should recieve something within 5 seconds...
 
-      let mut buffer = [0_u8; TEST_BYTES_LEN];
-      socket.read_exact(&mut buffer).unwrap();
+            let mut socket = tls.accept(socket).expect("tls accept failed");
 
-      // println!("read bytes iter: {}", i);
-      assert_eq!(&buffer, TEST_BYTES);
+            for _ in 0..send_recv_times {
+                // wait for some bytes...
+                let mut len_bytes = [0_u8; 2];
+                socket.read_exact(&mut len_bytes).expect(
+                    "SERVER: receive failed",
+                );
+                let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
+                assert_eq!(length as usize, TEST_BYTES_LEN);
 
-      // bounce them right back...
-      socket.write_all(&len_bytes).expect("SERVER: send length failed");
-      socket.write_all(&buffer).expect("SERVER: send buffer failed");
-      // println!("wrote bytes iter: {}", i);
-      std::thread::yield_now();
-    }
-  }).unwrap();
+                let mut buffer = [0_u8; TEST_BYTES_LEN];
+                socket.read_exact(&mut buffer).unwrap();
+
+                // println!("read bytes iter: {}", i);
+                assert_eq!(&buffer, TEST_BYTES);
+
+                // bounce them right back...
+                socket.write_all(&len_bytes).expect(
+                    "SERVER: send length failed",
+                );
+                socket.write_all(&buffer).expect(
+                    "SERVER: send buffer failed",
+                );
+                // println!("wrote bytes iter: {}", i);
+                std::thread::yield_now();
+            }
+        })
+        .unwrap();
 
     // let the server go first
     std::thread::yield_now();
@@ -176,20 +192,16 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let (stream, sender) = builder.build(server_addr, subject_name.to_string(), &io_loop.handle());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
-    let mut stream = io_loop
-        .run(stream)
-        .ok()
-        .expect("run failed to get stream");
+    let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
         sender
-            .send((TEST_BYTES.to_vec(), server_addr))
+            .unbounded_send((TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = io_loop
-            .run(stream.into_future())
-            .ok()
-            .expect("future iteration run failed");
+        let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect(
+            "future iteration run failed",
+        );
         stream = stream_tmp;
         let (buffer, _) = buffer.expect("no buffer received");
         assert_eq!(&buffer, TEST_BYTES);
