@@ -67,6 +67,7 @@
 //! # use std::net::*;
 //! # use trust_dns_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
+//! # #[cfg(unix)]
 //! let mut resolver = Resolver::from_system_conf().unwrap();
 //! let mut response = resolver.lookup_ip("www.example.com.").unwrap();
 //! ```
