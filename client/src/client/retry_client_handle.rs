@@ -113,6 +113,10 @@ mod test {
     }
 
     impl ClientHandle for TestClient {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
+        }
+
         fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
             let i = self.attempts.get();
 
