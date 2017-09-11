@@ -85,6 +85,7 @@ impl Resolver {
     /// Constructs a new Resolver with the system configuration.
     ///
     /// This will read the systems `/etc/cresolv.conf`. Only Unix like OSes are currently supported.
+    #[cfg(unix)]
     pub fn from_system_conf() -> io::Result<Self> {
         let (config, options) = system_conf::read_system_conf()?;
         Self::new(config, options)
