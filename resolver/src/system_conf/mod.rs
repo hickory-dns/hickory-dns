@@ -40,7 +40,11 @@ pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
 
 #[cfg(not(unix))]
 pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
-    compile_error!("Non-Posix systems currently not supported, use other config options")
+    Err(io::Error::new(
+        io::ErrorKind::Other,
+        "Non-Posix systems currently not supported, use other config options"
+            .to_string(),
+    ))
 }
 
 pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
