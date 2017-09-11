@@ -192,6 +192,7 @@ mod tests {
 
     #[test]
     #[ignore]
+    #[cfg(unix)]
     fn test_system_lookup() {
         let resolver = Resolver::from_system_conf().unwrap();
 

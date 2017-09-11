@@ -321,6 +321,7 @@ mod tests {
 
     #[test]
     #[ignore]
+    #[cfg(unix)]
     fn test_system_lookup() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
