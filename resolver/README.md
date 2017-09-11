@@ -10,7 +10,7 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - `/etc/resolv.conf` based configuration on Unix/Posix systems
 - NameServer pools with performance based priority usage
 - Caching of query results
-- *TBD* NXDOMAIN caching (negative caching)
+- NXDOMAIN/NoData caching (negative caching)
 - DNSSec validation
 - Generic Record Type Lookup (the Client can be used in the interim)
 - *TBD* TLS integration

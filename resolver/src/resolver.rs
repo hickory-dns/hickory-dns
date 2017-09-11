@@ -63,7 +63,7 @@ pub fn $p(&self, query: $t) -> io::Result<$l> {
 }
 
 impl Resolver {
-    /// Constructs a new Resolver with the given ClientConnection, see UdpClientConnection and/or TcpCLientConnection
+    /// Constructs a new Resolver with the specified configuration.
     ///
     /// # Arguments
     /// * `config` - configuration for the resolver
@@ -82,7 +82,7 @@ impl Resolver {
         })
     }
 
-    /// Constructs a new Resolver with the given ClientConnection, see UdpClientConnection and/or TcpCLientConnection
+    /// Constructs a new Resolver with the system configuration.
     ///
     /// This will read the systems `/etc/cresolv.conf`. Only Unix like OSes are currently supported.
     pub fn from_system_conf() -> io::Result<Self> {
@@ -104,7 +104,6 @@ impl Resolver {
         )
     }
 
-    // TODO: need to support ndot lookup options...
     /// Performs a DNS lookup for the IP for the given hostname.
     ///
     /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
@@ -121,7 +120,9 @@ impl Resolver {
         )
     }
 
-    // Performs a DNS lookup for an SRV record for the speicified service type and protocol at the given name.
+    /// Performs a DNS lookup for an SRV record for the speicified service type and protocol at the given name.
+    ///
+    /// *WARNING* This interface may change in the future
     ///
     /// This is a convenience method over `lookup_srv`, it combines the service, protocol and name into a single name: `_service._protocol.name`.
     ///
