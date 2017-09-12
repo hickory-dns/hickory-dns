@@ -194,7 +194,7 @@ pub struct ResolverOpts {
     /// Rotate through the resource records in the response (if there is more than one for a given name)
     pub(crate) rotate: bool,
     /// Validate the names in the response
-    pub(crate) check_names: bool,
+    pub check_names: bool,
     /// Enable edns, for larger records
     pub(crate) edns0: bool,
     /// Use DNSSec to validate the request

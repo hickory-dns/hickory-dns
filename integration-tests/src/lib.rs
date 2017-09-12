@@ -1,5 +1,12 @@
 #![allow(dead_code)]
 
+extern crate chrono;
+extern crate futures;
+extern crate log;
+extern crate openssl;
+extern crate tokio_core;
+extern crate trust_dns;
+extern crate trust_dns_server;
 
 use std::fmt;
 use std::io;
@@ -19,7 +26,6 @@ use trust_dns_server::authority::Catalog;
 use trust_dns_server::server::{Request, RequestHandler};
 
 pub mod authority;
-pub mod server_harness;
 
 #[allow(unused)]
 pub struct TestClientStream {
@@ -29,8 +35,9 @@ pub struct TestClientStream {
 
 #[allow(unused)]
 impl TestClientStream {
-    pub fn new(catalog: Catalog)
-               -> (Box<Future<Item = Self, Error = io::Error>>, Box<ClientStreamHandle>) {
+    pub fn new(
+        catalog: Catalog,
+    ) -> (Box<Future<Item = Self, Error = io::Error>>, Box<ClientStreamHandle>) {
         let (message_sender, outbound_messages) = unbounded();
 
         let stream: Box<Future<Item = TestClientStream, Error = io::Error>> =
@@ -49,15 +56,22 @@ impl Stream for TestClientStream {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         match try!(self.outbound_messages.poll().map_err(|_| {
-            io::Error::new(io::ErrorKind::Interrupted,
-                           "Server stopping due to interruption")
+            io::Error::new(
+                io::ErrorKind::Interrupted,
+                "Server stopping due to interruption",
+            )
         })) {
             // already handled above, here to make sure the poll() pops the next message
             Async::Ready(Some(bytes)) => {
                 let mut decoder = BinDecoder::new(&bytes);
 
                 let message = Message::read(&mut decoder).expect("could not decode message");
-                let request = Request { message: message, src: "127.0.0.1:1234".parse().expect("cannot parse host and port") };
+                let request = Request {
+                    message: message,
+                    src: "127.0.0.1:1234".parse().expect(
+                        "cannot parse host and port",
+                    ),
+                };
                 let response = self.catalog.handle_request(&request);
 
                 let mut buf = Vec::with_capacity(512);
@@ -99,8 +113,8 @@ impl NeverReturnsClientStream {
 
         let stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>> =
             Box::new(finished(NeverReturnsClientStream {
-                                  outbound_messages: outbound_messages.fuse(),
-                              }));
+                outbound_messages: outbound_messages.fuse(),
+            }));
 
         (stream, Box::new(message_sender))
     }
@@ -136,21 +150,19 @@ impl NeverReturnsClientConnection {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 
         Ok(NeverReturnsClientConnection {
-               io_loop: io_loop,
-               client_stream: client_stream,
-               client_stream_handle: handle,
-           })
+            io_loop: io_loop,
+            client_stream: client_stream,
+            client_stream_handle: handle,
+        })
     }
 }
 
 impl ClientConnection for NeverReturnsClientConnection {
     type MessageStream = NeverReturnsClientStream;
 
-    fn unwrap
-        (self)
-         -> (Core,
-             Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-             Box<ClientStreamHandle>) {
+    fn unwrap(
+        self,
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<ClientStreamHandle>) {
         (self.io_loop, self.client_stream, self.client_stream_handle)
     }
 }

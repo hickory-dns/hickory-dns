@@ -9,7 +9,7 @@ extern crate trust_dns;
 extern crate trust_dns_native_tls;
 extern crate trust_dns_server;
 
-mod common;
+mod server_harness;
 
 use std::env;
 use std::fs::File;
@@ -22,7 +22,7 @@ use tokio_core::reactor::Core;
 use trust_dns::client::*;
 use trust_dns_native_tls::TlsClientStreamBuilder;
 
-use common::server_harness::{named_test_harness, query};
+use server_harness::{named_test_harness, query};
 
 
 #[test]

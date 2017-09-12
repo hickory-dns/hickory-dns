@@ -1,9 +1,8 @@
-extern crate chrono;
 extern crate futures;
 extern crate openssl;
-extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_server;
+extern crate trust_dns_integration;
 
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
@@ -33,8 +32,7 @@ use trust_dns::tls::TlsClientConnection;
 use trust_dns_server::ServerFuture;
 use trust_dns_server::authority::*;
 
-mod common;
-use common::authority::create_example;
+use trust_dns_integration::authority::create_example;
 
 #[test]
 fn test_server_www_udp() {

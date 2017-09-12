@@ -5,6 +5,7 @@ extern crate openssl;
 extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_server;
+extern crate trust_dns_integration;
 
 use std::net::*;
 use std::cmp::Ordering;
@@ -24,10 +25,8 @@ use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns_server::authority::Catalog;
 
-mod common;
-use common::{NeverReturnsClientStream, TestClientStream};
-use common::authority::create_example;
-
+use trust_dns_integration::{NeverReturnsClientStream, TestClientStream};
+use trust_dns_integration::authority::create_example;
 
 #[test]
 fn test_query_nonet() {

@@ -981,6 +981,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-dns-integration"
+version = "0.1.0"
+dependencies = [
+ "chrono 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "data-encoding 1.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.4.3 (registry+https://github.com/rust-lang/crates.io-index)",
+ "futures 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
+ "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
+ "openssl 0.9.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rand 0.3.16 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rusqlite 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-core 0.1.9 (registry+https://github.com/rust-lang/crates.io-index)",
+ "trust-dns 0.11.3",
+ "trust-dns-resolver 0.5.0",
+ "trust-dns-server 0.10.8",
+]
+
+[[package]]
 name = "trust-dns-native-tls"
 version = "0.1.4"
 dependencies = [

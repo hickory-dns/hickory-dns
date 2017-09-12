@@ -4,6 +4,7 @@ extern crate openssl;
 extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_server;
+extern crate trust_dns_integration;
 
 use std::net::*;
 
@@ -20,9 +21,8 @@ use trust_dns::udp::UdpClientStream;
 
 use trust_dns_server::authority::Catalog;
 
-mod common;
-use common::TestClientStream;
-use common::authority::create_secure_example;
+use trust_dns_integration::TestClientStream;
+use trust_dns_integration::authority::create_secure_example;
 
 #[test]
 fn test_secure_query_example_nonet() {

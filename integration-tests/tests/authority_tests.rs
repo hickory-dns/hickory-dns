@@ -5,6 +5,7 @@ extern crate rusqlite;
 extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_server;
+extern crate trust_dns_integration;
 
 use std::collections::BTreeMap;
 use std::net::*;
@@ -17,8 +18,7 @@ use trust_dns::rr::rdata::*;
 use trust_dns::op::*;
 use trust_dns_server::authority::*;
 
-mod common;
-use common::authority::{create_example, create_secure_example};
+use trust_dns_integration::authority::{create_example, create_secure_example};
 
 #[test]
 fn test_search() {
