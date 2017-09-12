@@ -61,7 +61,7 @@ where
 {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
     let mut pem = File::open(format!(
-        "{}/../compatibility/tests/conf/Kupdate.example.com.+008+56935.pem",
+        "{}/../compatibility-tests/tests/conf/Kupdate.example.com.+008+56935.pem",
         server_path
     )).expect("could not find pem file");
 

@@ -132,7 +132,7 @@ impl ResolverFuture {
     /// # Arguments
     ///
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
-    /// * `record_type` - type of record to lookup
+    /// * `record_type` - type of record to lookup, all RecordData responses will be filtered to this type
     ///
     /// # Returns
     ///

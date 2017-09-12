@@ -4,6 +4,7 @@ extern crate openssl;
 extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_server;
+extern crate trust_dns_integration;
 
 use std::io;
 use std::net::*;
@@ -26,9 +27,8 @@ use trust_dns::udp::UdpClientConnection;
 
 use trust_dns_server::authority::Catalog;
 
-mod common;
-use common::{TestClientStream, NeverReturnsClientConnection};
-use common::authority::{create_example, create_secure_example};
+use trust_dns_integration::{TestClientStream, NeverReturnsClientConnection};
+use trust_dns_integration::authority::{create_example, create_secure_example};
 
 pub struct TestClientConnection {
     catalog: Catalog,
