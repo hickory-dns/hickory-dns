@@ -17,7 +17,7 @@ use futures::{Async, Future, Poll, task};
 use trust_dns::client::ClientHandle;
 use trust_dns::error::ClientError;
 use trust_dns::op::{Message, Query, ResponseCode};
-use trust_dns::rr::{RData, RecordType};
+use trust_dns::rr::{Name, RData, RecordType};
 
 use lookup::Lookup;
 use lru_cache::LruCache;
@@ -201,8 +201,35 @@ enum Records {
 
 impl QueryFuture {
     fn handle_noerror(&self, mut message: Message) -> Records {
+        // TODO: promote from UDP/DTLS to TCP/TLS to work around packet size limits
+        // if message.truncated() {
+        //     client.promote_to_tcp_requery()
+        // }
+
         // TODO: here we might be getting CNAME records back, we should do a chained lookup.
         //  needs to cary a reference to the CachingClient for these chained lookups...
+
+        // seek out CNAMES
+        // TODO: figure out how to get rid of this clone
+        let mut was_cname = false;
+        let mut search_name: Name = self.query.name().clone();
+        while let Some(cname) = message.answers().iter().find(|r| {
+            r.rr_type() == RecordType::CNAME && r.name() == &search_name
+        })
+        {
+            was_cname = true;
+            if let &RData::CNAME(ref name) = cname.rdata() {
+                if search_name == *name {
+                    break; // already searched for this name
+                } else {
+                    search_name = name.clone();
+                }
+            } else {
+                // now that is very odd...
+                warn!("Expected RData::CNAME in response record {:?}", cname);
+                break;
+            }
+        }
 
         let records = message
             .take_answers()
@@ -211,7 +238,7 @@ impl QueryFuture {
                 let ttl = r.ttl();
                 // TODO: validate names in response?
                 // restrict to the RData type requested
-                if self.query.query_type() == r.rr_type() {
+                if self.query.query_type() == r.rr_type() && &search_name == r.name() {
                     Some((r.unwrap_rdata(), ttl))
                 } else {
                     None
@@ -222,6 +249,11 @@ impl QueryFuture {
         if !records.is_empty() {
             Records::Exists(records)
         } else {
+            // TODO: if it was a cname and we have no records
+            //       then the actual record was not sent with the original response
+            //       issue a follow up query for the CNAME
+            // if was_cname { new_state = CNAME::query() } else { // below }
+
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
             // Note on DNSSec, in secure_client_hanle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
@@ -457,6 +489,7 @@ impl<C: ClientHandle + 'static> Future for QueryState<C> {
     }
 }
 
+// see also the lookup_tests.rs in integration-tests crate
 #[cfg(test)]
 mod tests {
     use std::net::*;

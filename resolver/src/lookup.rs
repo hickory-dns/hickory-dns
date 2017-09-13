@@ -369,8 +369,8 @@ pub mod tests {
     #[test]
     fn test_lookup() {
         assert_eq!(
-            lookup(
-                Name::root(),
+            InnerLookupFuture::lookup(
+                vec![Name::root()],
                 RecordType::A,
                 CachingClient::new(0, mock(vec![v4_message()])),
             ).wait()
@@ -385,8 +385,8 @@ pub mod tests {
     #[test]
     fn test_error() {
         assert!(
-            lookup(
-                Name::root(),
+            InnerLookupFuture::lookup(
+                vec![Name::root()],
                 RecordType::A,
                 CachingClient::new(0, mock(vec![error()])),
             ).wait()
@@ -397,8 +397,8 @@ pub mod tests {
     #[test]
     fn test_empty_no_response() {
         assert_eq!(
-            lookup(
-                Name::root(),
+            InnerLookupFuture::lookup(
+                vec![Name::root()],
                 RecordType::A,
                 CachingClient::new(0, mock(vec![empty()])),
             ).wait()
