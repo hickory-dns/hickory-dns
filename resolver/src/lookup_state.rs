@@ -129,19 +129,22 @@ impl DnsLru {
 // TODO: need to consider this storage type as it compares to Authority in server...
 //       should it just be an variation on Authority?
 #[derive(Clone, Debug)]
-pub(crate) struct CachingClient<C: ClientHandle> {
+#[doc(hidden)]
+pub struct CachingClient<C: ClientHandle> {
     lru: Arc<Mutex<DnsLru>>,
     client: C,
 }
 
 impl<C: ClientHandle + 'static> CachingClient<C> {
-    pub(crate) fn new(max_size: usize, client: C) -> Self {
+    #[doc(hidden)]
+    pub fn new(max_size: usize, client: C) -> Self {
         CachingClient {
             lru: Arc::new(Mutex::new(DnsLru::new(max_size))),
             client,
         }
     }
 
+    /// Perform a lookup against this caching client, looking first in the cache for a result
     pub fn lookup(&mut self, query: Query) -> Box<Future<Item = Lookup, Error = io::Error>> {
         Box::new(QueryState::lookup(
             query,
