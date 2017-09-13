@@ -100,8 +100,8 @@ impl ClientHandle for LookupEither {
 /// The Future returned from ResolverFuture when performing a lookup.
 pub type LookupFuture = InnerLookupFuture<LookupEither>;
 
-#[doc(hidden)]
 /// The Future returned from ResolverFuture when performing a lookup.
+#[doc(hidden)]
 pub struct InnerLookupFuture<C: ClientHandle + 'static> {
     client_cache: CachingClient<C>,
     names: Vec<Name>,
@@ -117,14 +117,17 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
     /// * `names` - a set of DNS names to attempt to resolve, they will be attempted in queue order, i.e. the first is `names.pop()`. Upon each failure, the next will be attempted.
     /// * `record_type` - type of record being sought
     /// * `client_cache` - cache with a connection to use for performing all lookups
-    pub(crate) fn lookup(
+    #[doc(hidden)]
+    pub fn lookup(
         mut names: Vec<Name>,
         record_type: RecordType,
-        client_cache: CachingClient<C>,
+        mut client_cache: CachingClient<C>,
     ) -> Self {
         let name = names.pop().expect("can not lookup IPs for no names");
 
-        let query = lookup(name, record_type, client_cache.clone());
+        let query = client_cache.lookup(Query::query(name, record_type));
+
+        //        let query = lookup(name, record_type, client_cache.clone());
         InnerLookupFuture {
             client_cache: client_cache,
             names,
@@ -139,7 +142,10 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
     ) -> Poll<Lookup, io::Error> {
         let name = self.names.pop();
         if let Some(name) = name {
-            let query = lookup(name, self.record_type, self.client_cache.clone());
+            let query = self.client_cache.lookup(
+                Query::query(name, self.record_type),
+            );
+            //let query = lookup(name, self.record_type, self.client_cache.clone());
 
             mem::replace(&mut self.future, Box::new(query));
             // guarantee that we get scheduled for the next turn...
@@ -184,14 +190,13 @@ impl<C: ClientHandle + 'static> Future for InnerLookupFuture<C> {
     }
 }
 
-/// Queries for the specified record type
-fn lookup<C: ClientHandle + 'static>(
-    name: Name,
-    record_type: RecordType,
-    mut client_cache: CachingClient<C>,
-) -> Box<Future<Item = Lookup, Error = io::Error>> {
-    client_cache.lookup(Query::query(name, record_type))
-}
+// /// Queries for the specified record type
+// fn lookup<C: ClientHandle + 'static>(
+//     name: Name,
+//     record_type: RecordType,
+//     mut client_cache: CachingClient<C>,
+// ) -> Box<Future<Item = Lookup, Error = io::Error>> {
+// }
 
 // TODO: maximum recursion on CNAME, etc, chains...
 // struct LookupStack(Vec<Query>);

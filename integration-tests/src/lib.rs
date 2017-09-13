@@ -2,7 +2,6 @@
 
 extern crate chrono;
 extern crate futures;
-extern crate log;
 extern crate openssl;
 extern crate tokio_core;
 extern crate trust_dns;
@@ -26,6 +25,7 @@ use trust_dns_server::authority::Catalog;
 use trust_dns_server::server::{Request, RequestHandler};
 
 pub mod authority;
+pub mod mock_client;
 
 #[allow(unused)]
 pub struct TestClientStream {

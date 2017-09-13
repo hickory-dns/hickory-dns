@@ -138,7 +138,7 @@ extern crate trust_dns;
 pub mod config;
 pub mod lookup_ip;
 pub mod lookup;
-mod lookup_state;
+pub mod lookup_state;
 mod name_server_pool;
 mod resolver;
 pub mod system_conf;
