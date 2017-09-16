@@ -113,7 +113,7 @@ impl Resolver {
     ///
     /// # Arguments
     ///
-    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown.
+    /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
     pub fn lookup_ip(&self, host: &str) -> io::Result<LookupIp> {
         self.io_loop.borrow_mut().run(
             self.resolver_future
