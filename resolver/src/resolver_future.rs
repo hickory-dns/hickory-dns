@@ -158,7 +158,7 @@ impl ResolverFuture {
     /// See the configuration and options parameters for controlling the way in which A(Ipv4) and AAAA(Ipv6) lookups will be performed. For the least expensive query a fully-qualified-domain-name, FQDN, which ends in a final `.`, e.g. `www.example.com.`, will only issue one query. Anything else will always incur the cost of querying the `ResolverConfig::domain` and `ResolverConfig::search`.
     ///
     /// # Arguments
-    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown.
+    /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
     pub fn lookup_ip(&self, host: &str) -> LookupIpFuture {
         let name = match Name::from_str(host) {
             Ok(name) => name,
