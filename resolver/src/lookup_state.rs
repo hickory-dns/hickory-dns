@@ -232,6 +232,7 @@ enum Records {
 impl<C: ClientHandle + 'static> QueryFuture<C> {
     fn next_query(&mut self, query: Query, cname_ttl: u32, message: Message) -> Records {
         if QUERY_DEPTH.with(|c| *c.borrow() >= MAX_QUERY_DEPTH) {
+            // TODO: This should return an error
             self.handle_nxdomain(message, true)
         } else {
             Records::CnameChain(self.client.lookup(query), cname_ttl)
@@ -269,12 +270,13 @@ impl<C: ClientHandle + 'static> QueryFuture<C> {
             }
         }
 
+        // After following all the CNAMES to the last one, try and lookup the final name
         let records = message
             .take_answers()
             .into_iter()
             .filter_map(|r| {
                 let ttl = r.ttl();
-                // TODO: validate names in response?
+                // TODO: disable name validation with ResolverOpts?
                 // restrict to the RData type requested
                 if self.query.query_type() == r.rr_type() && &search_name == r.name() {
                     Some((r.unwrap_rdata(), ttl))

@@ -145,7 +145,6 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
             let query = self.client_cache.lookup(
                 Query::query(name, self.record_type),
             );
-            //let query = lookup(name, self.record_type, self.client_cache.clone());
 
             mem::replace(&mut self.future, Box::new(query));
             // guarantee that we get scheduled for the next turn...
@@ -189,29 +188,6 @@ impl<C: ClientHandle + 'static> Future for InnerLookupFuture<C> {
         }
     }
 }
-
-// /// Queries for the specified record type
-// fn lookup<C: ClientHandle + 'static>(
-//     name: Name,
-//     record_type: RecordType,
-//     mut client_cache: CachingClient<C>,
-// ) -> Box<Future<Item = Lookup, Error = io::Error>> {
-// }
-
-// TODO: maximum recursion on CNAME, etc, chains...
-// struct LookupStack(Vec<Query>);
-
-// impl LookupStack {
-//     // pushes the Query onto the stack, and returns a reference. An error will be returned
-//     fn push(&mut self, query: Query) -> io::Result<&Query> {
-//         if self.0.contains(&query) {
-//             return Err(io::Error::new(io::ErrorKind::Other, "circular CNAME or other recursion"));
-//         }
-
-//         self.0.push(query);
-//         Ok(self.0.last().unwrap())
-//     }
-// }
 
 /// Creates a Lookup result type from the specified components
 macro_rules! lookup_type {

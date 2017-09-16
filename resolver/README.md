@@ -13,6 +13,7 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - NxDomain/NoData caching (negative caching)
 - DNSSec validation
 - Generic Record Type Lookup
+- CNAME chain resolution
 - *TBD* TLS integration
 
 ## Example
