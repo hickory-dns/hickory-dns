@@ -246,6 +246,7 @@ fn test_timeout_query_tcp() {
     test_timeout_query(client);
 }
 
+// TODO: this test is flaky
 #[test]
 #[ignore]
 #[allow(deprecated)]
@@ -260,6 +261,7 @@ fn test_dnssec_rollernet_td_udp() {
     ).unwrap();
 }
 
+// TODO: this test is flaky
 #[test]
 #[ignore]
 #[allow(deprecated)]
@@ -274,6 +276,7 @@ fn test_dnssec_rollernet_td_tcp() {
     ).unwrap();
 }
 
+// TODO: this test is flaky
 #[test]
 #[ignore]
 #[allow(deprecated)]
