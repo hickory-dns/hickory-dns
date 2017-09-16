@@ -26,6 +26,7 @@ impl ResolverConfig {
     /// Creates a new empty configuration
     pub fn new() -> Self {
         ResolverConfig {
+            // TODO: this should get the hostname and use the basename as the default
             domain: Name::root(),
             search: vec![],
             name_servers: vec![],
@@ -192,8 +193,9 @@ pub struct ResolverOpts {
     pub attempts: usize,
     /// Rotate through the resource records in the response (if there is more than one for a given name)
     pub(crate) rotate: bool,
-    /// Validate the names in the response
-    pub check_names: bool,
+    /// Validate the names in the response, not implemented don't really see the point unless you need to support
+    ///  badly configured DNS
+    pub(crate) check_names: bool,
     /// Enable edns, for larger records
     pub(crate) edns0: bool,
     /// Use DNSSec to validate the request
