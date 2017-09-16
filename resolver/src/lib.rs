@@ -7,13 +7,11 @@
 
 //! The Resolver is responsible for performing recursive queries to lookup domain names.
 //!
-//! This is a 100% in process DNS resolver. It *does not* use the Host OS' resolver. If what is desired is to use the Host OS' resolver, generally in the system's libc, then the `std::net::ToSocketAddrs` variant over `&str` is what should be used. As of the initial release, `trust-dns-resolver` it does not currently support search paths or ndot recursive lookups. It only supports FQDN, where the name must be specified with the final dot, e.g. `www.example.com.`. This limitation will be removed in future releases.
+//! This is a 100% in process DNS resolver. It *does not* use the Host OS' resolver. If what is desired is to use the Host OS' resolver, generally in the system's libc, then the `std::net::ToSocketAddrs` variant over `&str` should be used.
 //!
-//! Unlike the `trust-dns` client, this tries to provide a simpler interface to perform DNS queries. For update options, i.e. Dynamic DNS, the `trust-dns` crate must be used directly.
+//! Unlike the `trust-dns` client, this tries to provide a simpler interface to perform DNS queries. For update options, i.e. Dynamic DNS, the `trust-dns` crate must be used directly. The Resolver library is capable of searching multiple domains (this can be disabled by using an FQDN during lookup), dual-stack IPv4/IPv6 lookups, performing chained CNAME lookups, and features connection metric tracking for attempting to pick the best upstream DNS resolver.
 //!
 //! There are two types for performing DNS queries, `Resolver` and `ResolverFuture`. `Resolver` is the easiest to work with, it is a wrapper around `ResolverFuture`. `ResolverFuture` is a `Tokio` based async resolver, and can be used inside any `Tokio` based system.
-//!
-//! *Notes on current limitations*: Some standard system options and configurations are not yet supported. Recursion is not yet built, i.e. CNAME chains will not be fully resolved if an address is not returned, though many upstream resolvers will perform this making it a none blocking issue.
 //!
 //! This as best as possible attempts to abide by the the DNS RFCs, please file issues at https://github.com/bluejekyll/trust-dns .
 //!
@@ -45,8 +43,8 @@
 //! let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 //!
 //! // Lookup the IP addresses associated with a name.
-//! // The final dot forces this to be an FQDN, otherwise the lookup rules as specified
-//! //  in `ResolverOpts` will take effect
+//! // The final dot forces this to be an FQDN, otherwise the search rules as specified
+//! //  in `ResolverOpts` will take effect. FQDN's are generally cheaper queries.
 //! let mut response = resolver.lookup_ip("www.example.com.").unwrap();
 //!
 //! // There can be many addresses associated with the name,

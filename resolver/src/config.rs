@@ -25,7 +25,6 @@ pub struct ResolverConfig {
 impl ResolverConfig {
     /// Creates a new empty configuration
     pub fn new() -> Self {
-        // TODO: default to host FQDN then root if not available
         ResolverConfig {
             domain: Name::root(),
             search: vec![],

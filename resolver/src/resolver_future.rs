@@ -153,15 +153,12 @@ impl ResolverFuture {
         LookupFuture::lookup(names, record_type, self.client_cache.clone())
     }
 
-    /// Performs a DNS lookup for the IP for the given hostname.
+    /// Performs a dual-stack DNS lookup for the IP for the given hostname.
     ///
-    /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
-    ///  returning IpV4 or IpV6 addresses. For the least expensive query
-    ///  a fully-qualified-domain-name, FQDN, which ends in a final `.`, e.g. `www.example.com.`, will only issue one query.
-    ///  Anything else will always incur the cost of querying the `ResolverConfig::domain` and `ResolverConfig::search`.
+    /// See the configuration and options parameters for controlling the way in which A(Ipv4) and AAAA(Ipv6) lookups will be performed. For the least expensive query a fully-qualified-domain-name, FQDN, which ends in a final `.`, e.g. `www.example.com.`, will only issue one query. Anything else will always incur the cost of querying the `ResolverConfig::domain` and `ResolverConfig::search`.
     ///
     /// # Arguments
-    /// * `host` - string hostname, if this is an invalid hostname, an error will be returned from the returned future.
+    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown.
     pub fn lookup_ip(&self, host: &str) -> LookupIpFuture {
         let name = match Name::from_str(host) {
             Ok(name) => name,

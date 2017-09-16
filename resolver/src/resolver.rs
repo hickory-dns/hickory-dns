@@ -93,6 +93,8 @@ impl Resolver {
 
     /// Generic lookup for any RecordType
     ///
+    /// *WARNING* This interface may change in the future
+    ///
     /// # Arguments
     ///
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
@@ -105,14 +107,13 @@ impl Resolver {
         )
     }
 
-    /// Performs a DNS lookup for the IP for the given hostname.
+    /// Performs a dual-stack DNS lookup for the IP for the given hostname.
     ///
-    /// Based on the configuration and options passed in, this may do either a A or a AAAA lookup,
-    ///  returning IpV4 or IpV6 addresses. (*Note*: current release only queries A, IPv4)
+    /// See the configuration and options parameters for controlling the way in which A(Ipv4) and AAAA(Ipv6) lookups will be performed. For the least expensive query a fully-qualified-domain-name, FQDN, which ends in a final `.`, e.g. `www.example.com.`, will only issue one query. Anything else will always incur the cost of querying the `ResolverConfig::domain` and `ResolverConfig::search`.
     ///
     /// # Arguments
     ///
-    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown. Currently this must be a FQDN, with a trailing `.`, e.g. `www.example.com.`. This will be fixed in a future release.
+    /// * `host` - string hostname, if this is an invalid hostname, an error will be thrown.
     pub fn lookup_ip(&self, host: &str) -> io::Result<LookupIp> {
         self.io_loop.borrow_mut().run(
             self.resolver_future
@@ -122,8 +123,6 @@ impl Resolver {
     }
 
     /// Performs a DNS lookup for an SRV record for the speicified service type and protocol at the given name.
-    ///
-    /// *WARNING* This interface may change in the future
     ///
     /// This is a convenience method over `lookup_srv`, it combines the service, protocol and name into a single name: `_service._protocol.name`.
     ///
