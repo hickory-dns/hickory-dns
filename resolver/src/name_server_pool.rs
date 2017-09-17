@@ -168,6 +168,7 @@ pub(crate) struct NameServer {
     config: NameServerConfig,
     options: ResolverOpts,
     client: BasicClientHandle,
+    // FIXME: switch to FuturesMutex (Mutex will have some undesireable locking)
     stats: Arc<Mutex<NameServerStats>>,
     reactor: Handle,
 }
@@ -357,7 +358,9 @@ impl Eq for NameServer {}
 /// This is not expected to be used directly, see `ResolverFuture`.
 #[derive(Clone)]
 pub struct NameServerPool {
-    conns: Arc<Mutex<BinaryHeap<NameServer>>>,
+    // FIXME: switch to FuturesMutex (Mutex will have some undesireable locking)
+    datagram_conns: Arc<Mutex<BinaryHeap<NameServer>>>,
+    stream_conns: Arc<Mutex<BinaryHeap<NameServer>>>,
     options: ResolverOpts,
 }
 
@@ -367,18 +370,65 @@ impl NameServerPool {
         options: &ResolverOpts,
         reactor: &Handle,
     ) -> NameServerPool {
-        let conns: BinaryHeap<NameServer> = config
+        let datagram_conns: BinaryHeap<NameServer> = config
             .name_servers()
             .iter()
+            .filter(|ns_config| ns_config.protocol.is_datagram())
+            .map(|ns_config| {
+                NameServer::new(ns_config.clone(), options.clone(), reactor)
+            })
+            .collect();
+
+        let stream_conns: BinaryHeap<NameServer> = config
+            .name_servers()
+            .iter()
+            .filter(|ns_config| ns_config.protocol.is_stream())
             .map(|ns_config| {
                 NameServer::new(ns_config.clone(), options.clone(), reactor)
             })
             .collect();
 
         NameServerPool {
-            conns: Arc::new(Mutex::new(conns)),
+            datagram_conns: Arc::new(Mutex::new(datagram_conns)),
+            stream_conns: Arc::new(Mutex::new(stream_conns)),
             options: options.clone(),
         }
+    }
+
+    fn try_send(
+        &mut self,
+        message: Message,
+        datagram: bool,
+    ) -> Box<Future<Item = Message, Error = ClientError>> {
+        let conns = if datagram {
+            &mut self.datagram_conns
+        } else {
+            &mut self.stream_conns
+        };
+
+        // pull a lock on the shared connections, lock releases at the end of the method
+        let conns = conns.try_lock().map_err(|e| {
+            ClientError::from(format!("Error acquiring NameServerPool::conns lock: {}", e))
+        });
+
+        // early return the lock error
+        if conns.is_err() {
+            return Box::new(future::err(conns.map(|_| ()).unwrap_err()));
+        }
+
+        // select the highest priority connection
+        let mut conns = conns.unwrap();
+        let conn = conns.peek_mut();
+
+        if conn.is_none() {
+            return Box::new(future::err(
+                ClientErrorKind::Message("No connections available").into(),
+            ));
+        }
+
+        let mut conn = conn.unwrap();
+
+        conn.send(message)
     }
 }
 
@@ -391,28 +441,13 @@ impl ClientHandle for NameServerPool {
     }
 
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-        // pull a lock on the shared connections, lock releases at the end of the method
-        let conns = self.conns.lock().map_err(|e| {
-            ClientError::from(format!("Error acquiring NameServerPool::conns lock: {}", e))
-        });
+        let mut tcp_self = self.clone();
+        // TODO: remove this clone, return the Message in the error?
+        let tcp_message = message.clone();
 
-        // early return the lock error
-        if conns.is_err() {
-            return Box::new(future::err(conns.map(|_| ()).unwrap_err()));
-        }
-
-        // select the highest priority connection
-        let mut conns = conns.unwrap();
-        let conn = conns.peek_mut(); // TODO: how to support parallel connections?
-
-        if conn.is_none() {
-            return Box::new(future::err(
-                ClientErrorKind::Message("No connections available").into(),
-            ));
-        }
-
-        let mut conn = conn.unwrap();
-        conn.send(message)
+        Box::new(self.try_send(message, true).or_else(move |_| {
+            tcp_self.try_send(tcp_message, false)
+        }))
     }
 }
 

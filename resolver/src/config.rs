@@ -137,7 +137,7 @@ impl Default for ResolverConfig {
 }
 
 /// The protocol on which a NameServer should be communicated with
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Protocol {
     /// UDP is the traditional DNS port, this is generally the correct choice
     Udp,
@@ -145,6 +145,21 @@ pub enum Protocol {
     Tcp,
     // TODO: add client certificate for mTLS?
     // Tls,
+}
+
+impl Protocol {
+    /// Returns true if this is a datagram oriented protocol, e.g. UDP
+    pub fn is_datagram(&self) -> bool {
+        match *self {
+            Protocol::Udp => true,
+            Protocol::Tcp => false,
+        }
+    }
+
+    /// Returns true if this is a stream oriented protocol, e.g. TCP
+    pub fn is_stream(&self) -> bool {
+        !self.is_datagram()
+    }
 }
 
 /// Configuration for the NameServer
