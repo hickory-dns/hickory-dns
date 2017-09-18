@@ -16,7 +16,7 @@ use tokio_core::reactor::Handle;
 
 use trust_dns::error::*;
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
-use trust_dns::op::{Edns, Message};
+use trust_dns::op::{Edns, Message, ResponseCode};
 use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
 // use trust_dns::tls::TlsClientStream;
@@ -396,16 +396,9 @@ impl NameServerPool {
     }
 
     fn try_send(
-        &mut self,
+        conns: &mut Arc<Mutex<BinaryHeap<NameServer>>>,
         message: Message,
-        datagram: bool,
     ) -> Box<Future<Item = Message, Error = ClientError>> {
-        let conns = if datagram {
-            &mut self.datagram_conns
-        } else {
-            &mut self.stream_conns
-        };
-
         // pull a lock on the shared connections, lock releases at the end of the method
         let conns = conns.try_lock().map_err(|e| {
             ClientError::from(format!("Error acquiring NameServerPool::conns lock: {}", e))
@@ -441,13 +434,25 @@ impl ClientHandle for NameServerPool {
     }
 
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-        let mut tcp_self = self.clone();
+        let mut stream_conns1 = self.stream_conns.clone();
+        let mut stream_conns2 = self.stream_conns.clone();
         // TODO: remove this clone, return the Message in the error?
-        let tcp_message = message.clone();
+        let tcp_message1 = message.clone();
+        let tcp_message2 = message.clone();
 
-        Box::new(self.try_send(message, true).or_else(move |_| {
-            tcp_self.try_send(tcp_message, false)
-        }))
+        Box::new(
+            Self::try_send(&mut self.datagram_conns, message)
+                .and_then(move |response| {
+                    // handling promotion from datagram to stream base on truncation in message
+                    if ResponseCode::NoError == response.response_code() && response.truncated() {
+                        future::Either::A(Self::try_send(&mut stream_conns1, tcp_message1))
+                    } else {
+                        future::Either::B(future::ok(response))
+                    }
+
+                })
+                .or_else(move |_| Self::try_send(&mut stream_conns2, tcp_message2)),
+        )
     }
 }
 
