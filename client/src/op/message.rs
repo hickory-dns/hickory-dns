@@ -210,8 +210,9 @@ impl Message {
 
     /// Adds an iterator over a set of Queries to be added to the message
     pub fn add_queries<Q, I>(&mut self, queries: Q) -> &mut Self
-        where Q: IntoIterator<Item = Query, IntoIter = I>,
-              I: Iterator<Item = Query>
+    where
+        Q: IntoIterator<Item = Query, IntoIter = I>,
+        I: Iterator<Item = Query>,
     {
         for query in queries {
             self.add_query(query);
@@ -239,8 +240,9 @@ impl Message {
 
     /// Add all the records from the iterator to the answers section of the Message
     pub fn add_answers<R, I>(&mut self, records: R) -> &mut Self
-        where R: IntoIterator<Item = Record, IntoIter = I>,
-              I: Iterator<Item = Record>
+    where
+        R: IntoIterator<Item = Record, IntoIter = I>,
+        I: Iterator<Item = Record>,
     {
         for record in records {
             self.add_answer(record);
@@ -278,8 +280,9 @@ impl Message {
 
     /// Add all the records in the Iterator to the name server section of the message
     pub fn add_name_servers<R, I>(&mut self, records: R) -> &mut Self
-        where R: IntoIterator<Item = Record, IntoIter = I>,
-              I: Iterator<Item = Record>
+    where
+        R: IntoIterator<Item = Record, IntoIter = I>,
+        I: Iterator<Item = Record>,
     {
         for record in records {
             self.add_name_server(record);
@@ -379,8 +382,10 @@ impl Message {
     /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
     ///  record to create the EDNS `ResponseCode`
     pub fn response_code(&self) -> ResponseCode {
-        ResponseCode::from(self.edns.as_ref().map_or(0, |e| e.rcode_high()),
-                           self.header.response_code())
+        ResponseCode::from(
+            self.edns.as_ref().map_or(0, |e| e.rcode_high()),
+            self.header.response_code(),
+        )
     }
 
     /// ```text
@@ -528,17 +533,19 @@ impl Message {
             additional_count += self.sig0.len()
         };
 
-        self.header
-            .clone(self.queries.len() as u16,
-                   self.answers.len() as u16,
-                   self.name_servers.len() as u16,
-                   additional_count as u16)
+        self.header.clone(
+            self.queries.len() as u16,
+            self.answers.len() as u16,
+            self.name_servers.len() as u16,
+            additional_count as u16,
+        )
     }
 
-    fn read_records(decoder: &mut BinDecoder,
-                    count: usize,
-                    is_additional: bool)
-                    -> DecodeResult<(Vec<Record>, Option<Edns>, Vec<Record>)> {
+    fn read_records(
+        decoder: &mut BinDecoder,
+        count: usize,
+        is_additional: bool,
+    ) -> DecodeResult<(Vec<Record>, Option<Edns>, Vec<Record>)> {
         let mut records: Vec<Record> = Vec::with_capacity(count);
         let mut edns: Option<Edns> = None;
         let mut sig0s: Vec<Record> = Vec::with_capacity(if is_additional { 1 } else { 0 });
@@ -550,8 +557,9 @@ impl Message {
 
             if !is_additional {
                 if saw_sig0 {
-                    return Err(DecodeErrorKind::Message("sig0 must be final resource record")
-                                   .into());
+                    return Err(
+                        DecodeErrorKind::Message("sig0 must be final resource record").into(),
+                    );
                 } // SIG0 must be last
                 records.push(record)
             } else {
@@ -562,22 +570,31 @@ impl Message {
                     }
                     RecordType::OPT => {
                         if saw_sig0 {
-                            return Err(DecodeErrorKind::Message("sig0 must be final resource \
-                                                                 record")
-                                               .into());
+                            return Err(
+                                DecodeErrorKind::Message(
+                                    "sig0 must be final resource \
+                                                                 record",
+                                ).into(),
+                            );
                         } // SIG0 must be last
                         if edns.is_some() {
-                            return Err(DecodeErrorKind::Message("more than one edns record \
-                                                                 present")
-                                               .into());
+                            return Err(
+                                DecodeErrorKind::Message(
+                                    "more than one edns record \
+                                                                 present",
+                                ).into(),
+                            );
                         }
                         edns = Some((&record).into());
                     }
                     _ => {
                         if saw_sig0 {
-                            return Err(DecodeErrorKind::Message("sig0 must be final resource \
-                                                                 record")
-                                               .into());
+                            return Err(
+                                DecodeErrorKind::Message(
+                                    "sig0 must be final resource \
+                                                                 record",
+                                ).into(),
+                            );
                         } // SIG0 must be last
                         records.push(record);
                     }
@@ -639,21 +656,23 @@ impl Message {
         let expiration_time: u32 = inception_time + (5 * 60); // +5 minutes in seconds
 
         sig0.set_rr_type(RecordType::SIG);
-        let pre_sig0 = SIG::new(// type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-                                RecordType::NULL,
-                                signer.algorithm(),
-                                num_labels,
-                                // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-                                0,
-                                // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-                                expiration_time,
-                                // current time, this should be UTC
-                                // unsigned numbers of seconds since the start of 1 January 1970, GMT
-                                inception_time,
-                                key_tag,
-                                // can probably get rid of this clone if the owndership is correct
-                                signer.signer_name().clone(),
-                                Vec::new());
+        let pre_sig0 = SIG::new(
+            // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+            RecordType::NULL,
+            signer.algorithm(),
+            num_labels,
+            // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+            0,
+            // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+            expiration_time,
+            // current time, this should be UTC
+            // unsigned numbers of seconds since the start of 1 January 1970, GMT
+            inception_time,
+            key_tag,
+            // can probably get rid of this clone if the owndership is correct
+            signer.signer_name().clone(),
+            Vec::new(),
+        );
         let signature: Vec<u8> = try!(signer.sign_message(self, &pre_sig0));
         sig0.set_rdata(RData::SIG(pre_sig0.set_sig(signature)));
 
@@ -666,7 +685,9 @@ impl Message {
     /// Always returns an error; enable OpenSSL for signing support
     #[cfg(not(feature = "openssl"))]
     pub fn sign(&mut self, _: &Signer, _: u32) -> DnsSecResult<()> {
-        Err(DnsSecErrorKind::Message("openssl feature not enabled").into())
+        Err(
+            DnsSecErrorKind::Message("openssl feature not enabled").into(),
+        )
     }
 }
 
@@ -692,8 +713,9 @@ pub trait UpdateMessage: Debug {
 
     /// Add all the Records from the Iterator to the pre-reqisites section
     fn add_pre_requisites<R, I>(&mut self, records: R)
-        where R: IntoIterator<Item = Record, IntoIter = I>,
-              I: Iterator<Item = Record>;
+    where
+        R: IntoIterator<Item = Record, IntoIter = I>,
+        I: Iterator<Item = Record>;
 
     /// Add the Record to be updated
     fn add_update(&mut self, record: Record);
@@ -704,8 +726,9 @@ pub trait UpdateMessage: Debug {
 
     /// Add the Records from the Iterator to the updates section
     fn add_updates<R, I>(&mut self, records: R)
-        where R: IntoIterator<Item = Record, IntoIter = I>,
-              I: Iterator<Item = Record>;
+    where
+        R: IntoIterator<Item = Record, IntoIter = I>,
+        I: Iterator<Item = Record>;
 
     /// Add Records to the additional Section of hte UpdateMessage
     fn add_additional(&mut self, record: Record);
@@ -747,8 +770,9 @@ impl UpdateMessage for Message {
         self.add_answers(vector.into_iter().map(|r| (*r).clone()));
     }
     fn add_pre_requisites<R, I>(&mut self, records: R)
-        where R: IntoIterator<Item = Record, IntoIter = I>,
-              I: Iterator<Item = Record>
+    where
+        R: IntoIterator<Item = Record, IntoIter = I>,
+        I: Iterator<Item = Record>,
     {
         self.add_answers(records);
     }
@@ -759,8 +783,9 @@ impl UpdateMessage for Message {
         self.add_name_servers(vector.into_iter().map(|r| (*r).clone()));
     }
     fn add_updates<R, I>(&mut self, records: R)
-        where R: IntoIterator<Item = Record, IntoIter = I>,
-              I: Iterator<Item = Record>
+    where
+        R: IntoIterator<Item = Record, IntoIter = I>,
+        I: Iterator<Item = Record>,
     {
         self.add_name_servers(records);
     }
@@ -816,14 +841,14 @@ impl BinSerializable<Message> for Message {
         let (additionals, edns, sig0) = try!(Self::read_records(decoder, additional_count, true));
 
         Ok(Message {
-               header: header,
-               queries: queries,
-               answers: answers,
-               name_servers: name_servers,
-               additionals: additionals,
-               sig0: sig0,
-               edns: edns,
-           })
+            header: header,
+            queries: queries,
+            answers: answers,
+            name_servers: name_servers,
+            additionals: additionals,
+            sig0: sig0,
+            edns: edns,
+        })
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
