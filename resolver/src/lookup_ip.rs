@@ -14,6 +14,7 @@ use std::error::Error;
 use std::io;
 use std::mem;
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use futures::{Async, future, Future, Poll, task};
 
@@ -25,6 +26,8 @@ use config::LookupIpStrategy;
 use lookup::{Lookup, LookupEither, LookupIter};
 use lookup_state::CachingClient;
 use name_server_pool::StandardConnection;
+use hosts::Hosts;
+
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -71,6 +74,7 @@ pub struct InnerLookupIpFuture<C: ClientHandle + 'static> {
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     future: Box<Future<Item = Lookup, Error = io::Error>>,
+    hosts: Arc<Hosts>,
 }
 
 impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
@@ -85,15 +89,17 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
         mut names: Vec<Name>,
         strategy: LookupIpStrategy,
         client_cache: CachingClient<C>,
+        hosts: Arc<Hosts>,
     ) -> Self {
         let name = names.pop().expect("can not lookup IPs for no names");
 
-        let query = strategic_lookup(name, strategy, client_cache.clone());
+        let query = strategic_lookup(name, strategy, client_cache.clone(), hosts.clone());
         InnerLookupIpFuture {
             client_cache: client_cache,
             names,
             strategy,
             future: Box::new(query),
+            hosts: hosts,
         }
     }
 
@@ -103,7 +109,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
     ) -> Poll<LookupIp, io::Error> {
         let name = self.names.pop();
         if let Some(name) = name {
-            let query = strategic_lookup(name, self.strategy, self.client_cache.clone());
+            let query = strategic_lookup(name, self.strategy, self.client_cache.clone(), self.hosts.clone());
 
             mem::replace(&mut self.future, Box::new(query));
             // guarantee that we get scheduled for the next turn...
@@ -123,6 +129,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
             future: Box::new(future::err(
                 io::Error::new(io::ErrorKind::Other, format!("{}", error)),
             )),
+            hosts: Arc::new(Hosts::default()),
         };
     }
 }
@@ -153,7 +160,12 @@ fn strategic_lookup<C: ClientHandle + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: CachingClient<C>,
+    hosts: Arc<Hosts>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
+    if let Some(addrs) = hosts.lookup_static_host(&name) {
+        return Box::new(future::ok(Lookup::new(Arc::new(addrs))));
+    };
+
     match strategy {
         LookupIpStrategy::Ipv4Only => ipv4_only(name, client),
         LookupIpStrategy::Ipv6Only => ipv6_only(name, client),

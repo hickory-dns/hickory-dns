@@ -142,6 +142,7 @@ pub mod name_server_pool;
 mod resolver;
 pub mod system_conf;
 mod resolver_future;
+mod hosts;
 
 pub use resolver::Resolver;
 pub use resolver_future::ResolverFuture;
