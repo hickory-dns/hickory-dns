@@ -489,7 +489,7 @@ impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
             ));
         }
 
-        let mut conn: &mut NameServer<_, _> = &mut *conn.unwrap();
+        let mut conn = conn.unwrap();
         conn.send(message)
     }
 }
@@ -589,7 +589,11 @@ mod tests {
             protocol: Protocol::Udp,
         };
         let mut io_loop = Core::new().unwrap();
-        let mut name_server = NameServer::new(config, ResolverOpts::default(), &io_loop.handle());
+        let mut name_server = NameServer::<_, StandardConnection>::new(
+            config,
+            ResolverOpts::default(),
+            &io_loop.handle(),
+        );
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = io_loop
@@ -607,7 +611,8 @@ mod tests {
             protocol: Protocol::Udp,
         };
         let mut io_loop = Core::new().unwrap();
-        let mut name_server = NameServer::new(config, options, &io_loop.handle());
+        let mut name_server =
+            NameServer::<_, StandardConnection>::new(config, options, &io_loop.handle());
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
@@ -636,7 +641,7 @@ mod tests {
         resolver_config.add_name_server(config2);
 
         let mut io_loop = Core::new().unwrap();
-        let mut pool = NameServerPool::from_config(
+        let mut pool = NameServerPool::<_, StandardConnection>::from_config(
             &resolver_config,
             &ResolverOpts::default(),
             &io_loop.handle(),
