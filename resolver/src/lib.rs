@@ -137,7 +137,8 @@ pub mod config;
 pub mod lookup_ip;
 pub mod lookup;
 pub mod lookup_state;
-mod name_server_pool;
+#[doc(hidden)]
+pub mod name_server_pool;
 mod resolver;
 pub mod system_conf;
 mod resolver_future;

@@ -7,6 +7,7 @@
 
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
+use std::marker::PhantomData;
 use std::mem;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
@@ -163,22 +164,29 @@ impl PartialOrd for NameServerStats {
     }
 }
 
-#[derive(Clone)]
-pub(crate) struct NameServer {
-    config: NameServerConfig,
-    options: ResolverOpts,
-    client: BasicClientHandle,
-    // FIXME: switch to FuturesMutex (Mutex will have some undesireable locking)
-    stats: Arc<Mutex<NameServerStats>>,
-    reactor: Handle,
-}
+#[doc(hidden)]
+pub trait ConnectionProvider: Clone {
+    type ConnHandle;
 
-impl NameServer {
     fn new_connection(
         config: &NameServerConfig,
         options: &ResolverOpts,
         reactor: &Handle,
-    ) -> BasicClientHandle {
+    ) -> Self::ConnHandle;
+}
+
+#[doc(hidden)]
+#[derive(Clone)]
+pub struct StandardConnection;
+
+impl ConnectionProvider for StandardConnection {
+    type ConnHandle = BasicClientHandle;
+
+    fn new_connection(
+        config: &NameServerConfig,
+        options: &ResolverOpts,
+        reactor: &Handle,
+    ) -> Self::ConnHandle {
         match config.protocol {
             Protocol::Udp => {
                 let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor);
@@ -192,12 +200,29 @@ impl NameServer {
                 ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
             }
             // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr, reactor),
-            // _ => unimplemented!(),
         }
     }
+}
 
-    pub fn new(config: NameServerConfig, options: ResolverOpts, reactor: &Handle) -> Self {
-        let client = Self::new_connection(&config, &options, reactor);
+#[derive(Clone)]
+#[doc(hidden)]
+pub struct NameServer<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> {
+    config: NameServerConfig,
+    options: ResolverOpts,
+    client: C,
+    // FIXME: switch to FuturesMutex (Mutex will have some undesireable locking)
+    stats: Arc<Mutex<NameServerStats>>,
+    reactor: Handle,
+    phantom: PhantomData<P>,
+}
+
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
+    pub fn new(
+        config: NameServerConfig,
+        options: ResolverOpts,
+        reactor: &Handle,
+    ) -> NameServer<BasicClientHandle, StandardConnection> {
+        let client = StandardConnection::new_connection(&config, &options, reactor);
 
         // TODO: setup EDNS
         NameServer {
@@ -206,6 +231,24 @@ impl NameServer {
             client,
             stats: Arc::new(Mutex::new(NameServerStats::default())),
             reactor: reactor.clone(),
+            phantom: PhantomData,
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn from_conn(
+        config: NameServerConfig,
+        options: ResolverOpts,
+        client: C,
+        reactor: &Handle,
+    ) -> NameServer<C, P> {
+        NameServer {
+            config,
+            options,
+            client,
+            stats: Arc::new(Mutex::new(NameServerStats::default())),
+            reactor: reactor.clone(),
+            phantom: PhantomData,
         }
     }
 
@@ -253,7 +296,7 @@ impl NameServer {
             if Instant::now().duration_since(when) > retry_delay {
                 debug!("reconnecting: {:?}", self.config);
                 // establish a new connection
-                let client = Self::new_connection(&self.config, &self.options, &self.reactor);
+                let client = P::new_connection(&self.config, &self.options, &self.reactor);
                 mem::replace(&mut self.client, client);
 
                 // reinitialize the mutex (in case it was poisoned before)
@@ -272,7 +315,7 @@ impl NameServer {
 }
 
 // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-impl ClientHandle for NameServer {
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for NameServer<C, P> {
     fn is_verifying_dnssec(&self) -> bool {
         self.client.is_verifying_dnssec()
     }
@@ -320,7 +363,7 @@ impl ClientHandle for NameServer {
     }
 }
 
-impl Ord for NameServer {
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, P> {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
         // if they are literally equal, just return
@@ -338,65 +381,92 @@ impl Ord for NameServer {
     }
 }
 
-impl PartialOrd for NameServer {
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> PartialOrd for NameServer<C, P> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl PartialEq for NameServer {
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> PartialEq for NameServer<C, P> {
     /// NameServers are equal if the config (connection information) are equal
     fn eq(&self, other: &Self) -> bool {
         self.config == other.config
     }
 }
 
-impl Eq for NameServer {}
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P> {}
 
 /// A pool of NameServers
 ///
 /// This is not expected to be used directly, see `ResolverFuture`.
 #[derive(Clone)]
-pub struct NameServerPool {
+pub struct NameServerPool<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     // FIXME: switch to FuturesMutex (Mutex will have some undesireable locking)
-    datagram_conns: Arc<Mutex<BinaryHeap<NameServer>>>,
-    stream_conns: Arc<Mutex<BinaryHeap<NameServer>>>,
+    datagram_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
+    stream_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
     options: ResolverOpts,
+    phantom: PhantomData<P>,
 }
 
-impl NameServerPool {
+impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
+    NameServerPool<C, P> {
     pub(crate) fn from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
         reactor: &Handle,
-    ) -> NameServerPool {
-        let datagram_conns: BinaryHeap<NameServer> = config
-            .name_servers()
-            .iter()
-            .filter(|ns_config| ns_config.protocol.is_datagram())
-            .map(|ns_config| {
-                NameServer::new(ns_config.clone(), options.clone(), reactor)
-            })
-            .collect();
+    ) -> NameServerPool<BasicClientHandle, StandardConnection> {
+        let datagram_conns: BinaryHeap<NameServer<BasicClientHandle, StandardConnection>> =
+            config
+                .name_servers()
+                .iter()
+                .filter(|ns_config| ns_config.protocol.is_datagram())
+                .map(|ns_config| {
+                    NameServer::<_, StandardConnection>::new(
+                        ns_config.clone(),
+                        options.clone(),
+                        reactor,
+                    )
+                })
+                .collect();
 
-        let stream_conns: BinaryHeap<NameServer> = config
-            .name_servers()
-            .iter()
-            .filter(|ns_config| ns_config.protocol.is_stream())
-            .map(|ns_config| {
-                NameServer::new(ns_config.clone(), options.clone(), reactor)
-            })
-            .collect();
+        let stream_conns: BinaryHeap<NameServer<BasicClientHandle, StandardConnection>> =
+            config
+                .name_servers()
+                .iter()
+                .filter(|ns_config| ns_config.protocol.is_stream())
+                .map(|ns_config| {
+                    NameServer::<_, StandardConnection>::new(
+                        ns_config.clone(),
+                        options.clone(),
+                        reactor,
+                    )
+                })
+                .collect();
 
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns)),
             stream_conns: Arc::new(Mutex::new(stream_conns)),
             options: options.clone(),
+            phantom: PhantomData,
+        }
+    }
+
+    #[doc(hidden)]
+    pub fn from_nameservers(
+        options: &ResolverOpts,
+        datagram_conns: Vec<NameServer<C, P>>,
+        stream_conns: Vec<NameServer<C, P>>,
+    ) -> Self {
+        NameServerPool {
+            datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
+            stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
+            options: options.clone(),
+            phantom: PhantomData,
         }
     }
 
     fn try_send(
-        conns: &mut Arc<Mutex<BinaryHeap<NameServer>>>,
+        conns: &mut Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
         message: Message,
     ) -> Box<Future<Item = Message, Error = ClientError>> {
         // pull a lock on the shared connections, lock releases at the end of the method
@@ -419,13 +489,13 @@ impl NameServerPool {
             ));
         }
 
-        let mut conn = conn.unwrap();
-
+        let mut conn: &mut NameServer<_, _> = &mut *conn.unwrap();
         conn.send(message)
     }
 }
 
-impl ClientHandle for NameServerPool {
+impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> ClientHandle
+    for NameServerPool<C, P> {
     fn is_verifying_dnssec(&self) -> bool {
         // don't pull a lock on this
         // it is expected that a validating client will wrap this, as opposed to the other direction.

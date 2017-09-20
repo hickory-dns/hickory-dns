@@ -17,13 +17,14 @@ use std::net::IpAddr;
 
 use futures::{Async, future, Future, Poll, task};
 
-use trust_dns::client::ClientHandle;
+use trust_dns::client::{BasicClientHandle, ClientHandle};
 use trust_dns::op::Query;
 use trust_dns::rr::{Name, RData, RecordType};
 
 use config::LookupIpStrategy;
 use lookup::{Lookup, LookupEither, LookupIter};
 use lookup_state::CachingClient;
+use name_server_pool::StandardConnection;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -61,7 +62,7 @@ impl<'i> Iterator for LookupIpIter<'i> {
 }
 
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
-pub type LookupIpFuture = InnerLookupIpFuture<LookupEither>;
+pub type LookupIpFuture = InnerLookupIpFuture<LookupEither<BasicClientHandle, StandardConnection>>;
 
 #[doc(hidden)]
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.

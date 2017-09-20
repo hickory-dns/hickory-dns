@@ -11,12 +11,12 @@ use std::net::IpAddr;
 use std::str::FromStr;
 
 use tokio_core::reactor::Handle;
-use trust_dns::client::{RetryClientHandle, SecureClientHandle};
+use trust_dns::client::{BasicClientHandle, RetryClientHandle, SecureClientHandle};
 use trust_dns::rr::{Name, RecordType};
 
 use config::{ResolverConfig, ResolverOpts};
 use lookup_state::CachingClient;
-use name_server_pool::NameServerPool;
+use name_server_pool::{NameServerPool, StandardConnection};
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use lookup;
 use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
@@ -26,7 +26,7 @@ use system_conf;
 pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
-    client_cache: CachingClient<LookupEither>,
+    client_cache: CachingClient<LookupEither<BasicClientHandle, StandardConnection>>,
 }
 
 macro_rules! lookup_fn {
@@ -65,7 +65,11 @@ pub fn $p(&self, query: $t) -> $f {
 impl ResolverFuture {
     /// Construct a new ResolverFuture with the associated Client.
     pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
-        let pool = NameServerPool::from_config(&config, &options, reactor);
+        let pool = NameServerPool::<BasicClientHandle, StandardConnection>::from_config(
+            &config,
+            &options,
+            reactor,
+        );
         let either;
         let client = RetryClientHandle::new(pool.clone(), options.attempts);
         if options.validate {
