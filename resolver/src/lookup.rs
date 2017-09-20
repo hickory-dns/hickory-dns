@@ -17,14 +17,14 @@ use std::sync::Arc;
 
 use futures::{Async, future, Future, Poll, task};
 
-use trust_dns::client::{ClientHandle, RetryClientHandle, SecureClientHandle};
+use trust_dns::client::{BasicClientHandle, ClientHandle, RetryClientHandle, SecureClientHandle};
 use trust_dns::error::ClientError;
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RecordType, RData};
 use trust_dns::rr::rdata;
 
 use lookup_state::CachingClient;
-use name_server_pool::NameServerPool;
+use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
 
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Client library.
 ///
@@ -76,12 +76,12 @@ impl<'a> Iterator for LookupIter<'a> {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither {
-    Retry(RetryClientHandle<NameServerPool>),
-    Secure(SecureClientHandle<RetryClientHandle<NameServerPool>>),
+pub enum LookupEither<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
+    Retry(RetryClientHandle<NameServerPool<C, P>>),
+    Secure(SecureClientHandle<RetryClientHandle<NameServerPool<C, P>>>),
 }
 
-impl ClientHandle for LookupEither {
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for LookupEither<C, P> {
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
             LookupEither::Retry(ref c) => c.is_verifying_dnssec(),
@@ -98,7 +98,7 @@ impl ClientHandle for LookupEither {
 }
 
 /// The Future returned from ResolverFuture when performing a lookup.
-pub type LookupFuture = InnerLookupFuture<LookupEither>;
+pub type LookupFuture = InnerLookupFuture<LookupEither<BasicClientHandle, StandardConnection>>;
 
 /// The Future returned from ResolverFuture when performing a lookup.
 #[doc(hidden)]
