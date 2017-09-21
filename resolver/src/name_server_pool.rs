@@ -9,10 +9,10 @@ use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 use std::marker::PhantomData;
 use std::mem;
-use std::sync::{Arc, Mutex};
+use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
-use futures::{future, Future};
+use futures::{Async, future, Future, Poll, task};
 use tokio_core::reactor::Handle;
 
 use trust_dns::error::*;
@@ -210,7 +210,7 @@ pub struct NameServer<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> {
     config: NameServerConfig,
     options: ResolverOpts,
     client: C,
-    // FIXME: switch to FuturesMutex (Mutex will have some undesireable locking)
+    // FIXME: switch to FuturesMutex? (Mutex will have some undesireable locking)
     stats: Arc<Mutex<NameServerStats>>,
     reactor: Handle,
     phantom: PhantomData<P>,
@@ -466,31 +466,13 @@ impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
     }
 
     fn try_send(
-        conns: &mut Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
+        conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
         message: Message,
-    ) -> Box<Future<Item = Message, Error = ClientError>> {
-        // pull a lock on the shared connections, lock releases at the end of the method
-        let conns = conns.try_lock().map_err(|e| {
-            ClientError::from(format!("Error acquiring NameServerPool::conns lock: {}", e))
-        });
-
-        // early return the lock error
-        if conns.is_err() {
-            return Box::new(future::err(conns.map(|_| ()).unwrap_err()));
+    ) -> TrySend<C, P> {
+        TrySend::Lock {
+            conns,
+            message: Some(message),
         }
-
-        // select the highest priority connection
-        let mut conns = conns.unwrap();
-        let conn = conns.peek_mut();
-
-        if conn.is_none() {
-            return Box::new(future::err(
-                ClientErrorKind::Message("No connections available").into(),
-            ));
-        }
-
-        let mut conn = conn.unwrap();
-        conn.send(message)
     }
 }
 
@@ -504,25 +486,81 @@ impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
     }
 
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-        let mut stream_conns1 = self.stream_conns.clone();
-        let mut stream_conns2 = self.stream_conns.clone();
+        let datagram_conns = self.datagram_conns.clone();
+        let stream_conns1 = self.stream_conns.clone();
+        let stream_conns2 = self.stream_conns.clone();
         // TODO: remove this clone, return the Message in the error?
         let tcp_message1 = message.clone();
         let tcp_message2 = message.clone();
 
         Box::new(
-            Self::try_send(&mut self.datagram_conns, message)
+            Self::try_send(datagram_conns, message)
                 .and_then(move |response| {
                     // handling promotion from datagram to stream base on truncation in message
                     if ResponseCode::NoError == response.response_code() && response.truncated() {
-                        future::Either::A(Self::try_send(&mut stream_conns1, tcp_message1))
+                        future::Either::A(Self::try_send(stream_conns1, tcp_message1))
                     } else {
                         future::Either::B(future::ok(response))
                     }
 
                 })
-                .or_else(move |_| Self::try_send(&mut stream_conns2, tcp_message2)),
+                .or_else(move |_| Self::try_send(stream_conns2, tcp_message2)),
         )
+    }
+}
+
+enum TrySend<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
+    Lock {
+        conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
+        message: Option<Message>,
+    },
+    DoSend(Box<Future<Item = Message, Error = ClientError>>),
+}
+
+impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Future
+    for TrySend<C, P> {
+    type Item = Message;
+    type Error = ClientError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let future;
+
+        match *self {
+            TrySend::Lock {
+                ref conns,
+                ref mut message,
+            } => {
+                // pull a lock on the shared connections, lock releases at the end of the method
+                let conns = conns.try_lock();
+                match conns {
+                    Err(TryLockError::Poisoned(_)) => {
+                        // TODO: what to do on poisoned errors? this is non-recoverable, right?
+                        return Err(ClientErrorKind::Msg("Lock Poisoned".to_string()).into());
+                    }
+                    Err(TryLockError::WouldBlock) => return Ok(Async::NotReady),
+                    Ok(mut conns) => {
+                        // select the highest priority connection
+                        let conn = conns.peek_mut();
+
+                        if conn.is_none() {
+                            return Err(ClientErrorKind::Message("No connections available").into());
+                        }
+
+                        let message = mem::replace(message, None);
+                        future = conn.unwrap().send(message.expect(
+                            "bad state, mesage should never be None",
+                        ));
+                    }
+                }
+            }
+            TrySend::DoSend(ref mut future) => return future.poll(),
+        }
+
+        // can only get here if we were in the TrySend::Lock state
+        mem::replace(self, TrySend::DoSend(future));
+
+        task::current().notify();
+        Ok(Async::NotReady)
     }
 }
 
