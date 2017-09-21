@@ -241,12 +241,6 @@ impl<C: ClientHandle + 'static> QueryFuture<C> {
     }
 
     fn handle_noerror(&mut self, mut message: Message) -> Poll<Records, io::Error> {
-        // TODO: promote from UDP/DTLS to TCP/TLS to work around packet size limits
-        // if message.truncated() {
-        //     client.promote_to_tcp_requery()
-        //     state.next_query_promotion...
-        // }
-
         // seek out CNAMES
         // TODO: figure out how to get rid of this clone
         let mut cname_ttl = 0;
