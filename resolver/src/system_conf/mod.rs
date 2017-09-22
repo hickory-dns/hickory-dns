@@ -15,6 +15,8 @@
 /// resolv.conf parser
 // TODO: make crate only...
 mod resolv_conf_ast;
+#[cfg(all(target_os = "windows", target_pointer_width = "64"))]
+mod windows;
 
 use std::fs::File;
 use std::io;
@@ -38,14 +40,9 @@ pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
     read_resolv_conf("/etc/resolv.conf")
 }
 
-#[cfg(not(unix))]
-pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
-    Err(io::Error::new(
-        io::ErrorKind::Other,
-        "Non-Posix systems currently not supported, use other config options"
-            .to_string(),
-    ))
-}
+/// Support only 64-bit until https://github.com/liranringel/ipconfig/issues/1 is resolved.
+#[cfg(all(target_os = "windows", target_pointer_width = "64"))]
+pub(crate) use self::windows::read_system_conf;
 
 pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
     let mut data = String::new();
