@@ -109,7 +109,7 @@ impl DigestType {
     /// This will always error, enable openssl feature at compile time
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
     pub fn hash(&self, _: &[u8]) -> DnsSecResult<Vec<u8>> {
-        Err(DnsSecErrorKind::Message("openssl feature not enabled").into())
+        Err(DnsSecErrorKind::Message("The openssl and ring features are both disabled").into())
     }
 
     /// Digest all the data.
