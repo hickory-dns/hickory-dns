@@ -30,6 +30,7 @@ use error::*;
 #[cfg(feature = "openssl")]
 use rr::dnssec::DigestType;
 use rr::dnssec::Algorithm;
+use rr::dnssec::ec_public_key::ECPublicKey;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
@@ -189,12 +190,11 @@ impl<'k> Ec<'k> {
             _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
         // Key needs to be converted to OpenSSL format
-        let mut k = vec![0x04]; // POINT_CONVERSION_UNCOMPRESSED
-        k.extend(public_key);
+        let k = ECPublicKey::from_unprefixed(public_key, algorithm)?;
         EcGroup::from_curve_name(curve)
                 .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
                 // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-                .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, &k, &mut ctx).map(|point| (group, point) ))
+                .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, k.as_ref(), &mut ctx).map(|point| (group, point) ))
                 .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
                 .and_then(|ec_key| PKey::from_ec_key(ec_key) )
                 .map_err(|e| e.into())
