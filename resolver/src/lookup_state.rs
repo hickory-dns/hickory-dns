@@ -275,6 +275,7 @@ impl<C: ClientHandle + 'static> QueryFuture<C> {
         let records = message
             .take_answers()
             .into_iter()
+            .chain(message.take_additionals().into_iter())
             .filter_map(|r| {
                 let ttl = r.ttl();
                 // TODO: disable name validation with ResolverOpts?
