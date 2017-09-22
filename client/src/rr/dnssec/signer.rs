@@ -25,7 +25,7 @@ use rr::{Name, RData};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::KeyPair;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::{Algorithm, DnsSecResult, hash, PublicKey, PublicKeyEnum, Verifier};
+use rr::dnssec::{Algorithm, DnsSecResult, hash};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSKEY, KEY, SIG};
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -499,21 +499,6 @@ impl Signer {
     }
 }
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
-impl Verifier for Signer {
-    fn algorithm(&self) -> Algorithm {
-        self.algorithm()
-    }
-
-    fn key<'k>(&'k self) -> DnsSecResult<PublicKeyEnum<'k>> {
-        panic!("Signer is cheating by implementing verify() directly to avoid cloning keys")
-    }
-
-    fn verify(&self, hash: &[u8], signature: &[u8]) -> DnsSecResult<()> {
-        self.key().verify(self.algorithm(), hash, signature)
-    }
-}
-
 #[cfg(test)]
 #[cfg(feature = "openssl")]
 mod tests {
@@ -524,7 +509,7 @@ mod tests {
     use rr::{DNSClass, Name, Record, RecordType};
     use rr::rdata::SIG;
     use rr::rdata::key::KeyUsage;
-    use rr::dnssec::Verifier;
+    use rr::dnssec::{PublicKey, PublicKeyEnum, Verifier};
     use op::{Message, Query, UpdateMessage};
 
     pub use super::*;
@@ -558,14 +543,15 @@ mod tests {
         let rsa = Rsa::generate(512).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
-        let signer = Signer::sig0(sig0key, key, Name::root());
+        let signer = Signer::sig0(sig0key.clone(), key, Name::root());
 
         let pre_sig0 = pre_sig0(&signer, 0, 300);
         let sig = signer.sign_message(&question, &pre_sig0).unwrap();
         println!("sig: {:?}", sig);
 
         assert!(!sig.is_empty());
-        assert!(signer.verify_message(&question, &sig, &pre_sig0).is_ok());
+
+        assert!(sig0key.verify_message(&question, &sig, &pre_sig0).is_ok());
 
         // now test that the sig0 record works correctly.
         assert!(question.sig0().is_empty());
@@ -576,7 +562,7 @@ mod tests {
         println!("sig after sign: {:?}", sig);
 
         if let &RData::SIG(ref sig) = question.sig0()[0].rdata() {
-            assert!(signer.verify_message(&question, sig.sig(), &sig).is_ok());
+            assert!(sig0key.verify_message(&question, sig.sig(), &sig).is_ok());
         }
     }
 
@@ -624,7 +610,10 @@ mod tests {
         let hash = hash::hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
         let sig = signer.sign(&hash).unwrap();
 
-        assert!(signer.verify(&hash, &sig).is_ok());
+        let pub_key = signer.key().to_public_bytes().unwrap();
+        let pub_key = PublicKeyEnum::from_public_bytes(&pub_key, Algorithm::RSASHA256).unwrap();
+
+        assert!(pub_key.verify(Algorithm::RSASHA256, &hash, &sig).is_ok());
     }
 
     #[test]
