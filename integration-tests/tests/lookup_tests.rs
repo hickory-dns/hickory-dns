@@ -6,6 +6,7 @@ extern crate trust_dns_integration;
 
 use std::net::*;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use tokio_core::reactor::Core;
 
@@ -15,7 +16,10 @@ use trust_dns::rr::domain;
 use trust_dns::rr::{RData, RecordType};
 use trust_dns_server::authority::Catalog;
 use trust_dns_resolver::lookup::InnerLookupFuture;
+use trust_dns_resolver::lookup_ip::InnerLookupIpFuture;
 use trust_dns_resolver::lookup_state::CachingClient;
+use trust_dns_resolver::config::LookupIpStrategy;
+use trust_dns_resolver::Hosts;
 
 use trust_dns_integration::TestClientStream;
 use trust_dns_integration::authority::create_example;
@@ -42,6 +46,36 @@ fn test_lookup() {
         *lookup.iter().next().unwrap(),
         RData::A(Ipv4Addr::new(93, 184, 216, 34))
     );
+}
+
+#[test]
+fn test_lookup_hosts() {
+    let authority = create_example();
+    let mut catalog = Catalog::new();
+    catalog.upsert(authority.origin().clone(), authority);
+
+    let mut io_loop = Core::new().unwrap();
+    let (stream, sender) = TestClientStream::new(catalog);
+    let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+
+    let mut hosts = Hosts::default();
+
+    hosts
+        .by_name
+        .entry(domain::Name::from_str("www.example.com.").unwrap())
+        .or_insert(vec![])
+        .push(RData::A(Ipv4Addr::new(10, 0, 1, 104)));
+
+
+    let lookup = InnerLookupIpFuture::lookup(
+        vec![domain::Name::from_str("www.example.com.").unwrap()],
+        LookupIpStrategy::default(),
+        CachingClient::new(0, client),
+        Arc::new(hosts),
+    );
+    let lookup = io_loop.run(lookup).unwrap();
+
+    assert_eq!(lookup.iter().next().unwrap(), Ipv4Addr::new(10, 0, 1, 104));
 }
 
 #[test]
