@@ -11,6 +11,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- 64bit Windows support for reading DNS configuration! (@liranringel)
 - CNAME chain resolution (where CNAME results are not returned in the same query)
 
 ## 0.5.0
