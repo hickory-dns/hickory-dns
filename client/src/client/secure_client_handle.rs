@@ -124,13 +124,16 @@ where
 
                 // send along the algorithms which are supported by this client
                 let mut algorithms = SupportedAlgorithms::new();
+                #[cfg(feature = "ring")]
+                {
+                    algorithms.set(Algorithm::ED25519);
+                }
+                algorithms.set(Algorithm::ECDSAP256SHA256);
+                algorithms.set(Algorithm::ECDSAP384SHA384);
                 #[cfg(feature = "openssl")]
                 {
                     algorithms.set(Algorithm::RSASHA256);
-                    algorithms.set(Algorithm::ECDSAP256SHA256);
-                    algorithms.set(Algorithm::ECDSAP384SHA384);
                 }
-                #[cfg(feature = "ring")] algorithms.set(Algorithm::ED25519);
 
                 let dau = EdnsOption::DAU(algorithms);
                 let dhu = EdnsOption::DHU(algorithms);

@@ -16,11 +16,15 @@ use openssl::sign::Verifier;
 #[cfg(feature = "openssl")]
 use openssl::pkey::PKey;
 #[cfg(feature = "openssl")]
-use openssl::bn::{BigNum, BigNumContext};
-#[cfg(feature = "openssl")]
+use openssl::bn::BigNum;
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+use openssl::bn::BigNumContext;
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::ec::{EcGroup, EcKey, EcPoint};
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::nid;
+#[cfg(feature = "ring")]
+use ring::signature;
 #[cfg(feature = "ring")]
 use ring::signature::{ED25519_PUBLIC_KEY_LEN, EdDSAParameters, VerificationAlgorithm};
 #[cfg(feature = "ring")]
@@ -30,6 +34,8 @@ use error::*;
 #[cfg(feature = "openssl")]
 use rr::dnssec::DigestType;
 use rr::dnssec::Algorithm;
+
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::ec_public_key::ECPublicKey;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
@@ -143,13 +149,13 @@ fn verify_with_pkey(pkey: &PKey,
 }
 
 /// Elyptic Curve public key type
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 pub struct Ec<'k> {
     raw: &'k [u8],
     pkey: PKey,
 }
 
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 impl<'k> Ec<'k> {
     /// ```text
     /// RFC 6605                    ECDSA for DNSSEC                  April 2012
@@ -194,7 +200,7 @@ impl<'k> Ec<'k> {
         EcGroup::from_curve_name(curve)
                 .and_then(|group| BigNumContext::new().map(|ctx| (group, ctx)))
                 // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-                .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, k.as_ref(), &mut ctx).map(|point| (group, point) ))
+                .and_then(|(group, mut ctx)| EcPoint::from_bytes(&group, k.prefixed_bytes(), &mut ctx).map(|point| (group, point) ))
                 .and_then(|(group, point)| EcKey::from_public_key(&group, &point))
                 .and_then(|ec_key| PKey::from_ec_key(ec_key) )
                 .map_err(|e| e.into())
@@ -203,7 +209,7 @@ impl<'k> Ec<'k> {
     }
 }
 
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
     assert!(int.len() > 0);
     output.push(0x02); // INTEGER
@@ -234,7 +240,7 @@ fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
     output.extend(int_output);
 }
 /// Convert raw DNSSEC ECDSA signature to ASN.1 DER format
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> DnsSecResult<Vec<u8>> {
     if signature.len() == 0 || signature.len() & 1 != 0 || signature.len() > 127 {
         return Err("invalid signature length".into());
@@ -247,7 +253,7 @@ pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> DnsSecResult<Vec<u8>> 
     signature_asn1[1] = (signature_asn1.len() - 2) as u8;
     Ok(signature_asn1)
 }
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 impl<'k> PublicKey for Ec<'k> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
@@ -256,6 +262,68 @@ impl<'k> PublicKey for Ec<'k> {
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
         let signature_asn1 = dnssec_ecdsa_signature_to_der(signature)?;
         verify_with_pkey(&self.pkey, algorithm, message, &signature_asn1)
+    }
+}
+
+/// Elyptic Curve public key type
+#[cfg(feature = "ring")]
+type Ec = ECPublicKey;
+
+#[cfg(feature = "ring")]
+impl Ec {
+    /// ```text
+    /// RFC 6605                    ECDSA for DNSSEC                  April 2012
+    ///
+    ///   4.  DNSKEY and RRSIG Resource Records for ECDSA
+    ///
+    ///   ECDSA public keys consist of a single value, called "Q" in FIPS
+    ///   186-3.  In DNSSEC keys, Q is a simple bit string that represents the
+    ///   uncompressed form of a curve point, "x | y".
+    ///
+    ///   The ECDSA signature is the combination of two non-negative integers,
+    ///   called "r" and "s" in FIPS 186-3.  The two integers, each of which is
+    ///   formatted as a simple octet string, are combined into a single longer
+    ///   octet string for DNSSEC as the concatenation "r | s".  (Conversion of
+    ///   the integers to bit strings is described in Section C.2 of FIPS
+    ///   186-3.)  For P-256, each integer MUST be encoded as 32 octets; for
+    ///   P-384, each integer MUST be encoded as 48 octets.
+    ///
+    ///   The algorithm numbers associated with the DNSKEY and RRSIG resource
+    ///   records are fully defined in the IANA Considerations section.  They
+    ///   are:
+    ///
+    ///   o  DNSKEY and RRSIG RRs signifying ECDSA with the P-256 curve and
+    ///      SHA-256 use the algorithm number 13.
+    ///
+    ///   o  DNSKEY and RRSIG RRs signifying ECDSA with the P-384 curve and
+    ///      SHA-384 use the algorithm number 14.
+    ///
+    ///   Conformant implementations that create records to be put into the DNS
+    ///   MUST implement signing and verification for both of the above
+    ///   algorithms.  Conformant DNSSEC verifiers MUST implement verification
+    ///   for both of the above algorithms.
+    /// ```
+    pub fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> DnsSecResult<Self> {
+        ECPublicKey::from_unprefixed(public_key, algorithm)
+    }
+}
+
+#[cfg(feature = "ring")]
+impl PublicKey for Ec {
+    fn public_bytes(&self) -> &[u8] {
+        self.unprefixed_bytes()
+    }
+
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+        // TODO: assert_eq!(algorithm, self.algorithm); once *ring* allows this.
+        let alg = match algorithm {
+            Algorithm::ECDSAP256SHA256 => &signature::ECDSA_P256_SHA256_FIXED,
+            Algorithm::ECDSAP384SHA384 => &signature::ECDSA_P384_SHA384_FIXED,
+            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
+        };
+        signature::verify(alg, Input::from(self.prefixed_bytes()), Input::from(message),
+                          Input::from(signature))
+            .map_err(|e| e.into())
     }
 }
 
@@ -391,9 +459,12 @@ pub enum PublicKeyEnum<'k> {
     /// RSA keypair, supported by OpenSSL
     #[cfg(feature = "openssl")]
     Rsa(Rsa<'k>),
-    /// Ellyptic curve keypair, supported by OpenSSL
-    #[cfg(feature = "openssl")]
+    /// Elliptic curve keypair
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
     Ec(Ec<'k>),
+    /// Elliptic curve keypair
+    #[cfg(feature = "ring")]
+    Ec(Ec),
     /// Ed25519 public key for the Algorithm::ED25519
     #[cfg(feature = "ring")]
     Ed25519(Ed25519<'k>),
@@ -407,11 +478,10 @@ impl<'k> PublicKeyEnum<'k> {
     #[allow(unused_variables)]
     pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> DnsSecResult<Self> {
         match algorithm {
-            #[cfg(feature = "openssl")]
+            #[cfg(any(feature = "openssl", feature = "ring"))]
             Algorithm::ECDSAP256SHA256 |
-            Algorithm::ECDSAP384SHA384 => {
-                Ok(PublicKeyEnum::Ec(Ec::from_public_bytes(public_key, algorithm)?))
-            }
+            Algorithm::ECDSAP384SHA384 =>
+                Ok(PublicKeyEnum::Ec(Ec::from_public_bytes(public_key, algorithm)?)),
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => {
                 Ok(PublicKeyEnum::Ed25519(Ed25519::from_public_bytes(public_key)?))
@@ -430,7 +500,7 @@ impl<'k> PublicKeyEnum<'k> {
 impl<'k> PublicKey for PublicKeyEnum<'k> {
     fn public_bytes(&self) -> &[u8] {
         match *self {
-            #[cfg(feature = "openssl")]
+            #[cfg(any(feature = "openssl", feature="ring"))]
             PublicKeyEnum::Ec(ref ec) => ec.public_bytes(),
             #[cfg(feature = "ring")]
             PublicKeyEnum::Ed25519(ref ed) => ed.public_bytes(),
@@ -444,7 +514,7 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
     #[allow(unused_variables)]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
         match *self {
-            #[cfg(feature = "openssl")]
+            #[cfg(any(feature = "openssl", feature="ring"))]
             PublicKeyEnum::Ec(ref ec) => ec.verify(algorithm, message, signature),
             #[cfg(feature = "ring")]
             PublicKeyEnum::Ed25519(ref ed) => ed.verify(algorithm, message, signature),
@@ -456,7 +526,7 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
     }
 }
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 #[cfg(test)]
 mod tests {
     #[cfg(feature = "openssl")]
