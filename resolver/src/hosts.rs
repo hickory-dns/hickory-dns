@@ -3,17 +3,19 @@
 use std::collections::HashMap;
 use std::io::{self, BufRead, BufReader};
 use std::fs::File;
-use std::net::{Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 use std::str::FromStr;
 use std::path::Path;
+use std::sync::Arc;
 
 use trust_dns::rr::{Name, RData};
+use lookup::Lookup;
 
 /// Configuration for the local `/etc/hosts`
 #[derive(Debug, Default, Clone)]
 pub struct Hosts {
     /// Name -> RDatas map
-    pub by_name: HashMap<Name, Vec<RData>>,
+    pub by_name: HashMap<Name, Lookup>,
 }
 
 impl Hosts {
@@ -24,22 +26,28 @@ impl Hosts {
     }
 
     /// lookup_static_host looks up the addresses for the given host from /etc/hosts.
-    pub fn lookup_static_host(&self, name: &Name) -> Option<Vec<RData>> {
+    pub fn lookup_static_host(&self, name: &Name) -> Option<Lookup> {
         if self.by_name.len() > 0 {
             if let Some(val) = self.by_name.get(name) {
-                return Some(val.to_vec());
+                return Some(val.clone());
             }
         }
         None
     }
 }
 
+/// parse configuration from `/etc/hosts`
 #[cfg(unix)]
 pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     let mut hosts = Hosts {
         by_name: HashMap::new(),
     };
 
+    // lines in the file should have the form `addr host1 host2 host3 ...`
+    // line starts with `#` will be regarded with comments and ignored,
+    // also empty line also will be ignored,
+    // if line only include `addr` without `host` will be ignored,
+    // file will parsed to map in the form `Name -> LookUp`.
     let file = File::open(path)?;
 
     for line in BufReader::new(file).lines() {
@@ -67,11 +75,13 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
         for i in 1..fields.len() {
             let domain = fields[i].to_lowercase();
             if let Ok(name) = Name::from_str(&domain) {
-                hosts
+                let lookup = hosts
                     .by_name
-                    .entry(name)
-                    .or_insert(vec![])
-                    .push(addr.clone());
+                    .entry(name.clone())
+                    .or_insert(Lookup::new(Arc::new(vec![])))
+                    .append(Lookup::new(Arc::new(vec![addr.clone()])));
+
+                hosts.by_name.insert(name, lookup);
             };
         }
     }
@@ -89,14 +99,11 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
 
 /// parse &str to RData::A or RData::AAAA
 pub fn parse_literal_ip(addr: &str) -> Option<RData> {
-    if let Ok(ip4) = addr.parse::<Ipv4Addr>() {
-        return Some(RData::A(ip4));
+    match IpAddr::from_str(addr) {
+        Ok(IpAddr::V4(ip4)) => Some(RData::A(ip4)),
+        Ok(IpAddr::V6(ip6)) => Some(RData::AAAA(ip6)),
+        Err(_) => None,
     }
-    if let Ok(ip6) = addr.parse::<Ipv6Addr>() {
-        return Some(RData::AAAA(ip6));
-    }
-
-    None
 }
 
 #[cfg(unix)]
@@ -104,6 +111,7 @@ pub fn parse_literal_ip(addr: &str) -> Option<RData> {
 mod tests {
     use super::*;
     use std::env;
+    use std::net::{Ipv4Addr, Ipv6Addr};
 
     fn tests_dir() -> String {
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
@@ -131,36 +139,55 @@ mod tests {
         let hosts = read_hosts_conf(&path).unwrap();
 
         let name = Name::from_str("localhost").unwrap();
+        let rdatas = hosts
+            .lookup_static_host(&name)
+            .unwrap()
+            .iter()
+            .map(|r| r.to_owned())
+            .collect::<Vec<RData>>();
+
         assert_eq!(
-            hosts.lookup_static_host(&name),
-            Some(vec![
+            rdatas,
+            vec![
                 RData::A(Ipv4Addr::new(127, 0, 0, 1)),
                 RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            ])
+            ]
         );
 
         let name = Name::from_str("broadcasthost").unwrap();
-        assert_eq!(
-            hosts.lookup_static_host(&name),
-            Some(vec![RData::A(Ipv4Addr::new(255, 255, 255, 255))])
-        );
+        let rdatas = hosts
+            .lookup_static_host(&name)
+            .unwrap()
+            .iter()
+            .map(|r| r.to_owned())
+            .collect::<Vec<RData>>();
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(255, 255, 255, 255))]);
 
         let name = Name::from_str("example.com").unwrap();
-        assert_eq!(
-            hosts.lookup_static_host(&name),
-            Some(vec![RData::A(Ipv4Addr::new(10, 0, 1, 102))])
-        );
+        let rdatas = hosts
+            .lookup_static_host(&name)
+            .unwrap()
+            .iter()
+            .map(|r| r.to_owned())
+            .collect::<Vec<RData>>();
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 102))]);
 
         let name = Name::from_str("a.example.com").unwrap();
-        assert_eq!(
-            hosts.lookup_static_host(&name),
-            Some(vec![RData::A(Ipv4Addr::new(10, 0, 1, 111))])
-        );
+        let rdatas = hosts
+            .lookup_static_host(&name)
+            .unwrap()
+            .iter()
+            .map(|r| r.to_owned())
+            .collect::<Vec<RData>>();
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111))]);
 
         let name = Name::from_str("b.example.com").unwrap();
-        assert_eq!(
-            hosts.lookup_static_host(&name),
-            Some(vec![RData::A(Ipv4Addr::new(10, 0, 1, 111))])
-        );
+        let rdatas = hosts
+            .lookup_static_host(&name)
+            .unwrap()
+            .iter()
+            .map(|r| r.to_owned())
+            .collect::<Vec<RData>>();
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(10, 0, 1, 111))]);
     }
 }

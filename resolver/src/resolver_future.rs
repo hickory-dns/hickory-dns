@@ -29,7 +29,7 @@ pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
     client_cache: CachingClient<LookupEither<BasicClientHandle, StandardConnection>>,
-    hosts: Hosts,
+    hosts: Option<Hosts>,
 }
 
 macro_rules! lookup_fn {
@@ -82,9 +82,9 @@ impl ResolverFuture {
         }
 
         let hosts = if options.use_hosts_file {
-            Hosts::new()
+            Some(Hosts::new())
         } else {
-            Hosts::default()
+            None 
         };
 
         ResolverFuture {
@@ -182,7 +182,12 @@ impl ResolverFuture {
         };
 
         let names = self.build_names(name);
-        LookupIpFuture::lookup(names, self.options.ip_strategy, self.client_cache.clone(), Arc::new(self.hosts.clone()))
+        let hosts = if let Some(ref hosts) = self.hosts {
+            Some(Arc::new(hosts.clone()))
+        } else {
+            None
+        };
+        LookupIpFuture::lookup(names, self.options.ip_strategy, self.client_cache.clone(), hosts)
     }
 
     /// Performs a DNS lookup for an SRV record for the speicified service type and protocol at the given name.
@@ -364,7 +369,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // these appear to not work on travis, test on macos with `10.1.0.104  a.com`
+    #[ignore] // these appear to not work on travis, test on macos with `10.1.0.104  a.com`ß
     #[cfg(unix)]
     fn test_hosts_lookup() {
         let mut io_loop = Core::new().unwrap();

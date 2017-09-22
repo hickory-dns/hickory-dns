@@ -74,7 +74,7 @@ pub struct InnerLookupIpFuture<C: ClientHandle + 'static> {
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     future: Box<Future<Item = Lookup, Error = io::Error>>,
-    hosts: Arc<Hosts>,
+    hosts: Option<Arc<Hosts>>,
 }
 
 impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
@@ -89,7 +89,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
         mut names: Vec<Name>,
         strategy: LookupIpStrategy,
         client_cache: CachingClient<C>,
-        hosts: Arc<Hosts>,
+        hosts: Option<Arc<Hosts>>,
     ) -> Self {
         let name = names.pop().expect("can not lookup IPs for no names");
 
@@ -129,7 +129,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
             future: Box::new(future::err(
                 io::Error::new(io::ErrorKind::Other, format!("{}", error)),
             )),
-            hosts: Arc::new(Hosts::default()),
+            hosts: None,
         };
     }
 }
@@ -160,11 +160,13 @@ fn strategic_lookup<C: ClientHandle + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: CachingClient<C>,
-    hosts: Arc<Hosts>,
+    hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
-    if let Some(addrs) = hosts.lookup_static_host(&name) {
-        return Box::new(future::ok(Lookup::new(Arc::new(addrs))));
-    };
+    if let Some(hosts) = hosts {
+        if let Some(lookup) = hosts.lookup_static_host(&name) {
+            return Box::new(future::ok(lookup));
+        };
+    }
 
     match strategy {
         LookupIpStrategy::Ipv4Only => ipv4_only(name, client),

@@ -15,7 +15,7 @@ use trust_dns::op::Query;
 use trust_dns::rr::domain;
 use trust_dns::rr::{RData, RecordType};
 use trust_dns_server::authority::Catalog;
-use trust_dns_resolver::lookup::InnerLookupFuture;
+use trust_dns_resolver::lookup::{InnerLookupFuture, Lookup};
 use trust_dns_resolver::lookup_ip::InnerLookupIpFuture;
 use trust_dns_resolver::lookup_state::CachingClient;
 use trust_dns_resolver::config::LookupIpStrategy;
@@ -62,16 +62,17 @@ fn test_lookup_hosts() {
 
     hosts
         .by_name
-        .entry(domain::Name::from_str("www.example.com.").unwrap())
-        .or_insert(vec![])
-        .push(RData::A(Ipv4Addr::new(10, 0, 1, 104)));
+        .insert(
+            domain::Name::from_str("www.example.com.").unwrap(), 
+            Lookup::new(Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))]))
+        );
 
 
     let lookup = InnerLookupIpFuture::lookup(
         vec![domain::Name::from_str("www.example.com.").unwrap()],
         LookupIpStrategy::default(),
         CachingClient::new(0, client),
-        Arc::new(hosts),
+        Some(Arc::new(hosts)),
     );
     let lookup = io_loop.run(lookup).unwrap();
 
