@@ -18,6 +18,8 @@
 
 mod algorithm;
 mod digest_type;
+#[cfg(feature = "openssl")]
+mod ec_public_key;
 pub mod hash;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 mod key_format;
