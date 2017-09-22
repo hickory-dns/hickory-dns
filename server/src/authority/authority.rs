@@ -23,7 +23,7 @@ use trust_dns::error::*;
 use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
 use trust_dns::rr::rdata::{NSEC, SIG};
-use trust_dns::rr::dnssec::{hash, Signer, SupportedAlgorithms, Verifier};
+use trust_dns::rr::dnssec::{tbs, Signer, SupportedAlgorithms, Verifier};
 
 use authority::{Journal, UpdateResult, ZoneType};
 use error::{PersistenceErrorKind, PersistenceResult};
@@ -1146,7 +1146,7 @@ impl Authority {
             for signer in self.secure_keys.iter() {
                 let expiration = inception + signer.sig_duration();
 
-                let hash = hash::hash_rrset(
+                let tbs = tbs::rrset_tbs(
                     rr_set.name(),
                     self.class,
                     rr_set.name().num_labels(),
@@ -1167,19 +1167,22 @@ impl Authority {
                 );
 
                 // TODO, maybe chain these with some ETL operations instead?
-                if hash.is_err() {
-                    error!("could not hash rrset to sign: {}", hash.unwrap_err());
-                    continue;
-                }
-                let hash = hash.unwrap();
+                let tbs = match tbs {
+                    Ok(tbs) => tbs,
+                    Err(err) => {
+                        error!("could not serialize rrset to sign: {}", err);
+                        continue;
+                    }
+                };
 
-                let signature = signer.sign(&hash);
-
-                if signature.is_err() {
-                    error!("could not sign hash of rrset: {}", signature.unwrap_err());
-                    continue;
-                }
-                let signature = signature.unwrap();
+                let signature = signer.sign(&tbs);
+                let signature = match signature {
+                    Ok(signature) => signature,
+                    Err(err) => {
+                        error!("could not sign rrset: {}", err);
+                        continue;
+                    }
+                };
 
                 let mut rrsig = rrsig_temp.clone();
                 rrsig.set_rdata(RData::SIG(SIG::new(

@@ -3,7 +3,7 @@
 use op::Message;
 use rr::{DNSClass, Name, Record};
 use rr::dnssec::{Algorithm, DnsSecResult};
-use rr::dnssec::{hash, PublicKey, PublicKeyEnum};
+use rr::dnssec::{tbs, PublicKey, PublicKeyEnum};
 use rr::rdata::{DNSKEY, KEY, SIG};
 
 /// Types which are able to verify DNS based signatures
@@ -18,7 +18,7 @@ pub trait Verifier {
     ///
     /// # Arguments
     ///
-    /// * `hash` - the hash to be validated, see `hash_rrset`
+    /// * `hash` - the hash to be validated, see `rrset_tbs`
     /// * `signature` - the signature to use to verify the hash, extracted from an `RData::RRSIG`
     ///                 for example.
     ///
@@ -41,7 +41,7 @@ pub trait Verifier {
     ///
     /// `true` if the message could be validated against the signature, `false` otherwise
     fn verify_message(&self, message: &Message, signature: &[u8], sig0: &SIG) -> DnsSecResult<()> {
-        hash::hash_message(message, sig0).and_then(|hash| self.verify(&hash, signature))
+        tbs::message_tbs(message, sig0).and_then(|tbs| self.verify(tbs.as_ref(), signature))
     }
 
     /// Verifies an RRSig with the associated key, e.g. DNSKEY
@@ -58,8 +58,8 @@ pub trait Verifier {
                     sig: &SIG,
                     records: &[Record])
                     -> DnsSecResult<()> {
-        let rrset_hash = hash::hash_rrset_with_sig(name, dns_class, sig, records)?;
-        self.verify(&rrset_hash, sig.sig())
+        let rrset_tbs = tbs::rrset_tbs_with_sig(name, dns_class, sig, records)?;
+        self.verify(rrset_tbs.as_ref(), sig.sig())
     }
 }
 
