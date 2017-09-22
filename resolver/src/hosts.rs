@@ -13,7 +13,7 @@ use trust_dns::rr::{Name, RData};
 #[derive(Debug, Default, Clone)]
 pub struct Hosts {
     /// Name -> RDatas map
-    by_name: HashMap<Name, Vec<RData>>,
+    pub by_name: HashMap<Name, Vec<RData>>,
 }
 
 impl Hosts {
@@ -23,7 +23,7 @@ impl Hosts {
         read_hosts_conf("/etc/hosts").unwrap_or_default()
     }
 
-    // lookup_static_host looks up the addresses for the given host from /etc/hosts.
+    /// lookup_static_host looks up the addresses for the given host from /etc/hosts.
     pub fn lookup_static_host(&self, name: &Name) -> Option<Vec<RData>> {
         if self.by_name.len() > 0 {
             if let Some(val) = self.by_name.get(name) {

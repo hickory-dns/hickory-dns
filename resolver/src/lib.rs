@@ -148,6 +148,7 @@ mod hosts;
 
 pub use resolver::Resolver;
 pub use resolver_future::ResolverFuture;
+pub use hosts::Hosts;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {
