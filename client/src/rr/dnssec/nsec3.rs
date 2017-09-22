@@ -13,21 +13,14 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#[cfg(feature = "openssl")]
-use std::io::Write;
-
-#[cfg(feature = "openssl")]
-use openssl::hash;
-#[cfg(feature = "openssl")]
-use openssl::hash::DigestBytes;
 
 use error::*;
-#[cfg(feature = "openssl")]
-use rr::dnssec::DigestType;
-#[cfg(feature = "openssl")]
-use rr::Name;
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::{BinEncoder, BinSerializable};
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::Name;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use super::{Digest, DigestType};
 
 /// ```text
 /// RFC 5155                         NSEC3                        March 2008
@@ -149,8 +142,8 @@ impl Nsec3HashAlgorithm {
     ///        original unexpanded form, including the "*" label (no wildcard
     ///        substitution);
     /// ```
-    #[cfg(feature = "openssl")]
-    pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> DnsSecResult<DigestBytes> {
+    #[cfg(any(feature = "openssl", feature = "ring"))]
+    pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> DnsSecResult<Digest> {
         match *self {
             // if there ever is more than just SHA1 support, this should be a genericized method
             Nsec3HashAlgorithm::SHA1 => {
@@ -167,25 +160,20 @@ impl Nsec3HashAlgorithm {
     }
 
     /// until there is another supported algorithm, just hardcoded to this.
-    #[cfg(feature = "openssl")]
+    #[cfg(any(feature = "openssl", feature = "ring"))]
     fn sha1_recursive_hash(
         salt: &[u8],
         bytes: Vec<u8>,
         iterations: u16,
-    ) -> DnsSecResult<DigestBytes> {
-        let digest_type = try!(DigestType::SHA1.to_openssl_digest());
-        hash::Hasher::new(digest_type)
-            .map_err(|e| e.into())
-            .and_then(|mut hasher| {
-                if iterations > 0 {
-                    let hash = try!(Self::sha1_recursive_hash(salt, bytes, iterations - 1));
-                    try!(hasher.write_all(&hash));
-                } else {
-                    try!(hasher.write_all(&bytes));
-                }
-                try!(hasher.write_all(salt));
-                hasher.finish2().map_err(|e| e.into())
-            })
+    ) -> DnsSecResult<Digest> {
+        let digested: Digest;
+        let to_digest = if iterations > 0 {
+            digested = try!(Self::sha1_recursive_hash(salt, bytes, iterations - 1));
+            digested.as_ref()
+        } else {
+            &bytes
+        };
+        DigestType::SHA1.digest_all(&[to_digest, salt])
     }
 }
 
@@ -198,7 +186,7 @@ impl From<Nsec3HashAlgorithm> for u8 {
 }
 
 #[test]
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 fn test_hash() {
 
     let name = Name::from_labels(vec!["www", "example", "com"]);
@@ -208,6 +196,7 @@ fn test_hash() {
         Nsec3HashAlgorithm::SHA1
             .hash(&salt, &name, 0)
             .unwrap()
+            .as_ref()
             .len(),
         20
     );
@@ -215,6 +204,7 @@ fn test_hash() {
         Nsec3HashAlgorithm::SHA1
             .hash(&salt, &name, 1)
             .unwrap()
+            .as_ref()
             .len(),
         20
     );
@@ -222,13 +212,14 @@ fn test_hash() {
         Nsec3HashAlgorithm::SHA1
             .hash(&salt, &name, 3)
             .unwrap()
+            .as_ref()
             .len(),
         20
     );
 }
 
 #[test]
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 fn test_known_hashes() {
     // H(example)       = 0p9mhaveqvm6t7vbl5lop2u3t2rp3tom
     assert_eq!(
@@ -298,7 +289,7 @@ fn test_known_hashes() {
 }
 
 #[cfg(test)]
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 fn hash_with_base32(name: &str) -> String {
     use data_encoding::base32hex;
 
@@ -308,5 +299,5 @@ fn hash_with_base32(name: &str) -> String {
     let hash = Nsec3HashAlgorithm::SHA1
         .hash(&known_salt, &known_name, 12)
         .unwrap();
-    base32hex::encode(&hash).to_lowercase()
+    base32hex::encode(hash.as_ref()).to_lowercase()
 }
