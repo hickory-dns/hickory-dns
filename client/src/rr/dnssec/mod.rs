@@ -47,7 +47,7 @@ pub use error::DnsSecErrorKind;
 pub use error::DnsSecChainErr;
 pub use error::DnsSecResult;
 
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 pub use openssl::hash::DigestBytes as Digest;
 
 #[cfg(feature = "ring")]

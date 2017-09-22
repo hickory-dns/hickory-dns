@@ -94,7 +94,7 @@ impl DigestType {
     }
 
     /// Hash the data
-    #[cfg(feature = "openssl")]
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
     pub fn hash(&self, data: &[u8]) -> DnsSecResult<Digest> {
         hash::hash2(try!(self.to_openssl_digest()), data).map_err(|e| e.into())
     }
@@ -113,7 +113,7 @@ impl DigestType {
     }
 
     /// Digest all the data.
-    #[cfg(feature = "openssl")]
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
     pub fn digest_all(&self, data: &[&[u8]]) -> DnsSecResult<Digest> {
         use std::io::Write;
 
