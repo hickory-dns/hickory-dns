@@ -834,7 +834,7 @@ pub fn test() {
     assert!(read_rdata.is_ok(),
             format!("error decoding: {:?}", read_rdata.unwrap_err()));
     assert_eq!(rdata, read_rdata.unwrap());
-    // #[cfg(feature = "openssl")]
+    // #[cfg(any(feature = "openssl", feature = "ring"))]
     // assert!(rdata
     //             .to_digest(&Name::parse("www.example.com.", None).unwrap(),
     //                        DigestType::SHA256)

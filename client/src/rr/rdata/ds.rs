@@ -19,8 +19,11 @@
 use ::serialize::binary::*;
 use ::error::*;
 use rr::dnssec::{Algorithm, DigestType};
-use rr::Name;
+
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::DNSKEY;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::Name;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5)
 ///
@@ -170,14 +173,11 @@ impl DS {
     /// # Return
     ///
     /// true if and only if the DNSKEY is covered by the DS record.
+    #[cfg(any(feature = "openssl", feature = "ring"))]
     pub fn covers(&self, name: &Name, key: &DNSKEY) -> DnsSecResult<bool> {
         key.to_digest(name, self.digest_type())
             .map_err(|e| e.into())
-            .map(|hash| if &hash as &[u8] == self.digest() {
-                return true;
-            } else {
-                return false;
-            })
+            .map(|hash| hash.as_ref() == self.digest())
     }
 }
 
@@ -227,7 +227,7 @@ pub fn test() {
 }
 
 #[test]
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 pub fn test_covers() {
     use rr::rdata::DNSKEY;
 
@@ -237,7 +237,7 @@ pub fn test_covers() {
     let ds_rdata = DS::new(0,
                            Algorithm::RSASHA256,
                            DigestType::SHA256,
-                           dnskey_rdata.to_digest(&name, DigestType::SHA256).unwrap().to_vec());
+                           dnskey_rdata.to_digest(&name, DigestType::SHA256).unwrap().as_ref().to_owned());
 
     assert!(ds_rdata.covers(&name, &dnskey_rdata).unwrap());
 }

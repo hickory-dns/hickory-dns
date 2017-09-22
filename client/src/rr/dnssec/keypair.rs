@@ -24,13 +24,20 @@ use ring::rand;
 use ring::signature::Ed25519KeyPair;
 
 use error::*;
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::Name;
-use rr::dnssec::{Algorithm, DigestType, PublicKey};
+use rr::dnssec::{Algorithm, PublicKey};
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::dnssec::DigestType;
 #[cfg(feature = "ring")]
 use rr::dnssec::public_key::Ed25519;
 #[cfg(feature = "openssl")]
 use rr::dnssec::public_key::dnssec_ecdsa_signature_to_der;
-use rr::rdata::{DNSKEY, DS, KEY};
+use rr::rdata::{DNSKEY, KEY};
+
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::rdata::DS;
+
 use rr::rdata::key::KeyUsage;
 
 /// A public and private key pair, the private portion is not required.
@@ -278,6 +285,7 @@ impl KeyPair {
     /// * `name` - name of the DNSKEY record covered by the new DS record
     /// * `algorithm` - the algorithm of the DNSKEY
     /// * `digest_type` - the digest_type used to
+    #[cfg(any(feature = "openssl", feature = "ring"))]
     pub fn to_ds(&self,
                  name: &Name,
                  algorithm: Algorithm,
@@ -290,7 +298,7 @@ impl KeyPair {
                               .to_digest(name, digest_type)
                               .map(|digest| (key_tag, digest))
                       })
-            .map(|(key_tag, digest)| DS::new(key_tag, algorithm, digest_type, digest.to_vec()))
+            .map(|(key_tag, digest)| DS::new(key_tag, algorithm, digest_type, digest.as_ref().to_owned()))
     }
 
     /// Signs a hash.
