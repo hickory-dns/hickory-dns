@@ -8,7 +8,7 @@
 #[cfg(feature = "openssl")]
 use openssl::rsa::Rsa as OpenSslRsa;
 #[cfg(feature = "openssl")]
-use openssl::sign::{Signer, Verifier};
+use openssl::sign::Signer;
 #[cfg(feature = "openssl")]
 use openssl::pkey::PKey;
 #[cfg(feature = "openssl")]
@@ -26,18 +26,12 @@ use ring::signature::Ed25519KeyPair;
 use error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::Name;
-use rr::dnssec::{Algorithm, PublicKey};
+use rr::dnssec::Algorithm;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::DigestType;
-#[cfg(feature = "ring")]
-use rr::dnssec::public_key::Ed25519;
-#[cfg(feature = "openssl")]
-use rr::dnssec::public_key::dnssec_ecdsa_signature_to_der;
 use rr::rdata::{DNSKEY, KEY};
-
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::DS;
-
 use rr::rdata::key::KeyUsage;
 
 /// A public and private key pair, the private portion is not required.
@@ -464,51 +458,6 @@ impl KeyPair {
     }
 }
 
-impl PublicKey for KeyPair {
-    fn public_bytes(&self) -> &[u8] {
-        // FIXME: don't actually need access to the public key bytes?
-        unimplemented!()
-    }
-
-    #[allow(unused_variables)]
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
-        match *self {
-            #[cfg(feature = "openssl")]
-            KeyPair::RSA(ref pkey) |
-            KeyPair::EC(ref pkey) => {
-                let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
-                let mut verifier = Verifier::new(digest_type, &pkey).unwrap();
-                try!(verifier.update(message));
-                let result = match *self {
-                    KeyPair::RSA(_) => verifier.finish(signature),
-                    KeyPair::EC(_) => {
-                        let signature_asn1 = dnssec_ecdsa_signature_to_der(signature)?;
-                        verifier.finish(&signature_asn1)
-                    },
-                    #[cfg(feature = "ring")]
-                    _ => unreachable!(),
-                };
-                result
-                    .map_err(|e| e.into())
-                    .and_then(|b| if b {
-                                  Ok(())
-                              } else {
-                                  Err(DnsSecErrorKind::Message("could not verify").into())
-                              })
-            }
-            #[cfg(feature = "ring")]
-            KeyPair::ED25519(ref ed_key) => {
-                let pub_key = Ed25519::from_public_bytes(&ed_key.public_key_bytes())?;
-                pub_key
-                    .verify(algorithm, message, signature)
-                    .map_err(|e| e.into())
-            }
-            #[cfg(not(any(feature = "openssl", feature = "ring")))]
-            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
-        }
-    }
-}
-
 #[cfg(any(feature = "openssl", feature = "ring"))]
 #[cfg(test)]
 mod tests {
@@ -548,8 +497,8 @@ mod tests {
                         None,
                         algorithm)
             .unwrap();
-        let public_bytes = key.to_public_bytes().unwrap();
-        let pk = PublicKeyEnum::from_public_bytes(&public_bytes, algorithm).unwrap();
+        let pk = key.to_public_bytes().unwrap();
+        let pk = PublicKeyEnum::from_public_bytes(&pk, algorithm).unwrap();
 
         let bytes = b"www.example.com";
         let mut sig = key.sign(algorithm, bytes).unwrap();
@@ -570,20 +519,25 @@ mod tests {
                         None,
                         algorithm)
             .unwrap();
+        let pub_key = key.to_public_bytes().unwrap();
+        let pub_key = PublicKeyEnum::from_public_bytes(&pub_key, algorithm).unwrap();
+
         let neg = key_format
             .decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(),
                         None,
                         algorithm)
             .unwrap();
+        let neg_pub_key = neg.to_public_bytes().unwrap();
+        let neg_pub_key = PublicKeyEnum::from_public_bytes(&neg_pub_key, algorithm).unwrap();
 
         let sig = key.sign(algorithm, bytes).unwrap();
-        assert!(key.verify(algorithm, bytes, &sig).is_ok(),
+        assert!(pub_key.verify(algorithm, bytes, &sig).is_ok(),
                 "algorithm: {:?}",
                 algorithm);
         assert!(key.to_dnskey(algorithm).unwrap().verify(bytes, &sig).is_ok(),
                 "algorithm: {:?} (dnskey)",
                 algorithm);
-        assert!(!neg.verify(algorithm, bytes, &sig).is_ok(),
+        assert!(!neg_pub_key.verify(algorithm, bytes, &sig).is_ok(),
                 "algorithm: {:?} (neg)",
                 algorithm);
         assert!(!neg.to_dnskey(algorithm).unwrap().verify(bytes, &sig).is_ok(),
