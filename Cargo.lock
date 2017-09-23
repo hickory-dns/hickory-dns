@@ -699,12 +699,12 @@ dependencies = [
  "foreign-types 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "libc 0.2.31 (registry+https://github.com/rust-lang/crates.io-index)",
- "openssl-sys 0.9.18 (registry+https://github.com/rust-lang/crates.io-index)",
+ "openssl-sys 0.9.19 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
 name = "openssl-sys"
-version = "0.9.18"
+version = "0.9.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "cc 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1420,7 +1420,7 @@ dependencies = [
 "checksum num-traits 0.1.40 (registry+https://github.com/rust-lang/crates.io-index)" = "99843c856d68d8b4313b03a17e33c4bb42ae8f6610ea81b28abe076ac721b9b0"
 "checksum num_cpus 1.6.2 (registry+https://github.com/rust-lang/crates.io-index)" = "aec53c34f2d0247c5ca5d32cca1478762f301740468ee9ee6dcb7a0dd7a0c584"
 "checksum openssl 0.9.18 (registry+https://github.com/rust-lang/crates.io-index)" = "5400d7c94b2be2e37390fdf715acc995ca5da6cf6587db972b41d70ce3a7251e"
-"checksum openssl-sys 0.9.18 (registry+https://github.com/rust-lang/crates.io-index)" = "ef181062f810d8accbbdf8a536460370ff64716268e4c3dc024c1d1835e62df2"
+"checksum openssl-sys 0.9.19 (registry+https://github.com/rust-lang/crates.io-index)" = "1e4c63a7d559c1e5afa6d6a9e6fa34bbc5f800ffc9ae08b72c605420b0c4f5e8"
 "checksum ordermap 0.2.12 (registry+https://github.com/rust-lang/crates.io-index)" = "bb4b46e558656ea66647985c3de0a8ad0cb5f01cba8a4eaff39ae27de3aeda57"
 "checksum peeking_take_while 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "19b17cddbe7ec3f8bc800887bab5e717348c95ea2ca0b1bf0837fb964dc67099"
 "checksum petgraph 0.4.7 (registry+https://github.com/rust-lang/crates.io-index)" = "68e0add23461630d67ed5480d6713da638d5972dc637e776376721ebbe816a03"
