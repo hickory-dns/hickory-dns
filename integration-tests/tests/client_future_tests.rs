@@ -188,7 +188,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
 
     let trusted_name = domain::Name::from_labels(vec!["trusted", "example", "com"]);
 
-    let rsa = Rsa::generate(512).unwrap();
+    let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
     let sig0_key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
 

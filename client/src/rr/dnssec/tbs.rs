@@ -295,7 +295,7 @@ mod tests {
 
     #[test]
     fn test_rrset_tbs() {
-        let rsa = Rsa::generate(512).unwrap();
+        let rsa = Rsa::generate(2048).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
         let signer = Signer::sig0(sig0key, key, Name::root());
