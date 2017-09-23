@@ -369,7 +369,7 @@ mod tests {
     }
 
     #[test]
-    #[ignore] // these appear to not work on travis, test on macos with `10.1.0.104  a.com`ß
+    #[ignore] // these appear to not work on travis, test on macos with `10.1.0.104  a.com`
     #[cfg(unix)]
     fn test_hosts_lookup() {
         let mut io_loop = Core::new().unwrap();
