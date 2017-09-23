@@ -37,6 +37,8 @@ use rr::dnssec::Algorithm;
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::ec_public_key::ECPublicKey;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::dnssec::rsa_public_key::RSAPublicKey;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
@@ -415,21 +417,11 @@ impl<'k> Rsa<'k> {
     ///  same as the new algorithm number for RSA/SHA1 SIGs.
     /// ```
     pub fn from_public_bytes(public_key: &'k [u8]) -> DnsSecResult<Self> {
-        if public_key.len() < 3 || public_key.len() > (4096 + 3) {
-            return Err(DnsSecErrorKind::Message("bad public key").into());
-        }
-        let mut num_exp_len_octs = 1;
-        let mut len: u16 = public_key[0] as u16;
-        if len == 0 {
-            num_exp_len_octs = 3;
-            len = ((public_key[1] as u16) << 8) | (public_key[2] as u16)
-        }
-        let len = len; // demut
+        let encoded = RSAPublicKey::try_from(public_key)?;
 
         // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-        let e = try!(BigNum::from_slice(&public_key[(num_exp_len_octs as usize)..
-                                         (len as usize + num_exp_len_octs)]));
-        let n = try!(BigNum::from_slice(&public_key[(len as usize + num_exp_len_octs)..]));
+        let e = try!(BigNum::from_slice(encoded.e()));
+        let n = try!(BigNum::from_slice(encoded.n()));
 
         OpenSslRsa::from_public_components(n, e)
             .and_then(|rsa| PKey::from_rsa(rsa))
