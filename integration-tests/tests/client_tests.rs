@@ -410,7 +410,7 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient, domain::Name) 
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 
-    let rsa = Rsa::generate(512).unwrap();
+    let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
 
     let signer = Signer::new(
