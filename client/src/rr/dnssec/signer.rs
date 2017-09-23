@@ -540,7 +540,7 @@ mod tests {
         query.set_name(origin.clone());
         question.add_query(query);
 
-        let rsa = Rsa::generate(512).unwrap();
+        let rsa = Rsa::generate(2048).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
         let signer = Signer::sig0(sig0key.clone(), key, Name::root());
@@ -569,7 +569,7 @@ mod tests {
     #[test]
     #[allow(deprecated)]
     fn test_sign_and_verify_rrset() {
-        let rsa = Rsa::generate(512).unwrap();
+        let rsa = Rsa::generate(2048).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256,
             KeyUsage::Zone).unwrap();

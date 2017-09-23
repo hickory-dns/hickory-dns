@@ -9,13 +9,13 @@
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
 use std::marker::PhantomData;
 
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::rsa::Rsa as OpenSslRsa;
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::sign::Verifier;
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::pkey::PKey;
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::bn::BigNum;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::bn::BigNumContext;
@@ -31,12 +31,14 @@ use ring::signature::{ED25519_PUBLIC_KEY_LEN, EdDSAParameters, VerificationAlgor
 use untrusted::Input;
 
 use error::*;
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use rr::dnssec::DigestType;
 use rr::dnssec::Algorithm;
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::ec_public_key::ECPublicKey;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::dnssec::rsa_public_key::RSAPublicKey;
 
 /// PublicKeys implement the ability to ideally be zero copy abstractions over public keys for verifying signed content.
 ///
@@ -61,7 +63,7 @@ pub trait PublicKey {
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()>;
 }
 
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 fn verify_with_pkey(pkey: &PKey,
                     algorithm: Algorithm,
                     message: &[u8],
@@ -306,13 +308,18 @@ impl<'k> PublicKey for Ed25519<'k> {
 }
 
 /// Rsa public key
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 pub struct Rsa<'k> {
     raw: &'k [u8],
+
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
     pkey: PKey,
+
+    #[cfg(feature = "ring")]
+    pkey: RSAPublicKey<'k>,
 }
 
-#[cfg(feature = "openssl")]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 impl<'k> Rsa<'k> {
     /// ```text
     /// RFC 3110              RSA SIGs and KEYs in the DNS              May 2001
@@ -346,50 +353,64 @@ impl<'k> Rsa<'k> {
     ///  Note: This changes the algorithm number for RSA KEY RRs to be the
     ///  same as the new algorithm number for RSA/SHA1 SIGs.
     /// ```
-    pub fn from_public_bytes(public_key: &'k [u8]) -> DnsSecResult<Self> {
-        if public_key.len() < 3 || public_key.len() > (4096 + 3) {
-            return Err(DnsSecErrorKind::Message("bad public key").into());
-        }
-        let mut num_exp_len_octs = 1;
-        let mut len: u16 = public_key[0] as u16;
-        if len == 0 {
-            num_exp_len_octs = 3;
-            len = ((public_key[1] as u16) << 8) | (public_key[2] as u16)
-        }
-        let len = len; // demut
-
-        // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-        let e = try!(BigNum::from_slice(&public_key[(num_exp_len_octs as usize)..
-                                         (len as usize + num_exp_len_octs)]));
-        let n = try!(BigNum::from_slice(&public_key[(len as usize + num_exp_len_octs)..]));
-
-        OpenSslRsa::from_public_components(n, e)
-            .and_then(|rsa| PKey::from_rsa(rsa))
-            .map_err(|e| e.into())
-            .map(|pkey| {
-                     Rsa {
-                         raw: public_key,
-                         pkey: pkey,
-                     }
-                 })
+    pub fn from_public_bytes(raw: &'k [u8]) -> DnsSecResult<Self> {
+        let parsed = RSAPublicKey::try_from(raw)?;
+        let pkey = into_pkey(parsed)?;
+        Ok(Rsa { raw, pkey })
     }
 }
 
-#[cfg(feature = "openssl")]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+fn into_pkey(parsed: RSAPublicKey) -> DnsSecResult<PKey> {
+    // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
+    let e = try!(BigNum::from_slice(parsed.e()));
+    let n = try!(BigNum::from_slice(parsed.n()));
+
+    OpenSslRsa::from_public_components(n, e)
+        .and_then(|rsa| PKey::from_rsa(rsa))
+        .map_err(|e| e.into())
+}
+
+#[cfg(feature = "ring")]
+fn into_pkey<'k>(parsed: RSAPublicKey<'k>) -> DnsSecResult<RSAPublicKey<'k>> {
+    Ok(parsed)
+}
+
+#[cfg(any(feature = "openssl", feature = "ring"))]
 impl<'k> PublicKey for Rsa<'k> {
     fn public_bytes(&self) -> &[u8] {
         self.raw
     }
 
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
         verify_with_pkey(&self.pkey, algorithm, message, signature)
+    }
+
+    #[cfg(feature = "ring")]
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+        let alg = match algorithm {
+            Algorithm::RSASHA256 => &signature::RSA_PKCS1_2048_8192_SHA256,
+            Algorithm::RSASHA512 => &signature::RSA_PKCS1_2048_8192_SHA512,
+            Algorithm::RSASHA1 => &signature::RSA_PKCS1_2048_8192_SHA1,
+            Algorithm::RSASHA1NSEC3SHA1 => {
+                return Err("*ring* doesn't support RSASHA1NSEC3SHA1 yet".into())
+            },
+            _ => unreachable!("non-RSA algorithm passed to RSA verify()"),
+        };
+        signature::primitive::verify_rsa(alg,
+                                         (Input::from(self.pkey.n()),
+                                          Input::from(self.pkey.e())),
+                                         Input::from(message),
+                                         Input::from(signature))
+            .map_err(|e| e.into())
     }
 }
 
 /// Variants of all know public keys
 pub enum PublicKeyEnum<'k> {
     /// RSA keypair, supported by OpenSSL
-    #[cfg(feature = "openssl")]
+    #[cfg(any(feature = "openssl", feature = "ring"))]
     Rsa(Rsa<'k>),
     /// Elliptic curve keypair
     #[cfg(all(not(feature = "ring"), feature = "openssl"))]
@@ -418,13 +439,13 @@ impl<'k> PublicKeyEnum<'k> {
             Algorithm::ED25519 => {
                 Ok(PublicKeyEnum::Ed25519(Ed25519::from_public_bytes(public_key)?))
             }
-            #[cfg(feature = "openssl")]
+            #[cfg(any(feature = "openssl", feature = "ring"))]
             Algorithm::RSASHA1 |
             Algorithm::RSASHA1NSEC3SHA1 |
             Algorithm::RSASHA256 |
             Algorithm::RSASHA512 => Ok(PublicKeyEnum::Rsa(Rsa::from_public_bytes(public_key)?)),
-            #[cfg(not(all(feature = "ring", feature = "openssl")))]
-            _ => Err("no public keys registered, enable ring or openssl features".into()),
+            #[cfg(not(feature = "ring"))]
+            _ => Err("public key algorithm not supported".into()),
         }
     }
 }
@@ -436,7 +457,7 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
             PublicKeyEnum::Ec(ref ec) => ec.public_bytes(),
             #[cfg(feature = "ring")]
             PublicKeyEnum::Ed25519(ref ed) => ed.public_bytes(),
-            #[cfg(feature = "openssl")]
+            #[cfg(any(feature = "openssl", feature = "ring"))]
             PublicKeyEnum::Rsa(ref rsa) => rsa.public_bytes(),
             #[cfg(not(any(feature = "ring", feature = "openssl")))]
             _ => panic!("no public keys registered, enable ring or openssl features"),
@@ -450,7 +471,7 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
             PublicKeyEnum::Ec(ref ec) => ec.verify(algorithm, message, signature),
             #[cfg(feature = "ring")]
             PublicKeyEnum::Ed25519(ref ed) => ed.verify(algorithm, message, signature),
-            #[cfg(feature = "openssl")]
+            #[cfg(any(feature = "openssl", feature = "ring"))]
             PublicKeyEnum::Rsa(ref rsa) => rsa.verify(algorithm, message, signature),
             #[cfg(not(any(feature = "ring", feature = "openssl")))]
             _ => panic!("no public keys registered, enable ring or openssl features"),
