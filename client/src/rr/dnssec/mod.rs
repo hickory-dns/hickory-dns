@@ -18,7 +18,9 @@
 
 mod algorithm;
 mod digest_type;
-pub mod hash;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+mod ec_public_key;
+pub mod tbs;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 mod key_format;
 mod keypair;
@@ -46,3 +48,9 @@ pub use error::DnsSecError;
 pub use error::DnsSecErrorKind;
 pub use error::DnsSecChainErr;
 pub use error::DnsSecResult;
+
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+pub use openssl::hash::DigestBytes as Digest;
+
+#[cfg(feature = "ring")]
+pub use ring::digest::Digest;

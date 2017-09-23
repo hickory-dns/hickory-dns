@@ -1,0 +1,43 @@
+[package]
+name = "trust-dns-util"
+version = "0.1.0"
+authors = ["Benjamin Fry <benjaminfry@me.com>"]
+
+# A short blurb about the package. This is not rendered in any format when
+# uploaded to crates.io (aka this is not markdown)
+description = """
+Utilities that complement TRust-DNS.
+"""
+
+# These URLs point to more information about the repository
+documentation = "https://docs.rs/trust-dns"
+homepage = "http://www.trust-dns.org/index.html"
+repository = "https://github.com/bluejekyll/trust-dns"
+
+# This is a small list of keywords used to categorize and search for this
+# package.
+keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
+categories = ["network-programming"]
+
+# This is a string description of the license for this package. Currently
+# crates.io will validate the license provided against a whitelist of known
+# license identifiers from http://spdx.org/licenses/. Multiple licenses can
+# be separated with a `/`
+license = "MIT/Apache-2.0"
+
+[badges]
+travis-ci = { repository = "bluejekyll/trust-dns" }
+appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+
+[[bin]]
+name = "dnskey-to-pem"
+path = "src/dnskey_to_pem.rs"
+
+[dependencies]
+clap = "^2.23.3"
+data-encoding = "^1.2.0"
+trust-dns = "0.11.3"
+env_logger = "0.4.2"
+log = "^0.3.5"
+openssl = { version = "^0.9.8", features = ["v102", "v110"] }

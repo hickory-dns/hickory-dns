@@ -18,12 +18,14 @@
 
 use serialize::binary::*;
 use error::*;
-use rr::dnssec::{Algorithm, DigestType};
-use rr::Name;
+use rr::dnssec::Algorithm;
 use rr::record_data::RData;
 
-#[cfg(feature = "openssl")]
-use openssl::hash::DigestBytes;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::Name;
+
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::dnssec::{Digest, DigestType};
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
 ///
@@ -216,8 +218,8 @@ impl DNSKEY {
     ///
     /// * `name` - the label of of the DNSKEY record.
     /// * `digest_type` - the `DigestType` with which to create the message digest.
-    #[cfg(feature = "openssl")]
-    pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> DnsSecResult<DigestBytes> {
+    #[cfg(any(feature = "openssl", feature = "ring"))]
+    pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> DnsSecResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();
         {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
@@ -230,12 +232,6 @@ impl DNSKEY {
         }
 
         digest_type.hash(&buf).map_err(|e| e.into())
-    }
-
-    /// This method is only supported when OpenSSL is enabled, `cargo build --features=openssl`
-    #[cfg(not(feature = "openssl"))]
-    pub fn to_digest(&self, _: &Name, _: DigestType) -> DnsSecResult<Vec<u8>> {
-        panic!("digests require OpenSSL to be enabled, 'cargo build --features=openssl'")
     }
 }
 
@@ -320,6 +316,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> EncodeResult {
 // fn to_string()
 
 #[test]
+#[cfg(any(feature = "openssl", feature = "ring"))]
 pub fn test() {
     let rdata = DNSKEY::new(true,
                             true,
@@ -339,7 +336,6 @@ pub fn test() {
     assert!(read_rdata.is_ok(),
             format!("error decoding: {:?}", read_rdata.unwrap_err()));
     assert_eq!(rdata, read_rdata.unwrap());
-  #[cfg(feature = "openssl")]
     assert!(rdata
                 .to_digest(&Name::parse("www.example.com.", None).unwrap(),
                            DigestType::SHA256)
