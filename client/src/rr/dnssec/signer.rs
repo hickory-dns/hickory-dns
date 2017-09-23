@@ -25,7 +25,7 @@ use rr::{Name, RData};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::KeyPair;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::{Algorithm, DnsSecResult, hash};
+use rr::dnssec::{Algorithm, DnsSecResult, tbs};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSKEY, KEY, SIG};
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -478,7 +478,7 @@ impl Signer {
     ///
     ///  ---
     pub fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> DnsSecResult<Vec<u8>> {
-        hash::hash_message(message, pre_sig0).and_then(|hash| self.sign(&hash))
+        tbs::message_tbs(message, pre_sig0).and_then(|tbs| self.sign(&tbs))
     }
 
     /// Signs a hash.
@@ -487,14 +487,14 @@ impl Signer {
     ///
     /// # Arguments
     ///
-    /// * `hash` - the hashed resource record set, see `hash_rrset`.
+    /// * `hash` - the hashed resource record set, see `rrset_tbs`.
     ///
     /// # Return value
     ///
     /// The signature, ready to be stored in an `RData::RRSIG`.
-    pub fn sign(&self, hash: &[u8]) -> DnsSecResult<Vec<u8>> {
+    pub fn sign(&self, tbs: &tbs::TBS) -> DnsSecResult<Vec<u8>> {
         self.key
-            .sign(self.algorithm, &hash)
+            .sign(self.algorithm, tbs)
             .map_err(|e| e.into())
     }
 }
@@ -607,13 +607,13 @@ mod tests {
                      .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
                      .clone()];
 
-        let hash = hash::hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
-        let sig = signer.sign(&hash).unwrap();
+        let tbs = tbs::rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
+        let sig = signer.sign(&tbs).unwrap();
 
         let pub_key = signer.key().to_public_bytes().unwrap();
         let pub_key = PublicKeyEnum::from_public_bytes(&pub_key, Algorithm::RSASHA256).unwrap();
 
-        assert!(pub_key.verify(Algorithm::RSASHA256, &hash, &sig).is_ok());
+        assert!(pub_key.verify(Algorithm::RSASHA256, tbs.as_ref(), &sig).is_ok());
     }
 
     #[test]

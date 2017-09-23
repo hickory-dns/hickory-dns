@@ -6,8 +6,24 @@ use rr::dnssec::{Algorithm, DnsSecErrorKind, DnsSecResult};
 use rr::rdata::{sig, SIG};
 use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
-/// Hashes a Message for signing
-pub fn hash_message(message: &Message, pre_sig0: &SIG) -> DnsSecResult<Vec<u8>> {
+/// Data To Be Signed.
+pub struct TBS(Vec<u8>);
+
+#[cfg(test)]
+impl<'a> From<&'a [u8]> for TBS {
+    fn from(slice: &'a [u8]) -> Self {
+        TBS(slice.to_owned())
+    }
+}
+
+impl AsRef<[u8]> for TBS {
+    fn as_ref(&self) -> &[u8] {
+        self.0.as_ref()
+    }
+}
+
+/// Returns the to-be-signed serialization of the given message.
+pub fn message_tbs(message: &Message, pre_sig0: &SIG) -> DnsSecResult<TBS> {
     // TODO: should perform the serialization and sign block by block to reduce the max memory
     //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
     //  more important
@@ -35,10 +51,10 @@ pub fn hash_message(message: &Message, pre_sig0: &SIG) -> DnsSecResult<Vec<u8>> 
 
     buf.append(&mut buf2);
 
-    Ok(buf)
+    Ok(TBS(buf))
 }
 
-/// Computes the hash of the given record set
+/// Returns the to-be-signed serialization of the given record set.
 ///
 /// # Arguments
 ///
@@ -56,18 +72,18 @@ pub fn hash_message(message: &Message, pre_sig0: &SIG) -> DnsSecResult<Vec<u8>> 
 /// # Returns
 ///
 /// the binary hash of the specified RRSet and associated information
-pub fn hash_rrset(name: &Name,
-                  dns_class: DNSClass,
-                  num_labels: u8,
-                  type_covered: RecordType,
-                  algorithm: Algorithm,
-                  original_ttl: u32,
-                  sig_expiration: u32,
-                  sig_inception: u32,
-                  key_tag: u16,
-                  signer_name: &Name,
-                  records: &[Record])
-                  -> DnsSecResult<Vec<u8>> {
+pub fn rrset_tbs(name: &Name,
+                 dns_class: DNSClass,
+                 num_labels: u8,
+                 type_covered: RecordType,
+                 algorithm: Algorithm,
+                 original_ttl: u32,
+                 sig_expiration: u32,
+                 sig_inception: u32,
+                 key_tag: u16,
+                 signer_name: &Name,
+                 records: &[Record])
+                 -> DnsSecResult<TBS> {
     // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
     let mut rrset: Vec<&Record> = Vec::new();
 
@@ -146,12 +162,11 @@ pub fn hash_rrset(name: &Name,
         }
     }
 
-    // TODO: This used to return the hash, now it's a hashable record type?
-    // DigestType::from(self.algorithm).hash(&buf)
-    Ok(buf)
+    Ok(TBS(buf))
 }
 
-/// hashes the RRSet with information provided from the RRSig record
+/// Returns the to-be-signed serialization of the given record set using the information
+/// provided from the RRSIG record.
 ///
 /// # Arguments
 ///
@@ -161,16 +176,17 @@ pub fn hash_rrset(name: &Name,
 /// # Return
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
-pub fn hash_rrset_with_rrsig(rrsig: &Record, records: &[Record]) -> DnsSecResult<Vec<u8>> {
+pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> DnsSecResult<TBS> {
     if let &RData::SIG(ref sig) = rrsig.rdata() {
-        hash_rrset_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
+        rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
         return Err(DnsSecErrorKind::Msg(format!("could not determine name from {}", rrsig.name()))
                        .into());
     }
 }
 
-/// hashes the RRSet with information provided from the RRSig record
+/// Returns the to-be-signed serialization of the given record set using the information
+/// provided from the SIG record.
 ///
 /// # Arguments
 ///
@@ -182,22 +198,22 @@ pub fn hash_rrset_with_rrsig(rrsig: &Record, records: &[Record]) -> DnsSecResult
 /// # Return
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
-pub fn hash_rrset_with_sig(name: &Name,
-                           dns_class: DNSClass,
-                           sig: &SIG,
-                           records: &[Record])
-                           -> DnsSecResult<Vec<u8>> {
-    hash_rrset(name,
-               dns_class,
-               sig.num_labels(),
-               sig.type_covered(),
-               sig.algorithm(),
-               sig.original_ttl(),
-               sig.sig_expiration(),
-               sig.sig_inception(),
-               sig.key_tag(),
-               sig.signer_name(),
-               records)
+pub fn rrset_tbs_with_sig(name: &Name,
+                          dns_class: DNSClass,
+                          sig: &SIG,
+                          records: &[Record])
+                          -> DnsSecResult<TBS> {
+    rrset_tbs(name,
+              dns_class,
+              sig.num_labels(),
+              sig.type_covered(),
+              sig.algorithm(),
+              sig.original_ttl(),
+              sig.sig_expiration(),
+              sig.sig_inception(),
+              sig.key_tag(),
+              sig.signer_name(),
+              records)
 }
 
 
@@ -278,7 +294,7 @@ mod tests {
     pub use super::*;
 
     #[test]
-    fn test_hash_rrset() {
+    fn test_rrset_tbs() {
         let rsa = Rsa::generate(512).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
         let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
@@ -316,8 +332,8 @@ mod tests {
                      .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
                      .clone()];
 
-        let hash = hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
-        assert!(!hash.is_empty());
+        let tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
+        assert!(!tbs.0.is_empty());
 
         let rrset =
             vec![Record::new()
@@ -357,8 +373,8 @@ mod tests {
                      .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
                      .clone()];
 
-        let filtered_hash = hash_rrset_with_rrsig(&rrsig, &rrset).unwrap();
-        assert!(!filtered_hash.is_empty());
-        assert_eq!(hash, filtered_hash);
+        let filtered_tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
+        assert!(!filtered_tbs.0.is_empty());
+        assert_eq!(tbs.as_ref(), filtered_tbs.as_ref());
     }
 }

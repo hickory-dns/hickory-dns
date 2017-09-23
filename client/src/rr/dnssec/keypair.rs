@@ -33,6 +33,7 @@ use rr::rdata::{DNSKEY, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::DS;
 use rr::rdata::key::KeyUsage;
+use rr::dnssec::tbs::TBS;
 
 /// A public and private key pair, the private portion is not required.
 ///
@@ -301,20 +302,20 @@ impl KeyPair {
     ///
     /// # Arguments
     ///
-    /// * `message` - the message bytes to be signed, see `hash_rrset`.
+    /// * `message` - the message bytes to be signed, see `rrset_tbs`.
     ///
     /// # Return value
     ///
     /// The signature, ready to be stored in an `RData::RRSIG`.
     #[allow(unused)]
-    pub fn sign(&self, algorithm: Algorithm, message: &[u8]) -> DnsSecResult<Vec<u8>> {
+    pub fn sign(&self, algorithm: Algorithm, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
         match *self {
             #[cfg(feature = "openssl")]
             KeyPair::RSA(ref pkey) |
             KeyPair::EC(ref pkey) => {
                 let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
                 let mut signer = Signer::new(digest_type, &pkey).unwrap();
-                try!(signer.update(&message));
+                try!(signer.update(tbs.as_ref()));
                 signer.finish().map_err(|e| e.into())
                 .and_then(|bytes| {
                     if let KeyPair::RSA(_) = *self {
@@ -382,7 +383,7 @@ impl KeyPair {
                 })
             }
             #[cfg(feature = "ring")]
-            KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(message).as_ref().to_vec()),
+            KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
             _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
@@ -462,6 +463,7 @@ impl KeyPair {
 #[cfg(test)]
 mod tests {
     use rr::dnssec::*;
+    use rr::dnssec::tbs::TBS;
 
     #[cfg(feature = "openssl")]
     #[test]
@@ -500,18 +502,18 @@ mod tests {
         let pk = key.to_public_bytes().unwrap();
         let pk = PublicKeyEnum::from_public_bytes(&pk, algorithm).unwrap();
 
-        let bytes = b"www.example.com";
-        let mut sig = key.sign(algorithm, bytes).unwrap();
-        assert!(pk.verify(algorithm, bytes, &sig).is_ok(),
+        let tbs = TBS::from(&b"www.example.com"[..]);
+        let mut sig = key.sign(algorithm, &tbs).unwrap();
+        assert!(pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
                 "algorithm: {:?} (public key)",
                 algorithm);
         sig[10] = !sig[10];
-        assert!(!pk.verify(algorithm, bytes, &sig).is_ok(),
+        assert!(!pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
                 "algorithm: {:?} (public key, neg)",
                 algorithm);
     }
     fn hash_test(algorithm: Algorithm, key_format: KeyFormat) {
-        let bytes = b"www.example.com";
+        let tbs = TBS::from(&b"www.example.com"[..]);
 
         // TODO: convert to stored keys...
         let key = key_format
@@ -530,17 +532,17 @@ mod tests {
         let neg_pub_key = neg.to_public_bytes().unwrap();
         let neg_pub_key = PublicKeyEnum::from_public_bytes(&neg_pub_key, algorithm).unwrap();
 
-        let sig = key.sign(algorithm, bytes).unwrap();
-        assert!(pub_key.verify(algorithm, bytes, &sig).is_ok(),
+        let sig = key.sign(algorithm, &tbs).unwrap();
+        assert!(pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
                 "algorithm: {:?}",
                 algorithm);
-        assert!(key.to_dnskey(algorithm).unwrap().verify(bytes, &sig).is_ok(),
+        assert!(key.to_dnskey(algorithm).unwrap().verify(tbs.as_ref(), &sig).is_ok(),
                 "algorithm: {:?} (dnskey)",
                 algorithm);
-        assert!(!neg_pub_key.verify(algorithm, bytes, &sig).is_ok(),
+        assert!(!neg_pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
                 "algorithm: {:?} (neg)",
                 algorithm);
-        assert!(!neg.to_dnskey(algorithm).unwrap().verify(bytes, &sig).is_ok(),
+        assert!(!neg.to_dnskey(algorithm).unwrap().verify(tbs.as_ref(), &sig).is_ok(),
                 "algorithm: {:?} (dnskey, neg)",
                 algorithm);
     }
