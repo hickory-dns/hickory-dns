@@ -26,6 +26,8 @@ mod key_format;
 mod keypair;
 mod nsec3;
 pub mod public_key;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+mod rsa_public_key;
 mod signer;
 mod supported_algorithm;
 mod trust_anchor;
