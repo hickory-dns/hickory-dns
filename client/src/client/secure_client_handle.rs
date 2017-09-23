@@ -130,10 +130,7 @@ where
                 }
                 algorithms.set(Algorithm::ECDSAP256SHA256);
                 algorithms.set(Algorithm::ECDSAP384SHA384);
-                #[cfg(feature = "openssl")]
-                {
-                    algorithms.set(Algorithm::RSASHA256);
-                }
+                algorithms.set(Algorithm::RSASHA256);
 
                 let dau = EdnsOption::DAU(algorithms);
                 let dhu = EdnsOption::DHU(algorithms);
