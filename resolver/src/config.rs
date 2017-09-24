@@ -219,6 +219,8 @@ pub struct ResolverOpts {
     pub ip_strategy: LookupIpStrategy,
     /// Cache size is in number of records (some records can be large)
     pub cache_size: usize,
+    /// Check /ect/hosts file before dns requery (only works for unix like OS)
+    pub use_hosts_file: bool,
 }
 
 impl Default for ResolverOpts {
@@ -236,6 +238,7 @@ impl Default for ResolverOpts {
             validate: false,
             ip_strategy: LookupIpStrategy::default(),
             cache_size: 32,
+            use_hosts_file: true,
         }
     }
 }
