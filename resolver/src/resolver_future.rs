@@ -9,6 +9,7 @@
 use std::io;
 use std::net::IpAddr;
 use std::str::FromStr;
+use std::sync::Arc;
 
 use tokio_core::reactor::Handle;
 use trust_dns::client::{BasicClientHandle, RetryClientHandle, SecureClientHandle};
@@ -21,12 +22,14 @@ use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use lookup;
 use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
 use system_conf;
+use hosts::Hosts;
 
 /// A Resolver for DNS records.
 pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
     client_cache: CachingClient<LookupEither<BasicClientHandle, StandardConnection>>,
+    hosts: Option<Hosts>,
 }
 
 macro_rules! lookup_fn {
@@ -78,10 +81,17 @@ impl ResolverFuture {
             either = LookupEither::Retry(client);
         }
 
+        let hosts = if options.use_hosts_file {
+            Some(Hosts::new())
+        } else {
+            None 
+        };
+
         ResolverFuture {
             config,
             options,
             client_cache: CachingClient::new(options.cache_size, either),
+            hosts: hosts,
         }
     }
 
@@ -172,7 +182,12 @@ impl ResolverFuture {
         };
 
         let names = self.build_names(name);
-        LookupIpFuture::lookup(names, self.options.ip_strategy, self.client_cache.clone())
+        let hosts = if let Some(ref hosts) = self.hosts {
+            Some(Arc::new(hosts.clone()))
+        } else {
+            None
+        };
+        LookupIpFuture::lookup(names, self.options.ip_strategy, self.client_cache.clone(), hosts)
     }
 
     /// Performs a DNS lookup for an SRV record for the speicified service type and protocol at the given name.
@@ -349,6 +364,27 @@ mod tests {
                         0x1946,
                     ))
                 );
+            }
+        }
+    }
+
+    #[test]
+    #[ignore] // these appear to not work on travis, test on macos with `10.1.0.104  a.com`
+    #[cfg(unix)]
+    fn test_hosts_lookup() {
+        let mut io_loop = Core::new().unwrap();
+        let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
+
+        let response = io_loop.run(resolver.lookup_ip("a.com")).expect(
+            "failed to run lookup",
+        );
+
+        assert_eq!(response.iter().count(), 1);
+        for address in response.iter() {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(10, 1, 0, 104)));
+            } else {
+                assert!(false, "failed to run lookup");
             }
         }
     }

@@ -14,6 +14,7 @@ use std::error::Error;
 use std::io;
 use std::mem;
 use std::net::IpAddr;
+use std::sync::Arc;
 
 use futures::{Async, future, Future, Poll, task};
 
@@ -25,6 +26,8 @@ use config::LookupIpStrategy;
 use lookup::{Lookup, LookupEither, LookupIter};
 use lookup_state::CachingClient;
 use name_server_pool::StandardConnection;
+use hosts::Hosts;
+
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -71,6 +74,7 @@ pub struct InnerLookupIpFuture<C: ClientHandle + 'static> {
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     future: Box<Future<Item = Lookup, Error = io::Error>>,
+    hosts: Option<Arc<Hosts>>,
 }
 
 impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
@@ -81,19 +85,21 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
     /// * `names` - a set of DNS names to attempt to resolve, they will be attempted in queue order, i.e. the first is `names.pop()`. Upon each failure, the next will be attempted.
     /// * `strategy` - the lookup IP strategy to use
     /// * `client_cache` - cache with a connection to use for performing all lookups
-    pub(crate) fn lookup(
+    pub fn lookup(
         mut names: Vec<Name>,
         strategy: LookupIpStrategy,
         client_cache: CachingClient<C>,
+        hosts: Option<Arc<Hosts>>,
     ) -> Self {
         let name = names.pop().expect("can not lookup IPs for no names");
 
-        let query = strategic_lookup(name, strategy, client_cache.clone());
+        let query = strategic_lookup(name, strategy, client_cache.clone(), hosts.clone());
         InnerLookupIpFuture {
             client_cache: client_cache,
             names,
             strategy,
             future: Box::new(query),
+            hosts: hosts,
         }
     }
 
@@ -103,7 +109,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
     ) -> Poll<LookupIp, io::Error> {
         let name = self.names.pop();
         if let Some(name) = name {
-            let query = strategic_lookup(name, self.strategy, self.client_cache.clone());
+            let query = strategic_lookup(name, self.strategy, self.client_cache.clone(), self.hosts.clone());
 
             mem::replace(&mut self.future, Box::new(query));
             // guarantee that we get scheduled for the next turn...
@@ -123,6 +129,7 @@ impl<C: ClientHandle + 'static> InnerLookupIpFuture<C> {
             future: Box::new(future::err(
                 io::Error::new(io::ErrorKind::Other, format!("{}", error)),
             )),
+            hosts: None,
         };
     }
 }
@@ -153,7 +160,14 @@ fn strategic_lookup<C: ClientHandle + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: CachingClient<C>,
+    hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = io::Error>> {
+    if let Some(hosts) = hosts {
+        if let Some(lookup) = hosts.lookup_static_host(&name) {
+            return Box::new(future::ok(lookup));
+        };
+    }
+
     match strategy {
         LookupIpStrategy::Ipv4Only => ipv4_only(name, client),
         LookupIpStrategy::Ipv6Only => ipv6_only(name, client),

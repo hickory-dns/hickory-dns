@@ -35,7 +35,8 @@ pub struct Lookup {
 }
 
 impl Lookup {
-    pub(crate) fn new(rdatas: Arc<Vec<RData>>) -> Self {
+    /// Return new instance with given rdatas
+    pub fn new(rdatas: Arc<Vec<RData>>) -> Self {
         Lookup { rdatas }
     }
 
