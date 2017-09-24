@@ -7,8 +7,14 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
+- RSA and ECDSA validation with *ring* for DNSSec, removes dependency on openssl (@briansmith)
 - `lookup` to `ClientHandle`, simpler form with `Query`
 - `query` to `Query` for ease of Query creation
+
+### Changed
+
+- Large celanup of signing and verification paths in DNSSec (@briansmith)
+- *breaking* changed `TrustAnchor::insert_trust_anchor` to more safely consume `PublicKey` rather than `Vec<u8>` 
 
 ## 0.11.2
 
