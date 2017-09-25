@@ -106,9 +106,10 @@ Zones will be automatically resigned on any record updates via dynamic DNS.
 ## RFC's implemented
 
 ### Basic operations
-- [RFC 1035](https://tools.ietf.org/html/rfc1035): Base DNS spec (partial, caching not yet supported)
-- [RFC 3596](https://tools.ietf.org/html/rfc3596): IPv6
+- [RFC 1035](https://tools.ietf.org/html/rfc1035): Base DNS spec (see the Resolver for caching)
+- [RFC 2308](https://tools.ietf.org/html/rfc2308): Negative Caching of DNS Queries (see the Resolver)
 - [RFC 2782](https://tools.ietf.org/html/rfc2782): Service location
+- [RFC 3596](https://tools.ietf.org/html/rfc3596): IPv6
 - [RFC 6891](https://tools.ietf.org/html/rfc6891): Extension Mechanisms for DNS
 
 ### Update operations
@@ -128,7 +129,6 @@ Zones will be automatically resigned on any record updates via dynamic DNS.
 ## RFC's in progress or not yet implemented
 
 ### Basic operations
-- [RFC 2308](https://tools.ietf.org/html/rfc2308): Negative Caching of DNS Queries
 - [RFC 2317](https://tools.ietf.org/html/rfc2317): Classless IN-ADDR.ARPA delegation
 
 ### Update operations

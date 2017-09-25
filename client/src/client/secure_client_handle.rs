@@ -463,14 +463,16 @@ where
             } else {
                 None
             })
-            .filter_map(|(i, rdata)| if client.trust_anchor.contains(
-                rdata.public_key(),
-            )
-            {
-                debug!("in trust_anchor");
-                Some(i)
-            } else {
-                None
+            .filter_map(|(i, rdata)| {
+                if client.trust_anchor.contains_dnskey_bytes(
+                    rdata.public_key(),
+                )
+                {
+                    debug!("in trust_anchor");
+                    Some(i)
+                } else {
+                    None
+                }
             })
             .collect::<Vec<usize>>();
 
