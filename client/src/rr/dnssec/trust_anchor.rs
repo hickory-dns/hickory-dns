@@ -72,5 +72,5 @@ impl TrustAnchor {
 fn test_kjqmt7v() {
     let trust = TrustAnchor::default();
     assert_eq!(trust.get(0), ROOT_ANCHOR);
-    assert!(trust.contains(ROOT_ANCHOR));
+    assert!(trust.contains_dnskey_bytes(ROOT_ANCHOR));
 }
