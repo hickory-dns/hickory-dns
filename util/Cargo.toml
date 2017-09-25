@@ -34,10 +34,14 @@ coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = 
 name = "dnskey-to-pem"
 path = "src/dnskey_to_pem.rs"
 
+[[bin]]
+name = "pem-to-public-dnskey"
+path = "src/pem_to_public_dnskey.rs"
+
 [dependencies]
 clap = "^2.23.3"
 data-encoding = "^1.2.0"
-trust-dns = "0.11.3"
+trust-dns = { version = "0.11.3", features = ["openssl"] }
 env_logger = "0.4.2"
 log = "^0.3.5"
 openssl = { version = "^0.9.8", features = ["v102", "v110"] }

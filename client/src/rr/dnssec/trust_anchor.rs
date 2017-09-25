@@ -18,6 +18,8 @@
 
 use std::default::Default;
 
+use rr::dnssec::PublicKey;
+
 const ROOT_ANCHOR: &'static [u8] = include_bytes!("Kjqmt7v.rsa");
 
 /// The root set of trust anchors for validating DNSSec, anything in this set will be trusted
@@ -29,9 +31,7 @@ pub struct TrustAnchor {
 
 impl Default for TrustAnchor {
     fn default() -> TrustAnchor {
-        TrustAnchor {
-            pkeys: vec![ROOT_ANCHOR.to_owned()],
-        }
+        TrustAnchor { pkeys: vec![ROOT_ANCHOR.to_owned()] }
     }
 }
 
@@ -41,15 +41,24 @@ impl TrustAnchor {
         TrustAnchor { pkeys: vec![] }
     }
 
+    /// determines if the key is in the trust anchor set with the raw dnskey bytes
+    ///
+    /// # Arguments
+    ///
+    /// * `other_key` - The raw dnskey in bytes
+    pub fn contains_dnskey_bytes(&self, other_key: &[u8]) -> bool {
+        self.pkeys.iter().any(|k| other_key == k.as_slice())
+    }
+
     /// determines if the key is in the trust anchor set
-    pub fn contains(&self, other_key: &[u8]) -> bool {
-        self.pkeys.iter().any(|k| other_key == k as &[u8])
+    pub fn contains<P: PublicKey>(&self, other_key: &P) -> bool {
+        self.contains_dnskey_bytes(other_key.public_bytes())
     }
 
     /// inserts the trust_anchor to the trusted chain
-    pub fn insert_trust_anchor(&mut self, public_key: Vec<u8>) {
+    pub fn insert_trust_anchor<P: PublicKey>(&mut self, public_key: P) {
         if !self.contains(&public_key) {
-            self.pkeys.push(public_key)
+            self.pkeys.push(public_key.public_bytes().to_vec())
         }
     }
 

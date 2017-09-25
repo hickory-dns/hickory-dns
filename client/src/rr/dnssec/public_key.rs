@@ -64,22 +64,22 @@ pub trait PublicKey {
 }
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-fn verify_with_pkey(pkey: &PKey,
-                    algorithm: Algorithm,
-                    message: &[u8],
-                    signature: &[u8])
-                    -> DnsSecResult<()> {
+fn verify_with_pkey(
+    pkey: &PKey,
+    algorithm: Algorithm,
+    message: &[u8],
+    signature: &[u8],
+) -> DnsSecResult<()> {
     let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
     let mut verifier = Verifier::new(digest_type, &pkey).unwrap();
     try!(verifier.update(message));
-    verifier
-        .finish(signature)
-        .map_err(|e| e.into())
-        .and_then(|b| if b {
-                      Ok(())
-                  } else {
-                      Err(DnsSecErrorKind::Message("could not verify").into())
-                  })
+    verifier.finish(signature).map_err(|e| e.into()).and_then(
+        |b| if b {
+            Ok(())
+        } else {
+            Err(DnsSecErrorKind::Message("could not verify").into())
+        },
+    )
 }
 
 /// Elyptic Curve public key type
@@ -127,7 +127,11 @@ impl<'k> Ec<'k> {
         let curve = match algorithm {
             Algorithm::ECDSAP256SHA256 => nid::X9_62_PRIME256V1,
             Algorithm::ECDSAP384SHA384 => nid::SECP384R1,
-            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
+            _ => {
+                return Err(
+                    "only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into(),
+                )
+            }
         };
         // Key needs to be converted to OpenSSL format
         let k = ECPublicKey::from_unprefixed(public_key, algorithm)?;
@@ -253,11 +257,18 @@ impl PublicKey for Ec {
         let alg = match algorithm {
             Algorithm::ECDSAP256SHA256 => &signature::ECDSA_P256_SHA256_FIXED,
             Algorithm::ECDSAP384SHA384 => &signature::ECDSA_P384_SHA384_FIXED,
-            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
+            _ => {
+                return Err(
+                    "only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into(),
+                )
+            }
         };
-        signature::verify(alg, Input::from(self.prefixed_bytes()), Input::from(message),
-                          Input::from(signature))
-            .map_err(|e| e.into())
+        signature::verify(
+            alg,
+            Input::from(self.prefixed_bytes()),
+            Input::from(message),
+            Input::from(signature),
+        ).map_err(|e| e.into())
     }
 }
 
@@ -280,10 +291,13 @@ impl<'k> Ed25519<'k> {
     /// ```
     pub fn from_public_bytes(public_key: &'k [u8]) -> DnsSecResult<Self> {
         if public_key.len() != ED25519_PUBLIC_KEY_LEN {
-            return Err(DnsSecErrorKind::Msg(format!("expected {} byte public_key: {}",
-                                                    ED25519_PUBLIC_KEY_LEN,
-                                                    public_key.len()))
-                               .into());
+            return Err(
+                DnsSecErrorKind::Msg(format!(
+                    "expected {} byte public_key: {}",
+                    ED25519_PUBLIC_KEY_LEN,
+                    public_key.len()
+                )).into(),
+            );
         }
 
         Ok(Ed25519 { raw: public_key })
@@ -395,15 +409,15 @@ impl<'k> PublicKey for Rsa<'k> {
             Algorithm::RSASHA1 => &signature::RSA_PKCS1_2048_8192_SHA1,
             Algorithm::RSASHA1NSEC3SHA1 => {
                 return Err("*ring* doesn't support RSASHA1NSEC3SHA1 yet".into())
-            },
+            }
             _ => unreachable!("non-RSA algorithm passed to RSA verify()"),
         };
-        signature::primitive::verify_rsa(alg,
-                                         (Input::from(self.pkey.n()),
-                                          Input::from(self.pkey.e())),
-                                         Input::from(message),
-                                         Input::from(signature))
-            .map_err(|e| e.into())
+        signature::primitive::verify_rsa(
+            alg,
+            (Input::from(self.pkey.n()), Input::from(self.pkey.e())),
+            Input::from(message),
+            Input::from(signature),
+        ).map_err(|e| e.into())
     }
 }
 
@@ -433,11 +447,14 @@ impl<'k> PublicKeyEnum<'k> {
         match algorithm {
             #[cfg(any(feature = "openssl", feature = "ring"))]
             Algorithm::ECDSAP256SHA256 |
-            Algorithm::ECDSAP384SHA384 =>
-                Ok(PublicKeyEnum::Ec(Ec::from_public_bytes(public_key, algorithm)?)),
+            Algorithm::ECDSAP384SHA384 => Ok(PublicKeyEnum::Ec(
+                Ec::from_public_bytes(public_key, algorithm)?,
+            )),
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => {
-                Ok(PublicKeyEnum::Ed25519(Ed25519::from_public_bytes(public_key)?))
+                Ok(PublicKeyEnum::Ed25519(
+                    Ed25519::from_public_bytes(public_key)?,
+                ))
             }
             #[cfg(any(feature = "openssl", feature = "ring"))]
             Algorithm::RSASHA1 |
@@ -453,7 +470,7 @@ impl<'k> PublicKeyEnum<'k> {
 impl<'k> PublicKey for PublicKeyEnum<'k> {
     fn public_bytes(&self) -> &[u8] {
         match *self {
-            #[cfg(any(feature = "openssl", feature="ring"))]
+            #[cfg(any(feature = "openssl", feature = "ring"))]
             PublicKeyEnum::Ec(ref ec) => ec.public_bytes(),
             #[cfg(feature = "ring")]
             PublicKeyEnum::Ed25519(ref ed) => ed.public_bytes(),
@@ -467,7 +484,7 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
     #[allow(unused_variables)]
     fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
         match *self {
-            #[cfg(any(feature = "openssl", feature="ring"))]
+            #[cfg(any(feature = "openssl", feature = "ring"))]
             PublicKeyEnum::Ec(ref ec) => ec.verify(algorithm, message, signature),
             #[cfg(feature = "ring")]
             PublicKeyEnum::Ed25519(ref ed) => ed.verify(algorithm, message, signature),
