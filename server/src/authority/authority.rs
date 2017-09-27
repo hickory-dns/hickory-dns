@@ -136,6 +136,7 @@ impl Authority {
         }
 
         // zone signing was off during load, now sign the zone.
+        // TODO: this is probably unnecesary, see named, load zone section...
         if self.is_dnssec_enabled {
             self.sign_zone().map_err(|e| e.into())
         } else {
