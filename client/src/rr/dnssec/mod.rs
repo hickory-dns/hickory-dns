@@ -40,6 +40,7 @@ pub use self::key_format::KeyFormat;
 pub use self::keypair::KeyPair;
 pub use self::nsec3::Nsec3HashAlgorithm;
 pub use self::public_key::PublicKey;
+pub use self::public_key::PublicKeyBuf;
 pub use self::public_key::PublicKeyEnum;
 pub use self::signer::Signer;
 pub use self::supported_algorithm::SupportedAlgorithms;

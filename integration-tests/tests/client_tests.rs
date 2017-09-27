@@ -129,10 +129,12 @@ fn test_secure_query_example_nonet() {
         let public_key = signers
             .first()
             .expect("expected a key in the authority")
-            .key();
+            .key()
+            .to_public_key()
+            .expect("could not convert keypair to public_key");
 
         let mut trust_anchor = TrustAnchor::new();
-        trust_anchor.insert_trust_anchor(public_key.to_public_bytes().expect("to_vec failed"));
+        trust_anchor.insert_trust_anchor(public_key);
 
         trust_anchor
     };
@@ -301,10 +303,12 @@ fn test_nsec_query_example_nonet() {
         let public_key = signers
             .first()
             .expect("expected a key in the authority")
-            .key();
+            .key()
+            .to_public_key()
+            .expect("could not convert keypair to public_key");
 
         let mut trust_anchor = TrustAnchor::new();
-        trust_anchor.insert_trust_anchor(public_key.to_public_bytes().expect("to_vec failed"));
+        trust_anchor.insert_trust_anchor(public_key);
 
         trust_anchor
     };

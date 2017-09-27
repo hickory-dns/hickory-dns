@@ -1,9 +1,6 @@
-extern crate chrono;
-extern crate futures;
 extern crate log;
 extern crate trust_dns;
 extern crate tokio_core;
-extern crate trust_dns_server;
 extern crate openssl;
 
 mod server_harness;
