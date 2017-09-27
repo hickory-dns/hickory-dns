@@ -26,7 +26,7 @@ use ring::signature::Ed25519KeyPair;
 use error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::Name;
-use rr::dnssec::Algorithm;
+use rr::dnssec::{Algorithm, PublicKeyBuf};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::DigestType;
 use rr::rdata::{DNSKEY, KEY};
@@ -56,9 +56,11 @@ impl KeyPair {
     /// Creates an RSA type keypair.
     #[cfg(feature = "openssl")]
     pub fn from_rsa(rsa: OpenSslRsa) -> DnsSecResult<Self> {
-        PKey::from_rsa(rsa)
-            .map(|pkey| KeyPair::RSA(pkey))
-            .map_err(|e| e.into())
+        PKey::from_rsa(rsa).map(|pkey| KeyPair::RSA(pkey)).map_err(
+            |e| {
+                e.into()
+            },
+        )
     }
 
     /// Given a know pkey of an RSA key, return the wrapped keypair
@@ -98,18 +100,15 @@ impl KeyPair {
             KeyPair::RSA(ref pkey) => {
                 let mut bytes: Vec<u8> = Vec::new();
                 // TODO: make these expects a try! and Err()
-                let rsa: OpenSslRsa = pkey.rsa()
-                    .expect("pkey should have been initialized with RSA");
+                let rsa: OpenSslRsa = pkey.rsa().expect(
+                    "pkey should have been initialized with RSA",
+                );
 
                 // this is to get us access to the exponent and the modulus
                 // TODO: make these expects a try! and Err()
-                let e: Vec<u8> = rsa.e()
-                    .expect("RSA should have been initialized")
-                    .to_vec();
+                let e: Vec<u8> = rsa.e().expect("RSA should have been initialized").to_vec();
                 // TODO: make these expects a try! and Err()
-                let n: Vec<u8> = rsa.n()
-                    .expect("RSA should have been initialized")
-                    .to_vec();
+                let n: Vec<u8> = rsa.n().expect("RSA should have been initialized").to_vec();
 
                 if e.len() > 255 {
                     bytes.push(0);
@@ -128,8 +127,9 @@ impl KeyPair {
             #[cfg(feature = "openssl")]
             KeyPair::EC(ref pkey) => {
                 // TODO: make these expects a try! and Err()
-                let ec_key: EcKey = pkey.ec_key()
-                    .expect("pkey should have been initialized with EC");
+                let ec_key: EcKey = pkey.ec_key().expect(
+                    "pkey should have been initialized with EC",
+                );
                 ec_key
                     .group()
                     .and_then(|group| ec_key.public_key().map(|point| (group, point)))
@@ -149,8 +149,15 @@ impl KeyPair {
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.public_key_bytes().to_vec()),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
-            _ => Err(DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into()),
+            _ => Err(
+                DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into(),
+            ),
         }
+    }
+
+    /// Returns a PublicKeyBuf of the KeyPair
+    pub fn to_public_key(&self) -> DnsSecResult<PublicKeyBuf> {
+        Ok(PublicKeyBuf::new(self.to_public_bytes()?))
     }
 
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
@@ -231,8 +238,9 @@ impl KeyPair {
     ///
     /// the DNSKEY record data
     pub fn to_dnskey(&self, algorithm: Algorithm) -> DnsSecResult<DNSKEY> {
-        self.to_public_bytes()
-            .map(|bytes| DNSKEY::new(true, true, false, algorithm, bytes))
+        self.to_public_bytes().map(|bytes| {
+            DNSKEY::new(true, true, false, algorithm, bytes)
+        })
     }
 
     /// Convert this keypair into a KEY record type for usage with SIG0
@@ -260,17 +268,21 @@ impl KeyPair {
     /// # Return
     ///
     /// the KEY record data
-    pub fn to_sig0key_with_usage(&self, algorithm: Algorithm,
-                                 usage: KeyUsage) -> DnsSecResult<KEY> {
-        self.to_public_bytes()
-            .map(|bytes| {
-                     KEY::new(Default::default(),
-                              usage,
-                              Default::default(),
-                              Default::default(),
-                              algorithm,
-                              bytes)
-                 })
+    pub fn to_sig0key_with_usage(
+        &self,
+        algorithm: Algorithm,
+        usage: KeyUsage,
+    ) -> DnsSecResult<KEY> {
+        self.to_public_bytes().map(|bytes| {
+            KEY::new(
+                Default::default(),
+                usage,
+                Default::default(),
+                Default::default(),
+                algorithm,
+                bytes,
+            )
+        })
     }
 
     /// Creates a DS record for this KeyPair associated to the given name
@@ -281,19 +293,22 @@ impl KeyPair {
     /// * `algorithm` - the algorithm of the DNSKEY
     /// * `digest_type` - the digest_type used to
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    pub fn to_ds(&self,
-                 name: &Name,
-                 algorithm: Algorithm,
-                 digest_type: DigestType)
-                 -> DnsSecResult<DS> {
+    pub fn to_ds(
+        &self,
+        name: &Name,
+        algorithm: Algorithm,
+        digest_type: DigestType,
+    ) -> DnsSecResult<DS> {
         self.to_dnskey(algorithm)
             .and_then(|dnskey| self.key_tag().map(|key_tag| (key_tag, dnskey)))
             .and_then(|(key_tag, dnskey)| {
-                          dnskey
-                              .to_digest(name, digest_type)
-                              .map(|digest| (key_tag, digest))
-                      })
-            .map(|(key_tag, digest)| DS::new(key_tag, algorithm, digest_type, digest.as_ref().to_owned()))
+                dnskey.to_digest(name, digest_type).map(|digest| {
+                    (key_tag, digest)
+                })
+            })
+            .map(|(key_tag, digest)| {
+                DS::new(key_tag, algorithm, digest_type, digest.as_ref().to_owned())
+            })
     }
 
     /// Signs a hash.
@@ -316,8 +331,7 @@ impl KeyPair {
                 let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
                 let mut signer = Signer::new(digest_type, &pkey).unwrap();
                 try!(signer.update(tbs.as_ref()));
-                signer.finish().map_err(|e| e.into())
-                .and_then(|bytes| {
+                signer.finish().map_err(|e| e.into()).and_then(|bytes| {
                     if let KeyPair::RSA(_) = *self {
                         return Ok(bytes);
                     }
@@ -328,7 +342,10 @@ impl KeyPair {
                     }
                     let expect = |pos: usize, expected: u8| -> DnsSecResult<()> {
                         if bytes[pos] != expected {
-                            return Err(format!("unexpected signature format ({}, {}))", pos, expected).into());
+                            return Err(
+                                format!("unexpected signature format ({}, {}))", pos, expected)
+                                    .into(),
+                            );
                         }
                         Ok(())
                     };
@@ -345,7 +362,7 @@ impl KeyPair {
                     }
 
                     let p1 = &bytes[4..p2_pos];
-                    let p2 = &bytes[p2_pos + 2 .. p2_pos + 2 + p2_len];
+                    let p2 = &bytes[p2_pos + 2..p2_pos + 2 + p2_len];
 
                     // For P-256, each integer MUST be encoded as 32 octets;
                     // for P-384, each integer MUST be encoded as 48 octets.
@@ -385,7 +402,9 @@ impl KeyPair {
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
-            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+            _ => Err(
+                DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into(),
+            ),
         }
     }
 
@@ -400,9 +419,11 @@ impl KeyPair {
             Algorithm::RSASHA256 |
             Algorithm::RSASHA512 => {
                 // TODO: the only keysize right now, would be better for people to use other algorithms...
-                OpenSslRsa::generate(2048)
-                    .map_err(|e| e.into())
-                    .and_then(|rsa| KeyPair::from_rsa(rsa))
+                OpenSslRsa::generate(2048).map_err(|e| e.into()).and_then(
+                    |rsa| {
+                        KeyPair::from_rsa(rsa)
+                    },
+                )
             }
             #[cfg(feature = "openssl")]
             Algorithm::ECDSAP256SHA256 => {
@@ -420,10 +441,16 @@ impl KeyPair {
             }
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => {
-                Err(DnsSecErrorKind::Message("use generate_pkcs8 for generating private key and encoding").into())
+                Err(
+                    DnsSecErrorKind::Message(
+                        "use generate_pkcs8 for generating private key and encoding",
+                    ).into(),
+                )
             }
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
-            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+            _ => Err(
+                DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into(),
+            ),
         }
     }
 
@@ -436,15 +463,21 @@ impl KeyPair {
             Algorithm::RSASHA1NSEC3SHA1 |
             Algorithm::RSASHA256 |
             Algorithm::RSASHA512 => {
-                Err(DnsSecErrorKind::Message("openssl does not yet support pkcs8").into())
+                Err(
+                    DnsSecErrorKind::Message("openssl does not yet support pkcs8").into(),
+                )
             }
             #[cfg(feature = "openssl")]
             Algorithm::ECDSAP256SHA256 => {
-                Err(DnsSecErrorKind::Message("openssl does not yet support pkcs8").into())
+                Err(
+                    DnsSecErrorKind::Message("openssl does not yet support pkcs8").into(),
+                )
             }
             #[cfg(feature = "openssl")]
             Algorithm::ECDSAP384SHA384 => {
-                Err(DnsSecErrorKind::Message("openssl does not yet support pkcs8").into())
+                Err(
+                    DnsSecErrorKind::Message("openssl does not yet support pkcs8").into(),
+                )
             }
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => {
@@ -454,7 +487,9 @@ impl KeyPair {
                     .map(|pkcs8_bytes| pkcs8_bytes.to_vec())
             }
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
-            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
+            _ => Err(
+                DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into(),
+            ),
         }
     }
 }
@@ -495,55 +530,79 @@ mod tests {
 
     fn public_key_test(algorithm: Algorithm, key_format: KeyFormat) {
         let key = key_format
-            .decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(),
-                        None,
-                        algorithm)
+            .decode_key(
+                &key_format.generate_and_encode(algorithm, None).unwrap(),
+                None,
+                algorithm,
+            )
             .unwrap();
         let pk = key.to_public_bytes().unwrap();
         let pk = PublicKeyEnum::from_public_bytes(&pk, algorithm).unwrap();
 
         let tbs = TBS::from(&b"www.example.com"[..]);
         let mut sig = key.sign(algorithm, &tbs).unwrap();
-        assert!(pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
-                "algorithm: {:?} (public key)",
-                algorithm);
+        assert!(
+            pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            "algorithm: {:?} (public key)",
+            algorithm
+        );
         sig[10] = !sig[10];
-        assert!(!pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
-                "algorithm: {:?} (public key, neg)",
-                algorithm);
+        assert!(
+            !pk.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            "algorithm: {:?} (public key, neg)",
+            algorithm
+        );
     }
     fn hash_test(algorithm: Algorithm, key_format: KeyFormat) {
         let tbs = TBS::from(&b"www.example.com"[..]);
 
         // TODO: convert to stored keys...
         let key = key_format
-            .decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(),
-                        None,
-                        algorithm)
+            .decode_key(
+                &key_format.generate_and_encode(algorithm, None).unwrap(),
+                None,
+                algorithm,
+            )
             .unwrap();
         let pub_key = key.to_public_bytes().unwrap();
         let pub_key = PublicKeyEnum::from_public_bytes(&pub_key, algorithm).unwrap();
 
         let neg = key_format
-            .decode_key(&key_format.generate_and_encode(algorithm, None).unwrap(),
-                        None,
-                        algorithm)
+            .decode_key(
+                &key_format.generate_and_encode(algorithm, None).unwrap(),
+                None,
+                algorithm,
+            )
             .unwrap();
         let neg_pub_key = neg.to_public_bytes().unwrap();
         let neg_pub_key = PublicKeyEnum::from_public_bytes(&neg_pub_key, algorithm).unwrap();
 
         let sig = key.sign(algorithm, &tbs).unwrap();
-        assert!(pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
-                "algorithm: {:?}",
-                algorithm);
-        assert!(key.to_dnskey(algorithm).unwrap().verify(tbs.as_ref(), &sig).is_ok(),
-                "algorithm: {:?} (dnskey)",
-                algorithm);
-        assert!(!neg_pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
-                "algorithm: {:?} (neg)",
-                algorithm);
-        assert!(!neg.to_dnskey(algorithm).unwrap().verify(tbs.as_ref(), &sig).is_ok(),
-                "algorithm: {:?} (dnskey, neg)",
-                algorithm);
+        assert!(
+            pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            "algorithm: {:?}",
+            algorithm
+        );
+        assert!(
+            key.to_dnskey(algorithm)
+                .unwrap()
+                .verify(tbs.as_ref(), &sig)
+                .is_ok(),
+            "algorithm: {:?} (dnskey)",
+            algorithm
+        );
+        assert!(
+            !neg_pub_key.verify(algorithm, tbs.as_ref(), &sig).is_ok(),
+            "algorithm: {:?} (neg)",
+            algorithm
+        );
+        assert!(
+            !neg.to_dnskey(algorithm)
+                .unwrap()
+                .verify(tbs.as_ref(), &sig)
+                .is_ok(),
+            "algorithm: {:?} (dnskey, neg)",
+            algorithm
+        );
     }
 }

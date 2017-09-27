@@ -496,6 +496,30 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
     }
 }
 
+/// An owned variant of PublicKey
+pub struct PublicKeyBuf {
+    key_buf: Vec<u8>,
+}
+
+impl PublicKeyBuf {
+    /// Constructs a new PublicKey from the specified bytes, these should be in DNSKEY form.
+    pub fn new(key_buf: Vec<u8>) -> Self {
+        PublicKeyBuf { key_buf }
+    }
+}
+
+impl PublicKey for PublicKeyBuf {
+    fn public_bytes(&self) -> &[u8] {
+        &self.key_buf
+    }
+
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+        let public_key = PublicKeyEnum::from_public_bytes(&self.key_buf, algorithm)?;
+
+        public_key.verify(algorithm, message, signature)
+    }
+}
+
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 #[cfg(test)]
 mod tests {
