@@ -123,6 +123,8 @@ fn parse_file(
 }
 
 fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, String> {
+    debug!("loading zone with config: {:#?}", zone_config);
+
     let zone_name: Name = zone_config.get_zone().expect("bad zone name");
     let zone_path: PathBuf = zone_dir.to_owned().join(zone_config.get_file());
     let journal_path: PathBuf = zone_path.with_extension("jrnl");
@@ -230,6 +232,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
             }
         }
 
+        info!("signing zone: {:?}", zone_config.get_zone());
         authority.secure_zone().expect("failed to sign zone");
     }
 
@@ -315,7 +318,8 @@ pub fn main() {
         .and_then(|d| d.help(true).version(Some(version().into())).decode())
         .unwrap_or_else(|e| e.exit());
 
-    // TODO, this should be set after loading config, but it's necessary for initial log lines, no?
+    // FIXME: add env_logger support
+    // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
     if args.flag_quiet {
         logger::TrustDnsLogger::enable_logging(LogLevel::Warn);
     } else if args.flag_debug {

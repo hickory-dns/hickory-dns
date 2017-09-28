@@ -5,6 +5,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.12.0
 
+### Changed
+
+- now using env_logger instead of raw logger
+
+## 0.12.0
+
 ### Fixed
 
 - Server was not properly signing zone after fresh start
