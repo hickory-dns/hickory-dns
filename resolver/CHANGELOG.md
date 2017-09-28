@@ -8,6 +8,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - Split UDP and TCP into different NS pools, prefer UDP lookups first
+- On truncated UDP responses, promote to TCP for resolution
 
 ### Added
 
