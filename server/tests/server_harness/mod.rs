@@ -38,14 +38,21 @@ where
     println!("using server src path: {}", server_path);
 
     let mut named = Command::new(&format!("{}/../target/debug/named", server_path))
-                          .stdout(Stdio::piped())
-                          //.arg("-d")
-                          .arg(&format!("--config={}/tests/named_test_configs/{}", server_path, toml))
-                          .arg(&format!("--zonedir={}/tests/named_test_configs", server_path))
-                          .arg(&format!("--port={}", test_port))
-                          .arg(&format!("--tls-port={}", test_tls_port))
-                          .spawn()
-                          .expect("failed to start named");
+        .stdout(Stdio::piped())
+        .arg("-d")
+        .arg(&format!(
+            "--config={}/tests/named_test_configs/{}",
+            server_path,
+            toml
+        ))
+        .arg(&format!(
+            "--zonedir={}/tests/named_test_configs",
+            server_path
+        ))
+        .arg(&format!("--port={}", test_port))
+        .arg(&format!("--tls-port={}", test_tls_port))
+        .spawn()
+        .expect("failed to start named");
 
     let mut named_out = BufReader::new(mem::replace(&mut named.stdout, None).expect("no stdout"));
 
@@ -130,7 +137,32 @@ where
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
 #[allow(dead_code)]
-pub fn query(io_loop: &mut Core, client: &mut BasicClientHandle) -> bool {
+pub fn query<C: ClientHandle>(io_loop: &mut Core, client: &mut C) -> bool {
+    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+
+    println!("sending request");
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
+    println!("got response: {}", response.is_ok());
+    if response.is_err() {
+        return false;
+    }
+    let response = response.unwrap();
+
+
+    let record = &response.answers()[0];
+
+    if let &RData::A(ref address) = record.rdata() {
+        address == &Ipv4Addr::new(127, 0, 0, 1)
+    } else {
+        false
+    }
+}
+
+// This only validates that a query to the server works, it shouldn't be used for more than this.
+//  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
+#[allow(dead_code)]
+pub fn query_all_dnssec<C: ClientHandle>(io_loop: &mut Core, client: &mut C) -> bool {
+    // FIXME: query for all Records and show that they are good.
     let name = domain::Name::from_labels(vec!["www", "example", "com"]);
 
     println!("sending request");

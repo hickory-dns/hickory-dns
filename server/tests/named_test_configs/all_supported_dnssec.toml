@@ -32,7 +32,12 @@
 # tcp_request_timeout = 5
 
 ## DNS over TLS certificate information.
-# tls_cert = { path = "path/to/some.pkcs12", password = "if_encrypted" }
+## if create_if_absent is true, a self-signed cert, with an Ellyptic Curve P256 key,
+##  will be created and used,
+##  beside the cert will be a CSR which can be used (if desired) to have a CA sign. Subsequent
+##  to signing, replace the pkcs12 file (with private key embedded) and restart
+##  the server.
+# tls_cert = { path = "path/to/some.pkcs12", create_if_absent = "false", subject_name = "ns.example.com", password = "if_encrypted" }
 
 ## port on which to listent, default 853 (should not be 53)
 # tls_listen_port = 853
@@ -86,7 +91,7 @@ file = "example.com.zone"
 ## meaning that SIG(0) updates can be established by initially using these
 ## keys. the zone will be signed with all specified keys, it may be desirable
 ## to limit this set for performance reasons.
-# enable_dnssec = false
+enable_dnssec = true
 
 ## set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
 ## these will be lookedup by $file.{key_name}.pem, for backward compatability
@@ -105,20 +110,21 @@ file = "example.com.zone"
 ## keys are listed in pairs of key_name and algorithm, the search path is the
 ## same directory has the zone $file (this section would be relative to the
 ## example.com zone):
-# [[zones.keys]]
-## relative to the zone $file
-# key_path = "my_rsa_2048.pem"
+[[zones.keys]]
+key_path = "./tests/named_test_configs/dnssec/rsa_2048.pem"
 ## the password used to encrypt/decrypt the file (must be PEM), blank for none
-# password = ""
+password = "123456"
 ## specify the algorithm
-# algorithm = "RSASHA256"
+algorithm = "RSASHA256"
 ## this key should be used to sign the zone
-# is_zone_signing_key = true
+is_zone_signing_key = true
 ## this key is authorized for dynamic update access to the zone via SIG0
 # is_zone_update_auth = true
+## create the key if it is not found
+# create_if_absent = false
 #
 # [[zones.keys]]
-# key_path = "/path/to/my_ed25519.raw"
+# key = "/path/to/my_ed25519.raw"
 # algorithm = "ED25519"
 ## for keys that are not zone signing, the pem need only include the pubic_key
 # is_zone_signing_key = false
