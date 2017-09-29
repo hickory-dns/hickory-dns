@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::fmt;
+use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
 use serialize::binary::*;
@@ -183,7 +185,9 @@ impl FromStr for Algorithm {
             "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
             "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
             "ED25519" => Ok(Algorithm::ED25519),
-            _ => Err(DecodeErrorKind::Msg(format!("unrecognized string {}", s)).into()),
+            _ => Err(
+                DecodeErrorKind::Msg(format!("unrecognized string {}", s)).into(),
+            ),
         }
     }
 }
@@ -208,42 +212,57 @@ impl From<Algorithm> for u8 {
     }
 }
 
+impl Display for Algorithm {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        f.write_str(self.to_str())
+    }
+}
+
 #[test]
 fn test_into() {
-    for algorithm in &[Algorithm::RSASHA1,
-                       Algorithm::RSASHA256,
-                       Algorithm::RSASHA1NSEC3SHA1,
-                       Algorithm::RSASHA512,
-                       Algorithm::ECDSAP256SHA256,
-                       Algorithm::ECDSAP384SHA384,
-                       Algorithm::ED25519] {
-        assert_eq!(*algorithm,
-                   Algorithm::from_u8(Into::<u8>::into(*algorithm)).unwrap())
+    for algorithm in &[
+        Algorithm::RSASHA1,
+        Algorithm::RSASHA256,
+        Algorithm::RSASHA1NSEC3SHA1,
+        Algorithm::RSASHA512,
+        Algorithm::ECDSAP256SHA256,
+        Algorithm::ECDSAP384SHA384,
+        Algorithm::ED25519,
+    ]
+    {
+        assert_eq!(
+            *algorithm,
+            Algorithm::from_u8(Into::<u8>::into(*algorithm)).unwrap()
+        )
     }
 }
 
 #[test]
 fn test_order() {
-    let mut algorithms = [Algorithm::RSASHA1,
-                          Algorithm::RSASHA256,
-                          Algorithm::RSASHA1NSEC3SHA1,
-                          Algorithm::RSASHA512,
-                          Algorithm::ECDSAP256SHA256,
-                          Algorithm::ECDSAP384SHA384,
-                          Algorithm::ED25519];
+    let mut algorithms = [
+        Algorithm::RSASHA1,
+        Algorithm::RSASHA256,
+        Algorithm::RSASHA1NSEC3SHA1,
+        Algorithm::RSASHA512,
+        Algorithm::ECDSAP256SHA256,
+        Algorithm::ECDSAP384SHA384,
+        Algorithm::ED25519,
+    ];
 
     algorithms.sort();
 
-    for (got, expect) in algorithms
-            .iter()
-            .zip([Algorithm::RSASHA1,
-                  Algorithm::RSASHA1NSEC3SHA1,
-                  Algorithm::RSASHA256,
-                  Algorithm::RSASHA512,
-                  Algorithm::ECDSAP256SHA256,
-                  Algorithm::ECDSAP384SHA384,
-                  Algorithm::ED25519]
-                         .iter()) {
+    for (got, expect) in algorithms.iter().zip(
+        [
+            Algorithm::RSASHA1,
+            Algorithm::RSASHA1NSEC3SHA1,
+            Algorithm::RSASHA256,
+            Algorithm::RSASHA512,
+            Algorithm::ECDSAP256SHA256,
+            Algorithm::ECDSAP384SHA384,
+            Algorithm::ED25519,
+        ].iter(),
+    )
+    {
         assert_eq!(got, expect);
     }
 }

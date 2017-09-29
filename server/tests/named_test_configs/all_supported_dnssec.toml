@@ -122,10 +122,10 @@ is_zone_signing_key = true
 # is_zone_update_auth = true
 ## create the key if it is not found
 # create_if_absent = false
-#
-# [[zones.keys]]
-# key = "/path/to/my_ed25519.raw"
-# algorithm = "ED25519"
-## for keys that are not zone signing, the pem need only include the pubic_key
-# is_zone_signing_key = false
+
+[[zones.keys]]
+# Requires --features=ring
+key_path = "./tests/named_test_configs/dnssec/ed25519.pk8"
+algorithm = "ED25519"
+is_zone_signing_key = true
 # is_zone_update_auth = true
