@@ -1134,11 +1134,17 @@ impl Authority {
         })
         {
 
-            debug!("signing rr_set: {}", rr_set.name());
             rr_set.clear_rrsigs();
             let rrsig_temp = Record::with(rr_set.name().clone(), RecordType::RRSIG, zone_ttl);
 
             for signer in self.secure_keys.iter() {
+                debug!(
+                    "signing rr_set: {}, {} with: {}",
+                    rr_set.name(),
+                    rr_set.record_type(),
+                    signer.algorithm(),
+                );
+
                 let expiration = inception + signer.sig_duration();
 
                 let tbs = tbs::rrset_tbs(
@@ -1202,7 +1208,7 @@ impl Authority {
                 )));
 
                 rr_set.insert_rrsig(rrsig);
-                debug!("signed rr_set: {}", rr_set.name());
+                trace!("signed rr_set: {}", rr_set.name());
             }
         }
 
