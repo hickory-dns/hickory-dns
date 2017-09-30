@@ -124,8 +124,13 @@ is_zone_signing_key = true
 # create_if_absent = false
 
 [[zones.keys]]
+key_path = "./tests/named_test_configs/dnssec/rsa_2048.pem"
+password = "123456"
+algorithm = "RSASHA512"
+is_zone_signing_key = true
+
+[[zones.keys]]
 # Requires --features=ring
 key_path = "./tests/named_test_configs/dnssec/ed25519.pk8"
 algorithm = "ED25519"
 is_zone_signing_key = true
-# is_zone_update_auth = true

@@ -46,7 +46,7 @@ impl RequestHandler for Catalog {
             request_message.message_type(),
             request_message.op_code()
         );
-        debug!("request: {:?}", request_message);
+        trace!("request: {:?}", request_message);
 
         let mut resp_edns_opt: Option<Edns> = None;
 
@@ -93,14 +93,14 @@ impl RequestHandler for Catalog {
                 match request_message.op_code() {
                     OpCode::Query => {
                         let response = self.lookup(&request_message);
-                        debug!("query response: {:?}", response);
+                        trace!("query response: {:?}", response);
                         response
                         // TODO, handle recursion here or in the catalog?
                         // recursive queries should be cached.
                     }
                     OpCode::Update => {
                         let response = self.update(request_message);
-                        debug!("update response: {:?}", response);
+                        trace!("update response: {:?}", response);
                         response
                     }
                     c @ _ => {
