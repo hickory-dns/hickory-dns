@@ -184,7 +184,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
             }));
         }
 
-        info!("loaded zone: {}", zone_name);
+        info!("zone file loaded: {}", zone_name);
         authority
     } else {
         return Err(format!("no zone file defined at: {:?}", zone_path));
@@ -232,10 +232,14 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
             }
         }
 
-        info!("signing zone: {:?}", zone_config.get_zone());
+        info!("signing zone: {}", zone_config.get_zone().unwrap());
         authority.secure_zone().expect("failed to sign zone");
     }
 
+    info!(
+        "zone successfully loaded: {}",
+        zone_config.get_zone().unwrap()
+    );
     Ok(authority)
 }
 

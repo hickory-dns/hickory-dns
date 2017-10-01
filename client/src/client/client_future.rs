@@ -401,7 +401,7 @@ impl ClientHandle for BasicClientHandle {
         false
     }
 
-    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
 
