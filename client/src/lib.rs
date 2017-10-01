@@ -239,13 +239,8 @@ pub mod logger;
 pub mod op;
 pub mod rr;
 pub mod tcp;
-#[cfg(all(feature = "tls", feature = "openssl"))]
-pub mod tls;
 pub mod udp;
 pub mod serialize;
-
-#[cfg(test)]
-mod tests;
 
 use std::io;
 use std::net::SocketAddr;

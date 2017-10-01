@@ -1,6 +1,10 @@
+extern crate chrono;
+extern crate futures;
 extern crate log;
 extern crate trust_dns;
 extern crate tokio_core;
+extern crate trust_dns_server;
+extern crate trust_dns_openssl;
 extern crate openssl;
 
 mod server_harness;
@@ -16,7 +20,9 @@ use tokio_core::reactor::Core;
 
 use trust_dns::client::*;
 use trust_dns::tcp::TcpClientStream;
-use trust_dns::tls::TlsClientStream;
+
+#[cfg(feature = "tls")]
+use trust_dns_openssl::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query};
 
@@ -148,7 +154,7 @@ fn test_example_tls_toml_startup() {
             .unwrap()
             .next()
             .unwrap();
-        let mut tls_conn_builder = TlsClientStream::builder();
+        let mut tls_conn_builder = TlsClientStreamBuilder::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) =
@@ -163,7 +169,7 @@ fn test_example_tls_toml_startup() {
             .unwrap()
             .next()
             .unwrap();
-        let mut tls_conn_builder = TlsClientStream::builder();
+        let mut tls_conn_builder = TlsClientStreamBuilder::new();
         let cert = to_trust_anchor(&cert_der);
         tls_conn_builder.add_ca(cert);
         let (stream, sender) =

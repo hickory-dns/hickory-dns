@@ -19,7 +19,7 @@ use tokio_openssl::SslAcceptorExt;
 
 use trust_dns::udp::UdpStream;
 use trust_dns::tcp::TcpStream;
-use trust_dns::tls::TlsStream;
+use trust_dns_openssl::TlsStream;
 
 use server::{Request, RequestHandler, RequestStream, ResponseHandle, TimeoutStream};
 
