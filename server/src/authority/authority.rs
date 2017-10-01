@@ -1124,15 +1124,8 @@ impl Authority {
             warn!("attempt to sign_zone for dnssec, but no keys available!")
         }
 
-        for rr_set in self.records.iter_mut().filter_map(|(_, rr_set)| {
-            // do not sign zone DNSKEY's that's the job of the parent zone
-            if rr_set.record_type() == RecordType::DNSKEY {
-                return None;
-            }
-            rr_set.rrsigs().is_empty();
-            Some(rr_set)
-        })
-        {
+        // sign all record_sets, as of 0.12.1 this includes DNSKEY
+        for (_, rr_set) in self.records.iter_mut() {
 
             rr_set.clear_rrsigs();
             let rrsig_temp = Record::with(rr_set.name().clone(), RecordType::RRSIG, zone_ttl);
