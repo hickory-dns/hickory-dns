@@ -103,11 +103,16 @@ impl SupportedAlgorithms {
         // this is pretty much guaranteed to be less that u16::max_value()
         self.iter().count() as u16
     }
+
+    /// Return true if no SupportedAlgorithms are set, this implies the option is not supported
+    pub fn is_empty(&self) -> bool {
+        self.bit_map == 0
+    }
 }
 
 impl Default for SupportedAlgorithms {
     fn default() -> SupportedAlgorithms {
-        SupportedAlgorithms::from_vec(&[Algorithm::RSASHA256])
+        SupportedAlgorithms::new()
     }
 }
 

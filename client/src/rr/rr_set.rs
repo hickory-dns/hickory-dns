@@ -158,6 +158,11 @@ impl RecordSet {
         supported_algorithms: SupportedAlgorithms,
     ) -> Vec<&Record> {
         if and_rrsigs {
+            // disable rfc 6975 when no supported_algorithms specified 
+            if supported_algorithms.is_empty() {
+                return self.records.iter().chain(self.rrsigs.iter()).collect();
+            }
+             
             let rrsigs = self.rrsigs
                 .iter()
                 .filter(|record| if let &RData::SIG(ref rrsig) = record.rdata() {
@@ -185,7 +190,6 @@ impl RecordSet {
             {
                 debug!("RRSET::records sig: {}", rrsig.algorithm());
             }
-
 
             res
         } else {

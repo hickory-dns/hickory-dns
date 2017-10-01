@@ -21,7 +21,7 @@ use trust_dns::tcp::TcpClientStream;
 use trust_dns::tls::TlsClientStream;
 use trust_dns::rr::dnssec::*;
 
-use server_harness::{named_test_harness, query_a, query_all_dnssec};
+use server_harness::*;
 
 
 #[cfg(not(feature = "ring"))]
@@ -73,7 +73,9 @@ fn generic_test(key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
 
         // verify all records are present
         let client = standard_conn(port, &io_loop);
-        query_all_dnssec(&mut io_loop, client, algorithm);
+        query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
+        let client = standard_conn(port, &io_loop);
+        query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Secure client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);

@@ -171,11 +171,18 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Core, client: &mut C) {
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
 #[allow(dead_code)]
-pub fn query_all_dnssec(io_loop: &mut Core, client: BasicClientHandle, algorithm: Algorithm) {
+pub fn query_all_dnssec(
+    io_loop: &mut Core,
+    client: BasicClientHandle,
+    algorithm: Algorithm,
+    with_rfc6975: bool,
+) {
     let name = Name::from_labels(vec!["example", "com"]);
     let mut client = MutMessageClient::new(client);
     client.dnssec_ok = true;
-    client.support_algorithms = Some(SupportedAlgorithms::from_vec(&[algorithm]));
+    if (with_rfc6975) {
+        client.support_algorithms = Some(SupportedAlgorithms::from_vec(&[algorithm]));
+    }
 
     let response = query_message(
         io_loop,
@@ -208,4 +215,22 @@ pub fn query_all_dnssec(io_loop: &mut Core, client: BasicClientHandle, algorithm
         .filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
     assert!(rrsig.is_some(), "Associated RRSIG not found");
+}
+
+#[allow(dead_code)]
+pub fn query_all_dnssec_with_rfc6975(
+    io_loop: &mut Core,
+    client: BasicClientHandle,
+    algorithm: Algorithm,
+) {
+    query_all_dnssec(io_loop, client, algorithm, true)
+}
+
+#[allow(dead_code)]
+pub fn query_all_dnssec_wo_rfc6975(
+    io_loop: &mut Core,
+    client: BasicClientHandle,
+    algorithm: Algorithm,
+) {
+    query_all_dnssec(io_loop, client, algorithm, false)
 }
