@@ -176,22 +176,7 @@ impl RecordSet {
                     Algorithm::RSASHA1
                 });
 
-            let res: Vec<&Record> = self.records.iter().chain(rrsigs).collect();
-
-            // FIXME: remove this...
-            let tmp_rrsigs = res.clone();
-            for rrsig in tmp_rrsigs.iter().filter(|r| r.rr_type() == RecordType::RRSIG).map(|r| if let &RData::SIG(ref rrsig) =
-                r.rdata()
-            {
-                rrsig
-            } else {
-                panic!("wrong RDATA")
-            })
-            {
-                debug!("RRSET::records sig: {}", rrsig.algorithm());
-            }
-
-            res
+            self.records.iter().chain(rrsigs).collect()
         } else {
             self.records.iter().collect()
         }

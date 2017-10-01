@@ -1201,20 +1201,6 @@ impl Authority {
 
                 rr_set.insert_rrsig(rrsig);
             }
-
-            // FIXME: remove this...
-            for rrsig in rr_set.rrsigs().iter().map(
-                |r| if let &RData::SIG(ref rrsig) =
-                    r.rdata()
-                {
-                    rrsig
-                } else {
-                    panic!("wrong RDATA")
-                },
-            )
-            {
-                debug!("contains sig: {}", rrsig.algorithm());
-            }
         }
 
         Ok(())
