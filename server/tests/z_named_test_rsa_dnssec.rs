@@ -61,9 +61,9 @@ fn standard_conn(port: u16, io_loop: &Core) -> BasicClientHandle {
 }
 
 fn generic_test(key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
-    use trust_dns::logger;
-    use log::LogLevel;
-    logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
+    // use trust_dns::logger;
+    // use log::LogLevel;
+    // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
     let server_path = Path::new(&server_path);
@@ -109,5 +109,15 @@ fn test_ed25519() {
         "tests/named_test_configs/dnssec/ed25519.pk8",
         KeyFormat::Pkcs8,
         Algorithm::ED25519,
+    );
+}
+
+#[test]
+#[should_panic]
+fn test_rsa_sha1_fails() {
+    generic_test(
+        "tests/named_test_configs/dnssec/rsa_2048.pem",
+        KeyFormat::Pem,
+        Algorithm::RSASHA1,
     );
 }

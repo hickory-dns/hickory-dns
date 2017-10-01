@@ -16,7 +16,7 @@ use tokio_core::reactor::Core;
 use trust_dns::client::*;
 use trust_dns::op::Message;
 use trust_dns::rr::*;
-use trust_dns::rr::dnssec::Algorithm;
+use trust_dns::rr::dnssec::*;
 
 use self::mut_message_client::MutMessageClient;
 
@@ -175,6 +175,7 @@ pub fn query_all_dnssec(io_loop: &mut Core, client: BasicClientHandle, algorithm
     let name = Name::from_labels(vec!["example", "com"]);
     let mut client = MutMessageClient::new(client);
     client.dnssec_ok = true;
+    client.support_algorithms = Some(SupportedAlgorithms::from_vec(&[algorithm]));
 
     let response = query_message(
         io_loop,
@@ -186,12 +187,13 @@ pub fn query_all_dnssec(io_loop: &mut Core, client: BasicClientHandle, algorithm
     let dnskey = response
         .answers()
         .iter()
-        .find(|r| r.rr_type() == RecordType::DNSKEY)
+        .filter(|r| r.rr_type() == RecordType::DNSKEY)
         .map(|r| if let &RData::DNSKEY(ref dnskey) = r.rdata() {
             dnskey.clone()
         } else {
             panic!("wrong RDATA")
-        });
+        })
+        .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
 
     let rrsig = response
@@ -203,6 +205,7 @@ pub fn query_all_dnssec(io_loop: &mut Core, client: BasicClientHandle, algorithm
         } else {
             panic!("wrong RDATA")
         })
+        .filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
     assert!(rrsig.is_some(), "Associated RRSIG not found");
 }

@@ -1126,7 +1126,6 @@ impl Authority {
 
         // sign all record_sets, as of 0.12.1 this includes DNSKEY
         for (_, rr_set) in self.records.iter_mut() {
-
             rr_set.clear_rrsigs();
             let rrsig_temp = Record::with(rr_set.name().clone(), RecordType::RRSIG, zone_ttl);
 
@@ -1201,7 +1200,20 @@ impl Authority {
                 )));
 
                 rr_set.insert_rrsig(rrsig);
-                trace!("signed rr_set: {}", rr_set.name());
+            }
+
+            // FIXME: remove this...
+            for rrsig in rr_set.rrsigs().iter().map(
+                |r| if let &RData::SIG(ref rrsig) =
+                    r.rdata()
+                {
+                    rrsig
+                } else {
+                    panic!("wrong RDATA")
+                },
+            )
+            {
+                debug!("contains sig: {}", rrsig.algorithm());
             }
         }
 

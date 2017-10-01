@@ -292,12 +292,18 @@ impl Catalog {
                                 if let Some(&EdnsOption::DAU(algs)) = edns.option(&EdnsCode::DAU) {
                                     algs
                                 } else {
+                                    debug!("no DAU in request, used default SupportAlgorithms");
                                     Default::default()
                                 };
 
                             (edns.dnssec_ok(), supported_algorithms)
                         },
                     );
+                debug!(
+                    "request: {} supported_algs: {}",
+                    request.id(),
+                    supported_algorithms
+                );
 
                 let records = authority.search(query, is_dnssec, supported_algorithms);
                 if !records.is_empty() {
