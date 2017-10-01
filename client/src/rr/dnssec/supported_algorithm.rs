@@ -17,6 +17,8 @@
 //! bitmap for expressing the set of supported algorithms in edns.
 
 use std::convert::From;
+use std::fmt;
+use std::fmt::{Display, Formatter};
 
 use rr::dnssec::Algorithm;
 
@@ -109,11 +111,16 @@ impl Default for SupportedAlgorithms {
     }
 }
 
-// impl<'a> SupportedAlgorithms {
-//   pub fn iter(&self) -> SupportedAlgorithmsIter<'a> {
-//     SupportedAlgorithmsIter::new(self)
-//   }
-// }
+impl Display for SupportedAlgorithms {
+    fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
+        for a in self.iter() {
+            a.fmt(f)?;
+            f.write_str(", ")?;
+        }
+
+        Ok(())
+    }
+}
 
 impl<'a> From<&'a [u8]> for SupportedAlgorithms {
     fn from(values: &'a [u8]) -> Self {
@@ -176,6 +183,7 @@ impl<'a> Iterator for SupportedAlgorithmsIter<'a> {
         None
     }
 }
+
 
 #[test]
 fn test_has() {

@@ -170,7 +170,24 @@ impl RecordSet {
                 } else {
                     Algorithm::RSASHA1
                 });
-            self.records.iter().chain(rrsigs).collect()
+
+            let res: Vec<&Record> = self.records.iter().chain(rrsigs).collect();
+
+            // FIXME: remove this...
+            let tmp_rrsigs = res.clone();
+            for rrsig in tmp_rrsigs.iter().filter(|r| r.rr_type() == RecordType::RRSIG).map(|r| if let &RData::SIG(ref rrsig) =
+                r.rdata()
+            {
+                rrsig
+            } else {
+                panic!("wrong RDATA")
+            })
+            {
+                debug!("RRSET::records sig: {}", rrsig.algorithm());
+            }
+
+
+            res
         } else {
             self.records.iter().collect()
         }
@@ -781,6 +798,16 @@ mod test {
         assert!(rrset.records(true, supported_algorithms).iter().any(|r| {
             if let &RData::SIG(ref sig) = r.rdata() {
                 sig.algorithm() == Algorithm::ECDSAP384SHA384
+            } else {
+                false
+            }
+        }));
+
+        let mut supported_algorithms = SupportedAlgorithms::new();
+        supported_algorithms.set(Algorithm::ED25519);
+        assert!(rrset.records(true, supported_algorithms).iter().any(|r| {
+            if let &RData::SIG(ref sig) = r.rdata() {
+                sig.algorithm() == Algorithm::ED25519
             } else {
                 false
             }

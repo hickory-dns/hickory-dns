@@ -95,8 +95,9 @@ impl Config {
     }
     /// default timeout for all TCP connections before forceably shutdown
     pub fn get_tcp_request_timeout(&self) -> Duration {
-        Duration::from_secs(self.tcp_request_timeout
-                                .unwrap_or(DEFAULT_TCP_REQUEST_TIMEOUT))
+        Duration::from_secs(self.tcp_request_timeout.unwrap_or(
+            DEFAULT_TCP_REQUEST_TIMEOUT,
+        ))
     }
 
     // TODO: also support env_logger
@@ -117,9 +118,10 @@ impl Config {
     }
     /// the path for all zone configurations, defaults to `/var/named`
     pub fn get_directory(&self) -> &Path {
-        self.directory
-            .as_ref()
-            .map_or(Path::new(DEFAULT_PATH), |s| Path::new(s))
+        self.directory.as_ref().map_or(
+            Path::new(DEFAULT_PATH),
+            |s| Path::new(s),
+        )
     }
     /// the set of zones which should be loaded
     pub fn get_zones(&self) -> &[ZoneConfig] {
@@ -135,8 +137,9 @@ impl FromStr for Config {
     type Err = ConfigError;
 
     fn from_str(toml: &str) -> ConfigResult<Config> {
-        let value: Value = try!(toml.parse()
-                                    .map_err(|vec| ConfigErrorKind::VecParserError(vec)));
+        let value: Value = try!(toml.parse().map_err(
+            |vec| ConfigErrorKind::VecParserError(vec),
+        ));
         let mut decoder: Decoder = Decoder::new(value);
         Ok(try!(Self::decode(&mut decoder)))
     }
@@ -164,13 +167,14 @@ impl ZoneConfig {
     /// * `allow_update` - enable dynamic updates
     /// * `enable_dnssec` - enable signing of the zone for DNSSec
     /// * `keys` - list of private and public keys used to sign a zone
-    pub fn new(zone: String,
-               zone_type: ZoneType,
-               file: String,
-               allow_update: Option<bool>,
-               enable_dnssec: Option<bool>,
-               keys: Vec<KeyConfig>)
-               -> Self {
+    pub fn new(
+        zone: String,
+        zone_type: ZoneType,
+        file: String,
+        allow_update: Option<bool>,
+        enable_dnssec: Option<bool>,
+        keys: Vec<KeyConfig>,
+    ) -> Self {
         ZoneConfig {
             zone: zone,
             zone_type: zone_type,
@@ -238,13 +242,14 @@ impl KeyConfig {
     /// * `signer_name` - the name to use when signing records, e.g. ns.example.com
     /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
     /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
-    pub fn new(key_path: String,
-               password: Option<String>,
-               algorithm: Algorithm,
-               signer_name: String,
-               is_zone_signing_key: bool,
-               is_zone_update_auth: bool)
-               -> Self {
+    pub fn new(
+        key_path: String,
+        password: Option<String>,
+        algorithm: Algorithm,
+        signer_name: String,
+        is_zone_signing_key: bool,
+        is_zone_update_auth: bool,
+    ) -> Self {
         KeyConfig {
             key_path: key_path,
             password: password,
@@ -262,11 +267,9 @@ impl KeyConfig {
 
     /// Converts key into
     pub fn format(&self) -> ParseResult<KeyFormat> {
-        let extension = try!(self.key_path()
-            .extension()
-            .ok_or(ParseErrorKind::Msg(format!("file lacks extension, e.g. '.p12': {:?}",
-                                               self.key_path())
-                .into())));
+        let extension = try!(self.key_path().extension().ok_or(ParseErrorKind::Msg(
+            format!("file lacks extension, e.g. '.pk8': {:?}", self.key_path()).into(),
+        )));
 
         match extension.to_str() {
             Some("der") => Ok(KeyFormat::Der),
@@ -274,10 +277,13 @@ impl KeyConfig {
             Some("pem") => Ok(KeyFormat::Pem),
             Some("pk8") => Ok(KeyFormat::Pkcs8),
             e @ _ => {
-                Err(ParseErrorKind::Msg(format!("extension not understood, '{:?}': {:?}",
-                                                e,
-                                                self.key_path()))
-                            .into())
+                Err(
+                    ParseErrorKind::Msg(format!(
+                        "extension not understood, '{:?}': {:?}",
+                        e,
+                        self.key_path()
+                    )).into(),
+                )
             }
         }
     }
