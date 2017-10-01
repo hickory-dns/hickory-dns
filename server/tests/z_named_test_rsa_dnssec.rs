@@ -1,3 +1,4 @@
+extern crate futures;
 extern crate log;
 extern crate trust_dns;
 extern crate tokio_core;
@@ -20,7 +21,18 @@ use trust_dns::tcp::TcpClientStream;
 use trust_dns::tls::TlsClientStream;
 use trust_dns::rr::dnssec::*;
 
-use server_harness::{named_test_harness, query};
+use server_harness::{named_test_harness, query_a, query_all_dnssec};
+
+
+#[cfg(not(feature = "ring"))]
+fn confg_toml() -> &'static str {
+    "openssl_dnssec.toml"
+}
+
+#[cfg(feature = "ring")]
+fn confg_toml() -> &'static str {
+    "all_supported_dnssec.toml"
+}
 
 fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm) -> TrustAnchor {
     let mut file = File::open(public_key_path).expect("key not found");
@@ -38,9 +50,17 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
     trust_anchor
 }
 
-#[test]
-#[cfg(any(feature = "ring", feature = "openssl"))]
-fn test_rsa_sha256() {
+fn standard_conn(port: u16, io_loop: &Core) -> BasicClientHandle {
+    let addr: SocketAddr = ("127.0.0.1", port)
+        .to_socket_addrs()
+        .unwrap()
+        .next()
+        .unwrap();
+    let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+    ClientFuture::new(stream, sender, &io_loop.handle(), None)
+}
+
+fn generic_test(key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
     use trust_dns::logger;
     use log::LogLevel;
     logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
@@ -48,118 +68,46 @@ fn test_rsa_sha256() {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
     let server_path = Path::new(&server_path);
 
-    named_test_harness("all_supported_dnssec.toml", |port, _| {
+    named_test_harness(confg_toml(), |port, _| {
         let mut io_loop = Core::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", port)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
-        let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
-        let trust_anchor = trust_anchor(
-            &server_path.join("tests/named_test_configs/dnssec/rsa_2048.pem"),
-            KeyFormat::Pem,
-            Algorithm::RSASHA256,
-        );
+        // verify all records are present
+        let client = standard_conn(port, &io_loop);
+        query_all_dnssec(&mut io_loop, client, algorithm);
+
+        // test that request with Secure client is successful, i.e. validates chain
+        let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
+        let client = standard_conn(port, &io_loop);
         let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
-        assert!(query(&mut io_loop, &mut client));
-
-        // just tests that multiple queries work
-        let addr: SocketAddr = ("127.0.0.1", port)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
-        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
-
-        assert!(query(&mut io_loop, &mut client));
-    })
+        query_a(&mut io_loop, &mut client);
+    });
 }
 
 #[test]
-#[cfg(any(feature = "ring", feature = "openssl"))]
+fn test_rsa_sha256() {
+    generic_test(
+        "tests/named_test_configs/dnssec/rsa_2048.pem",
+        KeyFormat::Pem,
+        Algorithm::RSASHA256,
+    );
+}
+
+#[test]
 fn test_rsa_sha512() {
-    use trust_dns::logger;
-    use log::LogLevel;
-    logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
-
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
-    let server_path = Path::new(&server_path);
-
-    named_test_harness("all_supported_dnssec.toml", |port, _| {
-        let mut io_loop = Core::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", port)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
-        let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
-
-        let trust_anchor = trust_anchor(
-            &server_path.join("tests/named_test_configs/dnssec/rsa_2048.pem"),
-            KeyFormat::Pem,
-            Algorithm::RSASHA512,
-        );
-        let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
-
-        assert!(query(&mut io_loop, &mut client));
-
-        // just tests that multiple queries work
-        let addr: SocketAddr = ("127.0.0.1", port)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
-        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
-
-        assert!(query(&mut io_loop, &mut client));
-    })
+    generic_test(
+        "tests/named_test_configs/dnssec/rsa_2048.pem",
+        KeyFormat::Pem,
+        Algorithm::RSASHA512,
+    );
 }
 
 #[test]
 #[cfg(feature = "ring")]
 fn test_ed25519() {
-    use trust_dns::logger;
-    use log::LogLevel;
-    logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
-
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
-    let server_path = Path::new(&server_path);
-
-    named_test_harness("all_supported_dnssec.toml", |port, _| {
-        let mut io_loop = Core::new().unwrap();
-        let addr: SocketAddr = ("127.0.0.1", port)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
-        let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
-
-        let trust_anchor = trust_anchor(
-            &server_path.join("tests/named_test_configs/dnssec/ed25519.pk8"),
-            KeyFormat::Pkcs8,
-            Algorithm::ED25519,
-        );
-        let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
-
-        assert!(query(&mut io_loop, &mut client));
-
-        // just tests that multiple queries work
-        let addr: SocketAddr = ("127.0.0.1", port)
-            .to_socket_addrs()
-            .unwrap()
-            .next()
-            .unwrap();
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
-        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
-
-        assert!(query(&mut io_loop, &mut client));
-    })
+    generic_test(
+        "tests/named_test_configs/dnssec/ed25519.pk8",
+        KeyFormat::Pkcs8,
+        Algorithm::ED25519,
+    );
 }

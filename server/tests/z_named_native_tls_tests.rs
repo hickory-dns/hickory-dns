@@ -22,7 +22,7 @@ use tokio_core::reactor::Core;
 use trust_dns::client::*;
 use trust_dns_native_tls::TlsClientStreamBuilder;
 
-use server_harness::{named_test_harness, query};
+use server_harness::{named_test_harness, query_a};
 
 
 #[test]
@@ -53,7 +53,7 @@ fn test_example_tls_toml_startup() {
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         // ipv4 should succeed
-        assert!(query(&mut io_loop, &mut client));
+        query_a(&mut io_loop, &mut client);
 
         let addr: SocketAddr = ("127.0.0.1", tls_port)
             .to_socket_addrs()
@@ -68,7 +68,7 @@ fn test_example_tls_toml_startup() {
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         // ipv6 should succeed
-        assert!(query(&mut io_loop, &mut client));
+        query_a(&mut io_loop, &mut client);
 
         assert!(true);
     })

@@ -401,7 +401,7 @@ impl ClientHandle for BasicClientHandle {
         false
     }
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
 
@@ -433,7 +433,9 @@ pub trait ClientHandle: Clone {
     /// Ony returns true if and only if this client is validating DNSSec.
     ///
     /// If the ClientHandle impl is wrapping other clients, then the correct option is to delegate the question to the wrapped client.
-    fn is_verifying_dnssec(&self) -> bool;
+    fn is_verifying_dnssec(&self) -> bool {
+        false
+    }
 
     /// Send a message via the channel in the client
     ///

@@ -1,9 +1,12 @@
+pub mod mut_message_client;
+
 use std::env;
 use std::io::*;
 use std::mem;
 use std::net::*;
 use std::panic::{catch_unwind, UnwindSafe};
 use std::process::{Command, Stdio};
+use std::str::FromStr;
 use std::sync::*;
 use std::time::*;
 use std::thread;
@@ -11,8 +14,11 @@ use std::thread;
 use tokio_core::reactor::Core;
 
 use trust_dns::client::*;
+use trust_dns::op::Message;
 use trust_dns::rr::*;
+use trust_dns::rr::dnssec::Algorithm;
 
+use self::mut_message_client::MutMessageClient;
 
 /// Spins up a Server and handles shutting it down after running the test
 #[allow(dead_code)]
@@ -134,51 +140,69 @@ where
     assert!(result.is_ok(), "test failed");
 }
 
+pub fn query_message<C: ClientHandle>(
+    io_loop: &mut Core,
+    client: &mut C,
+    name: Name,
+    record_type: RecordType,
+) -> Message {
+    println!("sending request");
+    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, record_type));
+    println!("got response: {}", response.is_ok());
+    assert!(response.is_ok());
+    response.unwrap()
+}
+
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
 #[allow(dead_code)]
-pub fn query<C: ClientHandle>(io_loop: &mut Core, client: &mut C) -> bool {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
-
-    println!("sending request");
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
-    println!("got response: {}", response.is_ok());
-    if response.is_err() {
-        return false;
-    }
-    let response = response.unwrap();
-
-
+pub fn query_a<C: ClientHandle>(io_loop: &mut Core, client: &mut C) {
+    let name = Name::from_labels(vec!["www", "example", "com"]);
+    let response = query_message(io_loop, client, name, RecordType::A);
     let record = &response.answers()[0];
 
     if let &RData::A(ref address) = record.rdata() {
-        address == &Ipv4Addr::new(127, 0, 0, 1)
+        assert!(address == &Ipv4Addr::new(127, 0, 0, 1))
     } else {
-        false
+        panic!("wrong RDATA")
     }
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
 #[allow(dead_code)]
-pub fn query_all_dnssec<C: ClientHandle>(io_loop: &mut Core, client: &mut C) -> bool {
-    // FIXME: query for all Records and show that they are good.
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+pub fn query_all_dnssec(io_loop: &mut Core, client: BasicClientHandle, algorithm: Algorithm) {
+    let name = Name::from_labels(vec!["example", "com"]);
+    let mut client = MutMessageClient::new(client);
+    client.dnssec_ok = true;
 
-    println!("sending request");
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
-    println!("got response: {}", response.is_ok());
-    if response.is_err() {
-        return false;
-    }
-    let response = response.unwrap();
+    let response = query_message(
+        io_loop,
+        &mut client,
+        Name::from_str("example.com").unwrap(),
+        RecordType::DNSKEY,
+    );
 
+    let dnskey = response
+        .answers()
+        .iter()
+        .find(|r| r.rr_type() == RecordType::DNSKEY)
+        .map(|r| if let &RData::DNSKEY(ref dnskey) = r.rdata() {
+            dnskey.clone()
+        } else {
+            panic!("wrong RDATA")
+        });
+    assert!(dnskey.is_some(), "DNSKEY not found");
 
-    let record = &response.answers()[0];
-
-    if let &RData::A(ref address) = record.rdata() {
-        address == &Ipv4Addr::new(127, 0, 0, 1)
-    } else {
-        false
-    }
+    let rrsig = response
+        .answers()
+        .iter()
+        .filter(|r| r.rr_type() == RecordType::RRSIG)
+        .map(|r| if let &RData::SIG(ref rrsig) = r.rdata() {
+            rrsig.clone()
+        } else {
+            panic!("wrong RDATA")
+        })
+        .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
+    assert!(rrsig.is_some(), "Associated RRSIG not found");
 }
