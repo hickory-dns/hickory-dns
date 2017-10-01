@@ -34,16 +34,20 @@ extern crate error_chain;
 extern crate futures;
 #[macro_use]
 extern crate log;
-extern crate openssl;
 extern crate rusqlite;
 extern crate rustc_serialize;
 extern crate time;
 extern crate toml;
 extern crate tokio_core;
-extern crate tokio_openssl;
 extern crate trust_dns;
+
 #[cfg(feature = "tls")]
 extern crate trust_dns_openssl;
+#[cfg(feature = "tls")]
+extern crate openssl;
+#[cfg(feature = "tls")]
+extern crate tokio_openssl;
+
 pub mod authority;
 pub mod config;
 pub mod error;
