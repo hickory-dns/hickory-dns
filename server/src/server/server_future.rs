@@ -10,15 +10,20 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
-use openssl::pkcs12::ParsedPkcs12;
-use openssl::ssl;
-use openssl::ssl::{SslAcceptorBuilder, SslMethod};
+
+#[cfg(feature = "tls")]
+use openssl;
+
 use tokio_core;
 use tokio_core::reactor::Core;
+
+#[cfg(feature = "tls")]
 use tokio_openssl::SslAcceptorExt;
 
 use trust_dns::udp::UdpStream;
 use trust_dns::tcp::TcpStream;
+
+#[cfg(feature = "tls")]
 use trust_dns_openssl::TlsStream;
 
 use server::{Request, RequestHandler, RequestStream, ResponseHandle, TimeoutStream};
@@ -127,11 +132,15 @@ impl <T: RequestHandler> ServerFuture <T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
+    #[cfg(feature = "tls")]
     pub fn register_tls_listener(&self,
                                  listener: std::net::TcpListener,
                                  timeout: Duration,
-                                 pkcs12: ParsedPkcs12)
+                                 pkcs12: openssl::pkcs12::ParsedPkcs12)
                                  -> io::Result<()> {
+        use openssl::ssl;
+        use openssl::ssl::{SslAcceptorBuilder, SslMethod};
+
         let handle = self.io_loop.handle();
         let handler = self.handler.clone();
         // TODO: this is an awkward interface with socketaddr...

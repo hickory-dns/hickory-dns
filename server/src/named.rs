@@ -35,10 +35,12 @@ extern crate chrono;
 extern crate docopt;
 #[macro_use]
 extern crate log;
-extern crate openssl;
 extern crate rustc_serialize;
 extern crate trust_dns;
 extern crate trust_dns_server;
+
+#[cfg(feature = "tls")]
+extern crate openssl;
 
 use std::fs;
 use std::fs::File;
@@ -50,15 +52,10 @@ use std::io::{Read, Write};
 use chrono::Duration;
 use docopt::Docopt;
 use log::LogLevel;
-use openssl::asn1::*;
-use openssl::bn::*;
-use openssl::{hash, nid};
-use openssl::pkcs12::{ParsedPkcs12, Pkcs12};
-use openssl::pkey::PKey;
-use openssl::x509::*;
-use openssl::x509::extension::*;
 
-use trust_dns::error::{DnsSecResult, ParseResult};
+#[cfg(feature = "tls")]
+use trust_dns::error::DnsSecResult;
+use trust_dns::error::ParseResult;
 use trust_dns::logger;
 use trust_dns::version;
 use trust_dns::serialize::txt::{Lexer, Parser};
@@ -325,7 +322,10 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     ))
 }
 
-fn read_cert(path: &Path, password: Option<&str>) -> Result<ParsedPkcs12, String> {
+#[cfg(feature = "tls")]
+fn read_cert(path: &Path, password: Option<&str>) -> Result<openssl::pkcs12::ParsedPkcs12, String> {
+    use openssl::pkcs12::Pkcs12;
+
     let mut file = try!(File::open(&path).map_err(|e| {
         format!("error opening pkcs12 cert file: {:?}: {}", path, e)
     }));
@@ -342,7 +342,11 @@ fn read_cert(path: &Path, password: Option<&str>) -> Result<ParsedPkcs12, String
     })
 }
 
-fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedPkcs12, String> {
+#[cfg(feature = "tls")]
+fn load_cert(
+    zone_dir: &Path,
+    tls_cert_config: &TlsCertConfig,
+) -> Result<openssl::pkcs12::ParsedPkcs12, String> {
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
     let subject_name = tls_cert_config.get_subject_name();
@@ -398,11 +402,19 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedP
 }
 
 /// generates a certificate
+#[cfg(feature = "tls")]
 fn generate_cert(
     subject_name: &str,
-    pkey: PKey,
+    pkey: openssl::pkey::PKey,
     password: Option<&str>,
-) -> DnsSecResult<(X509, Pkcs12)> {
+) -> DnsSecResult<(openssl::x509::X509, openssl::pkcs12::Pkcs12)> {
+    use openssl::asn1::*;
+    use openssl::bn::*;
+    use openssl::{hash, nid};
+    use openssl::pkcs12::Pkcs12;
+    use openssl::x509::*;
+    use openssl::x509::extension::*;
+
     let mut x509_name = try!(X509NameBuilder::new());
     try!(x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name));
     let x509_name = x509_name.build();
@@ -560,35 +572,14 @@ pub fn main() {
 
     // and TLS as necessary
     if let Some(tls_cert_config) = config.get_tls_cert() {
-        let tls_listen_port: u16 = args.flag_tls_port.unwrap_or(config.get_tls_listen_port());
-        let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
-            .iter()
-            .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
-            .collect();
-        let tls_listeners: Vec<TcpListener> = tls_sockaddrs
-            .iter()
-            .map(|x| {
-                TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x))
-            })
-            .collect();
-        if tls_listeners.is_empty() {
-            warn!("a tls certificate was specified, but no TCP addresses configured to listen on");
-        }
-
-        for tls_listener in tls_listeners {
-            info!(
-                "loading cert for DNS over TLS: {:?}",
-                tls_cert_config.get_path()
-            );
-            // TODO: see about modifying native_tls to impl Clone for Pkcs12
-            let tls_cert =
-                load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
-
-            info!("listening for TLS on {:?}", tls_listener);
-            server
-                .register_tls_listener(tls_listener, tcp_request_timeout, tls_cert)
-                .expect("could not register TLS listener");
-        }
+        config_tls(
+            &args,
+            &mut server,
+            &config,
+            tls_cert_config,
+            &zone_dir,
+            &listen_addrs,
+        );
     }
 
     // config complete, starting!
@@ -600,6 +591,58 @@ pub fn main() {
 
     // we're exiting for some reason...
     info!("Trust-DNS {} stopping", trust_dns::version());
+}
+
+#[cfg(not(feature = "tls"))]
+fn config_tls(
+    _args: &Args,
+    _server: &mut ServerFuture<Catalog>,
+    _config: &Config,
+    _tls_cert_config: &TlsCertConfig,
+    _zone_dir: &Path,
+    _listen_addrs: &[IpAddr],
+) {
+    panic!("TLS not enabled");
+}
+
+#[cfg(feature = "tls")]
+fn config_tls(
+    args: &Args,
+    server: &mut ServerFuture<Catalog>,
+    config: &Config,
+    tls_cert_config: &TlsCertConfig,
+    zone_dir: &Path,
+    listen_addrs: &[IpAddr],
+) {
+    let tls_listen_port: u16 = args.flag_tls_port.unwrap_or(config.get_tls_listen_port());
+    let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
+        .iter()
+        .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())
+        .collect();
+    let tls_listeners: Vec<TcpListener> = tls_sockaddrs
+        .iter()
+        .map(|x| {
+            TcpListener::bind(x).expect(&format!("could not bind to tls: {}", x))
+        })
+        .collect();
+    if tls_listeners.is_empty() {
+        warn!("a tls certificate was specified, but no TCP addresses configured to listen on");
+    }
+
+    for tls_listener in tls_listeners {
+        info!(
+            "loading cert for DNS over TLS: {:?}",
+            tls_cert_config.get_path()
+        );
+        // TODO: see about modifying native_tls to impl Clone for Pkcs12
+        let tls_cert =
+            load_cert(zone_dir, tls_cert_config).expect("error loading tls certificate file");
+
+        info!("listening for TLS on {:?}", tls_listener);
+        server
+            .register_tls_listener(tls_listener, config.get_tcp_request_timeout(), tls_cert)
+            .expect("could not register TLS listener");
+    }
 }
 
 fn banner() {

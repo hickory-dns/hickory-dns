@@ -42,7 +42,7 @@ coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = 
 
 [features]
 default = ["tls"]
-tls = ["trust-dns-openssl"]
+tls = ["trust-dns-openssl", "openssl", "tokio-openssl"]
 ring = ["trust-dns/ring"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
@@ -64,13 +64,13 @@ error-chain = "0.1.12"
 futures = "^0.1.6"
 lazy_static = "^0.2.1"
 log = "^0.3.5"
-openssl = { version = "^0.9.8", features = ["v102", "v110"] }
+openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
 rand = "^0.3"
 rustc-serialize = "^0.3.18"
 rusqlite = { version = "^0.9.5", features = ["bundled"] }
 time = "^0.1"
 tokio-core = "^0.1"
-tokio-openssl = "^0.1"
+tokio-openssl = { version = "^0.1", optional = true }
 toml = "^0.1"
 trust-dns = { version = "^0.12", path = "../client" }
 trust-dns-openssl = { version = "^0.1.0", path = "../openssl", optional = true }
