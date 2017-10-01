@@ -16,23 +16,27 @@ use std::sync::Arc;
 use std::sync::atomic;
 
 use futures::Stream;
-use openssl::pkcs12::*;
 use openssl::pkey::*;
 use openssl::ssl::*;
 use openssl::x509::*;
 use openssl::x509::store::X509StoreBuilder;
 use tokio_core::reactor::Core;
 
-use tls::{TlsStream, TlsStreamBuilder};
+use super::TlsStreamBuilder;
 
-use tests::tls::{root_ca, cert};
+use openssl::asn1::*;
+use openssl::bn::*;
+use openssl::hash::MessageDigest;
+use openssl::nid;
+use openssl::pkcs12::*;
+use openssl::rsa::*;
+use openssl::x509::extension::*;
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a mesage buffer reads the wrong length. It works for 2 iterations
 //  but not 3?
 // #[cfg(not(target_os = "linux"))]
 #[test]
-#[cfg(feature = "tls")]
 fn test_tls_client_stream_ipv4() {
     tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), false)
 }
@@ -40,14 +44,12 @@ fn test_tls_client_stream_ipv4() {
 // FIXME: mtls is disabled at the moment, it causes a hang on Linux, and is currently not supported on macOS
 #[cfg(feature = "mtls")]
 #[test]
-#[cfg(feature = "tls")]
 #[cfg(not(target_os = "macos"))] // ignored until Travis-CI fixes IPv6
 fn test_tls_client_stream_ipv4_mtls() {
     tls_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), true)
 }
 
 #[test]
-#[cfg(feature = "tls")]
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_tls_client_stream_ipv6() {
     tls_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)), false)
@@ -57,7 +59,6 @@ const TEST_BYTES: &'static [u8; 8] = b"DEADBEEF";
 const TEST_BYTES_LEN: usize = 8;
 
 #[allow(unused_mut)]
-#[cfg(feature = "tls")]
 fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let succeeded = Arc::new(atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -187,7 +188,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
 
     // barrier.wait();
-    let mut builder = TlsStream::builder();
+    let mut builder = TlsStreamBuilder::new();
     builder.add_ca(trust_chain);
 
     if mtls {
@@ -217,7 +218,6 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 }
 
 #[allow(unused_variables)]
-#[cfg(feature = "tls")]
 fn config_mtls(
     root_pkey: &PKey,
     root_name: &X509Name,
@@ -239,4 +239,119 @@ fn config_mtls(
 
         builder.identity(client_identity);
     }
+}
+
+/// Generates a root certificate
+fn root_ca() -> (PKey, X509Name, X509) {
+    let subject_name = "root.example.com";
+    let rsa = Rsa::generate(2048).unwrap();
+    let pkey = PKey::from_rsa(rsa).unwrap();
+
+    let mut x509_name = X509NameBuilder::new().unwrap();
+    x509_name
+        .append_entry_by_nid(nid::COMMONNAME, subject_name)
+        .unwrap();
+    let x509_name = x509_name.build();
+
+    let mut serial: BigNum = BigNum::new().unwrap();
+    serial.pseudo_rand(32, MSB_MAYBE_ZERO, false).unwrap();
+    let serial = serial.to_asn1_integer().unwrap();
+
+    let mut x509_build = X509::builder().unwrap();
+    x509_build
+        .set_not_before(&Asn1Time::days_from_now(0).unwrap())
+        .unwrap();
+    x509_build
+        .set_not_after(&Asn1Time::days_from_now(256).unwrap())
+        .unwrap();
+    x509_build.set_issuer_name(&x509_name).unwrap();
+    x509_build.set_subject_name(&x509_name).unwrap();
+    x509_build.set_pubkey(&pkey).unwrap();
+    x509_build.set_serial_number(&serial).unwrap();
+
+    let basic_constraints = BasicConstraints::new()
+        .critical()
+        .ca()
+        .build()
+        .unwrap();
+    x509_build.append_extension(basic_constraints).unwrap();
+
+    let subject_alternative_name = SubjectAlternativeName::new()
+        .dns("root.example.com")
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+    x509_build
+        .append_extension(subject_alternative_name)
+        .unwrap();
+
+    x509_build.sign(&pkey, MessageDigest::sha256()).unwrap();
+    let cert = x509_build.build();
+
+    (pkey, x509_name, cert)
+}
+
+/// Generates a certificate, see root_ca() for getting a root cert
+fn cert(subject_name: &str,
+        ca_pkey: &PKey,
+        ca_name: &X509Name,
+        _: &X509)
+        -> (PKey, X509, Pkcs12) {
+    let rsa = Rsa::generate(2048).unwrap();
+    let pkey = PKey::from_rsa(rsa).unwrap();
+
+    let mut x509_name = X509NameBuilder::new().unwrap();
+    x509_name
+        .append_entry_by_nid(nid::COMMONNAME, subject_name)
+        .unwrap();
+    let x509_name = x509_name.build();
+
+    let mut serial: BigNum = BigNum::new().unwrap();
+    serial.pseudo_rand(32, MSB_MAYBE_ZERO, false).unwrap();
+    let serial = serial.to_asn1_integer().unwrap();
+
+    let mut x509_build = X509::builder().unwrap();
+    x509_build
+        .set_not_before(&Asn1Time::days_from_now(0).unwrap())
+        .unwrap();
+    x509_build
+        .set_not_after(&Asn1Time::days_from_now(256).unwrap())
+        .unwrap();
+    x509_build.set_issuer_name(&ca_name).unwrap();
+    x509_build.set_subject_name(&x509_name).unwrap();
+    x509_build.set_pubkey(&pkey).unwrap();
+    x509_build.set_serial_number(&serial).unwrap();
+
+    let ext_key_usage = ExtendedKeyUsage::new().server_auth().build().unwrap();
+    x509_build.append_extension(ext_key_usage).unwrap();
+
+    let subject_key_identifier = SubjectKeyIdentifier::new()
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+    x509_build
+        .append_extension(subject_key_identifier)
+        .unwrap();
+
+    let authority_key_identifier = AuthorityKeyIdentifier::new()
+        .keyid(true)
+        .build(&x509_build.x509v3_context(None, None))
+        .unwrap();
+    x509_build
+        .append_extension(authority_key_identifier)
+        .unwrap();
+
+    // CA:FALSE
+    let basic_constraints = BasicConstraints::new().critical().build().unwrap();
+    x509_build.append_extension(basic_constraints).unwrap();
+
+    x509_build
+        .sign(&ca_pkey, MessageDigest::sha256())
+        .unwrap();
+    let cert = x509_build.build();
+
+    let pkcs12_builder = Pkcs12::builder();
+    let pkcs12 = pkcs12_builder
+        .build("mypass", subject_name, &pkey, &cert)
+        .unwrap();
+
+    (pkey, cert, pkcs12)
 }

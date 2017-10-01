@@ -1,6 +1,7 @@
 extern crate futures;
 extern crate openssl;
 extern crate trust_dns;
+extern crate trust_dns_openssl;
 extern crate trust_dns_server;
 extern crate trust_dns_integration;
 
@@ -27,7 +28,7 @@ use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns::tcp::TcpClientConnection;
-use trust_dns::tls::TlsClientConnection;
+use trust_dns_openssl::TlsClientConnection;
 
 use trust_dns_server::ServerFuture;
 use trust_dns_server::authority::*;

@@ -40,11 +40,7 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = ["openssl", "tls"]
-tls = ["openssl", "tokio-openssl"]
-
-# WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
-# mtls = ["tls"]
+default = ["openssl"]
 
 [lib]
 name = "trust_dns"
@@ -64,7 +60,6 @@ rustc-serialize = "^0.3.18"
 time = "^0.1"
 tokio-core = "^0.1"
 tokio-io = "^0.1"
-tokio-openssl = { version = "^0.1", optional = true }
 untrusted = "^0.5"
 
 [dev-dependencies]

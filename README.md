@@ -18,6 +18,7 @@ This repo consists of multiple crates:
 | **Resolver** | [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) | Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
 | **Rustls** | [![](http://meritbadge.herokuapp.com/trust-dns-rustls)](https://crates.io/crates/trust_dns_rustls) [![trust-dns-rustls](https://docs.rs/trust-dns-rustls/badge.svg)](https://docs.rs/trust-dns-rustls) | Implementation of DNS over TLS protocol using the rustls and ring libraries. |
 | **NativeTls** | [![](http://meritbadge.herokuapp.com/trust-dns-native-tls)](https://crates.io/crates/trust_dns_native_tls) [![trust-dns-native-tls](https://docs.rs/trust-dns-native-tls/badge.svg)](https://docs.rs/trust-dns-native-tls) | Implementation of DNS over TLS protocol using the Host OS' provided default TLS libraries |
+| **OpenSsl** | [![](http://meritbadge.herokuapp.com/trust-dns-openssl)](https://crates.io/crates/trust_dns_openssl) [![trust-dns-openssl](https://docs.rs/trust-dns-openssl/badge.svg)](https://docs.rs/trust-dns-openssl) | Implementation of DNS over TLS protocol using OpenSSL |
 
 # Goals
 

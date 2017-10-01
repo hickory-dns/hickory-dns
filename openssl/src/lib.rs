@@ -16,13 +16,19 @@
 
 //! TLS protocol related components for DNS over TLS
 
+extern crate futures;
+extern crate openssl;
+extern crate tokio_core;
+extern crate tokio_openssl;
+extern crate trust_dns;
+
 mod tls_client_connection;
 mod tls_client_stream;
 mod tls_stream;
 
 pub use self::tls_client_connection::{TlsClientConnection, TlsClientConnectionBuilder};
 pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
-pub use self::tls_stream::{TlsStream, TlsStreamBuilder};
+pub use self::tls_stream::{TlsStream, TlsStreamBuilder, tls_stream_from_existing_tls_stream};
 
 #[cfg(test)]
 mod tests;

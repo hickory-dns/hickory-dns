@@ -21,9 +21,9 @@ use futures::Future;
 use openssl::x509::X509 as OpensslX509;
 use tokio_core::reactor::Core;
 
-use error::*;
-use client::{ClientConnection, ClientStreamHandle};
-use tls::{TlsClientStream, TlsClientStreamBuilder};
+use trust_dns::error::*;
+use trust_dns::client::{ClientConnection, ClientStreamHandle};
+use super::{TlsClientStream, TlsClientStreamBuilder};
 
 /// Tls client connection
 ///
@@ -37,7 +37,7 @@ pub struct TlsClientConnection {
 impl TlsClientConnection {
     /// Creates a new builder for the construction of a TlsClientConnection.
     pub fn builder() -> TlsClientConnectionBuilder {
-        TlsClientConnectionBuilder(TlsClientStream::builder())
+        TlsClientConnectionBuilder(TlsClientStreamBuilder::new())
     }
 }
 
