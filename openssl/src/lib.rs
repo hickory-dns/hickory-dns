@@ -24,6 +24,7 @@ extern crate trust_dns;
 
 mod tls_client_connection;
 mod tls_client_stream;
+pub mod tls_server;
 mod tls_stream;
 
 pub use self::tls_client_connection::{TlsClientConnection, TlsClientConnectionBuilder};

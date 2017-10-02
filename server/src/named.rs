@@ -40,7 +40,7 @@ extern crate trust_dns;
 extern crate trust_dns_server;
 
 #[cfg(feature = "tls")]
-extern crate openssl;
+extern crate trust_dns_openssl;
 
 use std::fs;
 use std::fs::File;
@@ -53,8 +53,6 @@ use chrono::Duration;
 use docopt::Docopt;
 use log::LogLevel;
 
-#[cfg(feature = "tls")]
-use trust_dns::error::DnsSecResult;
 use trust_dns::error::ParseResult;
 use trust_dns::logger;
 use trust_dns::version;
@@ -65,6 +63,9 @@ use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 use trust_dns_server::config::{Config, KeyConfig, TlsCertConfig, ZoneConfig};
 use trust_dns_server::server::ServerFuture;
+
+#[cfg(feature = "tls")]
+use trust_dns_openssl::tls_server::*;
 
 // the Docopt usage string.
 //  http://docopt.org
@@ -323,30 +324,8 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
 }
 
 #[cfg(feature = "tls")]
-fn read_cert(path: &Path, password: Option<&str>) -> Result<openssl::pkcs12::ParsedPkcs12, String> {
-    use openssl::pkcs12::Pkcs12;
-
-    let mut file = try!(File::open(&path).map_err(|e| {
-        format!("error opening pkcs12 cert file: {:?}: {}", path, e)
-    }));
-
-    let mut key_bytes = vec![];
-    try!(file.read_to_end(&mut key_bytes).map_err(|e| {
-        format!("could not read pkcs12 key from: {:?}: {}", path, e)
-    }));
-    let pkcs12 = try!(Pkcs12::from_der(&key_bytes).map_err(|e| {
-        format!("badly formated pkcs12 key from: {:?}: {}", path, e)
-    }));
-    pkcs12.parse(password.unwrap_or("")).map_err(|e| {
-        format!("failed to open pkcs12 from: {:?}: {}", path, e)
-    })
-}
-
-#[cfg(feature = "tls")]
-fn load_cert(
-    zone_dir: &Path,
-    tls_cert_config: &TlsCertConfig,
-) -> Result<openssl::pkcs12::ParsedPkcs12, String> {
+fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig)
+             -> Result<ParsedPkcs12, String> {
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
     let subject_name = tls_cert_config.get_subject_name();
@@ -399,78 +378,6 @@ fn load_cert(
     } else {
         Err(format!("TLS certificate not found: {:?}", path))
     }
-}
-
-/// generates a certificate
-#[cfg(feature = "tls")]
-fn generate_cert(
-    subject_name: &str,
-    pkey: openssl::pkey::PKey,
-    password: Option<&str>,
-) -> DnsSecResult<(openssl::x509::X509, openssl::pkcs12::Pkcs12)> {
-    use openssl::asn1::*;
-    use openssl::bn::*;
-    use openssl::{hash, nid};
-    use openssl::pkcs12::Pkcs12;
-    use openssl::x509::*;
-    use openssl::x509::extension::*;
-
-    let mut x509_name = try!(X509NameBuilder::new());
-    try!(x509_name.append_entry_by_nid(nid::COMMONNAME, subject_name));
-    let x509_name = x509_name.build();
-
-    let mut serial: BigNum = try!(BigNum::new());
-    try!(serial.pseudo_rand(32, MSB_MAYBE_ZERO, false));
-    let serial = try!(serial.to_asn1_integer());
-
-    let mut x509_build = try!(X509::builder());
-    try!(Asn1Time::days_from_now(0).and_then(
-        |t| x509_build.set_not_before(&t),
-    ));
-    try!(Asn1Time::days_from_now(256).and_then(
-        |t| x509_build.set_not_after(&t),
-    ));
-    try!(x509_build.set_issuer_name(&x509_name));
-    try!(x509_build.set_subject_name(&x509_name));
-    try!(x509_build.set_pubkey(&pkey));
-    try!(x509_build.set_serial_number(&serial));
-
-    let ext_key_usage = try!(ExtendedKeyUsage::new().server_auth().client_auth().build());
-    try!(x509_build.append_extension(ext_key_usage));
-
-    let subject_key_identifier = try!(SubjectKeyIdentifier::new().build(
-        &x509_build.x509v3_context(
-            None,
-            None,
-        ),
-    ));
-    try!(x509_build.append_extension(subject_key_identifier));
-
-    let authority_key_identifier = try!(AuthorityKeyIdentifier::new().keyid(true).build(
-        &x509_build.x509v3_context(None, None),
-    ));
-    try!(x509_build.append_extension(authority_key_identifier));
-
-    let subject_alternative_name = try!(SubjectAlternativeName::new().dns(subject_name).build(
-        &x509_build.x509v3_context(None, None),
-    ));
-    try!(x509_build.append_extension(subject_alternative_name));
-
-    let basic_constraints = try!(BasicConstraints::new().critical().ca().build());
-    try!(x509_build.append_extension(basic_constraints));
-
-    try!(x509_build.sign(&pkey, hash::MessageDigest::sha256()));
-    let cert = x509_build.build();
-
-    let pkcs12_builder = Pkcs12::builder();
-    let pkcs12 = try!(pkcs12_builder.build(
-        password.unwrap_or(""),
-        subject_name,
-        &pkey,
-        &cert,
-    ));
-
-    Ok((cert, pkcs12))
 }
 
 /// Main method for running the named server.
