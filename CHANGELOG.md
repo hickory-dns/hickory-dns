@@ -8,7 +8,6 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 ### Changed
 
 - DNSKEY is now self-signed
-- now using env_logger instead of raw logger
 
 ## 0.12.0
 
