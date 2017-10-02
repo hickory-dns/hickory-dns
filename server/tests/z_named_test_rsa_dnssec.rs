@@ -105,6 +105,24 @@ fn test_rsa_sha512() {
 }
 
 #[test]
+fn test_ecdsa_p256() {
+    generic_test(
+        "tests/named_test_configs/dnssec/ecdsa_p256.pem",
+        KeyFormat::Pem,
+        Algorithm::ECDSAP256SHA256,
+    );
+}
+
+#[test]
+fn test_ecdsa_p384() {
+    generic_test(
+        "tests/named_test_configs/dnssec/ecdsa_p384.pem",
+        KeyFormat::Pem,
+        Algorithm::ECDSAP384SHA384,
+    );
+}
+
+#[test]
 #[cfg(feature = "ring")]
 fn test_ed25519() {
     generic_test(

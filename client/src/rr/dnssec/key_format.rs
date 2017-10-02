@@ -150,8 +150,11 @@ impl KeyFormat {
         #[allow(unused)]
         let key_pair: KeyPair = match algorithm {
             #[cfg(feature = "openssl")]
-            Algorithm::RSASHA1 |
-            Algorithm::RSASHA1NSEC3SHA1 |
+            e @ Algorithm::RSASHA1 |
+            e @ Algorithm::RSASHA1NSEC3SHA1 => {
+                return Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
+            }
+            #[cfg(feature = "openssl")]
             Algorithm::RSASHA256 |
             Algorithm::RSASHA512 |
             Algorithm::ECDSAP256SHA256 |
@@ -162,7 +165,7 @@ impl KeyFormat {
             e @ _ => {
                 return Err(
                     format!(
-                        "unsupported Algorithm, enable openssl or ring feature: {:?}",
+                        "unsupported Algorithm (try enabling openssl or ring feature?): {:?}",
                         e
                     ).into(),
                 )
