@@ -328,56 +328,9 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig)
              -> Result<ParsedPkcs12, String> {
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
-    let subject_name = tls_cert_config.get_subject_name();
 
-    if path.exists() {
-        info!("reading TLS certificate from: {:?}", path);
-        read_cert(&path, password)
-    } else if tls_cert_config.create_if_absent() {
-        info!("generating RSA certificate: {:?}", path);
-        let key_pair = try!(KeyPair::generate(Algorithm::RSASHA256).map_err(|e| {
-            format!("error generating key: {:?}: {}", path, e)
-        }));
-        if let KeyPair::RSA(pkey) = key_pair {
-            let (cert, pkcs12) = try!(generate_cert(subject_name, pkey, password).map_err(|e| {
-                format!("error generating certificate: {}", e)
-            }));
-
-            // write out the cert file
-            let cert_path = path.with_extension("cert");
-            if cert_path.exists() {
-                return Err(format!("certificate file exists: {:?}", cert_path));
-            }
-
-            let cert_der = cert.to_der().unwrap();
-            let mut file = File::create(&cert_path).unwrap();
-            file.write_all(&cert_der)
-                .or_else(|_| fs::remove_file(&cert_path))
-                .unwrap();
-
-            // write out to the file
-            // TODO: establish proper ownership of the file
-            // TODO: generate and write CSR
-            let pkcs12_der = pkcs12.to_der().unwrap();
-            let mut file = try!(File::create(&path).map_err(|e| {
-                format!("error creating pkcs12 file: {:?}: {}", path, e)
-            }));
-
-            try!(
-                file.write_all(&pkcs12_der)
-                    .or_else(|_| fs::remove_file(&path))
-                    .map_err(|e| {
-                        format!("error writing pkcs12 cert file: {:?}: {}", path, e)
-                    })
-            );
-        } else {
-            panic!("the interior key was not an EC, something changed")
-        }
-
-        read_cert(&path, password)
-    } else {
-        Err(format!("TLS certificate not found: {:?}", path))
-    }
+    info!("reading TLS certificate from: {:?}", path);
+    read_cert(&path, password)
 }
 
 /// Main method for running the named server.

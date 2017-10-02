@@ -333,8 +333,6 @@ impl KeyConfig {
 pub struct TlsCertConfig {
     path: String,
     password: Option<String>,
-    create_if_absent: Option<bool>,
-    subject_name: String,
 }
 
 impl TlsCertConfig {
@@ -345,13 +343,5 @@ impl TlsCertConfig {
     /// optional password for open the pkcs12, none assumes no password
     pub fn get_password(&self) -> Option<&str> {
         self.password.as_ref().map(|s| s.as_str())
-    }
-    /// if it does not exist, one will be generated (with an EC key)
-    pub fn create_if_absent(&self) -> bool {
-        self.create_if_absent.unwrap_or(false)
-    }
-    /// the certificate's subject name, e.g. "ns.example.com"
-    pub fn get_subject_name(&self) -> &str {
-        &self.subject_name
     }
 }
