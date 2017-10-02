@@ -43,10 +43,6 @@ extern crate trust_dns;
 
 #[cfg(feature = "tls")]
 extern crate trust_dns_openssl;
-#[cfg(feature = "tls")]
-extern crate openssl;
-#[cfg(feature = "tls")]
-extern crate tokio_openssl;
 
 pub mod authority;
 pub mod config;

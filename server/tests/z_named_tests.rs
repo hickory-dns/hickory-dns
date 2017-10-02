@@ -8,15 +8,9 @@ extern crate trust_dns_server;
 #[cfg(feature = "tls")]
 extern crate trust_dns_openssl;
 
-#[cfg(feature = "tls")]
-extern crate openssl;
-
 mod server_harness;
 
 use std::net::*;
-
-#[cfg(feature = "tls")]
-use openssl::x509::X509;
 
 use tokio_core::reactor::Core;
 
@@ -143,10 +137,6 @@ fn test_example_tls_toml_startup() {
     use std::fs::File;
     use std::io::*;
 
-    fn to_trust_anchor(cert_der: &[u8]) -> X509 {
-        X509::from_der(&cert_der).unwrap()
-    }
-
     named_test_harness("dns_over_tls.toml", move |_, tls_port| {
         let mut cert_der = vec![];
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
@@ -166,8 +156,7 @@ fn test_example_tls_toml_startup() {
             .next()
             .unwrap();
         let mut tls_conn_builder = TlsClientStreamBuilder::new();
-        let cert = to_trust_anchor(&cert_der);
-        tls_conn_builder.add_ca(cert);
+        tls_conn_builder.add_ca_der(&cert_der).unwrap();
         let (stream, sender) =
             tls_conn_builder.build(addr, "ns.example.com".to_string(), &io_loop.handle());
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
@@ -181,8 +170,7 @@ fn test_example_tls_toml_startup() {
             .next()
             .unwrap();
         let mut tls_conn_builder = TlsClientStreamBuilder::new();
-        let cert = to_trust_anchor(&cert_der);
-        tls_conn_builder.add_ca(cert);
+        tls_conn_builder.add_ca_der(&cert_der).unwrap();
         let (stream, sender) =
             tls_conn_builder.build(addr, "ns.example.com".to_string(), &io_loop.handle());
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);

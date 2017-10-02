@@ -5,13 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::error::Error;
 use std::net::SocketAddr;
 use std::io;
 
 use futures::Future;
 #[cfg(feature = "mtls")]
 use openssl::pkcs12::Pkcs12;
-use openssl::x509::X509 as OpensslX509;
+use openssl::x509::X509;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_openssl::SslStream as TokioTlsStream;
@@ -34,11 +35,21 @@ impl TlsClientStreamBuilder {
         TlsClientStreamBuilder(TlsStreamBuilder::new())
     }
 
-    /// Add a custom trusted peer certificate or certificate auhtority.
+    /// Add a custom trusted peer certificate or certificate authority.
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
-    pub fn add_ca(&mut self, ca: OpensslX509) {
+    pub fn add_ca(&mut self, ca: X509) {
         self.0.add_ca(ca);
+    }
+
+    /// Add a custom trusted peer certificate or certificate authority encoded as a (binary) DER-encoded X.509 certificate.
+    ///
+    /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
+    pub fn add_ca_der(&mut self, ca_der: &[u8]) -> io::Result<()> {
+        let ca = X509::from_der(&ca_der)
+            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.description()))?;
+        self.add_ca(ca);
+        Ok(())
     }
 
     /// Client side identity for client auth in TLS (aka mutual TLS auth)

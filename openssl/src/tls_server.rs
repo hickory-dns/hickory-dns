@@ -5,14 +5,18 @@ use openssl::pkcs12::*;
 use openssl::pkey::PKey;
 use openssl::x509::*;
 use openssl::x509::extension::*;
+use openssl::ssl;
+use openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslMethod};
 
 use std::fs::File;
+use std::io;
 use std::io::Read;
 use std::path::Path;
 
 use trust_dns::error::DnsSecResult;
 
 pub use openssl::pkcs12::ParsedPkcs12;
+pub use tokio_openssl::SslAcceptorExt;
 
 pub fn read_cert(path: &Path, password: Option<&str>)
                  -> Result<ParsedPkcs12, String> {
@@ -78,4 +82,26 @@ pub fn generate_cert(subject_name: &str, pkey: PKey, password: Option<&str>)
     let pkcs12 = try!(pkcs12_builder.build(password.unwrap_or(""), subject_name, &pkey, &cert));
 
     Ok((cert, pkcs12))
+}
+
+pub fn new_acceptor(pkcs12: &ParsedPkcs12) -> io::Result<SslAcceptor> {
+    let mut builder = try!(SslAcceptorBuilder::mozilla_modern(SslMethod::tls(),
+                                                              &pkcs12.pkey,
+                                                              &pkcs12.cert,
+                                                              &pkcs12.chain)
+        .map_err(|e| {
+            io::Error::new(io::ErrorKind::ConnectionRefused,
+                           format!("tls error: {}", e))
+        }));
+
+    // mut block
+    {
+        let ssl_context_bldr = builder.builder_mut();
+
+        ssl_context_bldr.set_options(ssl::SSL_OP_NO_SSLV2 | ssl::SSL_OP_NO_SSLV3 |
+            ssl::SSL_OP_NO_TLSV1 |
+            ssl::SSL_OP_NO_TLSV1_1);
+    }
+
+    Ok(builder.build())
 }
