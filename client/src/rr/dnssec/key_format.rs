@@ -39,8 +39,11 @@ impl KeyFormat {
 
         match algorithm {
             #[cfg(feature = "openssl")]
-            Algorithm::RSASHA1 |
-            Algorithm::RSASHA1NSEC3SHA1 |
+            e @ Algorithm::RSASHA1 |
+            e @ Algorithm::RSASHA1NSEC3SHA1 => {
+                return Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
+            }
+            #[cfg(feature = "openssl")]
             Algorithm::RSASHA256 |
             Algorithm::RSASHA512 => {
                 let key = match self {
