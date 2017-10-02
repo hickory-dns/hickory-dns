@@ -119,8 +119,6 @@ file = "example.com.zone"
 # is_zone_signing_key = true
 ## this key is authorized for dynamic update access to the zone via SIG0
 # is_zone_update_auth = true
-## create the key if it is not found
-# create_if_absent = false
 #
 # [[zones.keys]]
 # key = "/path/to/my_ed25519.raw"
