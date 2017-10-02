@@ -198,8 +198,7 @@ fn test_parse_tls() {
     assert_eq!(config.get_tls_cert(), None);
 
     let config: Config = "
-tls_cert = { path = \"path/to/some.pkcs12\", create_if_absent = true, \
-                          subject_name = \"ns.example.com\" }
+tls_cert = { path = \"path/to/some.pkcs12\" }
 tls_listen_port = 8853
   "
             .parse()
@@ -208,7 +207,4 @@ tls_listen_port = 8853
     assert_eq!(config.get_tls_listen_port(), 8853);
     assert_eq!(config.get_tls_cert().unwrap().get_path(),
                Path::new("path/to/some.pkcs12"));
-    assert_eq!(config.get_tls_cert().unwrap().create_if_absent(), true);
-    assert_eq!(config.get_tls_cert().unwrap().get_subject_name(),
-               "ns.example.com");
 }

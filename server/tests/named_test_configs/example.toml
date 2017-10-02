@@ -32,12 +32,7 @@
 # tcp_request_timeout = 5
 
 ## DNS over TLS certificate information.
-## if create_if_absent is true, a self-signed cert, with an Ellyptic Curve P256 key,
-##  will be created and used,
-##  beside the cert will be a CSR which can be used (if desired) to have a CA sign. Subsequent
-##  to signing, replace the pkcs12 file (with private key embedded) and restart
-##  the server.
-# tls_cert = { path = "path/to/some.pkcs12", create_if_absent = "false", subject_name = "ns.example.com", password = "if_encrypted" }
+# tls_cert = { path = "path/to/some.pkcs12", password = "if_encrypted" }
 
 ## port on which to listent, default 853 (should not be 53)
 # tls_listen_port = 853
