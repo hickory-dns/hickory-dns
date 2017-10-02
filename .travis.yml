@@ -24,10 +24,9 @@ matrix:
       env: MODULES="client"
            CLIENT_OPTIONS="--no-default-features --features=openssl"  
 
-    # just tls
+    # just tls using openssl
     - rust: stable
-      env: MODULES="client"
-           CLIENT_OPTIONS="--no-default-features --features=tls"
+      env: MODULES="openssl"
 
     # just ring
     - rust: stable
