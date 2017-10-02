@@ -225,7 +225,6 @@ pub struct KeyConfig {
     signer_name: Option<String>,
     is_zone_signing_key: Option<bool>,
     is_zone_update_auth: Option<bool>,
-    create_if_absent: Option<bool>,
 }
 
 impl KeyConfig {
@@ -239,14 +238,12 @@ impl KeyConfig {
     /// * `signer_name` - the name to use when signing records, e.g. ns.example.com
     /// * `is_zone_signing_key` - specify that this key should be used for signing a zone
     /// * `is_zone_update_auth` - specifies that this key can be used for dynamic updates in the zone
-    /// * `do_auto_generate` - if the key does not exist, generate a new one (it will need to be signed)
     pub fn new(key_path: String,
                password: Option<String>,
                algorithm: Algorithm,
                signer_name: String,
                is_zone_signing_key: bool,
-               is_zone_update_auth: bool,
-               do_auto_generate: bool)
+               is_zone_update_auth: bool)
                -> Self {
         KeyConfig {
             key_path: key_path,
@@ -255,7 +252,6 @@ impl KeyConfig {
             signer_name: Some(signer_name),
             is_zone_signing_key: Some(is_zone_signing_key),
             is_zone_update_auth: Some(is_zone_update_auth),
-            create_if_absent: Some(do_auto_generate),
         }
     }
 
@@ -319,12 +315,6 @@ impl KeyConfig {
     /// it will be registered as a KEY record in the zone.
     pub fn is_zone_update_auth(&self) -> bool {
         self.is_zone_update_auth.unwrap_or(false)
-    }
-
-    /// auto generate/create the key if it doesn't already exist (the public portion can be
-    /// retrieved by a DNS query to the zone for DNSKEY and KEY records).
-    pub fn create_if_absent(&self) -> bool {
-        self.create_if_absent.unwrap_or(false)
     }
 }
 

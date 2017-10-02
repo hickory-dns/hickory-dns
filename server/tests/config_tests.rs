@@ -141,8 +141,6 @@ algorithm = \"ED25519\"
          signer_name = \"ns.example.com.\"
 is_zone_signing_key = false
 is_zone_update_auth = true
-\
-         create_if_absent = true
 
 [[zones.keys]]
 key_path = \"/path/to/my_rsa.pem\"
@@ -168,7 +166,6 @@ signer_name = \"ns.example.com.\"
                false);
     assert_eq!(config.get_zones()[0].get_keys()[0].is_zone_update_auth(),
                true);
-    assert_eq!(config.get_zones()[0].get_keys()[0].create_if_absent(), true);
 
     assert_eq!(config.get_zones()[0].get_keys()[1].key_path(),
                Path::new("/path/to/my_rsa.pem"));
@@ -184,8 +181,6 @@ signer_name = \"ns.example.com.\"
     assert_eq!(config.get_zones()[0].get_keys()[1].is_zone_signing_key(),
                false);
     assert_eq!(config.get_zones()[0].get_keys()[1].is_zone_update_auth(),
-               false);
-    assert_eq!(config.get_zones()[0].get_keys()[1].create_if_absent(),
                false);
 }
 

@@ -200,7 +200,6 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
                 zone_name.clone().to_string(),
                 true,
                 true,
-                true,
             );
             let signer = try!(load_key(zone_name, &key_config).map_err(|e| {
                 format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
@@ -260,32 +259,8 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
         |e| format!("bad key format: {}", e),
     ));
 
-    // generate and write a new key if it does not exist
-    if !key_path.exists() && key_config.create_if_absent() {
-        info!("creating key: {:?}", key_path);
-
-        // TODO: establish proper ownership
-        let mut file = try!(File::create(&key_path).map_err(|e| {
-            format!("error creating private key file: {:?}: {}", key_path, e)
-        }));
-
-        let key_bytes: Vec<u8> = try!(
-            format
-                .generate_and_encode(algorithm, key_config.password())
-                .map_err(|e| format!("could not generate key: {}", e))
-        );
-
-        try!(
-            file.write_all(&key_bytes)
-                .or_else(|_| fs::remove_file(&key_path))
-                .map_err(|e| {
-                    format!("error writing private key file: {:?}: {}", key_path, e)
-                })
-        );
-    }
-
     // read the key in
-    let key: KeyPair = if key_path.exists() {
+    let key: KeyPair = {
         info!("reading key: {:?}", key_path);
 
         let mut file = try!(File::open(&key_path).map_err(|e| {
@@ -302,8 +277,6 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
                 .decode_key(&key_bytes, key_config.password(), algorithm)
                 .map_err(|e| format!("could not decode key: {}", e))
         )
-    } else {
-        return Err(format!("file not found: {:?}", key_path));
     };
 
     let name = try!(key_config.signer_name().map_err(|e| {
