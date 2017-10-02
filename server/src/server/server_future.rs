@@ -11,20 +11,17 @@ use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
 
-#[cfg(feature = "tls")]
-use openssl;
-
 use tokio_core;
 use tokio_core::reactor::Core;
-
-#[cfg(feature = "tls")]
-use tokio_openssl::SslAcceptorExt;
 
 use trust_dns::udp::UdpStream;
 use trust_dns::tcp::TcpStream;
 
 #[cfg(feature = "tls")]
-use trust_dns_openssl::TlsStream;
+use trust_dns_openssl::{TlsStream, tls_server};
+
+#[cfg(feature = "tls")]
+use trust_dns_openssl::tls_server::*;
 
 use server::{Request, RequestHandler, RequestStream, ResponseHandle, TimeoutStream};
 
@@ -136,11 +133,8 @@ impl <T: RequestHandler> ServerFuture <T> {
     pub fn register_tls_listener(&self,
                                  listener: std::net::TcpListener,
                                  timeout: Duration,
-                                 pkcs12: openssl::pkcs12::ParsedPkcs12)
+                                 pkcs12: ParsedPkcs12)
                                  -> io::Result<()> {
-        use openssl::ssl;
-        use openssl::ssl::{SslAcceptorBuilder, SslMethod};
-
         let handle = self.io_loop.handle();
         let handler = self.handler.clone();
         // TODO: this is an awkward interface with socketaddr...
@@ -149,25 +143,7 @@ impl <T: RequestHandler> ServerFuture <T> {
             .expect("could not register listener");
         debug!("registered tcp: {:?}", listener);
 
-        let mut builder = try!(SslAcceptorBuilder::mozilla_modern(SslMethod::tls(),
-                                                                  &pkcs12.pkey,
-                                                                  &pkcs12.cert,
-                                                                  &pkcs12.chain)
-                                       .map_err(|e| {
-                                                    io::Error::new(io::ErrorKind::ConnectionRefused,
-                                                                   format!("tls error: {}", e))
-                                                }));
-
-        // mut block
-        {
-            let ssl_context_bldr = builder.builder_mut();
-
-            ssl_context_bldr.set_options(ssl::SSL_OP_NO_SSLV2 | ssl::SSL_OP_NO_SSLV3 |
-                                         ssl::SSL_OP_NO_TLSV1 |
-                                         ssl::SSL_OP_NO_TLSV1_1);
-        }
-
-        let tls_acceptor = builder.build();
+        let tls_acceptor = tls_server::new_acceptor(&pkcs12)?;
 
         // for each incoming request...
         self.io_loop.handle().spawn(
@@ -182,7 +158,8 @@ impl <T: RequestHandler> ServerFuture <T> {
                   tls_acceptor.accept_async(tcp_stream)
                               .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
                               .and_then(move |tls_stream| {
-                                  let (buf_stream, stream_handle) = TlsStream::from_stream(tls_stream, src_addr.clone());
+                                  let (buf_stream, stream_handle) =
+                                      TlsStream::from_stream(tls_stream, src_addr.clone());
                                   let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, &handle));
                                   let request_stream = RequestStream::new(timeout_stream, stream_handle);
                                   let handler = handler.clone();
