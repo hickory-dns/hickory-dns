@@ -1251,6 +1251,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "trust-dns-proto"
+version = "0.0.0"
+
+[[package]]
 name = "trust-dns-resolver"
 version = "0.6.0"
 dependencies = [
