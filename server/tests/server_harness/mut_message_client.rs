@@ -27,7 +27,7 @@ impl<C: ClientHandle> ClientHandle for MutMessageClient<C> {
     fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         {
             // mutable block
-            let mut edns = message.edns_mut();
+            let edns = message.edns_mut();
             edns.set_dnssec_ok(true);
 
             if let Some(supported_algs) = self.support_algorithms {

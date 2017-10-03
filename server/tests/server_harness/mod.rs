@@ -177,19 +177,14 @@ pub fn query_all_dnssec(
     algorithm: Algorithm,
     with_rfc6975: bool,
 ) {
-    let name = Name::from_labels(vec!["example", "com"]);
+    let name = Name::from_str("example.com.").unwrap();
     let mut client = MutMessageClient::new(client);
     client.dnssec_ok = true;
-    if (with_rfc6975) {
+    if with_rfc6975 {
         client.support_algorithms = Some(SupportedAlgorithms::from_vec(&[algorithm]));
     }
 
-    let response = query_message(
-        io_loop,
-        &mut client,
-        Name::from_str("example.com").unwrap(),
-        RecordType::DNSKEY,
-    );
+    let response = query_message(io_loop, &mut client, name, RecordType::DNSKEY);
 
     let dnskey = response
         .answers()
