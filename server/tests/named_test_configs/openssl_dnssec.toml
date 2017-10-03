@@ -37,34 +37,8 @@ zone_type = "Master"
 ## file: this is relative to the directory above
 file = "example.com.zone"
 
-## if false, updates will not be allowed, default false
-# allow_update = false
-
-## if true, looks to see if a chained pem file exists at $file.pem (see
-## supported_algorithms below).
-## these keys will also be registered as authorities for update,
-## meaning that SIG(0) updates can be established by initially using these
-## keys. the zone will be signed with all specified keys, it may be desirable
-## to limit this set for performance reasons.
 enable_dnssec = true
 
-## set of DNSSEC algorithms to use to sign the zone. enable_dnssec must be true.
-## these will be lookedup by $file.{key_name}.pem, for backward compatability
-## with previous versions of TRust-DNS, if enable_dnssec is enabled but
-## supported_algorithms is not specified, it will default to "RSASHA256" and
-## look for the $file.pem for the key. To control key length, or other options
-## keys of the specified formats can be generated in PEM format. Instructions
-## for custom keys can be found elsewhere.
-##
-## supported extensions are 'der', 'pem'. ED25519 keys are only supported
-## with 'raw', and are the only keys that support 'raw'.
-##
-## the currently supported set of supported_algorithms are
-## ["RSASHA256", "RSASHA512", "ECDSAP256SHA256", "ECDSAP384SHA384", "ED25519"]
-##
-## keys are listed in pairs of key_name and algorithm, the search path is the
-## same directory has the zone $file (this section would be relative to the
-## example.com zone):
 [[zones.keys]]
 key_path = "./tests/named_test_configs/dnssec/rsa_2048.pem"
 ## the password used to encrypt/decrypt the file (must be PEM), blank for none

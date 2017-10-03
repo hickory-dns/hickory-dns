@@ -6,6 +6,7 @@ extern crate tokio_core;
 mod server_harness;
 
 use std::env;
+use std::fs;
 use std::fs::File;
 use std::path::Path;
 use std::io::*;
@@ -56,7 +57,7 @@ fn standard_conn(port: u16, io_loop: &Core) -> BasicClientHandle {
     ClientFuture::new(stream, sender, &io_loop.handle(), None)
 }
 
-fn generic_test(key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
+fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
     // use trust_dns::logger;
     // use log::LogLevel;
     // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
@@ -64,7 +65,7 @@ fn generic_test(key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
     let server_path = Path::new(&server_path);
 
-    named_test_harness(confg_toml(), |port, _| {
+    named_test_harness(config_toml, |port, _| {
         let mut io_loop = Core::new().unwrap();
 
         // verify all records are present
@@ -85,6 +86,7 @@ fn generic_test(key_path: &str, key_format: KeyFormat, algorithm: Algorithm) {
 #[test]
 fn test_rsa_sha256() {
     generic_test(
+        confg_toml(),
         "tests/named_test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA256,
@@ -94,6 +96,7 @@ fn test_rsa_sha256() {
 #[test]
 fn test_rsa_sha512() {
     generic_test(
+        confg_toml(),
         "tests/named_test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA512,
@@ -103,6 +106,7 @@ fn test_rsa_sha512() {
 #[test]
 fn test_ecdsa_p256() {
     generic_test(
+        confg_toml(),
         "tests/named_test_configs/dnssec/ecdsa_p256.pem",
         KeyFormat::Pem,
         Algorithm::ECDSAP256SHA256,
@@ -112,6 +116,7 @@ fn test_ecdsa_p256() {
 #[test]
 fn test_ecdsa_p384() {
     generic_test(
+        confg_toml(),
         "tests/named_test_configs/dnssec/ecdsa_p384.pem",
         KeyFormat::Pem,
         Algorithm::ECDSAP384SHA384,
@@ -122,6 +127,7 @@ fn test_ecdsa_p384() {
 #[cfg(feature = "ring")]
 fn test_ed25519() {
     generic_test(
+        confg_toml(),
         "tests/named_test_configs/dnssec/ed25519.pk8",
         KeyFormat::Pkcs8,
         Algorithm::ED25519,
@@ -132,8 +138,43 @@ fn test_ed25519() {
 #[should_panic]
 fn test_rsa_sha1_fails() {
     generic_test(
+        confg_toml(),
         "tests/named_test_configs/dnssec/rsa_2048.pem",
         KeyFormat::Pem,
         Algorithm::RSASHA1,
     );
+}
+
+#[test]
+fn test_dnssec_restart_with_update_journal() {
+    // TODO: make journal path configurable, it should be in target/tests/...
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+    let server_path = Path::new(&server_path);
+    let journal = server_path.join("tests/named_test_configs/example.com.jrnl");
+    fs::remove_file(&journal).ok();
+
+    generic_test(
+        "dnssec_with_update.toml",
+        "tests/named_test_configs/dnssec/rsa_2048.pem",
+        KeyFormat::Pem,
+        Algorithm::RSASHA256,
+    );
+
+    // after running the above test, the journal file should exist
+    assert!(journal.exists());
+
+    // and all dnssec tests should still pass
+    generic_test(
+        "dnssec_with_update.toml",
+        "tests/named_test_configs/dnssec/rsa_2048.pem",
+        KeyFormat::Pem,
+        Algorithm::RSASHA256,
+    );
+
+    // and journal should still exist
+    assert!(journal.exists());
+
+    // cleanup...
+    // TODO: fix journal path so that it doesn't leave the dir dirty...
+    fs::remove_file(&journal).expect("failed to cleanup after test");
 }

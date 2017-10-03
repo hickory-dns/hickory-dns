@@ -97,7 +97,7 @@ file = "example.com.zone"
 ## for custom keys can be found elsewhere.
 ##
 ## supported extensions are 'der', 'pem'. ED25519 keys are only supported
-## with 'raw', and are the only keys that support 'raw'.
+## with 'pk8'.
 ##
 ## the currently supported set of supported_algorithms are
 ## ["RSASHA256", "RSASHA512", "ECDSAP256SHA256", "ECDSAP384SHA384", "ED25519"]
@@ -118,7 +118,7 @@ file = "example.com.zone"
 # is_zone_update_auth = true
 #
 # [[zones.keys]]
-# key_path = "/path/to/my_ed25519.raw"
+# key_path = "/path/to/my_ed25519.pk8"
 # algorithm = "ED25519"
 ## for keys that are not zone signing, the pem need only include the pubic_key
 # is_zone_signing_key = false
