@@ -1,4 +1,4 @@
-## Example configuration for all supported (including ring) signing options for DNSSec.
+## Example configuration for supported OpenSSL DNSSec signing options.
 
 ## Default zones, these should be present on all nameservers, except in rare
 ##  configuration cases
@@ -37,6 +37,15 @@ zone_type = "Master"
 ## file: this is relative to the directory above
 file = "example.com.zone"
 
+## if false, updates will not be allowed, default false
+allow_update = true
+
+## if true, looks to see if a chained pem file exists at $file.pem (see
+## supported_algorithms below).
+## these keys will also be registered as authorities for update,
+## meaning that SIG(0) updates can be established by initially using these
+## keys. the zone will be signed with all specified keys, it may be desirable
+## to limit this set for performance reasons.
 enable_dnssec = true
 
 [[zones.keys]]
@@ -56,22 +65,5 @@ is_zone_signing_key = true
 key_path = "./tests/named_test_configs/dnssec/rsa_2048.pem"
 password = "123456"
 algorithm = "RSASHA512"
-is_zone_signing_key = true
-
-[[zones.keys]]
-key_path = "./tests/named_test_configs/dnssec/ecdsa_p256.pem"
-# password = "123456"
-algorithm = "ECDSAP256SHA256"
-is_zone_signing_key = true
-
-[[zones.keys]]
-key_path = "./tests/named_test_configs/dnssec/ecdsa_p384.pem"
-# password = "123456"
-algorithm = "ECDSAP384SHA384"
-is_zone_signing_key = true
-
-[[zones.keys]]
-# Requires --features=ring
-key_path = "./tests/named_test_configs/dnssec/ed25519.pk8"
-algorithm = "ED25519"
-is_zone_signing_key = true
+is_zone_signing_key = false
+is_zone_update_auth = true
