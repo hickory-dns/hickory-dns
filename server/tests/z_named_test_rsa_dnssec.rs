@@ -2,7 +2,6 @@ extern crate futures;
 extern crate log;
 extern crate trust_dns;
 extern crate tokio_core;
-extern crate openssl;
 
 mod server_harness;
 
@@ -12,13 +11,10 @@ use std::path::Path;
 use std::io::*;
 use std::net::*;
 
-use openssl::x509::X509;
-
 use tokio_core::reactor::Core;
 
 use trust_dns::client::*;
 use trust_dns::tcp::TcpClientStream;
-use trust_dns::tls::TlsClientStream;
 use trust_dns::rr::dnssec::*;
 
 use server_harness::*;
