@@ -60,6 +60,7 @@ rustc-serialize = "^0.3.18"
 time = "^0.1"
 tokio-core = "^0.1"
 tokio-io = "^0.1"
+trust-dns-proto = {version = "^0.1", path = "../proto" }
 untrusted = "^0.5"
 
 [dev-dependencies]

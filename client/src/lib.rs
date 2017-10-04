@@ -230,6 +230,7 @@ extern crate tokio_core;
 extern crate tokio_tls;
 #[cfg(feature = "tokio-openssl")]
 extern crate tokio_openssl;
+extern crate trust_dns_proto;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 

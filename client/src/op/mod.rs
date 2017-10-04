@@ -17,17 +17,17 @@
 //! Operations to send with a `Client` or server, e.g. `Query`, `Message`, or `UpdateMessage` can
 //! be used to gether to either query or update resource records sets.
 
-mod edns;
-pub mod header;
-pub mod message;
-pub mod op_code;
-pub mod query;
-pub mod response_code;
+use trust_dns_proto::edns;
+use trust_dns_proto::header;
+use trust_dns_proto::message;
+use trust_dns_proto::op_code;
+use trust_dns_proto::query;
+use trust_dns_proto::response_code;
 
-pub use self::edns::Edns;
-pub use self::header::Header;
-pub use self::header::MessageType;
-pub use self::message::{Message, UpdateMessage};
-pub use self::op_code::OpCode;
-pub use self::query::Query;
-pub use self::response_code::ResponseCode;
+pub use edns::Edns;
+pub use header::Header;
+pub use header::MessageType;
+pub use message::{Message, UpdateMessage};
+pub use op_code::OpCode;
+pub use query::Query;
+pub use response_code::ResponseCode;

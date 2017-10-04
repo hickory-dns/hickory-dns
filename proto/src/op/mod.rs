@@ -14,11 +14,20 @@
  * limitations under the License.
  */
 
-//! TCP protocol related components for DNS
+//! Operations to send with a `Client` or server, e.g. `Query`, `Message`, or `UpdateMessage` can
+//! be used to gether to either query or update resource records sets.
 
-mod tcp_client_connection;
-use trust_dns_proto::tcp::{tcp_client_stream, tcp_client_connection, tcp_stream};
+mod edns;
+pub mod header;
+pub mod message;
+pub mod op_code;
+pub mod query;
+pub mod response_code;
 
-pub use self::tcp_client_connection::TcpClientConnection;
-pub use tcp_client_stream::TcpClientStream;
-pub use tcp_stream::TcpStream;
+pub use self::edns::Edns;
+pub use self::header::Header;
+pub use self::header::MessageType;
+pub use self::message::{Message, UpdateMessage};
+pub use self::op_code::OpCode;
+pub use self::query::Query;
+pub use self::response_code::ResponseCode;

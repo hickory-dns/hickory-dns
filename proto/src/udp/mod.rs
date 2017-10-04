@@ -14,11 +14,10 @@
  * limitations under the License.
  */
 
-//! TCP protocol related components for DNS
+//! UDP protocol related components for DNS
 
-mod tcp_client_connection;
-use trust_dns_proto::tcp::{tcp_client_stream, tcp_client_connection, tcp_stream};
+mod udp_client_stream;
+mod udp_stream;
 
-pub use self::tcp_client_connection::TcpClientConnection;
-pub use tcp_client_stream::TcpClientStream;
-pub use tcp_stream::TcpStream;
+pub use self::udp_client_stream::UdpClientStream;
+pub use self::udp_stream::UdpStream;

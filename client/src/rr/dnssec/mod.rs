@@ -16,36 +16,36 @@
 
 //! dns security extension related modules
 
-mod algorithm;
-mod digest_type;
+use trust_dns_proto::algorithm;
+use trust_dns_proto::digest_type;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-mod ec_public_key;
-pub mod tbs;
+use trust_dns_proto::ec_public_key;
+use mod trust_dns_proto::tbs;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 mod key_format;
 mod keypair;
-mod nsec3;
-pub mod public_key;
+use trust_dns_proto::nsec3;
+use mod trust_dns_proto::public_key;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-mod rsa_public_key;
+use trust_dns_proto::rsa_public_key;
 mod signer;
-mod supported_algorithm;
-mod trust_anchor;
-mod verifier;
+use trust_dns_proto::supported_algorithm;
+use trust_dns_proto::trust_anchor;
+use trust_dns_proto::verifier;
 
-pub use self::algorithm::Algorithm;
-pub use self::digest_type::DigestType;
+pub use algorithm::Algorithm;
+pub use digest_type::DigestType;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub use self::key_format::KeyFormat;
 pub use self::keypair::KeyPair;
-pub use self::nsec3::Nsec3HashAlgorithm;
-pub use self::public_key::PublicKey;
-pub use self::public_key::PublicKeyBuf;
-pub use self::public_key::PublicKeyEnum;
+pub use nsec3::Nsec3HashAlgorithm;
+pub use public_key::PublicKey;
+pub use public_key::PublicKeyBuf;
+pub use public_key::PublicKeyEnum;
 pub use self::signer::Signer;
-pub use self::supported_algorithm::SupportedAlgorithms;
-pub use self::trust_anchor::TrustAnchor;
-pub use self::verifier::Verifier;
+pub use supported_algorithm::SupportedAlgorithms;
+pub use trust_anchor::TrustAnchor;
+pub use verifier::Verifier;
 
 pub use error::DnsSecError;
 pub use error::DnsSecErrorKind;
