@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-proto"
-version = "0.0.0"
+version = "0.1.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -42,3 +42,14 @@ name = "trust_dns_proto"
 path = "src/lib.rs"
 
 [dependencies]
+chrono = "^0.4"
+data-encoding = "^1.2.0"
+error-chain = "0.1.12"
+futures = "^0.1.6"
+lazy_static = "^0.2.1"
+log = "^0.3.5"
+rand = "^0.3"
+time = "^0.1"
+tokio-core = "^0.1"
+tokio-io = "^0.1"
+untrusted = "^0.5"

@@ -73,8 +73,10 @@ impl DigestType {
             DigestType::SHA384 => Ok(hash::MessageDigest::sha384()),
             DigestType::SHA512 => Ok(hash::MessageDigest::sha512()),
             _ => {
-                Err(DnsSecErrorKind::Msg(format!("digest not supported by openssl: {:?}", self))
-                        .into())
+                Err(
+                    DnsSecErrorKind::Msg(format!("digest not supported by openssl: {:?}", self))
+                        .into(),
+                )
             }
         }
     }
@@ -87,9 +89,9 @@ impl DigestType {
             DigestType::SHA256 => Ok(&digest::SHA256),
             DigestType::SHA384 => Ok(&digest::SHA384),
             DigestType::SHA512 => Ok(&digest::SHA512),
-            _ =>
-                Err(DnsSecErrorKind::Msg(format!("digest not supported by ring: {:?}", self))
-                    .into())
+            _ => Err(
+                DnsSecErrorKind::Msg(format!("digest not supported by ring: {:?}", self)).into(),
+            ),
         }
     }
 
@@ -109,7 +111,9 @@ impl DigestType {
     /// This will always error, enable openssl feature at compile time
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
     pub fn hash(&self, _: &[u8]) -> DnsSecResult<Vec<u8>> {
-        Err(DnsSecErrorKind::Message("The openssl and ring features are both disabled").into())
+        Err(
+            DnsSecErrorKind::Message("The openssl and ring features are both disabled").into(),
+        )
     }
 
     /// Digest all the data.
