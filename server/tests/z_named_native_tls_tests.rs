@@ -1,3 +1,4 @@
+#![cfg(not(windows))]
 #![cfg(feature = "tls")]
 
 extern crate chrono;
