@@ -1,3 +1,5 @@
+#![cfg(not(windows))]
+
 extern crate futures;
 extern crate log;
 extern crate trust_dns;
