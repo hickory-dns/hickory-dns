@@ -96,12 +96,13 @@ impl DNSKEY {
     /// # Return
     ///
     /// A new DNSKEY RData for use in a Resource Record
-    pub fn new(zone_key: bool,
-               secure_entry_point: bool,
-               revoke: bool,
-               algorithm: Algorithm,
-               public_key: Vec<u8>)
-               -> DNSKEY {
+    pub fn new(
+        zone_key: bool,
+        secure_entry_point: bool,
+        revoke: bool,
+        algorithm: Algorithm,
+        public_key: Vec<u8>,
+    ) -> DNSKEY {
         DNSKEY {
             zone_key: zone_key,
             secure_entry_point: secure_entry_point,
@@ -219,15 +220,19 @@ impl DNSKEY {
     /// * `name` - the label of of the DNSKEY record.
     /// * `digest_type` - the `DigestType` with which to create the message digest.
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> DnsSecResult<Digest> {
+    pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
         let mut buf: Vec<u8> = Vec::new();
         {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
             encoder.set_canonical_names(true);
-            if let Err(e) = name.emit(&mut encoder)
-                   .and_then(|_| emit(&mut encoder, self)) {
+            if let Err(e) = name.emit(&mut encoder).and_then(
+                |_| emit(&mut encoder, self),
+            )
+            {
                 warn!("error serializing dnskey: {}", e);
-                return Err(DnsSecErrorKind::Msg(format!("error serializing dnskey: {}", e)).into());
+                return Err(
+                    ProtoErrorKind::Msg(format!("error serializing dnskey: {}", e)).into(),
+                );
             }
         }
 
@@ -242,7 +247,7 @@ impl From<DNSKEY> for RData {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DNSKEY> {
     let flags: u16 = try!(decoder.read_u16());
 
     //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
@@ -262,7 +267,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY>
     //
     // protocol is defined to only be '3' right now
     if protocol != 3 {
-        return Err(DecodeErrorKind::DnsKeyProtocolNot3(protocol).into());
+        return Err(ProtoErrorKind::DnsKeyProtocolNot3(protocol).into());
     }
 
     let algorithm: Algorithm = try!(Algorithm::read(decoder));
@@ -271,11 +276,17 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DNSKEY>
     // TODO: decode the key here?
     let public_key: Vec<u8> = try!(decoder.read_vec((rdata_length - 4) as usize));
 
-    Ok(DNSKEY::new(zone_key, secure_entry_point, revoke, algorithm, public_key))
+    Ok(DNSKEY::new(
+        zone_key,
+        secure_entry_point,
+        revoke,
+        algorithm,
+        public_key,
+    ))
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> ProtoResult<()> {
     let mut flags: u16 = 0;
     if rdata.zone_key() {
         flags |= 0b0000_0001_0000_0000
@@ -318,11 +329,13 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> EncodeResult {
 #[test]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub fn test() {
-    let rdata = DNSKEY::new(true,
-                            true,
-                            false,
-                            Algorithm::RSASHA256,
-                            vec![0, 1, 2, 3, 4, 5, 6, 7]);
+    let rdata = DNSKEY::new(
+        true,
+        true,
+        false,
+        Algorithm::RSASHA256,
+        vec![0, 1, 2, 3, 4, 5, 6, 7],
+    );
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -333,11 +346,17 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
-    assert!(rdata
-                .to_digest(&Name::parse("www.example.com.", None).unwrap(),
-                           DigestType::SHA256)
-                .is_ok());
+    assert!(
+        rdata
+            .to_digest(
+                &Name::parse("www.example.com.", None).unwrap(),
+                DigestType::SHA256,
+            )
+            .is_ok()
+    );
 }

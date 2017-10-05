@@ -211,7 +211,7 @@ impl SOA {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SOA> {
+pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SOA> {
     Ok(SOA {
         mname: try!(Name::read(decoder)),
         rname: try!(Name::read(decoder)),
@@ -241,7 +241,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SOA> {
 ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
-pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
 
     try!(soa.mname.emit_with_lowercase(encoder, is_canonical_names));
@@ -255,84 +255,84 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> EncodeResult {
 }
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SOA> {
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ProtoResult<SOA> {
     let mut token = tokens.iter();
 
     let mname: Name = try!(
         token
             .next()
-            .ok_or(ParseErrorKind::MissingToken("mname".to_string()).into())
+            .ok_or(ProtoErrorKind::MissingToken("mname".to_string()).into())
             .and_then(|t| if let &Token::CharData(ref s) = t {
                 Name::parse(s, origin)
             } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
             })
     );
     let rname: Name = try!(
         token
             .next()
-            .ok_or(ParseErrorKind::MissingToken("rname".to_string()).into())
+            .ok_or(ProtoErrorKind::MissingToken("rname".to_string()).into())
             .and_then(|t| if let &Token::CharData(ref s) = t {
                 Name::parse(s, origin)
             } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
             })
     );
     let mut list = try!(
         token
             .next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("List".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("List".to_string()),
             ))
             .and_then(|t| if let &Token::List(ref v) = t {
                 Ok(v)
             } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
             })
     ).iter();
 
     let serial: u32 = try!(
         list.next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("serial".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("serial".to_string()),
             ))
             .and_then(|s| Ok(try!(s.parse())))
     );
     let refresh: i32 = try!(
         list.next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("refresh".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("refresh".to_string()),
             ))
             .and_then(|s| Ok(try!(s.parse())))
     );
     let retry: i32 = try!(
         list.next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("retry".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("retry".to_string()),
             ))
             .and_then(|s| Ok(try!(s.parse())))
     );
     let expire: i32 = try!(
         list.next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("expire".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("expire".to_string()),
             ))
             .and_then(|s| Ok(try!(s.parse())))
     );
     let minimum: u32 = try!(
         list.next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("minimum".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("minimum".to_string()),
             ))
             .and_then(|s| Ok(try!(s.parse())))
     );
 
 
-    // let serial: u32 = try!(token.next().ok_or(ParseError::MissingToken("serial".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-    // let refresh: i32 = try!(token.next().ok_or(ParseError::MissingToken("refresh".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-    // let retry: i32 = try!(token.next().ok_or(ParseError::MissingToken("retry".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-    // let expire: i32 = try!(token.next().ok_or(ParseError::MissingToken("expire".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
-    // let minimum: u32 = try!(token.next().ok_or(ParseError::MissingToken("minimum".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ParseError::UnexpectedToken(t.clone()))} ));
+    // let serial: u32 = try!(token.next().ok_or(ProtoError::MissingToken("serial".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
+    // let refresh: i32 = try!(token.next().ok_or(ProtoError::MissingToken("refresh".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
+    // let retry: i32 = try!(token.next().ok_or(ProtoError::MissingToken("retry".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
+    // let expire: i32 = try!(token.next().ok_or(ProtoError::MissingToken("expire".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
+    // let minimum: u32 = try!(token.next().ok_or(ProtoError::MissingToken("minimum".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
 
     Ok(SOA::new(
         mname,

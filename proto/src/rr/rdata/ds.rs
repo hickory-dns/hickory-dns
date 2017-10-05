@@ -16,8 +16,8 @@
 
 //! pointer record from parent zone to child zone for dnskey proof
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use rr::dnssec::{Algorithm, DigestType};
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -174,7 +174,7 @@ impl DS {
     ///
     /// true if and only if the DNSKEY is covered by the DS record.
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    pub fn covers(&self, name: &Name, key: &DNSKEY) -> DnsSecResult<bool> {
+    pub fn covers(&self, name: &Name, key: &DNSKEY) -> ProtoResult<bool> {
         key.to_digest(name, self.digest_type())
             .map_err(|e| e.into())
             .map(|hash| hash.as_ref() == self.digest())
@@ -182,7 +182,7 @@ impl DS {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DS> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DS> {
     let start_idx = decoder.index();
 
     let key_tag: u16 = try!(decoder.read_u16());
@@ -196,7 +196,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<DS> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> ProtoResult<()> {
     try!(encoder.emit_u16(rdata.key_tag()));
     try!(rdata.algorithm().emit(encoder)); // always 3 for now
     try!(encoder.emit(rdata.digest_type().into()));
@@ -207,10 +207,12 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> EncodeResult {
 
 #[test]
 pub fn test() {
-    let rdata = DS::new(0xF00F,
-                        Algorithm::RSASHA256,
-                        DigestType::SHA256,
-                        vec![5, 6, 7, 8]);
+    let rdata = DS::new(
+        0xF00F,
+        Algorithm::RSASHA256,
+        DigestType::SHA256,
+        vec![5, 6, 7, 8],
+    );
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -221,8 +223,10 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }
 
@@ -234,10 +238,16 @@ pub fn test_covers() {
     let name = Name::parse("www.example.com.", None).unwrap();
 
     let dnskey_rdata = DNSKEY::new(true, true, false, Algorithm::RSASHA256, vec![1, 2, 3, 4]);
-    let ds_rdata = DS::new(0,
-                           Algorithm::RSASHA256,
-                           DigestType::SHA256,
-                           dnskey_rdata.to_digest(&name, DigestType::SHA256).unwrap().as_ref().to_owned());
+    let ds_rdata = DS::new(
+        0,
+        Algorithm::RSASHA256,
+        DigestType::SHA256,
+        dnskey_rdata
+            .to_digest(&name, DigestType::SHA256)
+            .unwrap()
+            .as_ref()
+            .to_owned(),
+    );
 
     assert!(ds_rdata.covers(&name, &dnskey_rdata).unwrap());
 }

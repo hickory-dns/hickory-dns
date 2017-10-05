@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-//! Text serialization types
+//! Contains serialization libraries for `binary` and text, `txt`.
 
-mod trust_dns_proto::serialize::txt::master_lex;
-mod trust_dns_proto::serialize::txt::master;
-
-pub use master::Parser;
-pub use master_lex::Lexer;
-pub use master_lex::Token;
+// FIXME: rename and relocate
+pub mod binary;
+pub mod txt;

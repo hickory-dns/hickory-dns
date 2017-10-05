@@ -16,8 +16,8 @@
 
 //! parameters used for the nsec3 hash method
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use rr::dnssec::Nsec3HashAlgorithm;
 
 /// [RFC 5155, NSEC3, March 2008](https://tools.ietf.org/html/rfc5155#section-4)
@@ -86,11 +86,12 @@ pub struct NSEC3PARAM {
 
 impl NSEC3PARAM {
     /// Constructs a new NSEC3PARAM RData for use in a Resource Record
-    pub fn new(hash_algorithm: Nsec3HashAlgorithm,
-               opt_out: bool,
-               iterations: u16,
-               salt: Vec<u8>)
-               -> NSEC3PARAM {
+    pub fn new(
+        hash_algorithm: Nsec3HashAlgorithm,
+        opt_out: bool,
+        iterations: u16,
+        salt: Vec<u8>,
+    ) -> NSEC3PARAM {
         NSEC3PARAM {
             hash_algorithm: hash_algorithm,
             opt_out: opt_out,
@@ -158,12 +159,12 @@ impl NSEC3PARAM {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<NSEC3PARAM> {
+pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NSEC3PARAM> {
     let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
     let flags: u8 = try!(decoder.read_u8());
 
     if flags & 0b1111_1110 != 0 {
-        return Err(DecodeErrorKind::UnrecognizedNsec3Flags(flags).into());
+        return Err(ProtoErrorKind::UnrecognizedNsec3Flags(flags).into());
     }
     let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
     let iterations: u16 = try!(decoder.read_u16());
@@ -174,7 +175,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<NSEC3PARAM> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> ProtoResult<()> {
     try!(encoder.emit(rdata.hash_algorithm().into()));
     let mut flags: u8 = 0;
     if rdata.opt_out() {
@@ -201,7 +202,9 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }

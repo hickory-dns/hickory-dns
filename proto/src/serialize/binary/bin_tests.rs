@@ -13,8 +13,10 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+// FIXME: move this to proto/tests
+
 use std::fmt::Debug;
-use ::error::*;
+use error::*;
 use super::*;
 
 fn get_character_data() -> Vec<(String, Vec<u8>)> {
@@ -33,15 +35,19 @@ fn read_character_data() {
 
 #[test]
 fn emit_character_data() {
-    test_emit_data_set(get_character_data(),
-                       |ref mut e, d| e.emit_character_data(&d));
+    test_emit_data_set(
+        get_character_data(),
+        |ref mut e, d| e.emit_character_data(&d),
+    );
 }
 
 fn get_u16_data() -> Vec<(u16, Vec<u8>)> {
-    vec![(0, vec![0x00, 0x00]),
-         (1, vec![0x00, 0x01]),
-         (256, vec![0x01, 0x00]),
-         (u16::max_value(), vec![0xFF, 0xFF])]
+    vec![
+        (0, vec![0x00, 0x00]),
+        (1, vec![0x00, 0x01]),
+        (256, vec![0x01, 0x00]),
+        (u16::max_value(), vec![0xFF, 0xFF]),
+    ]
 }
 
 #[test]
@@ -55,14 +61,16 @@ fn emit_u16() {
 }
 
 fn get_i32_data() -> Vec<(i32, Vec<u8>)> {
-    vec![(0, vec![0x00, 0x00, 0x00, 0x00]),
-         (1, vec![0x00, 0x00, 0x00, 0x01]),
-         (256, vec![0x00, 0x00, 0x01, 0x00]),
-         (256 * 256, vec![0x00, 0x01, 0x00, 0x00]),
-         (256 * 256 * 256, vec![0x01, 0x00, 0x00, 0x00]),
-         (-1, vec![0xFF, 0xFF, 0xFF, 0xFF]),
-         (i32::min_value(), vec![0x80, 0x00, 0x00, 0x00]),
-         (i32::max_value(), vec![0x7F, 0xFF, 0xFF, 0xFF])]
+    vec![
+        (0, vec![0x00, 0x00, 0x00, 0x00]),
+        (1, vec![0x00, 0x00, 0x00, 0x01]),
+        (256, vec![0x00, 0x00, 0x01, 0x00]),
+        (256 * 256, vec![0x00, 0x01, 0x00, 0x00]),
+        (256 * 256 * 256, vec![0x01, 0x00, 0x00, 0x00]),
+        (-1, vec![0xFF, 0xFF, 0xFF, 0xFF]),
+        (i32::min_value(), vec![0x80, 0x00, 0x00, 0x00]),
+        (i32::max_value(), vec![0x7F, 0xFF, 0xFF, 0xFF]),
+    ]
 }
 
 #[test]
@@ -76,14 +84,16 @@ fn emit_i32() {
 }
 
 fn get_u32_data() -> Vec<(u32, Vec<u8>)> {
-    vec![(0, vec![0x00, 0x00, 0x00, 0x00]),
-         (1, vec![0x00, 0x00, 0x00, 0x01]),
-         (256, vec![0x00, 0x00, 0x01, 0x00]),
-         (256 * 256, vec![0x00, 0x01, 0x00, 0x00]),
-         (256 * 256 * 256, vec![0x01, 0x00, 0x00, 0x00]),
-         (u32::max_value(), vec![0xFF, 0xFF, 0xFF, 0xFF]),
-         (2147483648, vec![0x80, 0x00, 0x00, 0x00]),
-         (i32::max_value() as u32, vec![0x7F, 0xFF, 0xFF, 0xFF])]
+    vec![
+        (0, vec![0x00, 0x00, 0x00, 0x00]),
+        (1, vec![0x00, 0x00, 0x00, 0x01]),
+        (256, vec![0x00, 0x00, 0x01, 0x00]),
+        (256 * 256, vec![0x00, 0x01, 0x00, 0x00]),
+        (256 * 256 * 256, vec![0x01, 0x00, 0x00, 0x00]),
+        (u32::max_value(), vec![0xFF, 0xFF, 0xFF, 0xFF]),
+        (2147483648, vec![0x80, 0x00, 0x00, 0x00]),
+        (i32::max_value() as u32, vec![0x7F, 0xFF, 0xFF, 0xFF]),
+    ]
 }
 
 #[test]
@@ -98,8 +108,9 @@ fn emit_u32() {
 
 
 pub fn test_read_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, read_func: F)
-    where E: PartialEq<E> + Debug,
-          F: Fn(BinDecoder) -> DecodeResult<E>
+where
+    E: PartialEq<E> + Debug,
+    F: Fn(BinDecoder) -> ProtoResult<E>,
 {
     let mut test_pass = 0;
     for (expect, binary) in data_set {
@@ -112,8 +123,9 @@ pub fn test_read_data_set<E, F>(data_set: Vec<(E, Vec<u8>)>, read_func: F)
 }
 
 pub fn test_emit_data_set<S, F>(data_set: Vec<(S, Vec<u8>)>, emit_func: F)
-    where F: Fn(&mut BinEncoder, S) -> EncodeResult,
-          S: Debug
+where
+    F: Fn(&mut BinEncoder, S) -> ProtoResult,
+    S: Debug,
 {
     let mut test_pass = 0;
 

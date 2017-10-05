@@ -20,7 +20,6 @@ use trust_dns_proto::algorithm;
 use trust_dns_proto::digest_type;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use trust_dns_proto::ec_public_key;
-use mod trust_dns_proto::tbs;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 mod key_format;
 mod keypair;
@@ -30,6 +29,7 @@ use mod trust_dns_proto::public_key;
 use trust_dns_proto::rsa_public_key;
 mod signer;
 use trust_dns_proto::supported_algorithm;
+use trust_dns_proto::tbs;
 use trust_dns_proto::trust_anchor;
 use trust_dns_proto::verifier;
 
@@ -45,6 +45,7 @@ pub use public_key::PublicKeyEnum;
 pub use self::signer::Signer;
 pub use supported_algorithm::SupportedAlgorithms;
 pub use trust_anchor::TrustAnchor;
+pub use tbs::TBS;
 pub use verifier::Verifier;
 
 pub use error::DnsSecError;

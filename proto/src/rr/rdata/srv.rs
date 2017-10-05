@@ -193,7 +193,7 @@ impl SRV {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SRV> {
+pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SRV> {
     // SRV { priority: u16, weight: u16, port: u16, target: Name, },
     Ok(SRV::new(
         try!(decoder.read_u16()),
@@ -221,7 +221,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<SRV> {
 ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
-pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
 
     try!(encoder.emit_u16(srv.priority()));
@@ -235,55 +235,55 @@ pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> EncodeResult {
 }
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SRV> {
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ProtoResult<SRV> {
     let mut token = tokens.iter();
 
     let priority: u16 = try!(
         token
             .next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("priority".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("priority".to_string()),
             ))
             .and_then(|t| if let &Token::CharData(ref s) = t {
                 Ok(try!(s.parse()))
             } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
             })
     );
     let weight: u16 = try!(
         token
             .next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("weight".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("weight".to_string()),
             ))
             .and_then(|t| if let &Token::CharData(ref s) = t {
                 Ok(try!(s.parse()))
             } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
             })
     );
     let port: u16 = try!(
         token
             .next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("port".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("port".to_string()),
             ))
             .and_then(|t| if let &Token::CharData(ref s) = t {
                 Ok(try!(s.parse()))
             } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
             })
     );
     let target: Name = try!(
         token
             .next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("target".to_string()),
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("target".to_string()),
             ))
             .and_then(|t| if let &Token::CharData(ref s) = t {
                 Name::parse(s, origin)
             } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
             })
     );
 

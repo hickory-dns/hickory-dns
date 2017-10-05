@@ -45,7 +45,7 @@ use error::*;
 use rr::domain::Name;
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Name> {
+pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Name> {
     Name::read(decoder)
 }
 
@@ -67,24 +67,24 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Name> {
 ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
-pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
     try!(name_data.emit_with_lowercase(encoder, is_canonical_names));
     Ok(())
 }
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Name> {
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ProtoResult<Name> {
     let mut token = tokens.iter();
 
     let name: Name = try!(
         token
             .next()
-            .ok_or(ParseErrorKind::MissingToken("name".to_string()).into())
+            .ok_or(ProtoErrorKind::MissingToken("name".to_string()).into())
             .and_then(|t| if let &Token::CharData(ref s) = t {
                 Name::parse(s, origin)
             } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
             })
     );
     Ok(name)

@@ -222,14 +222,22 @@ impl From<KeyTrust> for u16 {
 
 #[test]
 fn test_key_trust() {
-    assert_eq!(KeyTrust::NotAuth,
-               KeyTrust::from(u16::from(KeyTrust::NotAuth)));
-    assert_eq!(KeyTrust::NotPrivate,
-               KeyTrust::from(u16::from(KeyTrust::NotPrivate)));
-    assert_eq!(KeyTrust::AuthOrPrivate,
-               KeyTrust::from(u16::from(KeyTrust::AuthOrPrivate)));
-    assert_eq!(KeyTrust::DoNotTrust,
-               KeyTrust::from(u16::from(KeyTrust::DoNotTrust)));
+    assert_eq!(
+        KeyTrust::NotAuth,
+        KeyTrust::from(u16::from(KeyTrust::NotAuth))
+    );
+    assert_eq!(
+        KeyTrust::NotPrivate,
+        KeyTrust::from(u16::from(KeyTrust::NotPrivate))
+    );
+    assert_eq!(
+        KeyTrust::AuthOrPrivate,
+        KeyTrust::from(u16::from(KeyTrust::AuthOrPrivate))
+    );
+    assert_eq!(
+        KeyTrust::DoNotTrust,
+        KeyTrust::from(u16::from(KeyTrust::DoNotTrust))
+    );
 }
 
 /// Declares what this key is for
@@ -292,10 +300,14 @@ impl From<KeyUsage> for u16 {
 fn test_key_usage() {
     assert_eq!(KeyUsage::Host, KeyUsage::from(u16::from(KeyUsage::Host)));
     assert_eq!(KeyUsage::Zone, KeyUsage::from(u16::from(KeyUsage::Zone)));
-    assert_eq!(KeyUsage::Entity,
-               KeyUsage::from(u16::from(KeyUsage::Entity)));
-    assert_eq!(KeyUsage::Reserved,
-               KeyUsage::from(u16::from(KeyUsage::Reserved)));
+    assert_eq!(
+        KeyUsage::Entity,
+        KeyUsage::from(u16::from(KeyUsage::Entity))
+    );
+    assert_eq!(
+        KeyUsage::Reserved,
+        KeyUsage::from(u16::from(KeyUsage::Reserved))
+    );
 }
 
 /// [RFC 2137](https://tools.ietf.org/html/rfc2137#section-3.1), Secure Domain Name System Dynamic Update, April 1997
@@ -467,8 +479,10 @@ impl From<UpdateScope> for u16 {
 #[test]
 #[allow(deprecated)]
 fn test_update_scope() {
-    assert_eq!(UpdateScope::default(),
-               UpdateScope::from(u16::from(UpdateScope::default())));
+    assert_eq!(
+        UpdateScope::default(),
+        UpdateScope::from(u16::from(UpdateScope::default()))
+    );
 
     let update_scope = UpdateScope {
         zone: true,
@@ -638,13 +652,14 @@ impl KEY {
     ///
     /// A new KEY RData for use in a Resource Record
     #[allow(deprecated)]
-    pub fn new(key_trust: KeyTrust,
-               key_usage: KeyUsage,
-               signatory: UpdateScope,
-               protocol: Protocol,
-               algorithm: Algorithm,
-               public_key: Vec<u8>)
-               -> KEY {
+    pub fn new(
+        key_trust: KeyTrust,
+        key_usage: KeyUsage,
+        signatory: UpdateScope,
+        protocol: Protocol,
+        algorithm: Algorithm,
+        public_key: Vec<u8>,
+    ) -> KEY {
         KEY {
             key_trust: key_trust,
             key_usage: key_usage,
@@ -734,7 +749,7 @@ impl KEY {
     // ///
     // /// * `name` - the label of of the KEY record.
     // /// * `digest_type` - the `DigestType` with which to create the message digest.
-    // pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> DnsSecResult<Vec<u8>> {
+    // pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Vec<u8>> {
     //     let mut buf: Vec<u8> = Vec::new();
     //     {
     //         let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
@@ -742,7 +757,7 @@ impl KEY {
     //         if let Err(e) = name.emit(&mut encoder)
     //                .and_then(|_| emit(&mut encoder, self)) {
     //             warn!("error serializing KEY: {}", e);
-    //             return Err(DnsSecErrorKind::Msg(format!("error serializing KEY: {}", e)).into());
+    //             return Err(ProtoErrorKind::Msg(format!("error serializing KEY: {}", e)).into());
     //         }
     //     }
 
@@ -758,7 +773,7 @@ impl From<KEY> for RData {
 
 /// Read the RData from the given Decoder
 #[allow(deprecated)]
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<KEY> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<KEY> {
     //      0   1   2   3   4   5   6   7   8   9   0   1   2   3   4   5
     //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
     //    |  A/C  | Z | XT| Z | Z | NAMTYP| Z | Z | Z | Z |      SIG      |
@@ -790,16 +805,18 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<KEY> {
     // TODO: decode the key here?
     let public_key: Vec<u8> = try!(decoder.read_vec((rdata_length - 4) as usize));
 
-    Ok(KEY::new(key_trust,
-                key_usage,
-                signatory,
-                protocol,
-                algorithm,
-                public_key))
+    Ok(KEY::new(
+        key_trust,
+        key_usage,
+        signatory,
+        protocol,
+        algorithm,
+        public_key,
+    ))
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &KEY) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, rdata: &KEY) -> ProtoResult<()> {
     let mut flags: u16 = 0;
     flags |= u16::from(rdata.key_trust);
     flags |= u16::from(rdata.key_usage);
@@ -815,12 +832,14 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &KEY) -> EncodeResult {
 
 #[test]
 pub fn test() {
-    let rdata = KEY::new(Default::default(),
-                         Default::default(),
-                         Default::default(),
-                         Default::default(),
-                         Algorithm::RSASHA256,
-                         vec![0, 1, 2, 3, 4, 5, 6, 7]);
+    let rdata = KEY::new(
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Default::default(),
+        Algorithm::RSASHA256,
+        vec![0, 1, 2, 3, 4, 5, 6, 7],
+    );
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -831,8 +850,10 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
     // #[cfg(any(feature = "openssl", feature = "ring"))]
     // assert!(rdata

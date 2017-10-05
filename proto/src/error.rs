@@ -1,18 +1,11 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+#![allow(missing_docs)]
 
 use std::io;
 
@@ -33,7 +26,7 @@ error_chain! {
     links {
     //   super::decode_error::Error, super::decode_error::ErrorKind, Decode;
     //   super::encode_error::Error, super::encode_error::ErrorKind, Encode;
-    //   DnsSecError, DnsSecErrorKind, DnsSec;
+    //   DnsSecError, ProtoErrorKind, DnsSec;
     }
 
     // Automatic conversions between this error chain and other
@@ -44,6 +37,9 @@ error_chain! {
     // This section can be empty.
     foreign_links {
       ::std::io::Error, Io, "io error";
+      ::std::net::AddrParseError, AddrParseError, "network address parse error";
+      ::std::num::ParseIntError, ParseIntError, "error parsing number";
+      ::std::string::FromUtf8Error, FromUtf8Error, "utf8 conversion error";
       // SslErrorStack, SSL, "ssl error";
     }
 
@@ -51,19 +47,45 @@ error_chain! {
     // the same as `quick_error!`, but the `from()` and `cause()`
     // syntax is not supported.
     errors {
-      NoError {
-        description("no error specified")
-        display("no error specified")
-      }
 
       Canceled(c: ::futures::sync::oneshot::Canceled) {
         description("future was canceled")
         display("future was canceled: {:?}", c)
       }
 
+      CharacterDataTooLong(len: usize) {
+        description("char data length exceeds 255")
+        display("char data length exceeds 255: {}", len)
+      }
+
+      DnsKeyProtocolNot3(value: u8) {
+        description("dns key value unknown, must be 3")
+        display("dns key value unknown, must be 3: {}", value)
+      }
+
+      DomainNameTooLong(len: usize) {
+        description("name label data exceed 255")
+        display("name label data exceed 255: {}", len)
+      }
+
+      EdnsNameNotRoot(found: ::rr::Name) {
+        description("edns resource record label must be the root label (.)")
+        display("edns resource record label must be the root label (.): {}", found)
+      }
+
+      LabelBytesTooLong(len: usize) {
+        description("label bytes exceed 63")
+        display("label bytes exceed 63: {}", len)
+      }
+
       Message(msg: &'static str) {
         description(msg)
         display("{}", msg)
+      }
+
+      NoError {
+        description("no error specified")
+        display("no error specified")
       }
 
       NotAllBytesSent(sent: usize, expect: usize) {
@@ -81,9 +103,120 @@ error_chain! {
         display("incorrectMessageId got: {}, expected: {}", got, expect)
       }
 
+      IncorrectRDataLengthRead(read: usize, len: usize) {
+        description("incorrect rdata length read")
+        display("incorrect rdata length read: {} expected: {}", read, len)
+      }
+
       Timeout {
         description("request timeout")
         display("request timed out")
+      }
+
+      UnknownAlgorithmTypeValue(value: u8) {
+        description("algorithm type value unknown")
+        display("algorithm type value unknown: {}", value)
+      }
+
+      UnknownDnsClassStr(value: String) {
+        description("dns class string unknown")
+        display("dns class string unknown: {}", value)
+      }
+
+      UnknownDnsClassValue(value: u16) {
+        description("dns class value unknown")
+        display("dns class value unknown: {}", value)
+      }
+
+      UnrecognizedLabelCode(value: u8) {
+        description("unrecognized label code")
+        display("unrecognized label code: {:b}", value)
+      }
+
+      UnrecognizedNsec3Flags(value: u8) {
+        description("nsec3 flags should be 0b0000000*")
+        display("nsec3 flags should be 0b0000000*: {:b}", value)
+      }
+
+      UnknownRecordTypeStr(value: String) {
+        description("record type string unknown")
+        display("record type string unknown: {}", value)
+      }
+
+      UnknownRecordTypeValue(value: u16) {
+        description("record type value unknown")
+        display("record type value unknown: {}", value)
+      }
+
+      // TODO: these are only necessary until TXT serialization stuff is moved
+      EscapedCharOutsideCharData {
+        description("escaped character outside character data")
+        display("escaped character outside character data")
+      }
+
+      IllegalCharacter(ch: char) {
+        description("illegal character input")
+        display("illegal character input: {}", ch)
+      }
+
+      UnrecognizedChar(ch: char) {
+        description("unrecognized character input")
+        display("unrecognized character input: {}", ch)
+      }
+
+      BadEscapedData(string: String) {
+        description("escaped data not recognized")
+        display("escaped data not recognized: {}", string)
+      }
+
+      UnrecognizedOctet(octet: u32) {
+        description("unrecognized octet")
+        display("unrecognized octet: {:x}", octet)
+      }
+
+      UnclosedQuotedString {
+        description("unclosed quoted string")
+        display("unclosed quoted string")
+      }
+
+      UnclosedList {
+        description("unclosed list, missing ')'")
+        display("unclosed list, missing ')'")
+      }
+
+      UnrecognizedDollar(string: String) {
+        description("unrecognized dollar content")
+        display("unrecognized dollar content: {}", string)
+      }
+
+      EOF {
+        description("unexpected end of input")
+        display("unexpected end of input")
+      }
+
+      IllegalState(string: &'static str) {
+        description("illegal state")
+        display("illegal state: {}", string)
+      }
+
+      UnexpectedToken(token: ::serialize::txt::Token) {
+        description("unrecognized token in stream")
+        display("unrecognized token in stream: {:?}", token)
+      }
+
+      MissingToken(string: String) {
+        description("token is missing")
+        display("token is missing: {}", string)
+      }
+
+      CharToIntError(ch: char) {
+        description("invalid numerical character")
+        display("invalid numerical character: {}", ch)
+      }
+
+      ParseTimeError(string: String) {
+        description("invalid time string")
+        display("invalid time string: {}", string)
       }
     }
 }

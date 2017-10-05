@@ -53,20 +53,20 @@ pub enum DigestType {
 
 impl DigestType {
     /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-    pub fn from_u8(value: u8) -> DecodeResult<Self> {
+    pub fn from_u8(value: u8) -> ProtoResult<Self> {
         match value {
             1 => Ok(DigestType::SHA1),
             2 => Ok(DigestType::SHA256),
             //  3  => Ok(DigestType::GOSTR34_11_94),
             4 => Ok(DigestType::SHA384),
             5 => Ok(DigestType::ED25519),
-            _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
+            _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
         }
     }
 
     /// The OpenSSL counterpart for the digest
     #[cfg(feature = "openssl")]
-    pub fn to_openssl_digest(&self) -> DnsSecResult<hash::MessageDigest> {
+    pub fn to_openssl_digest(&self) -> ProtoResult<hash::MessageDigest> {
         match *self {
             DigestType::SHA1 => Ok(hash::MessageDigest::sha1()),
             DigestType::SHA256 => Ok(hash::MessageDigest::sha256()),
@@ -74,7 +74,7 @@ impl DigestType {
             DigestType::SHA512 => Ok(hash::MessageDigest::sha512()),
             _ => {
                 Err(
-                    DnsSecErrorKind::Msg(format!("digest not supported by openssl: {:?}", self))
+                    ProtoErrorKind::Msg(format!("digest not supported by openssl: {:?}", self))
                         .into(),
                 )
             }
@@ -83,42 +83,42 @@ impl DigestType {
 
     /// The *ring* counterpart for the digest
     #[cfg(feature = "ring")]
-    pub fn to_ring_digest_alg(&self) -> DnsSecResult<&'static digest::Algorithm> {
+    pub fn to_ring_digest_alg(&self) -> ProtoResult<&'static digest::Algorithm> {
         match *self {
             DigestType::SHA1 => Ok(&digest::SHA1),
             DigestType::SHA256 => Ok(&digest::SHA256),
             DigestType::SHA384 => Ok(&digest::SHA384),
             DigestType::SHA512 => Ok(&digest::SHA512),
             _ => Err(
-                DnsSecErrorKind::Msg(format!("digest not supported by ring: {:?}", self)).into(),
+                ProtoErrorKind::Msg(format!("digest not supported by ring: {:?}", self)).into(),
             ),
         }
     }
 
     /// Hash the data
     #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-    pub fn hash(&self, data: &[u8]) -> DnsSecResult<Digest> {
+    pub fn hash(&self, data: &[u8]) -> ProtoResult<Digest> {
         hash::hash2(try!(self.to_openssl_digest()), data).map_err(|e| e.into())
     }
 
     /// Hash the data
     #[cfg(feature = "ring")]
-    pub fn hash(&self, data: &[u8]) -> DnsSecResult<Digest> {
+    pub fn hash(&self, data: &[u8]) -> ProtoResult<Digest> {
         let alg = try!(self.to_ring_digest_alg());
         Ok(digest::digest(alg, data))
     }
 
     /// This will always error, enable openssl feature at compile time
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
-    pub fn hash(&self, _: &[u8]) -> DnsSecResult<Vec<u8>> {
+    pub fn hash(&self, _: &[u8]) -> ProtoResult<Vec<u8>> {
         Err(
-            DnsSecErrorKind::Message("The openssl and ring features are both disabled").into(),
+            ProtoErrorKind::Message("The openssl and ring features are both disabled").into(),
         )
     }
 
     /// Digest all the data.
     #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-    pub fn digest_all(&self, data: &[&[u8]]) -> DnsSecResult<Digest> {
+    pub fn digest_all(&self, data: &[&[u8]]) -> ProtoResult<Digest> {
         use std::io::Write;
 
         let digest_type = try!(self.to_openssl_digest());
@@ -134,7 +134,7 @@ impl DigestType {
 
     /// Digest all the data.
     #[cfg(feature = "ring")]
-    pub fn digest_all(&self, data: &[&[u8]]) -> DnsSecResult<Digest> {
+    pub fn digest_all(&self, data: &[&[u8]]) -> ProtoResult<Digest> {
         let alg = try!(self.to_ring_digest_alg());
         let mut ctx = digest::Context::new(alg);
         for d in data {

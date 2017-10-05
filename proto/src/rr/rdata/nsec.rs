@@ -111,7 +111,7 @@ impl NSEC {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NSEC> {
     let start_idx = decoder.index();
 
     let next_domain_name = try!(Name::read(decoder));
@@ -132,7 +132,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC> {
 ///   to lowercase.  DNS names in the RDATA section of RRSIG resource
 ///   records are converted to lowercase.
 /// ```
-pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
     encoder.set_canonical_names(true);
     try!(rdata.next_domain_name().emit(encoder));

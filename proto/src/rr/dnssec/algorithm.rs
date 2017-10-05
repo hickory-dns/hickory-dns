@@ -101,7 +101,7 @@ use error::*;
 ///    This document cannot be updated, only made obsolete and replaced by a
 ///    successor document.
 /// ```
-#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, RustcDecodable)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub enum Algorithm {
     /// DO NOT USE, SHA1 is a compromised hashing function, it is here for backward compatability
     RSASHA1,
@@ -121,7 +121,7 @@ pub enum Algorithm {
 
 impl Algorithm {
     /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-    pub fn from_u8(value: u8) -> DecodeResult<Self> {
+    pub fn from_u8(value: u8) -> ProtoResult<Self> {
         match value {
             5 => Ok(Algorithm::RSASHA1),
             7 => Ok(Algorithm::RSASHA1NSEC3SHA1),
@@ -130,7 +130,7 @@ impl Algorithm {
             13 => Ok(Algorithm::ECDSAP256SHA256),
             14 => Ok(Algorithm::ECDSAP384SHA384),
             15 => Ok(Algorithm::ED25519),
-            _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
+            _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
         }
     }
 
@@ -163,20 +163,20 @@ impl Algorithm {
 
 impl BinSerializable<Algorithm> for Algorithm {
     // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<Algorithm> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Algorithm> {
         let algorithm_id = try!(decoder.read_u8());
         Algorithm::from_u8(algorithm_id)
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit(u8::from(*self))
     }
 }
 
 impl FromStr for Algorithm {
-    type Err = DecodeError;
+    type Err = ProtoError;
 
-    fn from_str(s: &str) -> DecodeResult<Algorithm> {
+    fn from_str(s: &str) -> ProtoResult<Algorithm> {
         match s {
             "RSASHA1" => Ok(Algorithm::RSASHA1),
             "RSASHA256" => Ok(Algorithm::RSASHA256),
@@ -186,7 +186,7 @@ impl FromStr for Algorithm {
             "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
             "ED25519" => Ok(Algorithm::ED25519),
             _ => Err(
-                DecodeErrorKind::Msg(format!("unrecognized string {}", s)).into(),
+                ProtoErrorKind::Msg(format!("unrecognized string {}", s)).into(),
             ),
         }
     }

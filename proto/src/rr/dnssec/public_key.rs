@@ -60,7 +60,7 @@ pub trait PublicKey {
     /// True if and only if the signature is valid for the hash. This will always return
     /// false if the `key`.
     #[allow(unused)]
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()>;
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()>;
 }
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
@@ -69,7 +69,7 @@ fn verify_with_pkey(
     algorithm: Algorithm,
     message: &[u8],
     signature: &[u8],
-) -> DnsSecResult<()> {
+) -> ProtoResult<()> {
     let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
     let mut verifier = Verifier::new(digest_type, &pkey).unwrap();
     try!(verifier.update(message));
@@ -77,7 +77,7 @@ fn verify_with_pkey(
         |b| if b {
             Ok(())
         } else {
-            Err(DnsSecErrorKind::Message("could not verify").into())
+            Err(ProtoErrorKind::Message("could not verify").into())
         },
     )
 }
@@ -123,7 +123,7 @@ impl<'k> Ec<'k> {
     ///   algorithms.  Conformant DNSSEC verifiers MUST implement verification
     ///   for both of the above algorithms.
     /// ```
-    pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> DnsSecResult<Self> {
+    pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
         let curve = match algorithm {
             Algorithm::ECDSAP256SHA256 => nid::X9_62_PRIME256V1,
             Algorithm::ECDSAP384SHA384 => nid::SECP384R1,
@@ -179,7 +179,7 @@ fn asn1_emit_integer(output: &mut Vec<u8>, int: &[u8]) {
 }
 /// Convert raw DNSSEC ECDSA signature to ASN.1 DER format
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> DnsSecResult<Vec<u8>> {
+pub fn dnssec_ecdsa_signature_to_der(signature: &[u8]) -> ProtoResult<Vec<u8>> {
     if signature.len() == 0 || signature.len() & 1 != 0 || signature.len() > 127 {
         return Err("invalid signature length".into());
     }
@@ -197,7 +197,7 @@ impl<'k> PublicKey for Ec<'k> {
         self.raw
     }
 
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         let signature_asn1 = dnssec_ecdsa_signature_to_der(signature)?;
         verify_with_pkey(&self.pkey, algorithm, message, &signature_asn1)
     }
@@ -241,7 +241,7 @@ impl Ec {
     ///   algorithms.  Conformant DNSSEC verifiers MUST implement verification
     ///   for both of the above algorithms.
     /// ```
-    pub fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> DnsSecResult<Self> {
+    pub fn from_public_bytes(public_key: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
         ECPublicKey::from_unprefixed(public_key, algorithm)
     }
 }
@@ -252,7 +252,7 @@ impl PublicKey for Ec {
         self.unprefixed_bytes()
     }
 
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         // TODO: assert_eq!(algorithm, self.algorithm); once *ring* allows this.
         let alg = match algorithm {
             Algorithm::ECDSAP256SHA256 => &signature::ECDSA_P256_SHA256_FIXED,
@@ -289,10 +289,10 @@ impl<'k> Ed25519<'k> {
     ///  in [RFC 8032]. Breaking tradition, the keys are encoded in little-
     ///  endian byte order.
     /// ```
-    pub fn from_public_bytes(public_key: &'k [u8]) -> DnsSecResult<Self> {
+    pub fn from_public_bytes(public_key: &'k [u8]) -> ProtoResult<Self> {
         if public_key.len() != ED25519_PUBLIC_KEY_LEN {
             return Err(
-                DnsSecErrorKind::Msg(format!(
+                ProtoErrorKind::Msg(format!(
                     "expected {} byte public_key: {}",
                     ED25519_PUBLIC_KEY_LEN,
                     public_key.len()
@@ -311,7 +311,7 @@ impl<'k> PublicKey for Ed25519<'k> {
         self.raw
     }
 
-    fn verify(&self, _: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    fn verify(&self, _: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         let public_key = Input::from(self.raw);
         let message = Input::from(message);
         let signature = Input::from(signature);
@@ -367,7 +367,7 @@ impl<'k> Rsa<'k> {
     ///  Note: This changes the algorithm number for RSA KEY RRs to be the
     ///  same as the new algorithm number for RSA/SHA1 SIGs.
     /// ```
-    pub fn from_public_bytes(raw: &'k [u8]) -> DnsSecResult<Self> {
+    pub fn from_public_bytes(raw: &'k [u8]) -> ProtoResult<Self> {
         let parsed = RSAPublicKey::try_from(raw)?;
         let pkey = into_pkey(parsed)?;
         Ok(Rsa { raw, pkey })
@@ -375,7 +375,7 @@ impl<'k> Rsa<'k> {
 }
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-fn into_pkey(parsed: RSAPublicKey) -> DnsSecResult<PKey> {
+fn into_pkey(parsed: RSAPublicKey) -> ProtoResult<PKey> {
     // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
     let e = try!(BigNum::from_slice(parsed.e()));
     let n = try!(BigNum::from_slice(parsed.n()));
@@ -386,7 +386,7 @@ fn into_pkey(parsed: RSAPublicKey) -> DnsSecResult<PKey> {
 }
 
 #[cfg(feature = "ring")]
-fn into_pkey<'k>(parsed: RSAPublicKey<'k>) -> DnsSecResult<RSAPublicKey<'k>> {
+fn into_pkey<'k>(parsed: RSAPublicKey<'k>) -> ProtoResult<RSAPublicKey<'k>> {
     Ok(parsed)
 }
 
@@ -397,12 +397,12 @@ impl<'k> PublicKey for Rsa<'k> {
     }
 
     #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         verify_with_pkey(&self.pkey, algorithm, message, signature)
     }
 
     #[cfg(feature = "ring")]
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         let alg = match algorithm {
             Algorithm::RSASHA256 => &signature::RSA_PKCS1_2048_8192_SHA256,
             Algorithm::RSASHA512 => &signature::RSA_PKCS1_2048_8192_SHA512,
@@ -443,7 +443,7 @@ pub enum PublicKeyEnum<'k> {
 impl<'k> PublicKeyEnum<'k> {
     /// Converts the bytes into a PulbicKey of the specified algorithm
     #[allow(unused_variables)]
-    pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> DnsSecResult<Self> {
+    pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
         match algorithm {
             #[cfg(any(feature = "openssl", feature = "ring"))]
             Algorithm::ECDSAP256SHA256 |
@@ -482,7 +482,7 @@ impl<'k> PublicKey for PublicKeyEnum<'k> {
     }
 
     #[allow(unused_variables)]
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         match *self {
             #[cfg(any(feature = "openssl", feature = "ring"))]
             PublicKeyEnum::Ec(ref ec) => ec.verify(algorithm, message, signature),
@@ -513,7 +513,7 @@ impl PublicKey for PublicKeyBuf {
         &self.key_buf
     }
 
-    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    fn verify(&self, algorithm: Algorithm, message: &[u8], signature: &[u8]) -> ProtoResult<()> {
         let public_key = PublicKeyEnum::from_public_bytes(&self.key_buf, algorithm)?;
 
         public_key.verify(algorithm, message, signature)

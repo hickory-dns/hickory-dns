@@ -103,11 +103,11 @@ pub enum Nsec3HashAlgorithm {
 
 impl Nsec3HashAlgorithm {
     /// http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
-    pub fn from_u8(value: u8) -> DecodeResult<Self> {
+    pub fn from_u8(value: u8) -> ProtoResult<Self> {
         match value {
             1 => Ok(Nsec3HashAlgorithm::SHA1),
             // TODO: where/when is SHA2?
-            _ => Err(DecodeErrorKind::UnknownAlgorithmTypeValue(value).into()),
+            _ => Err(ProtoErrorKind::UnknownAlgorithmTypeValue(value).into()),
         }
     }
 
@@ -143,7 +143,7 @@ impl Nsec3HashAlgorithm {
     ///        substitution);
     /// ```
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> DnsSecResult<Digest> {
+    pub fn hash(&self, salt: &[u8], name: &Name, iterations: u16) -> ProtoResult<Digest> {
         match *self {
             // if there ever is more than just SHA1 support, this should be a genericized method
             Nsec3HashAlgorithm::SHA1 => {
@@ -161,11 +161,7 @@ impl Nsec3HashAlgorithm {
 
     /// until there is another supported algorithm, just hardcoded to this.
     #[cfg(any(feature = "openssl", feature = "ring"))]
-    fn sha1_recursive_hash(
-        salt: &[u8],
-        bytes: Vec<u8>,
-        iterations: u16,
-    ) -> DnsSecResult<Digest> {
+    fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> ProtoResult<Digest> {
         let digested: Digest;
         let to_digest = if iterations > 0 {
             digested = try!(Self::sha1_recursive_hash(salt, bytes, iterations - 1));

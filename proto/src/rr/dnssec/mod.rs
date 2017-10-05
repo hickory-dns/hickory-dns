@@ -26,6 +26,7 @@ pub mod public_key;
 mod rsa_public_key;
 mod supported_algorithm;
 mod trust_anchor;
+mod tbs;
 mod verifier;
 
 pub use self::algorithm::Algorithm;
@@ -35,6 +36,7 @@ pub use self::public_key::PublicKey;
 pub use self::public_key::PublicKeyBuf;
 pub use self::public_key::PublicKeyEnum;
 pub use self::supported_algorithm::SupportedAlgorithms;
+pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
 
