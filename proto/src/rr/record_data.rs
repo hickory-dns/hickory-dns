@@ -663,7 +663,7 @@ impl RData {
         record_type: RecordType,
         tokens: &Vec<Token>,
         origin: Option<&Name>,
-    ) -> ParseResult<Self> {
+    ) -> ProtoResult<Self> {
         let rdata = match record_type {
             RecordType::A => RData::A(try!(rdata::a::parse(tokens))),
             RecordType::AAAA => RData::AAAA(try!(rdata::aaaa::parse(tokens))),
@@ -709,7 +709,7 @@ impl RData {
         decoder: &mut BinDecoder,
         record_type: RecordType,
         rdata_length: u16,
-    ) -> DecodeResult<Self> {
+    ) -> ProtoResult<Self> {
         let start_idx = decoder.index();
 
         let result = match record_type {
@@ -722,10 +722,10 @@ impl RData {
                 RData::AAAA(try!(rdata::aaaa::read(decoder)))
             }
             rt @ RecordType::ANY => {
-                return Err(DecodeErrorKind::UnknownRecordTypeValue(rt.into()).into())
+                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
             }
             rt @ RecordType::AXFR => {
-                return Err(DecodeErrorKind::UnknownRecordTypeValue(rt.into()).into())
+                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
             }
             RecordType::CNAME => {
                 debug!("reading CNAME");
@@ -740,7 +740,7 @@ impl RData {
                 RData::DS(try!(rdata::ds::read(decoder, rdata_length)))
             }
             rt @ RecordType::IXFR => {
-                return Err(DecodeErrorKind::UnknownRecordTypeValue(rt.into()).into())
+                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
             }
             RecordType::KEY => {
                 debug!("reading KEY");
@@ -804,7 +804,7 @@ impl RData {
         let read = decoder.index() - start_idx;
         if read != rdata_length as usize {
             return Err(
-                DecodeErrorKind::IncorrectRDataLengthRead(read, rdata_length as usize).into(),
+                ProtoErrorKind::IncorrectRDataLengthRead(read, rdata_length as usize).into(),
             );
         }
         Ok(result)
@@ -826,7 +826,7 @@ impl RData {
     ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
     ///        by the corresponding lowercase US-ASCII letters;
     /// ```
-    pub fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    pub fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         match *self {
             RData::A(ref address) => rdata::a::emit(encoder, address),
             RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),

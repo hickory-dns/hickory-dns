@@ -137,7 +137,7 @@ impl Parser {
         &mut self,
         lexer: Lexer,
         origin: Option<Name>,
-    ) -> ParseResult<(Name, BTreeMap<RrKey, RecordSet>)> {
+    ) -> ProtoResult<(Name, BTreeMap<RrKey, RecordSet>)> {
         let mut lexer = lexer;
         let mut records: BTreeMap<RrKey, RecordSet> = BTreeMap::new();
 
@@ -177,7 +177,7 @@ impl Parser {
                         // if blank, then nothing or ttl_class_type
                         Token::Blank => State::TtlClassType,
                         Token::EOL => State::StartLine, // probably a comment
-                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                        _ => return Err(ProtoErrorKind::UnexpectedToken(t).into()),
                     }
                 }
                 State::Ttl => {
@@ -186,7 +186,7 @@ impl Parser {
                             ttl = Some(try!(Self::parse_time(data)));
                             State::StartLine
                         }
-                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                        _ => return Err(ProtoErrorKind::UnexpectedToken(t).into()),
                     }
                 }
                 State::Origin => {
@@ -196,7 +196,7 @@ impl Parser {
                             origin = Some(try!(Name::parse(data, None)));
                             State::StartLine
                         }
-                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                        _ => return Err(ProtoErrorKind::UnexpectedToken(t).into()),
                     }
                 }
                 State::Include => unimplemented!(),
@@ -207,7 +207,7 @@ impl Parser {
                         // One of Class or Type (these cannot be overlapping!)
                         Token::CharData(ref data) => {
                             // if it's a number it's a ttl
-                            let result: ParseResult<u32> = Self::parse_time(data);
+                            let result: ProtoResult<u32> = Self::parse_time(data);
                             if result.is_ok() {
                                 ttl = result.ok();
                                 State::TtlClassType // hm, should this go to just ClassType?
@@ -229,7 +229,7 @@ impl Parser {
                         Token::EOL => {
                             State::StartLine // next line
                         }
-                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                        _ => return Err(ProtoErrorKind::UnexpectedToken(t).into()),
                     }
                 }
                 State::Record => {
@@ -239,8 +239,8 @@ impl Parser {
                         Token::EOL => {
                             // call out to parsers for difference record types
                             let rdata = try!(RData::parse(
-                                try!(rtype.ok_or(ParseError::from(
-                                    ParseErrorKind::Message("record type not specified"),
+                                try!(rtype.ok_or(ProtoError::from(
+                                    ProtoErrorKind::Message("record type not specified"),
                                 ))),
                                 &tokens,
                                 origin.as_ref(),
@@ -251,14 +251,14 @@ impl Parser {
                             // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
                             //  might want to wait until RC.weak() stabilizes, as that would be needed for global
                             //  memory where you want
-                            record.set_name(try!(current_name.clone().ok_or(ParseError::from(
-                                ParseErrorKind::Message(
+                            record.set_name(try!(current_name.clone().ok_or(ProtoError::from(
+                                ProtoErrorKind::Message(
                                     "record name not specified",
                                 ),
                             ))));
                             record.set_rr_type(rtype.unwrap());
-                            record.set_dns_class(try!(class.ok_or(ParseError::from(
-                                ParseErrorKind::Message("record class not specified"),
+                            record.set_dns_class(try!(class.ok_or(ProtoError::from(
+                                ProtoErrorKind::Message("record class not specified"),
                             ))));
 
                             // slightly annoying, need to grab the TTL, then move rdata into the record,
@@ -282,8 +282,8 @@ impl Parser {
                                     }
                                 }
                                 _ => {
-                                    record.set_ttl(try!(ttl.ok_or(ParseError::from(
-                                        ParseErrorKind::Message("record ttl not specified"),
+                                    record.set_ttl(try!(ttl.ok_or(ProtoError::from(
+                                        ProtoErrorKind::Message("record ttl not specified"),
                                     ))));
                                 }
                             }
@@ -301,7 +301,7 @@ impl Parser {
                                     let set = record.into_record_set();
                                     if records.insert(key, set).is_some() {
                                         return Err(
-                                            ParseErrorKind::Message(
+                                            ProtoErrorKind::Message(
                                                 "SOA is already \
                                                                             specified",
                                             ).into(),
@@ -332,8 +332,8 @@ impl Parser {
 
         //
         // build the Authority and return.
-        let origin = try!(origin.ok_or(ParseError::from(
-            ParseErrorKind::Message("$ORIGIN was not specified"),
+        let origin = try!(origin.ok_or(ProtoError::from(
+            ProtoErrorKind::Message("$ORIGIN was not specified"),
         )));
         Ok((origin, records))
     }
@@ -372,7 +372,7 @@ impl Parser {
     /// assert_eq!(Parser::parse_time("1s2d3w4h2m").unwrap(), 1+2*86400+3*604800+4*3600+2*60);
     /// assert_eq!(Parser::parse_time("3w3w").unwrap(), 3*604800+3*604800);
     /// ```
-    pub fn parse_time(ttl_str: &str) -> ParseResult<u32> {
+    pub fn parse_time(ttl_str: &str) -> ProtoResult<u32> {
         let mut value: u32 = 0;
         let mut collect: u32 = 0;
 
@@ -381,7 +381,7 @@ impl Parser {
                 // TODO, should these all be checked operations?
                 '0'...'9' => {
                     collect *= 10;
-                    collect += try!(c.to_digit(10).ok_or(ParseErrorKind::CharToIntError(c)));
+                    collect += try!(c.to_digit(10).ok_or(ProtoErrorKind::CharToIntError(c)));
                 }
                 'S' | 's' => {
                     value += collect;
@@ -403,7 +403,7 @@ impl Parser {
                     value += collect * 604800;
                     collect = 0;
                 }
-                _ => return Err(ParseErrorKind::ParseTimeError(ttl_str.to_string()).into()),
+                _ => return Err(ProtoErrorKind::ParseTimeError(ttl_str.to_string()).into()),
             }
         }
 

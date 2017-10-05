@@ -449,7 +449,7 @@ impl SIG {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<SIG> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<SIG> {
     let start_idx = decoder.index();
 
     // TODO should we verify here? or elsewhere...
@@ -497,7 +497,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<SIG> {
 ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
-pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
 
     try!(sig.type_covered().emit(encoder));
@@ -526,7 +526,7 @@ pub fn emit_pre_sig(
     sig_inception: u32,
     key_tag: u16,
     signer_name: &Name,
-) -> EncodeResult {
+) -> ProtoResult<()> {
     try!(type_covered.emit(encoder));
     try!(algorithm.emit(encoder));
     try!(encoder.emit(num_labels));

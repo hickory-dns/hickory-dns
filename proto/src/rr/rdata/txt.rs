@@ -16,9 +16,9 @@
 
 //! text records for storing arbitrary data
 
-use ::serialize::txt::*;
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::txt::*;
+use serialize::binary::*;
+use error::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
 ///
@@ -61,7 +61,7 @@ impl TXT {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<TXT> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TXT> {
     let data_len = decoder.len();
     let mut strings = Vec::with_capacity(1);
 
@@ -72,7 +72,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<TXT> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> ProtoResult<()> {
     for s in txt.txt_data() {
         try!(encoder.emit_character_data(s));
     }
@@ -81,12 +81,12 @@ pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> EncodeResult {
 }
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<TXT> {
+pub fn parse(tokens: &Vec<Token>) -> ProtoResult<TXT> {
     let mut txt_data: Vec<String> = Vec::with_capacity(tokens.len());
     for t in tokens {
         match *t {
             Token::CharData(ref txt) => txt_data.push(txt.clone()),
-            _ => return Err(ParseErrorKind::UnexpectedToken(t.clone()).into()),
+            _ => return Err(ProtoErrorKind::UnexpectedToken(t.clone()).into()),
         }
     }
 
@@ -106,7 +106,9 @@ fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }

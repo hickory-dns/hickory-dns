@@ -18,8 +18,8 @@
 
 use std::collections::HashMap;
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use rr::RecordType;
 use rr::dnssec::Nsec3HashAlgorithm;
 
@@ -120,13 +120,14 @@ pub struct NSEC3 {
 
 impl NSEC3 {
     /// Constructs a new NSEC3 record
-    pub fn new(hash_algorithm: Nsec3HashAlgorithm,
-               opt_out: bool,
-               iterations: u16,
-               salt: Vec<u8>,
-               next_hashed_owner_name: Vec<u8>,
-               type_bit_maps: Vec<RecordType>)
-               -> NSEC3 {
+    pub fn new(
+        hash_algorithm: Nsec3HashAlgorithm,
+        opt_out: bool,
+        iterations: u16,
+        salt: Vec<u8>,
+        next_hashed_owner_name: Vec<u8>,
+        type_bit_maps: Vec<RecordType>,
+    ) -> NSEC3 {
         NSEC3 {
             hash_algorithm: hash_algorithm,
             opt_out: opt_out,
@@ -239,14 +240,14 @@ impl NSEC3 {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC3> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NSEC3> {
     let start_idx = decoder.index();
 
     let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
     let flags: u8 = try!(decoder.read_u8());
 
     if flags & 0b1111_1110 != 0 {
-        return Err(DecodeErrorKind::UnrecognizedNsec3Flags(flags).into());
+        return Err(ProtoErrorKind::UnrecognizedNsec3Flags(flags).into());
     }
     let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
     let iterations: u16 = try!(decoder.read_u16());
@@ -258,12 +259,14 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC3> 
     let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
     let record_types = try!(decode_type_bit_maps(decoder, bit_map_len));
 
-    Ok(NSEC3::new(hash_algorithm,
-                  opt_out,
-                  iterations,
-                  salt,
-                  next_hashed_owner_name,
-                  record_types))
+    Ok(NSEC3::new(
+        hash_algorithm,
+        opt_out,
+        iterations,
+        salt,
+        next_hashed_owner_name,
+        record_types,
+    ))
 }
 
 /// Decodes the array of RecordTypes covered by this NSEC record
@@ -276,9 +279,10 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NSEC3> 
 /// # Returns
 ///
 /// The Array of covered types
-pub fn decode_type_bit_maps(decoder: &mut BinDecoder,
-                            bit_map_len: usize)
-                            -> DecodeResult<Vec<RecordType>> {
+pub fn decode_type_bit_maps(
+    decoder: &mut BinDecoder,
+    bit_map_len: usize,
+) -> ProtoResult<Vec<RecordType>> {
     // 3.2.1.  Type Bit Maps Encoding
     //
     //  The encoding of the Type Bit Maps field is the same as that used by
@@ -386,7 +390,7 @@ enum BitMapState {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
     try!(encoder.emit(rdata.hash_algorithm().into()));
     let mut flags: u8 = 0;
     if rdata.opt_out() {
@@ -409,7 +413,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> EncodeResult {
 ///
 /// * `encoder` - the encoder to write to
 /// * `type_bit_maps` - types to encode into the bitmap
-pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> EncodeResult {
+pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> ProtoResult<()> {
     let mut hash: HashMap<u8, Vec<u8>> = HashMap::new();
 
     // collect the bitmaps
@@ -446,13 +450,19 @@ pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -
 
 #[test]
 pub fn test() {
-    let rdata =
-        NSEC3::new(Nsec3HashAlgorithm::SHA1,
-                   true,
-                   2,
-                   vec![1, 2, 3, 4, 5],
-                   vec![6, 7, 8, 9, 0],
-                   vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::RRSIG]);
+    let rdata = NSEC3::new(
+        Nsec3HashAlgorithm::SHA1,
+        true,
+        2,
+        vec![1, 2, 3, 4, 5],
+        vec![6, 7, 8, 9, 0],
+        vec![
+            RecordType::A,
+            RecordType::AAAA,
+            RecordType::DS,
+            RecordType::RRSIG,
+        ],
+    );
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -463,29 +473,44 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }
 
 #[test]
 pub fn test_dups() {
-    let rdata_with_dups =
-        NSEC3::new(Nsec3HashAlgorithm::SHA1,
-                   true,
-                   2,
-                   vec![1, 2, 3, 4, 5],
-                   vec![6, 7, 8, 9, 0],
-                   vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::AAAA, RecordType::RRSIG]);
+    let rdata_with_dups = NSEC3::new(
+        Nsec3HashAlgorithm::SHA1,
+        true,
+        2,
+        vec![1, 2, 3, 4, 5],
+        vec![6, 7, 8, 9, 0],
+        vec![
+            RecordType::A,
+            RecordType::AAAA,
+            RecordType::DS,
+            RecordType::AAAA,
+            RecordType::RRSIG,
+        ],
+    );
 
-    
-    let rdata_wo =
-        NSEC3::new(Nsec3HashAlgorithm::SHA1,
-                   true,
-                   2,
-                   vec![1, 2, 3, 4, 5],
-                   vec![6, 7, 8, 9, 0],
-                   vec![RecordType::A, RecordType::AAAA, RecordType::DS, RecordType::RRSIG]);
+
+    let rdata_wo = NSEC3::new(
+        Nsec3HashAlgorithm::SHA1,
+        true,
+        2,
+        vec![1, 2, 3, 4, 5],
+        vec![6, 7, 8, 9, 0],
+        vec![
+            RecordType::A,
+            RecordType::AAAA,
+            RecordType::DS,
+            RecordType::RRSIG,
+        ],
+    );
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -496,7 +521,9 @@ pub fn test_dups() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata_wo, read_rdata.unwrap());
 }

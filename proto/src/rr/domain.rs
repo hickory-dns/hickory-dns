@@ -425,10 +425,10 @@ impl Name {
     /// assert_eq!(name.base_name(), Name::from_labels(vec!["com"]));
     /// assert_eq!(*name[0], String::from("example"));
     /// ```
-    pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {
+    pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
         let mut name = Name::new();
         let mut label = String::new();
-        
+
         let mut state = ParseState::Label;
 
         // short cirtuit root parse
@@ -450,7 +450,7 @@ impl Name {
                         ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
                         _ => {
                             return Err(
-                                ParseErrorKind::Msg(format!("unrecognized char: {}", ch)).into(),
+                                ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)).into(),
                             )
                         }
                     }
@@ -458,7 +458,7 @@ impl Name {
                 ParseState::Escape1 => {
                     if ch.is_numeric() {
                         state = ParseState::Escape2(try!(
-                            ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(
+                            ch.to_digit(10).ok_or(ProtoError::from(ProtoErrorKind::Msg(
                                 format!("illegal char: {}", ch),
                             )))
                         ))
@@ -472,24 +472,24 @@ impl Name {
                     if ch.is_numeric() {
                         state = ParseState::Escape3(
                             i,
-                            try!(ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(
+                            try!(ch.to_digit(10).ok_or(ProtoError::from(ProtoErrorKind::Msg(
                                 format!("illegal char: {}", ch),
                             )))),
                         );
                     } else {
                         return try!(Err(
-                            ParseErrorKind::Msg(format!("unrecognized char: {}", ch)),
+                            ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)),
                         ));
                     }
                 }
                 ParseState::Escape3(i, ii) => {
                     if ch.is_numeric() {
                         let val: u32 = (i << 16) + (ii << 8) +
-                            try!(ch.to_digit(10).ok_or(ParseError::from(ParseErrorKind::Msg(
+                            try!(ch.to_digit(10).ok_or(ProtoError::from(ProtoErrorKind::Msg(
                                 format!("illegal char: {}", ch),
                             ))));
                         let new: char = try!(char::from_u32(val).ok_or(
-                            ParseError::from(ParseErrorKind::Msg(
+                            ProtoError::from(ProtoErrorKind::Msg(
                                 format!("illegal char: {}", ch),
                             )),
                         ));
@@ -497,7 +497,7 @@ impl Name {
                         state = ParseState::Label;
                     } else {
                         return try!(Err(
-                            ParseErrorKind::Msg(format!("unrecognized char: {}", ch)),
+                            ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)),
                         ));
                     }
                 }
@@ -522,7 +522,7 @@ impl Name {
     /// Emits the canonical version of the name to the encoder.
     ///
     /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
-    pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> EncodeResult {
+    pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
         // lookup the label in the BinEncoder
         // if it exists, write the Pointer
@@ -544,7 +544,7 @@ impl Name {
                     return Ok(());
                 } else {
                     if label.len() > 63 {
-                        return Err(EncodeErrorKind::LabelBytesTooLong(label.len()).into());
+                        return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
                     }
 
                     // to_owned is cloning the the vector, but the Rc's at least don't clone the strings.
@@ -566,14 +566,18 @@ impl Name {
         // the entire name needs to be less than 256.
         let length = encoder.len() - buf_len;
         if length > 255 {
-            return Err(EncodeErrorKind::DomainNameTooLong(length).into());
+            return Err(ProtoErrorKind::DomainNameTooLong(length).into());
         }
 
         Ok(())
     }
 
     /// Writes the labels, as lower case, to the encoder
-    pub fn emit_with_lowercase(&self, encoder: &mut BinEncoder, lowercase: bool) -> EncodeResult {
+    pub fn emit_with_lowercase(
+        &self,
+        encoder: &mut BinEncoder,
+        lowercase: bool,
+    ) -> ProtoResult<()> {
         let is_canonical_names = encoder.is_canonical_names();
         if lowercase {
             self.to_lowercase().emit_as_canonical(
@@ -704,7 +708,7 @@ impl BinSerializable<Name> for Name {
     ///  this has a max of 255 octets, with each label being less than 63.
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the Vec which it is reading...
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<Name> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Name> {
         let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
         let mut labels: Vec<Rc<String>> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
 
@@ -722,7 +726,7 @@ impl BinSerializable<Name> for Name {
                         Some(byte) if byte & 0b1100_0000 == 0b1100_0000 => LabelParseState::Pointer,
                         Some(byte) if byte & 0b1100_0000 == 0b0000_0000 => LabelParseState::Label,
                         Some(byte) => {
-                            return Err(DecodeErrorKind::UnrecognizedLabelCode(byte).into())
+                            return Err(ProtoErrorKind::UnrecognizedLabelCode(byte).into())
                         }
                     }
                 }
@@ -779,7 +783,7 @@ impl BinSerializable<Name> for Name {
         })
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         let is_canonical_names = encoder.is_canonical_names();
         self.emit_as_canonical(encoder, is_canonical_names)
     }
@@ -859,7 +863,7 @@ enum LabelParseState {
 }
 
 impl FromStr for Name {
-    type Err = ParseError;
+    type Err = ProtoError;
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         Name::parse(s, None)
     }

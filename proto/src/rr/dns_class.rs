@@ -51,14 +51,14 @@ impl DNSClass {
     /// let var: DNSClass = DNSClass::from_str("IN").unwrap();
     /// assert_eq!(DNSClass::IN, var);
     /// ```
-    pub fn from_str(str: &str) -> DecodeResult<Self> {
+    pub fn from_str(str: &str) -> ProtoResult<Self> {
         match str {
             "IN" => Ok(DNSClass::IN),
             "CH" => Ok(DNSClass::CH),
             "HS" => Ok(DNSClass::HS),
             "NONE" => Ok(DNSClass::NONE),
             "ANY" | "*" => Ok(DNSClass::ANY),
-            _ => Err(DecodeErrorKind::UnknownDnsClassStr(str.to_string()).into()),
+            _ => Err(ProtoErrorKind::UnknownDnsClassStr(str.to_string()).into()),
         }
     }
 
@@ -71,14 +71,14 @@ impl DNSClass {
     /// let var = DNSClass::from_u16(1).unwrap();
     /// assert_eq!(DNSClass::IN, var);
     /// ```
-    pub fn from_u16(value: u16) -> DecodeResult<Self> {
+    pub fn from_u16(value: u16) -> ProtoResult<Self> {
         match value {
             1 => Ok(DNSClass::IN),
             3 => Ok(DNSClass::CH),
             4 => Ok(DNSClass::HS),
             254 => Ok(DNSClass::NONE),
             255 => Ok(DNSClass::ANY),
-            _ => Err(DecodeErrorKind::UnknownDnsClassValue(value).into()),
+            _ => Err(ProtoErrorKind::UnknownDnsClassValue(value).into()),
         }
     }
 
@@ -89,11 +89,11 @@ impl DNSClass {
 }
 
 impl BinSerializable<DNSClass> for DNSClass {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
         Self::from_u16(try!(decoder.read_u16()))
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_u16((*self).into())
     }
 }

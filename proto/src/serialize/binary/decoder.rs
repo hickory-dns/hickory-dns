@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use error::{DecodeErrorKind, DecodeResult};
+use error::{ProtoErrorKind, ProtoResult};
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -41,13 +41,15 @@ impl<'a> BinDecoder<'a> {
     }
 
     /// Pop one byte from the buffer
-    pub fn pop(&mut self) -> DecodeResult<u8> {
+    pub fn pop(&mut self) -> ProtoResult<u8> {
         if self.index < self.buffer.len() {
             let byte = self.buffer[self.index];
             self.index += 1;
             Ok(byte)
         } else {
-            Err(DecodeErrorKind::Message("unexpected end of input reached").into())
+            Err(
+                ProtoErrorKind::Message("unexpected end of input reached").into(),
+            )
         }
     }
 
@@ -91,14 +93,14 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// A String version of the character data
-    pub fn read_character_data(&mut self) -> DecodeResult<String> {
+    pub fn read_character_data(&mut self) -> ProtoResult<String> {
         let length: u8 = try!(self.pop());
 
         // TODO once Drain stabalizes on Vec, this should be replaced...
         let label_vec: Vec<u8> = try!(self.read_vec(length as usize));
 
         // translate bytes to string, then lowercase...
-        let data = try!(String::from_utf8(label_vec));
+        let data = String::from_utf8(label_vec)?;
 
         Ok(data)
     }
@@ -112,7 +114,7 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// The Vec of the specified length, otherwise an error
-    pub fn read_vec(&mut self, len: usize) -> DecodeResult<Vec<u8>> {
+    pub fn read_vec(&mut self, len: usize) -> ProtoResult<Vec<u8>> {
         // TODO once Drain stabalizes on Vec, this should be replaced...
         let mut vec: Vec<u8> = Vec::with_capacity(len);
         for _ in 0..len as usize {
@@ -123,7 +125,7 @@ impl<'a> BinDecoder<'a> {
     }
 
     /// Reads a byte from the buffer, equivalent to `Self::pop()`
-    pub fn read_u8(&mut self) -> DecodeResult<u8> {
+    pub fn read_u8(&mut self) -> ProtoResult<u8> {
         self.pop()
     }
 
@@ -135,7 +137,7 @@ impl<'a> BinDecoder<'a> {
     /// # Return
     ///
     /// Return the u16 from the buffer
-    pub fn read_u16(&mut self) -> DecodeResult<u16> {
+    pub fn read_u16(&mut self) -> ProtoResult<u16> {
         let b1: u8 = try!(self.pop());
         let b2: u8 = try!(self.pop());
 
@@ -151,7 +153,7 @@ impl<'a> BinDecoder<'a> {
     /// # Return
     ///
     /// Return the i32 from the buffer
-    pub fn read_i32(&mut self) -> DecodeResult<i32> {
+    pub fn read_i32(&mut self) -> ProtoResult<i32> {
         // TODO should this use a default rather than the panic! that will happen in the None case?
         let b1: u8 = try!(self.pop());
         let b2: u8 = try!(self.pop());
@@ -159,7 +161,9 @@ impl<'a> BinDecoder<'a> {
         let b4: u8 = try!(self.pop());
 
         // translate from network byte order, i.e. big endian
-        Ok(((b1 as i32) << 24) + ((b2 as i32) << 16) + ((b3 as i32) << 8) + (b4 as i32))
+        Ok(
+            ((b1 as i32) << 24) + ((b2 as i32) << 16) + ((b3 as i32) << 8) + (b4 as i32),
+        )
     }
 
     /// Reads the next four bytes into u32.
@@ -170,7 +174,7 @@ impl<'a> BinDecoder<'a> {
     /// # Return
     ///
     /// Return the u32 from the buffer
-    pub fn read_u32(&mut self) -> DecodeResult<u32> {
+    pub fn read_u32(&mut self) -> ProtoResult<u32> {
         // TODO should this use a default rather than the panic! that will happen in the None case?
         let b1: u8 = try!(self.pop());
         let b2: u8 = try!(self.pop());
@@ -178,6 +182,8 @@ impl<'a> BinDecoder<'a> {
         let b4: u8 = try!(self.pop());
 
         // translate from network byte order, i.e. big endian
-        Ok(((b1 as u32) << 24) + ((b2 as u32) << 16) + ((b3 as u32) << 8) + (b4 as u32))
+        Ok(
+            ((b1 as u32) << 24) + ((b2 as u32) << 16) + ((b3 as u32) << 8) + (b4 as u32),
+        )
     }
 }

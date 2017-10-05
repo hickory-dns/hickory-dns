@@ -369,12 +369,13 @@ impl Header {
 
     /// This is a specialized clone which clones all the fields but the counts
     ///  handy for setting the count fields before sending over the wire.
-    pub fn clone(&self,
-                 query_count: u16,
-                 answer_count: u16,
-                 name_server_count: u16,
-                 additional_count: u16)
-                 -> Self {
+    pub fn clone(
+        &self,
+        query_count: u16,
+        answer_count: u16,
+        name_server_count: u16,
+        additional_count: u16,
+    ) -> Self {
         Header {
             query_count: query_count,
             answer_count: answer_count,
@@ -386,7 +387,7 @@ impl Header {
 }
 
 impl BinSerializable<Header> for Header {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
         let id = try!(decoder.read_u16());
 
         let q_opcd_a_t_r = try!(decoder.pop());
@@ -416,24 +417,24 @@ impl BinSerializable<Header> for Header {
         // TODO: question, should this use the builder pattern instead? might be cleaner code, but
         //  this guarantees that the Header is fully instantiated with all values...
         Ok(Header {
-               id,
-               message_type,
-               op_code,
-               authoritative,
-               truncation,
-               recursion_desired,
-               recursion_available,
-               authentic_data,
-               checking_disabled,
-               response_code,
-               query_count,
-               answer_count,
-               name_server_count,
-               additional_count,
-           })
+            id,
+            message_type,
+            op_code,
+            authoritative,
+            truncation,
+            recursion_desired,
+            recursion_available,
+            authentic_data,
+            checking_disabled,
+            response_code,
+            query_count,
+            answer_count,
+            name_server_count,
+            additional_count,
+        })
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.reserve(12); // the 12 bytes for the following fields;
 
         // Id
@@ -482,12 +483,19 @@ impl BinSerializable<Header> for Header {
 #[test]
 fn test_parse() {
     let byte_vec = vec![
-    0x01, 0x10,
-    0xAA, 0x83, // 0b1010 1010 1000 0011
-    0x88, 0x77,
-    0x66, 0x55,
-    0x44, 0x33,
-    0x22, 0x11];
+        0x01,
+        0x10,
+        0xAA,
+        0x83, // 0b1010 1010 1000 0011
+        0x88,
+        0x77,
+        0x66,
+        0x55,
+        0x44,
+        0x33,
+        0x22,
+        0x11,
+    ];
 
     let mut decoder = BinDecoder::new(&byte_vec);
 
@@ -532,12 +540,20 @@ fn test_write() {
         additional_count: 0x2211,
     };
 
-    let expect: Vec<u8> = vec![0x01, 0x10,
-                             0xAA, 0x83, // 0b1010 1010 1000 0011
-                             0x88, 0x77,
-                             0x66, 0x55,
-                             0x44, 0x33,
-                             0x22, 0x11];
+    let expect: Vec<u8> = vec![
+        0x01,
+        0x10,
+        0xAA,
+        0x83, // 0b1010 1010 1000 0011
+        0x88,
+        0x77,
+        0x66,
+        0x55,
+        0x44,
+        0x33,
+        0x22,
+        0x11,
+    ];
 
     let mut bytes = Vec::with_capacity(512);
     {

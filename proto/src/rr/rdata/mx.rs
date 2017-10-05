@@ -16,9 +16,9 @@
 
 //! mail exchange, email, record
 
-use ::serialize::txt::*;
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::txt::*;
+use serialize::binary::*;
+use error::*;
 use rr::domain::Name;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
@@ -85,7 +85,7 @@ impl MX {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<MX> {
+pub fn read(decoder: &mut BinDecoder) -> ProtoResult<MX> {
     Ok(MX::new(try!(decoder.read_u16()), try!(Name::read(decoder))))
 }
 
@@ -105,38 +105,49 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<MX> {
 ///        US-ASCII letters in the DNS names contained within the RDATA are replaced
 ///        by the corresponding lowercase US-ASCII letters;
 /// ```
-pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
     try!(encoder.emit_u16(mx.preference()));
-    try!(mx.exchange().emit_with_lowercase(encoder, is_canonical_names));
+    try!(mx.exchange().emit_with_lowercase(
+        encoder,
+        is_canonical_names,
+    ));
     Ok(())
 }
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<MX> {
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ProtoResult<MX> {
     let mut token = tokens.iter();
 
-    let preference: u16 = try!(token.next()
-        .ok_or(ParseError::from(ParseErrorKind::MissingToken("preference".to_string())))
-        .and_then(|t| if let &Token::CharData(ref s) = t {
-            Ok(try!(s.parse()))
-        } else {
-            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-        }));
-    let exchange: Name = try!(token.next()
-        .ok_or(ParseErrorKind::MissingToken("exchange".to_string()).into())
-        .and_then(|t| if let &Token::CharData(ref s) = t {
-            Name::parse(s, origin)
-        } else {
-            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-        }));
+    let preference: u16 = try!(
+        token
+            .next()
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("preference".to_string()),
+            ))
+            .and_then(|t| if let &Token::CharData(ref s) = t {
+                s.parse().map_err(Into::into)
+            } else {
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
+            })
+    );
+    let exchange: Name = try!(
+        token
+            .next()
+            .ok_or(ProtoErrorKind::MissingToken("exchange".to_string()).into())
+            .and_then(|t| if let &Token::CharData(ref s) = t {
+                Name::parse(s, origin)
+            } else {
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
+            })
+    );
 
     Ok(MX::new(preference, exchange))
 }
 
 #[test]
 pub fn test() {
-    let rdata = MX::new(16, Name::from_labels(vec!["mail","example","com"]));
+    let rdata = MX::new(16, Name::from_labels(vec!["mail", "example", "com"]));
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
@@ -147,7 +158,9 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }

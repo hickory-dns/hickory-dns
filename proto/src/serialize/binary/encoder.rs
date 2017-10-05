@@ -16,7 +16,7 @@
 use std::collections::HashMap;
 use std::sync::Arc as Rc;
 
-use error::{EncodeErrorKind, EncodeResult};
+use error::{ProtoErrorKind, ProtoResult};
 
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder<'a> {
@@ -99,7 +99,7 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// Emit one byte into the buffer
-    pub fn emit(&mut self, b: u8) -> EncodeResult {
+    pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
         self.offset += 1;
         self.buffer.push(b);
         Ok(())
@@ -132,10 +132,12 @@ impl<'a> BinEncoder<'a> {
     /// }
     /// assert_eq!(bytes, vec![3,b'a',b'b',b'c']);
     /// ```
-    pub fn emit_character_data(&mut self, char_data: &str) -> EncodeResult {
+    pub fn emit_character_data(&mut self, char_data: &str) -> ProtoResult<()> {
         let char_bytes = char_data.as_bytes();
         if char_bytes.len() > 255 {
-            return Err(EncodeErrorKind::CharacterDataTooLong(char_bytes.len()).into());
+            return Err(
+                ProtoErrorKind::CharacterDataTooLong(char_bytes.len()).into(),
+            );
         }
 
         self.buffer.reserve(char_bytes.len() + 1); // reserve the full space for the string and length marker
@@ -152,7 +154,7 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// Writes a u16 in network byte order to the buffer
-    pub fn emit_u16(&mut self, data: u16) -> EncodeResult {
+    pub fn emit_u16(&mut self, data: u16) -> ProtoResult<()> {
         self.buffer.reserve(2); // two bytes coming
 
         let b1: u8 = (data >> 8 & 0xFF) as u8;
@@ -165,7 +167,7 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// Writes an i32 in network byte order to the buffer
-    pub fn emit_i32(&mut self, data: i32) -> EncodeResult {
+    pub fn emit_i32(&mut self, data: i32) -> ProtoResult<()> {
         self.buffer.reserve(4); // four bytes coming...
 
         let b1: u8 = (data >> 24 & 0xFF) as u8;
@@ -182,7 +184,7 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// Writes an u32 in network byte order to the buffer
-    pub fn emit_u32(&mut self, data: u32) -> EncodeResult {
+    pub fn emit_u32(&mut self, data: u32) -> ProtoResult<()> {
         self.buffer.reserve(4); // four bytes coming...
 
         let b1: u8 = (data >> 24 & 0xFF) as u8;
@@ -199,7 +201,7 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// Writes the byte slice to the stream
-    pub fn emit_vec(&mut self, data: &[u8]) -> EncodeResult {
+    pub fn emit_vec(&mut self, data: &[u8]) -> ProtoResult<()> {
         self.buffer.reserve(data.len());
 
         for i in data {

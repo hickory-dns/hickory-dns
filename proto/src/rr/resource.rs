@@ -230,7 +230,7 @@ impl IntoRecordSet for Record {
 impl BinSerializable<Record> for Record {
     /// parse a resource record line example:
     ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<Record> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Record> {
         // NAME            an owner name, i.e., the name of the node to which this
         //                 resource record pertains.
         let name_labels: domain::Name = try!(domain::Name::read(decoder));
@@ -242,7 +242,7 @@ impl BinSerializable<Record> for Record {
         let class: DNSClass = if record_type == RecordType::OPT {
             // verify that the OPT record is Root
             if !name_labels.is_root() {
-                return Err(DecodeErrorKind::EdnsNameNotRoot(name_labels).into());
+                return Err(ProtoErrorKind::EdnsNameNotRoot(name_labels).into());
             }
 
             //  DNS Class is overloaded for OPT records in EDNS - RFC 6891
@@ -287,7 +287,7 @@ impl BinSerializable<Record> for Record {
         })
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         try!(self.name_labels.emit(encoder));
         try!(self.rr_type.emit(encoder));
         try!(self.dns_class.emit(encoder));

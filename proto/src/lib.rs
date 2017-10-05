@@ -17,6 +17,7 @@ extern crate error_chain;
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+#[macro_use]
 extern crate futures;
 extern crate rand;
 #[macro_use]
@@ -33,6 +34,7 @@ mod dns_handle;
 pub mod error;
 pub mod op;
 pub mod rr;
+pub mod serialize;
 pub mod tcp;
 pub mod udp;
 

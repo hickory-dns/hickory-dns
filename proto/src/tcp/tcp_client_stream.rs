@@ -16,7 +16,7 @@ use tokio_core::reactor::Handle;
 
 use BufClientStreamHandle;
 use tcp::TcpStream;
-use client::ClientStreamHandle;
+use dns_handle::DnsStreamHandle;
 
 /// Tcp client stream
 ///
@@ -39,7 +39,7 @@ impl TcpClientStream<TokioTcpStream> {
         name_server: SocketAddr,
         loop_handle: &Handle,
     ) -> (Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
-              Box<ClientStreamHandle>) {
+              Box<DnsStreamHandle>) {
         Self::with_timeout(name_server, loop_handle, Duration::from_secs(5))
     }
 
@@ -55,7 +55,7 @@ impl TcpClientStream<TokioTcpStream> {
         loop_handle: &Handle,
         timeout: Duration,
     ) -> (Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
-              Box<ClientStreamHandle>) {
+              Box<DnsStreamHandle>) {
         let (stream_future, sender) = TcpStream::with_timeout(name_server, loop_handle, timeout);
 
         let new_future: Box<

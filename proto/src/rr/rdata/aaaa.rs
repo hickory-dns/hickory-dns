@@ -34,12 +34,12 @@
 
 use std::net::Ipv6Addr;
 
-use ::serialize::txt::*;
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::txt::*;
+use serialize::binary::*;
+use error::*;
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv6Addr> {
+pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv6Addr> {
     let a: u16 = try!(decoder.read_u16());
     let b: u16 = try!(decoder.read_u16());
     let c: u16 = try!(decoder.read_u16());
@@ -53,7 +53,7 @@ pub fn read(decoder: &mut BinDecoder) -> DecodeResult<Ipv6Addr> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, address: &Ipv6Addr) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, address: &Ipv6Addr) -> ProtoResult<()> {
     let segments = address.segments();
 
     try!(encoder.emit_u16(segments[0]));
@@ -68,16 +68,21 @@ pub fn emit(encoder: &mut BinEncoder, address: &Ipv6Addr) -> EncodeResult {
 }
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<Ipv6Addr> {
+pub fn parse(tokens: &Vec<Token>) -> ProtoResult<Ipv6Addr> {
     let mut token = tokens.iter();
 
-    let address: Ipv6Addr = try!(token.next()
-        .ok_or(ParseError::from(ParseErrorKind::MissingToken("ipv6 address".to_string())))
-        .and_then(|t| if let &Token::CharData(ref s) = t {
-            Ok(try!(s.parse()))
-        } else {
-            Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-        }));
+    let address: Ipv6Addr = try!(
+        token
+            .next()
+            .ok_or(ProtoError::from(
+                ProtoErrorKind::MissingToken("ipv6 address".to_string()),
+            ))
+            .and_then(|t| if let &Token::CharData(ref s) = t {
+                Ok(try!(s.parse()))
+            } else {
+                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
+            })
+    );
     Ok(address)
 }
 
@@ -91,28 +96,52 @@ mod tests {
     use serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
 
     fn get_data() -> Vec<(Ipv6Addr, Vec<u8>)> {
-        vec![(Ipv6Addr::from_str("::").unwrap(),
-              vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]), // base case
-             (Ipv6Addr::from_str("1::").unwrap(),
-              vec![0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-             (Ipv6Addr::from_str("0:1::").unwrap(),
-              vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-             (Ipv6Addr::from_str("0:0:1::").unwrap(),
-              vec![0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]),
-             (Ipv6Addr::from_str("0:0:0:1::").unwrap(),
-              vec![0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]),
-             (Ipv6Addr::from_str("::1:0:0:0").unwrap(),
-              vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]),
-             (Ipv6Addr::from_str("::1:0:0").unwrap(),
-              vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]),
-             (Ipv6Addr::from_str("::1:0").unwrap(),
-              vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]),
-             (Ipv6Addr::from_str("::1").unwrap(),
-              vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]),
-             (Ipv6Addr::from_str("::127.0.0.1").unwrap(),
-              vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 127, 0, 0, 1]),
-             (Ipv6Addr::from_str("FF00::192.168.64.32").unwrap(),
-              vec![255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 168, 64, 32])]
+        vec![
+            (
+                Ipv6Addr::from_str("::").unwrap(),
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            ), // base case
+            (
+                Ipv6Addr::from_str("1::").unwrap(),
+                vec![0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            ),
+            (
+                Ipv6Addr::from_str("0:1::").unwrap(),
+                vec![0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            ),
+            (
+                Ipv6Addr::from_str("0:0:1::").unwrap(),
+                vec![0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            ),
+            (
+                Ipv6Addr::from_str("0:0:0:1::").unwrap(),
+                vec![0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0]
+            ),
+            (
+                Ipv6Addr::from_str("::1:0:0:0").unwrap(),
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0, 0, 0]
+            ),
+            (
+                Ipv6Addr::from_str("::1:0:0").unwrap(),
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 0]
+            ),
+            (
+                Ipv6Addr::from_str("::1:0").unwrap(),
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0]
+            ),
+            (
+                Ipv6Addr::from_str("::1").unwrap(),
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1]
+            ),
+            (
+                Ipv6Addr::from_str("::127.0.0.1").unwrap(),
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 127, 0, 0, 1]
+            ),
+            (
+                Ipv6Addr::from_str("FF00::192.168.64.32").unwrap(),
+                vec![255, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 192, 168, 64, 32]
+            ),
+        ]
     }
 
     #[test]

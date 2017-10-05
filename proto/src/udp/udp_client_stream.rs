@@ -12,7 +12,7 @@ use futures::{Async, Future, Poll, Stream};
 use tokio_core::reactor::Handle;
 
 use BufClientStreamHandle;
-use client::ClientStreamHandle;
+use DnsStreamHandle;
 use udp::UdpStream;
 
 /// A UDP client stream of DNS binary packets
@@ -31,10 +31,10 @@ impl UdpClientStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn new
-        (name_server: SocketAddr,
-         loop_handle: &Handle)
-         -> (Box<Future<Item = UdpClientStream, Error = io::Error>>, Box<ClientStreamHandle>) {
+    pub fn new(
+        name_server: SocketAddr,
+        loop_handle: &Handle,
+    ) -> (Box<Future<Item = UdpClientStream, Error = io::Error>>, Box<DnsStreamHandle>) {
         let (stream_future, sender) = UdpStream::new(name_server, loop_handle);
 
         let new_future: Box<Future<Item = UdpClientStream, Error = io::Error>> =
@@ -62,9 +62,11 @@ impl Stream for UdpClientStream {
         match try_ready!(self.udp_stream.poll()) {
             Some((buffer, src_addr)) => {
                 if src_addr != self.name_server {
-                    debug!("{} does not match name_server: {}",
-                           src_addr,
-                           self.name_server)
+                    debug!(
+                        "{} does not match name_server: {}",
+                        src_addr,
+                        self.name_server
+                    )
                 }
 
                 Ok(Async::Ready(Some(buffer)))
@@ -120,8 +122,12 @@ fn udp_client_stream_test(server_addr: IpAddr) {
         .unwrap();
 
     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
-    server.set_read_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
-    server.set_write_timeout(Some(std::time::Duration::from_secs(5))).unwrap(); // should recieve something within 5 seconds...
+    server
+        .set_read_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap(); // should recieve something within 5 seconds...
+    server
+        .set_write_timeout(Some(std::time::Duration::from_secs(5)))
+        .unwrap(); // should recieve something within 5 seconds...
     let server_addr = server.local_addr().unwrap();
 
     let test_bytes: &'static [u8; 8] = b"DEADBEEF";
@@ -140,8 +146,10 @@ fn udp_client_stream_test(server_addr: IpAddr) {
                 assert_eq!(&buffer[0..len], test_bytes);
 
                 // bounce them right back...
-                assert_eq!(server.send_to(&buffer[0..len], addr).expect("send failed"),
-                           len);
+                assert_eq!(
+                    server.send_to(&buffer[0..len], addr).expect("send failed"),
+                    len
+                );
             }
         })
         .unwrap();

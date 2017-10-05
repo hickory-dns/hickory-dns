@@ -126,7 +126,12 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> DnsFuture<S> {
                     }
                     Err(stream_error) => {
                         ClientStreamOrError::Errored(ClientStreamErrored {
-                            error: stream_error,
+                            error_msg: format!(
+                                "stream error {}:{}: {}",
+                                file!(),
+                                line!(),
+                                stream_error
+                            ),
                             new_receiver: rx.fuse().peekable(),
                         })
                     }
@@ -321,12 +326,13 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for DnsFutur
 
         // Clean shutdown happens when all pending requests are done and the
         // incoming channel has been closed (e.g. you'll never receive another
-        // request). try! will early return the error...
-        let done = if let Async::Ready(None) = try!(self.new_receiver.peek()) {
-            true
-        } else {
-            false
+        // request). Errors wiil return early...
+        let done = match self.new_receiver.peek() {
+            Ok(Async::Ready(None)) => true,
+            Ok(_) => false,
+            Err(e) => return Err(ProtoErrorKind::NoError.into()),
         };
+
         if self.active_requests.is_empty() && done {
             return Ok(().into()); // we are done
         }
@@ -345,7 +351,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for DnsFutur
 
 /// Always returns the specified io::Error to the remote Sender
 struct ClientStreamErrored {
-    error: io::Error,
+    error_msg: String,
     new_receiver:
         Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<ProtoResult<Message>>)>>>,
 }
@@ -358,7 +364,7 @@ impl Future for ClientStreamErrored {
         match self.new_receiver.poll() {
             Ok(Async::Ready(Some((_, complete)))) => {
                 complete
-                    .send(Err(ProtoError::from(&self.error).clone()))
+                    .send(Err(ProtoErrorKind::Msg(self.error_msg.clone()).into()))
                     .expect("error notifying wait, possible future leak");
 
                 task::current().notify();
@@ -406,9 +412,13 @@ impl DnsHandle for BasicDnsHandle {
             Ok(()) => receiver,
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();
-                complete.send(Err(e.into())).expect(
-                    "error notifying wait, possible future leak",
-                );
+                complete
+                    .send(Err(
+                        ProtoErrorKind::Msg(
+                            format!("error sending to channel: {}", e),
+                        ).into(),
+                    ))
+                    .expect("error notifying wait, possible future leak");
                 receiver
             }
         };
@@ -416,7 +426,7 @@ impl DnsHandle for BasicDnsHandle {
         // conver the oneshot into a Box of a Future message and error.
         Box::new(
             receiver
-                .map_err(|c| ProtoError::from(c))
+                .map_err(|c| ProtoError::from(ProtoErrorKind::Canceled(c)))
                 .map(|result| result.into_future())
                 .flatten(),
         )

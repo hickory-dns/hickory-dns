@@ -1,8 +1,9 @@
 //! hash functions for DNSSec operations
 
+use error::*;
 use op::Message;
 use rr::{DNSClass, Name, Record, RecordType, RData};
-use rr::dnssec::{Algorithm, DnsSecErrorKind, DnsSecResult};
+use rr::dnssec::Algorithm;
 use rr::rdata::{sig, SIG};
 use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
@@ -23,7 +24,7 @@ impl AsRef<[u8]> for TBS {
 }
 
 /// Returns the to-be-signed serialization of the given message.
-pub fn message_tbs(message: &Message, pre_sig0: &SIG) -> DnsSecResult<TBS> {
+pub fn message_tbs(message: &Message, pre_sig0: &SIG) -> ProtoResult<TBS> {
     // TODO: should perform the serialization and sign block by block to reduce the max memory
     //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
     //  more important
@@ -32,16 +33,19 @@ pub fn message_tbs(message: &Message, pre_sig0: &SIG) -> DnsSecResult<TBS> {
 
     {
         let mut encoder: BinEncoder = BinEncoder::with_mode(&mut buf, EncodeMode::Normal);
-        assert!(sig::emit_pre_sig(&mut encoder,
-                                  pre_sig0.type_covered(),
-                                  pre_sig0.algorithm(),
-                                  pre_sig0.num_labels(),
-                                  pre_sig0.original_ttl(),
-                                  pre_sig0.sig_expiration(),
-                                  pre_sig0.sig_inception(),
-                                  pre_sig0.key_tag(),
-                                  pre_sig0.signer_name())
-                        .is_ok());
+        assert!(
+            sig::emit_pre_sig(
+                &mut encoder,
+                pre_sig0.type_covered(),
+                pre_sig0.algorithm(),
+                pre_sig0.num_labels(),
+                pre_sig0.original_ttl(),
+                pre_sig0.sig_expiration(),
+                pre_sig0.sig_inception(),
+                pre_sig0.key_tag(),
+                pre_sig0.signer_name(),
+            ).is_ok()
+        );
         // need a separate encoder here, as the encoding references absolute positions
         // inside the buffer. If the buffer already contains the sig0 RDATA, offsets
         // are wrong and the signature won't match.
@@ -72,25 +76,27 @@ pub fn message_tbs(message: &Message, pre_sig0: &SIG) -> DnsSecResult<TBS> {
 /// # Returns
 ///
 /// the binary hash of the specified RRSet and associated information
-pub fn rrset_tbs(name: &Name,
-                 dns_class: DNSClass,
-                 num_labels: u8,
-                 type_covered: RecordType,
-                 algorithm: Algorithm,
-                 original_ttl: u32,
-                 sig_expiration: u32,
-                 sig_inception: u32,
-                 key_tag: u16,
-                 signer_name: &Name,
-                 records: &[Record])
-                 -> DnsSecResult<TBS> {
+pub fn rrset_tbs(
+    name: &Name,
+    dns_class: DNSClass,
+    num_labels: u8,
+    type_covered: RecordType,
+    algorithm: Algorithm,
+    original_ttl: u32,
+    sig_expiration: u32,
+    sig_inception: u32,
+    key_tag: u16,
+    signer_name: &Name,
+    records: &[Record],
+) -> ProtoResult<TBS> {
     // TODO: change this to a BTreeSet so that it's preordered, no sort necessary
     let mut rrset: Vec<&Record> = Vec::new();
 
     // collect only the records for this rrset
     for record in records {
         if dns_class == record.dns_class() && type_covered == record.rr_type() &&
-           name == record.name() {
+            name == record.name()
+        {
             rrset.push(record);
         }
     }
@@ -101,7 +107,9 @@ pub fn rrset_tbs(name: &Name,
     let name: Name = if let Some(name) = determine_name(name, num_labels) {
         name
     } else {
-        return Err(DnsSecErrorKind::Msg(format!("could not determine name from {}", name)).into());
+        return Err(
+            ProtoErrorKind::Msg(format!("could not determine name from {}", name)).into(),
+        );
     };
 
     // TODO: rather than buffering here, use the Signer/Verifier? might mean fewer allocations...
@@ -118,25 +126,30 @@ pub fn rrset_tbs(name: &Name,
         //             RRSIG_RDATA is the wire format of the RRSIG RDATA fields
         //                with the Signature field excluded and the Signer's Name
         //                in canonical form.
-        assert!(sig::emit_pre_sig(&mut encoder,
-                                  type_covered,
-                                  algorithm,
-                                  name.num_labels(),
-                                  original_ttl,
-                                  sig_expiration,
-                                  sig_inception,
-                                  key_tag,
-                                  &signer_name)
-                        .is_ok());
+        assert!(
+            sig::emit_pre_sig(
+                &mut encoder,
+                type_covered,
+                algorithm,
+                name.num_labels(),
+                original_ttl,
+                sig_expiration,
+                sig_inception,
+                key_tag,
+                &signer_name,
+            ).is_ok()
+        );
 
         // construct the rrset signing data
         for record in rrset {
             //             RR(i) = name | type | class | OrigTTL | RDATA length | RDATA
             //
             //                name is calculated according to the function in the RFC 4035
-            assert!(name.to_lowercase()
-                        .emit_as_canonical(&mut encoder, true)
-                        .is_ok());
+            assert!(
+                name.to_lowercase()
+                    .emit_as_canonical(&mut encoder, true)
+                    .is_ok()
+            );
             //
             //                type is the RRset type and all RRs in the class
             assert!(type_covered.emit(&mut encoder).is_ok());
@@ -176,12 +189,14 @@ pub fn rrset_tbs(name: &Name,
 /// # Return
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
-pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> DnsSecResult<TBS> {
+pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> ProtoResult<TBS> {
     if let &RData::SIG(ref sig) = rrsig.rdata() {
         rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
-        return Err(DnsSecErrorKind::Msg(format!("could not determine name from {}", rrsig.name()))
-                       .into());
+        return Err(
+            ProtoErrorKind::Msg(format!("could not determine name from {}", rrsig.name()))
+                .into(),
+        );
     }
 }
 
@@ -198,22 +213,25 @@ pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> DnsSecResult<
 /// # Return
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
-pub fn rrset_tbs_with_sig(name: &Name,
-                          dns_class: DNSClass,
-                          sig: &SIG,
-                          records: &[Record])
-                          -> DnsSecResult<TBS> {
-    rrset_tbs(name,
-              dns_class,
-              sig.num_labels(),
-              sig.type_covered(),
-              sig.algorithm(),
-              sig.original_ttl(),
-              sig.sig_expiration(),
-              sig.sig_inception(),
-              sig.key_tag(),
-              sig.signer_name(),
-              records)
+pub fn rrset_tbs_with_sig(
+    name: &Name,
+    dns_class: DNSClass,
+    sig: &SIG,
+    records: &[Record],
+) -> ProtoResult<TBS> {
+    rrset_tbs(
+        name,
+        dns_class,
+        sig.num_labels(),
+        sig.type_covered(),
+        sig.algorithm(),
+        sig.original_ttl(),
+        sig.sig_expiration(),
+        sig.sig_inception(),
+        sig.key_tag(),
+        sig.signer_name(),
+        records,
+    )
 }
 
 
@@ -306,72 +324,77 @@ mod tests {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SIG(SIG::new(RecordType::NS,
-                                           Algorithm::RSASHA256,
-                                           origin.num_labels(),
-                                           86400,
-                                           5,
-                                           0,
-                                           signer.calculate_key_tag().unwrap(),
-                                           origin.clone(),
-                                           vec![])))
+            .set_rdata(RData::SIG(SIG::new(
+                RecordType::NS,
+                Algorithm::RSASHA256,
+                origin.num_labels(),
+                86400,
+                5,
+                0,
+                signer.calculate_key_tag().unwrap(),
+                origin.clone(),
+                vec![],
+            )))
             .clone();
-        let rrset =
-            vec![Record::new()
-                     .set_name(origin.clone())
-                     .set_ttl(86400)
-                     .set_rr_type(RecordType::NS)
-                     .set_dns_class(DNSClass::IN)
-                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                     .clone(),
-                 Record::new()
-                     .set_name(origin.clone())
-                     .set_ttl(86400)
-                     .set_rr_type(RecordType::NS)
-                     .set_dns_class(DNSClass::IN)
-                     .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
-                     .clone()];
+        let rrset = vec![
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                .clone(),
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                .clone(),
+        ];
 
         let tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
         assert!(!tbs.0.is_empty());
 
-        let rrset =
-            vec![Record::new()
-                     .set_name(origin.clone())
-                     .set_ttl(86400)
-                     .set_rr_type(RecordType::CNAME)
-                     .set_dns_class(DNSClass::IN)
-                     .set_rdata(RData::CNAME(Name::parse("a.iana-servers.net.", None)
-                                                 .unwrap()))
-                     .clone(), // different type
-                 Record::new()
-                     .set_name(Name::parse("www.example.com.", None).unwrap())
-                     .set_ttl(86400)
-                     .set_rr_type(RecordType::NS)
-                     .set_dns_class(DNSClass::IN)
-                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                     .clone(), // different name
-                 Record::new()
-                     .set_name(origin.clone())
-                     .set_ttl(86400)
-                     .set_rr_type(RecordType::NS)
-                     .set_dns_class(DNSClass::CH)
-                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                     .clone(), // different class
-                 Record::new()
-                     .set_name(origin.clone())
-                     .set_ttl(86400)
-                     .set_rr_type(RecordType::NS)
-                     .set_dns_class(DNSClass::IN)
-                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                     .clone(),
-                 Record::new()
-                     .set_name(origin.clone())
-                     .set_ttl(86400)
-                     .set_rr_type(RecordType::NS)
-                     .set_dns_class(DNSClass::IN)
-                     .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
-                     .clone()];
+        let rrset = vec![
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::CNAME)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::CNAME(
+                    Name::parse("a.iana-servers.net.", None).unwrap(),
+                ))
+                .clone(), // different type
+            Record::new()
+                .set_name(Name::parse("www.example.com.", None).unwrap())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                .clone(), // different name
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::CH)
+                .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                .clone(), // different class
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                .clone(),
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                .clone(),
+        ];
 
         let filtered_tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
         assert!(!filtered_tbs.0.is_empty());

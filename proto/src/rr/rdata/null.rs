@@ -60,14 +60,16 @@ impl NULL {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NULL> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NULL> {
     if rdata_length > 0 {
         let mut anything: Vec<u8> = Vec::with_capacity(rdata_length as usize);
         for _ in 0..rdata_length {
             if let Ok(byte) = decoder.pop() {
                 anything.push(byte);
             } else {
-                return Err(DecodeErrorKind::Message("unexpected end of input reached").into());
+                return Err(
+                    ProtoErrorKind::Message("unexpected end of input reached").into(),
+                );
             }
         }
 
@@ -78,7 +80,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<NULL> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> ProtoResult<()> {
     if let Some(ref anything) = nil.anything() {
         for b in anything.iter() {
             try!(encoder.emit(*b));
@@ -90,7 +92,7 @@ pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> EncodeResult {
 
 /// Parse the RData from a set of Tokens
 #[allow(unused)]
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<NULL> {
+pub fn parse(tokens: &Vec<Token>) -> ProtoResult<NULL> {
     unimplemented!()
 }
 
@@ -107,7 +109,9 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }

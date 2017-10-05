@@ -125,7 +125,7 @@ impl Query {
 }
 
 impl BinSerializable<Query> for Query {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
         let name = try!(Name::read(decoder));
         let query_type = try!(RecordType::read(decoder));
         let query_class = try!(DNSClass::read(decoder));
@@ -137,7 +137,7 @@ impl BinSerializable<Query> for Query {
         })
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         try!(self.name.emit(encoder));
         try!(self.query_type.emit(encoder));
         try!(self.query_class.emit(encoder));

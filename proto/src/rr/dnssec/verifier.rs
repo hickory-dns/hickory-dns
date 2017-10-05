@@ -1,8 +1,9 @@
 //! Verifier is a structure for performing many of the signing processes of the DNSSec specification
 
+use error::*;
 use op::Message;
 use rr::{DNSClass, Name, Record};
-use rr::dnssec::{Algorithm, DnsSecResult};
+use rr::dnssec::Algorithm;
 use rr::dnssec::{tbs, PublicKey, PublicKeyEnum};
 use rr::rdata::{DNSKEY, KEY, SIG};
 
@@ -12,7 +13,7 @@ pub trait Verifier {
     fn algorithm(&self) -> Algorithm;
 
     /// Return the public key associated with this verifier
-    fn key<'k>(&'k self) -> DnsSecResult<PublicKeyEnum<'k>>;
+    fn key<'k>(&'k self) -> ProtoResult<PublicKeyEnum<'k>>;
 
     /// Verifies the hash matches the signature with the current `key`.
     ///
@@ -26,7 +27,7 @@ pub trait Verifier {
     ///
     /// True if and only if the signature is valid for the hash.
     /// false if the `key`.
-    fn verify(&self, hash: &[u8], signature: &[u8]) -> DnsSecResult<()> {
+    fn verify(&self, hash: &[u8], signature: &[u8]) -> ProtoResult<()> {
         self.key()?.verify(self.algorithm(), hash, signature)
     }
 
@@ -40,7 +41,7 @@ pub trait Verifier {
     /// # Return value
     ///
     /// `true` if the message could be validated against the signature, `false` otherwise
-    fn verify_message(&self, message: &Message, signature: &[u8], sig0: &SIG) -> DnsSecResult<()> {
+    fn verify_message(&self, message: &Message, signature: &[u8], sig0: &SIG) -> ProtoResult<()> {
         tbs::message_tbs(message, sig0).and_then(|tbs| self.verify(tbs.as_ref(), signature))
     }
 
@@ -52,12 +53,13 @@ pub trait Verifier {
     /// * `dns_class` - DNSClass of the records, generally IN
     /// * `sig` - signature record being validated
     /// * `records` - Records covered by SIG
-    fn verify_rrsig(&self,
-                    name: &Name,
-                    dns_class: DNSClass,
-                    sig: &SIG,
-                    records: &[Record])
-                    -> DnsSecResult<()> {
+    fn verify_rrsig(
+        &self,
+        name: &Name,
+        dns_class: DNSClass,
+        sig: &SIG,
+        records: &[Record],
+    ) -> ProtoResult<()> {
         let rrset_tbs = tbs::rrset_tbs_with_sig(name, dns_class, sig, records)?;
         self.verify(rrset_tbs.as_ref(), sig.sig())
     }
@@ -68,7 +70,7 @@ impl Verifier for DNSKEY {
         self.algorithm()
     }
 
-    fn key<'k>(&'k self) -> DnsSecResult<PublicKeyEnum<'k>> {
+    fn key<'k>(&'k self) -> ProtoResult<PublicKeyEnum<'k>> {
         PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
     }
 }
@@ -78,7 +80,7 @@ impl Verifier for KEY {
         self.algorithm()
     }
 
-    fn key<'k>(&'k self) -> DnsSecResult<PublicKeyEnum<'k>> {
+    fn key<'k>(&'k self) -> ProtoResult<PublicKeyEnum<'k>> {
         PublicKeyEnum::from_public_bytes(self.public_key(), self.algorithm())
     }
 }

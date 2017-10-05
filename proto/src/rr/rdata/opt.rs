@@ -18,8 +18,8 @@
 
 use std::collections::HashMap;
 
-use ::serialize::binary::*;
-use ::error::*;
+use serialize::binary::*;
+use error::*;
 use rr::dnssec::SupportedAlgorithms;
 
 /// The OPT record type is used for ExtendedDNS records.
@@ -194,7 +194,7 @@ impl OPT {
 }
 
 /// Read the RData from the given Decoder
-pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<OPT> {
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
     let mut state: OptReadState = OptReadState::ReadCode;
     let mut options: HashMap<EdnsCode, EdnsOption> = HashMap::new();
     let start_idx = decoder.index();
@@ -213,7 +213,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<OPT> {
                     collected: Vec::<u8>::with_capacity(length),
                 };
             }
-            OptReadState::Data { code, length, mut collected } => {
+            OptReadState::Data {
+                code,
+                length,
+                mut collected,
+            } => {
                 collected.push(try!(decoder.pop()));
                 if length == collected.len() {
                     options.insert(code, (code, &collected as &[u8]).into());
@@ -241,7 +245,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> DecodeResult<OPT> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> EncodeResult {
+pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<()> {
     for (ref edns_code, ref edns_option) in opt.options().iter() {
         try!(encoder.emit_u16(u16::from(**edns_code)));
         try!(encoder.emit_u16(edns_option.len()));
@@ -434,7 +438,9 @@ pub fn test() {
 
     let mut decoder: BinDecoder = BinDecoder::new(bytes);
     let read_rdata = read(&mut decoder, bytes.len() as u16);
-    assert!(read_rdata.is_ok(),
-            format!("error decoding: {:?}", read_rdata.unwrap_err()));
+    assert!(
+        read_rdata.is_ok(),
+        format!("error decoding: {:?}", read_rdata.unwrap_err())
+    );
     assert_eq!(rdata, read_rdata.unwrap());
 }

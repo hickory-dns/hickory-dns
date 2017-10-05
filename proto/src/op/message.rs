@@ -25,7 +25,6 @@ use rr::{Record, RecordType};
 use rr::{DNSClass, Name, RData};
 #[cfg(feature = "openssl")]
 use rr::rdata::SIG;
-use rr::dnssec::Signer;
 use serialize::binary::{BinEncoder, BinDecoder, BinSerializable, EncodeMode};
 use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
 
@@ -545,7 +544,7 @@ impl Message {
         decoder: &mut BinDecoder,
         count: usize,
         is_additional: bool,
-    ) -> DecodeResult<(Vec<Record>, Option<Edns>, Vec<Record>)> {
+    ) -> ProtoResult<(Vec<Record>, Option<Edns>, Vec<Record>)> {
         let mut records: Vec<Record> = Vec::with_capacity(count);
         let mut edns: Option<Edns> = None;
         let mut sig0s: Vec<Record> = Vec::with_capacity(if is_additional { 1 } else { 0 });
@@ -558,7 +557,7 @@ impl Message {
             if !is_additional {
                 if saw_sig0 {
                     return Err(
-                        DecodeErrorKind::Message("sig0 must be final resource record").into(),
+                        ProtoErrorKind::Message("sig0 must be final resource record").into(),
                     );
                 } // SIG0 must be last
                 records.push(record)
@@ -571,7 +570,7 @@ impl Message {
                     RecordType::OPT => {
                         if saw_sig0 {
                             return Err(
-                                DecodeErrorKind::Message(
+                                ProtoErrorKind::Message(
                                     "sig0 must be final resource \
                                                                  record",
                                 ).into(),
@@ -579,7 +578,7 @@ impl Message {
                         } // SIG0 must be last
                         if edns.is_some() {
                             return Err(
-                                DecodeErrorKind::Message(
+                                ProtoErrorKind::Message(
                                     "more than one edns record \
                                                                  present",
                                 ).into(),
@@ -590,7 +589,7 @@ impl Message {
                     _ => {
                         if saw_sig0 {
                             return Err(
-                                DecodeErrorKind::Message(
+                                ProtoErrorKind::Message(
                                     "sig0 must be final resource \
                                                                  record",
                                 ).into(),
@@ -605,7 +604,7 @@ impl Message {
         Ok((records, edns, sig0s))
     }
 
-    fn emit_records(encoder: &mut BinEncoder, records: &Vec<Record>) -> EncodeResult {
+    fn emit_records(encoder: &mut BinEncoder, records: &Vec<Record>) -> ProtoResult<()> {
         for r in records {
             try!(r.emit(encoder));
         }
@@ -613,13 +612,13 @@ impl Message {
     }
 
     /// Decodes a message from the buffer.
-    pub fn from_vec(buffer: &[u8]) -> DecodeResult<Message> {
+    pub fn from_vec(buffer: &[u8]) -> ProtoResult<Message> {
         let mut decoder = BinDecoder::new(buffer);
         Message::read(&mut decoder)
     }
 
     /// Encodes the Message into a buffer
-    pub fn to_vec(&self) -> Result<Vec<u8>, EncodeError> {
+    pub fn to_vec(&self) -> Result<Vec<u8>, ProtoError> {
         let mut buffer = Vec::with_capacity(512);
         {
             let mut encoder = BinEncoder::new(&mut buffer);
@@ -633,7 +632,8 @@ impl Message {
     ///
     /// Subsequent to calling this, the Message should not change.
     #[cfg(feature = "openssl")]
-    pub fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> {
+    pub fn sign(&mut self, signer: &(), inception_time: u32) -> ProtoResult<()> {
+        panic!("NEED SIGNING LOGIC");
         debug!("signing message: {:?}", self);
         let key_tag: u16 = try!(signer.calculate_key_tag());
 
@@ -684,9 +684,10 @@ impl Message {
 
     /// Always returns an error; enable OpenSSL for signing support
     #[cfg(not(feature = "openssl"))]
-    pub fn sign(&mut self, _: &Signer, _: u32) -> DnsSecResult<()> {
+    pub fn sign(&mut self, _: &(), _: u32) -> ProtoResult<()> {
+        panic!("NEED SIGNING LOGIC");
         Err(
-            DnsSecErrorKind::Message("openssl feature not enabled").into(),
+            ProtoErrorKind::Message("openssl feature not enabled").into(),
         )
     }
 }
@@ -751,7 +752,7 @@ pub trait UpdateMessage: Debug {
     fn sig0(&self) -> &[Record];
 
     /// Signs the UpdateMessage, used to validate the authenticity and authorization of UpdateMessage
-    fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()>;
+    fn sign(&mut self, signer: &(), inception_time: u32) -> ProtoResult<()>;
 }
 
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -812,13 +813,13 @@ impl UpdateMessage for Message {
 
     // TODO: where's the 'right' spot for this function
 
-    fn sign(&mut self, signer: &Signer, inception_time: u32) -> DnsSecResult<()> {
+    fn sign(&mut self, signer: &(), inception_time: u32) -> ProtoResult<()> {
         Message::sign(self, signer, inception_time)
     }
 }
 
 impl BinSerializable<Message> for Message {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
         let header = try!(Header::read(decoder));
 
         // TODO/FIXME: return just header, and in the case of the rest of message getting an error.
@@ -851,7 +852,7 @@ impl BinSerializable<Message> for Message {
         })
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         // clone the header to set the counts lazily
         let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
         try!(self.update_header_counts(include_sig0).emit(encoder));

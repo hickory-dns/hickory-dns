@@ -20,12 +20,15 @@ impl ECPublicKey {
     // DNSSEC encodes uncompressed EC public keys without the standard 0x04
     // prefix that indicates they are uncompressed, but crypto libraries
     // require that prefix.
-    pub fn from_unprefixed(without_prefix: &[u8], algorithm: Algorithm)
-                           -> DnsSecResult<Self> {
+    pub fn from_unprefixed(without_prefix: &[u8], algorithm: Algorithm) -> ProtoResult<Self> {
         let field_len = match algorithm {
             Algorithm::ECDSAP256SHA256 => 32,
             Algorithm::ECDSAP384SHA384 => 48,
-            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
+            _ => {
+                return Err(
+                    "only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into(),
+                )
+            }
         };
         let len = 1 + (2 * field_len);
         if len - 1 != without_prefix.len() {
@@ -33,9 +36,9 @@ impl ECPublicKey {
         }
         let mut buf = [0x04u8; MAX_LEN];
         buf[1..len].copy_from_slice(without_prefix);
-        Ok( ECPublicKey { buf, len })
+        Ok(ECPublicKey { buf, len })
     }
-    
+
     pub fn prefixed_bytes(&self) -> &[u8] {
         &self.buf[..self.len]
     }

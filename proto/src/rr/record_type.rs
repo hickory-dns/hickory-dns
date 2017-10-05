@@ -105,7 +105,7 @@ impl RecordType {
     /// let var: RecordType = RecordType::from_str("A").unwrap();
     /// assert_eq!(RecordType::A, var);
     /// ```
-    pub fn from_str(str: &str) -> DecodeResult<Self> {
+    pub fn from_str(str: &str) -> ProtoResult<Self> {
         match str {
             "A" => Ok(RecordType::A),
             "AAAA" => Ok(RecordType::AAAA),
@@ -119,9 +119,7 @@ impl RecordType {
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
             "AXFR" => Ok(RecordType::AXFR),
-            _ => Err(
-                DecodeErrorKind::UnknownRecordTypeStr(str.to_string()).into(),
-            ),
+            _ => Err(ProtoErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
         }
     }
 
@@ -133,7 +131,7 @@ impl RecordType {
     /// let var = RecordType::from_u16(1).unwrap();
     /// assert_eq!(RecordType::A, var);
     /// ```
-    pub fn from_u16(value: u16) -> DecodeResult<Self> {
+    pub fn from_u16(value: u16) -> ProtoResult<Self> {
         match value {
             1 => Ok(RecordType::A),
             28 => Ok(RecordType::AAAA),
@@ -157,17 +155,17 @@ impl RecordType {
             33 => Ok(RecordType::SRV),
             16 => Ok(RecordType::TXT),
             // TODO: this should probably return a generic value wrapper.
-            _ => Err(DecodeErrorKind::UnknownRecordTypeValue(value).into()),
+            _ => Err(ProtoErrorKind::UnknownRecordTypeValue(value).into()),
         }
     }
 }
 
 impl BinSerializable<RecordType> for RecordType {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<Self> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
         Self::from_u16(try!(decoder.read_u16()))
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_u16((*self).into())
     }
 }

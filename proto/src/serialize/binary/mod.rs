@@ -16,63 +16,63 @@
 
 //! Binary serialization types
 
-use trust_dns_proto::serialize::binary::decoder;
-mod trust_dns_proto::serialize::binary::encoder;
+mod decoder;
+mod encoder;
 
-pub use decoder::BinDecoder;
-pub use encoder::BinEncoder;
-pub use encoder::EncodeMode;
+pub use self::decoder::BinDecoder;
+pub use self::encoder::BinEncoder;
+pub use self::encoder::EncodeMode;
 
 #[cfg(test)]
 pub mod bin_tests;
 
-use ::error::*;
+use error::*;
 
 /// A trait for types which are serializable
 pub trait BinSerializable<S: Sized> {
     /// Read the type from the stream
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<S>;
-    
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<S>;
+
     /// Write the type to the stream
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult;
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
 }
 
 impl BinSerializable<u16> for u16 {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<u16> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<u16> {
         decoder.read_u16()
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_u16(*self)
     }
 }
 
 impl BinSerializable<i32> for i32 {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<i32> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<i32> {
         decoder.read_i32()
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_i32(*self)
     }
 }
 
 impl BinSerializable<u32> for u32 {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<u32> {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<u32> {
         decoder.read_u32()
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_u32(*self)
     }
 }
 
 impl BinSerializable<Vec<u8>> for Vec<u8> {
-    fn read(_: &mut BinDecoder) -> DecodeResult<Vec<u8>> {
+    fn read(_: &mut BinDecoder) -> ProtoResult<Vec<u8>> {
         panic!("do not know amount to read in this context")
     }
 
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_vec(self)
     }
 }

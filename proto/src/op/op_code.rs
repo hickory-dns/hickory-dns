@@ -18,7 +18,7 @@
 
 use std::convert::From;
 
-use ::error::*;
+use error::*;
 
 /// Operation code for queries, updates, and responses
 ///
@@ -90,13 +90,15 @@ impl From<OpCode> for u8 {
 /// ```
 impl OpCode {
     /// Decodes the binary value of the OpCode
-    pub fn from_u8(value: u8) -> DecodeResult<Self> {
+    pub fn from_u8(value: u8) -> ProtoResult<Self> {
         match value {
             0 => Ok(OpCode::Query),
             2 => Ok(OpCode::Status),
             4 => Ok(OpCode::Notify),
             5 => Ok(OpCode::Update),
-            _ => Err(DecodeErrorKind::Msg(format!("unknown OpCode: {}", value)).into()),
+            _ => Err(
+                ProtoErrorKind::Msg(format!("unknown OpCode: {}", value)).into(),
+            ),
         }
     }
 }
