@@ -24,9 +24,10 @@ mod nsec3;
 pub mod public_key;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 mod rsa_public_key;
+mod signer;
 mod supported_algorithm;
 mod trust_anchor;
-mod tbs;
+pub mod tbs;
 mod verifier;
 
 pub use self::algorithm::Algorithm;
@@ -36,6 +37,7 @@ pub use self::public_key::PublicKey;
 pub use self::public_key::PublicKeyBuf;
 pub use self::public_key::PublicKeyEnum;
 pub use self::supported_algorithm::SupportedAlgorithms;
+pub use self::signer::MessageSigner;
 pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
@@ -45,3 +47,20 @@ pub use openssl::hash::DigestBytes as Digest;
 
 #[cfg(feature = "ring")]
 pub use ring::digest::Digest;
+
+/// This is an empty type, enable Ring or OpenSSL for this feature
+#[cfg(not(any(feature = "openssl", feature = "ring")))]
+pub struct Digest;
+
+#[cfg(not(any(feature = "openssl", feature = "ring")))]
+impl Digest {
+    /// This is an empty type, enable Ring or OpenSSL for this feature
+    pub fn as_ref(&self) -> &Self {
+        self
+    }
+
+    /// This is an empty type, enable Ring or OpenSSL for this feature
+    pub fn to_owned(&self) -> Vec<u8> {
+        vec![]
+    }
+}

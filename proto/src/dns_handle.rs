@@ -21,6 +21,7 @@ use tokio_core::reactor::{Handle, Timeout};
 
 use error::*;
 use op::{Message, MessageType, OpCode, Query, UpdateMessage};
+use rr::dnssec::MessageSigner;
 use rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use rr::rdata::NULL;
 
@@ -48,7 +49,7 @@ impl DnsStreamHandle for StreamHandle {
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsFuture<S: Stream<Item = Vec<u8>, Error = io::Error>> {
+pub struct DnsFuture<S: Stream<Item = Vec<u8>, Error = io::Error>, MS: MessageSigner> {
     stream: S,
     reactor_handle: Handle,
     timeout_duration: Duration,
@@ -57,12 +58,14 @@ pub struct DnsFuture<S: Stream<Item = Vec<u8>, Error = io::Error>> {
     new_receiver:
         Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<ProtoResult<Message>>)>>>,
     active_requests: HashMap<u16, (Complete<ProtoResult<Message>>, Timeout)>,
-    // TODO: Maybe make a typed version of DnsFuture for Updates?
-    // FIXME: add post_message_construct_hooks...
-    signer: Option<()>,
+    signer: Option<MS>,
 }
 
-impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> DnsFuture<S> {
+impl<S, MS> DnsFuture<S, MS>
+where
+    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    MS: MessageSigner + 'static,
+{
     /// Spawns a new DnsFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -77,7 +80,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> DnsFuture<S> {
         stream: Box<Future<Item = S, Error = io::Error>>,
         stream_handle: Box<DnsStreamHandle>,
         loop_handle: &Handle,
-        signer: Option<()>,
+        signer: Option<MS>,
     ) -> BasicDnsHandle {
         Self::with_timeout(
             stream,
@@ -105,7 +108,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> DnsFuture<S> {
         stream_handle: Box<DnsStreamHandle>,
         loop_handle: &Handle,
         timeout_duration: Duration,
-        signer: Option<()>,
+        signer: Option<MS>,
     ) -> BasicDnsHandle {
         let (sender, rx) = unbounded();
 
@@ -201,7 +204,11 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> DnsFuture<S> {
     }
 }
 
-impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for DnsFuture<S> {
+impl<S, MS> Future for DnsFuture<S, MS>
+where
+    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    MS: MessageSigner + 'static,
+{
     type Item = ();
     type Error = ProtoError;
 
@@ -376,12 +383,16 @@ impl Future for ClientStreamErrored {
     }
 }
 
-enum ClientStreamOrError<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> {
-    Future(DnsFuture<S>),
+enum ClientStreamOrError<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static, MS: MessageSigner + 'static> {
+    Future(DnsFuture<S, MS>),
     Errored(ClientStreamErrored),
 }
 
-impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientStreamOrError<S> {
+impl<S, MS> Future for ClientStreamOrError<S, MS>
+where
+    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    MS: MessageSigner + 'static,
+{
     type Item = ();
     type Error = ProtoError;
 

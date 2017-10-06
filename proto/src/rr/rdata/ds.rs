@@ -20,9 +20,7 @@ use serialize::binary::*;
 use error::*;
 use rr::dnssec::{Algorithm, DigestType};
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::DNSKEY;
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::Name;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5)
@@ -178,6 +176,14 @@ impl DS {
         key.to_digest(name, self.digest_type())
             .map_err(|e| e.into())
             .map(|hash| hash.as_ref() == self.digest())
+    }
+
+    /// This will always return an error unless the Ring or OpenSSL features are enabled
+    #[cfg(not(any(feature = "openssl", feature = "ring")))]
+    pub fn covers(&self, name: &Name, key: &DNSKEY) -> ProtoResult<bool> {
+        Err(
+            ProtoErrorKind::Message("Ring or OpenSSL must be enabled for this feature").into(),
+        )
     }
 }
 

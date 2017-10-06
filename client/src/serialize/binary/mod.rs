@@ -16,63 +16,9 @@
 
 //! Binary serialization types
 
-use trust_dns_proto::serialize::binary::decoder;
-mod trust_dns_proto::serialize::binary::encoder;
+use trust_dns_proto::serialize::binary;
 
-pub use decoder::BinDecoder;
-pub use encoder::BinEncoder;
-pub use encoder::EncodeMode;
-
-#[cfg(test)]
-pub mod bin_tests;
-
-use ::error::*;
-
-/// A trait for types which are serializable
-pub trait BinSerializable<S: Sized> {
-    /// Read the type from the stream
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<S>;
-    
-    /// Write the type to the stream
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult;
-}
-
-impl BinSerializable<u16> for u16 {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<u16> {
-        decoder.read_u16()
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-        encoder.emit_u16(*self)
-    }
-}
-
-impl BinSerializable<i32> for i32 {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<i32> {
-        decoder.read_i32()
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-        encoder.emit_i32(*self)
-    }
-}
-
-impl BinSerializable<u32> for u32 {
-    fn read(decoder: &mut BinDecoder) -> DecodeResult<u32> {
-        decoder.read_u32()
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-        encoder.emit_u32(*self)
-    }
-}
-
-impl BinSerializable<Vec<u8>> for Vec<u8> {
-    fn read(_: &mut BinDecoder) -> DecodeResult<Vec<u8>> {
-        panic!("do not know amount to read in this context")
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder) -> EncodeResult {
-        encoder.emit_vec(self)
-    }
-}
+pub use self::binary::BinSerializable;
+pub use self::binary::BinDecoder;
+pub use self::binary::BinEncoder;
+pub use self::binary::EncodeMode;

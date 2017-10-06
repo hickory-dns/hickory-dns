@@ -21,6 +21,7 @@ use std::mem;
 
 use error::*;
 use rr::{Record, RecordType};
+use rr::dnssec::MessageSigner;
 #[cfg(feature = "openssl")]
 use rr::{DNSClass, Name, RData};
 #[cfg(feature = "openssl")]
@@ -632,8 +633,7 @@ impl Message {
     ///
     /// Subsequent to calling this, the Message should not change.
     #[cfg(feature = "openssl")]
-    pub fn sign(&mut self, signer: &(), inception_time: u32) -> ProtoResult<()> {
-        panic!("NEED SIGNING LOGIC");
+    pub fn sign<S: MessageSigner>(&mut self, signer: &S, inception_time: u32) -> ProtoResult<()> {
         debug!("signing message: {:?}", self);
         let key_tag: u16 = try!(signer.calculate_key_tag());
 
@@ -684,8 +684,7 @@ impl Message {
 
     /// Always returns an error; enable OpenSSL for signing support
     #[cfg(not(feature = "openssl"))]
-    pub fn sign(&mut self, _: &(), _: u32) -> ProtoResult<()> {
-        panic!("NEED SIGNING LOGIC");
+    pub fn sign<S: MessageSigner>(&mut self, _: &S, _: u32) -> ProtoResult<()> {
         Err(
             ProtoErrorKind::Message("openssl feature not enabled").into(),
         )
@@ -752,7 +751,7 @@ pub trait UpdateMessage: Debug {
     fn sig0(&self) -> &[Record];
 
     /// Signs the UpdateMessage, used to validate the authenticity and authorization of UpdateMessage
-    fn sign(&mut self, signer: &(), inception_time: u32) -> ProtoResult<()>;
+    fn sign<S: MessageSigner>(&mut self, signer: &S, inception_time: u32) -> ProtoResult<()>;
 }
 
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -813,7 +812,7 @@ impl UpdateMessage for Message {
 
     // TODO: where's the 'right' spot for this function
 
-    fn sign(&mut self, signer: &(), inception_time: u32) -> ProtoResult<()> {
+    fn sign<S: MessageSigner>(&mut self, signer: &S, inception_time: u32) -> ProtoResult<()> {
         Message::sign(self, signer, inception_time)
     }
 }

@@ -22,7 +22,6 @@ use ring::digest;
 use rr::dnssec::Algorithm;
 use error::*;
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use super::Digest;
 
 /// This is the digest format for the

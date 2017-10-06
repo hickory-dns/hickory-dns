@@ -19,6 +19,8 @@ extern crate lazy_static;
 extern crate log;
 #[macro_use]
 extern crate futures;
+#[cfg(feature = "openssl")]
+extern crate openssl;
 extern crate rand;
 #[macro_use]
 extern crate tokio_core;

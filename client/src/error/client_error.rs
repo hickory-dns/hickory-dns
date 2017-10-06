@@ -42,9 +42,10 @@ error_chain! {
     //
     // This section can be empty.
     links {
-      super::decode_error::Error, super::decode_error::ErrorKind, Decode;
-      super::encode_error::Error, super::encode_error::ErrorKind, Encode;
-      DnsSecError, DnsSecErrorKind, DnsSec;
+        ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
+        super::decode_error::Error, super::decode_error::ErrorKind, Decode;
+        super::encode_error::Error, super::encode_error::ErrorKind, Encode;
+        DnsSecError, DnsSecErrorKind, DnsSec;
     }
 
     // Automatic conversions between this error chain and other

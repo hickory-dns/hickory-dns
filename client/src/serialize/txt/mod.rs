@@ -16,9 +16,8 @@
 
 //! Text serialization types
 
-mod trust_dns_proto::serialize::txt::master_lex;
-mod trust_dns_proto::serialize::txt::master;
+use trust_dns_proto::serialize::txt;
 
-pub use master::Parser;
-pub use master_lex::Lexer;
-pub use master_lex::Token;
+pub use self::txt::Parser;
+pub use self::txt::Lexer;
+pub use self::txt::Token;
