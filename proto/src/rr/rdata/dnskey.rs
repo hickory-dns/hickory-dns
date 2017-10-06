@@ -21,10 +21,7 @@ use error::*;
 use rr::dnssec::Algorithm;
 use rr::record_data::RData;
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::Name;
-
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::{Digest, DigestType};
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-2), DNSSEC Resource Records, March 2005
@@ -237,6 +234,14 @@ impl DNSKEY {
         }
 
         digest_type.hash(&buf).map_err(|e| e.into())
+    }
+
+    /// This will always return an error unless the Ring or OpenSSL features are enabled
+    #[cfg(not(any(feature = "openssl", feature = "ring")))]
+    pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
+        Err(
+            ProtoErrorKind::Message("Ring or OpenSSL must be enabled for this feature").into(),
+        )
     }
 }
 

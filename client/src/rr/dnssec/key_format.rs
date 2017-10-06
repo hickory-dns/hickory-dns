@@ -168,7 +168,7 @@ impl KeyFormat {
             e @ _ => {
                 return Err(
                     format!(
-                        "unsupported Algorithm (try enabling openssl or ring feature?): {:?}",
+                        "unsupported Algorithm, enable openssl or ring feature: {:?}",
                         e
                     ).into(),
                 )

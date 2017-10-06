@@ -16,25 +16,21 @@
 
 //! Resource record related components, e.g. `Name` aka label, `Record`, `RData`, ...
 
-pub mod dns_class;
 pub mod dnssec;
-pub mod domain;
-pub mod rdata;
-pub mod record_data;
-pub mod record_type;
-pub mod resource;
-mod rr_key;
-mod rr_set;
+
+use trust_dns_proto::rr;
+pub use trust_dns_proto::rr::dns_class;
+pub use trust_dns_proto::rr::domain;
+pub use trust_dns_proto::rr::rdata;
+pub use trust_dns_proto::rr::record_data;
+pub use trust_dns_proto::rr::record_type;
+pub use trust_dns_proto::rr::resource;
 
 pub use self::domain::Name;
 pub use self::dns_class::DNSClass;
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::resource::Record;
-pub use self::rr_key::RrKey;
-pub use self::rr_set::IntoRecordSet;
-pub use self::rr_set::RecordSet;
-
-/// A RecordSet is a set of Records whose types all match, but data do not
-#[deprecated = "will be removed post 0.9.x, use RecordSet"]
-pub type RrSet = RecordSet;
+pub use self::rr::RrKey;
+pub use self::rr::IntoRecordSet;
+pub use self::rr::RecordSet;

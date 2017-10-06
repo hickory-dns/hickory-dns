@@ -33,7 +33,7 @@ use rr::rdata::{DNSKEY, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::DS;
 use rr::rdata::key::KeyUsage;
-use rr::dnssec::tbs::TBS;
+use rr::dnssec::TBS;
 
 /// A public and private key pair, the private portion is not required.
 ///
@@ -302,9 +302,10 @@ impl KeyPair {
         self.to_dnskey(algorithm)
             .and_then(|dnskey| self.key_tag().map(|key_tag| (key_tag, dnskey)))
             .and_then(|(key_tag, dnskey)| {
-                dnskey.to_digest(name, digest_type).map(|digest| {
-                    (key_tag, digest)
-                })
+                dnskey
+                    .to_digest(name, digest_type)
+                    .map(|digest| (key_tag, digest))
+                    .map_err(Into::into)
             })
             .map(|(key_tag, digest)| {
                 DS::new(key_tag, algorithm, digest_type, digest.as_ref().to_owned())
@@ -328,7 +329,7 @@ impl KeyPair {
             #[cfg(feature = "openssl")]
             KeyPair::RSA(ref pkey) |
             KeyPair::EC(ref pkey) => {
-                let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
+                let digest_type = DigestType::from(algorithm).to_openssl_digest()?;
                 let mut signer = Signer::new(digest_type, &pkey).unwrap();
                 try!(signer.update(tbs.as_ref()));
                 signer.finish().map_err(|e| e.into()).and_then(|bytes| {
@@ -406,6 +407,14 @@ impl KeyPair {
                 DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into(),
             ),
         }
+    }
+
+    /// OpenSSL must be enabled for this feature
+    #[cfg(not(feature = "openssl"))]
+    pub fn sign(&self, algorithm: Algorithm, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
+        Err(
+            DnsSecErrorKind::Message("OpenSSL must be enabled for this feature").into(),
+        )
     }
 
     /// Generates a new private and public key pair for the specified algorithm.

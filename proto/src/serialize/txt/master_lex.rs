@@ -343,6 +343,7 @@ impl<'a> Lexer<'a> {
     }
 }
 
+#[doc(hidden)]
 #[derive(Copy, Clone, PartialEq, Debug)]
 pub enum State {
     StartLine,

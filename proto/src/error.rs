@@ -9,6 +9,12 @@
 
 use std::io;
 
+#[cfg(feature = "openssl")]
+use openssl::error::ErrorStack as SslErrorStack;
+#[cfg(not(feature = "openssl"))]
+use self::not_openssl::SslErrorStack;
+
+
 error_chain! {
     // The type defined for this error. These are the conventional
     // and recommended names, but they can be arbitrarily chosen.
@@ -40,14 +46,13 @@ error_chain! {
       ::std::net::AddrParseError, AddrParseError, "network address parse error";
       ::std::num::ParseIntError, ParseIntError, "error parsing number";
       ::std::string::FromUtf8Error, FromUtf8Error, "utf8 conversion error";
-      // SslErrorStack, SSL, "ssl error";
+      SslErrorStack, SSL, "ssl error";
     }
 
     // Define additional `ErrorKind` variants. The syntax here is
     // the same as `quick_error!`, but the `from()` and `cause()`
     // syntax is not supported.
     errors {
-
       Canceled(c: ::futures::sync::oneshot::Canceled) {
         description("future was canceled")
         display("future was canceled: {:?}", c)
@@ -218,5 +223,26 @@ error_chain! {
         description("invalid time string")
         display("invalid time string: {}", string)
       }
+    }
+}
+
+#[cfg(not(feature = "openssl"))]
+pub mod not_openssl {
+    use std;
+
+    #[derive(Debug)]
+    pub struct SslErrorStack;
+
+    impl std::fmt::Display for SslErrorStack {
+        fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+            Ok(())
+        }
+    }
+
+
+    impl std::error::Error for SslErrorStack {
+        fn description(&self) -> &str {
+            "openssl feature not enabled"
+        }
     }
 }

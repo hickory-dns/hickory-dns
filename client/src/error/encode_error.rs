@@ -28,7 +28,9 @@ error_chain! {
     // `rustup_dist::Error`.
     //
     // This section can be empty.
-    links {}
+    links {
+      ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
+    }
 
     // Automatic conversions between this error chain and other
     // error types not defined by the `error_chain!`. These will be

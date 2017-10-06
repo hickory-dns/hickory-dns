@@ -19,7 +19,7 @@ use rr::{domain, DNSClass, RData, Record, RecordType};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::Verifier;
 use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
-use rr::rdata::{DNSKEY, SIG};
+use rr::rdata::{DNSKEY, DS, SIG};
 use rr::rdata::opt::EdnsOption;
 
 #[derive(Debug)]
