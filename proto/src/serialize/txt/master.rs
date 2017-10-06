@@ -353,7 +353,7 @@ impl Parser {
     ///
     /// # Example
     /// ```
-    /// use trust_dns::serialize::txt::Parser;
+    /// use trust_dns_proto::serialize::txt::Parser;
     ///
     /// assert_eq!(Parser::parse_time("0").unwrap(),  0);
     /// assert_eq!(Parser::parse_time("s").unwrap(),  0);

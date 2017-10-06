@@ -180,7 +180,7 @@ impl Display for ResponseCode {
 ///
 /// ```
 /// use std::convert::From;
-/// use trust_dns::op::response_code::ResponseCode;
+/// use trust_dns_proto::op::response_code::ResponseCode;
 ///
 /// let var: ResponseCode = From::from(0);
 /// assert_eq!(ResponseCode::NoError, var);
@@ -220,7 +220,7 @@ impl From<ResponseCode> for u16 {
 ///
 /// ```
 /// use std::convert::From;
-/// use trust_dns::op::response_code::ResponseCode;
+/// use trust_dns_proto::op::response_code::ResponseCode;
 ///
 /// let var: u16 = From::from(ResponseCode::NoError);
 /// assert_eq!(0, var);

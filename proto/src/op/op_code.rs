@@ -57,7 +57,7 @@ pub enum OpCode {
 ///
 /// ```
 /// use std::convert::From;
-/// use trust_dns::op::op_code::OpCode;
+/// use trust_dns_proto::op::op_code::OpCode;
 ///
 /// let var: u8 = From::from(OpCode::Query);
 /// assert_eq!(0, var);
@@ -83,7 +83,7 @@ impl From<OpCode> for u8 {
 ///
 /// ```
 /// use std::convert::From;
-/// use trust_dns::op::op_code::OpCode;
+/// use trust_dns_proto::op::op_code::OpCode;
 ///
 /// let var: OpCode = OpCode::from_u8(0).unwrap();
 /// assert_eq!(OpCode::Query, var);

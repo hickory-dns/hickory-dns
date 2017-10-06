@@ -124,7 +124,7 @@ where
 
 pub fn test_emit_data_set<S, F>(data_set: Vec<(S, Vec<u8>)>, emit_func: F)
 where
-    F: Fn(&mut BinEncoder, S) -> ProtoResult,
+    F: Fn(&mut BinEncoder, S) -> ProtoResult<()>,
     S: Debug,
 {
     let mut test_pass = 0;
