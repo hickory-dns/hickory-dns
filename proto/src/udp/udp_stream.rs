@@ -239,11 +239,6 @@ fn test_udp_stream_ipv6() {
 fn udp_stream_test(server_addr: std::net::IpAddr) {
     use tokio_core::reactor::Core;
 
-    use log::LogLevel;
-    use logger::TrustDnsLogger;
-
-    TrustDnsLogger::enable_logging(LogLevel::Debug);
-
     use std;
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();

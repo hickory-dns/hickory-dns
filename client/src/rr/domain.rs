@@ -60,7 +60,7 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let root = Name::root();
     /// assert_eq!(&root.to_string(), ".");
@@ -80,7 +80,7 @@ impl Name {
     ///
     /// ```
     /// use std::str::FromStr;
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let name = Name::from_str("www").unwrap();
     /// assert!(!name.is_fqdn());
@@ -121,7 +121,7 @@ impl Name {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let name = Name::from_str("www.example").unwrap();
     /// let name = name.append_label("com");
@@ -143,7 +143,7 @@ impl Name {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let from_labels = Name::from_labels(vec!["www", "example", "com"]);
     /// assert_eq!(from_labels, Name::from_str("www.example.com").unwrap());
@@ -218,7 +218,7 @@ impl Name {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let local = Name::from_str("www").unwrap();
     /// let domain = Name::from_str("example.com").unwrap();
@@ -254,7 +254,7 @@ impl Name {
     ///
     /// ```rust
     /// use std::str::FromStr;
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let local = Name::from_str("www").unwrap();
     /// let domain = Name::from_str("example.com").unwrap();
@@ -273,7 +273,7 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     /// use std::cmp::Ordering;
     ///
     /// let example_com = Name::from_labels(vec!["Example", "Com"]);
@@ -296,7 +296,7 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let example_com = Name::from_labels(vec!["example", "com"]);
     /// assert_eq!(example_com.base_name(), Name::from_labels(vec!["com"]));
@@ -316,7 +316,7 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let example_com = Name::from_labels(vec!["example", "com"]);
     /// assert_eq!(example_com.trim_to(2), Name::from_labels(vec!["example", "com"]));
@@ -340,7 +340,7 @@ impl Name {
     /// # Example
     ///
     /// ```rust
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let name = Name::from_labels(vec!["www", "example", "com"]);
     /// let name = Name::from_labels(vec!["www", "example", "com"]);
@@ -380,7 +380,7 @@ impl Name {
     /// # Examples
     ///
     /// ```
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let root = Name::root();
     /// assert_eq!(root.num_labels(), 0);
@@ -419,7 +419,7 @@ impl Name {
     /// # Examples
     ///
     /// ```rust
-    /// use trust_dns::rr::domain::Name;
+    /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let name = Name::parse("example.com.", None).unwrap();
     /// assert_eq!(name.base_name(), Name::from_labels(vec!["com"]));
@@ -428,7 +428,7 @@ impl Name {
     pub fn parse(local: &str, origin: Option<&Self>) -> ParseResult<Self> {
         let mut name = Name::new();
         let mut label = String::new();
-        
+
         let mut state = ParseState::Label;
 
         // short cirtuit root parse

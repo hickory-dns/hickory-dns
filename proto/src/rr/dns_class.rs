@@ -1,18 +1,9 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
 
 //! class of DNS operations, in general always IN for internet
 
@@ -46,7 +37,7 @@ impl DNSClass {
     /// Convert from &str to DNSClass
     ///
     /// ```
-    /// use trust_dns::rr::dns_class::DNSClass;
+    /// use trust_dns_proto::rr::dns_class::DNSClass;
     ///
     /// let var: DNSClass = DNSClass::from_str("IN").unwrap();
     /// assert_eq!(DNSClass::IN, var);
@@ -66,7 +57,7 @@ impl DNSClass {
     /// Convert from u16 to DNSClass
     ///
     /// ```
-    /// use trust_dns::rr::dns_class::DNSClass;
+    /// use trust_dns_proto::rr::dns_class::DNSClass;
     ///
     /// let var = DNSClass::from_u16(1).unwrap();
     /// assert_eq!(DNSClass::IN, var);
@@ -103,7 +94,7 @@ impl BinSerializable<DNSClass> for DNSClass {
 /// Convert from DNSClass to &str
 ///
 /// ```
-/// use trust_dns::rr::dns_class::DNSClass;
+/// use trust_dns_proto::rr::dns_class::DNSClass;
 ///
 /// let var: &'static str = DNSClass::IN.into();
 /// assert_eq!("IN", var);
@@ -124,7 +115,7 @@ impl From<DNSClass> for &'static str {
 /// Convert from DNSClass to u16
 ///
 /// ```
-/// use trust_dns::rr::dns_class::DNSClass;
+/// use trust_dns_proto::rr::dns_class::DNSClass;
 ///
 /// let var: u16 = DNSClass::IN.into();
 /// assert_eq!(1, var);
