@@ -113,6 +113,8 @@ mod test {
     use error::*;
     use op::*;
     use futures::*;
+    use trust_dns_proto::DnsHandle;
+    use trust_dns_proto::error::*;
 
     #[derive(Clone)]
     struct TestClient {
@@ -121,12 +123,8 @@ mod test {
         attempts: Cell<u16>,
     }
 
-    impl ClientHandle for TestClient {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
-        }
-
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    impl DnsHandle for TestClient {
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
             let i = self.attempts.get();
 
             if i > self.retries || self.retries - i == 0 {
@@ -139,8 +137,14 @@ mod test {
 
             self.attempts.set(i + 1);
             return Box::new(failed(
-                ClientErrorKind::Message("last retry set to fail").into(),
+                ProtoErrorKind::Message("last retry set to fail").into(),
             ));
+        }
+    }
+
+    impl ClientHandle for TestClient {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
         }
     }
 

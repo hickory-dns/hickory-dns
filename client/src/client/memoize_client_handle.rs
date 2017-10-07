@@ -91,18 +91,16 @@ mod test {
     use op::*;
     use rr::*;
     use futures::*;
+    use trust_dns_proto::DnsHandle;
+    use trust_dns_proto::error::*;
 
     #[derive(Clone)]
     struct TestClient {
         i: Cell<u16>,
     }
 
-    impl ClientHandle for TestClient {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
-        }
-
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    impl DnsHandle for TestClient {
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
             let mut message = Message::new();
             let i = self.i.get();
 
@@ -110,6 +108,12 @@ mod test {
             self.i.set(i + 1);
 
             Box::new(finished(message))
+        }
+    }
+
+    impl ClientHandle for TestClient {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
         }
     }
 
