@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 #![recursion_limit = "1024"]
 
 //! TRust-DNS Protocol library
@@ -40,7 +40,7 @@ pub mod serialize;
 pub mod tcp;
 pub mod udp;
 
-pub use dns_handle::DnsStreamHandle;
+pub use dns_handle::{BasicDnsHandle, DnsFuture, DnsHandle, DnsStreamHandle};
 use op::Message;
 
 

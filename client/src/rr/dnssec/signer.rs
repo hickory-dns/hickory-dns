@@ -17,7 +17,7 @@
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
-use trust_dns_proto::error::ProtoResult;
+use trust_dns_proto::error::{ProtoResult, ProtoErrorKind};
 use trust_dns_proto::rr::dnssec::{tbs, TBS, MessageSigner};
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -301,7 +301,7 @@ impl Signer {
     }
 
     /// Version of Signer for signing RRSIGs and SIG0 records.
-    #[deprecated = "use SIG0 or DNSSec constructors"]
+    #[deprecated(note = "use SIG0 or DNSSec constructors")]
     pub fn new(
         algorithm: Algorithm,
         key: KeyPair,
@@ -367,7 +367,10 @@ impl Signer {
     ///
     /// The signature, ready to be stored in an `RData::RRSIG`.
     pub fn sign(&self, tbs: &TBS) -> ProtoResult<Vec<u8>> {
-        self.key.sign(self.algorithm, tbs).map_err(|e| e.into())
+        // FIXME: this error conversion shouldn't be necessary
+        self.key.sign(self.algorithm, tbs).map_err(|e| {
+            ProtoErrorKind::Msg(format!("signing error: {}", e)).into()
+        })
     }
 }
 

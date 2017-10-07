@@ -230,9 +230,9 @@ where
                 }
                 Ok(_) => None,
                 Err(()) => {
-          warn!("receiver was shutdown?");
-          break
-        }
+                    warn!("receiver was shutdown?");
+                    break
+                }
             };
 
             // finally pop the reciever
@@ -358,6 +358,7 @@ where
 
 /// Always returns the specified io::Error to the remote Sender
 struct ClientStreamErrored {
+    // TODO: is there a better thing to grab here?
     error_msg: String,
     new_receiver:
         Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<ProtoResult<Message>>)>>>,
@@ -445,8 +446,8 @@ impl DnsHandle for BasicDnsHandle {
 }
 
 /// A trait for implementing high level functions of DNS.
-#[must_use = "queries can only be sent through a DnsHandle"]
 pub trait DnsHandle: Clone {
+    // FIXME: make result generic...
     /// Send a message via the channel in the client
     ///
     /// # Arguments

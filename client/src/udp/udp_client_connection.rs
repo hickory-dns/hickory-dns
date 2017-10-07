@@ -19,6 +19,7 @@ use std::net::SocketAddr;
 
 use futures::Future;
 use tokio_core::reactor::Core;
+use trust_dns_proto::DnsStreamHandle;
 
 use error::*;
 use client::{ClientConnection, ClientStreamHandle};
@@ -30,7 +31,7 @@ use udp::UdpClientStream;
 pub struct UdpClientConnection {
     io_loop: Core,
     udp_client_stream: Box<Future<Item = UdpClientStream, Error = io::Error>>,
-    client_stream_handle: Box<ClientStreamHandle>,
+    client_stream_handle: Box<DnsStreamHandle>,
 }
 
 impl UdpClientConnection {
@@ -47,17 +48,23 @@ impl UdpClientConnection {
         let (udp_client_stream, handle) = UdpClientStream::new(name_server, &io_loop.handle());
 
         Ok(UdpClientConnection {
-               io_loop: io_loop,
-               udp_client_stream: udp_client_stream,
-               client_stream_handle: handle,
-           })
+            io_loop: io_loop,
+            udp_client_stream: udp_client_stream,
+            client_stream_handle: handle,
+        })
     }
 }
 
 impl ClientConnection for UdpClientConnection {
     type MessageStream = UdpClientStream;
 
-fn unwrap(self) -> (Core, Box<Future<Item=Self::MessageStream, Error=io::Error>>, Box<ClientStreamHandle>){
-        (self.io_loop, self.udp_client_stream, self.client_stream_handle)
+    fn unwrap(
+        self,
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>) {
+        (
+            self.io_loop,
+            self.udp_client_stream,
+            self.client_stream_handle,
+        )
     }
 }

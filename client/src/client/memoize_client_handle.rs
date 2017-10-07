@@ -9,12 +9,15 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use futures::Future;
+use trust_dns_proto::DnsHandle;
+use trust_dns_proto::error::ProtoError;
 
 use client::ClientHandle;
 use client::rc_future::{rc_future, RcFuture};
 use error::*;
 use op::{Message, Query};
 
+// TODO: move to proto
 /// A ClienHandle for memoized (cached) responses to queries.
 ///
 /// This wraps a ClientHandle, changing the implementation `send()` to store the response against
@@ -25,7 +28,7 @@ use op::{Message, Query};
 pub struct MemoizeClientHandle<H: ClientHandle> {
     client: H,
     active_queries:
-        Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item = Message, Error = ClientError>>>>>>,
+        Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item = Message, Error = ProtoError>>>>>>,
 }
 
 impl<H> MemoizeClientHandle<H>
@@ -41,15 +44,12 @@ where
     }
 }
 
-impl<H> ClientHandle for MemoizeClientHandle<H>
+impl<H> DnsHandle for MemoizeClientHandle<H>
 where
     H: ClientHandle,
 {
-    fn is_verifying_dnssec(&self) -> bool {
-        self.client.is_verifying_dnssec()
-    }
-
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    // FIXME: this is a type change, generify DnsHandle Result...
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
         let query = message.queries().first().expect("no query!").clone();
 
         if let Some(rc_future) = self.active_queries.borrow().get(&query) {
@@ -71,6 +71,15 @@ where
         map.insert(query, request.clone());
 
         return Box::new(request);
+    }
+}
+
+impl<H> ClientHandle for MemoizeClientHandle<H>
+where
+    H: ClientHandle,
+{
+    fn is_verifying_dnssec(&self) -> bool {
+        self.client.is_verifying_dnssec()
     }
 }
 

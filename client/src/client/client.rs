@@ -17,6 +17,7 @@ use std::io;
 
 use futures::Stream;
 use tokio_core::reactor::Core;
+use trust_dns_proto::error::ProtoResult;
 
 use client::{ClientHandle, BasicClientHandle, ClientConnection, ClientFuture};
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -48,6 +49,7 @@ pub trait Client<C: ClientHandle> {
     /// Get a mutable handle reference tot the Core assiated to the Client
     fn get_client_handle(&self) -> RefMut<C>;
 
+    // FIXME: changed error type
     /// A *classic* DNS query, i.e. does not perform and DNSSec operations
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
@@ -63,7 +65,7 @@ pub trait Client<C: ClientHandle> {
         name: &domain::Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> ClientResult<Message> {
+    ) -> ProtoResult<Message> {
         self.get_io_loop().run(self.get_client_handle().query(
             name.clone(),
             query_class,
@@ -490,13 +492,13 @@ impl SecureSyncClient {
     /// * `query_name` - the label to lookup
     /// * `query_class` - most likely this should always be DNSClass::IN
     /// * `query_type` - record type to lookup
-    #[deprecated = "just use Client::query"]
+    #[deprecated(note = "use `Client::query` instead")]
     pub fn secure_query(
         &self,
         query_name: &domain::Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> ClientResult<Message> {
+    ) -> ProtoResult<Message> {
         self.get_io_loop().run(self.get_client_handle().query(
             query_name.clone(),
             query_class,

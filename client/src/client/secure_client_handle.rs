@@ -5,12 +5,16 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+// FIXME: move to proto
+
 use std::clone::Clone;
 use std::collections::HashSet;
 use std::mem;
 use std::rc::Rc;
 
 use futures::*;
+use trust_dns_proto::DnsHandle;
+use trust_dns_proto::error::{ProtoError, ProtoErrorKind, ProtoResult};
 
 use client::ClientHandle;
 use error::*;
@@ -90,20 +94,16 @@ where
     }
 }
 
-impl<H> ClientHandle for SecureClientHandle<H>
+impl<H> DnsHandle for SecureClientHandle<H>
 where
-    H: ClientHandle + 'static,
+    H: ClientHandle,
 {
-    fn is_verifying_dnssec(&self) -> bool {
-        // This handler is always verifying...
-        true
-    }
-
-    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    // FIXME: this is a type change, generify DnsHandle Result...
+    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
             return Box::new(failed(
-                ClientErrorKind::Message("exceeded max validation depth")
+                ProtoErrorKind::Message("exceeded max validation depth")
                     .into(),
             ));
         }
@@ -169,7 +169,7 @@ where
                             if !verify_nsec(&query, nsecs) {
                                 // TODO change this to remove the NSECs, like we do for the others?
                                 return Err(
-                                    ClientErrorKind::Message(
+                                    ProtoErrorKind::Message(
                                         "could not validate nxdomain \
                                                                  with NSEC",
                                     ).into(),
@@ -186,10 +186,20 @@ where
     }
 }
 
+impl<H> ClientHandle for SecureClientHandle<H>
+where
+    H: ClientHandle + 'static,
+{
+    fn is_verifying_dnssec(&self) -> bool {
+        // This handler is always verifying...
+        true
+    }
+}
+
 /// A future to verify all RRSets in a returned Message.
 struct VerifyRrsetsFuture {
     message_result: Option<Message>,
-    rrsets: SelectAll<Box<Future<Item = Rrset, Error = ClientError>>>,
+    rrsets: SelectAll<Box<Future<Item = Rrset, Error = ProtoError>>>,
     verified_rrsets: HashSet<(domain::Name, RecordType)>,
 }
 
@@ -199,7 +209,7 @@ fn verify_rrsets<H>(
     client: SecureClientHandle<H>,
     message_result: Message,
     dns_class: DNSClass,
-) -> Box<Future<Item = Message, Error = ClientError>>
+) -> Box<Future<Item = Message, Error = ProtoError>>
 where
     H: ClientHandle,
 {
@@ -229,7 +239,7 @@ where
         message_result.take_additionals();
 
         return Box::new(failed(
-            ClientErrorKind::Message("no results to verify").into(),
+            ProtoErrorKind::Message("no results to verify").into(),
         ));
     }
 
@@ -237,7 +247,7 @@ where
 
     // collect all the rrsets to verify
     // TODO: is there a way to get rid of this clone() safely?
-    let mut rrsets: Vec<Box<Future<Item = Rrset, Error = ClientError>>> =
+    let mut rrsets: Vec<Box<Future<Item = Rrset, Error = ProtoError>>> =
         Vec::with_capacity(rrset_types.len());
     for (name, record_type) in rrset_types {
         // TODO: should we evaluate the different sections (answers and name_servers) separately?
@@ -296,11 +306,11 @@ where
 
 impl Future for VerifyRrsetsFuture {
     type Item = Message;
-    type Error = ClientError;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if self.message_result.is_none() {
-            return Err(ClientErrorKind::Message("message is none").into());
+            return Err(ProtoErrorKind::Message("message is none").into());
         }
 
         // loop through all the rrset evaluations, filter all the rrsets in the Message
@@ -400,7 +410,7 @@ fn verify_rrset<H>(
     client: SecureClientHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = ClientError>>
+) -> Box<Future<Item = Rrset, Error = ProtoError>>
 where
     H: ClientHandle,
 {
@@ -441,7 +451,7 @@ where
 fn verify_dnskey_rrset<H>(
     mut client: SecureClientHandle<H>,
     rrset: Rrset,
-) -> Box<Future<Item = Rrset, Error = ClientError>>
+) -> Box<Future<Item = Rrset, Error = ProtoError>>
 where
     H: ClientHandle,
 {
@@ -527,7 +537,7 @@ where
                 Ok(rrset)
             } else {
                 Err(
-                    ClientErrorKind::Message("Could not validate all DNSKEYs").into(),
+                    ProtoErrorKind::Message("Could not validate all DNSKEYs").into(),
                 )
             }
         });
@@ -603,7 +613,7 @@ fn verify_default_rrset<H>(
     client: SecureClientHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = ClientError>>
+) -> Box<Future<Item = Rrset, Error = ProtoError>>
 where
     H: ClientHandle,
 {
@@ -629,8 +639,9 @@ where
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
         //  the DNSKey validation should come after, see verify_rrset().
-        return Box::new(done(
-            rrsigs.into_iter()
+        return Box::new(
+            done(
+                rrsigs.into_iter()
             // this filter is technically unnecessary, can probably remove it...
             .filter(|rrsig| rrsig.rr_type() == RecordType::RRSIG)
             .map(|rrsig|
@@ -658,9 +669,11 @@ where
                               }
                             })
                             .next()
-                            .ok_or(ClientErrorKind::Message("self-signed dnskey is invalid").into())
-      ).map(move |rrset| Rc::try_unwrap(rrset).expect("unable to unwrap Rc"))
-    );
+                            .ok_or(ProtoErrorKind::Message("self-signed dnskey is invalid").into()),
+            ).map(move |rrset| {
+                Rc::try_unwrap(rrset).expect("unable to unwrap Rc")
+            }),
+        );
     }
 
     // we can validate with any of the rrsigs...
@@ -701,7 +714,7 @@ where
                                                }
                                              )
                                              .map(|_| rrset)
-                                             .ok_or(ClientErrorKind::Message("validation failed").into())
+                                             .ok_or(ProtoErrorKind::Message("validation failed").into())
                                     )
                             })
                             .collect::<Vec<_>>();
@@ -709,7 +722,7 @@ where
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
         return Box::new(failed(
-            ClientErrorKind::Msg(format!(
+            ProtoErrorKind::Msg(format!(
                 "no RRSIGs available for \
                                                              validation: {}, {:?}",
                 rrset.name,
@@ -731,16 +744,16 @@ where
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
 #[cfg(any(feature = "openssl", feature = "ring"))]
-fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> ClientResult<()> {
+fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> ProtoResult<()> {
     if dnskey.revoke() {
         debug!("revoked");
-        return Err(ClientErrorKind::Message("revoked").into());
+        return Err(ProtoErrorKind::Message("revoked").into());
     } // TODO: does this need to be validated? RFC 5011
     if !dnskey.zone_key() {
-        return Err(ClientErrorKind::Message("is not a zone key").into());
+        return Err(ProtoErrorKind::Message("is not a zone key").into());
     }
     if dnskey.algorithm() != sig.algorithm() {
-        return Err(ClientErrorKind::Message("mismatched algorithm").into());
+        return Err(ProtoErrorKind::Message("mismatched algorithm").into());
     }
 
     dnskey
@@ -752,7 +765,7 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> Client
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
 fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ClientResult<()> {
     Err(
-        ClientErrorKind::Message("openssl or ring feature(s) not enabled").into(),
+        ProtoErrorKind::Message("openssl or ring feature(s) not enabled").into(),
     )
 }
 
