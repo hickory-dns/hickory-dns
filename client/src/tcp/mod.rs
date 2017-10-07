@@ -17,8 +17,8 @@
 //! TCP protocol related components for DNS
 
 mod tcp_client_connection;
-use trust_dns_proto::tcp::{tcp_client_stream, tcp_client_connection, tcp_stream};
+use trust_dns_proto::tcp;
 
 pub use self::tcp_client_connection::TcpClientConnection;
-pub use tcp_client_stream::TcpClientStream;
-pub use tcp_stream::TcpStream;
+pub use self::tcp::TcpClientStream;
+pub use self::tcp::TcpStream;

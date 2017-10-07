@@ -246,3 +246,97 @@ pub mod not_openssl {
         }
     }
 }
+
+// TODO: replace this when https://github.com/rust-lang-nursery/error-chain/pull/163 is merged
+impl Clone for ProtoError {
+    fn clone(&self) -> Self {
+        let error_kind: &ProtoErrorKind = &self.0;
+        let cloned_kind: ProtoErrorKind = match error_kind {
+            &ProtoErrorKind::AddrParseError => ProtoErrorKind::AddrParseError,
+            &ProtoErrorKind::Canceled(ref c) => ProtoErrorKind::Canceled(c.clone()),
+            &ProtoErrorKind::CharacterDataTooLong(len) => ProtoErrorKind::CharacterDataTooLong(len),
+            &ProtoErrorKind::DnsKeyProtocolNot3(value) => ProtoErrorKind::DnsKeyProtocolNot3(value),
+            &ProtoErrorKind::DomainNameTooLong(len) => ProtoErrorKind::DomainNameTooLong(len),
+            &ProtoErrorKind::EdnsNameNotRoot(ref found) => ProtoErrorKind::EdnsNameNotRoot(
+                found.clone(),
+            ),
+            &ProtoErrorKind::FromUtf8Error => ProtoErrorKind::FromUtf8Error,
+            &ProtoErrorKind::Io => ProtoErrorKind::Io,
+            &ProtoErrorKind::IncorrectMessageId(got, expect) => {
+                ProtoErrorKind::IncorrectMessageId(got, expect)
+            }
+            &ProtoErrorKind::IncorrectRDataLengthRead(read, len) => {
+                ProtoErrorKind::IncorrectRDataLengthRead(read, len)
+            }
+            &ProtoErrorKind::LabelBytesTooLong(len) => ProtoErrorKind::LabelBytesTooLong(len),            
+            &ProtoErrorKind::Message(msg) => ProtoErrorKind::Message(msg),
+            &ProtoErrorKind::Msg(ref string) => ProtoErrorKind::Msg(string.clone()),
+            &ProtoErrorKind::NoError => ProtoErrorKind::NoError,
+            &ProtoErrorKind::NotAllBytesSent(sent, expect) => {
+                ProtoErrorKind::NotAllBytesSent(sent, expect)
+            }
+            &ProtoErrorKind::NotAllBytesReceived(received, expect) => {
+                ProtoErrorKind::NotAllBytesReceived(received, expect)
+            }
+            &ProtoErrorKind::ParseIntError => ProtoErrorKind::ParseIntError,
+            &ProtoErrorKind::Timeout => ProtoErrorKind::Timeout,
+            &ProtoErrorKind::UnknownAlgorithmTypeValue(value) => {
+                ProtoErrorKind::UnknownAlgorithmTypeValue(value)
+            }
+            &ProtoErrorKind::UnknownDnsClassStr(ref value) => ProtoErrorKind::UnknownDnsClassStr(
+                value.clone(),
+            ),
+            &ProtoErrorKind::UnknownDnsClassValue(value) => ProtoErrorKind::UnknownDnsClassValue(
+                value,
+            ),
+            &ProtoErrorKind::UnrecognizedLabelCode(value) => {
+                ProtoErrorKind::UnrecognizedLabelCode(value)
+            }
+            &ProtoErrorKind::UnrecognizedNsec3Flags(value) => {
+                ProtoErrorKind::UnrecognizedNsec3Flags(value)
+            }
+            &ProtoErrorKind::UnknownRecordTypeStr(ref value) => {
+                ProtoErrorKind::UnknownRecordTypeStr(value.clone())
+            }
+            &ProtoErrorKind::UnknownRecordTypeValue(value) => {
+                ProtoErrorKind::UnknownRecordTypeValue(value)
+            }
+            &ProtoErrorKind::EscapedCharOutsideCharData => {
+                ProtoErrorKind::EscapedCharOutsideCharData
+            }
+            &ProtoErrorKind::IllegalCharacter(ch) => ProtoErrorKind::IllegalCharacter(ch),
+            &ProtoErrorKind::UnrecognizedChar(ch) => ProtoErrorKind::UnrecognizedChar(ch),
+            &ProtoErrorKind::BadEscapedData(ref string) => ProtoErrorKind::BadEscapedData(
+                string.clone(),
+            ),
+            &ProtoErrorKind::UnrecognizedOctet(octet) => ProtoErrorKind::UnrecognizedOctet(octet),
+            &ProtoErrorKind::UnclosedQuotedString => ProtoErrorKind::UnclosedQuotedString,
+            &ProtoErrorKind::UnclosedList => ProtoErrorKind::UnclosedList,
+            &ProtoErrorKind::UnrecognizedDollar(ref string) => ProtoErrorKind::UnrecognizedDollar(
+                string.clone(),
+            ),
+            &ProtoErrorKind::EOF => ProtoErrorKind::EOF,
+            &ProtoErrorKind::IllegalState(string) => ProtoErrorKind::IllegalState(string),
+            &ProtoErrorKind::UnexpectedToken(ref token) => ProtoErrorKind::UnexpectedToken(
+                token.clone(),
+            ),
+            &ProtoErrorKind::MissingToken(ref string) => ProtoErrorKind::MissingToken(
+                string.clone(),
+            ),
+            &ProtoErrorKind::CharToIntError(ch) => ProtoErrorKind::CharToIntError(ch),
+            &ProtoErrorKind::ParseTimeError(ref string) => ProtoErrorKind::ParseTimeError(
+                string.clone(),
+            ),
+            &ProtoErrorKind::SSL => ProtoErrorKind::SSL,
+        };
+
+        // sadly need to convert the inner error...
+
+        let inner_error: Option<Box<::std::error::Error + Send + 'static>> =
+            (&self.1).0.as_ref().map(|e| {
+                Box::new(ProtoError::from(ProtoErrorKind::Msg(format!("{}", e)))) as
+                    Box<::std::error::Error + Send + 'static>
+            });
+        ProtoError(cloned_kind, (inner_error, (self.1).1.clone()))
+    }
+}

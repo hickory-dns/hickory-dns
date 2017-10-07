@@ -10,7 +10,10 @@ use futures::{Future, Poll};
 use client::ClientHandle;
 use error::*;
 use op::Message;
+use trust_dns_proto::DnsHandle;
+use trust_dns_proto::error::ProtoError;
 
+// TODO: move to proto
 /// Can be used to reattempt a queries if they fail
 ///
 /// *note* Current value of this is not clear, it may be removed
@@ -39,15 +42,12 @@ where
     }
 }
 
-impl<H> ClientHandle for RetryClientHandle<H>
+impl<H> DnsHandle for RetryClientHandle<H>
 where
     H: ClientHandle + 'static,
 {
-    fn is_verifying_dnssec(&self) -> bool {
-        self.client.is_verifying_dnssec()
-    }
-
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    // FIXME: this is a type change, generify DnsHandle Result...
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
         // need to clone here so that the retry can resend if necessary...
         //  obviously it would be nice to be lazy about this...
         let future = self.client.send(message.clone());
@@ -61,11 +61,20 @@ where
     }
 }
 
+impl<H> ClientHandle for RetryClientHandle<H>
+where
+    H: ClientHandle + 'static,
+{
+    fn is_verifying_dnssec(&self) -> bool {
+        self.client.is_verifying_dnssec()
+    }
+}
+
 /// A future for retrying (on failure, for the remaining number of times specified)
 struct RetrySendFuture<H: ClientHandle> {
     message: Message,
     client: H,
-    future: Box<Future<Item = Message, Error = ClientError>>,
+    future: Box<Future<Item = Message, Error = ProtoError>>,
     remaining_attempts: usize,
 }
 
@@ -74,7 +83,7 @@ where
     H: ClientHandle,
 {
     type Item = Message;
-    type Error = ClientError;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // loop over the future, on errors, spawn a new future

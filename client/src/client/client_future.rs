@@ -18,6 +18,8 @@ use futures::sync::oneshot;
 use rand::Rng;
 use rand;
 use tokio_core::reactor::{Handle, Timeout};
+use trust_dns_proto::{BasicDnsHandle, DnsStreamHandle, DnsHandle, DnsFuture};
+use trust_dns_proto::error::ProtoError;
 
 use error::*;
 use op::{Message, MessageType, OpCode, Query, UpdateMessage};
@@ -63,6 +65,7 @@ pub struct ClientFuture<S: Stream<Item = Vec<u8>, Error = io::Error>> {
 }
 
 impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
+    // FIXME: stream_handle type change
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -75,7 +78,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
         stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<ClientStreamHandle>,
+        stream_handle: Box<DnsStreamHandle>,
         loop_handle: &Handle,
         signer: Option<Signer>,
     ) -> BasicClientHandle {
@@ -88,6 +91,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
         )
     }
 
+    // FIXME: stream_handle type change
     /// Spawns a new ClientFuture Stream.
     ///
     /// # Arguments
@@ -102,41 +106,44 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
         stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<ClientStreamHandle>,
+        stream_handle: Box<DnsStreamHandle>,
         loop_handle: &Handle,
         timeout_duration: Duration,
         signer: Option<Signer>,
     ) -> BasicClientHandle {
-        let (sender, rx) = unbounded();
+        let dns_future =
+            DnsFuture::with_timeout(stream, stream_handle, loop_handle, timeout_duration, signer);
 
-        let loop_handle_clone = loop_handle.clone();
-        loop_handle.spawn(
-            stream
-                .then(move |res| match res {
-                    Ok(stream) => {
-                        ClientStreamOrError::Future(ClientFuture {
-                            stream: stream,
-                            reactor_handle: loop_handle_clone,
-                            timeout_duration: timeout_duration,
-                            stream_handle: stream_handle,
-                            new_receiver: rx.fuse().peekable(),
-                            active_requests: HashMap::new(),
-                            signer: signer,
-                        })
-                    }
-                    Err(stream_error) => {
-                        ClientStreamOrError::Errored(ClientStreamErrored {
-                            error: stream_error,
-                            new_receiver: rx.fuse().peekable(),
-                        })
-                    }
-                })
-                .map_err(|e: ClientError| {
-                    error!("error in Client: {}", e);
-                }),
-        );
+        // let (sender, rx) = unbounded();
 
-        BasicClientHandle { message_sender: sender }
+        // let loop_handle_clone = loop_handle.clone();
+        // loop_handle.spawn(
+        //     stream
+        //         .then(move |res| match res {
+        //             Ok(stream) => {
+        //                 ClientStreamOrError::Future(ClientFuture {
+        //                     stream: stream,
+        //                     reactor_handle: loop_handle_clone,
+        //                     timeout_duration: timeout_duration,
+        //                     stream_handle: stream_handle,
+        //                     new_receiver: rx.fuse().peekable(),
+        //                     active_requests: HashMap::new(),
+        //                     signer: signer,
+        //                 })
+        //             }
+        //             Err(stream_error) => {
+        //                 ClientStreamOrError::Errored(ClientStreamErrored {
+        //                     error: stream_error,
+        //                     new_receiver: rx.fuse().peekable(),
+        //                 })
+        //             }
+        //         })
+        //         .map_err(|e: ClientError| {
+        //             error!("error in Client: {}", e);
+        //         }),
+        // );
+
+        BasicClientHandle { message_sender: dns_future }
     }
 
     /// loop over active_requests and remove cancelled requests
@@ -387,49 +394,31 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> Future for ClientSt
     }
 }
 
+
 /// Root ClientHandle implementaton returned by ClientFuture
 ///
 /// This can be used directly to perform queries. See `trust_dns::client::SecureClientHandle` for
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicClientHandle {
-    message_sender: UnboundedSender<(Message, Complete<ClientResult<Message>>)>,
+    message_sender: BasicDnsHandle,
+}
+
+impl DnsHandle for BasicClientHandle {
+    // FIXME: this is a type change, generify DnsHandle Result...
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
+        self.message_sender.send(message)
+    }
 }
 
 impl ClientHandle for BasicClientHandle {
     fn is_verifying_dnssec(&self) -> bool {
         false
     }
-
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-        let (complete, receiver) = oneshot::channel();
-        let message_sender: &mut _ = &mut self.message_sender;
-
-        // TODO: update to use Sink::send
-        let receiver = match UnboundedSender::unbounded_send(message_sender, (message, complete)) {
-            Ok(()) => receiver,
-            Err(e) => {
-                let (complete, receiver) = oneshot::channel();
-                complete.send(Err(e.into())).expect(
-                    "error notifying wait, possible future leak",
-                );
-                receiver
-            }
-        };
-
-        // conver the oneshot into a Box of a Future message and error.
-        Box::new(
-            receiver
-                .map_err(|c| ClientError::from(c))
-                .map(|result| result.into_future())
-                .flatten(),
-        )
-    }
 }
 
 /// A trait for implementing high level functions of DNS.
-#[must_use = "queries can only be sent through a ClientHandle"]
-pub trait ClientHandle: Clone {
+pub trait ClientHandle: Clone + DnsHandle {
     /// Ony returns true if and only if this client is validating DNSSec.
     ///
     /// If the ClientHandle impl is wrapping other clients, then the correct option is to delegate the question to the wrapped client.
@@ -437,15 +426,7 @@ pub trait ClientHandle: Clone {
         false
     }
 
-    /// Send a message via the channel in the client
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - the fully constructed Message to send, note that most implementations of
-    ///               will most likely be required to rewrite the QueryId, do no rely on that as
-    ///               being stable.
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>>;
-
+    // FIXME: changed return type
     /// A *classic* DNS query
     ///
     /// This is identical to `query`, but instead takes a `Query` object.
@@ -453,7 +434,7 @@ pub trait ClientHandle: Clone {
     /// # Arguments
     ///
     /// * `query` - the query to lookup
-    fn lookup(&mut self, query: Query) -> Box<Future<Item = Message, Error = ClientError>> {
+    fn lookup(&mut self, query: Query) -> Box<Future<Item = Message, Error = ProtoError>> {
         debug!("querying: {} {:?}", query.name(), query.query_type());
 
         // build the message
@@ -474,9 +455,10 @@ pub trait ClientHandle: Clone {
             edns.set_version(0);
         }
 
-        self.send(message)
+        Box::new(self.send(message).map_err(Into::into))
     }
 
+    // FIXME: changed return type
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
@@ -492,7 +474,7 @@ pub trait ClientHandle: Clone {
         name: domain::Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> Box<Future<Item = Message, Error = ClientError>> {
+    ) -> Box<Future<Item = Message, Error = ProtoError>> {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
         self.lookup(query)
@@ -605,7 +587,7 @@ pub trait ClientHandle: Clone {
             message.add_answers(rrset.into_record_set());
         }
 
-        self.send(message)
+        Box::new(self.send(message).map_err(Into::into))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -680,7 +662,7 @@ pub trait ClientHandle: Clone {
             edns.set_version(0);
         }
 
-        self.send(message)
+        Box::new(self.send(message).map_err(Into::into))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
@@ -759,7 +741,7 @@ pub trait ClientHandle: Clone {
             edns.set_version(0);
         }
 
-        self.send(message)
+        Box::new(self.send(message).map_err(Into::into))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -857,7 +839,7 @@ pub trait ClientHandle: Clone {
             edns.set_version(0);
         }
 
-        self.send(message)
+        Box::new(self.send(message).map_err(Into::into))
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -935,7 +917,7 @@ pub trait ClientHandle: Clone {
             edns.set_version(0);
         }
 
-        self.send(message)
+        Box::new(self.send(message).map_err(Into::into))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -1009,7 +991,7 @@ pub trait ClientHandle: Clone {
             edns.set_version(0);
         }
 
-        self.send(message)
+        Box::new(self.send(message).map_err(Into::into))
     }
 
     /// Deletes all records at the specified name
@@ -1076,6 +1058,6 @@ pub trait ClientHandle: Clone {
             edns.set_version(0);
         }
 
-        self.send(message)
+        Box::new(self.send(message).map_err(Into::into))
     }
 }
