@@ -10,7 +10,6 @@ use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 /// Data To Be Signed.
 pub struct TBS(Vec<u8>);
 
-#[cfg(test)]
 impl<'a> From<&'a [u8]> for TBS {
     fn from(slice: &'a [u8]) -> Self {
         TBS(slice.to_owned())

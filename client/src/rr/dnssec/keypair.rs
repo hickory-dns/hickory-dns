@@ -507,7 +507,7 @@ impl KeyPair {
 #[cfg(test)]
 mod tests {
     use rr::dnssec::*;
-    use rr::dnssec::tbs::TBS;
+    use rr::dnssec::TBS;
 
     #[cfg(feature = "openssl")]
     #[test]
