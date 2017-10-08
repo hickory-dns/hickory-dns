@@ -61,8 +61,9 @@ where
         named_out.read_line(&mut output).expect(
             "could not read stdout",
         );
-        // stdout().write(b"SRV: ").unwrap();
-        // stdout().write(output.as_bytes()).unwrap();
+
+        print!("SRV: {}", output);
+
         if output.ends_with(started_str) {
             found = true;
             break;
@@ -90,6 +91,8 @@ where
         })
         .expect("no thread available");
 
+    println!("DNS server startup complete");
+
     // return handle to child process
     NamedProcess {
         named: named,
@@ -107,7 +110,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 
     let mut named = Command::new(&format!("{}/../target/debug/named", server_path))
         .stdout(Stdio::piped())
-        .arg("-q")
+        //.arg("-q") TODO: need to rethink this one...
         .arg(&format!(
             "--config={}/tests/named_test_configs/example.toml",
             server_path
@@ -123,6 +126,9 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 
     let stdout = mem::replace(&mut named.stdout, None).unwrap();
     let process = wrap_process(named, stdout, "awaiting connections...\n");
+
+    println!("TRust-DNS startup complete");
+
     // return handle to child process
     (process, test_port)
 }
@@ -140,10 +146,10 @@ fn bench(b: &mut Bencher, io_loop: &mut Core, client: &mut BasicClientHandle) {
     );
 
     let response = response.unwrap();
-    assert_eq!(response.get_response_code(), ResponseCode::NoError);
+    assert_eq!(response.response_code(), ResponseCode::NoError);
 
-    let record = &response.get_answers()[0];
-    if let &RData::A(ref address) = record.get_rdata() {
+    let record = &response.answers()[0];
+    if let &RData::A(ref address) = record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(127, 0, 0, 1));
     } else {
         assert!(false);
@@ -166,8 +172,9 @@ fn trust_dns_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let handle = io_loop.handle();
+    let (stream, sender) = UdpClientStream::new(addr, &handle);
+    let mut client = ClientFuture::new(stream, sender, &handle, None);
 
     bench(b, &mut io_loop, &mut client);
 
@@ -185,8 +192,9 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let handle = io_loop.handle();
+    let (stream, sender) = TcpClientStream::new(addr, &handle);
+    let mut client = ClientFuture::new(stream, sender, &handle, None);
 
     bench(b, &mut io_loop, &mut client);
 
@@ -241,8 +249,9 @@ fn bind_udp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr, io_loop.handle());
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let handle = io_loop.handle();
+    let (stream, sender) = UdpClientStream::new(addr, &handle);
+    let mut client = ClientFuture::new(stream, sender, &handle, None);
 
     bench(b, &mut io_loop, &mut client);
 
@@ -261,8 +270,9 @@ fn bind_tcp_bench(b: &mut Bencher) {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, io_loop.handle());
-    let mut client = ClientFuture::new(stream, sender, io_loop.handle(), None);
+    let handle = io_loop.handle();
+    let (stream, sender) = TcpClientStream::new(addr, &handle);
+    let mut client = ClientFuture::new(stream, sender, &handle, None);
 
     bench(b, &mut io_loop, &mut client);
 
