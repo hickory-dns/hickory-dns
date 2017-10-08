@@ -5,6 +5,7 @@ extern crate futures;
 extern crate openssl;
 extern crate tokio_core;
 extern crate trust_dns;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::fmt;
@@ -17,9 +18,10 @@ use futures::task;
 use tokio_core::reactor::Core;
 
 use trust_dns::error::ClientResult;
-use trust_dns::client::{ClientConnection, ClientStreamHandle};
+use trust_dns::client::ClientConnection;
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
+use trust_dns_proto::DnsStreamHandle;
 
 use trust_dns_server::authority::Catalog;
 use trust_dns_server::server::{Request, RequestHandler};
@@ -37,7 +39,7 @@ pub struct TestClientStream {
 impl TestClientStream {
     pub fn new(
         catalog: Catalog,
-    ) -> (Box<Future<Item = Self, Error = io::Error>>, Box<ClientStreamHandle>) {
+    ) -> (Box<Future<Item = Self, Error = io::Error>>, Box<DnsStreamHandle>) {
         let (message_sender, outbound_messages) = unbounded();
 
         let stream: Box<Future<Item = TestClientStream, Error = io::Error>> =
@@ -108,7 +110,7 @@ pub struct NeverReturnsClientStream {
 
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
-    pub fn new() -> (Box<Future<Item = Self, Error = io::Error>>, Box<ClientStreamHandle>) {
+    pub fn new() -> (Box<Future<Item = Self, Error = io::Error>>, Box<DnsStreamHandle>) {
         let (message_sender, outbound_messages) = unbounded();
 
         let stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>> =
@@ -141,7 +143,7 @@ impl fmt::Debug for NeverReturnsClientStream {
 pub struct NeverReturnsClientConnection {
     io_loop: Core,
     client_stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>>,
-    client_stream_handle: Box<ClientStreamHandle>,
+    client_stream_handle: Box<DnsStreamHandle>,
 }
 
 impl NeverReturnsClientConnection {
@@ -162,7 +164,7 @@ impl ClientConnection for NeverReturnsClientConnection {
 
     fn unwrap(
         self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<ClientStreamHandle>) {
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>) {
         (self.io_loop, self.client_stream, self.client_stream_handle)
     }
 }
