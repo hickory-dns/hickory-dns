@@ -26,7 +26,7 @@ use trust_dns::client::{Client, ClientConnection, SyncClient};
 use trust_dns::udp::UdpClientConnection;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::{DNSClass, Name, Record, RData, RecordType};
-use trust_dns::rr::dnssec::{Algorithm, Signer, KeyPair};
+use trust_dns::rr::dnssec::{Algorithm, MessageSigner, Signer, KeyPair};
 use trust_dns::rr::rdata::key::{KEY, KeyUsage};
 use trust_dns_compatibility::named_process;
 
