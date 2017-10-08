@@ -11,7 +11,7 @@ use std::io;
 use futures::{Async, Future, Poll, Stream};
 use tokio_core::reactor::Handle;
 
-use BufClientStreamHandle;
+use BufDnsStreamHandle;
 use DnsStreamHandle;
 use udp::UdpStream;
 
@@ -45,7 +45,7 @@ impl UdpClientStream {
                 }
             }));
 
-        let sender = Box::new(BufClientStreamHandle {
+        let sender = Box::new(BufDnsStreamHandle {
             name_server: name_server,
             sender: sender,
         });

@@ -21,6 +21,7 @@ extern crate rustls;
 extern crate tokio_core;
 extern crate tokio_rustls;
 extern crate trust_dns;
+extern crate trust_dns_proto;
 
 pub mod tls_client_connection;
 pub mod tls_client_stream;

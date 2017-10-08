@@ -36,7 +36,7 @@ coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = 
 
 [features]
 default = ["ring"]
-ring = ["trust-dns/ring"]
+ring = ["trust-dns/ring", "trust-dns-proto/ring"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
@@ -52,6 +52,7 @@ tokio-core = "^0.1"
 tokio-rustls = "^0.4"
 # disables default features, i.e. openssl...
 trust-dns = { version = "^0.12", path = "../client", default-features = false }
+trust-dns-proto = { version = "^0.1", path = "../proto", default-features = false }
 
 [dev-dependencies]
 openssl = { version = "^0.9.8", features = ["v102", "v110"] }

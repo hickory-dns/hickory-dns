@@ -14,7 +14,7 @@ use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 
-use BufClientStreamHandle;
+use BufDnsStreamHandle;
 use tcp::TcpStream;
 use dns_handle::DnsStreamHandle;
 
@@ -67,7 +67,7 @@ impl TcpClientStream<TokioTcpStream> {
             TcpClientStream { tcp_stream: tcp_stream }
         }));
 
-        let sender = Box::new(BufClientStreamHandle {
+        let sender = Box::new(BufDnsStreamHandle {
             name_server: name_server,
             sender: sender,
         });
