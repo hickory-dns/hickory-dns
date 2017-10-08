@@ -5,9 +5,22 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ## 0.12.1
 
+### Added
+
+- TRust-DNS Proto crate to separate server management from base operations
+- TRust-DNS Util crate for dnssec management tools (@briansmith)
+- Integration tests for Server to validate all supported DNSSec key types
+
 ### Changed
 
 - DNSKEY is now self-signed
+- Internal API changes to `client` calling into `proto` for actual implementations
+- Large refactoring of internal APIs to more cleanly support \*ring\* and OpenSSL features (@briansmith)
+- `ClientHandle::send` moved to `trust_dns_proto::DnsHandle::send` (internal API)
+
+### Fixed
+
+- Server signing issues when loading from persistence
 
 ## 0.12.0
 

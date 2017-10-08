@@ -405,9 +405,10 @@ pub struct BasicClientHandle {
 }
 
 impl DnsHandle for BasicClientHandle {
-    // FIXME: this is a type change, generify DnsHandle Result...
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
-        self.message_sender.send(message)
+    type Error = ClientError;
+
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+        Box::new(self.message_sender.send(message).map_err(ClientError::from))
     }
 }
 
@@ -418,7 +419,7 @@ impl ClientHandle for BasicClientHandle {
 }
 
 /// A trait for implementing high level functions of DNS.
-pub trait ClientHandle: Clone + DnsHandle {
+pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
     /// Ony returns true if and only if this client is validating DNSSec.
     ///
     /// If the ClientHandle impl is wrapping other clients, then the correct option is to delegate the question to the wrapped client.
@@ -434,7 +435,7 @@ pub trait ClientHandle: Clone + DnsHandle {
     /// # Arguments
     ///
     /// * `query` - the query to lookup
-    fn lookup(&mut self, query: Query) -> Box<Future<Item = Message, Error = ProtoError>> {
+    fn lookup(&mut self, query: Query) -> Box<Future<Item = Message, Error = ClientError>> {
         debug!("querying: {} {:?}", query.name(), query.query_type());
 
         // build the message
@@ -455,7 +456,7 @@ pub trait ClientHandle: Clone + DnsHandle {
             edns.set_version(0);
         }
 
-        Box::new(self.send(message).map_err(Into::into))
+        self.send(message)
     }
 
     // FIXME: changed return type
@@ -474,7 +475,7 @@ pub trait ClientHandle: Clone + DnsHandle {
         name: domain::Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> Box<Future<Item = Message, Error = ProtoError>> {
+    ) -> Box<Future<Item = Message, Error = ClientError>> {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
         self.lookup(query)

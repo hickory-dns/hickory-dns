@@ -51,6 +51,7 @@ lru-cache = "^0.1.1"
 regex = "0.2.1"
 tokio-core = "^0.1"
 trust-dns = { version = "^0.12.0", path = "../client" }
+trust-dns-proto = { version = "^0.1", path = "../proto" }
 
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
 ipconfig = "^0.1.1"

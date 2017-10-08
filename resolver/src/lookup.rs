@@ -22,6 +22,7 @@ use trust_dns::error::ClientError;
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RecordType, RData};
 use trust_dns::rr::rdata;
+use trust_dns_proto::DnsHandle;
 
 use lookup_state::CachingClient;
 use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
@@ -82,18 +83,23 @@ pub enum LookupEither<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandl
     Secure(SecureClientHandle<RetryClientHandle<NameServerPool<C, P>>>),
 }
 
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for LookupEither<C, P> {
-    fn is_verifying_dnssec(&self) -> bool {
-        match *self {
-            LookupEither::Retry(ref c) => c.is_verifying_dnssec(),
-            LookupEither::Secure(ref c) => c.is_verifying_dnssec(),
-        }
-    }
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
+    // FIXME: make this a ResolverError
+    type Error = ClientError;
 
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
         match *self {
             LookupEither::Retry(ref mut c) => c.send(message),
             LookupEither::Secure(ref mut c) => c.send(message),
+        }
+    }
+}
+
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for LookupEither<C, P> {
+    fn is_verifying_dnssec(&self) -> bool {
+        match *self {
+            LookupEither::Retry(ref c) => c.is_verifying_dnssec(),
+            LookupEither::Secure(ref c) => c.is_verifying_dnssec(),
         }
     }
 }
@@ -306,15 +312,19 @@ pub mod tests {
         messages: Arc<Mutex<Vec<ClientResult<Message>>>>,
     }
 
-    impl ClientHandle for MockClientHandle {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
-        }
+    impl DnsHandle for MockClientHandle {
+        type Error = ClientError;
 
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
+        }
+    }
+
+    impl ClientHandle for MockClientHandle {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
         }
     }
 
