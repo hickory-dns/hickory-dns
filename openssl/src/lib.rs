@@ -21,6 +21,7 @@ extern crate openssl;
 extern crate tokio_core;
 extern crate tokio_openssl;
 extern crate trust_dns;
+extern crate trust_dns_proto;
 
 mod tls_client_connection;
 mod tls_client_stream;

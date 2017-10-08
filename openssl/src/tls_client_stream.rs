@@ -20,6 +20,7 @@ use tokio_openssl::SslStream as TokioTlsStream;
 use trust_dns::BufClientStreamHandle;
 use trust_dns::client::ClientStreamHandle;
 use trust_dns::tcp::TcpClientStream;
+use trust_dns_proto::{BufDnsStreamHandle, DnsStreamHandle};
 
 use super::TlsStreamBuilder;
 
@@ -46,8 +47,9 @@ impl TlsClientStreamBuilder {
     ///
     /// If this is the 'client' then the 'server' must have it associated as it's `identity`, or have had the `identity` signed by this certificate.
     pub fn add_ca_der(&mut self, ca_der: &[u8]) -> io::Result<()> {
-        let ca = X509::from_der(&ca_der)
-            .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e.description()))?;
+        let ca = X509::from_der(&ca_der).map_err(|e| {
+            io::Error::new(io::ErrorKind::InvalidData, e.description())
+        })?;
         self.add_ca(ca);
         Ok(())
     }
@@ -65,18 +67,19 @@ impl TlsClientStreamBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `subject_name` - The Subject Public Key Info (SPKI) name as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
-    pub fn build
-        (self,
-         name_server: SocketAddr,
-         subject_name: String,
-         loop_handle: &Handle)
-         -> (Box<Future<Item = TlsClientStream, Error = io::Error>>, Box<ClientStreamHandle>) {
+    pub fn build(
+        self,
+        name_server: SocketAddr,
+        subject_name: String,
+        loop_handle: &Handle,
+    ) -> (Box<Future<Item = TlsClientStream, Error = io::Error>>, Box<DnsStreamHandle>) {
         let (stream_future, sender) = self.0.build(name_server, subject_name, loop_handle);
 
-        let new_future: Box<Future<Item = TlsClientStream, Error = io::Error>> =
-            Box::new(stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)));
+        let new_future: Box<Future<Item = TlsClientStream, Error = io::Error>> = Box::new(
+            stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)),
+        );
 
-        let sender = Box::new(BufClientStreamHandle::new(name_server, sender));
+        let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
 
         (new_future, sender)
     }
