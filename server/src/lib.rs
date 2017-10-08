@@ -40,6 +40,7 @@ extern crate time;
 extern crate toml;
 extern crate tokio_core;
 extern crate trust_dns;
+extern crate trust_dns_proto;
 
 #[cfg(feature = "tls")]
 extern crate trust_dns_openssl;

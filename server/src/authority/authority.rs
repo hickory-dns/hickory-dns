@@ -23,7 +23,7 @@ use trust_dns::error::*;
 use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
 use trust_dns::rr::rdata::{NSEC, SIG};
-use trust_dns::rr::dnssec::{tbs, Signer, SupportedAlgorithms, Verifier};
+use trust_dns::rr::dnssec::{tbs, MessageSigner, Signer, SupportedAlgorithms, Verifier};
 
 use authority::{Journal, UpdateResult, ZoneType};
 use error::{PersistenceErrorKind, PersistenceResult};

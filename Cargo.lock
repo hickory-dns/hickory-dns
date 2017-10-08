@@ -1327,6 +1327,7 @@ dependencies = [
  "trust-dns 0.12.0",
  "trust-dns-native-tls 0.1.5",
  "trust-dns-openssl 0.1.0",
+ "trust-dns-proto 0.1.0",
 ]
 
 [[package]]
