@@ -47,8 +47,9 @@ openssl = { version = "^0.9.8", features = ["v102", "v110"] }
 rand = "^0.3"
 rusqlite = { version = "^0.9.5", features = ["bundled"] }
 tokio-core = "^0.1"
-trust-dns = { version = "*", path="../client" }
-trust-dns-openssl = { version = "*", path="../openssl" }
-trust-dns-resolver = { version = "*", path="../resolver" }
-trust-dns-server = { version = "*", path="../server" }
+trust-dns = { version = "*", path = "../client" }
+trust-dns-openssl = { version = "*", path = "../openssl" }
+trust-dns-proto = { version = "*", path = "../proto" }
+trust-dns-resolver = { version = "*", path = "../resolver" }
+trust-dns-server = { version = "*", path = "../server" }
 

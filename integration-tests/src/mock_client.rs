@@ -7,6 +7,7 @@ use trust_dns::client::ClientHandle;
 use trust_dns::error::*;
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, Record, RData, RecordType};
+use trust_dns_proto::DnsHandle;
 
 #[derive(Clone)]
 pub struct MockClientHandle {
@@ -20,15 +21,19 @@ impl MockClientHandle {
     }
 }
 
-impl ClientHandle for MockClientHandle {
-    fn is_verifying_dnssec(&self) -> bool {
-        false
-    }
+impl DnsHandle for MockClientHandle {
+    type Error = ClientError;
 
-    fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         Box::new(future::result(
             self.messages.lock().unwrap().pop().unwrap_or(empty()),
         ))
+    }
+}
+
+impl ClientHandle for MockClientHandle {
+    fn is_verifying_dnssec(&self) -> bool {
+        false
     }
 }
 

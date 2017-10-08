@@ -127,7 +127,7 @@ impl TcpStream<TokioTcpStream> {
                     Ok(Either::A((_, _))) => {
                         future::err(io::Error::new(
                             io::ErrorKind::TimedOut,
-                            format!("TimedOut connecting to: {}", name_server),
+                            format!("timed out connecting to: {}", name_server),
                         ))
                     }
                     Ok(Either::B((tcp_stream, _))) => future::ok((tcp_stream, name_server)),

@@ -889,10 +889,11 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .unwrap_err();
 
-    match err.kind() {
-        &ClientErrorKind::Timeout => (),
-        e @ _ => assert!(false, format!("something else: {}", e)),
-    }
+    let error_str = format!("{}", err);
+    assert!(
+        error_str.contains("timed out"),
+        format!("actual error: {}", error_str)
+    );
 
     io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::AAAA))
@@ -925,6 +926,7 @@ fn test_timeout_query_nonet() {
 fn test_timeout_query_udp() {
     let io_loop = Core::new().unwrap();
 
+    // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
         .to_socket_addrs()
         .unwrap()
@@ -946,6 +948,7 @@ fn test_timeout_query_udp() {
 fn test_timeout_query_tcp() {
     let io_loop = Core::new().unwrap();
 
+    // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
         .to_socket_addrs()
         .unwrap()
