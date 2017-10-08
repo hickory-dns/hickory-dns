@@ -17,6 +17,7 @@ use std::io;
 
 use toml::ParserError;
 use toml::DecodeError;
+use trust_dns_proto::error::*;
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -32,7 +33,9 @@ error_chain! {
     // `rustup_dist::Error`.
     //
     // This section can be empty.
-    links {}
+    links {
+      ProtoError, ProtoErrorKind, ProtoError;
+    }
 
     // Automatic conversions between this error chain and other
     // error types not defined by the `error_chain!`. These will be

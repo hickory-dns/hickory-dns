@@ -7,6 +7,7 @@
 use rusqlite;
 
 use trust_dns::error::*;
+use trust_dns_proto::error::*;
 
 error_chain! {
   // The type defined for this error. These are the conventional
@@ -26,6 +27,7 @@ error_chain! {
     DecodeError, DecodeErrorKind, Decode;
     DnsSecError, DnsSecErrorKind, DnsSec;
     EncodeError, EncodeErrorKind, Encode;
+    ProtoError, ProtoErrorKind, ProtoError;
   }
 
   // Automatic conversions between this error chain and other

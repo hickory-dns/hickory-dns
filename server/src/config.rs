@@ -30,6 +30,7 @@ use toml::{Decoder, Value};
 use trust_dns::error::*;
 use trust_dns::rr::Name;
 use trust_dns::rr::dnssec::{Algorithm, KeyFormat};
+use trust_dns_proto::error::ProtoResult;
 
 use authority::ZoneType;
 use error::{ConfigErrorKind, ConfigResult, ConfigError};
@@ -187,7 +188,7 @@ impl ZoneConfig {
 
     // TODO this is a little ugly for the parse, b/c there is no terminal char
     /// retuns the name of the Zone, i.e. the `example.com` of `www.example.com.`
-    pub fn get_zone(&self) -> ParseResult<Name> {
+    pub fn get_zone(&self) -> ProtoResult<Name> {
         Name::parse(&self.zone, Some(&Name::new()))
     }
 
