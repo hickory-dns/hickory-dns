@@ -20,16 +20,16 @@ use chrono::Duration;
 use trust_dns_proto::error::{ProtoResult, ProtoErrorKind};
 use trust_dns_proto::rr::dnssec::{tbs, TBS, MessageSigner};
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use op::Message;
+use rr::Name;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::{Name, RData};
+use rr::RData;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::KeyPair;
+use rr::dnssec::Algorithm;
+use rr::rdata::SIG;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::{Algorithm, DnsSecResult};
-#[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::{DNSKEY, KEY, SIG};
+use rr::rdata::{DNSKEY, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::BinEncoder;
 
@@ -374,6 +374,7 @@ impl Signer {
     }
 }
 
+#[cfg(any(feature = "openssl", feature = "ring"))]
 impl MessageSigner for Signer {
     /// Returns the algorithm this Signer will use to either sign or validate a signature
     fn algorithm(&self) -> Algorithm {
@@ -507,6 +508,26 @@ impl MessageSigner for Signer {
     ///  ---
     fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
         tbs::message_tbs(message, pre_sig0).and_then(|tbs| self.sign(&tbs))
+    }
+}
+
+#[cfg(not(any(feature = "openssl", feature = "ring")))]
+impl MessageSigner for Signer {
+    /// Always panics!
+    fn algorithm(&self) -> Algorithm {
+        panic!("must enable ring or openssl feature")
+    }
+
+    fn signer_name(&self) -> &Name {
+        panic!("must enable ring or openssl feature")
+    }
+
+    fn calculate_key_tag(&self) -> ProtoResult<u16> {
+        panic!("must enable ring or openssl feature")
+    }
+
+    fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
+        panic!("must enable ring or openssl feature")
     }
 }
 
