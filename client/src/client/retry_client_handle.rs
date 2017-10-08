@@ -46,8 +46,10 @@ impl<H> DnsHandle for RetryClientHandle<H>
 where
     H: ClientHandle + 'static,
 {
+    type Error = ClientError;
+
     // FIXME: this is a type change, generify DnsHandle Result...
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         // need to clone here so that the retry can resend if necessary...
         //  obviously it would be nice to be lazy about this...
         let future = self.client.send(message.clone());
@@ -74,7 +76,7 @@ where
 struct RetrySendFuture<H: ClientHandle> {
     message: Message,
     client: H,
-    future: Box<Future<Item = Message, Error = ProtoError>>,
+    future: Box<Future<Item = Message, Error = ClientError>>,
     remaining_attempts: usize,
 }
 
@@ -83,7 +85,7 @@ where
     H: ClientHandle,
 {
     type Item = Message;
-    type Error = ProtoError;
+    type Error = ClientError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // loop over the future, on errors, spawn a new future

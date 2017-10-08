@@ -1290,6 +1290,7 @@ dependencies = [
  "regex 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.12.0",
+ "trust-dns-proto 0.1.0",
 ]
 
 [[package]]

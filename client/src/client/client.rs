@@ -65,7 +65,7 @@ pub trait Client<C: ClientHandle> {
         name: &domain::Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> ProtoResult<Message> {
+    ) -> ClientResult<Message> {
         self.get_io_loop().run(self.get_client_handle().query(
             name.clone(),
             query_class,
@@ -498,7 +498,7 @@ impl SecureSyncClient {
         query_name: &domain::Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> ProtoResult<Message> {
+    ) -> ClientResult<Message> {
         self.get_io_loop().run(self.get_client_handle().query(
             query_name.clone(),
             query_class,

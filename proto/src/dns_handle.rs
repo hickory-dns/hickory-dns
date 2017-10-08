@@ -415,7 +415,9 @@ pub struct BasicDnsHandle {
 }
 
 impl DnsHandle for BasicDnsHandle {
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
+    type Error = ProtoError;
+
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
 
@@ -447,6 +449,8 @@ impl DnsHandle for BasicDnsHandle {
 
 /// A trait for implementing high level functions of DNS.
 pub trait DnsHandle: Clone {
+    type Error;
+
     // FIXME: make result generic...
     /// Send a message via the channel in the client
     ///
@@ -455,5 +459,5 @@ pub trait DnsHandle: Clone {
     /// * `message` - the fully constructed Message to send, note that most implementations of
     ///               will most likely be required to rewrite the QueryId, do no rely on that as
     ///               being stable.
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ProtoError>>;
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>>;
 }

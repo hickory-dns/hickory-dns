@@ -98,12 +98,14 @@ impl<H> DnsHandle for SecureClientHandle<H>
 where
     H: ClientHandle,
 {
+    type Error = ClientError;
+
     // FIXME: this is a type change, generify DnsHandle Result...
-    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
+    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
             return Box::new(failed(
-                ProtoErrorKind::Message("exceeded max validation depth")
+                ClientErrorKind::Message("exceeded max validation depth")
                     .into(),
             ));
         }
@@ -169,7 +171,7 @@ where
                             if !verify_nsec(&query, nsecs) {
                                 // TODO change this to remove the NSECs, like we do for the others?
                                 return Err(
-                                    ProtoErrorKind::Message(
+                                    ClientErrorKind::Message(
                                         "could not validate nxdomain \
                                                                  with NSEC",
                                     ).into(),
@@ -199,7 +201,7 @@ where
 /// A future to verify all RRSets in a returned Message.
 struct VerifyRrsetsFuture {
     message_result: Option<Message>,
-    rrsets: SelectAll<Box<Future<Item = Rrset, Error = ProtoError>>>,
+    rrsets: SelectAll<Box<Future<Item = Rrset, Error = ClientError>>>,
     verified_rrsets: HashSet<(domain::Name, RecordType)>,
 }
 
@@ -209,7 +211,7 @@ fn verify_rrsets<H>(
     client: SecureClientHandle<H>,
     message_result: Message,
     dns_class: DNSClass,
-) -> Box<Future<Item = Message, Error = ProtoError>>
+) -> Box<Future<Item = Message, Error = ClientError>>
 where
     H: ClientHandle,
 {
@@ -239,7 +241,7 @@ where
         message_result.take_additionals();
 
         return Box::new(failed(
-            ProtoErrorKind::Message("no results to verify").into(),
+            ClientErrorKind::Message("no results to verify").into(),
         ));
     }
 
@@ -247,7 +249,7 @@ where
 
     // collect all the rrsets to verify
     // TODO: is there a way to get rid of this clone() safely?
-    let mut rrsets: Vec<Box<Future<Item = Rrset, Error = ProtoError>>> =
+    let mut rrsets: Vec<Box<Future<Item = Rrset, Error = ClientError>>> =
         Vec::with_capacity(rrset_types.len());
     for (name, record_type) in rrset_types {
         // TODO: should we evaluate the different sections (answers and name_servers) separately?
@@ -306,11 +308,11 @@ where
 
 impl Future for VerifyRrsetsFuture {
     type Item = Message;
-    type Error = ProtoError;
+    type Error = ClientError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if self.message_result.is_none() {
-            return Err(ProtoErrorKind::Message("message is none").into());
+            return Err(ClientErrorKind::Message("message is none").into());
         }
 
         // loop through all the rrset evaluations, filter all the rrsets in the Message
@@ -410,7 +412,7 @@ fn verify_rrset<H>(
     client: SecureClientHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = ProtoError>>
+) -> Box<Future<Item = Rrset, Error = ClientError>>
 where
     H: ClientHandle,
 {
@@ -451,7 +453,7 @@ where
 fn verify_dnskey_rrset<H>(
     mut client: SecureClientHandle<H>,
     rrset: Rrset,
-) -> Box<Future<Item = Rrset, Error = ProtoError>>
+) -> Box<Future<Item = Rrset, Error = ClientError>>
 where
     H: ClientHandle,
 {
@@ -537,7 +539,7 @@ where
                 Ok(rrset)
             } else {
                 Err(
-                    ProtoErrorKind::Message("Could not validate all DNSKEYs").into(),
+                    ClientErrorKind::Message("Could not validate all DNSKEYs").into(),
                 )
             }
         });
@@ -613,7 +615,7 @@ fn verify_default_rrset<H>(
     client: SecureClientHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = ProtoError>>
+) -> Box<Future<Item = Rrset, Error = ClientError>>
 where
     H: ClientHandle,
 {
@@ -669,7 +671,7 @@ where
                               }
                             })
                             .next()
-                            .ok_or(ProtoErrorKind::Message("self-signed dnskey is invalid").into()),
+                            .ok_or(ClientErrorKind::Message("self-signed dnskey is invalid").into()),
             ).map(move |rrset| {
                 Rc::try_unwrap(rrset).expect("unable to unwrap Rc")
             }),
@@ -714,7 +716,7 @@ where
                                                }
                                              )
                                              .map(|_| rrset)
-                                             .ok_or(ProtoErrorKind::Message("validation failed").into())
+                                             .ok_or(ClientErrorKind::Message("validation failed").into())
                                     )
                             })
                             .collect::<Vec<_>>();
@@ -722,7 +724,7 @@ where
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
         return Box::new(failed(
-            ProtoErrorKind::Msg(format!(
+            ClientErrorKind::Msg(format!(
                 "no RRSIGs available for \
                                                              validation: {}, {:?}",
                 rrset.name,

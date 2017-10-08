@@ -28,7 +28,7 @@ use op::{Message, Query};
 pub struct MemoizeClientHandle<H: ClientHandle> {
     client: H,
     active_queries:
-        Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item = Message, Error = ProtoError>>>>>>,
+        Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item = Message, Error = ClientError>>>>>>,
 }
 
 impl<H> MemoizeClientHandle<H>
@@ -48,13 +48,14 @@ impl<H> DnsHandle for MemoizeClientHandle<H>
 where
     H: ClientHandle,
 {
-    // FIXME: this is a type change, generify DnsHandle Result...
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
+    type Error = ClientError;
+
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         let query = message.queries().first().expect("no query!").clone();
 
         if let Some(rc_future) = self.active_queries.borrow().get(&query) {
             // FIXME check TTLs?
-            return Box::new(rc_future.clone());
+            return Box::new(rc_future.clone().map_err(ClientError::from));
         }
 
         // check if there are active queries
@@ -62,7 +63,7 @@ where
             let map = self.active_queries.borrow();
             let request = map.get(&query);
             if request.is_some() {
-                return Box::new(request.unwrap().clone());
+                return Box::new(request.unwrap().clone().map_err(ClientError::from));
             }
         }
 
