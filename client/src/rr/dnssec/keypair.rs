@@ -409,14 +409,6 @@ impl KeyPair {
         }
     }
 
-    /// OpenSSL must be enabled for this feature
-    #[cfg(not(feature = "openssl"))]
-    pub fn sign(&self, algorithm: Algorithm, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
-        Err(
-            DnsSecErrorKind::Message("OpenSSL must be enabled for this feature").into(),
-        )
-    }
-
     /// Generates a new private and public key pair for the specified algorithm.
     ///
     /// RSA keys are hardcoded to 2048bits at the moment. Other keys have predefined sizes.

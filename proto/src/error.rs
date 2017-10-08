@@ -13,7 +13,10 @@ use std::io;
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(not(feature = "openssl"))]
 use self::not_openssl::SslErrorStack;
-
+#[cfg(feature = "ring")]
+use ring::error::Unspecified;
+#[cfg(not(feature = "ring"))]
+use self::not_ring::Unspecified;
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -47,6 +50,7 @@ error_chain! {
       ::std::num::ParseIntError, ParseIntError, "error parsing number";
       ::std::string::FromUtf8Error, FromUtf8Error, "utf8 conversion error";
       SslErrorStack, SSL, "ssl error";
+      Unspecified, Ring, "ring error";
     }
 
     // Define additional `ErrorKind` variants. The syntax here is
@@ -247,6 +251,27 @@ pub mod not_openssl {
     }
 }
 
+#[cfg(not(feature = "ring"))]
+pub mod not_ring {
+    use std;
+
+    #[derive(Debug)]
+    pub struct Unspecified;
+
+    impl std::fmt::Display for Unspecified {
+        fn fmt(&self, _: &mut std::fmt::Formatter) -> Result<(), std::fmt::Error> {
+            Ok(())
+        }
+    }
+
+
+    impl std::error::Error for Unspecified {
+        fn description(&self) -> &str {
+            "ring feature not enabled"
+        }
+    }
+}
+
 // TODO: replace this when https://github.com/rust-lang-nursery/error-chain/pull/163 is merged
 impl Clone for ProtoError {
     fn clone(&self) -> Self {
@@ -327,6 +352,7 @@ impl Clone for ProtoError {
             &ProtoErrorKind::ParseTimeError(ref string) => ProtoErrorKind::ParseTimeError(
                 string.clone(),
             ),
+            &ProtoErrorKind::Ring => ProtoErrorKind::Ring,
             &ProtoErrorKind::SSL => ProtoErrorKind::SSL,
         };
 
