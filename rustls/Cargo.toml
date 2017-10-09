@@ -34,9 +34,7 @@ travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
-[features]
-default = ["ring"]
-ring = ["trust-dns/ring", "trust-dns-proto/ring"]
+#[features]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]

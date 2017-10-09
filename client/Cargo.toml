@@ -40,7 +40,10 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = ["openssl", "trust-dns-proto/openssl"]
+default = ["dnssec-openssl"]
+dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/openssl"]
+dnssec-ring = ["dnssec", "ring", "trust-dns-proto/ring"]
+dnssec = []
 
 [lib]
 name = "trust_dns"

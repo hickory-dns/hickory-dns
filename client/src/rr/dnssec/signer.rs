@@ -33,6 +33,17 @@ use rr::rdata::{DNSKEY, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::BinEncoder;
 
+/// FIXME: get docs from Signer in Client
+// pub trait MessageSigner {
+//     /// FIXME: get docs from Signer in Client
+//     fn algorithm(&self) -> Algorithm;
+//     /// FIXME: get docs from Signer in Client
+//     fn calculate_key_tag(&self) -> ProtoResult<u16>;
+//     /// FIXME: get docs from Signer in Client
+//     fn signer_name(&self) -> &Name;
+//     /// FIXME: get docs from Signer in Client
+//     fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>>;
+// }
 /// Use for performing signing and validation of DNSSec based components.
 ///
 /// TODO: warning this struct and it's impl are under high volatility, expect breaking changes

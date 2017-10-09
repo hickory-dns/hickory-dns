@@ -22,7 +22,7 @@ matrix:
     # just openssl
     - rust: stable
       env: MODULES="client"
-           CLIENT_OPTIONS="--no-default-features --features=openssl"  
+           CLIENT_OPTIONS="--no-default-features --features=dnssec-openssl"  
 
     # just tls using openssl
     - rust: stable
@@ -31,7 +31,7 @@ matrix:
     # just ring
     - rust: stable
       env: MODULES="client"
-           CLIENT_OPTIONS="--no-default-features --features=ring" 
+           CLIENT_OPTIONS="--no-default-features --features=dnssec-ring" 
 
     # min rust version
     # - rust: 1.14.0
