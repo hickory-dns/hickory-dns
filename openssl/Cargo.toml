@@ -41,9 +41,6 @@ coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = 
 name = "trust_dns_openssl"
 path = "src/lib.rs"
 
-[features]
-default = ["trust-dns/openssl", "trust-dns-proto/openssl"]
-
 [dependencies]
 futures = "^0.1.6"
 openssl = { version = "^0.9.8", features = ["v102", "v110"] }
