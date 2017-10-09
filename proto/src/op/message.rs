@@ -21,7 +21,6 @@ use std::mem;
 
 use error::*;
 use rr::{Record, RecordType};
-use rr::dnssec::MessageSigner;
 #[cfg(feature = "openssl")]
 use rr::{DNSClass, Name, RData};
 #[cfg(feature = "openssl")]
@@ -505,7 +504,7 @@ impl Message {
     /// # Return value
     ///
     /// The sig0, i.e. signed record, for verifying the sending and package integrity
-    fn sig0(&self) -> &[Record] {
+    pub fn sig0(&self) -> &[Record] {
         &self.sig0
     }
 
@@ -629,192 +628,47 @@ impl Message {
         Ok(buffer)
     }
 
-    /// Sign the message, i.e. add a SIG0 record to this Message.
+    /// Finalize the message prior to sending.
     ///
     /// Subsequent to calling this, the Message should not change.
-    #[cfg(feature = "openssl")]
-    pub fn sign<S: MessageSigner>(&mut self, signer: &S, inception_time: u32) -> ProtoResult<()> {
-        debug!("signing message: {:?}", self);
-        let key_tag: u16 = try!(signer.calculate_key_tag());
+    pub fn finalize<MF: MessageFinalizer>(
+        &mut self,
+        finalizer: &MF,
+        inception_time: u32,
+    ) -> ProtoResult<()> {
+        debug!("finalizing message: {:?}", self);
+        let finals: Vec<Record> = finalizer.finalize_message(self, inception_time)?;
 
-        // this is based on RFCs 2535, 2931 and 3007
+        // append all records to message
+        for fin in finals {
+            match fin.rr_type() {
+                // SIG0's are special, and come at the very end of the message
+                RecordType::SIG => self.add_sig0(fin),
+                _ => self.add_additional(fin),
+            };
+        }
 
-        // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
-        //  meaningless.' - 2931
-        let mut sig0 = Record::new();
-
-        // The TTL fields SHOULD be zero
-        sig0.set_ttl(0);
-
-        // The CLASS field SHOULD be ANY
-        sig0.set_dns_class(DNSClass::ANY);
-
-        // The owner name SHOULD be root (a single zero octet).
-        sig0.set_name(Name::root());
-        let num_labels = sig0.name().num_labels();
-
-        let expiration_time: u32 = inception_time + (5 * 60); // +5 minutes in seconds
-
-        sig0.set_rr_type(RecordType::SIG);
-        let pre_sig0 = SIG::new(
-            // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-            RecordType::NULL,
-            signer.algorithm(),
-            num_labels,
-            // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-            0,
-            // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-            expiration_time,
-            // current time, this should be UTC
-            // unsigned numbers of seconds since the start of 1 January 1970, GMT
-            inception_time,
-            key_tag,
-            // can probably get rid of this clone if the owndership is correct
-            signer.signer_name().clone(),
-            Vec::new(),
-        );
-        let signature: Vec<u8> = try!(signer.sign_message(self, &pre_sig0));
-        sig0.set_rdata(RData::SIG(pre_sig0.set_sig(signature)));
-
-        debug!("sig0: {:?}", sig0);
-
-        self.add_sig0(sig0);
         Ok(())
     }
-
-    /// Always returns an error; enable OpenSSL for signing support
-    #[cfg(not(feature = "openssl"))]
-    pub fn sign<S: MessageSigner>(&mut self, _: &S, _: u32) -> ProtoResult<()> {
-        Err(
-            ProtoErrorKind::Message("openssl feature not enabled").into(),
-        )
-    }
 }
 
-/// To reduce errors in using the Message struct as an Update, this will do the call throughs
-///   to properly do that.
+/// A trait for performing final ammendments to a Message before it is sent.
 ///
-/// Generally rather than constructin this by hand, see the update methods on `Client`
-pub trait UpdateMessage: Debug {
-    /// see `Header::id`
-    fn id(&self) -> u16;
-
-    /// Adds the zone section, i.e. name.example.com would be example.com
-    fn add_zone(&mut self, query: Query);
-
-    /// Add the pre-requisite records
+/// An example of this is a SIG0 signer, which needs the final form of the message,
+///  but then needs to attach additional data to the body of the message.
+pub trait MessageFinalizer {
+    /// The message taken in should be processed and then return [`Record`]s which should be
+    ///  appended to the additional section of the message.
     ///
-    /// These must exist, or not, for the Update request to go through.
-    fn add_pre_requisite(&mut self, record: Record);
-
-    /// Add all pre-requisites to the UpdateMessage
-    #[deprecated = "will be removed post 0.9.x"]
-    fn add_all_pre_requisites(&mut self, vector: &[&Record]);
-
-    /// Add all the Records from the Iterator to the pre-reqisites section
-    fn add_pre_requisites<R, I>(&mut self, records: R)
-    where
-        R: IntoIterator<Item = Record, IntoIter = I>,
-        I: Iterator<Item = Record>;
-
-    /// Add the Record to be updated
-    fn add_update(&mut self, record: Record);
-
-    /// Add the set of Records to be updated
-    #[deprecated = "will be removed post 0.9.x"]
-    fn add_all_updates(&mut self, vector: &[&Record]);
-
-    /// Add the Records from the Iterator to the updates section
-    fn add_updates<R, I>(&mut self, records: R)
-    where
-        R: IntoIterator<Item = Record, IntoIter = I>,
-        I: Iterator<Item = Record>;
-
-    /// Add Records to the additional Section of hte UpdateMessage
-    fn add_additional(&mut self, record: Record);
-
-    /// Returns the Zones to be updated, generally should only be one.
-    fn zones(&self) -> &[Query];
-
-    /// Returns the pre-requisites
-    fn prerequisites(&self) -> &[Record];
-
-    /// Returns the records to be updated
-    fn updates(&self) -> &[Record];
-
-    /// Returns the additonal records
-    fn additionals(&self) -> &[Record];
-
-    /// This is used to authenticate update messages.
+    /// # Arguments
     ///
-    /// see `Message::sig0()` for more information.
-    fn sig0(&self) -> &[Record];
-
-    /// Signs the UpdateMessage, used to validate the authenticity and authorization of UpdateMessage
-    fn sign<S: MessageSigner>(&mut self, signer: &S, inception_time: u32) -> ProtoResult<()>;
-}
-
-/// to reduce errors in using the Message struct as an Update, this will do the call throughs
-///   to properly do that.
-impl UpdateMessage for Message {
-    fn id(&self) -> u16 {
-        self.id()
-    }
-    fn add_zone(&mut self, query: Query) {
-        self.add_query(query);
-    }
-    fn add_pre_requisite(&mut self, record: Record) {
-        self.add_answer(record);
-    }
-    fn add_all_pre_requisites(&mut self, vector: &[&Record]) {
-        self.add_answers(vector.into_iter().map(|r| (*r).clone()));
-    }
-    fn add_pre_requisites<R, I>(&mut self, records: R)
-    where
-        R: IntoIterator<Item = Record, IntoIter = I>,
-        I: Iterator<Item = Record>,
-    {
-        self.add_answers(records);
-    }
-    fn add_update(&mut self, record: Record) {
-        self.add_name_server(record);
-    }
-    fn add_all_updates(&mut self, vector: &[&Record]) {
-        self.add_name_servers(vector.into_iter().map(|r| (*r).clone()));
-    }
-    fn add_updates<R, I>(&mut self, records: R)
-    where
-        R: IntoIterator<Item = Record, IntoIter = I>,
-        I: Iterator<Item = Record>,
-    {
-        self.add_name_servers(records);
-    }
-    fn add_additional(&mut self, record: Record) {
-        self.add_additional(record);
-    }
-
-    fn zones(&self) -> &[Query] {
-        self.queries()
-    }
-    fn prerequisites(&self) -> &[Record] {
-        self.answers()
-    }
-    fn updates(&self) -> &[Record] {
-        self.name_servers()
-    }
-    fn additionals(&self) -> &[Record] {
-        self.additionals()
-    }
-
-    fn sig0(&self) -> &[Record] {
-        self.sig0()
-    }
-
-    // TODO: where's the 'right' spot for this function
-
-    fn sign<S: MessageSigner>(&mut self, signer: &S, inception_time: u32) -> ProtoResult<()> {
-        Message::sign(self, signer, inception_time)
-    }
+    /// * `message` - messge to process
+    /// * `current_time` - the current time as specified by the system, it's not recommended to read the current time as that makes testing complicated.
+    ///
+    /// # Return
+    ///
+    /// A vector to append to the additionals section of the message, sorted in the order as they should appear in the message.
+    fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>>;
 }
 
 impl BinSerializable<Message> for Message {

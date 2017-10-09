@@ -18,10 +18,10 @@
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
 use trust_dns_proto::error::{ProtoResult, ProtoErrorKind};
-use trust_dns_proto::rr::dnssec::{tbs, TBS, MessageSigner};
+use trust_dns_proto::rr::dnssec::{tbs, TBS};
 
-use op::Message;
-use rr::Name;
+use op::{Message, MessageFinalizer};
+use rr::{DNSClass, Name, Record, RecordType};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::RData;
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -33,17 +33,6 @@ use rr::rdata::{DNSKEY, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::BinEncoder;
 
-/// FIXME: get docs from Signer in Client
-// pub trait MessageSigner {
-//     /// FIXME: get docs from Signer in Client
-//     fn algorithm(&self) -> Algorithm;
-//     /// FIXME: get docs from Signer in Client
-//     fn calculate_key_tag(&self) -> ProtoResult<u16>;
-//     /// FIXME: get docs from Signer in Client
-//     fn signer_name(&self) -> &Name;
-//     /// FIXME: get docs from Signer in Client
-//     fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>>;
-// }
 /// Use for performing signing and validation of DNSSec based components.
 ///
 /// TODO: warning this struct and it's impl are under high volatility, expect breaking changes
@@ -383,10 +372,7 @@ impl Signer {
             ProtoErrorKind::Msg(format!("signing error: {}", e)).into()
         })
     }
-}
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
-impl MessageSigner for Signer {
     /// Returns the algorithm this Signer will use to either sign or validate a signature
     fn algorithm(&self) -> Algorithm {
         self.algorithm
@@ -522,6 +508,54 @@ impl MessageSigner for Signer {
     }
 }
 
+impl MessageFinalizer for Signer {
+    fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
+        debug!("signing message: {:?}", message);
+        let key_tag: u16 = try!(self.calculate_key_tag());
+
+        // this is based on RFCs 2535, 2931 and 3007
+
+        // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
+        //  meaningless.' - 2931
+        let mut sig0 = Record::new();
+
+        // The TTL fields SHOULD be zero
+        sig0.set_ttl(0);
+
+        // The CLASS field SHOULD be ANY
+        sig0.set_dns_class(DNSClass::ANY);
+
+        // The owner name SHOULD be root (a single zero octet).
+        sig0.set_name(Name::root());
+        let num_labels = sig0.name().num_labels();
+
+        let expiration_time: u32 = current_time + (5 * 60); // +5 minutes in seconds
+
+        sig0.set_rr_type(RecordType::SIG);
+        let pre_sig0 = SIG::new(
+            // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+            RecordType::NULL,
+            self.algorithm(),
+            num_labels,
+            // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+            0,
+            // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+            expiration_time,
+            // current time, this should be UTC
+            // unsigned numbers of seconds since the start of 1 January 1970, GMT
+            current_time,
+            key_tag,
+            // can probably get rid of this clone if the owndership is correct
+            self.signer_name().clone(),
+            Vec::new(),
+        );
+        let signature: Vec<u8> = try!(self.sign_message(message, &pre_sig0));
+        sig0.set_rdata(RData::SIG(pre_sig0.set_sig(signature)));
+
+        Ok(vec![sig0])
+    }
+}
+
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
 impl MessageSigner for Signer {
     /// Always panics!
@@ -552,7 +586,7 @@ mod tests {
     use rr::{DNSClass, Name, Record, RecordType};
     use rr::rdata::SIG;
     use rr::rdata::key::KeyUsage;
-    use rr::dnssec::{PublicKey, PublicKeyEnum, Verifier};
+    use rr::dnssec::*;
     use op::{Message, Query, UpdateMessage};
 
     pub use super::*;
@@ -600,7 +634,7 @@ mod tests {
 
         // now test that the sig0 record works correctly.
         assert!(question.sig0().is_empty());
-        question.sign(&signer, 0).expect("should have signed");
+        question.finalize(&signer, 0).expect("should have signed");
         assert!(!question.sig0().is_empty());
 
         let sig = signer.sign_message(&question, &pre_sig0);
@@ -754,5 +788,108 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         let key_tag = signer.calculate_key_tag().unwrap();
 
         assert_eq!(key_tag, 28551);
+    }
+
+    // TODO: these tests technically came from TBS in trust_dns_proto
+    #[cfg(feature = "openssl")]
+    #[cfg(test)]
+    mod tests {
+        extern crate openssl;
+        use self::openssl::rsa::Rsa;
+
+        use rr::*;
+        use rr::rdata::SIG;
+        use rr::dnssec::*;
+        use rr::dnssec::tbs::*;
+
+        #[test]
+        fn test_rrset_tbs() {
+            let rsa = Rsa::generate(2048).unwrap();
+            let key = KeyPair::from_rsa(rsa).unwrap();
+            let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+            let signer = Signer::sig0(sig0key, key, Name::root());
+
+            let origin: Name = Name::parse("example.com.", None).unwrap();
+            let rrsig = Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::SIG(SIG::new(
+                    RecordType::NS,
+                    Algorithm::RSASHA256,
+                    origin.num_labels(),
+                    86400,
+                    5,
+                    0,
+                    signer.calculate_key_tag().unwrap(),
+                    origin.clone(),
+                    vec![],
+                )))
+                .clone();
+            let rrset = vec![
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                    .clone(),
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                    .clone(),
+            ];
+
+            let tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
+            assert!(!tbs.as_ref().is_empty());
+
+            let rrset = vec![
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::CNAME)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::CNAME(
+                        Name::parse("a.iana-servers.net.", None).unwrap(),
+                    ))
+                    .clone(), // different type
+                Record::new()
+                    .set_name(Name::parse("www.example.com.", None).unwrap())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                    .clone(), // different name
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::CH)
+                    .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                    .clone(), // different class
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                    .clone(),
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                    .clone(),
+            ];
+
+            let filtered_tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
+            assert!(!filtered_tbs.as_ref().is_empty());
+            assert_eq!(tbs.as_ref(), filtered_tbs.as_ref());
+        }
     }
 }

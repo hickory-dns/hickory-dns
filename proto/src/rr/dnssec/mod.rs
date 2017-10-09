@@ -24,7 +24,6 @@ mod nsec3;
 pub mod public_key;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 mod rsa_public_key;
-mod signer;
 mod supported_algorithm;
 mod trust_anchor;
 pub mod tbs;
@@ -37,7 +36,6 @@ pub use self::public_key::PublicKey;
 pub use self::public_key::PublicKeyBuf;
 pub use self::public_key::PublicKeyEnum;
 pub use self::supported_algorithm::SupportedAlgorithms;
-pub use self::signer::MessageSigner;
 pub use self::tbs::TBS;
 pub use self::trust_anchor::TrustAnchor;
 pub use self::verifier::Verifier;
