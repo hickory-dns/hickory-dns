@@ -11,6 +11,7 @@
 //! TRust-DNS Protocol library
 
 extern crate chrono;
+extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
 #[macro_use]

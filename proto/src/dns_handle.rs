@@ -20,8 +20,7 @@ use rand;
 use tokio_core::reactor::{Handle, Timeout};
 
 use error::*;
-use op::{Message, MessageType, OpCode, Query, UpdateMessage};
-use rr::dnssec::MessageSigner;
+use op::{Message, MessageType, MessageFinalizer, OpCode, Query};
 use rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use rr::rdata::NULL;
 
@@ -49,7 +48,7 @@ impl DnsStreamHandle for StreamHandle {
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsFuture<S: Stream<Item = Vec<u8>, Error = io::Error>, MS: MessageSigner> {
+pub struct DnsFuture<S: Stream<Item = Vec<u8>, Error = io::Error>, MF: MessageFinalizer> {
     stream: S,
     reactor_handle: Handle,
     timeout_duration: Duration,
@@ -58,13 +57,13 @@ pub struct DnsFuture<S: Stream<Item = Vec<u8>, Error = io::Error>, MS: MessageSi
     new_receiver:
         Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<ProtoResult<Message>>)>>>,
     active_requests: HashMap<u16, (Complete<ProtoResult<Message>>, Timeout)>,
-    signer: Option<MS>,
+    signer: Option<MF>,
 }
 
-impl<S, MS> DnsFuture<S, MS>
+impl<S, MF> DnsFuture<S, MF>
 where
     S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
-    MS: MessageSigner + 'static,
+    MF: MessageFinalizer + 'static,
 {
     /// Spawns a new DnsFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
@@ -80,7 +79,7 @@ where
         stream: Box<Future<Item = S, Error = io::Error>>,
         stream_handle: Box<DnsStreamHandle>,
         loop_handle: &Handle,
-        signer: Option<MS>,
+        signer: Option<MF>,
     ) -> BasicDnsHandle {
         Self::with_timeout(
             stream,
@@ -108,7 +107,7 @@ where
         stream_handle: Box<DnsStreamHandle>,
         loop_handle: &Handle,
         timeout_duration: Duration,
-        signer: Option<MS>,
+        signer: Option<MF>,
     ) -> BasicDnsHandle {
         let (sender, rx) = unbounded();
 
@@ -204,10 +203,10 @@ where
     }
 }
 
-impl<S, MS> Future for DnsFuture<S, MS>
+impl<S, MF> Future for DnsFuture<S, MF>
 where
     S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
-    MS: MessageSigner + 'static,
+    MF: MessageFinalizer + 'static,
 {
     type Item = ();
     type Error = ProtoError;
@@ -241,15 +240,17 @@ where
                     // if there was a message, and the above succesion was succesful,
                     //  register the new message, if not do not register, and set the complete to error.
                     // getting a random query id, this mitigates potential cache poisoning.
-                    // TODO: for SIG0 we can't change the message id after signing.
                     let query_id = query_id.expect("query_id should have been set above");
                     message.set_id(query_id);
 
                     // update messages need to be signed.
                     if let OpCode::Update = message.op_code() {
                         if let Some(ref signer) = self.signer {
-                            // TODO: it's too bad this happens here...
-                            if let Err(e) = message.sign(signer, Utc::now().timestamp() as u32) {
+                            if let Err(e) = message.finalize(
+                                signer,
+                                Utc::now().timestamp() as u32,
+                            )
+                            {
                                 warn!("could not sign message: {}", e);
                                 complete.send(Err(e.into())).expect(
                                     "error notifying wait, possible future leak",
@@ -384,15 +385,19 @@ impl Future for ClientStreamErrored {
     }
 }
 
-enum ClientStreamOrError<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static, MS: MessageSigner + 'static> {
-    Future(DnsFuture<S, MS>),
+enum ClientStreamOrError<S, MF>
+where
+    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    MF: MessageFinalizer + 'static,
+{
+    Future(DnsFuture<S, MF>),
     Errored(ClientStreamErrored),
 }
 
-impl<S, MS> Future for ClientStreamOrError<S, MS>
+impl<S, MF> Future for ClientStreamOrError<S, MF>
 where
     S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
-    MS: MessageSigner + 'static,
+    MF: MessageFinalizer + 'static,
 {
     type Item = ();
     type Error = ProtoError;

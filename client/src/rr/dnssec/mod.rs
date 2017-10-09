@@ -28,7 +28,6 @@ pub use self::dnssec::DigestType;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub use self::key_format::KeyFormat;
 pub use self::keypair::KeyPair;
-pub use self::dnssec::MessageSigner;
 pub use self::dnssec::Nsec3HashAlgorithm;
 pub use self::dnssec::PublicKey;
 pub use self::dnssec::PublicKeyBuf;
