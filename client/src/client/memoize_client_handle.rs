@@ -101,7 +101,9 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
+        type Error = ClientError;
+
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
             let mut message = Message::new();
             let i = self.i.get();
 
