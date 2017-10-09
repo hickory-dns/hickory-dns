@@ -373,14 +373,14 @@ impl Signer {
     }
 
     /// Returns the algorithm this Signer will use to either sign or validate a signature
-    fn algorithm(&self) -> Algorithm {
+    pub fn algorithm(&self) -> Algorithm {
         self.algorithm
     }
 
     /// The name of the signing entity, e.g. the DNS server name.
     ///
     /// This should match the name on key in the zone.
-    fn signer_name(&self) -> &Name {
+    pub fn signer_name(&self) -> &Name {
         &self.signer_name
     }
 
@@ -437,7 +437,7 @@ impl Signer {
     ///  return ac & 0xFFFF;
     ///  }
     /// ```
-    fn calculate_key_tag(&self) -> ProtoResult<u16> {
+    pub fn calculate_key_tag(&self) -> ProtoResult<u16> {
         // TODO:
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {
@@ -502,7 +502,7 @@ impl Signer {
     ///  being verified.
     ///
     ///  ---
-    fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
+    pub fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
         tbs::message_tbs(message, pre_sig0).and_then(|tbs| self.sign(&tbs))
     }
 }

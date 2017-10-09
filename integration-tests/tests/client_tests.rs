@@ -21,7 +21,7 @@ use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SecureSync
 use trust_dns::error::*;
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
-use trust_dns::rr::dnssec::{Algorithm, KeyPair, MessageSigner, Signer, TrustAnchor};
+use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
 use trust_dns::rr::rdata::*;
 use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
