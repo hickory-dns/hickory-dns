@@ -144,7 +144,6 @@ impl UpdateMessage for Message {
         self.sig0()
     }
 
-    // TODO: where's the 'right' spot for this function
     fn finalize<MF: MessageFinalizer>(
         &mut self,
         finalizer: &MF,

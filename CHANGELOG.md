@@ -10,6 +10,8 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - TRust-DNS Proto crate to separate server management from base operations
 - TRust-DNS Util crate for dnssec management tools (@briansmith)
 - Integration tests for Server to validate all supported DNSSec key types
+- Common feature `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates
+- Clarified `tls` feature with `tls-openssl`, and `tls` in server
 
 ### Changed
 
