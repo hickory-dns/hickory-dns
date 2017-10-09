@@ -126,7 +126,9 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ProtoError>> {
+        type Error = ClientError;
+
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
             let i = self.attempts.get();
 
             if i > self.retries || self.retries - i == 0 {
@@ -139,7 +141,7 @@ mod test {
 
             self.attempts.set(i + 1);
             return Box::new(failed(
-                ProtoErrorKind::Message("last retry set to fail").into(),
+                ClientErrorKind::Message("last retry set to fail").into(),
             ));
         }
     }
