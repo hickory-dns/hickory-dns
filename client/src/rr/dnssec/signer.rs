@@ -22,7 +22,6 @@ use trust_dns_proto::rr::dnssec::{tbs, TBS};
 
 use op::{Message, MessageFinalizer};
 use rr::{DNSClass, Name, Record, RecordType};
-#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::RData;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::KeyPair;
@@ -509,6 +508,7 @@ impl Signer {
 }
 
 impl MessageFinalizer for Signer {
+    #[cfg(any(feature = "openssl", feature = "ring"))]
     fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
         debug!("signing message: {:?}", message);
         let key_tag: u16 = try!(self.calculate_key_tag());
@@ -549,30 +549,18 @@ impl MessageFinalizer for Signer {
             self.signer_name().clone(),
             Vec::new(),
         );
-        let signature: Vec<u8> = try!(self.sign_message(message, &pre_sig0));
+        let signature: Vec<u8> = self.sign_message(message, &pre_sig0)?;
         sig0.set_rdata(RData::SIG(pre_sig0.set_sig(signature)));
 
         Ok(vec![sig0])
     }
-}
 
-#[cfg(not(any(feature = "openssl", feature = "ring")))]
-impl MessageSigner for Signer {
-    /// Always panics!
-    fn algorithm(&self) -> Algorithm {
-        panic!("must enable ring or openssl feature")
-    }
-
-    fn signer_name(&self) -> &Name {
-        panic!("must enable ring or openssl feature")
-    }
-
-    fn calculate_key_tag(&self) -> ProtoResult<u16> {
-        panic!("must enable ring or openssl feature")
-    }
-
-    fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
-        panic!("must enable ring or openssl feature")
+    #[cfg(not(any(feature = "openssl", feature = "ring")))]
+    fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
+        Err(
+            ProtoErrorKind::Message("the ring or openssl feature must be enabled for signing")
+                .into(),
+        )
     }
 }
 
