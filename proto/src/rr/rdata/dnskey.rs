@@ -238,7 +238,7 @@ impl DNSKEY {
 
     /// This will always return an error unless the Ring or OpenSSL features are enabled
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
-    pub fn to_digest(&self, name: &Name, digest_type: DigestType) -> ProtoResult<Digest> {
+    pub fn to_digest(&self, _: &Name, _: DigestType) -> ProtoResult<Digest> {
         Err(
             ProtoErrorKind::Message("Ring or OpenSSL must be enabled for this feature").into(),
         )
