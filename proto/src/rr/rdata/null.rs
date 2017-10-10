@@ -16,7 +16,6 @@
 
 //! null record type, generally not used except as an internal tool for representing null data
 
-use serialize::txt::*;
 use serialize::binary::*;
 use error::*;
 
@@ -88,12 +87,6 @@ pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> ProtoResult<()> {
     }
 
     Ok(())
-}
-
-/// Parse the RData from a set of Tokens
-#[allow(unused)]
-pub fn parse(tokens: &Vec<Token>) -> ProtoResult<NULL> {
-    unimplemented!()
 }
 
 #[test]

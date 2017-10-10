@@ -27,7 +27,7 @@ impl<'a> Lexer<'a> {
     }
 
     /// Return the next Token in the string
-    pub fn next_token(&mut self) -> ProtoResult<Option<Token>> {
+    pub fn next_token(&mut self) -> LexerResult<Option<Token>> {
         let mut char_data_vec: Option<Vec<String>> = None;
         let mut char_data: Option<String> = None;
 
@@ -67,7 +67,7 @@ impl<'a> Lexer<'a> {
                             self.state = State::List;
                         }
                         Some(')') => {
-                            return Err(ProtoErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
+                            return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
                         }
                         Some('$') => {
                             self.txt.next();
@@ -90,7 +90,7 @@ impl<'a> Lexer<'a> {
                             char_data = Some(String::new());
                             self.state = State::CharData { is_list: false };
                         }
-                        Some(ch) => return Err(ProtoErrorKind::UnrecognizedChar(ch).into()),
+                        Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
                         None => {
                             self.state = State::EOF;
                         }
@@ -134,7 +134,7 @@ impl<'a> Lexer<'a> {
                             self.txt.next();
                             try!(Self::push_to_str(&mut char_data, ch));
                         }
-                        None => return Err(ProtoErrorKind::UnclosedQuotedString.into()),
+                        None => return Err(LexerErrorKind::UnclosedQuotedString.into()),
                     }
                 }
                 State::Dollar => {
@@ -147,8 +147,8 @@ impl<'a> Lexer<'a> {
                         // finishes the Dollar...
                         Some(_) | None => {
                             self.state = State::RestOfLine;
-                            let dollar: String = try!(char_data.take().ok_or(ProtoError::from(
-                                ProtoErrorKind::IllegalState(
+                            let dollar: String = try!(char_data.take().ok_or(LexerError::from(
+                                LexerErrorKind::IllegalState(
                                     "char_data \
                                                                                       is None",
                                 ),
@@ -162,7 +162,7 @@ impl<'a> Lexer<'a> {
                                 return Ok(Some(Token::Ttl));
                             } else {
                                 return Err(
-                                    ProtoErrorKind::UnrecognizedDollar(
+                                    LexerErrorKind::UnrecognizedDollar(
                                         char_data.take().unwrap_or("".into()),
                                     ).into(),
                                 );
@@ -181,7 +181,7 @@ impl<'a> Lexer<'a> {
                             self.state = State::RestOfLine;
                             return char_data_vec
                                 .take()
-                                .ok_or(ProtoErrorKind::IllegalState("char_data_vec is None").into())
+                                .ok_or(LexerErrorKind::IllegalState("char_data_vec is None").into())
                                 .map(|v| Some(Token::List(v)));
                         }
                         Some(ch) if ch.is_whitespace() => {
@@ -191,26 +191,26 @@ impl<'a> Lexer<'a> {
                             char_data = Some(String::new());
                             self.state = State::CharData { is_list: true }
                         }
-                        Some(ch) => return Err(ProtoErrorKind::UnrecognizedChar(ch).into()),
-                        None => return Err(ProtoErrorKind::UnclosedList.into()),
+                        Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
+                        None => return Err(LexerErrorKind::UnclosedList.into()),
                     }
                 }
                 State::CharData { is_list } => {
                     match ch {
                         Some(')') if !is_list => {
-                            return Err(ProtoErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
+                            return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
                         }
                         Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
                             if is_list {
                                 try!(
                                     char_data_vec
                                         .as_mut()
-                                        .ok_or(ProtoError::from(
-                                            ProtoErrorKind::IllegalState("char_data_vec is None"),
+                                        .ok_or(LexerError::from(
+                                            LexerErrorKind::IllegalState("char_data_vec is None"),
                                         ))
                                         .and_then(|v| {
                                             Ok(v.push(try!(
-                                                char_data.take().ok_or(ProtoErrorKind::IllegalState(
+                                                char_data.take().ok_or(LexerErrorKind::IllegalState(
                                                     "char_data is None",
                                                 ))
                                             )))
@@ -220,7 +220,7 @@ impl<'a> Lexer<'a> {
                             } else {
                                 self.state = State::RestOfLine;
                                 let result = char_data.take().ok_or(
-                                    ProtoErrorKind::IllegalState(
+                                    LexerErrorKind::IllegalState(
                                         "char_data is None",
                                     ).into(),
                                 );
@@ -234,12 +234,12 @@ impl<'a> Lexer<'a> {
                             self.txt.next();
                             try!(Self::push_to_str(&mut char_data, ch));
                         }
-                        Some(ch) => return Err(ProtoErrorKind::UnrecognizedChar(ch).into()),
+                        Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
                         None => {
                             self.state = State::EOF;
                             return char_data
                                 .take()
-                                .ok_or(ProtoErrorKind::IllegalState("char_data is None").into())
+                                .ok_or(LexerErrorKind::IllegalState("char_data is None").into())
                                 .map(|s| Some(Token::CharData(s)));
                         }
                     }
@@ -259,8 +259,8 @@ impl<'a> Lexer<'a> {
                             self.state = State::StartLine;
                             return Ok(Some(Token::EOL));
                         }
-                        Some(_) => return Err(ProtoErrorKind::IllegalCharacter(ch.unwrap()).into()),
-                        None => return Err(ProtoErrorKind::EOF.into()),
+                        Some(_) => return Err(LexerErrorKind::IllegalCharacter(ch.unwrap()).into()),
+                        None => return Err(LexerErrorKind::EOF.into()),
                     }
                 }
                 // to exhaust all cases, this should never be run...
@@ -275,17 +275,17 @@ impl<'a> Lexer<'a> {
         unreachable!("The above match statement should have found a terminal state");
     }
 
-    fn push_to_str(collect: &mut Option<String>, ch: char) -> ProtoResult<()> {
+    fn push_to_str(collect: &mut Option<String>, ch: char) -> LexerResult<()> {
         collect
             .as_mut()
-            .ok_or(ProtoErrorKind::IllegalState("collect is None").into())
+            .ok_or(LexerErrorKind::IllegalState("collect is None").into())
             .and_then(|s| Ok(s.push(ch)))
     }
 
-    fn escape_seq(&mut self) -> ProtoResult<char> {
+    fn escape_seq(&mut self) -> LexerResult<char> {
         // escaped character, let's decode it.
         self.txt.next(); // consume the escape
-        let ch = try!(self.peek().ok_or(ProtoError::from(ProtoErrorKind::EOF)));
+        let ch = try!(self.peek().ok_or(LexerError::from(LexerErrorKind::EOF)));
 
         if !ch.is_control() {
             if ch.is_numeric() {
@@ -293,37 +293,37 @@ impl<'a> Lexer<'a> {
                 let d1: u32 = try!(try!(
                     self.txt
                         .next()
-                        .ok_or(ProtoError::from(ProtoErrorKind::EOF))
+                        .ok_or(LexerError::from(LexerErrorKind::EOF))
                         .map(|c| {
-                            c.to_digit(10).ok_or(ProtoError::from(
-                                ProtoErrorKind::IllegalCharacter(c),
+                            c.to_digit(10).ok_or(LexerError::from(
+                                LexerErrorKind::IllegalCharacter(c),
                             ))
                         })
                 )); // gobble
                 let d2: u32 = try!(try!(
                     self.txt
                         .next()
-                        .ok_or(ProtoError::from(ProtoErrorKind::EOF))
+                        .ok_or(LexerError::from(LexerErrorKind::EOF))
                         .map(|c| {
-                            c.to_digit(10).ok_or(ProtoError::from(
-                                ProtoErrorKind::IllegalCharacter(c),
+                            c.to_digit(10).ok_or(LexerError::from(
+                                LexerErrorKind::IllegalCharacter(c),
                             ))
                         })
                 )); // gobble
                 let d3: u32 = try!(try!(
                     self.txt
                         .next()
-                        .ok_or(ProtoError::from(ProtoErrorKind::EOF))
+                        .ok_or(LexerError::from(LexerErrorKind::EOF))
                         .map(|c| {
-                            c.to_digit(10).ok_or(ProtoError::from(
-                                ProtoErrorKind::IllegalCharacter(c),
+                            c.to_digit(10).ok_or(LexerError::from(
+                                LexerErrorKind::IllegalCharacter(c),
                             ))
                         })
                 )); // gobble
 
                 let val: u32 = (d1 << 16) + (d2 << 8) + d3;
-                let ch: char = try!(char::from_u32(val).ok_or(ProtoError::from(
-                    ProtoErrorKind::UnrecognizedOctet(val),
+                let ch: char = try!(char::from_u32(val).ok_or(LexerError::from(
+                    LexerErrorKind::UnrecognizedOctet(val),
                 )));
 
                 return Ok(ch);
@@ -333,7 +333,7 @@ impl<'a> Lexer<'a> {
                 return Ok(ch);
             }
         } else {
-            return Err(ProtoErrorKind::IllegalCharacter(ch).into());
+            return Err(LexerErrorKind::IllegalCharacter(ch).into());
         }
 
     }

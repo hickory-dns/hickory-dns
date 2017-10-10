@@ -14,7 +14,16 @@
  * limitations under the License.
  */
 
-//! Contains serialization libraries for `binary` and text, `txt`.
+//! All record data structures and related serialization methods
 
-// FIXME: rename and relocate
-pub mod binary;
+// TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
+//  and also a little more ergonomic when accessing.
+// each of these module's has the parser for that rdata embedded, to keep the file sizes down...
+pub mod a;
+pub mod aaaa;
+pub mod mx;
+pub mod name;
+pub mod null;
+pub mod soa;
+pub mod srv;
+pub mod txt;

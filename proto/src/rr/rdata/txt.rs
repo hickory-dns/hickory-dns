@@ -16,7 +16,6 @@
 
 //! text records for storing arbitrary data
 
-use serialize::txt::*;
 use serialize::binary::*;
 use error::*;
 
@@ -78,19 +77,6 @@ pub fn emit(encoder: &mut BinEncoder, txt: &TXT) -> ProtoResult<()> {
     }
 
     Ok(())
-}
-
-/// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>) -> ProtoResult<TXT> {
-    let mut txt_data: Vec<String> = Vec::with_capacity(tokens.len());
-    for t in tokens {
-        match *t {
-            Token::CharData(ref txt) => txt_data.push(txt.clone()),
-            _ => return Err(ProtoErrorKind::UnexpectedToken(t.clone()).into()),
-        }
-    }
-
-    Ok(TXT::new(txt_data))
 }
 
 #[test]

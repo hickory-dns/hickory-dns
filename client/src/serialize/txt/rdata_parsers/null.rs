@@ -14,7 +14,14 @@
  * limitations under the License.
  */
 
-//! Contains serialization libraries for `binary` and text, `txt`.
+//! null record type, generally not used except as an internal tool for representing null data
 
-// FIXME: rename and relocate
-pub mod binary;
+use serialize::txt::*;
+use error::*;
+use rr::rdata::NULL;
+
+/// Parse the RData from a set of Tokens
+#[allow(unused)]
+pub fn parse(tokens: &Vec<Token>) -> ParseResult<NULL> {
+    unimplemented!()
+}

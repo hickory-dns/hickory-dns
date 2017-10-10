@@ -208,11 +208,6 @@ error_chain! {
         display("illegal state: {}", string)
       }
 
-      UnexpectedToken(token: ::serialize::txt::Token) {
-        description("unrecognized token in stream")
-        display("unrecognized token in stream: {:?}", token)
-      }
-
       MissingToken(string: String) {
         description("token is missing")
         display("token is missing: {}", string)
@@ -274,10 +269,12 @@ pub mod not_ring {
 
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
-        match e.kind() {
-            &ProtoErrorKind::Timeout => io::ErrorKind::TimedOut.into(),
-            _ => io::Error::new(io::ErrorKind::Other, format!("ClientError: {}", e)),
-        }
+        let error_kind = match e.kind() {
+            &ProtoErrorKind::Timeout => io::ErrorKind::TimedOut,
+            _ => io::ErrorKind::Other,
+        };
+
+        io::Error::new(error_kind, format!("ProtoError: {}", e))
     }
 }
 
@@ -351,9 +348,6 @@ impl Clone for ProtoError {
             ),
             &ProtoErrorKind::EOF => ProtoErrorKind::EOF,
             &ProtoErrorKind::IllegalState(string) => ProtoErrorKind::IllegalState(string),
-            &ProtoErrorKind::UnexpectedToken(ref token) => ProtoErrorKind::UnexpectedToken(
-                token.clone(),
-            ),
             &ProtoErrorKind::MissingToken(ref string) => ProtoErrorKind::MissingToken(
                 string.clone(),
             ),

@@ -16,7 +16,6 @@
 
 //! service records for identify port mapping for specific services on a host
 
-use serialize::txt::*;
 use serialize::binary::*;
 use error::*;
 use rr::domain::Name;
@@ -232,62 +231,6 @@ pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> ProtoResult<()> {
         is_canonical_names,
     ));
     Ok(())
-}
-
-/// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ProtoResult<SRV> {
-    let mut token = tokens.iter();
-
-    let priority: u16 = try!(
-        token
-            .next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("priority".to_string()),
-            ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Ok(try!(s.parse()))
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let weight: u16 = try!(
-        token
-            .next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("weight".to_string()),
-            ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Ok(try!(s.parse()))
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let port: u16 = try!(
-        token
-            .next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("port".to_string()),
-            ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Ok(try!(s.parse()))
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let target: Name = try!(
-        token
-            .next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("target".to_string()),
-            ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin)
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-
-    Ok(SRV::new(priority, weight, port, target))
 }
 
 #[test]

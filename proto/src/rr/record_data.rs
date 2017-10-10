@@ -23,7 +23,6 @@ use std::cmp::Ordering;
 
 use error::*;
 use serialize::binary::*;
-use serialize::txt::*;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
@@ -658,40 +657,6 @@ pub enum RData {
 }
 
 impl RData {
-    /// Parse the RData from a set of Tokens
-    pub fn parse(
-        record_type: RecordType,
-        tokens: &Vec<Token>,
-        origin: Option<&Name>,
-    ) -> ProtoResult<Self> {
-        let rdata = match record_type {
-            RecordType::A => RData::A(try!(rdata::a::parse(tokens))),
-            RecordType::AAAA => RData::AAAA(try!(rdata::aaaa::parse(tokens))),
-            RecordType::ANY => panic!("parsing ANY doesn't make sense"), // valid panic, never should happen
-            RecordType::AXFR => panic!("parsing AXFR doesn't make sense"), // valid panic, never should happen
-            RecordType::CNAME => RData::CNAME(try!(rdata::name::parse(tokens, origin))),
-            RecordType::KEY => panic!("KEY should be dynamically generated"), // valid panic, never should happen
-            RecordType::DNSKEY => panic!("DNSKEY should be dynamically generated"), // valid panic, never should happen
-            RecordType::DS => panic!("DS should be dynamically generated"), // valid panic, never should happen
-            RecordType::IXFR => panic!("parsing IXFR doesn't make sense"), // valid panic, never should happen
-            RecordType::MX => RData::MX(try!(rdata::mx::parse(tokens, origin))),
-            RecordType::NULL => RData::NULL(try!(rdata::null::parse(tokens))),
-            RecordType::NS => RData::NS(try!(rdata::name::parse(tokens, origin))),
-            RecordType::NSEC => panic!("NSEC should be dynamically generated"), // valid panic, never should happen
-            RecordType::NSEC3 => panic!("NSEC3 should be dynamically generated"), // valid panic, never should happen
-            RecordType::NSEC3PARAM => panic!("NSEC3PARAM should be dynamically generated"), // valid panic, never should happen
-            RecordType::OPT => panic!("parsing OPT doesn't make sense"), // valid panic, never should happen
-            RecordType::PTR => RData::PTR(try!(rdata::name::parse(tokens, origin))),
-            RecordType::RRSIG => panic!("RRSIG should be dynamically generated"), // valid panic, never should happen
-            RecordType::SIG => panic!("parsing SIG doesn't make sense"), // valid panic, never should happen
-            RecordType::SOA => RData::SOA(try!(rdata::soa::parse(tokens, origin))),
-            RecordType::SRV => RData::SRV(try!(rdata::srv::parse(tokens, origin))),
-            RecordType::TXT => RData::TXT(try!(rdata::txt::parse(tokens))),
-        };
-
-        Ok(rdata)
-    }
-
     fn to_bytes(&self) -> Vec<u8> {
         let mut buf: Vec<u8> = Vec::new();
         {

@@ -16,7 +16,6 @@
 
 //! start of authority record defining ownership and defaults for the zone
 
-use serialize::txt::*;
 use serialize::binary::*;
 use error::*;
 use rr::domain::Name;
@@ -252,97 +251,6 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> ProtoResult<()> {
     try!(encoder.emit_i32(soa.expire));
     try!(encoder.emit_u32(soa.minimum));
     Ok(())
-}
-
-/// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ProtoResult<SOA> {
-    let mut token = tokens.iter();
-
-    let mname: Name = try!(
-        token
-            .next()
-            .ok_or(ProtoErrorKind::MissingToken("mname".to_string()).into())
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin)
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let rname: Name = try!(
-        token
-            .next()
-            .ok_or(ProtoErrorKind::MissingToken("rname".to_string()).into())
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin)
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let mut list = try!(
-        token
-            .next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("List".to_string()),
-            ))
-            .and_then(|t| if let &Token::List(ref v) = t {
-                Ok(v)
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    ).iter();
-
-    let serial: u32 = try!(
-        list.next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("serial".to_string()),
-            ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
-    let refresh: i32 = try!(
-        list.next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("refresh".to_string()),
-            ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
-    let retry: i32 = try!(
-        list.next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("retry".to_string()),
-            ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
-    let expire: i32 = try!(
-        list.next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("expire".to_string()),
-            ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
-    let minimum: u32 = try!(
-        list.next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("minimum".to_string()),
-            ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
-
-
-    // let serial: u32 = try!(token.next().ok_or(ProtoError::MissingToken("serial".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
-    // let refresh: i32 = try!(token.next().ok_or(ProtoError::MissingToken("refresh".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
-    // let retry: i32 = try!(token.next().ok_or(ProtoError::MissingToken("retry".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
-    // let expire: i32 = try!(token.next().ok_or(ProtoError::MissingToken("expire".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
-    // let minimum: u32 = try!(token.next().ok_or(ProtoError::MissingToken("minimum".to_string())).and_then(|t| if let &Token::CharData(ref s) = t {Ok(try!(s.parse()))} else {Err(ProtoError::UnexpectedToken(t.clone()))} ));
-
-    Ok(SOA::new(
-        mname,
-        rname,
-        serial,
-        refresh,
-        retry,
-        expire,
-        minimum,
-    ))
 }
 
 #[test]

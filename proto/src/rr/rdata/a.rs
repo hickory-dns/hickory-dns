@@ -42,7 +42,6 @@
 
 use std::net::Ipv4Addr;
 
-use serialize::txt::*;
 use serialize::binary::*;
 use error::*;
 
@@ -65,25 +64,6 @@ pub fn emit(encoder: &mut BinEncoder, address: &Ipv4Addr) -> ProtoResult<()> {
     try!(encoder.emit(segments[2]));
     try!(encoder.emit(segments[3]));
     Ok(())
-}
-
-/// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>) -> ProtoResult<Ipv4Addr> {
-    let mut token = tokens.iter();
-
-    let address: Ipv4Addr = try!(
-        token
-            .next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("ipv4 address".to_string()),
-            ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                s.parse().map_err(Into::into)
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    Ok(address)
 }
 
 #[cfg(test)]
