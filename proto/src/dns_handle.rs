@@ -20,14 +20,9 @@ use rand;
 use tokio_core::reactor::{Handle, Timeout};
 
 use error::*;
-use op::{Message, MessageType, MessageFinalizer, OpCode, Query};
-use rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
-use rr::rdata::NULL;
+use op::{Message, MessageFinalizer, OpCode};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
-
-/// A reference to a Sender of bytes returned from the creation of a UdpClientStream or TcpClientStream
-pub type StreamHandle = UnboundedSender<Vec<u8>>;
 
 /// Implementations of Sinks for sending DNS messages
 pub trait DnsStreamHandle {
@@ -35,7 +30,7 @@ pub trait DnsStreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()>;
 }
 
-impl DnsStreamHandle for StreamHandle {
+impl DnsStreamHandle for UnboundedSender<Vec<u8>> {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
         UnboundedSender::unbounded_send(self, buffer).map_err(|_| {
             io::Error::new(io::ErrorKind::Other, "unknown")
@@ -338,7 +333,7 @@ where
         let done = match self.new_receiver.peek() {
             Ok(Async::Ready(None)) => true,
             Ok(_) => false,
-            Err(e) => return Err(ProtoErrorKind::NoError.into()),
+            Err(_) => return Err(ProtoErrorKind::NoError.into()),
         };
 
         if self.active_requests.is_empty() && done {
@@ -454,9 +449,9 @@ impl DnsHandle for BasicDnsHandle {
 
 /// A trait for implementing high level functions of DNS.
 pub trait DnsHandle: Clone {
+    /// The associated error type returned by future send operations
     type Error;
 
-    // FIXME: make result generic...
     /// Send a message via the channel in the client
     ///
     /// # Arguments

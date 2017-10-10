@@ -16,15 +16,10 @@
 
 //! Basic protocol message for DNS
 
-use std::fmt::Debug;
 use std::mem;
 
 use error::*;
 use rr::{Record, RecordType};
-#[cfg(feature = "openssl")]
-use rr::{DNSClass, Name, RData};
-#[cfg(feature = "openssl")]
-use rr::rdata::SIG;
 use serialize::binary::{BinEncoder, BinDecoder, BinSerializable, EncodeMode};
 use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
 

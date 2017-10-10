@@ -180,7 +180,7 @@ impl DS {
 
     /// This will always return an error unless the Ring or OpenSSL features are enabled
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
-    pub fn covers(&self, name: &Name, key: &DNSKEY) -> ProtoResult<bool> {
+    pub fn covers(&self, _: &Name, _: &DNSKEY) -> ProtoResult<bool> {
         Err(
             ProtoErrorKind::Message("Ring or OpenSSL must be enabled for this feature").into(),
         )
