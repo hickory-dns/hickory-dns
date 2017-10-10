@@ -39,7 +39,6 @@
 //! the description of name server logic in [RFC-1034] for details.
 //! ```
 
-use serialize::txt::*;
 use serialize::binary::*;
 use error::*;
 use rr::domain::Name;
@@ -72,24 +71,6 @@ pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> ProtoResult<()> {
     try!(name_data.emit_with_lowercase(encoder, is_canonical_names));
     Ok(())
 }
-
-/// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ProtoResult<Name> {
-    let mut token = tokens.iter();
-
-    let name: Name = try!(
-        token
-            .next()
-            .ok_or(ProtoErrorKind::MissingToken("name".to_string()).into())
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin)
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    Ok(name)
-}
-
 
 #[test]
 pub fn test() {

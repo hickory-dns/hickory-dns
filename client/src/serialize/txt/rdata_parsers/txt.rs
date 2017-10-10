@@ -14,11 +14,21 @@
  * limitations under the License.
  */
 
-//! Text serialization types
+//! text records for storing arbitrary data
 
-mod master_lex;
-mod master;
+use serialize::txt::*;
+use error::*;
+use rr::rdata::TXT;
 
-pub use self::master::Parser;
-pub use self::master_lex::Lexer;
-pub use self::master_lex::Token;
+/// Parse the RData from a set of Tokens
+pub fn parse(tokens: &Vec<Token>) -> ParseResult<TXT> {
+    let mut txt_data: Vec<String> = Vec::with_capacity(tokens.len());
+    for t in tokens {
+        match *t {
+            Token::CharData(ref txt) => txt_data.push(txt.clone()),
+            _ => return Err(ParseErrorKind::UnexpectedToken(t.clone()).into()),
+        }
+    }
+
+    Ok(TXT::new(txt_data))
+}

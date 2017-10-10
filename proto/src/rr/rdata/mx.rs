@@ -16,7 +16,6 @@
 
 //! mail exchange, email, record
 
-use serialize::txt::*;
 use serialize::binary::*;
 use error::*;
 use rr::domain::Name;
@@ -113,36 +112,6 @@ pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> ProtoResult<()> {
         is_canonical_names,
     ));
     Ok(())
-}
-
-/// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ProtoResult<MX> {
-    let mut token = tokens.iter();
-
-    let preference: u16 = try!(
-        token
-            .next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("preference".to_string()),
-            ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                s.parse().map_err(Into::into)
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let exchange: Name = try!(
-        token
-            .next()
-            .ok_or(ProtoErrorKind::MissingToken("exchange".to_string()).into())
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin)
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-
-    Ok(MX::new(preference, exchange))
 }
 
 #[test]

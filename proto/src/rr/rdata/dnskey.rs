@@ -310,27 +310,6 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> ProtoResult<()> {
     Ok(())
 }
 
-// /// ```text
-// /// 2.2.  The DNSKEY RR Presentation Format
-// ///
-// ///    The presentation format of the RDATA portion is as follows:
-// ///
-// ///    The Flag field MUST be represented as an unsigned decimal integer.
-// ///    Given the currently defined flags, the possible values are: 0, 256,
-// ///    and 257.
-// ///
-// ///    The Protocol Field MUST be represented as an unsigned decimal integer
-// ///    with a value of 3.
-// ///
-// ///    The Algorithm field MUST be represented either as an unsigned decimal
-// ///    integer or as an algorithm mnemonic as specified in Appendix A.1.
-// ///
-// ///    The Public Key field MUST be represented as a Base64 encoding of the
-// ///    Public Key.  Whitespace is allowed within the Base64 text.  For a
-// ///    definition of Base64 encoding, see [RFC3548].
-// /// ```
-// fn to_string()
-
 #[test]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub fn test() {

@@ -34,7 +34,6 @@
 
 use std::net::Ipv6Addr;
 
-use serialize::txt::*;
 use serialize::binary::*;
 use error::*;
 
@@ -66,26 +65,6 @@ pub fn emit(encoder: &mut BinEncoder, address: &Ipv6Addr) -> ProtoResult<()> {
     try!(encoder.emit_u16(segments[7]));
     Ok(())
 }
-
-/// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>) -> ProtoResult<Ipv6Addr> {
-    let mut token = tokens.iter();
-
-    let address: Ipv6Addr = try!(
-        token
-            .next()
-            .ok_or(ProtoError::from(
-                ProtoErrorKind::MissingToken("ipv6 address".to_string()),
-            ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Ok(try!(s.parse()))
-            } else {
-                Err(ProtoErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    Ok(address)
-}
-
 
 #[cfg(test)]
 mod tests {
