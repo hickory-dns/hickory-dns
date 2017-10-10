@@ -272,6 +272,15 @@ pub mod not_ring {
     }
 }
 
+impl From<ProtoError> for io::Error {
+    fn from(e: ProtoError) -> Self {
+        match e.kind() {
+            &ProtoErrorKind::Timeout => io::ErrorKind::TimedOut.into(),
+            _ => io::Error::new(io::ErrorKind::Other, format!("ClientError: {}", e)),
+        }
+    }
+}
+
 // TODO: replace this when https://github.com/rust-lang-nursery/error-chain/pull/163 is merged
 impl Clone for ProtoError {
     fn clone(&self) -> Self {
