@@ -17,7 +17,6 @@ use std::io;
 
 use futures::Stream;
 use tokio_core::reactor::Core;
-use trust_dns_proto::error::ProtoResult;
 
 use client::{ClientHandle, BasicClientHandle, ClientConnection, ClientFuture};
 #[cfg(any(feature = "openssl", feature = "ring"))]

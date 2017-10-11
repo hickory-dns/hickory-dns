@@ -6,18 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::fmt::Debug;
-use std::mem;
 
 use trust_dns_proto::error::ProtoResult;
 
-use error::*;
-use rr::{Record, RecordType};
-#[cfg(feature = "openssl")]
-use rr::{DNSClass, Name, RData};
-#[cfg(feature = "openssl")]
-use rr::rdata::SIG;
-use serialize::binary::{BinEncoder, BinDecoder, BinSerializable, EncodeMode};
-use super::{Message, MessageFinalizer, MessageType, Header, Query, Edns, OpCode, ResponseCode};
+use rr::Record;
+use super::{Message, MessageFinalizer, Query};
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
 ///   to properly do that.
@@ -36,7 +29,7 @@ pub trait UpdateMessage: Debug {
     fn add_pre_requisite(&mut self, record: Record);
 
     /// Add all pre-requisites to the UpdateMessage
-    #[deprecated = "will be removed post 0.9.x"]
+    #[deprecated(note = "will be removed post 0.9.x")]
     fn add_all_pre_requisites(&mut self, vector: &[&Record]);
 
     /// Add all the Records from the Iterator to the pre-reqisites section
@@ -49,7 +42,7 @@ pub trait UpdateMessage: Debug {
     fn add_update(&mut self, record: Record);
 
     /// Add the set of Records to be updated
-    #[deprecated = "will be removed post 0.9.x"]
+    #[deprecated(note = "will be removed post 0.9.x")]
     fn add_all_updates(&mut self, vector: &[&Record]);
 
     /// Add the Records from the Iterator to the updates section

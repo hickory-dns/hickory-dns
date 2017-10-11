@@ -16,11 +16,6 @@
 
 //! record data enum variants
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-#[cfg(test)]
-use std::convert::From;
-use std::cmp::Ordering;
-
 use error::*;
 use rr::{Name, RData, RecordType};
 use serialize::txt::Token;

@@ -209,9 +209,7 @@ extern crate chrono;
 extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
-#[macro_use]
 extern crate futures;
-#[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
@@ -224,7 +222,6 @@ extern crate rand;
 extern crate ring;
 extern crate rustc_serialize;
 extern crate tokio_io;
-#[macro_use]
 extern crate tokio_core;
 #[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;

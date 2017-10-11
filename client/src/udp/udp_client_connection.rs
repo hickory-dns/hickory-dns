@@ -22,7 +22,7 @@ use tokio_core::reactor::Core;
 use trust_dns_proto::DnsStreamHandle;
 
 use error::*;
-use client::{ClientConnection, ClientStreamHandle};
+use client::ClientConnection;
 use udp::UdpClientStream;
 
 /// UDP based DNS Client connection
