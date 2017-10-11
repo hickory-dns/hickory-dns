@@ -47,7 +47,7 @@ dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 tls-openssl = ["tls", "trust-dns-openssl"]
 # TODO: not yet supported on the server side
-# tls-ring = ["trust-dns/ring", "trust-dns-proto/ring"]
+# tls-ring = ["tls", "trust-dns-rustls"]
 tls = []
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100

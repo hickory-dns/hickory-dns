@@ -16,7 +16,6 @@ use openssl::rsa::Rsa;
 use tokio_core::reactor::Core;
 
 use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle};
-use trust_dns::error::*;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, IntoRecordSet, RData, Record, RecordType, RecordSet};

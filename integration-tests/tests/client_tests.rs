@@ -17,8 +17,7 @@ use openssl::rsa::Rsa;
 use tokio_core::reactor::Core;
 
 #[allow(deprecated)]
-use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SecureSyncClient, SyncClient};
-use trust_dns::error::*;
+use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
