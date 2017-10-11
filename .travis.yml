@@ -12,21 +12,21 @@ matrix:
 
     # no features
     - rust: stable
-      env: MODULES="client integration-tests openssl proto resolver server"
+      env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features"
 
     # default features...
     - rust: stable
-      env: MODULES="client integration-tests openssl proto resolver server"
+      env: MODULES="client integration-tests proto resolver server"
 
     # just openssl
     - rust: stable
-      env: MODULES="client integration-tests openssl proto resolver server"
+      env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features --features=dnssec-openssl"
 
     # just ring
     - rust: stable
-      env: MODULES="client integration-tests openssl proto resolver server"
+      env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features --features=dnssec-ring"
 
     # just tls using openssl
