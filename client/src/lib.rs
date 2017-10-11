@@ -247,6 +247,7 @@ use futures::sync::mpsc::UnboundedSender;
 use futures::Stream;
 
 use op::Message;
+#[allow(deprecated)]
 use client::ClientStreamHandle;
 
 /// A stream of serialized DNS Messages
@@ -282,6 +283,7 @@ impl BufClientStreamHandle {
     }
 }
 
+#[allow(deprecated)]
 impl ClientStreamHandle for BufClientStreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
         let name_server: SocketAddr = self.name_server;

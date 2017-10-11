@@ -26,11 +26,13 @@ use rr::rdata::NULL;
 pub type StreamHandle = UnboundedSender<Vec<u8>>;
 
 /// Implementations of Sinks for sending DNS messages
+#[deprecated(note = "use [`trust_dns_proto::DnsStreamHandle`] instead")]
 pub trait ClientStreamHandle {
     /// Sends a message to the Handle for delivery to the server.
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()>;
 }
 
+#[allow(deprecated)]
 impl ClientStreamHandle for StreamHandle {
     fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
         UnboundedSender::unbounded_send(self, buffer).map_err(|_| {

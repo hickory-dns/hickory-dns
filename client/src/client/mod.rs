@@ -30,6 +30,7 @@ pub use self::client::{Client, SyncClient};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub use self::client::SecureSyncClient;
 pub use self::client_connection::ClientConnection;
+#[allow(deprecated)]
 pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle, StreamHandle,
                               ClientStreamHandle};
 pub use self::memoize_client_handle::MemoizeClientHandle;
