@@ -42,12 +42,11 @@ extern crate trust_dns_server;
 #[cfg(feature = "tls")]
 extern crate trust_dns_openssl;
 
-use std::fs;
 use std::fs::File;
 use std::collections::BTreeMap;
 use std::net::{Ipv4Addr, IpAddr, SocketAddr, TcpListener, ToSocketAddrs, UdpSocket};
 use std::path::{Path, PathBuf};
-use std::io::{Read, Write};
+use std::io::Read;
 
 use chrono::Duration;
 use docopt::Docopt;
@@ -304,8 +303,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
 }
 
 #[cfg(feature = "tls")]
-fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig)
-             -> Result<ParsedPkcs12, String> {
+fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedPkcs12, String> {
     let path = zone_dir.to_owned().join(tls_cert_config.get_path());
     let password = tls_cert_config.get_password();
 
