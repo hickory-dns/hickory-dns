@@ -14,11 +14,8 @@ use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_rustls::TlsStream as TokioTlsStream;
 
-use trust_dns::BufClientStreamHandle;
 use trust_dns::tcp::TcpClientStream;
-use trust_dns::client::ClientStreamHandle;
 use trust_dns_proto::{BufDnsStreamHandle, DnsStreamHandle};
-
 
 use TlsStreamBuilder;
 
