@@ -9,7 +9,6 @@ use std::str::FromStr;
 
 use tokio_core::reactor::{Core, Handle};
 
-use trust_dns::client::ClientHandle;
 use trust_dns::error::{ClientErrorKind, ClientResult};
 use trust_dns::op::{Query, Message};
 use trust_dns::rr::domain;
