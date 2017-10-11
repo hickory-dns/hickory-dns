@@ -5,7 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std;
+extern crate futures;
+extern crate openssl;
+extern crate tokio_core;
+extern crate tokio_openssl;
+extern crate trust_dns;
+extern crate trust_dns_proto;
+extern crate trust_dns_openssl;
+
 use std::{thread, time};
 use std::net::SocketAddr;
 use std::net::{IpAddr, Ipv4Addr};
@@ -22,8 +29,6 @@ use openssl::x509::*;
 use openssl::x509::store::X509StoreBuilder;
 use tokio_core::reactor::Core;
 
-use super::TlsStreamBuilder;
-
 use openssl::asn1::*;
 use openssl::bn::*;
 use openssl::hash::MessageDigest;
@@ -31,6 +36,8 @@ use openssl::nid;
 use openssl::pkcs12::*;
 use openssl::rsa::*;
 use openssl::x509::extension::*;
+
+use trust_dns_openssl::TlsStreamBuilder;
 
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
 //  and subsequent reads of a mesage buffer reads the wrong length. It works for 2 iterations
@@ -269,11 +276,7 @@ fn root_ca() -> (PKey, X509Name, X509) {
     x509_build.set_pubkey(&pkey).unwrap();
     x509_build.set_serial_number(&serial).unwrap();
 
-    let basic_constraints = BasicConstraints::new()
-        .critical()
-        .ca()
-        .build()
-        .unwrap();
+    let basic_constraints = BasicConstraints::new().critical().ca().build().unwrap();
     x509_build.append_extension(basic_constraints).unwrap();
 
     let subject_alternative_name = SubjectAlternativeName::new()
@@ -291,11 +294,7 @@ fn root_ca() -> (PKey, X509Name, X509) {
 }
 
 /// Generates a certificate, see root_ca() for getting a root cert
-fn cert(subject_name: &str,
-        ca_pkey: &PKey,
-        ca_name: &X509Name,
-        _: &X509)
-        -> (PKey, X509, Pkcs12) {
+fn cert(subject_name: &str, ca_pkey: &PKey, ca_name: &X509Name, _: &X509) -> (PKey, X509, Pkcs12) {
     let rsa = Rsa::generate(2048).unwrap();
     let pkey = PKey::from_rsa(rsa).unwrap();
 
@@ -327,9 +326,7 @@ fn cert(subject_name: &str,
     let subject_key_identifier = SubjectKeyIdentifier::new()
         .build(&x509_build.x509v3_context(None, None))
         .unwrap();
-    x509_build
-        .append_extension(subject_key_identifier)
-        .unwrap();
+    x509_build.append_extension(subject_key_identifier).unwrap();
 
     let authority_key_identifier = AuthorityKeyIdentifier::new()
         .keyid(true)
@@ -343,9 +340,7 @@ fn cert(subject_name: &str,
     let basic_constraints = BasicConstraints::new().critical().build().unwrap();
     x509_build.append_extension(basic_constraints).unwrap();
 
-    x509_build
-        .sign(&ca_pkey, MessageDigest::sha256())
-        .unwrap();
+    x509_build.sign(&ca_pkey, MessageDigest::sha256()).unwrap();
     let cert = x509_build.build();
 
     let pkcs12_builder = Pkcs12::builder();
