@@ -22,7 +22,7 @@ use rustls::Certificate;
 use tokio_core::reactor::Core;
 
 use trust_dns::error::*;
-use trust_dns::client::{ClientConnection, ClientStreamHandle};
+use trust_dns::client::ClientConnection;
 use trust_dns_proto::DnsStreamHandle;
 
 use TlsClientStream;
