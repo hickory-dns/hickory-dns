@@ -18,14 +18,20 @@
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
 use trust_dns_proto::error::{ProtoResult, ProtoErrorKind};
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use trust_dns_proto::rr::dnssec::{tbs, TBS};
 
 use op::{Message, MessageFinalizer};
-use rr::{DNSClass, Name, Record, RecordType};
+use rr::Record;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::{DNSClass, Name, RecordType};
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::RData;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::KeyPair;
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::Algorithm;
+#[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::SIG;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSKEY, KEY};
@@ -556,7 +562,7 @@ impl MessageFinalizer for Signer {
     }
 
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
-    fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
+    fn finalize_message(&self, _: &Message, _: u32) -> ProtoResult<Vec<Record>> {
         Err(
             ProtoErrorKind::Message("the ring or openssl feature must be enabled for signing")
                 .into(),
@@ -575,7 +581,7 @@ mod tests {
     use rr::rdata::SIG;
     use rr::rdata::key::KeyUsage;
     use rr::dnssec::*;
-    use op::{Message, Query, UpdateMessage};
+    use op::{Message, Query};
 
     pub use super::*;
 

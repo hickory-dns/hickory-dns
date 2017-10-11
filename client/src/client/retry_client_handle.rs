@@ -11,7 +11,6 @@ use client::ClientHandle;
 use error::*;
 use op::Message;
 use trust_dns_proto::DnsHandle;
-use trust_dns_proto::error::ProtoError;
 
 // TODO: move to proto
 /// Can be used to reattempt a queries if they fail
@@ -116,7 +115,6 @@ mod test {
     use op::*;
     use futures::*;
     use trust_dns_proto::DnsHandle;
-    use trust_dns_proto::error::*;
 
     #[derive(Clone)]
     struct TestClient {

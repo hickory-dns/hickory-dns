@@ -10,7 +10,6 @@ use std::collections::HashMap;
 
 use futures::Future;
 use trust_dns_proto::DnsHandle;
-use trust_dns_proto::error::ProtoError;
 
 use client::ClientHandle;
 use client::rc_future::{rc_future, RcFuture};
@@ -93,7 +92,6 @@ mod test {
     use rr::*;
     use futures::*;
     use trust_dns_proto::DnsHandle;
-    use trust_dns_proto::error::*;
 
     #[derive(Clone)]
     struct TestClient {
