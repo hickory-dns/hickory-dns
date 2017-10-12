@@ -2,8 +2,9 @@
 
 extern crate futures;
 extern crate log;
-extern crate trust_dns;
 extern crate tokio_core;
+extern crate trust_dns;
+extern crate trust_dns_proto;
 
 mod server_harness;
 
