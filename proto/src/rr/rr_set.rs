@@ -158,6 +158,11 @@ impl RecordSet {
         supported_algorithms: SupportedAlgorithms,
     ) -> Vec<&Record> {
         if and_rrsigs {
+            // disable rfc 6975 when no supported_algorithms specified
+            if supported_algorithms.is_empty() {
+                return self.records.iter().chain(self.rrsigs.iter()).collect();
+            }
+
             let rrsigs = self.rrsigs
                 .iter()
                 .filter(|record| if let &RData::SIG(ref rrsig) = record.rdata() {
@@ -170,6 +175,7 @@ impl RecordSet {
                 } else {
                     Algorithm::RSASHA1
                 });
+
             self.records.iter().chain(rrsigs).collect()
         } else {
             self.records.iter().collect()
@@ -781,6 +787,16 @@ mod test {
         assert!(rrset.records(true, supported_algorithms).iter().any(|r| {
             if let &RData::SIG(ref sig) = r.rdata() {
                 sig.algorithm() == Algorithm::ECDSAP384SHA384
+            } else {
+                false
+            }
+        }));
+
+        let mut supported_algorithms = SupportedAlgorithms::new();
+        supported_algorithms.set(Algorithm::ED25519);
+        assert!(rrset.records(true, supported_algorithms).iter().any(|r| {
+            if let &RData::SIG(ref sig) = r.rdata() {
+                sig.algorithm() == Algorithm::ED25519
             } else {
                 false
             }

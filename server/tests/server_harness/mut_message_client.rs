@@ -5,17 +5,18 @@ use trust_dns::rr::dnssec::*;
 use trust_dns::rr::rdata::opt::EdnsOption;
 use trust_dns::error::*;
 use trust_dns::op::*;
+use trust_dns_proto::DnsHandle;
 
 #[derive(Clone)]
-pub struct MutMessageClient<C: ClientHandle> {
+pub struct MutMessageHandle<C: ClientHandle> {
     client: C,
     pub dnssec_ok: bool,
     pub support_algorithms: Option<SupportedAlgorithms>,
 }
 
-impl<C: ClientHandle> MutMessageClient<C> {
+impl<C: ClientHandle> MutMessageHandle<C> {
     pub fn new(client: C) -> Self {
-        MutMessageClient {
+        MutMessageHandle {
             client,
             dnssec_ok: false,
             support_algorithms: None,
@@ -23,8 +24,10 @@ impl<C: ClientHandle> MutMessageClient<C> {
     }
 }
 
-impl<C: ClientHandle> ClientHandle for MutMessageClient<C> {
-    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+impl<C: ClientHandle> DnsHandle for MutMessageHandle<C> {
+    type Error = ClientError;
+
+    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         {
             // mutable block
             let edns = message.edns_mut();
@@ -35,6 +38,13 @@ impl<C: ClientHandle> ClientHandle for MutMessageClient<C> {
             }
         }
 
+        println!("sending message");
         self.client.send(message)
+    }
+}
+
+impl<C: ClientHandle> ClientHandle for MutMessageHandle<C> {
+    fn is_verifying_dnssec(&self) -> bool {
+        true
     }
 }

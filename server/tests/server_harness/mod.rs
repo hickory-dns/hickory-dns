@@ -18,7 +18,7 @@ use trust_dns::op::Message;
 use trust_dns::rr::*;
 use trust_dns::rr::dnssec::*;
 
-use self::mut_message_client::MutMessageClient;
+use self::mut_message_client::MutMessageHandle;
 
 /// Spins up a Server and handles shutting it down after running the test
 #[allow(dead_code)]
@@ -178,7 +178,7 @@ pub fn query_all_dnssec(
     with_rfc6975: bool,
 ) {
     let name = Name::from_str("example.com.").unwrap();
-    let mut client = MutMessageClient::new(client);
+    let mut client = MutMessageHandle::new(client);
     client.dnssec_ok = true;
     if with_rfc6975 {
         client.support_algorithms = Some(SupportedAlgorithms::from_vec(&[algorithm]));

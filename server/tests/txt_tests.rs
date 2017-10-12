@@ -1,4 +1,5 @@
 extern crate trust_dns;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::net::{Ipv4Addr, Ipv6Addr};

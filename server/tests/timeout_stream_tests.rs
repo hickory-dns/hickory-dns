@@ -1,5 +1,6 @@
 extern crate futures;
 extern crate tokio_core;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::io;
