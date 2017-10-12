@@ -84,7 +84,7 @@ impl Resolver {
 
     /// Constructs a new Resolver with the system configuration.
     ///
-    /// This will read the systems `/etc/cresolv.conf` on Unix OSes.
+    /// This will read the systems `/etc/resolv.conf` on Unix OSes.
     #[cfg(not(all(target_os = "windows", target_pointer_width = "32")))]
     pub fn from_system_conf() -> io::Result<Self> {
         let (config, options) = system_conf::read_system_conf()?;
@@ -122,7 +122,7 @@ impl Resolver {
         )
     }
 
-    /// Performs a DNS lookup for an SRV record for the speicified service type and protocol at the given name.
+    /// Performs a DNS lookup for an SRV record for the specified service type and protocol at the given name.
     ///
     /// This is a convenience method over `lookup_srv`, it combines the service, protocol and name into a single name: `_service._protocol.name`.
     ///
