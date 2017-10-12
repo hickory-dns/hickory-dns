@@ -31,10 +31,10 @@ use op::Message;
 /// Client trait which implements basic DNS Client operations.
 ///
 /// As of 0.10.0, the Client is now a wrapper around the `ClientFuture`, which is a futures-rs
-/// and tokio-rs based implementation. This trait implements syncronous functions for ease of use.
+/// and tokio-rs based implementation. This trait implements synchronous functions for ease of use.
 ///
 /// There was a strong attempt to make it backwards compatible, but making it a drop in replacement
-/// for the old Client was not possible. This trait has two implentations, the `SyncClient` which
+/// for the old Client was not possible. This trait has two implementations, the `SyncClient` which
 /// is a standard DNS Client, and the `SecureSyncClient` which is a wrapper on `SecureClientHandle`
 /// providing DNSSec validation.
 ///
@@ -45,10 +45,10 @@ pub trait Client<C: ClientHandle> {
     /// get a mutable reference to the tokio Core associated to the Client
     fn get_io_loop(&self) -> RefMut<Core>;
 
-    /// Get a mutable handle reference tot the Core assiated to the Client
+    /// Get a mutable handle reference tot the Core associated to the Client
     fn get_client_handle(&self) -> RefMut<C>;
 
-    /// A *classic* DNS query, i.e. does not perform and DNSSec operations
+    /// A *classic* DNS query, i.e. does not perform any DNSSec operations
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
     ///        the caller.
@@ -140,7 +140,7 @@ pub trait Client<C: ClientHandle> {
         ))
     }
 
-    /// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
+    /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
     ///  depends on the server)
     ///
     /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
@@ -224,7 +224,7 @@ pub trait Client<C: ClientHandle> {
     ///   master.
     /// ```
     ///
-    /// # Arguements
+    /// # Arguments
     ///
     /// * `current` - the current rrset which must exist for the swap to complete
     /// * `new` - the new rrset with which to replace the current rrset
@@ -363,7 +363,7 @@ pub trait Client<C: ClientHandle> {
     /// * `dns_class` - the class of the SOA
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
-    /// operation attempts to delete all resource record sets the the specified name reguardless of
+    /// operation attempts to delete all resource record sets the specified name regardless of
     /// the record type.
     fn delete_all(
         &self,
@@ -411,7 +411,7 @@ impl SyncClient {
 
     /// Creates a new DNS client with the specified connection type and a SIG0 signer.
     ///
-    /// This is necessary for signed udpate requests to update trust-dns-server entries.
+    /// This is necessary for signed update requests to update trust-dns-server entries.
     ///
     /// # Arguments
     ///
