@@ -97,7 +97,7 @@ impl ResolverFuture {
 
     /// Constructs a new Resolver with the system configuration.
     ///
-    /// This will read the systems `/etc/resolv.conf` on Unix OSes.
+    /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(not(all(target_os = "windows", target_pointer_width = "32")))]
     pub fn from_system_conf(reactor: &Handle) -> io::Result<Self> {
         let (config, options) = system_conf::read_system_conf()?;
