@@ -3,8 +3,9 @@ extern crate futures;
 extern crate openssl;
 extern crate tokio_core;
 extern crate trust_dns;
-extern crate trust_dns_server;
 extern crate trust_dns_integration;
+extern crate trust_dns_proto;
+extern crate trust_dns_server;
 
 use std::io;
 use std::net::*;
@@ -16,17 +17,15 @@ use openssl::rsa::Rsa;
 use tokio_core::reactor::Core;
 
 #[allow(deprecated)]
-use trust_dns::client::{Client, ClientConnection, ClientStreamHandle, SecureSyncClient, SyncClient};
-use trust_dns::error::*;
+use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
 use trust_dns::rr::rdata::*;
 use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
-
+use trust_dns_proto::DnsStreamHandle;
 use trust_dns_server::authority::Catalog;
-
 use trust_dns_integration::{TestClientStream, NeverReturnsClientConnection};
 use trust_dns_integration::authority::{create_example, create_secure_example};
 
@@ -45,7 +44,7 @@ impl ClientConnection for TestClientConnection {
 
     fn unwrap(
         self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<ClientStreamHandle>) {
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>) {
         let io_loop = Core::new().unwrap();
         let (stream, handle) = TestClientStream::new(self.catalog);
         (io_loop, stream, handle)
@@ -206,11 +205,13 @@ fn test_timeout_query(client: SyncClient) {
     let response = client.query(&name, DNSClass::IN, RecordType::A);
     assert!(response.is_err());
 
-    // TODO: this type check should work, but for some reason TCP connection timeout doesn't match
-    match response.unwrap_err().kind() {
-        &ClientErrorKind::Timeout => (),
-        e @ _ => assert!(false, format!("something else: {:?}", e)),
-    }
+    let err = response.unwrap_err();
+
+    let error_str = format!("{}", err);
+    assert!(
+        error_str.contains("timed out"),
+        format!("actual error: {}", error_str)
+    );
 }
 
 #[test]

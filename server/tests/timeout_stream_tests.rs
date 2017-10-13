@@ -1,10 +1,12 @@
 extern crate futures;
 extern crate tokio_core;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::io;
 use std::time::Duration;
 use futures::{Async, Poll};
+#[allow(deprecated)]
 use futures::stream::{iter, Stream};
 use tokio_core::reactor::Core;
 
@@ -12,6 +14,7 @@ use trust_dns_server::server::TimeoutStream;
 
 #[test]
 fn test_no_timeout() {
+    #[allow(deprecated)]
     let sequence =
         iter(vec![Ok(1), Err("error"), Ok(2)]).map_err(|e| io::Error::new(io::ErrorKind::Other, e));
     let mut core = Core::new().expect("could not get core");

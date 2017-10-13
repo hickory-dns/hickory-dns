@@ -10,7 +10,9 @@ use futures::{Future, Poll};
 use client::ClientHandle;
 use error::*;
 use op::Message;
+use trust_dns_proto::DnsHandle;
 
+// TODO: move to proto
 /// Can be used to reattempt a queries if they fail
 ///
 /// *note* Current value of this is not clear, it may be removed
@@ -39,15 +41,13 @@ where
     }
 }
 
-impl<H> ClientHandle for RetryClientHandle<H>
+impl<H> DnsHandle for RetryClientHandle<H>
 where
     H: ClientHandle + 'static,
 {
-    fn is_verifying_dnssec(&self) -> bool {
-        self.client.is_verifying_dnssec()
-    }
+    type Error = ClientError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         // need to clone here so that the retry can resend if necessary...
         //  obviously it would be nice to be lazy about this...
         let future = self.client.send(message.clone());
@@ -58,6 +58,15 @@ where
             future: future,
             remaining_attempts: self.attempts,
         });
+    }
+}
+
+impl<H> ClientHandle for RetryClientHandle<H>
+where
+    H: ClientHandle + 'static,
+{
+    fn is_verifying_dnssec(&self) -> bool {
+        self.client.is_verifying_dnssec()
     }
 }
 
@@ -104,6 +113,7 @@ mod test {
     use error::*;
     use op::*;
     use futures::*;
+    use trust_dns_proto::DnsHandle;
 
     #[derive(Clone)]
     struct TestClient {
@@ -112,10 +122,8 @@ mod test {
         attempts: Cell<u16>,
     }
 
-    impl ClientHandle for TestClient {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
-        }
+    impl DnsHandle for TestClient {
+        type Error = ClientError;
 
         fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
             let i = self.attempts.get();
@@ -132,6 +140,12 @@ mod test {
             return Box::new(failed(
                 ClientErrorKind::Message("last retry set to fail").into(),
             ));
+        }
+    }
+
+    impl ClientHandle for TestClient {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
         }
     }
 

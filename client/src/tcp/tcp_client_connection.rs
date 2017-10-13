@@ -21,6 +21,7 @@ use std::time::Duration;
 use futures::Future;
 use tokio_core::net::TcpStream;
 use tokio_core::reactor::Core;
+use trust_dns_proto::DnsStreamHandle;
 
 use error::*;
 use client::{ClientConnection, ClientStreamHandle};
@@ -64,21 +65,23 @@ impl TcpClientConnection {
             TcpClientStream::<TcpStream>::with_timeout(name_server, &io_loop.handle(), timeout);
 
         Ok(TcpClientConnection {
-               io_loop: io_loop,
-               tcp_client_stream: tcp_client_stream,
-               client_stream_handle: handle,
-           })
+            io_loop: io_loop,
+            tcp_client_stream: tcp_client_stream,
+            client_stream_handle: handle,
+        })
     }
 }
 
 impl ClientConnection for TcpClientConnection {
     type MessageStream = TcpClientStream<TcpStream>;
 
-    fn unwrap
-        (self)
-         -> (Core,
-             Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-             Box<ClientStreamHandle>) {
-        (self.io_loop, self.tcp_client_stream, self.client_stream_handle)
+    fn unwrap(
+        self,
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>) {
+        (
+            self.io_loop,
+            self.tcp_client_stream,
+            self.client_stream_handle,
+        )
     }
 }

@@ -1,5 +1,6 @@
 extern crate rusqlite;
 extern crate trust_dns;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::net::*;

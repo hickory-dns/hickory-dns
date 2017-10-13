@@ -1,0 +1,62 @@
+[package]
+name = "trust-dns-proto"
+version = "0.1.0"
+authors = ["Benjamin Fry <benjaminfry@me.com>"]
+
+# A short blurb about the package. This is not rendered in any format when
+# uploaded to crates.io (aka this is not markdown)
+description = """
+TRust-DNS is a safe and secure DNS library. This is the foundational DNS protocol library for all TRust-DNS projects.
+"""
+
+# These URLs point to more information about the repository
+documentation = "https://docs.rs/trust-dns"
+homepage = "http://www.trust-dns.org/index.html"
+repository = "https://github.com/bluejekyll/trust-dns"
+
+# This points to a file in the repository (relative to this Cargo.toml). The
+# contents of this file are stored and indexed in the registry.
+readme = "README.md"
+
+# This is a small list of keywords used to categorize and search for this
+# package.
+keywords = ["DNS", "BIND", "dig", "named", "dnssec"]
+categories = ["network-programming"]
+
+# This is a string description of the license for this package. Currently
+# crates.io will validate the license provided against a whitelist of known
+# license identifiers from http://spdx.org/licenses/. Multiple licenses can
+# be separated with a `/`
+license = "MIT/Apache-2.0"
+
+[badges]
+travis-ci = { repository = "bluejekyll/trust-dns" }
+appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+
+[features]
+dnssec-openssl = ["dnssec", "openssl"]
+dnssec-ring = ["dnssec", "ring"]
+dnssec = []
+
+# WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
+# mtls = ["tls"]
+
+[lib]
+name = "trust_dns_proto"
+path = "src/lib.rs"
+
+[dependencies]
+chrono = "^0.4"
+data-encoding = "^1.2.0"
+error-chain = "0.1.12"
+futures = "^0.1.6"
+lazy_static = "^0.2.1"
+log = "^0.3.5"
+openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
+rand = "^0.3"
+ring = { version = "^0.12", optional = true }
+time = "^0.1"
+tokio-core = "^0.1"
+tokio-io = "^0.1"
+untrusted = "^0.5"

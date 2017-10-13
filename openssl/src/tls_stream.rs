@@ -71,8 +71,8 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<TlsConnecto
 
         // only want to support current TLS versions, 1.2 or future
         openssl_ctx_builder.set_options(
-            ssl::SSL_OP_NO_SSLV2 | ssl::SSL_OP_NO_SSLV3 |
-                ssl::SSL_OP_NO_TLSV1 | ssl::SSL_OP_NO_TLSV1_1,
+            ssl::SSL_OP_NO_SSLV2 | ssl::SSL_OP_NO_SSLV3 | ssl::SSL_OP_NO_TLSV1 |
+                ssl::SSL_OP_NO_TLSV1_1,
         );
 
         let mut store = try!(X509StoreBuilder::new().map_err(|e| {

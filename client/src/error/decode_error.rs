@@ -40,6 +40,7 @@ error_chain! {
   //
   // This section can be empty.
   links {
+    ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
     DnsSecError, DnsSecErrorKind, DnsSec;
   }
 

@@ -37,6 +37,23 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 name = "trust_dns_integration"
 path = "src/lib.rs"
 
+[features]
+dnssec-openssl = ["dnssec", 
+                  "trust-dns-resolver/dnssec-openssl", 
+                  "trust-dns-server/dnssec-openssl",
+                  "trust-dns/dnssec-openssl",
+                  "trust-dns-proto/dnssec-openssl"]
+dnssec-ring = ["dnssec",
+               "trust-dns-resolver/dnssec-ring",
+               "trust-dns-server/dnssec-ring",
+               "trust-dns/dnssec-ring",
+               "trust-dns-proto/dnssec-ring"]
+dnssec = []
+tls-openssl = ["tls", "trust-dns-server/trust-dns-openssl"]
+# TODO: not yet supported on the server side
+# tls-ring = ["tls", "trust-dns-server/trust-dns-ring"]
+tls = []
+
 [dependencies]
 chrono = "^0.4"
 data-encoding = "^1.2.0"
@@ -47,8 +64,9 @@ openssl = { version = "^0.9.8", features = ["v102", "v110"] }
 rand = "^0.3"
 rusqlite = { version = "^0.9.5", features = ["bundled"] }
 tokio-core = "^0.1"
-trust-dns = { version = "*", path="../client" }
-trust-dns-openssl = { version = "*", path="../openssl" }
-trust-dns-resolver = { version = "*", path="../resolver" }
-trust-dns-server = { version = "*", path="../server" }
+trust-dns = { version = "*", path = "../client" }
+trust-dns-openssl = { version = "*", path = "../openssl" }
+trust-dns-proto = { version = "*", path = "../proto" }
+trust-dns-resolver = { version = "*", path = "../resolver" }
+trust-dns-server = { version = "*", path = "../server" }
 

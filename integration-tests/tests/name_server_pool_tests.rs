@@ -1,21 +1,21 @@
 extern crate tokio_core;
 extern crate trust_dns;
-extern crate trust_dns_resolver;
 extern crate trust_dns_integration;
+extern crate trust_dns_proto;
+extern crate trust_dns_resolver;
 
 use std::net::*;
 use std::str::FromStr;
 
 use tokio_core::reactor::{Core, Handle};
 
-use trust_dns::client::ClientHandle;
 use trust_dns::error::{ClientErrorKind, ClientResult};
 use trust_dns::op::{Query, Message};
 use trust_dns::rr::domain;
 use trust_dns::rr::RecordType;
+use trust_dns_proto::DnsHandle;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
-
 use trust_dns_integration::mock_client::*;
 
 #[derive(Clone)]

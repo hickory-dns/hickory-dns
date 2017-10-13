@@ -125,6 +125,8 @@
 
 #![deny(missing_docs)]
 
+#[macro_use]
+extern crate error_chain;
 extern crate futures;
 extern crate lalrpop_util;
 #[macro_use]
@@ -132,10 +134,12 @@ extern crate log;
 extern crate lru_cache;
 extern crate tokio_core;
 extern crate trust_dns;
+extern crate trust_dns_proto;
 #[cfg(all(target_os = "windows", target_pointer_width = "64"))]
 extern crate ipconfig;
 
 pub mod config;
+pub mod error;
 pub mod lookup_ip;
 pub mod lookup;
 pub mod lookup_state;

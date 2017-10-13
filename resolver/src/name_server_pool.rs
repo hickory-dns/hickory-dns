@@ -20,7 +20,7 @@ use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::op::{Edns, Message, ResponseCode};
 use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
-// use trust_dns::tls::TlsClientStream;
+use trust_dns_proto::DnsHandle;
 
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 
@@ -210,7 +210,7 @@ pub struct NameServer<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> {
     config: NameServerConfig,
     options: ResolverOpts,
     client: C,
-    // FIXME: switch to FuturesMutex? (Mutex will have some undesireable locking)
+    // TODO: switch to FuturesMutex? (Mutex will have some undesireable locking)
     stats: Arc<Mutex<NameServerStats>>,
     reactor: Handle,
     phantom: PhantomData<P>,
@@ -314,13 +314,10 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     }
 }
 
-// TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for NameServer<C, P> {
-    fn is_verifying_dnssec(&self) -> bool {
-        self.client.is_verifying_dnssec()
-    }
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for NameServer<C, P> {
+    type Error = ClientError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         // if state is failed, return future::err(), unless retry delay expired...
         if let Err(error) = self.try_reconnect() {
             return Box::new(future::err(error));
@@ -363,6 +360,13 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for Na
     }
 }
 
+// TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for NameServer<C, P> {
+    fn is_verifying_dnssec(&self) -> bool {
+        self.client.is_verifying_dnssec()
+    }
+}
+
 impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, P> {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
@@ -401,7 +405,7 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C
 /// This is not expected to be used directly, see `ResolverFuture`.
 #[derive(Clone)]
 pub struct NameServerPool<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
-    // FIXME: switch to FuturesMutex (Mutex will have some undesireable locking)
+    // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
     datagram_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
     stream_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
     options: ResolverOpts,
@@ -476,16 +480,14 @@ impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
     }
 }
 
-impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> ClientHandle
-    for NameServerPool<C, P> {
-    fn is_verifying_dnssec(&self) -> bool {
-        // don't pull a lock on this
-        // it is expected that a validating client will wrap this, as opposed to the other direction.
-        // so pool -> nameserver -> basic_client_handle will always return false anyway
-        false
-    }
+impl<C, P> DnsHandle for NameServerPool<C, P>
+where
+    C: ClientHandle + 'static,
+    P: ConnectionProvider<ConnHandle = C> + 'static,
+{
+    type Error = ClientError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         let datagram_conns = self.datagram_conns.clone();
         let stream_conns1 = self.stream_conns.clone();
         let stream_conns2 = self.stream_conns.clone();
@@ -506,6 +508,19 @@ impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
                 })
                 .or_else(move |_| Self::try_send(stream_conns2, tcp_message2)),
         )
+    }
+}
+
+impl<C, P> ClientHandle for NameServerPool<C, P>
+where
+    C: ClientHandle + 'static,
+    P: ConnectionProvider<ConnHandle = C> + 'static,
+{
+    fn is_verifying_dnssec(&self) -> bool {
+        // don't pull a lock on this
+        // it is expected that a validating client will wrap this, as opposed to the other direction.
+        // so pool -> nameserver -> basic_client_handle will always return false anyway
+        false
     }
 }
 

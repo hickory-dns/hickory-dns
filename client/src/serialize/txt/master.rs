@@ -17,8 +17,8 @@ use std::collections::BTreeMap;
 
 use error::*;
 use rr::{Name, IntoRecordSet, RecordType, Record, DNSClass, RData, RrKey, RecordSet};
-
-use super::master_lex::{Lexer, Token};
+use serialize::txt::master_lex::{Lexer, Token};
+use serialize::txt::parse_rdata::RDataParser;
 
 /// ```text
 /// 5. MASTER FILES

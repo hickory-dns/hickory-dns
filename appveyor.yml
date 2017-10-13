@@ -30,17 +30,37 @@ install:
 build: false
 
 test_script:
+  - cargo test --manifest-path proto/Cargo.toml
+  - cargo test --manifest-path proto/Cargo.toml --all-features
+  - cargo test --manifest-path proto/Cargo.toml --no-default-features
+  - cargo test --manifest-path proto/Cargo.toml --no-default-features --features=dnssec-openssl
+  - cargo test --manifest-path proto/Cargo.toml --no-default-features --features=dnssec-ring
+  
+  - cargo test --manifest-path client/Cargo.toml
   - cargo test --manifest-path client/Cargo.toml --all-features
   - cargo test --manifest-path client/Cargo.toml --no-default-features
-  - cargo test --manifest-path client/Cargo.toml
-  - cargo test --manifest-path client/Cargo.toml --no-default-features --features=openssl
-  - cargo test --manifest-path client/Cargo.toml --no-default-features
-  - cargo test --manifest-path client/Cargo.toml --no-default-features --features=ring
+  - cargo test --manifest-path client/Cargo.toml --no-default-features --features=dnssec-openssl
+  - cargo test --manifest-path client/Cargo.toml --no-default-features --features=dnssec-ring
 
   - cargo test --manifest-path rustls/Cargo.toml
   - cargo test --manifest-path openssl/Cargo.toml
 
   - cargo test --manifest-path resolver/Cargo.toml
+  - cargo test --manifest-path resolver/Cargo.toml --all-features
+  - cargo test --manifest-path resolver/Cargo.toml --no-default-features
+  - cargo test --manifest-path resolver/Cargo.toml --no-default-features --features=dnssec-openssl
+  - cargo test --manifest-path resolver/Cargo.toml --no-default-features --features=dnssec-ring
 
-  - cargo test --manifest-path server/Cargo.toml --all-features
   - cargo test --manifest-path server/Cargo.toml
+  - cargo test --manifest-path server/Cargo.toml --all-features
+  - cargo test --manifest-path server/Cargo.toml --no-default-features
+  - cargo test --manifest-path server/Cargo.toml --no-default-features --features=dnssec-openssl
+  - cargo test --manifest-path server/Cargo.toml --no-default-features --features=dnssec-ring
+  - cargo test --manifest-path server/Cargo.toml --no-default-features --features=tls-openssl
+
+  - cargo test --manifest-path integration-tests/Cargo.toml
+  - cargo test --manifest-path integration-tests/Cargo.toml --all-features
+  - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features
+  - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features --features=dnssec-openssl
+  - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features --features=dnssec-ring
+  - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features --features=tls-openssl

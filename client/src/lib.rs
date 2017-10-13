@@ -13,7 +13,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 #![recursion_limit = "1024"]
 
 //! Trust-DNS is intended to be a fully compliant domain name server and client library.
@@ -209,9 +209,7 @@ extern crate chrono;
 extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
-#[macro_use]
 extern crate futures;
-#[macro_use]
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
@@ -224,12 +222,12 @@ extern crate rand;
 extern crate ring;
 extern crate rustc_serialize;
 extern crate tokio_io;
-#[macro_use]
 extern crate tokio_core;
 #[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;
 #[cfg(feature = "tokio-openssl")]
 extern crate tokio_openssl;
+extern crate trust_dns_proto;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 
@@ -242,57 +240,20 @@ pub mod tcp;
 pub mod udp;
 pub mod serialize;
 
-use std::io;
 use std::net::SocketAddr;
 
 use futures::sync::mpsc::UnboundedSender;
-use futures::Stream;
 
 use op::Message;
-use client::ClientStreamHandle;
-
-/// A stream of serialized DNS Messages
-pub type BufStream = Stream<Item = (Vec<u8>, SocketAddr), Error = io::Error>;
 
 /// A sender to which serialized DNS Messages can be sent
 pub type BufStreamHandle = UnboundedSender<(Vec<u8>, SocketAddr)>;
 
-/// A stream of messsages
-pub type MessageStream = Stream<Item = Message, Error = io::Error>;
-
 /// A sender to which a Message can be sent
 pub type MessageStreamHandle = UnboundedSender<Message>;
 
-/// A buffering stream bound to a `SocketAddr`
-pub struct BufClientStreamHandle {
-    name_server: SocketAddr,
-    sender: BufStreamHandle,
-}
-
-impl BufClientStreamHandle {
-    /// Constructs a new Buffered Stream Handle, used for sending data to the DNS peer.
-    ///
-    /// # Arguments
-    ///
-    /// * `name_server` - the address of the DNS server
-    /// * `sender` - the handle being used to send data to the server
-    pub fn new(name_server: SocketAddr, sender: BufStreamHandle) -> Self {
-        BufClientStreamHandle {
-            name_server: name_server,
-            sender: sender,
-        }
-    }
-}
-
-impl ClientStreamHandle for BufClientStreamHandle {
-    fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
-        let name_server: SocketAddr = self.name_server;
-        let sender: &mut _ = &mut self.sender;
-        sender.unbounded_send((buffer, name_server)).map_err(|_| {
-            io::Error::new(io::ErrorKind::Other, "unknown")
-        })
-    }
-}
+#[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
+pub use trust_dns_proto::BufDnsStreamHandle as BufClientStreamHandle;
 
 /// Returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {

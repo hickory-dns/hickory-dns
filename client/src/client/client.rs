@@ -58,14 +58,17 @@ pub trait Client<C: ClientHandle> {
     /// * `name` - the label to lookup
     /// * `query_class` - most likely this should always be DNSClass::IN
     /// * `query_type` - record type to lookup
-    fn query(&self,
-             name: &domain::Name,
-             query_class: DNSClass,
-             query_type: RecordType)
-             -> ClientResult<Message> {
-        self.get_io_loop()
-            .run(self.get_client_handle()
-                     .query(name.clone(), query_class, query_type))
+    fn query(
+        &self,
+        name: &domain::Name,
+        query_class: DNSClass,
+        query_type: RecordType,
+    ) -> ClientResult<Message> {
+        self.get_io_loop().run(self.get_client_handle().query(
+            name.clone(),
+            query_class,
+            query_type,
+        ))
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -76,17 +79,22 @@ pub trait Client<C: ClientHandle> {
     /// * `query_class` - most likely this should always be DNSClass::IN
     /// * `query_type` - record type which has been updated
     /// * `rrset` - the new version of the record(s) being notified
-    fn notify<R>(&mut self,
-                 name: domain::Name,
-                 query_class: DNSClass,
-                 query_type: RecordType,
-                 rrset: Option<R>)
-                 -> ClientResult<Message>
-        where R: IntoRecordSet
+    fn notify<R>(
+        &mut self,
+        name: domain::Name,
+        query_class: DNSClass,
+        query_type: RecordType,
+        rrset: Option<R>,
+    ) -> ClientResult<Message>
+    where
+        R: IntoRecordSet,
     {
-        self.get_io_loop()
-            .run(self.get_client_handle()
-                     .notify(name, query_class, query_type, rrset))
+        self.get_io_loop().run(self.get_client_handle().notify(
+            name,
+            query_class,
+            query_type,
+            rrset,
+        ))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -123,10 +131,13 @@ pub trait Client<C: ClientHandle> {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
     fn create<R>(&self, rrset: R, zone_origin: domain::Name) -> ClientResult<Message>
-        where R: IntoRecordSet
+    where
+        R: IntoRecordSet,
     {
-        self.get_io_loop()
-            .run(self.get_client_handle().create(rrset, zone_origin))
+        self.get_io_loop().run(self.get_client_handle().create(
+            rrset,
+            zone_origin,
+        ))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
@@ -163,16 +174,20 @@ pub trait Client<C: ClientHandle> {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be created.
-    fn append<R>(&self,
-                 rrset: R,
-                 zone_origin: domain::Name,
-                 must_exist: bool)
-                 -> ClientResult<Message>
-        where R: IntoRecordSet
+    fn append<R>(
+        &self,
+        rrset: R,
+        zone_origin: domain::Name,
+        must_exist: bool,
+    ) -> ClientResult<Message>
+    where
+        R: IntoRecordSet,
     {
-        self.get_io_loop()
-            .run(self.get_client_handle()
-                     .append(rrset, zone_origin, must_exist))
+        self.get_io_loop().run(self.get_client_handle().append(
+            rrset,
+            zone_origin,
+            must_exist,
+        ))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -216,17 +231,23 @@ pub trait Client<C: ClientHandle> {
     /// * `zone_origin` - the zone name to update, i.e. SOA name
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection).
-    fn compare_and_swap<CR, NR>(&self,
-                                current: CR,
-                                new: NR,
-                                zone_origin: domain::Name)
-                                -> ClientResult<Message>
-        where CR: IntoRecordSet,
-              NR: IntoRecordSet
+    fn compare_and_swap<CR, NR>(
+        &self,
+        current: CR,
+        new: NR,
+        zone_origin: domain::Name,
+    ) -> ClientResult<Message>
+    where
+        CR: IntoRecordSet,
+        NR: IntoRecordSet,
     {
-        self.get_io_loop()
-            .run(self.get_client_handle()
-                     .compare_and_swap(current, new, zone_origin))
+        self.get_io_loop().run(
+            self.get_client_handle().compare_and_swap(
+                current,
+                new,
+                zone_origin,
+            ),
+        )
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -265,11 +286,15 @@ pub trait Client<C: ClientHandle> {
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
     fn delete_by_rdata<R>(&self, record: R, zone_origin: domain::Name) -> ClientResult<Message>
-        where R: IntoRecordSet
+    where
+        R: IntoRecordSet,
     {
-        self.get_io_loop()
-            .run(self.get_client_handle()
-                     .delete_by_rdata(record, zone_origin))
+        self.get_io_loop().run(
+            self.get_client_handle().delete_by_rdata(
+                record,
+                zone_origin,
+            ),
+        )
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -308,9 +333,12 @@ pub trait Client<C: ClientHandle> {
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
     fn delete_rrset(&self, record: Record, zone_origin: domain::Name) -> ClientResult<Message> {
-        self.get_io_loop()
-            .run(self.get_client_handle()
-                     .delete_rrset(record, zone_origin))
+        self.get_io_loop().run(
+            self.get_client_handle().delete_rrset(
+                record,
+                zone_origin,
+            ),
+        )
     }
 
     /// Deletes all records at the specified name
@@ -337,14 +365,17 @@ pub trait Client<C: ClientHandle> {
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). This
     /// operation attempts to delete all resource record sets the the specified name reguardless of
     /// the record type.
-    fn delete_all(&self,
-                  name_of_records: domain::Name,
-                  zone_origin: domain::Name,
-                  dns_class: DNSClass)
-                  -> ClientResult<Message> {
-        self.get_io_loop()
-            .run(self.get_client_handle()
-                     .delete_all(name_of_records, zone_origin, dns_class))
+    fn delete_all(
+        &self,
+        name_of_records: domain::Name,
+        zone_origin: domain::Name,
+        dns_class: DNSClass,
+    ) -> ClientResult<Message> {
+        self.get_io_loop().run(self.get_client_handle().delete_all(
+            name_of_records,
+            zone_origin,
+            dns_class,
+        ))
     }
 }
 
@@ -365,7 +396,9 @@ impl SyncClient {
     ///
     /// * `client_connection` - the client_connection to use for all communication
     pub fn new<CC: ClientConnection>(client_connection: CC) -> SyncClient
-where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static{
+    where
+        <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    {
         let (io_loop, stream, stream_handle) = client_connection.unwrap();
 
         let client = ClientFuture::new(stream, stream_handle, &io_loop.handle(), None);
@@ -384,8 +417,10 @@ where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Er
     ///
     /// * `client_connection` - the client_connection to use for all communication
     /// * `signer` - signer to use, this needs an associated private key
-  pub fn with_signer<CC: ClientConnection>(client_connection: CC, signer: Signer) -> SyncClient
-where <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static{
+    pub fn with_signer<CC: ClientConnection>(client_connection: CC, signer: Signer) -> SyncClient
+    where
+        <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    {
         let (io_loop, stream, stream_handle) = client_connection.unwrap();
 
         let client = ClientFuture::new(stream, stream_handle, &io_loop.handle(), Some(signer));
@@ -421,9 +456,11 @@ impl SecureSyncClient {
     /// # Arguments
     ///
     /// * `client_connection` - the client_connection to use for all communication
-  pub fn new<CC>(client_connection: CC) -> SecureSyncClientBuilder<CC>
-  where CC: ClientConnection,
-<CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static{
+    pub fn new<CC>(client_connection: CC) -> SecureSyncClientBuilder<CC>
+    where
+        CC: ClientConnection,
+        <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    {
         SecureSyncClientBuilder {
             client_connection: client_connection,
             trust_anchor: None,
@@ -453,15 +490,18 @@ impl SecureSyncClient {
     /// * `query_name` - the label to lookup
     /// * `query_class` - most likely this should always be DNSClass::IN
     /// * `query_type` - record type to lookup
-    #[deprecated = "just use Client::query"]
-    pub fn secure_query(&self,
-                        query_name: &domain::Name,
-                        query_class: DNSClass,
-                        query_type: RecordType)
-                        -> ClientResult<Message> {
-        self.get_io_loop()
-            .run(self.get_client_handle()
-                     .query(query_name.clone(), query_class, query_type))
+    #[deprecated(note = "use `Client::query` instead")]
+    pub fn secure_query(
+        &self,
+        query_name: &domain::Name,
+        query_class: DNSClass,
+        query_type: RecordType,
+    ) -> ClientResult<Message> {
+        self.get_io_loop().run(self.get_client_handle().query(
+            query_name.clone(),
+            query_class,
+            query_type,
+        ))
     }
 }
 
@@ -478,11 +518,13 @@ impl Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient {
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub struct SecureSyncClientBuilder<CC>
-where CC: ClientConnection,
-      <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static {
-  client_connection: CC,
-  trust_anchor: Option<TrustAnchor>,
-  signer: Option<Signer>,
+where
+    CC: ClientConnection,
+    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+{
+    client_connection: CC,
+    trust_anchor: Option<TrustAnchor>,
+    signer: Option<Signer>,
 }
 
 #[cfg(any(feature = "openssl", feature = "ring"))]

@@ -12,26 +12,27 @@ matrix:
 
     # no features
     - rust: stable
-      env: MODULES="client"
-           CLIENT_OPTIONS="--no-default-features"
+      env: MODULES="client integration-tests proto resolver server"
+           OPTIONS="--no-default-features"
 
     # default features...
     - rust: stable
-      env: MODULES="client"
+      env: MODULES="client integration-tests proto resolver server"
 
     # just openssl
     - rust: stable
-      env: MODULES="client"
-           CLIENT_OPTIONS="--no-default-features --features=openssl"  
-
-    # just tls using openssl
-    - rust: stable
-      env: MODULES="openssl"
+      env: MODULES="client integration-tests proto resolver server"
+           OPTIONS="--no-default-features --features=dnssec-openssl"
 
     # just ring
     - rust: stable
-      env: MODULES="client"
-           CLIENT_OPTIONS="--no-default-features --features=ring" 
+      env: MODULES="client integration-tests proto resolver server"
+           OPTIONS="--no-default-features --features=dnssec-ring"
+
+    # just tls using openssl
+    - rust: stable
+      env: MODULES="integration-tests server"
+           OPTIONS="--no-default-features --features=tls-openssl"
 
     # min rust version
     # - rust: 1.14.0
@@ -46,7 +47,7 @@ matrix:
            TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
            OPTIONS="--no-default-features --features=bind"
 
-  allow_failure:
+  allow_failures:
     - rust: nightly
 
 before_install:

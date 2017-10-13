@@ -17,17 +17,24 @@
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
+use trust_dns_proto::error::{ProtoResult, ProtoErrorKind};
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use trust_dns_proto::rr::dnssec::{tbs, TBS};
 
+use op::{Message, MessageFinalizer};
+use rr::Record;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use op::Message;
+use rr::{DNSClass, Name, RecordType};
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::{Name, RData};
+use rr::RData;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::KeyPair;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::{Algorithm, DnsSecResult, tbs};
+use rr::dnssec::Algorithm;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::{DNSKEY, KEY, SIG};
+use rr::rdata::SIG;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::rdata::{DNSKEY, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::BinEncoder;
 
@@ -258,11 +265,12 @@ impl Signer {
     /// * `signer_name` - name in the zone to which this DNSKEY is bound
     /// * `sig_duration` - time period for which this key is valid, 0 when verifying
     /// * `is_zone_update_auth` - this key may be used for updating the zone
-    pub fn dnssec(key_rdata: DNSKEY,
-                  key: KeyPair,
-                  signer_name: Name,
-                  sig_duration: Duration)
-                  -> Self {
+    pub fn dnssec(
+        key_rdata: DNSKEY,
+        key: KeyPair,
+        signer_name: Name,
+        sig_duration: Duration,
+    ) -> Self {
         let algorithm = key_rdata.algorithm();
         let is_zone_signing_key = key_rdata.zone_key();
 
@@ -298,17 +306,18 @@ impl Signer {
     }
 
     /// Version of Signer for signing RRSIGs and SIG0 records.
-    #[deprecated="use SIG0 or DNSSec constructors"]
-    pub fn new(algorithm: Algorithm,
-               key: KeyPair,
-               signer_name: Name,
-               sig_duration: Duration,
-               is_zone_signing_key: bool,
-               _: bool)
-               -> Self {
-        let dnskey =
-            key.to_dnskey(algorithm)
-                .expect("something went wrong, use one of the SIG0 or DNSSec constructors");
+    #[deprecated(note = "use SIG0 or DNSSec constructors")]
+    pub fn new(
+        algorithm: Algorithm,
+        key: KeyPair,
+        signer_name: Name,
+        sig_duration: Duration,
+        is_zone_signing_key: bool,
+        _: bool,
+    ) -> Self {
+        let dnskey = key.to_dnskey(algorithm).expect(
+            "something went wrong, use one of the SIG0 or DNSSec constructors",
+        );
 
         Signer {
             key_rdata: dnskey.into(),
@@ -320,10 +329,7 @@ impl Signer {
         }
     }
 
-    /// Returns the algorithm this Signer will use to either sign or validate a signature
-    pub fn algorithm(&self) -> Algorithm {
-        self.algorithm
-    }
+
 
     /// Return the key used for validateion/signing
     pub fn key(&self) -> &KeyPair {
@@ -335,12 +341,7 @@ impl Signer {
         self.sig_duration
     }
 
-    /// The name of the signing entity, e.g. the DNS server name.
-    ///
-    /// This should match the name on key in the zone.
-    pub fn signer_name(&self) -> &Name {
-        &self.signer_name
-    }
+
 
     /// A hint to the DNSKey associated with this Signer can be used to sign/validate records in the zone
     pub fn is_zone_signing_key(&self) -> bool {
@@ -357,6 +358,35 @@ impl Signer {
         }
         ac += ac >> 16;
         (ac & 0xFFFF) as u16
+    }
+
+    /// Signs a hash.
+    ///
+    /// This will panic if the `key` is not a private key and can be used for signing.
+    ///
+    /// # Arguments
+    ///
+    /// * `hash` - the hashed resource record set, see `rrset_tbs`.
+    ///
+    /// # Return value
+    ///
+    /// The signature, ready to be stored in an `RData::RRSIG`.
+    pub fn sign(&self, tbs: &TBS) -> ProtoResult<Vec<u8>> {
+        self.key.sign(self.algorithm, tbs).map_err(|e| {
+            ProtoErrorKind::Msg(format!("signing error: {}", e)).into()
+        })
+    }
+
+    /// Returns the algorithm this Signer will use to either sign or validate a signature
+    pub fn algorithm(&self) -> Algorithm {
+        self.algorithm
+    }
+
+    /// The name of the signing entity, e.g. the DNS server name.
+    ///
+    /// This should match the name on key in the zone.
+    pub fn signer_name(&self) -> &Name {
+        &self.signer_name
     }
 
     /// The key tag is calculated as a hash to more quickly lookup a DNSKEY.
@@ -412,7 +442,7 @@ impl Signer {
     ///  return ac & 0xFFFF;
     ///  }
     /// ```
-    pub fn calculate_key_tag(&self) -> DnsSecResult<u16> {
+    pub fn calculate_key_tag(&self) -> ProtoResult<u16> {
         // TODO:
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {
@@ -477,25 +507,65 @@ impl Signer {
     ///  being verified.
     ///
     ///  ---
-    pub fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> DnsSecResult<Vec<u8>> {
+    pub fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
         tbs::message_tbs(message, pre_sig0).and_then(|tbs| self.sign(&tbs))
     }
+}
 
-    /// Signs a hash.
-    ///
-    /// This will panic if the `key` is not a private key and can be used for signing.
-    ///
-    /// # Arguments
-    ///
-    /// * `hash` - the hashed resource record set, see `rrset_tbs`.
-    ///
-    /// # Return value
-    ///
-    /// The signature, ready to be stored in an `RData::RRSIG`.
-    pub fn sign(&self, tbs: &tbs::TBS) -> DnsSecResult<Vec<u8>> {
-        self.key
-            .sign(self.algorithm, tbs)
-            .map_err(|e| e.into())
+impl MessageFinalizer for Signer {
+    #[cfg(any(feature = "openssl", feature = "ring"))]
+    fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
+        debug!("signing message: {:?}", message);
+        let key_tag: u16 = try!(self.calculate_key_tag());
+
+        // this is based on RFCs 2535, 2931 and 3007
+
+        // 'For all SIG(0) RRs, the owner name, class, TTL, and original TTL, are
+        //  meaningless.' - 2931
+        let mut sig0 = Record::new();
+
+        // The TTL fields SHOULD be zero
+        sig0.set_ttl(0);
+
+        // The CLASS field SHOULD be ANY
+        sig0.set_dns_class(DNSClass::ANY);
+
+        // The owner name SHOULD be root (a single zero octet).
+        sig0.set_name(Name::root());
+        let num_labels = sig0.name().num_labels();
+
+        let expiration_time: u32 = current_time + (5 * 60); // +5 minutes in seconds
+
+        sig0.set_rr_type(RecordType::SIG);
+        let pre_sig0 = SIG::new(
+            // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+            RecordType::NULL,
+            self.algorithm(),
+            num_labels,
+            // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+            0,
+            // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+            expiration_time,
+            // current time, this should be UTC
+            // unsigned numbers of seconds since the start of 1 January 1970, GMT
+            current_time,
+            key_tag,
+            // can probably get rid of this clone if the owndership is correct
+            self.signer_name().clone(),
+            Vec::new(),
+        );
+        let signature: Vec<u8> = self.sign_message(message, &pre_sig0)?;
+        sig0.set_rdata(RData::SIG(pre_sig0.set_sig(signature)));
+
+        Ok(vec![sig0])
+    }
+
+    #[cfg(not(any(feature = "openssl", feature = "ring")))]
+    fn finalize_message(&self, _: &Message, _: u32) -> ProtoResult<Vec<Record>> {
+        Err(
+            ProtoErrorKind::Message("the ring or openssl feature must be enabled for signing")
+                .into(),
+        )
     }
 }
 
@@ -509,27 +579,29 @@ mod tests {
     use rr::{DNSClass, Name, Record, RecordType};
     use rr::rdata::SIG;
     use rr::rdata::key::KeyUsage;
-    use rr::dnssec::{PublicKey, PublicKeyEnum, Verifier};
-    use op::{Message, Query, UpdateMessage};
+    use rr::dnssec::*;
+    use op::{Message, Query};
 
     pub use super::*;
 
     fn pre_sig0(signer: &Signer, inception_time: u32, expiration_time: u32) -> SIG {
-        SIG::new(// type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-                 RecordType::NULL,
-                 signer.algorithm(),
-                 0,
-                 // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
-                 0,
-                 // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
-                 expiration_time,
-                 // current time, this should be UTC
-                 // unsigned numbers of seconds since the start of 1 January 1970, GMT
-                 inception_time,
-                 signer.calculate_key_tag().unwrap(),
-                 // can probably get rid of this clone if the owndership is correct
-                 signer.signer_name().clone(),
-                 Vec::new())
+        SIG::new(
+            // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
+            RecordType::NULL,
+            signer.algorithm(),
+            0,
+            // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
+            0,
+            // recommended time is +5 minutes from now, to prevent timing attacks, 2 is probably good
+            expiration_time,
+            // current time, this should be UTC
+            // unsigned numbers of seconds since the start of 1 January 1970, GMT
+            inception_time,
+            signer.calculate_key_tag().unwrap(),
+            // can probably get rid of this clone if the owndership is correct
+            signer.signer_name().clone(),
+            Vec::new(),
+        )
     }
 
     #[test]
@@ -555,7 +627,7 @@ mod tests {
 
         // now test that the sig0 record works correctly.
         assert!(question.sig0().is_empty());
-        question.sign(&signer, 0).expect("should have signed");
+        question.finalize(&signer, 0).expect("should have signed");
         assert!(!question.sig0().is_empty());
 
         let sig = signer.sign_message(&question, &pre_sig0);
@@ -571,8 +643,8 @@ mod tests {
     fn test_sign_and_verify_rrset() {
         let rsa = Rsa::generate(2048).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256,
-            KeyUsage::Zone).unwrap();
+        let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
+            .unwrap();
         let signer = Signer::sig0(sig0key, key, Name::root());
 
         let origin: Name = Name::parse("example.com.", None).unwrap();
@@ -581,31 +653,34 @@ mod tests {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SIG(SIG::new(RecordType::NS,
-                                           Algorithm::RSASHA256,
-                                           origin.num_labels(),
-                                           86400,
-                                           5,
-                                           0,
-                                           signer.calculate_key_tag().unwrap(),
-                                           origin.clone(),
-                                           vec![])))
+            .set_rdata(RData::SIG(SIG::new(
+                RecordType::NS,
+                Algorithm::RSASHA256,
+                origin.num_labels(),
+                86400,
+                5,
+                0,
+                signer.calculate_key_tag().unwrap(),
+                origin.clone(),
+                vec![],
+            )))
             .clone();
-        let rrset =
-            vec![Record::new()
-                     .set_name(origin.clone())
-                     .set_ttl(86400)
-                     .set_rr_type(RecordType::NS)
-                     .set_dns_class(DNSClass::IN)
-                     .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
-                     .clone(),
-                 Record::new()
-                     .set_name(origin.clone())
-                     .set_ttl(86400)
-                     .set_rr_type(RecordType::NS)
-                     .set_dns_class(DNSClass::IN)
-                     .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
-                     .clone()];
+        let rrset = vec![
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                .clone(),
+            Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                .clone(),
+        ];
 
         let tbs = tbs::rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
         let sig = signer.sign(&tbs).unwrap();
@@ -613,21 +688,25 @@ mod tests {
         let pub_key = signer.key().to_public_bytes().unwrap();
         let pub_key = PublicKeyEnum::from_public_bytes(&pub_key, Algorithm::RSASHA256).unwrap();
 
-        assert!(pub_key.verify(Algorithm::RSASHA256, tbs.as_ref(), &sig).is_ok());
+        assert!(
+            pub_key
+                .verify(Algorithm::RSASHA256, tbs.as_ref(), &sig)
+                .is_ok()
+        );
     }
 
     #[test]
     fn test_calculate_key_tag_checksum() {
-	let test_text = "The quick brown fox jumps over the lazy dog";
-        let test_vectors = vec!(
-            (vec!(), 0),
-            (vec!(0, 0, 0, 0), 0),
-            (vec!(0xff, 0xff, 0xff, 0xff), 0xffff),
-            (vec!(1, 0, 0, 0), 0x0100),
-            (vec!(0, 1, 0, 0), 0x0001),
-            (vec!(0, 0, 1, 0), 0x0100),
-            (test_text.as_bytes().to_vec(), 0x8d5b)
-        );
+        let test_text = "The quick brown fox jumps over the lazy dog";
+        let test_vectors = vec![
+            (vec![], 0),
+            (vec![0, 0, 0, 0], 0),
+            (vec![0xff, 0xff, 0xff, 0xff], 0xffff),
+            (vec![1, 0, 0, 0], 0x0100),
+            (vec![0, 1, 0, 0], 0x0001),
+            (vec![0, 0, 1, 0], 0x0100),
+            (test_text.as_bytes().to_vec(), 0x8d5b),
+        ];
 
         for &(ref input_data, exp_result) in test_vectors.iter() {
             let result = Signer::calculate_key_tag_internal(&input_data);
@@ -635,9 +714,7 @@ mod tests {
         }
     }
 
-    fn get_rsa_from_vec(params: &Vec<u32>)
-        -> Result<Rsa, openssl::error::ErrorStack>
-    {
+    fn get_rsa_from_vec(params: &Vec<u32>) -> Result<Rsa, openssl::error::ErrorStack> {
         Rsa::from_private_components(
             BigNum::from_u32(params[0]).unwrap(), // modulus: n
             BigNum::from_u32(params[1]).unwrap(), // public exponent: e,
@@ -646,18 +723,29 @@ mod tests {
             BigNum::from_u32(params[4]).unwrap(), // prime2: q,
             BigNum::from_u32(params[5]).unwrap(), // exponent1: dp,
             BigNum::from_u32(params[6]).unwrap(), // exponent2: dq,
-            BigNum::from_u32(params[7]).unwrap()  // coefficient: qi
+            BigNum::from_u32(params[7]).unwrap(), // coefficient: qi
         )
     }
 
     #[test]
     #[allow(deprecated)]
     fn test_calculate_key_tag() {
-        let test_vectors = vec!(
-            (vec!(33, 3, 21, 11, 3, 1, 1, 1), 9739),
-            (vec!(0xc2fedb69, 0x10001, 0x6ebb9209, 0xf743,
-                  0xc9e3, 0xd07f, 0x6275, 0x1095), 42354)
-        );
+        let test_vectors = vec![
+            (vec![33, 3, 21, 11, 3, 1, 1, 1], 9739),
+            (
+                vec![
+                    0xc2fedb69,
+                    0x10001,
+                    0x6ebb9209,
+                    0xf743,
+                    0xc9e3,
+                    0xd07f,
+                    0x6275,
+                    0x1095,
+                ],
+                42354
+            ),
+        ];
 
         for &(ref input_data, exp_result) in test_vectors.iter() {
             let rsa = get_rsa_from_vec(input_data).unwrap();
@@ -665,8 +753,8 @@ mod tests {
             println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
             let key = KeyPair::from_rsa(rsa).unwrap();
-            let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256,
-                KeyUsage::Zone).unwrap();
+            let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
+                .unwrap();
             let signer = Signer::sig0(sig0key, key, Name::root());
             let key_tag = signer.calculate_key_tag().unwrap();
 
@@ -687,11 +775,114 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256,
-            KeyUsage::Zone).unwrap();
+        let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
+            .unwrap();
         let signer = Signer::sig0(sig0key, key, Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
 
         assert_eq!(key_tag, 28551);
+    }
+
+    // TODO: these tests technically came from TBS in trust_dns_proto
+    #[cfg(feature = "openssl")]
+    #[cfg(test)]
+    mod tests {
+        extern crate openssl;
+        use self::openssl::rsa::Rsa;
+
+        use rr::*;
+        use rr::rdata::SIG;
+        use rr::dnssec::*;
+        use rr::dnssec::tbs::*;
+
+        #[test]
+        fn test_rrset_tbs() {
+            let rsa = Rsa::generate(2048).unwrap();
+            let key = KeyPair::from_rsa(rsa).unwrap();
+            let sig0key = key.to_sig0key(Algorithm::RSASHA256).unwrap();
+            let signer = Signer::sig0(sig0key, key, Name::root());
+
+            let origin: Name = Name::parse("example.com.", None).unwrap();
+            let rrsig = Record::new()
+                .set_name(origin.clone())
+                .set_ttl(86400)
+                .set_rr_type(RecordType::NS)
+                .set_dns_class(DNSClass::IN)
+                .set_rdata(RData::SIG(SIG::new(
+                    RecordType::NS,
+                    Algorithm::RSASHA256,
+                    origin.num_labels(),
+                    86400,
+                    5,
+                    0,
+                    signer.calculate_key_tag().unwrap(),
+                    origin.clone(),
+                    vec![],
+                )))
+                .clone();
+            let rrset = vec![
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                    .clone(),
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                    .clone(),
+            ];
+
+            let tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
+            assert!(!tbs.as_ref().is_empty());
+
+            let rrset = vec![
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::CNAME)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::CNAME(
+                        Name::parse("a.iana-servers.net.", None).unwrap(),
+                    ))
+                    .clone(), // different type
+                Record::new()
+                    .set_name(Name::parse("www.example.com.", None).unwrap())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                    .clone(), // different name
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::CH)
+                    .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                    .clone(), // different class
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
+                    .clone(),
+                Record::new()
+                    .set_name(origin.clone())
+                    .set_ttl(86400)
+                    .set_rr_type(RecordType::NS)
+                    .set_dns_class(DNSClass::IN)
+                    .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
+                    .clone(),
+            ];
+
+            let filtered_tbs = rrset_tbs_with_rrsig(&rrsig, &rrset).unwrap();
+            assert!(!filtered_tbs.as_ref().is_empty());
+            assert_eq!(tbs.as_ref(), filtered_tbs.as_ref());
+        }
     }
 }

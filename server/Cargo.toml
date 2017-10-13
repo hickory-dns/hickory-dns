@@ -41,9 +41,14 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = ["tls"]
-tls = ["trust-dns-openssl"]
-ring = ["trust-dns/ring"]
+default = ["tls-openssl", "dnssec-openssl"]
+dnssec-openssl = ["dnssec", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
+dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
+dnssec = []
+tls-openssl = ["tls", "trust-dns-openssl"]
+# TODO: not yet supported on the server side
+# tls-ring = ["tls", "trust-dns-rustls"]
+tls = []
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["trust-dns/mtls"]
@@ -71,6 +76,7 @@ time = "^0.1"
 tokio-core = "^0.1"
 toml = "^0.1"
 trust-dns = { version = "^0.12", path = "../client" }
+trust-dns-proto = { version = "^0.1", path = "../proto" }
 trust-dns-openssl = { version = "^0.1.0", path = "../openssl", optional = true }
 
 [dev-dependencies]

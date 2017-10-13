@@ -257,7 +257,6 @@ fn rt_then_swap<C: ClientHandle + 'static>(
             .then(move |res| {
                 match res {
                     Ok(ips) => {
-                        // FIXME: lookup should return an Option, Option::None should be cached for NxDomain
                         if ips.is_empty() {
                             // no ips returns, NXDomain or Otherwise, doesn't matter
                             Box::new(
@@ -292,6 +291,7 @@ pub mod tests {
     use trust_dns::error::*;
     use trust_dns::op::Message;
     use trust_dns::rr::{Name, Record, RData, RecordType};
+    use trust_dns_proto::DnsHandle;
 
     use super::*;
 
@@ -300,15 +300,19 @@ pub mod tests {
         messages: Arc<Mutex<Vec<ClientResult<Message>>>>,
     }
 
-    impl ClientHandle for MockClientHandle {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
-        }
+    impl DnsHandle for MockClientHandle {
+        type Error = ClientError;
 
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
+        }
+    }
+
+    impl ClientHandle for MockClientHandle {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
         }
     }
 

@@ -9,12 +9,14 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use futures::Future;
+use trust_dns_proto::DnsHandle;
 
 use client::ClientHandle;
 use client::rc_future::{rc_future, RcFuture};
 use error::*;
 use op::{Message, Query};
 
+// TODO: move to proto
 /// A ClienHandle for memoized (cached) responses to queries.
 ///
 /// This wraps a ClientHandle, changing the implementation `send()` to store the response against
@@ -41,20 +43,18 @@ where
     }
 }
 
-impl<H> ClientHandle for MemoizeClientHandle<H>
+impl<H> DnsHandle for MemoizeClientHandle<H>
 where
     H: ClientHandle,
 {
-    fn is_verifying_dnssec(&self) -> bool {
-        self.client.is_verifying_dnssec()
-    }
+    type Error = ClientError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         let query = message.queries().first().expect("no query!").clone();
 
         if let Some(rc_future) = self.active_queries.borrow().get(&query) {
             // FIXME check TTLs?
-            return Box::new(rc_future.clone());
+            return Box::new(rc_future.clone().map_err(ClientError::from));
         }
 
         // check if there are active queries
@@ -62,7 +62,7 @@ where
             let map = self.active_queries.borrow();
             let request = map.get(&query);
             if request.is_some() {
-                return Box::new(request.unwrap().clone());
+                return Box::new(request.unwrap().clone().map_err(ClientError::from));
             }
         }
 
@@ -74,6 +74,15 @@ where
     }
 }
 
+impl<H> ClientHandle for MemoizeClientHandle<H>
+where
+    H: ClientHandle,
+{
+    fn is_verifying_dnssec(&self) -> bool {
+        self.client.is_verifying_dnssec()
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::cell::Cell;
@@ -82,18 +91,17 @@ mod test {
     use op::*;
     use rr::*;
     use futures::*;
+    use trust_dns_proto::DnsHandle;
 
     #[derive(Clone)]
     struct TestClient {
         i: Cell<u16>,
     }
 
-    impl ClientHandle for TestClient {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
-        }
+    impl DnsHandle for TestClient {
+        type Error = ClientError;
 
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
             let mut message = Message::new();
             let i = self.i.get();
 
@@ -101,6 +109,12 @@ mod test {
             self.i.set(i + 1);
 
             Box::new(finished(message))
+        }
+    }
+
+    impl ClientHandle for TestClient {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
         }
     }
 

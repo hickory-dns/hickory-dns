@@ -8,6 +8,7 @@ extern crate native_tls;
 extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_native_tls;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 mod server_harness;

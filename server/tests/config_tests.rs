@@ -15,6 +15,7 @@
  */
 extern crate log;
 extern crate trust_dns;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
 use std::env;
@@ -36,9 +37,11 @@ fn test_read_config() {
     let path: PathBuf = PathBuf::from(server_path).join("tests/named_test_configs/example.toml");
 
     if !path.exists() {
-        assert!(false,
-                "can't locate example.toml and other configs: {:?}",
-                path)
+        assert!(
+            false,
+            "can't locate example.toml and other configs: {:?}",
+            path
+        )
     }
 
     println!("reading config");
@@ -50,45 +53,61 @@ fn test_read_config() {
     assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(5));
     assert_eq!(config.get_log_level(), LogLevel::Info);
     assert_eq!(config.get_directory(), Path::new("/var/named"));
-    assert_eq!(config.get_zones(),
-               [ZoneConfig::new("localhost".into(),
-                                ZoneType::Master,
-                                "default/localhost.zone".into(),
-                                None,
-                                None,
-                                vec![]),
-                ZoneConfig::new("0.0.127.in-addr.arpa".into(),
-                                ZoneType::Master,
-                                "default/127.0.0.1.zone".into(),
-                                None,
-                                None,
-                                vec![]),
-                ZoneConfig::new("0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.\
+    assert_eq!(
+        config.get_zones(),
+        [
+            ZoneConfig::new(
+                "localhost".into(),
+                ZoneType::Master,
+                "default/localhost.zone".into(),
+                None,
+                None,
+                vec![],
+            ),
+            ZoneConfig::new(
+                "0.0.127.in-addr.arpa".into(),
+                ZoneType::Master,
+                "default/127.0.0.1.zone".into(),
+                None,
+                None,
+                vec![],
+            ),
+            ZoneConfig::new(
+                "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.\
                                  ip6.arpa"
-                                        .into(),
-                                ZoneType::Master,
-                                "default/ipv6_1.zone".into(),
-                                None,
-                                None,
-                                vec![]),
-                ZoneConfig::new("255.in-addr.arpa".into(),
-                                ZoneType::Master,
-                                "default/255.zone".into(),
-                                None,
-                                None,
-                                vec![]),
-                ZoneConfig::new("0.in-addr.arpa".into(),
-                                ZoneType::Master,
-                                "default/0.zone".into(),
-                                None,
-                                None,
-                                vec![]),
-                ZoneConfig::new("example.com".into(),
-                                ZoneType::Master,
-                                "example.com.zone".into(),
-                                None,
-                                None,
-                                vec![])]);
+                    .into(),
+                ZoneType::Master,
+                "default/ipv6_1.zone".into(),
+                None,
+                None,
+                vec![],
+            ),
+            ZoneConfig::new(
+                "255.in-addr.arpa".into(),
+                ZoneType::Master,
+                "default/255.zone".into(),
+                None,
+                None,
+                vec![],
+            ),
+            ZoneConfig::new(
+                "0.in-addr.arpa".into(),
+                ZoneType::Master,
+                "default/0.zone".into(),
+                None,
+                None,
+                vec![],
+            ),
+            ZoneConfig::new(
+                "example.com".into(),
+                ZoneType::Master,
+                "example.com.zone".into(),
+                None,
+                None,
+                vec![],
+            ),
+        ]
+    );
 }
 
 #[test]
@@ -97,23 +116,33 @@ fn test_parse_toml() {
     assert_eq!(config.get_listen_port(), 2053);
 
     let config: Config = "listen_addrs_ipv4 = [\"0.0.0.0\"]".parse().unwrap();
-    assert_eq!(config.get_listen_addrs_ipv4(),
-               vec![Ipv4Addr::new(0, 0, 0, 0)]);
+    assert_eq!(
+        config.get_listen_addrs_ipv4(),
+        vec![Ipv4Addr::new(0, 0, 0, 0)]
+    );
 
     let config: Config = "listen_addrs_ipv4 = [\"0.0.0.0\", \"127.0.0.1\"]"
         .parse()
         .unwrap();
-    assert_eq!(config.get_listen_addrs_ipv4(),
-               vec![Ipv4Addr::new(0, 0, 0, 0), Ipv4Addr::new(127, 0, 0, 1)]);
+    assert_eq!(
+        config.get_listen_addrs_ipv4(),
+        vec![Ipv4Addr::new(0, 0, 0, 0), Ipv4Addr::new(127, 0, 0, 1)]
+    );
 
     let config: Config = "listen_addrs_ipv6 = [\"::0\"]".parse().unwrap();
-    assert_eq!(config.get_listen_addrs_ipv6(),
-               vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)]);
+    assert_eq!(
+        config.get_listen_addrs_ipv6(),
+        vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)]
+    );
 
     let config: Config = "listen_addrs_ipv6 = [\"::0\", \"::1\"]".parse().unwrap();
-    assert_eq!(config.get_listen_addrs_ipv6(),
-               vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0),
-                    Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]);
+    assert_eq!(
+        config.get_listen_addrs_ipv6(),
+        vec![
+            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0),
+            Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1),
+        ]
+    );
 
     let config: Config = "tcp_request_timeout = 25".parse().unwrap();
     assert_eq!(config.get_tcp_request_timeout(), Duration::from_secs(25));
@@ -149,39 +178,55 @@ algorithm = \
 signer_name = \"ns.example.com.\"
 
 "
-            .parse()
-            .unwrap();
-    assert_eq!(config.get_zones()[0].get_keys()[0].key_path(),
-               Path::new("/path/to/my_ed25519.pem"));
-    assert_eq!(config.get_zones()[0].get_keys()[0]
-                   .algorithm()
-                   .unwrap(),
-               Algorithm::ED25519);
-    assert_eq!(config.get_zones()[0].get_keys()[0]
-                   .signer_name()
-                   .unwrap()
-                   .unwrap(),
-               Name::parse("ns.example.com.", None).unwrap());
-    assert_eq!(config.get_zones()[0].get_keys()[0].is_zone_signing_key(),
-               false);
-    assert_eq!(config.get_zones()[0].get_keys()[0].is_zone_update_auth(),
-               true);
+        .parse()
+        .unwrap();
+    assert_eq!(
+        config.get_zones()[0].get_keys()[0].key_path(),
+        Path::new("/path/to/my_ed25519.pem")
+    );
+    assert_eq!(
+        config.get_zones()[0].get_keys()[0].algorithm().unwrap(),
+        Algorithm::ED25519
+    );
+    assert_eq!(
+        config.get_zones()[0].get_keys()[0]
+            .signer_name()
+            .unwrap()
+            .unwrap(),
+        Name::parse("ns.example.com.", None).unwrap()
+    );
+    assert_eq!(
+        config.get_zones()[0].get_keys()[0].is_zone_signing_key(),
+        false
+    );
+    assert_eq!(
+        config.get_zones()[0].get_keys()[0].is_zone_update_auth(),
+        true
+    );
 
-    assert_eq!(config.get_zones()[0].get_keys()[1].key_path(),
-               Path::new("/path/to/my_rsa.pem"));
-    assert_eq!(config.get_zones()[0].get_keys()[1]
-                   .algorithm()
-                   .unwrap(),
-               Algorithm::RSASHA256);
-    assert_eq!(config.get_zones()[0].get_keys()[1]
-                   .signer_name()
-                   .unwrap()
-                   .unwrap(),
-               Name::parse("ns.example.com.", None).unwrap());
-    assert_eq!(config.get_zones()[0].get_keys()[1].is_zone_signing_key(),
-               false);
-    assert_eq!(config.get_zones()[0].get_keys()[1].is_zone_update_auth(),
-               false);
+    assert_eq!(
+        config.get_zones()[0].get_keys()[1].key_path(),
+        Path::new("/path/to/my_rsa.pem")
+    );
+    assert_eq!(
+        config.get_zones()[0].get_keys()[1].algorithm().unwrap(),
+        Algorithm::RSASHA256
+    );
+    assert_eq!(
+        config.get_zones()[0].get_keys()[1]
+            .signer_name()
+            .unwrap()
+            .unwrap(),
+        Name::parse("ns.example.com.", None).unwrap()
+    );
+    assert_eq!(
+        config.get_zones()[0].get_keys()[1].is_zone_signing_key(),
+        false
+    );
+    assert_eq!(
+        config.get_zones()[0].get_keys()[1].is_zone_update_auth(),
+        false
+    );
 }
 
 #[test]
@@ -196,10 +241,12 @@ fn test_parse_tls() {
 tls_cert = { path = \"path/to/some.pkcs12\" }
 tls_listen_port = 8853
   "
-            .parse()
-            .unwrap();
+        .parse()
+        .unwrap();
 
     assert_eq!(config.get_tls_listen_port(), 8853);
-    assert_eq!(config.get_tls_cert().unwrap().get_path(),
-               Path::new("path/to/some.pkcs12"));
+    assert_eq!(
+        config.get_tls_cert().unwrap().get_path(),
+        Path::new("path/to/some.pkcs12")
+    );
 }

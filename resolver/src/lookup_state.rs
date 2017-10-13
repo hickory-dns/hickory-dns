@@ -152,7 +152,7 @@ impl DnsLru {
 #[derive(Clone, Debug)]
 #[doc(hidden)]
 pub struct CachingClient<C: ClientHandle> {
-    // FIXME: switch to FuturesMutex (Mutex will have some undesireable locking)
+    // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
     lru: Arc<Mutex<DnsLru>>,
     client: C,
 }

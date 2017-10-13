@@ -8,7 +8,7 @@
 
 //! Lookup result from a resolution of ipv4 and ipv6 records with a Resolver.
 
-use std::error::Error;
+use std::error::Error as StdError;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::mem;
@@ -22,6 +22,7 @@ use trust_dns::error::ClientError;
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RecordType, RData};
 use trust_dns::rr::rdata;
+use trust_dns_proto::DnsHandle;
 
 use lookup_state::CachingClient;
 use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
@@ -82,18 +83,23 @@ pub enum LookupEither<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandl
     Secure(SecureClientHandle<RetryClientHandle<NameServerPool<C, P>>>),
 }
 
+impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
+    // TODO: this should be a ResolverError.
+    type Error = ClientError;
+
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+        match *self {
+            LookupEither::Retry(ref mut c) => c.send(message),
+            LookupEither::Secure(ref mut c) => c.send(message),
+        }
+    }
+}
+
 impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for LookupEither<C, P> {
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
             LookupEither::Retry(ref c) => c.is_verifying_dnssec(),
             LookupEither::Secure(ref c) => c.is_verifying_dnssec(),
-        }
-    }
-
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
-        match *self {
-            LookupEither::Retry(ref mut c) => c.send(message),
-            LookupEither::Secure(ref mut c) => c.send(message),
         }
     }
 }
@@ -156,7 +162,7 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
         }
     }
 
-    pub(crate) fn error<E: Error>(client_cache: CachingClient<C>, error: E) -> Self {
+    pub(crate) fn error<E: StdError>(client_cache: CachingClient<C>, error: E) -> Self {
         return InnerLookupFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client_cache,
@@ -306,15 +312,19 @@ pub mod tests {
         messages: Arc<Mutex<Vec<ClientResult<Message>>>>,
     }
 
-    impl ClientHandle for MockClientHandle {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
-        }
+    impl DnsHandle for MockClientHandle {
+        type Error = ClientError;
 
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
+        }
+    }
+
+    impl ClientHandle for MockClientHandle {
+        fn is_verifying_dnssec(&self) -> bool {
+            false
         }
     }
 
