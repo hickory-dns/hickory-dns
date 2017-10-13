@@ -372,7 +372,6 @@ impl Signer {
     ///
     /// The signature, ready to be stored in an `RData::RRSIG`.
     pub fn sign(&self, tbs: &TBS) -> ProtoResult<Vec<u8>> {
-        // FIXME: this error conversion shouldn't be necessary
         self.key.sign(self.algorithm, tbs).map_err(|e| {
             ProtoErrorKind::Msg(format!("signing error: {}", e)).into()
         })

@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-// FIXME: move to proto
+// TODO: move to proto
 
 use std::clone::Clone;
 use std::collections::HashSet;
@@ -100,7 +100,6 @@ where
 {
     type Error = ClientError;
 
-    // FIXME: this is a type change, generify DnsHandle Result...
     fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {

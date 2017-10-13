@@ -1298,6 +1298,7 @@ dependencies = [
 name = "trust-dns-resolver"
 version = "0.6.0"
 dependencies = [
+ "error-chain 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "ipconfig 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "lalrpop 0.13.1 (registry+https://github.com/rust-lang/crates.io-index)",

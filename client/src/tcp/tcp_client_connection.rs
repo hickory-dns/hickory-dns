@@ -24,7 +24,7 @@ use tokio_core::reactor::Core;
 use trust_dns_proto::DnsStreamHandle;
 
 use error::*;
-use client::ClientConnection;
+use client::{ClientConnection, ClientStreamHandle};
 use tcp::TcpClientStream;
 
 /// Tcp client connection
@@ -33,7 +33,7 @@ use tcp::TcpClientStream;
 pub struct TcpClientConnection {
     io_loop: Core,
     tcp_client_stream: Box<Future<Item = TcpClientStream<TcpStream>, Error = io::Error>>,
-    client_stream_handle: Box<DnsStreamHandle>,
+    client_stream_handle: Box<ClientStreamHandle>,
 }
 
 impl TcpClientConnection {

@@ -405,7 +405,7 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C
 /// This is not expected to be used directly, see `ResolverFuture`.
 #[derive(Clone)]
 pub struct NameServerPool<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
-    // FIXME: switch to FuturesMutex (Mutex will have some undesireable locking)
+    // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
     datagram_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
     stream_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
     options: ResolverOpts,

@@ -22,7 +22,7 @@ use tokio_core::reactor::Core;
 use trust_dns_proto::DnsStreamHandle;
 
 use error::*;
-use client::ClientConnection;
+use client::{ClientConnection, ClientStreamHandle};
 use udp::UdpClientStream;
 
 /// UDP based DNS Client connection
@@ -31,7 +31,7 @@ use udp::UdpClientStream;
 pub struct UdpClientConnection {
     io_loop: Core,
     udp_client_stream: Box<Future<Item = UdpClientStream, Error = io::Error>>,
-    client_stream_handle: Box<DnsStreamHandle>,
+    client_stream_handle: Box<ClientStreamHandle>,
 }
 
 impl UdpClientConnection {

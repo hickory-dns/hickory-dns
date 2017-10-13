@@ -26,7 +26,6 @@ pub trait ClientConnection: Sized {
     /// The associated DNS Message stream type.
     type MessageStream;
 
-    // FIXME: ClientSteamHandle -> DnsStreamHandle
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.

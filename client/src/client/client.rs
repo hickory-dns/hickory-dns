@@ -48,7 +48,6 @@ pub trait Client<C: ClientHandle> {
     /// Get a mutable handle reference tot the Core assiated to the Client
     fn get_client_handle(&self) -> RefMut<C>;
 
-    // FIXME: changed error type
     /// A *classic* DNS query, i.e. does not perform and DNSSec operations
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to

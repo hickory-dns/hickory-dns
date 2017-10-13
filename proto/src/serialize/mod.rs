@@ -16,5 +16,4 @@
 
 //! Contains serialization libraries for `binary` and text, `txt`.
 
-// FIXME: rename and relocate
 pub mod binary;

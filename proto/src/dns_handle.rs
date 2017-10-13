@@ -24,16 +24,19 @@ use op::{Message, MessageFinalizer, OpCode};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
+/// The StreamHandle is the general interface for communicating with the DnsFuture
+pub type StreamHandle = UnboundedSender<Vec<u8>>;
+
 /// Implementations of Sinks for sending DNS messages
 pub trait DnsStreamHandle {
     /// Sends a message to the Handle for delivery to the server.
-    fn send(&mut self, buffer: Vec<u8>) -> io::Result<()>;
+    fn send(&mut self, buffer: Vec<u8>) -> ProtoResult<()>;
 }
 
-impl DnsStreamHandle for UnboundedSender<Vec<u8>> {
-    fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
-        UnboundedSender::unbounded_send(self, buffer).map_err(|_| {
-            io::Error::new(io::ErrorKind::Other, "unknown")
+impl DnsStreamHandle for StreamHandle {
+    fn send(&mut self, buffer: Vec<u8>) -> ProtoResult<()> {
+        UnboundedSender::unbounded_send(self, buffer).map_err(|e| {
+            ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()
         })
     }
 }

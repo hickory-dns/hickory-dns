@@ -31,10 +31,8 @@ extern crate tokio_io;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 
-use std::io;
 use std::net::SocketAddr;
 
-use futures::Stream;
 use futures::sync::mpsc::UnboundedSender;
 
 mod dns_handle;
@@ -45,20 +43,13 @@ pub mod serialize;
 pub mod tcp;
 pub mod udp;
 
-pub use dns_handle::{BasicDnsHandle, DnsFuture, DnsHandle, DnsStreamHandle};
+pub use dns_handle::{BasicDnsHandle, DnsFuture, DnsHandle, DnsStreamHandle, StreamHandle};
 use op::Message;
-
-
-// FIXME: change io::Error to error::ProtoError
-/// A stream of serialized DNS Messages
-pub type BufStream = Stream<Item = (Vec<u8>, SocketAddr), Error = io::Error>;
+use error::*;
 
 // TODO: change to Sink
 /// A sender to which serialized DNS Messages can be sent
 pub type BufStreamHandle = UnboundedSender<(Vec<u8>, SocketAddr)>;
-
-/// A stream of messsages
-pub type MessageStream = Stream<Item = Message, Error = io::Error>;
 
 // TODO: change to Sink
 /// A sender to which a Message can be sent
@@ -86,11 +77,11 @@ impl BufDnsStreamHandle {
 }
 
 impl DnsStreamHandle for BufDnsStreamHandle {
-    fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
+    fn send(&mut self, buffer: Vec<u8>) -> ProtoResult<()> {
         let name_server: SocketAddr = self.name_server;
         let sender: &mut _ = &mut self.sender;
-        sender.unbounded_send((buffer, name_server)).map_err(|_| {
-            io::Error::new(io::ErrorKind::Other, "unknown")
+        sender.unbounded_send((buffer, name_server)).map_err(|e| {
+            ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()
         })
     }
 }
