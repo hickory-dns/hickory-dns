@@ -50,7 +50,7 @@ pub trait Client<C: ClientHandle> {
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations
     ///
-    /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
+    /// *Note* As of now, this will not recurse on PTR record responses, that is up to
     ///        the caller.
     ///
     /// # Arguments
