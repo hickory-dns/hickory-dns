@@ -8,7 +8,7 @@
 
 //! Lookup result from a resolution of ipv4 and ipv6 records with a Resolver.
 
-use std::error::Error;
+use std::error::Error as StdError;
 use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::mem;
@@ -84,10 +84,10 @@ pub enum LookupEither<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandl
 }
 
 impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
-    // FIXME: make this a ResolverError
+    // TODO: this should be a ResolverError.
     type Error = ClientError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         match *self {
             LookupEither::Retry(ref mut c) => c.send(message),
             LookupEither::Secure(ref mut c) => c.send(message),
@@ -162,7 +162,7 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
         }
     }
 
-    pub(crate) fn error<E: Error>(client_cache: CachingClient<C>, error: E) -> Self {
+    pub(crate) fn error<E: StdError>(client_cache: CachingClient<C>, error: E) -> Self {
         return InnerLookupFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client_cache,

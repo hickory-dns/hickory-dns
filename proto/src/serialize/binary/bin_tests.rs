@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-// FIXME: move this to proto/tests
 
 use std::fmt::Debug;
 use error::*;

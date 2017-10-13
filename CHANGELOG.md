@@ -19,8 +19,9 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Internal API changes to `client` calling into `proto` for actual implementations
 - Large refactoring of internal APIs to more cleanly support \*ring\* and OpenSSL features (@briansmith)
 - `ClientHandle::send` moved to `trust_dns_proto::DnsHandle::send` (internal API)
-- Many interfaces moved from `ClientStreamHandle` to `trust_dns_proto::DnsStreamHandle`
+- Many interfaces moved from `client::ClientStreamHandle` to `trust_dns_proto::DnsStreamHandle`
 - `Message::sign` has been renamed and change to the more general method `Message::finalize`
+- Some `io::Error`s have been converted to `trust_dns_proto::ProtoError`
 
 ### Fixed
 

@@ -11,35 +11,16 @@ use std::time::Duration;
 
 use futures::Future;
 use futures::stream::Stream;
-use futures::sync::mpsc::UnboundedSender;
 use rand;
 use tokio_core::reactor::Handle;
 use trust_dns_proto::{BasicDnsHandle, DnsStreamHandle, DnsHandle, DnsFuture};
 
+use client::ClientStreamHandle;
 use error::*;
 use op::{Message, MessageType, OpCode, Query, UpdateMessage};
 use rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use rr::dnssec::Signer;
 use rr::rdata::NULL;
-
-/// A reference to a Sender of bytes returned from the creation of a UdpClientStream or TcpClientStream
-pub type StreamHandle = UnboundedSender<Vec<u8>>;
-
-/// Implementations of Sinks for sending DNS messages
-#[deprecated(note = "use [`trust_dns_proto::DnsStreamHandle`] instead")]
-pub trait ClientStreamHandle {
-    /// Sends a message to the Handle for delivery to the server.
-    fn send(&mut self, buffer: Vec<u8>) -> io::Result<()>;
-}
-
-#[allow(deprecated)]
-impl ClientStreamHandle for StreamHandle {
-    fn send(&mut self, buffer: Vec<u8>) -> io::Result<()> {
-        UnboundedSender::unbounded_send(self, buffer).map_err(|_| {
-            io::Error::new(io::ErrorKind::Other, "unknown")
-        })
-    }
-}
 
 /// A DNS Client implemented over futures-rs.
 ///
@@ -51,7 +32,6 @@ pub struct ClientFuture<S: Stream<Item = Vec<u8>, Error = io::Error>> {
 }
 
 impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
-    // FIXME: stream_handle type change
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
@@ -64,7 +44,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
         stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<DnsStreamHandle>,
+        stream_handle: Box<ClientStreamHandle>,
         loop_handle: &Handle,
         signer: Option<Signer>,
     ) -> BasicClientHandle {
@@ -77,7 +57,6 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
         )
     }
 
-    // FIXME: stream_handle type change
     /// Spawns a new ClientFuture Stream.
     ///
     /// # Arguments
@@ -141,7 +120,6 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         false
     }
 
-    // FIXME: changed return type
     /// A *classic* DNS query
     ///
     /// This is identical to `query`, but instead takes a `Query` object.
@@ -173,7 +151,6 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         self.send(message)
     }
 
-    // FIXME: changed return type
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to

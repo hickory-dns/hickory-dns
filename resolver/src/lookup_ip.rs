@@ -257,7 +257,6 @@ fn rt_then_swap<C: ClientHandle + 'static>(
             .then(move |res| {
                 match res {
                     Ok(ips) => {
-                        // FIXME: lookup should return an Option, Option::None should be cached for NxDomain
                         if ips.is_empty() {
                             // no ips returns, NXDomain or Otherwise, doesn't matter
                             Box::new(
