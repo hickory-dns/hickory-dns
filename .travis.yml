@@ -7,33 +7,38 @@ matrix:
     # optional feature variations
     # we want full coverage, include all features...
     - rust: stable
-      env: RUN_KCOV=1
-           OPTIONS="--all-features"
+      env: OPTIONS="--all-features"
+           RUN_KCOV=1
 
     # no features
     - rust: stable
       env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features"
+           RUN_KCOV=1
 
     # default features...
     - rust: stable
       env: MODULES="client integration-tests proto resolver server"
+           RUN_KCOV=1
 
     # just openssl
     - rust: stable
       env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features --features=dnssec-openssl"
+           RUN_KCOV=1
 
     # just ring
     - rust: stable
       env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features --features=dnssec-ring"
-
+           RUN_KCOV=1
+           
     # just tls using openssl
     - rust: stable
       env: MODULES="integration-tests server"
            OPTIONS="--no-default-features --features=tls-openssl"
-
+           RUN_KCOV=1
+           
     # min rust version
     # - rust: 1.14.0
     - rust: beta
