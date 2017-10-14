@@ -63,3 +63,7 @@ elif [[ "$test_count" -gt 1 ]] ; then
   echo kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only --merge target/kcov-*
   kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only --merge target/kcov-*
 fi
+
+echo "----> uploading to codecov.io"
+bash <(curl -s https://codecov.io/bash)
+echo "----> coverage reports done"
