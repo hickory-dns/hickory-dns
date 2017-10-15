@@ -13,6 +13,7 @@ This repo consists of multiple crates:
 
 | Library | Status | Description |
 |---------|--------|-------------|
+| **Proto** | [![](http://meritbadge.herokuapp.com/trust-dns-proto)](https://crates.io/crates/trust-dns-proto) [![trust-dns-proto](https://docs.rs/trust-dns-proto/badge.svg)](https://docs.rs/trust-dns-proto) | Raw DNS library, containing only the pieces necessary for supporting the other Trust-DNS libraries |
 | **Client** | [![](http://meritbadge.herokuapp.com/trust-dns)](https://crates.io/crates/trust-dns) [![trust-dns](https://docs.rs/trust-dns/badge.svg)](https://docs.rs/trust-dns) | Used for sending `query`, `update`, and `notify` messages directly to a DNS server. |
 | **Server** | [![](http://meritbadge.herokuapp.com/trust-dns-server)](https://crates.io/crates/trust-dns-server) [![trust-dns-server](https://docs.rs/trust-dns-server/badge.svg)](https://docs.rs/trust-dns-server) | Use to host DNS records, this also has a `named` binary for running in a daemon form. |
 | **Resolver** | [![](http://meritbadge.herokuapp.com/trust-dns-resolver)](https://crates.io/crates/trust-dns-resolver) [![trust-dns-resolver](https://docs.rs/trust-dns-resolver/badge.svg)](https://docs.rs/trust-dns-resolver) | Utilizes the client library to perform DNS resolution. Can be used in place of the standard OS resolution facilities. |
