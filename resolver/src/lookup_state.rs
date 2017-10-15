@@ -15,10 +15,10 @@ use std::time::{Duration, Instant};
 
 use futures::{Async, Future, Poll, task};
 
-use trust_dns::client::ClientHandle;
-use trust_dns::error::ClientError;
-use trust_dns::op::{Message, Query, ResponseCode};
-use trust_dns::rr::{Name, RData, RecordType};
+use trust_dns_proto::{DnsHandle as ClientHandle};
+use trust_dns_proto::error::ProtoError as ClientError;
+use trust_dns_proto::op::{Message, Query, ResponseCode};
+use trust_dns_proto::rr::{Name, RData, RecordType};
 
 use lookup::Lookup;
 use lru_cache::LruCache;

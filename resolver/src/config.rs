@@ -9,7 +9,7 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 
-use trust_dns::rr::Name;
+use trust_dns_proto::rr::Name;
 
 /// Configuration for the upstream nameservers to use for resolution
 #[derive(Clone, Debug)]
