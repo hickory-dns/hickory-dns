@@ -6,7 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 #![warn(missing_docs)]
-#![recursion_limit = "1024"]
+#![recursion_limit = "2048"]
 
 //! TRust-DNS Protocol library
 
@@ -39,11 +39,17 @@ mod dns_handle;
 pub mod error;
 pub mod op;
 pub mod rr;
+mod retry_dns_handle;
+#[cfg(feature = "dnssec")]
+mod secure_dns_handle;
 pub mod serialize;
 pub mod tcp;
 pub mod udp;
 
 pub use dns_handle::{BasicDnsHandle, DnsFuture, DnsHandle, DnsStreamHandle, StreamHandle};
+pub use retry_dns_handle::RetryDnsHandle;
+#[cfg(feature = "dnssec")]
+pub use secure_dns_handle::SecureDnsHandle;
 use op::Message;
 use error::*;
 
