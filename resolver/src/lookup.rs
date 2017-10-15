@@ -17,7 +17,8 @@ use std::sync::Arc;
 
 use futures::{Async, future, Future, Poll, task};
 
-use trust_dns::client::{BasicClientHandle, ClientHandle, RetryClientHandle, SecureClientHandle};
+use trust_dns_proto::{BasicDnsHandle as BasicClientHandle, DnsHandle as ClientHandle,
+                      RetryDnsHandle as RetryClientHandle, SecureDnsHandle as SecureClientHandle};
 use trust_dns::error::ClientError;
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RecordType, RData};

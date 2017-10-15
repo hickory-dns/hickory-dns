@@ -38,8 +38,8 @@ coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = 
 
 [features]
 default = ["dnssec-openssl"]
-dnssec-openssl = ["dnssec", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
-dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
+dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
+dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
 [lib]
@@ -57,7 +57,6 @@ log = "^0.3.5"
 lru-cache = "^0.1.1"
 regex = "0.2.1"
 tokio-core = "^0.1"
-trust-dns = { version = "^0.12.0", path = "../client" }
 trust-dns-proto = { version = "^0.1", path = "../proto" }
 
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]

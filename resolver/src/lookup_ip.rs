@@ -18,9 +18,9 @@ use std::sync::Arc;
 
 use futures::{Async, future, Future, Poll, task};
 
-use trust_dns::client::{BasicClientHandle, ClientHandle};
-use trust_dns::op::Query;
-use trust_dns::rr::{Name, RData, RecordType};
+use trust_dns_proto::{BasicDnsHandle as BasicClientHandle, DnsHandle as ClientHandle};
+use trust_dns_proto::op::Query;
+use trust_dns_proto::rr::{Name, RData, RecordType};
 
 use config::LookupIpStrategy;
 use lookup::{Lookup, LookupEither, LookupIter};
