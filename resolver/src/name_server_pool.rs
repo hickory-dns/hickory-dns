@@ -317,6 +317,11 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
 impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for NameServer<C, P> {
     type Error = ClientError;
 
+    fn is_verifying_dnssec(&self) -> bool {
+        self.client.is_verifying_dnssec()
+    }
+
+    // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         // if state is failed, return future::err(), unless retry delay expired...
         if let Err(error) = self.try_reconnect() {
@@ -357,13 +362,6 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for NameS
             // These are connection failures, not lookup failures, that is handled in the resolver layer
             future::err(error)
         }))
-    }
-}
-
-// TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for NameServer<C, P> {
-    fn is_verifying_dnssec(&self) -> bool {
-        self.client.is_verifying_dnssec()
     }
 }
 
@@ -508,19 +506,6 @@ where
                 })
                 .or_else(move |_| Self::try_send(stream_conns2, tcp_message2)),
         )
-    }
-}
-
-impl<C, P> ClientHandle for NameServerPool<C, P>
-where
-    C: ClientHandle + 'static,
-    P: ConnectionProvider<ConnHandle = C> + 'static,
-{
-    fn is_verifying_dnssec(&self) -> bool {
-        // don't pull a lock on this
-        // it is expected that a validating client will wrap this, as opposed to the other direction.
-        // so pool -> nameserver -> basic_client_handle will always return false anyway
-        false
     }
 }
 

@@ -105,52 +105,10 @@ impl DnsHandle for BasicClientHandle {
     }
 }
 
-impl ClientHandle for BasicClientHandle {
-    fn is_verifying_dnssec(&self) -> bool {
-        false
-    }
-}
+impl<T> ClientHandle for T where T: DnsHandle<Error = ClientError> {}
 
 /// A trait for implementing high level functions of DNS.
 pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
-    /// Ony returns true if and only if this client is validating DNSSec.
-    ///
-    /// If the ClientHandle impl is wrapping other clients, then the correct option is to delegate the question to the wrapped client.
-    fn is_verifying_dnssec(&self) -> bool {
-        false
-    }
-
-    /// A *classic* DNS query
-    ///
-    /// This is identical to `query`, but instead takes a `Query` object.
-    ///
-    /// # Arguments
-    ///
-    /// * `query` - the query to lookup
-    fn lookup(&mut self, query: Query) -> Box<Future<Item = Message, Error = ClientError>> {
-        debug!("querying: {} {:?}", query.name(), query.query_type());
-
-        // build the message
-        let mut message: Message = Message::new();
-        let id: u16 = rand::random();
-
-        message.add_query(query);
-        message
-            .set_id(id)
-            .set_message_type(MessageType::Query)
-            .set_op_code(OpCode::Query)
-            .set_recursion_desired(true);
-
-        // Extended dns
-        {
-            let edns = message.edns_mut();
-            edns.set_max_payload(1500);
-            edns.set_version(0);
-        }
-
-        self.send(message)
-    }
-
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
@@ -171,8 +129,6 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         query.set_query_class(query_class);
         self.lookup(query)
     }
-
-
 
     /// Sends a NOTIFY message to the remote system
     ///

@@ -5,85 +5,79 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::error::Error;
+
 use futures::{Future, Poll};
 
-use client::ClientHandle;
-use error::*;
+use error::ProtoError;
+use DnsHandle;
 use op::Message;
-use trust_dns_proto::DnsHandle;
 
-// TODO: move to proto
 /// Can be used to reattempt a queries if they fail
 ///
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
-pub struct RetryClientHandle<H: ClientHandle> {
-    client: H,
+pub struct RetryDnsHandle<H: DnsHandle<Error = E>, E = <H as DnsHandle>::Error> 
+where
+    E: From<ProtoError> + Error + Clone + 'static, 
+ {
+    handle: H,
     attempts: usize,
 }
 
-impl<H> RetryClientHandle<H>
+impl<H, E> RetryDnsHandle<H, E>
 where
-    H: ClientHandle,
+    H: DnsHandle<Error = E>,
+    E: From<ProtoError> + Error + Clone + 'static,
 {
     /// Creates a new Client handler for reattempting requests on failures.
     ///
     /// # Arguments
     ///
-    /// * `client` - handle to the client connection
+    /// * `handle` - handle to the dns connection
     /// * `attempts` - number of attempts before failing
-    pub fn new(client: H, attempts: usize) -> RetryClientHandle<H> {
-        RetryClientHandle {
-            client: client,
-            attempts: attempts,
-        }
+    pub fn new(handle: H, attempts: usize) -> RetryDnsHandle<H> {
+        RetryDnsHandle { handle, attempts }
     }
 }
 
-impl<H> DnsHandle for RetryClientHandle<H>
+impl<H, E> DnsHandle for RetryDnsHandle<H>
 where
-    H: ClientHandle + 'static,
+    H: DnsHandle<Error = E> + 'static,
+    E: From<ProtoError> + Error + Clone + 'static,
 {
-    type Error = ClientError;
+    type Error = <H as DnsHandle>::Error;
 
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         // need to clone here so that the retry can resend if necessary...
         //  obviously it would be nice to be lazy about this...
-        let future = self.client.send(message.clone());
+        let future = self.handle.send(message.clone());
 
         return Box::new(RetrySendFuture {
             message: message,
-            client: self.client.clone(),
+            handle: self.handle.clone(),
             future: future,
             remaining_attempts: self.attempts,
         });
     }
 }
 
-impl<H> ClientHandle for RetryClientHandle<H>
-where
-    H: ClientHandle + 'static,
-{
-    fn is_verifying_dnssec(&self) -> bool {
-        self.client.is_verifying_dnssec()
-    }
-}
-
 /// A future for retrying (on failure, for the remaining number of times specified)
-struct RetrySendFuture<H: ClientHandle> {
+struct RetrySendFuture<H: DnsHandle, E> {
     message: Message,
-    client: H,
-    future: Box<Future<Item = Message, Error = ClientError>>,
+    handle: H,
+    future: Box<Future<Item = Message, Error = E>>,
     remaining_attempts: usize,
 }
 
-impl<H> Future for RetrySendFuture<H>
+impl<H, E> Future for RetrySendFuture<H, E>
 where
-    H: ClientHandle,
+    H: DnsHandle<Error = E>,
+    E: From<ProtoError> + Error + Clone,
 {
     type Item = Message;
-    type Error = ClientError;
+    type Error = <H as DnsHandle>::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // loop over the future, on errors, spawn a new future
@@ -99,7 +93,7 @@ where
                     self.remaining_attempts = self.remaining_attempts - 1;
                     // TODO: if the "sent" Message is part of the error result,
                     //  then we can just reuse it... and no clone necessary
-                    self.future = self.client.send(self.message.clone());
+                    self.future = self.handle.send(self.message.clone());
                 }
             }
         }
@@ -109,11 +103,11 @@ where
 #[cfg(test)]
 mod test {
     use std::cell::Cell;
-    use client::*;
     use error::*;
     use op::*;
     use futures::*;
-    use trust_dns_proto::DnsHandle;
+    use DnsHandle;
+    use super::*;
 
     #[derive(Clone)]
     struct TestClient {
@@ -123,9 +117,9 @@ mod test {
     }
 
     impl DnsHandle for TestClient {
-        type Error = ClientError;
+        type Error = ProtoError;
 
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = ClientError>> {
+        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
             let i = self.attempts.get();
 
             if i > self.retries || self.retries - i == 0 {
@@ -138,20 +132,14 @@ mod test {
 
             self.attempts.set(i + 1);
             return Box::new(failed(
-                ClientErrorKind::Message("last retry set to fail").into(),
+                ProtoErrorKind::Message("last retry set to fail").into(),
             ));
-        }
-    }
-
-    impl ClientHandle for TestClient {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
         }
     }
 
     #[test]
     fn test_retry() {
-        let mut client = RetryClientHandle::new(
+        let mut handle = RetryDnsHandle::new(
             TestClient {
                 last_succeed: true,
                 retries: 1,
@@ -160,7 +148,7 @@ mod test {
             2,
         );
         let test1 = Message::new();
-        let result = client.send(test1).wait().ok().expect(
+        let result = handle.send(test1).wait().ok().expect(
             "should have succeeded",
         );
         assert_eq!(result.id(), 1); // this is checking the number of iterations the TestCient ran
@@ -168,7 +156,7 @@ mod test {
 
     #[test]
     fn test_error() {
-        let mut client = RetryClientHandle::new(
+        let mut client = RetryDnsHandle::new(
             TestClient {
                 last_succeed: false,
                 retries: 1,

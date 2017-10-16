@@ -74,15 +74,6 @@ where
     }
 }
 
-impl<H> ClientHandle for MemoizeClientHandle<H>
-where
-    H: ClientHandle,
-{
-    fn is_verifying_dnssec(&self) -> bool {
-        self.client.is_verifying_dnssec()
-    }
-}
-
 #[cfg(test)]
 mod test {
     use std::cell::Cell;
@@ -109,12 +100,6 @@ mod test {
             self.i.set(i + 1);
 
             Box::new(finished(message))
-        }
-    }
-
-    impl ClientHandle for TestClient {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
         }
     }
 

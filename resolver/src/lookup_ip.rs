@@ -287,7 +287,6 @@ pub mod tests {
 
     use futures::{future, Future};
 
-    use trust_dns::client::ClientHandle;
     use trust_dns::error::*;
     use trust_dns::op::Message;
     use trust_dns::rr::{Name, Record, RData, RecordType};
@@ -307,12 +306,6 @@ pub mod tests {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
-        }
-    }
-
-    impl ClientHandle for MockClientHandle {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
         }
     }
 

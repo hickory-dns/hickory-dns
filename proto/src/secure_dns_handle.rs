@@ -9,14 +9,13 @@
 
 use std::clone::Clone;
 use std::collections::HashSet;
+use std::error::Error;
 use std::mem;
 use std::rc::Rc;
 
 use futures::*;
-use trust_dns_proto::DnsHandle;
-use trust_dns_proto::error::{ProtoErrorKind, ProtoResult};
 
-use client::ClientHandle;
+use DnsHandle;
 use error::*;
 use op::{Message, OpCode, Query};
 use rr::{domain, DNSClass, RData, Record, RecordType};
@@ -34,45 +33,50 @@ struct Rrset {
     pub records: Vec<Record>,
 }
 
-/// Performs DNSSec validation of all DNS responses from the wrapped ClientHandle
+/// Performs DNSSec validation of all DNS responses from the wrapped DnsHandle
 ///
-/// This wraps a ClientHandle, changing the implementation `send()` to validate all
+/// This wraps a DnsHandle, changing the implementation `send()` to validate all
 ///  message responses for Query operations. Update operation responses are not validated by
 ///  this process.
 #[derive(Clone)]
-#[must_use = "queries can only be sent through a ClientHandle"]
-pub struct SecureClientHandle<H: ClientHandle + 'static> {
-    client: H,
+#[must_use = "queries can only be sent through a DnsHandle"]
+pub struct SecureDnsHandle<H, E = <H as DnsHandle>::Error>
+where
+    H: DnsHandle<Error = E> + 'static,
+    E: From<ProtoError> + Error + Clone + 'static,
+{
+    handle: H,
     trust_anchor: Rc<TrustAnchor>,
     request_depth: usize,
     minimum_key_len: usize,
     minimum_algorithm: Algorithm, // used to prevent down grade attacks...
 }
 
-impl<H> SecureClientHandle<H>
+impl<H, E> SecureDnsHandle<H, E>
 where
-    H: ClientHandle + 'static,
+    H: DnsHandle<Error = E> + 'static,
+    E: From<ProtoError> + Error + Clone + 'static,
 {
-    /// Create a new SecureClientHandle wrapping the speicified client.
+    /// Create a new SecureDnsHandle wrapping the speicified handle.
     ///
     /// This uses the compiled in TrustAnchor default trusted keys.
     ///
     /// # Arguments
-    /// * `client` - client to use for all connections to a remote server.
-    pub fn new(client: H) -> SecureClientHandle<H> {
-        Self::with_trust_anchor(client, TrustAnchor::default())
+    /// * `handle` - handle to use for all connections to a remote server.
+    pub fn new(handle: H) -> SecureDnsHandle<H> {
+        Self::with_trust_anchor(handle, TrustAnchor::default())
     }
 
-    /// Create a new SecureClientHandle wrapping the speicified client.
+    /// Create a new SecureDnsHandle wrapping the speicified handle.
     ///
     /// This allows a custom TrustAnchor to be define.
     ///
     /// # Arguments
-    /// * `client` - client to use for all connections to a remote server.
+    /// * `handle` - handle to use for all connections to a remote server.
     /// * `trust_anchor` - custom DNSKEYs that will be trusted, can be used to pin trusted keys.
-    pub fn with_trust_anchor(client: H, trust_anchor: TrustAnchor) -> SecureClientHandle<H> {
-        SecureClientHandle {
-            client: client,
+    pub fn with_trust_anchor(handle: H, trust_anchor: TrustAnchor) -> SecureDnsHandle<H> {
+        SecureDnsHandle {
+            handle: handle,
             trust_anchor: Rc::new(trust_anchor),
             request_depth: 0,
             minimum_key_len: 0,
@@ -80,12 +84,12 @@ where
         }
     }
 
-    /// An internal function used to clone the client, but maintain some information back to the
-    ///  original client, such as the request_depth such that infinite recurssion does
+    /// An internal function used to clone the handle, but maintain some information back to the
+    ///  original handle, such as the request_depth such that infinite recurssion does
     ///  not occur.
     fn clone_with_context(&self) -> Self {
-        SecureClientHandle {
-            client: self.client.clone(),
+        SecureDnsHandle {
+            handle: self.handle.clone(),
             trust_anchor: self.trust_anchor.clone(),
             request_depth: self.request_depth + 1,
             minimum_key_len: self.minimum_key_len,
@@ -94,19 +98,25 @@ where
     }
 }
 
-impl<H> DnsHandle for SecureClientHandle<H>
+impl<H, E> DnsHandle for SecureDnsHandle<H>
 where
-    H: ClientHandle,
+    H: DnsHandle<Error = E>,
+    E: From<ProtoError> + Error + Clone,
 {
-    type Error = ClientError;
+    type Error = E;
+
+    fn is_verifying_dnssec(&self) -> bool {
+        // This handler is always verifying...
+        true
+    }
 
     fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
-            return Box::new(failed(
-                ClientErrorKind::Message("exceeded max validation depth")
+            return Box::new(failed(E::from(
+                ProtoErrorKind::Message("exceeded max validation depth")
                     .into(),
-            ));
+            )));
         }
 
         // dnssec only matters on queries.
@@ -114,7 +124,7 @@ where
             // This will panic on no queries, that is a very odd type of request, isn't it?
             // TODO: there should only be one
             let query = message.queries().first().cloned().unwrap();
-            let client: SecureClientHandle<H> = self.clone_with_context();
+            let handle: SecureDnsHandle<H> = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
             #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -123,7 +133,7 @@ where
 
                 edns.set_dnssec_ok(true);
 
-                // send along the algorithms which are supported by this client
+                // send along the algorithms which are supported by this handle
                 let mut algorithms = SupportedAlgorithms::new();
                 #[cfg(feature = "ring")]
                 {
@@ -148,13 +158,13 @@ where
             );
 
             return Box::new(
-                self.client
+                self.handle
                     .send(message)
                     .and_then(move |message_response| {
                         // group the record sets by name and type
                         //  each rrset type needs to validated independently
                         debug!("validating message_response: {}", message_response.id());
-                        verify_rrsets(client, message_response, dns_class)
+                        verify_rrsets(handle, message_response, dns_class)
                     })
                     .and_then(move |verified_message| {
                         // at this point all of the message is verified.
@@ -169,12 +179,12 @@ where
 
                             if !verify_nsec(&query, nsecs) {
                                 // TODO change this to remove the NSECs, like we do for the others?
-                                return Err(
-                                    ClientErrorKind::Message(
+                                return Err(E::from(
+                                    ProtoErrorKind::Message(
                                         "could not validate nxdomain \
                                                                  with NSEC",
                                     ).into(),
-                                );
+                                ));
                             }
                         }
 
@@ -183,36 +193,27 @@ where
             );
         }
 
-        self.client.send(message)
-    }
-}
-
-impl<H> ClientHandle for SecureClientHandle<H>
-where
-    H: ClientHandle + 'static,
-{
-    fn is_verifying_dnssec(&self) -> bool {
-        // This handler is always verifying...
-        true
+        self.handle.send(message)
     }
 }
 
 /// A future to verify all RRSets in a returned Message.
-struct VerifyRrsetsFuture {
+struct VerifyRrsetsFuture<E> {
     message_result: Option<Message>,
-    rrsets: SelectAll<Box<Future<Item = Rrset, Error = ClientError>>>,
+    rrsets: SelectAll<Box<Future<Item = Rrset, Error = E>>>,
     verified_rrsets: HashSet<(domain::Name, RecordType)>,
 }
 
 /// this pulls all records returned in a Message respons and returns a future which will
 ///  validate all of them.
-fn verify_rrsets<H>(
-    client: SecureClientHandle<H>,
+fn verify_rrsets<H, E>(
+    handle: SecureDnsHandle<H>,
     message_result: Message,
     dns_class: DNSClass,
-) -> Box<Future<Item = Message, Error = ClientError>>
+) -> Box<Future<Item = Message, Error = E>>
 where
-    H: ClientHandle,
+    H: DnsHandle<Error = E>,
+    E: From<ProtoError> + Error + Clone,
 {
     let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
     for rrset in message_result.answers()
@@ -223,7 +224,7 @@ where
                              //   this means that only DNSKEY and DS are intersting at that point.
                              //   this protects against looping over things like NS records and DNSKEYs in responses.
                              // TODO: is there a cleaner way to prevent cycles in the evaluations?
-                                          (client.request_depth <= 1 ||
+                                          (handle.request_depth <= 1 ||
                                            rr.rr_type() == RecordType::DNSKEY ||
                                            rr.rr_type() == RecordType::DS))
                              .map(|rr| (rr.name().clone(), rr.rr_type())) {
@@ -239,16 +240,14 @@ where
         message_result.take_name_servers();
         message_result.take_additionals();
 
-        return Box::new(failed(
-            ClientErrorKind::Message("no results to verify").into(),
-        ));
+        return Box::new(failed(E::from(
+            ProtoErrorKind::Message("no results to verify").into(),
+        )));
     }
-
-
 
     // collect all the rrsets to verify
     // TODO: is there a way to get rid of this clone() safely?
-    let mut rrsets: Vec<Box<Future<Item = Rrset, Error = ClientError>>> =
+    let mut rrsets: Vec<Box<Future<Item = Rrset, Error = E>>> =
         Vec::with_capacity(rrset_types.len());
     for (name, record_type) in rrset_types {
         // TODO: should we evaluate the different sections (answers and name_servers) separately?
@@ -291,7 +290,7 @@ where
             record_type,
             rrsigs.len()
         );
-        rrsets.push(verify_rrset(client.clone_with_context(), rrset, rrsigs));
+        rrsets.push(verify_rrset(handle.clone_with_context(), rrset, rrsigs));
     }
 
     // spawn a select_all over this vec, these are the individual RRSet validators
@@ -305,13 +304,16 @@ where
     })
 }
 
-impl Future for VerifyRrsetsFuture {
+impl<E> Future for VerifyRrsetsFuture<E>
+where
+    E: From<ProtoError> + Error,
+{
     type Item = Message;
-    type Error = ClientError;
+    type Error = E;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         if self.message_result.is_none() {
-            return Err(ClientErrorKind::Message("message is none").into());
+            return Err(E::from(ProtoErrorKind::Message("message is none").into()));
         }
 
         // loop through all the rrset evaluations, filter all the rrsets in the Message
@@ -334,7 +336,7 @@ impl Future for VerifyRrsetsFuture {
                 //       on a validation failure?
                 // any error, is an error for all
                 Err((e, _, remaining)) => {
-                    debug!("an rrset failed to verify: {}", e);
+                    debug!("an rrset failed to verify: {:?}", e);
                     if remaining.is_empty() {
                         return Err(e);
                     }
@@ -407,13 +409,14 @@ impl Future for VerifyRrsetsFuture {
 ///  validated to prove it's correctness. There is a special case for DNSKEY, where if the RRSET
 ///  is unsigned, `rrsigs` is empty, then an immediate `verify_dnskey_rrset()` is triggered. In
 ///  this case, it's possible the DNSKEY is a trust_anchor and is not self-signed.
-fn verify_rrset<H>(
-    client: SecureClientHandle<H>,
+fn verify_rrset<H, E>(
+    handle: SecureDnsHandle<H, E>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = ClientError>>
+) -> Box<Future<Item = Rrset, Error = E>>
 where
-    H: ClientHandle,
+    H: DnsHandle<Error = E>,
+    E: From<ProtoError> + Error + Clone,
 {
     // Special case for unsigned DNSKEYs, it's valid for a DNSKEY to be bare in the zone if
     //  it's a trust_anchor, though some DNS servers choose to self-sign in this case,
@@ -423,17 +426,17 @@ where
             debug!("unsigned key: {}, {:?}", rrset.name, rrset.record_type);
             // FIXME: validate that this DNSKEY is stronger than the one lower in the chain,
             //  also, set the min algorithm to this algorithm to prevent downgrade attacks.
-            return verify_dnskey_rrset(client.clone_with_context(), rrset);
+            return verify_dnskey_rrset(handle.clone_with_context(), rrset);
         }
     }
 
     // standard validation path
-    Box::new(verify_default_rrset(client.clone_with_context(), rrset, rrsigs)
+    Box::new(verify_default_rrset(handle.clone_with_context(), rrset, rrsigs)
         .and_then(|rrset|
           // POST validation
           match rrset.record_type {
-            RecordType::DNSKEY => verify_dnskey_rrset(client, rrset),
-            // RecordType::DS => verify_ds_rrset(client, name, record_type, record_class, rrset, rrsigs),
+            RecordType::DNSKEY => verify_dnskey_rrset(handle, rrset),
+            // RecordType::DS => verify_ds_rrset(handle, name, record_type, record_class, rrset, rrsigs),
             _ => Box::new(finished(rrset)),
           }
         )
@@ -449,12 +452,13 @@ where
 /// This first checks to see if the key is in the set of trust_anchors. If so then it's returned
 ///  as a success. Otherwise, a query is sent to get the DS record, and the DNSKEY is validated
 ///  against the DS record.
-fn verify_dnskey_rrset<H>(
-    mut client: SecureClientHandle<H>,
+fn verify_dnskey_rrset<H, E>(
+    mut handle: SecureDnsHandle<H, E>,
     rrset: Rrset,
-) -> Box<Future<Item = Rrset, Error = ClientError>>
+) -> Box<Future<Item = Rrset, Error = E>>
 where
-    H: ClientHandle,
+    H: DnsHandle<Error = E>,
+    E: From<ProtoError> + Error + Clone,
 {
     debug!(
         "dnskey validation {}, record_type: {:?}",
@@ -475,7 +479,7 @@ where
                 None
             })
             .filter_map(|(i, rdata)| {
-                if client.trust_anchor.contains_dnskey_bytes(
+                if handle.trust_anchor.contains_dnskey_bytes(
                     rdata.public_key(),
                 )
                 {
@@ -501,8 +505,8 @@ where
     }
 
     // need to get DS records for each DNSKEY
-    let valid_dnskey = client
-        .query(rrset.name.clone(), rrset.record_class, RecordType::DS)
+    let valid_dnskey = handle
+        .lookup(Query::query(rrset.name.clone(), RecordType::DS))
         .and_then(move |ds_message| {
             let valid_keys = rrset
                 .records
@@ -538,7 +542,7 @@ where
                 Ok(rrset)
             } else {
                 Err(
-                    ClientErrorKind::Message("Could not validate all DNSKEYs").into(),
+                    E::from(ProtoErrorKind::Message("Could not validate all DNSKEYs").into()),
                 )
             }
         });
@@ -610,13 +614,14 @@ fn test_preserve() {
 /// Invalid RRSIGs will be ignored. RRSIGs will only be validated against DNSKEYs which can
 ///  be validated through a chain back to the `trust_anchor`. As long as one RRSIG is valid,
 ///  then the RRSET will be valid.
-fn verify_default_rrset<H>(
-    client: SecureClientHandle<H>,
+fn verify_default_rrset<H, E>(
+    handle: SecureDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = ClientError>>
+) -> Box<Future<Item = Rrset, Error = E>>
 where
-    H: ClientHandle,
+    H: DnsHandle<Error = E>,
+    E: From<ProtoError> + Error + Clone,
 {
     // the record set is going to be shared across a bunch of futures, Rc for that.
     let rrset = Rc::new(rrset);
@@ -670,7 +675,7 @@ where
                               }
                             })
                             .next()
-                            .ok_or(ClientErrorKind::Message("self-signed dnskey is invalid").into()),
+                            .ok_or(E::from(ProtoErrorKind::Message("self-signed dnskey is invalid").into())),
             ).map(move |rrset| {
                 Rc::try_unwrap(rrset).expect("unable to unwrap Rc")
             }),
@@ -699,9 +704,9 @@ where
                             )
                             .map(|sig| {
                               let rrset = rrset.clone();
-                              let mut client = client.clone_with_context();
+                              let mut handle = handle.clone_with_context();
 
-                              client.query(sig.signer_name().clone(), rrset.record_class, RecordType::DNSKEY)
+                              handle.lookup(Query::query(sig.signer_name().clone(), RecordType::DNSKEY))
                                     .and_then(move |message|
                                       // DNSKEYs are validated by the inner query
                                       message.answers()
@@ -715,7 +720,7 @@ where
                                                }
                                              )
                                              .map(|_| rrset)
-                                             .ok_or(ClientErrorKind::Message("validation failed").into())
+                                             .ok_or(E::from(ProtoErrorKind::Message("validation failed").into()))
                                     )
                             })
                             .collect::<Vec<_>>();
@@ -723,12 +728,12 @@ where
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
         return Box::new(failed(
-            ClientErrorKind::Msg(format!(
+            E::from(ProtoErrorKind::Msg(format!(
                 "no RRSIGs available for \
                                                              validation: {}, {:?}",
                 rrset.name,
                 rrset.record_type
-            )).into(),
+            )).into()),
         ));
     }
 
@@ -764,7 +769,7 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> ProtoR
 
 /// Will always return an error. To enable record verification compile with the openssl feature.
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
-fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ClientResult<()> {
+fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ProtoResult<()> {
     Err(
         ProtoErrorKind::Message("openssl or ring feature(s) not enabled").into(),
     )

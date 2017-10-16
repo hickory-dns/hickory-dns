@@ -20,7 +20,7 @@ use rand;
 use tokio_core::reactor::{Handle, Timeout};
 
 use error::*;
-use op::{Message, MessageFinalizer, OpCode};
+use op::{Message, MessageFinalizer, MessageType, OpCode, Query};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
@@ -453,7 +453,14 @@ impl DnsHandle for BasicDnsHandle {
 /// A trait for implementing high level functions of DNS.
 pub trait DnsHandle: Clone {
     /// The associated error type returned by future send operations
-    type Error;
+    type Error: From<ProtoError> + Clone;
+
+    /// Ony returns true if and only if this DNS handle is validating DNSSec.
+    ///
+    /// If the DnsHandle impl is wrapping other clients, then the correct option is to delegate the question to the wrapped client.
+    fn is_verifying_dnssec(&self) -> bool {
+        false
+    }
 
     /// Send a message via the channel in the client
     ///
@@ -463,4 +470,39 @@ pub trait DnsHandle: Clone {
     ///               will most likely be required to rewrite the QueryId, do no rely on that as
     ///               being stable.
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>>;
+
+    /// A *classic* DNS query
+    ///
+    /// This is identical to `query`, but instead takes a `Query` object.
+    ///
+    /// # Arguments
+    ///
+    /// * `query` - the query to lookup
+    fn lookup(&mut self, query: Query) -> Box<Future<Item = Message, Error = Self::Error>> {
+        debug!("querying: {} {:?}", query.name(), query.query_type());
+
+        // build the message
+        let mut message: Message = Message::new();
+
+        // TODO: This is not the final ID, it's actually set in the poll method of DNS future
+        //  should we just remove this?
+        let id: u16 = rand::random();
+
+        message.add_query(query);
+        message
+            .set_id(id)
+            .set_message_type(MessageType::Query)
+            .set_op_code(OpCode::Query)
+            .set_recursion_desired(true);
+
+        // Extended dns
+        {
+            // TODO: this should really be configurable...
+            let edns = message.edns_mut();
+            edns.set_max_payload(1500);
+            edns.set_version(0);
+        }
+
+        self.send(message)
+    }
 }

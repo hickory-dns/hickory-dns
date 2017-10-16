@@ -87,19 +87,17 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for Looku
     // TODO: this should be a ResolverError.
     type Error = ClientError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
-        match *self {
-            LookupEither::Retry(ref mut c) => c.send(message),
-            LookupEither::Secure(ref mut c) => c.send(message),
-        }
-    }
-}
-
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> ClientHandle for LookupEither<C, P> {
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
             LookupEither::Retry(ref c) => c.is_verifying_dnssec(),
             LookupEither::Secure(ref c) => c.is_verifying_dnssec(),
+        }
+    }
+
+    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+        match *self {
+            LookupEither::Retry(ref mut c) => c.send(message),
+            LookupEither::Secure(ref mut c) => c.send(message),
         }
     }
 }
@@ -300,7 +298,6 @@ pub mod tests {
 
     use futures::{future, Future};
 
-    use trust_dns::client::ClientHandle;
     use trust_dns::error::*;
     use trust_dns::op::Message;
     use trust_dns::rr::{Name, Record, RData, RecordType};
@@ -319,12 +316,6 @@ pub mod tests {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
-        }
-    }
-
-    impl ClientHandle for MockClientHandle {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
         }
     }
 
