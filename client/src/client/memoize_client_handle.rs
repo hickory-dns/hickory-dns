@@ -103,12 +103,6 @@ mod test {
         }
     }
 
-    impl ClientHandle for TestClient {
-        fn is_verifying_dnssec(&self) -> bool {
-            false
-        }
-    }
-
     #[test]
     fn test_memoized() {
         let mut client = MemoizeClientHandle::new(TestClient { i: Cell::new(0) });
