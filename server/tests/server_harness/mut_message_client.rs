@@ -27,6 +27,10 @@ impl<C: ClientHandle> MutMessageHandle<C> {
 impl<C: ClientHandle> DnsHandle for MutMessageHandle<C> {
     type Error = ClientError;
 
+    fn is_verifying_dnssec(&self) -> bool {
+        true
+    }
+
     fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         {
             // mutable block
@@ -40,11 +44,5 @@ impl<C: ClientHandle> DnsHandle for MutMessageHandle<C> {
 
         println!("sending message");
         self.client.send(message)
-    }
-}
-
-impl<C: ClientHandle> ClientHandle for MutMessageHandle<C> {
-    fn is_verifying_dnssec(&self) -> bool {
-        true
     }
 }
