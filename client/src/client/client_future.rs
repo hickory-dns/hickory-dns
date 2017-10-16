@@ -105,21 +105,10 @@ impl DnsHandle for BasicClientHandle {
     }
 }
 
-impl ClientHandle for BasicClientHandle {
-    fn is_verifying_dnssec(&self) -> bool {
-        false
-    }
-}
+impl<T> ClientHandle for T where T: DnsHandle<Error = ClientError> {}
 
 /// A trait for implementing high level functions of DNS.
 pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
-    /// Ony returns true if and only if this client is validating DNSSec.
-    ///
-    /// If the ClientHandle impl is wrapping other clients, then the correct option is to delegate the question to the wrapped client.
-    fn is_verifying_dnssec(&self) -> bool {
-        false
-    }
-
     /// A *classic* DNS query
     ///
     /// This is identical to `query`, but instead takes a `Query` object.

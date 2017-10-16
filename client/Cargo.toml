@@ -41,8 +41,8 @@ coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = 
 
 [features]
 default = ["dnssec-openssl"]
-dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/openssl"]
-dnssec-ring = ["dnssec", "ring", "trust-dns-proto/ring"]
+dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl"]
+dnssec-ring = ["dnssec", "ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
 [lib]

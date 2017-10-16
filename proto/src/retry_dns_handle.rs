@@ -5,8 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::error::Error;
+
 use futures::{Future, Poll};
 
+use error::ProtoError;
 use DnsHandle;
 use op::Message;
 
@@ -15,14 +18,18 @@ use op::Message;
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
-pub struct RetryDnsHandle<H: DnsHandle> {
+pub struct RetryDnsHandle<H: DnsHandle<Error = E>, E = <H as DnsHandle>::Error> 
+where
+    E: From<ProtoError> + Error + Clone + 'static, 
+ {
     handle: H,
     attempts: usize,
 }
 
-impl<H> RetryDnsHandle<H>
+impl<H, E> RetryDnsHandle<H, E>
 where
-    H: DnsHandle,
+    H: DnsHandle<Error = E>,
+    E: From<ProtoError> + Error + Clone + 'static,
 {
     /// Creates a new Client handler for reattempting requests on failures.
     ///
@@ -31,17 +38,14 @@ where
     /// * `handle` - handle to the dns connection
     /// * `attempts` - number of attempts before failing
     pub fn new(handle: H, attempts: usize) -> RetryDnsHandle<H> {
-        RetryDnsHandle {
-            handle,
-            attempts,
-        }
+        RetryDnsHandle { handle, attempts }
     }
 }
 
 impl<H, E> DnsHandle for RetryDnsHandle<H>
 where
     H: DnsHandle<Error = E> + 'static,
-    E: 'static
+    E: From<ProtoError> + Error + Clone + 'static,
 {
     type Error = <H as DnsHandle>::Error;
 
@@ -70,6 +74,7 @@ struct RetrySendFuture<H: DnsHandle, E> {
 impl<H, E> Future for RetrySendFuture<H, E>
 where
     H: DnsHandle<Error = E>,
+    E: From<ProtoError> + Error + Clone,
 {
     type Item = Message;
     type Error = <H as DnsHandle>::Error;

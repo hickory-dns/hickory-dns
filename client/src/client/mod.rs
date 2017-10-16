@@ -21,9 +21,6 @@ mod client_connection;
 mod client_future;
 mod memoize_client_handle;
 mod rc_future;
-mod retry_client_handle;
-#[cfg(any(feature = "openssl", feature = "ring"))]
-mod secure_client_handle;
 
 #[allow(deprecated)]
 pub use self::client::{Client, SyncClient};
