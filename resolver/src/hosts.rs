@@ -8,7 +8,7 @@ use std::str::FromStr;
 use std::path::Path;
 use std::sync::Arc;
 
-use trust_dns::rr::{Name, RData};
+use trust_dns_proto::rr::{Name, RData};
 use lookup::Lookup;
 
 /// Configuration for the local `/etc/hosts`
