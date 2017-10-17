@@ -98,7 +98,7 @@ impl DnsLru {
     }
 
     fn nx_error(query: Query) -> ResolveError {
-        ResolveErrorKind::NoRecordFound(query).into()
+        ResolveErrorKind::NoRecordsFound(query).into()
     }
 
     fn negative(&mut self, query: Query, ttl: u32, now: Instant) -> ResolveError {
@@ -686,7 +686,7 @@ mod tests {
                 .wait()
                 .unwrap_err()
                 .kind(),
-            &ResolveErrorKind::NoRecordFound(Query::new())
+            &ResolveErrorKind::NoRecordsFound(Query::new())
         );
     }
 
