@@ -99,21 +99,6 @@ error_chain! {
         display("no error specified")
       }
 
-      NotAllBytesSent(sent: usize, expect: usize) {
-        description("not all bytes were sent")
-        display("not all bytes were sent: {}, expected: {}", sent, expect)
-      }
-
-      NotAllBytesReceived(received: usize, expect: usize) {
-        description("not all bytes were recieved")
-        display("not all bytes were recieved: {}, expected: {}", received, expect)
-      }
-
-      IncorrectMessageId(got: u16, expect: u16) {
-        description("incorrectMessageId received")
-        display("incorrectMessageId got: {}, expected: {}", got, expect)
-      }
-
       IncorrectRDataLengthRead(read: usize, len: usize) {
         description("incorrect rdata length read")
         display("incorrect rdata length read: {} expected: {}", read, len)
@@ -157,72 +142,6 @@ error_chain! {
       UnknownRecordTypeValue(value: u16) {
         description("record type value unknown")
         display("record type value unknown: {}", value)
-      }
-
-      // TODO: these are only necessary until TXT serialization stuff is moved
-      EscapedCharOutsideCharData {
-        description("escaped character outside character data")
-        display("escaped character outside character data")
-      }
-
-      IllegalCharacter(ch: char) {
-        description("illegal character input")
-        display("illegal character input: {}", ch)
-      }
-
-      UnrecognizedChar(ch: char) {
-        description("unrecognized character input")
-        display("unrecognized character input: {}", ch)
-      }
-
-      BadEscapedData(string: String) {
-        description("escaped data not recognized")
-        display("escaped data not recognized: {}", string)
-      }
-
-      UnrecognizedOctet(octet: u32) {
-        description("unrecognized octet")
-        display("unrecognized octet: {:x}", octet)
-      }
-
-      UnclosedQuotedString {
-        description("unclosed quoted string")
-        display("unclosed quoted string")
-      }
-
-      UnclosedList {
-        description("unclosed list, missing ')'")
-        display("unclosed list, missing ')'")
-      }
-
-      UnrecognizedDollar(string: String) {
-        description("unrecognized dollar content")
-        display("unrecognized dollar content: {}", string)
-      }
-
-      EOF {
-        description("unexpected end of input")
-        display("unexpected end of input")
-      }
-
-      IllegalState(string: &'static str) {
-        description("illegal state")
-        display("illegal state: {}", string)
-      }
-
-      MissingToken(string: String) {
-        description("token is missing")
-        display("token is missing: {}", string)
-      }
-
-      CharToIntError(ch: char) {
-        description("invalid numerical character")
-        display("invalid numerical character: {}", ch)
-      }
-
-      ParseTimeError(string: String) {
-        description("invalid time string")
-        display("invalid time string: {}", string)
       }
 
       RrsigsNotPresent(name: Name, record_type: RecordType) {
@@ -298,9 +217,6 @@ impl Clone for ProtoErrorKind {
             ),
             &ProtoErrorKind::FromUtf8Error => ProtoErrorKind::FromUtf8Error,
             &ProtoErrorKind::Io => ProtoErrorKind::Io,
-            &ProtoErrorKind::IncorrectMessageId(got, expect) => {
-                ProtoErrorKind::IncorrectMessageId(got, expect)
-            }
             &ProtoErrorKind::IncorrectRDataLengthRead(read, len) => {
                 ProtoErrorKind::IncorrectRDataLengthRead(read, len)
             }
@@ -308,12 +224,6 @@ impl Clone for ProtoErrorKind {
             &ProtoErrorKind::Message(msg) => ProtoErrorKind::Message(msg),
             &ProtoErrorKind::Msg(ref string) => ProtoErrorKind::Msg(string.clone()),
             &ProtoErrorKind::NoError => ProtoErrorKind::NoError,
-            &ProtoErrorKind::NotAllBytesSent(sent, expect) => {
-                ProtoErrorKind::NotAllBytesSent(sent, expect)
-            }
-            &ProtoErrorKind::NotAllBytesReceived(received, expect) => {
-                ProtoErrorKind::NotAllBytesReceived(received, expect)
-            }
             &ProtoErrorKind::ParseIntError => ProtoErrorKind::ParseIntError,
             &ProtoErrorKind::Timeout => ProtoErrorKind::Timeout,
             &ProtoErrorKind::UnknownAlgorithmTypeValue(value) => {
@@ -337,35 +247,11 @@ impl Clone for ProtoErrorKind {
             &ProtoErrorKind::UnknownRecordTypeValue(value) => {
                 ProtoErrorKind::UnknownRecordTypeValue(value)
             }
-            &ProtoErrorKind::EscapedCharOutsideCharData => {
-                ProtoErrorKind::EscapedCharOutsideCharData
-            }
-            &ProtoErrorKind::IllegalCharacter(ch) => ProtoErrorKind::IllegalCharacter(ch),
-            &ProtoErrorKind::UnrecognizedChar(ch) => ProtoErrorKind::UnrecognizedChar(ch),
-            &ProtoErrorKind::BadEscapedData(ref string) => ProtoErrorKind::BadEscapedData(
-                string.clone(),
-            ),
-            &ProtoErrorKind::UnrecognizedOctet(octet) => ProtoErrorKind::UnrecognizedOctet(octet),
-            &ProtoErrorKind::UnclosedQuotedString => ProtoErrorKind::UnclosedQuotedString,
-            &ProtoErrorKind::UnclosedList => ProtoErrorKind::UnclosedList,
-            &ProtoErrorKind::UnrecognizedDollar(ref string) => ProtoErrorKind::UnrecognizedDollar(
-                string.clone(),
-            ),
-            &ProtoErrorKind::EOF => ProtoErrorKind::EOF,
-            &ProtoErrorKind::IllegalState(string) => ProtoErrorKind::IllegalState(string),
-            &ProtoErrorKind::MissingToken(ref string) => ProtoErrorKind::MissingToken(
-                string.clone(),
-            ),
-            &ProtoErrorKind::CharToIntError(ch) => ProtoErrorKind::CharToIntError(ch),
-            &ProtoErrorKind::ParseTimeError(ref string) => ProtoErrorKind::ParseTimeError(
-                string.clone(),
-            ),
             &ProtoErrorKind::Ring => ProtoErrorKind::Ring,
             &ProtoErrorKind::SSL => ProtoErrorKind::SSL,
-            &ProtoErrorKind::RrsigsNotPresent(ref name, ref record_type) => ProtoErrorKind::RrsigsNotPresent(
-                name.clone(),
-                *record_type,
-            ),
+            &ProtoErrorKind::RrsigsNotPresent(ref name, ref record_type) => {
+                ProtoErrorKind::RrsigsNotPresent(name.clone(), *record_type)
+            }
         }
     }
 }
