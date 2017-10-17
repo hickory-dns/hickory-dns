@@ -24,9 +24,7 @@ error_chain! {
   //
   // This section can be empty.
   links {
-    DecodeError, DecodeErrorKind, Decode;
     DnsSecError, DnsSecErrorKind, DnsSec;
-    EncodeError, EncodeErrorKind, Encode;
     ProtoError, ProtoErrorKind, ProtoError;
   }
 
