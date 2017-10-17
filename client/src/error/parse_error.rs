@@ -17,7 +17,6 @@ use std::num;
 use std::io;
 use std::net::AddrParseError;
 
-use super::decode_error;
 use super::lexer_error;
 use serialize::txt::Token;
 
@@ -37,7 +36,6 @@ error_chain! {
     // This section can be empty.
     links {
       ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
-      decode_error::Error, decode_error::ErrorKind, Decode;
       lexer_error::Error, lexer_error::ErrorKind, Lexer;
     }
 

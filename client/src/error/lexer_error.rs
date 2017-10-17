@@ -49,11 +49,6 @@ error_chain! {
     // the same as `quick_error!`, but the `from()` and `cause()`
     // syntax is not supported.
     errors {
-      EscapedCharOutsideCharData {
-        description("escaped character outside character data")
-        display("escaped character outside character data")
-      }
-
       IllegalCharacter(ch: char) {
         description("illegal character input")
         display("illegal character input: {}", ch)
@@ -62,11 +57,6 @@ error_chain! {
       UnrecognizedChar(ch: char) {
         description("unrecognized character input")
         display("unrecognized character input: {}", ch)
-      }
-
-      BadEscapedData(string: String) {
-        description("escaped data not recognized")
-        display("escaped data not recognized: {}", string)
       }
 
       UnrecognizedOctet(octet: u32) {

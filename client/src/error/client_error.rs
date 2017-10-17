@@ -16,15 +16,12 @@
 
 use std::io;
 
-use futures::Canceled;
 use futures::sync::mpsc::SendError;
 #[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(not(feature = "openssl"))]
 use error::dnssec_error::not_openssl::SslErrorStack;
 
-use op::ResponseCode;
-use rr::{Name, Record};
 use error::{DnsSecError, DnsSecErrorKind};
 
 error_chain! {
@@ -43,8 +40,6 @@ error_chain! {
     // This section can be empty.
     links {
         ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
-        super::decode_error::Error, super::decode_error::ErrorKind, Decode;
-        super::encode_error::Error, super::encode_error::ErrorKind, Encode;
         DnsSecError, DnsSecErrorKind, DnsSec;
     }
 
@@ -68,63 +63,11 @@ error_chain! {
         display("no error specified")
       }
 
-      Canceled(c: Canceled) {
-        description("future was canceled")
-        display("future was canceled: {:?}", c)
-      }
-
       Message(msg: &'static str) {
         description(msg)
         display("{}", msg)
       }
 
-      NotAllBytesSent(sent: usize, expect: usize) {
-        description("not all bytes were sent")
-        display("not all bytes were sent: {}, expected: {}", sent, expect)
-      }
-
-      NotAllBytesReceived(received: usize, expect: usize) {
-        description("not all bytes were recieved")
-        display("not all bytes were recieved: {}, expected: {}", received, expect)
-      }
-
-      IncorrectMessageId(got: u16, expect: u16) {
-        description("incorrectMessageId received")
-        display("incorrectMessageId got: {}, expected: {}", got, expect)
-      }
-
-      ErrorResponse(response_code: ResponseCode) {
-        description("response was an error")
-        display("response was an error: {}", response_code.to_str())
-      }
-
-      // TODO: add record to which this applies
-      NoRRSIG {
-        description("no rrsig was recieved")
-        display("no rrsig was recieved")
-      }
-
-      // TODO: add record to which this applies
-      NoDNSKEY {
-        description("no dnskey proof available")
-        display("no dnskey proof available")
-      }
-
-      // TODO: add record to which this applies
-      NoDS {
-        description("no ds proof available")
-        display("no ds proof available")
-      }
-      //
-      NoSOARecord(name: Name) {
-        description("no soa record found")
-        display("no soa record found for zone: {}", name)
-      }
-
-      SecNxDomain(proof: Vec<Record>) {
-        description("verified secure non-existence")
-        display("verified secure non-existence: {:?}", proof)
-      }
 
       Timeout {
         description("request timeout")
@@ -136,12 +79,6 @@ error_chain! {
 impl From<()> for Error {
     fn from(_: ()) -> Self {
         ErrorKind::NoError.into()
-    }
-}
-
-impl From<Canceled> for Error {
-    fn from(c: Canceled) -> Self {
-        ErrorKind::Canceled(c).into()
     }
 }
 
