@@ -15,14 +15,14 @@ use std::time::{Duration, Instant};
 use futures::{Async, future, Future, Poll, task};
 use tokio_core::reactor::Handle;
 
-use trust_dns::error::*;
-use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
-use trust_dns::op::{Edns, Message, ResponseCode};
-use trust_dns::udp::UdpClientStream;
-use trust_dns::tcp::TcpClientStream;
-use trust_dns_proto::DnsHandle;
+use trust_dns_proto::{DnsFuture, DnsHandle};
+use trust_dns_proto::op::{Edns, Message, NoopMessageFinalizer, ResponseCode};
+use trust_dns_proto::udp::UdpClientStream;
+use trust_dns_proto::tcp::TcpClientStream;
 
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
+use error::*;
+use resolver_future::BasicResolverHandle;
 
 const MIN_RETRY_DELAY_MS: u64 = 500;
 const MAX_RETRY_DELAY_S: u64 = 360;
@@ -40,7 +40,7 @@ enum NameServerState {
     ///  failed at some point after. The Failed state should *not* be entered due to an
     ///  error contained in a Message recieved from the server. In All cases to reestablish
     ///  a new connection will need to be created.
-    Failed { error: ClientError, when: Instant }, // TODO: make error Arc...
+    Failed { error: ResolveError, when: Instant }, // TODO: make error Arc...
 }
 
 impl NameServerState {
@@ -122,7 +122,7 @@ impl NameServerStats {
         };
     }
 
-    fn next_failure(&mut self, error: ClientError, when: Instant) {
+    fn next_failure(&mut self, error: ResolveError, when: Instant) {
         self.failures += 1;
 
         // update current state
@@ -180,33 +180,35 @@ pub trait ConnectionProvider: Clone {
 pub struct StandardConnection;
 
 impl ConnectionProvider for StandardConnection {
-    type ConnHandle = BasicClientHandle;
+    type ConnHandle = BasicResolverHandle;
 
     fn new_connection(
         config: &NameServerConfig,
         options: &ResolverOpts,
         reactor: &Handle,
     ) -> Self::ConnHandle {
-        match config.protocol {
+        let dns_handle = match config.protocol {
             Protocol::Udp => {
                 let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor);
                 // TODO: need config for Signer...
-                ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
+                DnsFuture::with_timeout(stream, handle, reactor, options.timeout, NoopMessageFinalizer::new())
             }
             Protocol::Tcp => {
                 let (stream, handle) =
                     TcpClientStream::with_timeout(config.socket_addr, reactor, options.timeout);
                 // TODO: need config for Signer...
-                ClientFuture::with_timeout(stream, handle, reactor, options.timeout, None)
+                DnsFuture::with_timeout(stream, handle, reactor, options.timeout, NoopMessageFinalizer::new())
             }
             // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr, reactor),
-        }
+        };
+
+        BasicResolverHandle::new(dns_handle)
     }
 }
 
 #[derive(Clone)]
 #[doc(hidden)]
-pub struct NameServer<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> {
+pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
     config: NameServerConfig,
     options: ResolverOpts,
     client: C,
@@ -216,12 +218,12 @@ pub struct NameServer<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> {
     phantom: PhantomData<P>,
 }
 
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
+impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     pub fn new(
         config: NameServerConfig,
         options: ResolverOpts,
         reactor: &Handle,
-    ) -> NameServer<BasicClientHandle, StandardConnection> {
+    ) -> NameServer<BasicResolverHandle, StandardConnection> {
         let client = StandardConnection::new_connection(&config, &options, reactor);
 
         // TODO: setup EDNS
@@ -255,9 +257,8 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     /// checks if the connection is failed, if so, then it
     ///  will check the last falure time, and if the retry period is acceptable,
     ///  then reconnect.
-    #[allow(unused_must_use)] // TODO: remove must use from BasicClientHandle
-    fn try_reconnect(&mut self) -> ClientResult<()> {
-        let error_opt: Option<(ClientError, Instant, usize, usize)> = self.stats
+    fn try_reconnect(&mut self) -> ResolveResult<()> {
+        let error_opt: Option<(ResolveError, Instant, usize, usize)> = self.stats
             .lock()
             .map(|stats| if let NameServerState::Failed {
                 ref error,
@@ -269,7 +270,7 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
                 None
             })
             .map_err(|e| {
-                ClientErrorKind::Msg(
+                ResolveErrorKind::Msg(
                     format!("Error acquiring NameServerStats lock: {}", e).into(),
                 )
             })?;
@@ -314,8 +315,12 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     }
 }
 
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for NameServer<C, P> {
-    type Error = ClientError;
+impl<C, P> DnsHandle for NameServer<C, P>
+where
+    C: DnsHandle<Error = ResolveError>,
+    P: ConnectionProvider<ConnHandle = C>
+{
+    type Error = ResolveError;
 
     fn is_verifying_dnssec(&self) -> bool {
         self.client.is_verifying_dnssec()
@@ -365,7 +370,7 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for NameS
     }
 }
 
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, P> {
+impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<C, P> {
     /// Custom implementation of Ord for NameServer which incorporates the performance of the connection into it's ranking
     fn cmp(&self, other: &Self) -> Ordering {
         // if they are literally equal, just return
@@ -383,26 +388,26 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> Ord for NameServer<
     }
 }
 
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> PartialOrd for NameServer<C, P> {
+impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> PartialOrd for NameServer<C, P> {
     fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
         Some(self.cmp(other))
     }
 }
 
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> PartialEq for NameServer<C, P> {
+impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> PartialEq for NameServer<C, P> {
     /// NameServers are equal if the config (connection information) are equal
     fn eq(&self, other: &Self) -> bool {
         self.config == other.config
     }
 }
 
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P> {}
+impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P> {}
 
 /// A pool of NameServers
 ///
 /// This is not expected to be used directly, see `ResolverFuture`.
 #[derive(Clone)]
-pub struct NameServerPool<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
+pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
     datagram_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
     stream_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
@@ -410,14 +415,13 @@ pub struct NameServerPool<C: ClientHandle + 'static, P: ConnectionProvider<ConnH
     phantom: PhantomData<P>,
 }
 
-impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
-    NameServerPool<C, P> {
+impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> NameServerPool<C, P> {
     pub(crate) fn from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
         reactor: &Handle,
-    ) -> NameServerPool<BasicClientHandle, StandardConnection> {
-        let datagram_conns: BinaryHeap<NameServer<BasicClientHandle, StandardConnection>> =
+    ) -> NameServerPool<BasicResolverHandle, StandardConnection> {
+        let datagram_conns: BinaryHeap<NameServer<BasicResolverHandle, StandardConnection>> =
             config
                 .name_servers()
                 .iter()
@@ -431,7 +435,7 @@ impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
                 })
                 .collect();
 
-        let stream_conns: BinaryHeap<NameServer<BasicClientHandle, StandardConnection>> =
+        let stream_conns: BinaryHeap<NameServer<BasicResolverHandle, StandardConnection>> =
             config
                 .name_servers()
                 .iter()
@@ -480,10 +484,10 @@ impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
 
 impl<C, P> DnsHandle for NameServerPool<C, P>
 where
-    C: ClientHandle + 'static,
+    C: DnsHandle<Error = ResolveError> + 'static,
     P: ConnectionProvider<ConnHandle = C> + 'static,
 {
-    type Error = ClientError;
+    type Error = ResolveError;
 
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         let datagram_conns = self.datagram_conns.clone();
@@ -509,18 +513,21 @@ where
     }
 }
 
-enum TrySend<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
+enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     Lock {
         conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
         message: Option<Message>,
     },
-    DoSend(Box<Future<Item = Message, Error = ClientError>>),
+    DoSend(Box<Future<Item = Message, Error = ResolveError>>),
 }
 
-impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Future
-    for TrySend<C, P> {
+impl<C, P> Future for TrySend<C, P> 
+where
+    C: DnsHandle<Error = ResolveError> + 'static,
+    P: ConnectionProvider<ConnHandle = C> + 'static
+{
     type Item = Message;
-    type Error = ClientError;
+    type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let future;
@@ -535,7 +542,7 @@ impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
                 match conns {
                     Err(TryLockError::Poisoned(_)) => {
                         // TODO: what to do on poisoned errors? this is non-recoverable, right?
-                        return Err(ClientErrorKind::Msg("Lock Poisoned".to_string()).into());
+                        return Err(ResolveErrorKind::Msg("Lock Poisoned".to_string()).into());
                     }
                     Err(TryLockError::WouldBlock) => return Ok(Async::NotReady),
                     Ok(mut conns) => {
@@ -543,7 +550,9 @@ impl<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static>
                         let conn = conns.peek_mut();
 
                         if conn.is_none() {
-                            return Err(ClientErrorKind::Message("No connections available").into());
+                            return Err(
+                                ResolveErrorKind::Message("No connections available").into(),
+                            );
                         }
 
                         let message = mem::replace(message, None);
@@ -570,9 +579,9 @@ mod tests {
 
     use tokio_core::reactor::Core;
 
-    use trust_dns::client::ClientHandle;
-    use trust_dns::op::ResponseCode;
-    use trust_dns::rr::{DNSClass, Name, RecordType};
+    use trust_dns_proto::DnsHandle;
+    use trust_dns_proto::op::{Query, ResponseCode};
+    use trust_dns_proto::rr::{Name, RecordType};
 
     use config::Protocol;
     use super::*;
@@ -593,7 +602,7 @@ mod tests {
 
         let failed = NameServerStats {
             state: NameServerState::Failed {
-                error: ClientErrorKind::Msg("test".to_string()).into(),
+                error: ResolveErrorKind::Msg("test".to_string()).into(),
                 when: Instant::now(),
             },
             successes: 0,
@@ -635,7 +644,7 @@ mod tests {
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = io_loop
-            .run(name_server.query(name.clone(), DNSClass::IN, RecordType::A))
+            .run(name_server.lookup(Query::query(name.clone(), RecordType::A)))
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
     }
@@ -655,7 +664,7 @@ mod tests {
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             io_loop
-                .run(name_server.query(name.clone(), DNSClass::IN, RecordType::A))
+                .run(name_server.lookup(Query::query(name.clone(), RecordType::A)))
                 .is_err()
         );
     }
@@ -691,7 +700,7 @@ mod tests {
         for i in 0..2 {
             assert!(
                 io_loop
-                    .run(pool.query(name.clone(), DNSClass::IN, RecordType::A))
+                    .run(pool.lookup(Query::query(name.clone(), RecordType::A)))
                     .is_err(),
                 "iter: {}",
                 i
@@ -701,7 +710,7 @@ mod tests {
         for i in 0..10 {
             assert!(
                 io_loop
-                    .run(pool.query(name.clone(), DNSClass::IN, RecordType::A))
+                    .run(pool.lookup(Query::query(name.clone(), RecordType::A)))
                     .is_ok(),
                 "iter: {}",
                 i

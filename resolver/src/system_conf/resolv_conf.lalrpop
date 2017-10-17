@@ -9,7 +9,7 @@ use std::str::FromStr;
 use std::net::IpAddr;
 
 use lalrpop_util::ErrorRecovery;
-use trust_dns::rr::Name;
+use trust_dns_proto::rr::Name;
 
 use system_conf::resolv_conf_ast::*;
 

@@ -9,7 +9,6 @@
 //! Lookup result from a resolution of ipv4 and ipv6 records with a Resolver.
 
 use std::error::Error as StdError;
-use std::io;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::mem;
 use std::slice::Iter;
@@ -17,16 +16,15 @@ use std::sync::Arc;
 
 use futures::{Async, future, Future, Poll, task};
 
-use trust_dns_proto::{BasicDnsHandle as BasicClientHandle, DnsHandle as ClientHandle,
-                      RetryDnsHandle as RetryClientHandle, SecureDnsHandle as SecureClientHandle};
-use trust_dns::error::ClientError;
-use trust_dns::op::{Message, Query};
-use trust_dns::rr::{Name, RecordType, RData};
-use trust_dns::rr::rdata;
-use trust_dns_proto::DnsHandle;
+use trust_dns_proto::{DnsHandle, RetryDnsHandle, SecureDnsHandle};
+use trust_dns_proto::op::{Message, Query};
+use trust_dns_proto::rr::{Name, RecordType, RData};
+use trust_dns_proto::rr::rdata;
 
+use error::*;
 use lookup_state::CachingClient;
 use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
+use resolver_future::BasicResolverHandle;
 
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Client library.
 ///
@@ -79,14 +77,14 @@ impl<'a> Iterator for LookupIter<'a> {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither<C: ClientHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
-    Retry(RetryClientHandle<NameServerPool<C, P>>),
-    Secure(SecureClientHandle<RetryClientHandle<NameServerPool<C, P>>>),
+pub enum LookupEither<C: DnsHandle<Error = ResolveError> + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
+    Retry(RetryDnsHandle<NameServerPool<C, P>>),
+    Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
-impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for LookupEither<C, P> {
-    // TODO: this should be a ResolverError.
-    type Error = ClientError;
+impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> DnsHandle
+    for LookupEither<C, P> {
+    type Error = ResolveError;
 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
@@ -104,18 +102,18 @@ impl<C: ClientHandle, P: ConnectionProvider<ConnHandle = C>> DnsHandle for Looku
 }
 
 /// The Future returned from ResolverFuture when performing a lookup.
-pub type LookupFuture = InnerLookupFuture<LookupEither<BasicClientHandle, StandardConnection>>;
+pub type LookupFuture = InnerLookupFuture<LookupEither<BasicResolverHandle, StandardConnection>>;
 
 /// The Future returned from ResolverFuture when performing a lookup.
 #[doc(hidden)]
-pub struct InnerLookupFuture<C: ClientHandle + 'static> {
+pub struct InnerLookupFuture<C: DnsHandle<Error = ResolveError> + 'static> {
     client_cache: CachingClient<C>,
     names: Vec<Name>,
     record_type: RecordType,
-    future: Box<Future<Item = Lookup, Error = io::Error>>,
+    future: Box<Future<Item = Lookup, Error = ResolveError>>,
 }
 
-impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
     /// Perform a lookup from a name and type to a set of RDatas
     ///
     /// # Arguments
@@ -142,10 +140,10 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
         }
     }
 
-    fn next_lookup<F: FnOnce() -> Poll<Lookup, io::Error>>(
+    fn next_lookup<F: FnOnce() -> Poll<Lookup, ResolveError>>(
         &mut self,
         otherwise: F,
-    ) -> Poll<Lookup, io::Error> {
+    ) -> Poll<Lookup, ResolveError> {
         let name = self.names.pop();
         if let Some(name) = name {
             let query = self.client_cache.lookup(
@@ -168,15 +166,15 @@ impl<C: ClientHandle + 'static> InnerLookupFuture<C> {
             names: vec![],
             record_type: RecordType::NULL,
             future: Box::new(future::err(
-                io::Error::new(io::ErrorKind::Other, format!("{}", error)),
+                ResolveErrorKind::Msg(format!("{}", error)).into(),
             )),
         };
     }
 }
 
-impl<C: ClientHandle + 'static> Future for InnerLookupFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> Future for InnerLookupFuture<C> {
     type Item = Lookup;
-    type Error = io::Error;
+    type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.future.poll() {
@@ -241,7 +239,7 @@ impl From<LookupFuture> for $f {
 
 impl Future for $f {
     type Item = $l;
-    type Error = io::Error;
+    type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.poll() {
@@ -299,19 +297,19 @@ pub mod tests {
 
     use futures::{future, Future};
 
-    use trust_dns::error::*;
-    use trust_dns::op::Message;
-    use trust_dns::rr::{Name, Record, RData, RecordType};
+    //use trust_dns_proto::error::*;
+    use trust_dns_proto::op::Message;
+    use trust_dns_proto::rr::{Name, Record, RData, RecordType};
 
     use super::*;
 
     #[derive(Clone)]
-    pub struct MockClientHandle {
-        messages: Arc<Mutex<Vec<ClientResult<Message>>>>,
+    pub struct MockDnsHandle {
+        messages: Arc<Mutex<Vec<ResolveResult<Message>>>>,
     }
 
-    impl DnsHandle for MockClientHandle {
-        type Error = ClientError;
+    impl DnsHandle for MockDnsHandle {
+        type Error = ResolveError;
 
         fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
             Box::new(future::result(
@@ -320,7 +318,7 @@ pub mod tests {
         }
     }
 
-    pub fn v4_message() -> ClientResult<Message> {
+    pub fn v4_message() -> ResolveResult<Message> {
         let mut message = Message::new();
         message.insert_answers(vec![
             Record::from_rdata(
@@ -333,16 +331,16 @@ pub mod tests {
         Ok(message)
     }
 
-    pub fn empty() -> ClientResult<Message> {
+    pub fn empty() -> ResolveResult<Message> {
         Ok(Message::new())
     }
 
-    pub fn error() -> ClientResult<Message> {
-        Err(ClientErrorKind::Io.into())
+    pub fn error() -> ResolveResult<Message> {
+        Err(ResolveErrorKind::Io.into())
     }
 
-    pub fn mock(messages: Vec<ClientResult<Message>>) -> MockClientHandle {
-        MockClientHandle { messages: Arc::new(Mutex::new(messages)) }
+    pub fn mock(messages: Vec<ResolveResult<Message>>) -> MockDnsHandle {
+        MockDnsHandle { messages: Arc::new(Mutex::new(messages)) }
     }
 
     #[test]
@@ -383,7 +381,7 @@ pub mod tests {
             ).wait()
                 .unwrap_err()
                 .kind(),
-            io::ErrorKind::AddrNotAvailable
+            &ResolveErrorKind::NoRecordFound(Query::query(Name::root(), RecordType::A))
         );
     }
 }

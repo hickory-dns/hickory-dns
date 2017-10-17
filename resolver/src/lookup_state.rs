@@ -8,18 +8,17 @@
 //! Caching related functionality for the Resolver.
 
 use std::cell::RefCell;
-use std::io;
 use std::mem;
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
 use futures::{Async, Future, Poll, task};
 
-use trust_dns_proto::{DnsHandle as ClientHandle};
-use trust_dns_proto::error::ProtoError as ClientError;
+use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::{Message, Query, ResponseCode};
 use trust_dns_proto::rr::{Name, RData, RecordType};
 
+use error::*;
 use lookup::Lookup;
 use lru_cache::LruCache;
 
@@ -98,14 +97,11 @@ impl DnsLru {
         lookup
     }
 
-    fn nx_error(query: Query) -> io::Error {
-        io::Error::new(
-            io::ErrorKind::AddrNotAvailable,
-            format!("Addr does not exist for: {}", query),
-        )
+    fn nx_error(query: Query) -> ResolveError {
+        ResolveErrorKind::NoRecordFound(query).into()
     }
 
-    fn negative(&mut self, query: Query, ttl: u32, now: Instant) -> io::Error {
+    fn negative(&mut self, query: Query, ttl: u32, now: Instant) -> ResolveError {
         // TODO: if we are getting a negative response, should we instead fallback to cache?
         //   this would cache indefinitely, probably not correct
 
@@ -151,13 +147,13 @@ impl DnsLru {
 //       should it just be an variation on Authority?
 #[derive(Clone, Debug)]
 #[doc(hidden)]
-pub struct CachingClient<C: ClientHandle> {
+pub struct CachingClient<C: DnsHandle<Error = ResolveError>> {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
     lru: Arc<Mutex<DnsLru>>,
     client: C,
 }
 
-impl<C: ClientHandle + 'static> CachingClient<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
     #[doc(hidden)]
     pub fn new(max_size: usize, client: C) -> Self {
         Self::with_cache(Arc::new(Mutex::new(DnsLru::new(max_size))), client)
@@ -168,7 +164,7 @@ impl<C: ClientHandle + 'static> CachingClient<C> {
     }
 
     /// Perform a lookup against this caching client, looking first in the cache for a result
-    pub fn lookup(&mut self, query: Query) -> Box<Future<Item = Lookup, Error = io::Error>> {
+    pub fn lookup(&mut self, query: Query) -> Box<Future<Item = Lookup, Error = ResolveError>> {
         QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
 
         Box::new(
@@ -187,7 +183,7 @@ struct FromCache {
 
 impl Future for FromCache {
     type Item = Option<Lookup>;
-    type Error = io::Error;
+    type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // first transition any polling that is needed (mutable refs...)
@@ -198,10 +194,11 @@ impl Future for FromCache {
             }
             // TODO: need to figure out a way to recover from this.
             // It requires unwrapping the poisoned error and recreating the Mutex at a higher layer...
-            Err(TryLockError::Poisoned(poison)) => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("poisoned: {}", poison),
-            )),
+            Err(TryLockError::Poisoned(poison)) => Err(
+                ResolveErrorKind::Msg(
+                    format!("poisoned: {}", poison),
+                ).into(),
+            ),
             Ok(mut lru) => {
                 return Ok(Async::Ready(lru.get(&self.query, Instant::now())));
             }
@@ -210,8 +207,8 @@ impl Future for FromCache {
 }
 
 /// This is the Future responsible for performing an actual query.
-struct QueryFuture<C: ClientHandle + 'static> {
-    message_future: Box<Future<Item = Message, Error = ClientError>>,
+struct QueryFuture<C: DnsHandle<Error = ResolveError> + 'static> {
+    message_future: Box<Future<Item = Message, Error = ResolveError>>,
     query: Query,
     cache: Arc<Mutex<DnsLru>>,
     /// is this a DNSSec validating client?
@@ -225,12 +222,12 @@ enum Records {
     /// Records do not exist, ttl for negative caching
     NoData(Option<u32>),
     /// Future lookup for recursive cname records
-    CnameChain(Box<Future<Item = Lookup, Error = io::Error>>, u32),
+    CnameChain(Box<Future<Item = Lookup, Error = ResolveError>>, u32),
     /// Already cached, chained queries
     Chained(Lookup, u32),
 }
 
-impl<C: ClientHandle + 'static> QueryFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
     fn next_query(&mut self, query: Query, cname_ttl: u32, message: Message) -> Records {
         if QUERY_DEPTH.with(|c| *c.borrow() >= MAX_QUERY_DEPTH) {
             // TODO: This should return an error
@@ -240,7 +237,7 @@ impl<C: ClientHandle + 'static> QueryFuture<C> {
         }
     }
 
-    fn handle_noerror(&mut self, mut message: Message) -> Poll<Records, io::Error> {
+    fn handle_noerror(&mut self, mut message: Message) -> Poll<Records, ResolveError> {
         // seek out CNAMES
         // TODO: figure out how to get rid of this clone
         let mut cname_ttl = 0;
@@ -334,9 +331,9 @@ impl<C: ClientHandle + 'static> QueryFuture<C> {
     }
 }
 
-impl<C: ClientHandle + 'static> Future for QueryFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> Future for QueryFuture<C> {
     type Item = Records;
-    type Error = io::Error;
+    type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.message_future.poll() {
@@ -350,10 +347,7 @@ impl<C: ClientHandle + 'static> Future for QueryFuture<C> {
                         false, /* false b/c DNSSec should not cache NXDomain */
                     ))),
                     ResponseCode::NoError => self.handle_noerror(message),
-                    r @ _ => Err(io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("DNS Error: {}", r),
-                    )),
+                    r @ _ => Err(ResolveErrorKind::Msg(format!("DNS Error: {}", r)).into()),
                 }
 
 
@@ -372,7 +366,7 @@ struct InsertCache {
 
 impl Future for InsertCache {
     type Item = Lookup;
-    type Error = io::Error;
+    type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // first transition any polling that is needed (mutable refs...)
@@ -383,10 +377,11 @@ impl Future for InsertCache {
             }
             // TODO: need to figure out a way to recover from this.
             // It requires unwrapping the poisoned error and recreating the Mutex at a higher layer...
-            Err(TryLockError::Poisoned(poison)) => Err(io::Error::new(
-                io::ErrorKind::Other,
-                format!("poisoned: {}", poison),
-            )),
+            Err(TryLockError::Poisoned(poison)) => Err(
+                ResolveErrorKind::Msg(
+                    format!("poisoned: {}", poison),
+                ).into(),
+            ),
             Ok(mut lru) => {
                 // this will put this object into an inconsistent state, but no one should call poll again...
                 let query = mem::replace(&mut self.query, Query::new());
@@ -411,20 +406,20 @@ impl Future for InsertCache {
     }
 }
 
-enum QueryState<C: ClientHandle + 'static> {
+enum QueryState<C: DnsHandle<Error = ResolveError> + 'static> {
     /// In the FromCache state we evaluate cache entries for any results
     FromCache(FromCache, C),
     /// In the query state there is an active query that's been started, see Self::lookup()
     Query(QueryFuture<C>),
     /// CNAME lookup (internally it is making cached queries
-    CnameChain(Box<Future<Item = Lookup, Error = io::Error>>, Query, u32, Arc<Mutex<DnsLru>>),
+    CnameChain(Box<Future<Item = Lookup, Error = ResolveError>>, Query, u32, Arc<Mutex<DnsLru>>),
     /// State of adding the item to the cache
     InsertCache(InsertCache),
     /// A state which should not occur
     Error,
 }
 
-impl<C: ClientHandle + 'static> QueryState<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> QueryState<C> {
     pub(crate) fn lookup(query: Query, client: &mut C, cache: Arc<Mutex<DnsLru>>) -> QueryState<C> {
         QueryState::FromCache(FromCache { query, cache }, client.clone())
     }
@@ -458,7 +453,7 @@ impl<C: ClientHandle + 'static> QueryState<C> {
         }
     }
 
-    fn cname(&mut self, future: Box<Future<Item = Lookup, Error = io::Error>>, cname_ttl: u32) {
+    fn cname(&mut self, future: Box<Future<Item = Lookup, Error = ResolveError>>, cname_ttl: u32) {
         // The error state, this query is complete...
         let query_state = mem::replace(self, QueryState::Error);
 
@@ -531,9 +526,9 @@ impl<C: ClientHandle + 'static> QueryState<C> {
     }
 }
 
-impl<C: ClientHandle + 'static> Future for QueryState<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> Future for QueryState<C> {
     type Item = Lookup;
-    type Error = io::Error;
+    type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // first transition any polling that is needed (mutable refs...)
@@ -616,8 +611,8 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use trust_dns::op::Query;
-    use trust_dns::rr::{Name, RecordType};
+    use trust_dns_proto::op::Query;
+    use trust_dns_proto::rr::{Name, RecordType};
 
     use super::*;
     use lookup_ip::tests::*;
@@ -691,7 +686,7 @@ mod tests {
                 .wait()
                 .unwrap_err()
                 .kind(),
-            io::ErrorKind::AddrNotAvailable
+            &ResolveErrorKind::NoRecordFound(Query::new())
         );
     }
 

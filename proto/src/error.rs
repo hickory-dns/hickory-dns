@@ -9,6 +9,8 @@
 
 use std::io;
 
+use rr::{Name, RecordType};
+
 #[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(not(feature = "openssl"))]
@@ -222,6 +224,11 @@ error_chain! {
         description("invalid time string")
         display("invalid time string: {}", string)
       }
+
+      RrsigsNotPresent(name: Name, record_type: RecordType) {
+        description("rrsigs are not present for record set")
+        display("rrsigs are not present for record set name: {} record_type: {}", name, record_type)
+      }
     }
 }
 
@@ -278,11 +285,9 @@ impl From<ProtoError> for io::Error {
     }
 }
 
-// TODO: replace this when https://github.com/rust-lang-nursery/error-chain/pull/163 is merged
-impl Clone for ProtoError {
+impl Clone for ProtoErrorKind {
     fn clone(&self) -> Self {
-        let error_kind: &ProtoErrorKind = &self.0;
-        let cloned_kind: ProtoErrorKind = match error_kind {
+        match self {
             &ProtoErrorKind::AddrParseError => ProtoErrorKind::AddrParseError,
             &ProtoErrorKind::Canceled(ref c) => ProtoErrorKind::Canceled(c.clone()),
             &ProtoErrorKind::CharacterDataTooLong(len) => ProtoErrorKind::CharacterDataTooLong(len),
@@ -357,7 +362,18 @@ impl Clone for ProtoError {
             ),
             &ProtoErrorKind::Ring => ProtoErrorKind::Ring,
             &ProtoErrorKind::SSL => ProtoErrorKind::SSL,
-        };
+            &ProtoErrorKind::RrsigsNotPresent(ref name, ref record_type) => ProtoErrorKind::RrsigsNotPresent(
+                name.clone(),
+                *record_type,
+            ),
+        }
+    }
+}
+
+// TODO: replace this when https://github.com/rust-lang-nursery/error-chain/pull/163 is merged
+impl Clone for ProtoError {
+    fn clone(&self) -> Self {
+        let cloned_kind: ProtoErrorKind = self.0.clone();
 
         // sadly need to convert the inner error...
 

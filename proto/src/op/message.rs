@@ -666,6 +666,24 @@ pub trait MessageFinalizer {
     fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>>;
 }
 
+/// A MessageFinalizer which does nothing
+///
+/// *WARNING* This should only be used in None context, it will panic in all cases where finalize is called.
+pub struct NoopMessageFinalizer;
+
+impl NoopMessageFinalizer {
+    /// Always returns None
+    pub fn new() -> Option<Self> {
+        None
+    }
+}
+
+impl MessageFinalizer for NoopMessageFinalizer {
+    fn finalize_message(&self, _: &Message, _: u32) -> ProtoResult<Vec<Record>> {
+        panic!("Misused NoopMessageFinalizer, None should be used instead")
+    }
+}
+
 impl BinSerializable<Message> for Message {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
         let header = try!(Header::read(decoder));

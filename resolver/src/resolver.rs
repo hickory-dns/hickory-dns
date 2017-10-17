@@ -12,9 +12,10 @@ use std::net::IpAddr;
 use std::io;
 
 use tokio_core::reactor::Core;
-use trust_dns::rr::RecordType;
+use trust_dns_proto::rr::RecordType;
 
 use config::{ResolverConfig, ResolverOpts};
+use error::*;
 use lookup;
 use lookup::Lookup;
 use lookup_ip::LookupIp;
@@ -38,7 +39,7 @@ macro_rules! lookup_fn {
 /// # Arguments
 ///
 /// * `query` - a str which parses to a domain name, failure to parse will return an error
-pub fn $p(&self, query: &str) -> io::Result<$l> {
+pub fn $p(&self, query: &str) -> ResolveResult<$l> {
     self.io_loop.borrow_mut().run(
             self.resolver_future
                 .borrow()
@@ -52,7 +53,7 @@ pub fn $p(&self, query: &str) -> io::Result<$l> {
 /// # Arguments
 ///
 /// * `query` - a type which can be converted to `Name` via `From`.
-pub fn $p(&self, query: $t) -> io::Result<$l> {
+pub fn $p(&self, query: $t) -> ResolveResult<$l> {
     self.io_loop.borrow_mut().run(
             self.resolver_future
                 .borrow()            
@@ -99,7 +100,7 @@ impl Resolver {
     ///
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
     /// * `record_type` - type of record to lookup
-    pub fn lookup(&self, name: &str, record_type: RecordType) -> io::Result<Lookup> {
+    pub fn lookup(&self, name: &str, record_type: RecordType) -> ResolveResult<Lookup> {
         self.io_loop.borrow_mut().run(
             self.resolver_future
                 .borrow()
@@ -114,7 +115,7 @@ impl Resolver {
     /// # Arguments
     ///
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip(&self, host: &str) -> io::Result<LookupIp> {
+    pub fn lookup_ip(&self, host: &str) -> ResolveResult<LookupIp> {
         self.io_loop.borrow_mut().run(
             self.resolver_future
                 .borrow()
@@ -136,7 +137,7 @@ impl Resolver {
         service: &str,
         protocol: &str,
         name: &str,
-    ) -> io::Result<lookup::SrvLookup> {
+    ) -> ResolveResult<lookup::SrvLookup> {
         self.io_loop.borrow_mut().run(
             self.resolver_future.borrow().lookup_service(
                 service,
