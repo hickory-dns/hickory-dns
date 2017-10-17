@@ -23,7 +23,7 @@ use std::io;
 use std::io::Read;
 use std::path::Path;
 
-use trust_dns::rr::Name;
+use trust_dns_proto::rr::Name;
 
 use config::*;
 use self::resolv_conf_ast::*;
@@ -117,7 +117,7 @@ mod tests {
     use std::net::*;
     use std::str::FromStr;
     use std::time::Duration;
-    use trust_dns::rr::Name;
+    use trust_dns_proto::rr::Name;
     use super::*;
 
     fn tests_dir() -> String {

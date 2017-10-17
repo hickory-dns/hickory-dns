@@ -9,7 +9,7 @@ use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 use std::time::Duration;
 
-use trust_dns::rr::Name;
+use trust_dns_proto::rr::Name;
 
 use config::*;
 

@@ -728,12 +728,7 @@ where
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
         return Box::new(failed(
-            E::from(ProtoErrorKind::Msg(format!(
-                "no RRSIGs available for \
-                                                             validation: {}, {:?}",
-                rrset.name,
-                rrset.record_type
-            )).into()),
+            E::from(ProtoErrorKind::RrsigsNotPresent(rrset.name.clone(), rrset.record_type).into()),
         ));
     }
 
