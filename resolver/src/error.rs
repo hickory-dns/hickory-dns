@@ -46,7 +46,7 @@ error_chain! {
             display("{}", msg)
         }
 
-        NoRecordFound(query: Query) {
+        NoRecordsFound(query: Query) {
             description("no record found for name")
             display("no record found for {}", query)
         }
@@ -59,7 +59,7 @@ impl Clone for ResolveErrorKind {
             &ResolveErrorKind::Io => ResolveErrorKind::Io,
             &ResolveErrorKind::Message(ref string) => ResolveErrorKind::Message(string),
             &ResolveErrorKind::Msg(ref string) => ResolveErrorKind::Msg(string.clone()),
-            &ResolveErrorKind::NoRecordFound(ref query) => ResolveErrorKind::NoRecordFound(query.clone()),
+            &ResolveErrorKind::NoRecordsFound(ref query) => ResolveErrorKind::NoRecordsFound(query.clone()),
             &ResolveErrorKind::Proto(ref kind) => ResolveErrorKind::Proto(kind.clone()),
         }
     }
