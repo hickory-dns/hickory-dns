@@ -31,9 +31,11 @@ extern crate tokio_io;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 
+use std::error::Error;
+use std::marker::PhantomData;
 use std::net::SocketAddr;
 
-use futures::sync::mpsc::UnboundedSender;
+use futures::sync::mpsc::{UnboundedSender, SendError};
 
 mod dns_handle;
 pub mod error;
@@ -55,26 +57,42 @@ use error::*;
 
 // TODO: change to Sink
 /// A sender to which serialized DNS Messages can be sent
-pub type BufStreamHandle = UnboundedSender<(Vec<u8>, SocketAddr)>;
+#[derive(Clone)]
+pub struct BufStreamHandle<E> where E: FromProtoError {
+    sender: UnboundedSender<(Vec<u8>, SocketAddr)>,
+    phantom: PhantomData<E>
+}
+
+impl<E> BufStreamHandle<E> where E: FromProtoError {
+    /// Constructs a new BufStreamHandle with the associated ProtoError
+    pub fn new(sender: UnboundedSender<(Vec<u8>, SocketAddr)>) -> Self {
+        BufStreamHandle { sender, phantom: PhantomData::<E> }
+    }
+
+    /// see [`futures::sync::mpsc::UnboundedSender`]
+    pub fn unbounded_send(&self, msg: (Vec<u8>, SocketAddr)) -> Result<(), SendError<(Vec<u8>, SocketAddr)>> {
+        self.sender.unbounded_send(msg)
+    }
+}
 
 // TODO: change to Sink
 /// A sender to which a Message can be sent
 pub type MessageStreamHandle = UnboundedSender<Message>;
 
 /// A buffering stream bound to a `SocketAddr`
-pub struct BufDnsStreamHandle {
+pub struct BufDnsStreamHandle<E> where E: FromProtoError {
     name_server: SocketAddr,
-    sender: BufStreamHandle,
+    sender: BufStreamHandle<E>,
 }
 
-impl BufDnsStreamHandle {
+impl<E> BufDnsStreamHandle<E> where E: FromProtoError {
     /// Constructs a new Buffered Stream Handle, used for sending data to the DNS peer.
     ///
     /// # Arguments
     ///
     /// * `name_server` - the address of the DNS server
     /// * `sender` - the handle being used to send data to the server
-    pub fn new(name_server: SocketAddr, sender: BufStreamHandle) -> Self {
+    pub fn new(name_server: SocketAddr, sender: BufStreamHandle<E>) -> Self {
         BufDnsStreamHandle {
             name_server: name_server,
             sender: sender,
@@ -82,12 +100,19 @@ impl BufDnsStreamHandle {
     }
 }
 
-impl DnsStreamHandle for BufDnsStreamHandle {
-    fn send(&mut self, buffer: Vec<u8>) -> ProtoResult<()> {
+impl<E> DnsStreamHandle for BufDnsStreamHandle<E>
+where 
+    E: FromProtoError
+{
+    type Error = E;
+
+    fn send(&mut self, buffer: Vec<u8>) -> Result<(), E> {
         let name_server: SocketAddr = self.name_server;
         let sender: &mut _ = &mut self.sender;
-        sender.unbounded_send((buffer, name_server)).map_err(|e| {
-            ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()
+        sender.sender.unbounded_send((buffer, name_server)).map_err(|e| {
+            E::from(
+                ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()
+            )
         })
     }
 }

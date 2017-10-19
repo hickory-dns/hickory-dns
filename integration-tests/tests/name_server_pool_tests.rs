@@ -9,12 +9,12 @@ use std::str::FromStr;
 
 use tokio_core::reactor::{Core, Handle};
 
-use trust_dns::error::{ClientErrorKind, ClientResult};
 use trust_dns::op::{Query, Message};
 use trust_dns::rr::domain;
 use trust_dns::rr::RecordType;
 use trust_dns_proto::DnsHandle;
 use trust_dns_resolver::config::*;
+use trust_dns_resolver::error::*;
 use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
 use trust_dns_integration::mock_client::*;
 
@@ -22,18 +22,18 @@ use trust_dns_integration::mock_client::*;
 struct MockConnProvider {}
 
 impl ConnectionProvider for MockConnProvider {
-    type ConnHandle = MockClientHandle;
+    type ConnHandle = MockClientHandle<ResolveError>;
 
     fn new_connection(_: &NameServerConfig, _: &ResolverOpts, _: &Handle) -> Self::ConnHandle {
         MockClientHandle::mock(vec![])
     }
 }
 
-type MockedNameServer = NameServer<MockClientHandle, MockConnProvider>;
-type MockedNameServerPool = NameServerPool<MockClientHandle, MockConnProvider>;
+type MockedNameServer = NameServer<MockClientHandle<ResolveError>, MockConnProvider>;
+type MockedNameServerPool = NameServerPool<MockClientHandle<ResolveError>, MockConnProvider>;
 
 #[cfg(test)]
-fn mock_nameserver(messages: Vec<ClientResult<Message>>, reactor: &Handle) -> MockedNameServer {
+fn mock_nameserver(messages: Vec<ResolveResult<Message>>, reactor: &Handle) -> MockedNameServer {
     let client = MockClientHandle::mock(messages);
 
     NameServer::from_conn(
@@ -76,7 +76,7 @@ fn test_datagram() {
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver]);
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
 
     let response = reactor.run(future).unwrap();
@@ -109,7 +109,7 @@ fn test_datagram_stream_upgrade() {
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver]);
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
 
     let response = reactor.run(future).unwrap();
@@ -127,7 +127,7 @@ fn test_datagram_fails_to_stream() {
     );
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let udp_message = Err(ClientErrorKind::Msg(format!("Forced Testing Error")).into());
+    let udp_message = Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
@@ -139,7 +139,7 @@ fn test_datagram_fails_to_stream() {
     let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver]);
 
     // lookup on UDP succeeds, any other would fail
-    let request = message(query, vec![], vec![], vec![]).unwrap();
+    let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
 
     let response = reactor.run(future).unwrap();

@@ -43,7 +43,7 @@ struct Rrset {
 pub struct SecureDnsHandle<H, E = <H as DnsHandle>::Error>
 where
     H: DnsHandle<Error = E> + 'static,
-    E: From<ProtoError> + Error + Clone + 'static,
+    E: FromProtoError + 'static,
 {
     handle: H,
     trust_anchor: Rc<TrustAnchor>,
@@ -55,7 +55,7 @@ where
 impl<H, E> SecureDnsHandle<H, E>
 where
     H: DnsHandle<Error = E> + 'static,
-    E: From<ProtoError> + Error + Clone + 'static,
+    E: FromProtoError + 'static,
 {
     /// Create a new SecureDnsHandle wrapping the speicified handle.
     ///
@@ -101,7 +101,7 @@ where
 impl<H, E> DnsHandle for SecureDnsHandle<H>
 where
     H: DnsHandle<Error = E>,
-    E: From<ProtoError> + Error + Clone,
+    E: FromProtoError + Clone,
 {
     type Error = E;
 
@@ -213,7 +213,7 @@ fn verify_rrsets<H, E>(
 ) -> Box<Future<Item = Message, Error = E>>
 where
     H: DnsHandle<Error = E>,
-    E: From<ProtoError> + Error + Clone,
+    E: FromProtoError + Clone,
 {
     let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
     for rrset in message_result.answers()
@@ -306,7 +306,7 @@ where
 
 impl<E> Future for VerifyRrsetsFuture<E>
 where
-    E: From<ProtoError> + Error,
+    E: FromProtoError,
 {
     type Item = Message;
     type Error = E;
@@ -416,7 +416,7 @@ fn verify_rrset<H, E>(
 ) -> Box<Future<Item = Rrset, Error = E>>
 where
     H: DnsHandle<Error = E>,
-    E: From<ProtoError> + Error + Clone,
+    E: FromProtoError,
 {
     // Special case for unsigned DNSKEYs, it's valid for a DNSKEY to be bare in the zone if
     //  it's a trust_anchor, though some DNS servers choose to self-sign in this case,
@@ -458,7 +458,7 @@ fn verify_dnskey_rrset<H, E>(
 ) -> Box<Future<Item = Rrset, Error = E>>
 where
     H: DnsHandle<Error = E>,
-    E: From<ProtoError> + Error + Clone,
+    E: FromProtoError,
 {
     debug!(
         "dnskey validation {}, record_type: {:?}",
@@ -621,7 +621,7 @@ fn verify_default_rrset<H, E>(
 ) -> Box<Future<Item = Rrset, Error = E>>
 where
     H: DnsHandle<Error = E>,
-    E: From<ProtoError> + Error + Clone,
+    E: FromProtoError,
 {
     // the record set is going to be shared across a bunch of futures, Rc for that.
     let rrset = Rc::new(rrset);

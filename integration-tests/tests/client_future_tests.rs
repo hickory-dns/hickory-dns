@@ -35,7 +35,7 @@ fn test_query_nonet() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
-    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
 
     io_loop.run(test_query(&mut client)).unwrap();
     io_loop.run(test_query(&mut client)).unwrap();
@@ -157,7 +157,7 @@ fn test_notify() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
-    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
 
     let name = domain::Name::from_labels(vec!["ping", "example", "com"]);
 
@@ -207,7 +207,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     catalog.upsert(authority.origin().clone(), authority);
 
     let (stream, sender) = TestClientStream::new(catalog);
-    let client = ClientFuture::new(stream, sender, &io_loop.handle(), Some(signer));
+    let client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), Some(signer));
 
     (client, origin)
 }
@@ -913,7 +913,7 @@ fn test_timeout_query_nonet() {
     let (stream, sender) = NeverReturnsClientStream::new();
     let client = ClientFuture::with_timeout(
         stream,
-        sender,
+        Box::new(sender),
         &io_loop.handle(),
         std::time::Duration::from_millis(1),
         None,

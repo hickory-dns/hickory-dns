@@ -17,11 +17,12 @@ use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
 use tokio_core::reactor::Core;
 
-use trust_dns::error::ClientResult;
+use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::client::ClientConnection;
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
-use trust_dns_proto::DnsStreamHandle;
+use trust_dns_proto::{DnsStreamHandle, StreamHandle};
+use trust_dns_proto::error::FromProtoError;
 
 use trust_dns_server::authority::Catalog;
 use trust_dns_server::server::{Request, RequestHandler};
@@ -37,10 +38,11 @@ pub struct TestClientStream {
 
 #[allow(unused)]
 impl TestClientStream {
-    pub fn new(
+    pub fn new<E: FromProtoError>(
         catalog: Catalog,
-    ) -> (Box<Future<Item = Self, Error = io::Error>>, Box<DnsStreamHandle>) {
+    ) -> (Box<Future<Item = Self, Error = io::Error>>, StreamHandle<E>) {
         let (message_sender, outbound_messages) = unbounded();
+        let message_sender = StreamHandle::new(message_sender);
 
         let stream: Box<Future<Item = TestClientStream, Error = io::Error>> =
             Box::new(finished(TestClientStream {
@@ -48,7 +50,7 @@ impl TestClientStream {
                 outbound_messages: outbound_messages.fuse(),
             }));
 
-        (stream, Box::new(message_sender))
+        (stream, message_sender)
     }
 }
 
@@ -110,15 +112,16 @@ pub struct NeverReturnsClientStream {
 
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
-    pub fn new() -> (Box<Future<Item = Self, Error = io::Error>>, Box<DnsStreamHandle>) {
+    pub fn new() -> (Box<Future<Item = Self, Error = io::Error>>, StreamHandle<ClientError>) {
         let (message_sender, outbound_messages) = unbounded();
+        let message_sender = StreamHandle::new(message_sender);
 
         let stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>> =
             Box::new(finished(NeverReturnsClientStream {
                 outbound_messages: outbound_messages.fuse(),
             }));
 
-        (stream, Box::new(message_sender))
+        (stream, message_sender)
     }
 }
 
@@ -143,7 +146,7 @@ impl fmt::Debug for NeverReturnsClientStream {
 pub struct NeverReturnsClientConnection {
     io_loop: Core,
     client_stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>>,
-    client_stream_handle: Box<DnsStreamHandle>,
+    client_stream_handle: StreamHandle<ClientError>,
 }
 
 impl NeverReturnsClientConnection {
@@ -164,7 +167,7 @@ impl ClientConnection for NeverReturnsClientConnection {
 
     fn unwrap(
         self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>) {
-        (self.io_loop, self.client_stream, self.client_stream_handle)
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
+        (self.io_loop, self.client_stream, Box::new(self.client_stream_handle))
     }
 }

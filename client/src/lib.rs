@@ -247,11 +247,11 @@ use futures::sync::mpsc::UnboundedSender;
 use op::Message;
 
 /// A sender to which serialized DNS Messages can be sent
-pub type BufStreamHandle = UnboundedSender<(Vec<u8>, SocketAddr)>;
+#[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
+pub use trust_dns_proto::BufStreamHandle;
 
 /// A sender to which a Message can be sent
-pub type MessageStreamHandle = UnboundedSender<Message>;
-
+// pub type MessageStreamHandle = UnboundedSender<Message>;
 #[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
 pub use trust_dns_proto::BufDnsStreamHandle as BufClientStreamHandle;
 

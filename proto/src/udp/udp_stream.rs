@@ -6,6 +6,8 @@
 // copied, modified, or distributed except according to those terms.
 
 use std;
+use std::error::Error;
+use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::io;
 
@@ -19,6 +21,7 @@ use tokio_core;
 use tokio_core::reactor::Handle;
 
 use BufStreamHandle;
+use error::*;
 
 lazy_static!{
   static ref IPV4_ZERO: Ipv4Addr = Ipv4Addr::new(0,0,0,0);
@@ -48,11 +51,18 @@ impl UdpStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn new(
+    pub fn new<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = UdpStream, Error = io::Error>>, BufStreamHandle) {
+    ) -> (Box<Future<Item = UdpStream, Error = io::Error>>, BufStreamHandle<E>)
+    where
+        E: FromProtoError,
+    {
         let (message_sender, outbound_messages) = unbounded();
+        let message_sender = BufStreamHandle::<E> {
+            sender: message_sender,
+            phantom: PhantomData::<E>,
+        };
 
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
@@ -94,11 +104,18 @@ impl UdpStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn with_bound(
+    pub fn with_bound<E>(
         socket: std::net::UdpSocket,
         loop_handle: &Handle,
-    ) -> (Self, BufStreamHandle) {
+    ) -> (Self, BufStreamHandle<E>)
+    where
+        E: FromProtoError + 'static,
+    {
         let (message_sender, outbound_messages) = unbounded();
+        let message_sender = BufStreamHandle::<E> {
+            sender: message_sender,
+            phantom: PhantomData::<E>,
+        };
 
         // TODO: consider making this return a Result...
         let socket = tokio_core::net::UdpSocket::from_socket(socket, &loop_handle)
@@ -210,7 +227,7 @@ impl Future for NextRandomUdpSocket {
 #[test]
 fn test_next_random_socket() {
     let mut io_loop = tokio_core::reactor::Core::new().unwrap();
-    let (stream, _) = UdpStream::new(
+    let (stream, _) = UdpStream::new::<ProtoError>(
         SocketAddr::new(
             std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
             52,
@@ -301,12 +318,12 @@ fn udp_stream_test(server_addr: std::net::IpAddr) {
     };
 
     let socket = std::net::UdpSocket::bind(client_addr).expect("could not create socket"); // some random address...
-    let (mut stream, sender) = UdpStream::with_bound(socket, &io_loop.handle());
+    let (mut stream, sender) = UdpStream::with_bound::<ProtoError>(socket, &io_loop.handle());
     //let mut stream: UdpStream = io_loop.run(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {
         // test once
-        sender
+        sender.sender
             .unbounded_send((test_bytes.to_vec(), server_addr))
             .unwrap();
         let (buffer_and_addr, stream_tmp) = io_loop.run(stream.into_future()).ok().unwrap();

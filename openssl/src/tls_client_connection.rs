@@ -33,7 +33,7 @@ use super::{TlsClientStream, TlsClientStreamBuilder};
 pub struct TlsClientConnection {
     io_loop: Core,
     tls_client_stream: Box<Future<Item = TlsClientStream, Error = io::Error>>,
-    client_stream_handle: Box<DnsStreamHandle>,
+    client_stream_handle: Box<DnsStreamHandle<Error = ClientError>>,
 }
 
 impl TlsClientConnection {
@@ -48,7 +48,7 @@ impl ClientConnection for TlsClientConnection {
 
     fn unwrap(
         self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>) {
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
         (
             self.io_loop,
             self.tls_client_stream,

@@ -9,7 +9,7 @@ use std::error::Error;
 
 use futures::{Future, Poll};
 
-use error::ProtoError;
+use error::FromProtoError;
 use DnsHandle;
 use op::Message;
 
@@ -20,7 +20,7 @@ use op::Message;
 #[must_use = "queries can only be sent through a ClientHandle"]
 pub struct RetryDnsHandle<H: DnsHandle<Error = E>, E = <H as DnsHandle>::Error> 
 where
-    E: From<ProtoError> + Error + Clone + 'static, 
+    E: FromProtoError + 'static, 
  {
     handle: H,
     attempts: usize,
@@ -29,7 +29,7 @@ where
 impl<H, E> RetryDnsHandle<H, E>
 where
     H: DnsHandle<Error = E>,
-    E: From<ProtoError> + Error + Clone + 'static,
+    E: FromProtoError + 'static,
 {
     /// Creates a new Client handler for reattempting requests on failures.
     ///
@@ -45,7 +45,7 @@ where
 impl<H, E> DnsHandle for RetryDnsHandle<H>
 where
     H: DnsHandle<Error = E> + 'static,
-    E: From<ProtoError> + Error + Clone + 'static,
+    E: FromProtoError + 'static,
 {
     type Error = <H as DnsHandle>::Error;
 
@@ -74,7 +74,7 @@ struct RetrySendFuture<H: DnsHandle, E> {
 impl<H, E> Future for RetrySendFuture<H, E>
 where
     H: DnsHandle<Error = E>,
-    E: From<ProtoError> + Error + Clone,
+    E: FromProtoError,
 {
     type Item = Message;
     type Error = <H as DnsHandle>::Error;

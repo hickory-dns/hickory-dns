@@ -18,6 +18,7 @@ use tokio_core::reactor::Core;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
+use trust_dns::error::ClientError;
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
@@ -44,10 +45,10 @@ impl ClientConnection for TestClientConnection {
 
     fn unwrap(
         self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>) {
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
         let io_loop = Core::new().unwrap();
         let (stream, handle) = TestClientStream::new(self.catalog);
-        (io_loop, stream, handle)
+        (io_loop, stream, Box::new(handle))
     }
 }
 

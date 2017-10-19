@@ -32,11 +32,11 @@ use hosts::Hosts;
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicResolverHandle {
-    message_sender: BasicDnsHandle,
+    message_sender: BasicDnsHandle<ResolveError>,
 }
 
 impl BasicResolverHandle {
-    pub(crate) fn new(dns_handle: BasicDnsHandle) -> Self {
+    pub(crate) fn new(dns_handle: BasicDnsHandle<ResolveError>) -> Self {
         BasicResolverHandle { message_sender: dns_handle }
     }
 }
