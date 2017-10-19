@@ -12,7 +12,9 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use tokio_core::reactor::Handle;
-use trust_dns::client::{BasicClientHandle, RetryClientHandle, SecureClientHandle};
+use trust_dns::client::{BasicClientHandle, RetryClientHandle};
+#[cfg(feature = "dnssec")]
+use trust_dns::client::SecureClientHandle;
 use trust_dns::rr::{Name, RecordType};
 
 use config::{ResolverConfig, ResolverOpts};
@@ -65,6 +67,20 @@ pub fn $p(&self, query: $t) -> $f {
     };
 }
 
+#[cfg(feature = "dnssec")]
+fn wrap_client(client: RetryClientHandle<NameServerPool<BasicClientHandle, StandardConnection>>, options: &ResolverOpts) -> LookupEither<BasicClientHandle, StandardConnection> {
+    if options.validate {
+        LookupEither::Secure(SecureClientHandle::new(client))
+    } else {
+        LookupEither::Retry(client)
+    }
+}
+
+#[cfg(not(feature = "dnssec"))]
+fn wrap_client(client: RetryClientHandle<NameServerPool<BasicClientHandle, StandardConnection>>, _: &ResolverOpts) -> LookupEither<BasicClientHandle, StandardConnection> {
+    LookupEither::Retry(client)
+}
+
 impl ResolverFuture {
     /// Construct a new ResolverFuture with the associated Client.
     pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
@@ -73,18 +89,14 @@ impl ResolverFuture {
             &options,
             reactor,
         );
-        let either;
+
         let client = RetryClientHandle::new(pool.clone(), options.attempts);
-        if options.validate {
-            either = LookupEither::Secure(SecureClientHandle::new(client));
-        } else {
-            either = LookupEither::Retry(client);
-        }
+        let either = wrap_client(client, &options);
 
         let hosts = if options.use_hosts_file {
             Some(Hosts::new())
         } else {
-            None 
+            None
         };
 
         ResolverFuture {
