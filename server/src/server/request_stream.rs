@@ -4,6 +4,7 @@ use std::net::SocketAddr;
 use futures::{Async, Poll, Stream};
 
 use trust_dns::BufStreamHandle;
+use trust_dns::error::ClientError;
 use trust_dns::op::Message;
 use trust_dns::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
 
@@ -23,7 +24,7 @@ pub struct Request {
 ///  can be returned.
 pub struct RequestStream<S> {
     stream: S,
-    stream_handle: BufStreamHandle,
+    stream_handle: BufStreamHandle<ClientError>,
 }
 
 impl<S> RequestStream<S> {
@@ -32,7 +33,7 @@ impl<S> RequestStream<S> {
     /// # Arguments
     /// * `stream` - Stream from which requests will be read
     /// * `stream_handle` - Handle to which responses will be posted
-    pub fn new(stream: S, stream_handle: BufStreamHandle) -> Self {
+    pub fn new(stream: S, stream_handle: BufStreamHandle<ClientError>) -> Self {
         RequestStream {
             stream: stream,
             stream_handle: stream_handle,
@@ -91,7 +92,7 @@ where
 ///  associated destination.
 pub struct ResponseHandle {
     dst: SocketAddr,
-    stream_handle: BufStreamHandle,
+    stream_handle: BufStreamHandle<ClientError>,
 }
 
 impl ResponseHandle {

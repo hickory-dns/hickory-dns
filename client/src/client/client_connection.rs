@@ -21,6 +21,8 @@ use tokio_core::reactor::Core;
 
 use trust_dns_proto::DnsStreamHandle;
 
+use error::*;
+
 /// Trait for client connections
 pub trait ClientConnection: Sized {
     /// The associated DNS Message stream type.
@@ -31,5 +33,5 @@ pub trait ClientConnection: Sized {
     /// Consumes the connection and allows for future based operations afterward.
     fn unwrap(
         self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>);
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>);
 }

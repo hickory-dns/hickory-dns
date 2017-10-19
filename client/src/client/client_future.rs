@@ -44,7 +44,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
         stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<ClientStreamHandle>,
+        stream_handle: Box<ClientStreamHandle<Error = ClientError>>,
         loop_handle: &Handle,
         signer: Option<Signer>,
     ) -> BasicClientHandle {
@@ -71,7 +71,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
     /// * `finalizer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
         stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<DnsStreamHandle>,
+        stream_handle: Box<DnsStreamHandle<Error = ClientError>>,
         loop_handle: &Handle,
         timeout_duration: Duration,
         finalizer: Option<Signer>,
@@ -94,7 +94,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicClientHandle {
-    message_sender: BasicDnsHandle,
+    message_sender: BasicDnsHandle<ClientError>,
 }
 
 impl DnsHandle for BasicClientHandle {

@@ -1,5 +1,5 @@
 extern crate tokio_core;
-extern crate trust_dns;
+extern crate trust_dns_proto;
 extern crate trust_dns_server;
 extern crate trust_dns_resolver;
 extern crate trust_dns_integration;
@@ -10,11 +10,12 @@ use std::sync::Arc;
 
 use tokio_core::reactor::Core;
 
-use trust_dns::client::ClientFuture;
-use trust_dns::op::Query;
-use trust_dns::rr::domain;
-use trust_dns::rr::{RData, RecordType};
+use trust_dns_proto::{BasicDnsHandle, DnsFuture};
+use trust_dns_proto::op::{Query, NoopMessageFinalizer};
+use trust_dns_proto::rr::domain;
+use trust_dns_proto::rr::{RData, RecordType};
 use trust_dns_server::authority::Catalog;
+use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::lookup::{InnerLookupFuture, Lookup};
 use trust_dns_resolver::lookup_ip::InnerLookupIpFuture;
 use trust_dns_resolver::lookup_state::CachingClient;
@@ -33,7 +34,7 @@ fn test_lookup() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
-    let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let client = DnsFuture::new(stream, Box::new(sender), &io_loop.handle(), NoopMessageFinalizer::new());
 
     let lookup = InnerLookupFuture::lookup(
         vec![domain::Name::from_str("www.example.com.").unwrap()],
@@ -56,16 +57,14 @@ fn test_lookup_hosts() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
-    let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let client = DnsFuture::new(stream, Box::new(sender), &io_loop.handle(), NoopMessageFinalizer::new());
 
     let mut hosts = Hosts::default();
 
-    hosts
-        .by_name
-        .insert(
-            domain::Name::from_str("www.example.com.").unwrap(), 
-            Lookup::new(Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))]))
-        );
+    hosts.by_name.insert(
+        domain::Name::from_str("www.example.com.").unwrap(),
+        Lookup::new(Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))])),
+    );
 
 
     let lookup = InnerLookupIpFuture::lookup(
@@ -90,7 +89,7 @@ fn test_mock_lookup() {
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![v4_record], vec![], vec![]);
-    let client = MockClientHandle::mock(vec![message]);
+    let client = MockClientHandle::<ResolveError>::mock(vec![message]);
 
     let lookup = InnerLookupFuture::lookup(
         vec![domain::Name::from_str("www.example.com.").unwrap()],

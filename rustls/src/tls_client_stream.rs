@@ -14,6 +14,7 @@ use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_rustls::TlsStream as TokioTlsStream;
 
+use trust_dns::error::ClientError;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns_proto::{BufDnsStreamHandle, DnsStreamHandle};
 
@@ -53,7 +54,7 @@ impl TlsClientStreamBuilder {
         name_server: SocketAddr,
         subject_name: String,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = TlsClientStream, Error = io::Error>>, Box<DnsStreamHandle>) {
+    ) -> (Box<Future<Item = TlsClientStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
         let (stream_future, sender) = self.0.build(name_server, subject_name, loop_handle);
 
         let new_future: Box<Future<Item = TlsClientStream, Error = io::Error>> = Box::new(

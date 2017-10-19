@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::error::Error;
 use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -15,6 +16,7 @@ use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 
 use BufDnsStreamHandle;
+use error::*;
 use tcp::TcpStream;
 use dns_handle::DnsStreamHandle;
 
@@ -35,11 +37,14 @@ impl TcpClientStream<TokioTcpStream> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
-    pub fn new(
+    pub fn new<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
     ) -> (Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
-              Box<DnsStreamHandle>) {
+              Box<DnsStreamHandle<Error = E>>)
+    where
+        E: FromProtoError + 'static,
+    {
         Self::with_timeout(name_server, loop_handle, Duration::from_secs(5))
     }
 
@@ -50,12 +55,15 @@ impl TcpClientStream<TokioTcpStream> {
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
     /// * `timeout` - connection timeout
-    pub fn with_timeout(
+    pub fn with_timeout<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
         timeout: Duration,
     ) -> (Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
-              Box<DnsStreamHandle>) {
+              Box<DnsStreamHandle<Error = E>>)
+    where
+        E: FromProtoError + 'static,
+    {
         let (stream_future, sender) = TcpStream::with_timeout(name_server, loop_handle, timeout);
 
         let new_future: Box<
@@ -208,7 +216,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-    let (stream, mut sender) = TcpClientStream::new(server_addr, &io_loop.handle());
+    let (stream, mut sender) = TcpClientStream::new::<ProtoError>(server_addr, &io_loop.handle());
 
     let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 

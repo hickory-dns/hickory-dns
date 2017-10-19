@@ -7,7 +7,9 @@
 
 //! This module contains all the TCP structures for demuxing TCP into streams of DNS packets.
 
+use std::error::Error;
 use std::io;
+use std::marker::PhantomData;
 use std::mem;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -22,6 +24,7 @@ use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::{Handle, Timeout};
 
 use BufStreamHandle;
+use error::*;
 
 /// Current state while writing to the remote of the TCP connection
 enum WriteTcpState {
@@ -90,10 +93,13 @@ impl TcpStream<TokioTcpStream> {
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
-    pub fn new(
+    pub fn new<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
+    ) -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle<E>)
+    where
+        E: FromProtoError,
+    {
         Self::with_timeout(name_server, loop_handle, Duration::from_secs(5))
     }
 
@@ -104,12 +110,16 @@ impl TcpStream<TokioTcpStream> {
     /// * `name_server` - the IP and Port of the DNS server to connect to
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
     /// * `timeout` - connection timeout
-    pub fn with_timeout(
+    pub fn with_timeout<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
         timeout: Duration,
-    ) -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle) {
+    ) -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle<E>)
+    where
+        E: FromProtoError,
+    {
         let (message_sender, outbound_messages) = unbounded();
+        let message_sender = BufStreamHandle::<E>::new(message_sender);
         let timeout = match Timeout::new(timeout, &loop_handle) {
             Ok(timeout) => timeout,
             Err(e) => return (Box::new(future::err(e)), message_sender),
@@ -161,8 +171,15 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     ///
     /// * `stream` - the established IO stream for communication
     /// * `peer_addr` - sources address of the stream
-    pub fn from_stream(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle) {
+    pub fn from_stream<E>(stream: S, peer_addr: SocketAddr) -> (Self, BufStreamHandle<E>)
+    where
+        E: FromProtoError,
+    {
         let (message_sender, outbound_messages) = unbounded();
+        let message_sender = BufStreamHandle::<E> {
+            sender: message_sender,
+            phantom: PhantomData::<E>,
+        };
 
         let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
 
@@ -507,13 +524,13 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-    let (stream, sender) = TcpStream::new(server_addr, &io_loop.handle());
+    let (stream, sender) = TcpStream::new::<ProtoError>(server_addr, &io_loop.handle());
 
     let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
-        sender
+        sender.sender
             .unbounded_send((TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
         let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect(

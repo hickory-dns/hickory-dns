@@ -6,7 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::collections::{HashMap, HashSet};
+use std::error::Error;
 use std::io;
+use std::marker::PhantomData;
 use std::time::Duration;
 
 use chrono::Utc;
@@ -25,18 +27,39 @@ use op::{Message, MessageFinalizer, MessageType, OpCode, Query};
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
 /// The StreamHandle is the general interface for communicating with the DnsFuture
-pub type StreamHandle = UnboundedSender<Vec<u8>>;
+pub struct StreamHandle<E>
+where
+    E: FromProtoError,
+{
+    sender: UnboundedSender<Vec<u8>>,
+    phantom: PhantomData<E>,
+}
+
+impl<E> StreamHandle<E> where E: FromProtoError {
+    /// Constructs a new StreamHandle for wrapping the sender
+    pub fn new(sender: UnboundedSender<Vec<u8>>) -> Self {
+        StreamHandle { sender, phantom: PhantomData::<E> }
+    }
+}
 
 /// Implementations of Sinks for sending DNS messages
 pub trait DnsStreamHandle {
+    /// The Error type to be returned if there is an error
+    type Error: FromProtoError;
+
     /// Sends a message to the Handle for delivery to the server.
-    fn send(&mut self, buffer: Vec<u8>) -> ProtoResult<()>;
+    fn send(&mut self, buffer: Vec<u8>) -> Result<(), Self::Error>;
 }
 
-impl DnsStreamHandle for StreamHandle {
-    fn send(&mut self, buffer: Vec<u8>) -> ProtoResult<()> {
-        UnboundedSender::unbounded_send(self, buffer).map_err(|e| {
-            ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()
+impl<E> DnsStreamHandle for StreamHandle<E>
+where
+    E: FromProtoError,
+{
+    type Error = E;
+
+    fn send(&mut self, buffer: Vec<u8>) -> Result<(), Self::Error> {
+        UnboundedSender::unbounded_send(&self.sender, buffer).map_err(|e| {
+            E::from(ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into())
         })
     }
 }
@@ -46,21 +69,26 @@ impl DnsStreamHandle for StreamHandle {
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
 ///  implementations.
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsFuture<S: Stream<Item = Vec<u8>, Error = io::Error>, MF: MessageFinalizer> {
+pub struct DnsFuture<S, E, MF>
+where
+    S: Stream<Item = Vec<u8>, Error = io::Error>,
+    E: FromProtoError,
+    MF: MessageFinalizer,
+{
     stream: S,
     reactor_handle: Handle,
     timeout_duration: Duration,
     // TODO: genericize and remove this Box
-    stream_handle: Box<DnsStreamHandle>,
-    new_receiver:
-        Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<ProtoResult<Message>>)>>>,
-    active_requests: HashMap<u16, (Complete<ProtoResult<Message>>, Timeout)>,
+    stream_handle: Box<DnsStreamHandle<Error = E>>,
+    new_receiver: Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<Result<Message, E>>)>>>,
+    active_requests: HashMap<u16, (Complete<Result<Message, E>>, Timeout)>,
     signer: Option<MF>,
 }
 
-impl<S, MF> DnsFuture<S, MF>
+impl<S, E, MF> DnsFuture<S, E, MF>
 where
     S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    E: FromProtoError + 'static,
     MF: MessageFinalizer + 'static,
 {
     /// Spawns a new DnsFuture Stream. This uses a default timeout of 5 seconds for all requests.
@@ -75,10 +103,10 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
         stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<DnsStreamHandle>,
+        stream_handle: Box<DnsStreamHandle<Error = E>>,
         loop_handle: &Handle,
         signer: Option<MF>,
-    ) -> BasicDnsHandle {
+    ) -> BasicDnsHandle<E> {
         Self::with_timeout(
             stream,
             stream_handle,
@@ -102,11 +130,11 @@ where
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
         stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<DnsStreamHandle>,
+        stream_handle: Box<DnsStreamHandle<Error = E>>,
         loop_handle: &Handle,
         timeout_duration: Duration,
         signer: Option<MF>,
-    ) -> BasicDnsHandle {
+    ) -> BasicDnsHandle<E> {
         let (sender, rx) = unbounded();
 
         let loop_handle_clone = loop_handle.clone();
@@ -136,8 +164,8 @@ where
                         })
                     }
                 })
-                .map_err(|e: ProtoError| {
-                    error!("error in Client: {}", e);
+                .map_err(|e| {
+                    error!("error in Proto: {}", e);
                 }),
         );
 
@@ -176,9 +204,8 @@ where
                 //  then the otherside isn't really paying attention anyway)
 
                 // complete the request, it's failed...
-                req.send(Err(ProtoErrorKind::Timeout.into())).expect(
-                    "error notifying wait, possible future leak",
-                );
+                req.send(Err(E::from(ProtoErrorKind::Timeout.into())))
+                    .expect("error notifying wait, possible future leak");
             }
         }
     }
@@ -201,13 +228,14 @@ where
     }
 }
 
-impl<S, MF> Future for DnsFuture<S, MF>
+impl<S, E, MF> Future for DnsFuture<S, E, MF>
 where
     S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    E: FromProtoError + 'static,
     MF: MessageFinalizer + 'static,
 {
     type Item = ();
-    type Error = ProtoError;
+    type Error = E;
 
     fn poll(&mut self) -> Poll<(), Self::Error> {
         self.drop_cancelled();
@@ -263,7 +291,7 @@ where
                         Ok(timeout) => timeout,
                         Err(e) => {
                             warn!("could not create timer: {}", e);
-                            complete.send(Err(e.into())).expect(
+                            complete.send(Err(E::from(e.into()))).expect(
                                 "error notifying wait, possible future leak",
                             );
                             continue; // to the next message...
@@ -304,7 +332,7 @@ where
         // TODO: make the QoS configurable
         let mut messages_received = 0;
         for i in 0..QOS_MAX_RECEIVE_MSGS {
-            match try!(self.stream.poll()) {
+            match self.stream.poll().map_err(|e| E::from(e.into()))? {
                 Async::Ready(Some(buffer)) => {
                     messages_received = i;
 
@@ -336,7 +364,7 @@ where
         let done = match self.new_receiver.peek() {
             Ok(Async::Ready(None)) => true,
             Ok(_) => false,
-            Err(_) => return Err(ProtoErrorKind::NoError.into()),
+            Err(_) => return Err(E::from(ProtoErrorKind::NoError.into())),
         };
 
         if self.active_requests.is_empty() && done {
@@ -356,49 +384,59 @@ where
 }
 
 /// Always returns the specified io::Error to the remote Sender
-struct ClientStreamErrored {
+struct ClientStreamErrored<E>
+where
+    E: FromProtoError,
+{
     // TODO: is there a better thing to grab here?
     error_msg: String,
-    new_receiver:
-        Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<ProtoResult<Message>>)>>>,
+    new_receiver: Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<Result<Message, E>>)>>>,
 }
 
-impl Future for ClientStreamErrored {
+impl<E> Future for ClientStreamErrored<E>
+where
+    E: FromProtoError,
+{
     type Item = ();
-    type Error = ProtoError;
+    type Error = E;
 
     fn poll(&mut self) -> Poll<(), Self::Error> {
         match self.new_receiver.poll() {
             Ok(Async::Ready(Some((_, complete)))) => {
                 complete
-                    .send(Err(ProtoErrorKind::Msg(self.error_msg.clone()).into()))
+                    .send(Err(
+                        E::from(ProtoErrorKind::Msg(self.error_msg.clone()).into()),
+                    ))
                     .expect("error notifying wait, possible future leak");
 
                 task::current().notify();
                 return Ok(Async::NotReady);
             }
             Ok(Async::Ready(None)) => return Ok(Async::Ready(())),            
-            _ => return Err(ProtoErrorKind::NoError.into()),
+            _ => return Err(E::from(ProtoErrorKind::NoError.into())),
         }
     }
 }
 
-enum ClientStreamOrError<S, MF>
+enum ClientStreamOrError<S, E, MF>
 where
     S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    E: FromProtoError,
     MF: MessageFinalizer + 'static,
 {
-    Future(DnsFuture<S, MF>),
-    Errored(ClientStreamErrored),
+    Future(DnsFuture<S, E, MF>),
+    Errored(ClientStreamErrored<E>),
 }
 
-impl<S, MF> Future for ClientStreamOrError<S, MF>
+impl<S, E, MF> Future for ClientStreamOrError<S, E, MF>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+    S: Stream<Item = Vec<u8>, Error = io::Error>
+        + 'static,
+    E: FromProtoError + 'static,
     MF: MessageFinalizer + 'static,
 {
     type Item = ();
-    type Error = ProtoError;
+    type Error = E;
 
     fn poll(&mut self) -> Poll<(), Self::Error> {
         match *self {
@@ -413,12 +451,15 @@ where
 /// This can be used directly to perform queries. See `trust_dns::client::SecureDnsHandle` for
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
-pub struct BasicDnsHandle {
-    message_sender: UnboundedSender<(Message, Complete<ProtoResult<Message>>)>,
+pub struct BasicDnsHandle<E: FromProtoError> {
+    message_sender: UnboundedSender<(Message, Complete<Result<Message, E>>)>,
 }
 
-impl DnsHandle for BasicDnsHandle {
-    type Error = ProtoError;
+impl<E> DnsHandle for BasicDnsHandle<E>
+where
+    E: FromProtoError + 'static,
+{
+    type Error = E;
 
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         let (complete, receiver) = oneshot::channel();
@@ -430,11 +471,11 @@ impl DnsHandle for BasicDnsHandle {
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();
                 complete
-                    .send(Err(
+                    .send(Err(E::from(
                         ProtoErrorKind::Msg(
                             format!("error sending to channel: {}", e),
                         ).into(),
-                    ))
+                    )))
                     .expect("error notifying wait, possible future leak");
                 receiver
             }
@@ -453,7 +494,7 @@ impl DnsHandle for BasicDnsHandle {
 /// A trait for implementing high level functions of DNS.
 pub trait DnsHandle: Clone {
     /// The associated error type returned by future send operations
-    type Error: From<ProtoError> + Clone;
+    type Error: FromProtoError;
 
     /// Ony returns true if and only if this DNS handle is validating DNSSec.
     ///

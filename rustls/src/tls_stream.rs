@@ -17,6 +17,7 @@ use tokio_core::reactor::Handle;
 use tokio_rustls::{ClientConfigExt, TlsStream as TokioTlsStream};
 
 use trust_dns::BufStreamHandle;
+use trust_dns::error::ClientError;
 use trust_dns::tcp::TcpStream;
 
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream, ClientSession>>;
@@ -56,8 +57,9 @@ fn tls_new(certs: &[Certificate] /*, pkcs12: Option<Pkcs12>*/) -> io::Result<Arc
 pub fn tls_from_stream(
     stream: TokioTlsStream<TokioTcpStream, ClientSession>,
     peer_addr: SocketAddr,
-) -> (TlsStream, BufStreamHandle) {
+) -> (TlsStream, BufStreamHandle<ClientError>) {
     let (message_sender, outbound_messages) = unbounded();
+    let message_sender = BufStreamHandle::new(message_sender);
 
     let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
 
@@ -122,8 +124,10 @@ impl TlsStreamBuilder {
         name_server: SocketAddr,
         subject_name: String,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle) {
+    ) -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle<ClientError>) {
         let (message_sender, outbound_messages) = unbounded();
+        let message_sender = BufStreamHandle::new(message_sender);
+
         let tls_connector = match ::tls_stream::tls_new(&self.ca_chain /*, self.identity*/) {
             Ok(c) => c,
             Err(e) => {

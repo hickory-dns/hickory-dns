@@ -7,25 +7,26 @@ use trust_dns::error::*;
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, Record, RData, RecordType};
 use trust_dns_proto::DnsHandle;
+use trust_dns_proto::error::{FromProtoError, ProtoResult};
 
 #[derive(Clone)]
-pub struct MockClientHandle {
-    messages: Arc<Mutex<Vec<ClientResult<Message>>>>,
+pub struct MockClientHandle<E: FromProtoError> {
+    messages: Arc<Mutex<Vec<Result<Message, E>>>>,
 }
 
-impl MockClientHandle {
+impl<E: FromProtoError> MockClientHandle<E> {
     /// constructs a new MockClient which returns each Message one after the other
-    pub fn mock(messages: Vec<ClientResult<Message>>) -> Self {
+    pub fn mock(messages: Vec<Result<Message, E>>) -> Self {
         MockClientHandle { messages: Arc::new(Mutex::new(messages)) }
     }
 }
 
-impl DnsHandle for MockClientHandle {
-    type Error = ClientError;
+impl<E: FromProtoError + 'static> DnsHandle for MockClientHandle<E> {
+    type Error = E;
 
     fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         Box::new(future::result(
-            self.messages.lock().unwrap().pop().unwrap_or(empty()),
+            self.messages.lock().unwrap().pop().unwrap_or(empty::<E>()),
         ))
     }
 }
@@ -38,12 +39,12 @@ pub fn v4_record(name: Name, ip: Ipv4Addr) -> Record {
     Record::from_rdata(name, 86400, RecordType::A, RData::A(ip))
 }
 
-pub fn message(
+pub fn message<E: FromProtoError>(
     query: Query,
     answers: Vec<Record>,
     name_servers: Vec<Record>,
     additionals: Vec<Record>,
-) -> ClientResult<Message> {
+) -> Result<Message, E> {
     let mut message = Message::new();
     message.add_query(query);
     message.insert_answers(answers);
@@ -52,10 +53,10 @@ pub fn message(
     Ok(message)
 }
 
-pub fn empty() -> ClientResult<Message> {
+pub fn empty<E: FromProtoError>() -> Result<Message, E> {
     Ok(Message::new())
 }
 
-pub fn error() -> ClientResult<Message> {
-    Err(ClientErrorKind::Io.into())
+pub fn error<E: FromProtoError>(error: E) -> Result<Message, E> {
+    Err(error)
 }

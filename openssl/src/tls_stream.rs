@@ -21,6 +21,7 @@ use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_openssl::{SslConnectorExt, SslStream as TokioTlsStream};
 
+use trust_dns::error::ClientError;
 use trust_dns::BufStreamHandle;
 use trust_dns::tcp::TcpStream;
 
@@ -116,8 +117,9 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<TlsConnecto
 pub fn tls_stream_from_existing_tls_stream(
     stream: TokioTlsStream<TokioTcpStream>,
     peer_addr: SocketAddr,
-) -> (TlsStream, BufStreamHandle) {
+) -> (TlsStream, BufStreamHandle<ClientError>) {
     let (message_sender, outbound_messages) = unbounded();
+    let message_sender = BufStreamHandle::new(message_sender);
 
     let stream = TcpStream::from_stream_with_receiver(stream, peer_addr, outbound_messages);
 
@@ -183,8 +185,10 @@ impl TlsStreamBuilder {
         name_server: SocketAddr,
         subject_name: String,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle) {
+    ) -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle<ClientError>) {
         let (message_sender, outbound_messages) = unbounded();
+        let message_sender = BufStreamHandle::new(message_sender);
+
         let tls_connector = match new(self.ca_chain, self.identity) {
             Ok(c) => c,
             Err(e) => {

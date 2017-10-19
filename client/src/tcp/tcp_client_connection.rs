@@ -33,7 +33,7 @@ use tcp::TcpClientStream;
 pub struct TcpClientConnection {
     io_loop: Core,
     tcp_client_stream: Box<Future<Item = TcpClientStream<TcpStream>, Error = io::Error>>,
-    client_stream_handle: Box<ClientStreamHandle>,
+    client_stream_handle: Box<ClientStreamHandle<Error = ClientError>>,
 }
 
 impl TcpClientConnection {
@@ -77,7 +77,7 @@ impl ClientConnection for TcpClientConnection {
 
     fn unwrap(
         self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>) {
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
         (
             self.io_loop,
             self.tcp_client_stream,

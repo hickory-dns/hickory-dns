@@ -31,7 +31,7 @@ use udp::UdpClientStream;
 pub struct UdpClientConnection {
     io_loop: Core,
     udp_client_stream: Box<Future<Item = UdpClientStream, Error = io::Error>>,
-    client_stream_handle: Box<ClientStreamHandle>,
+    client_stream_handle: Box<ClientStreamHandle<Error = ClientError>>,
 }
 
 impl UdpClientConnection {
@@ -60,7 +60,7 @@ impl ClientConnection for UdpClientConnection {
 
     fn unwrap(
         self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle>) {
+    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
         (
             self.io_loop,
             self.udp_client_stream,

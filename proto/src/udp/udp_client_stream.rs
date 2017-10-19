@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::error::Error;
 use std::net::SocketAddr;
 use std::io;
 
@@ -13,6 +14,7 @@ use tokio_core::reactor::Handle;
 
 use BufDnsStreamHandle;
 use DnsStreamHandle;
+use error::*;
 use udp::UdpStream;
 
 /// A UDP client stream of DNS binary packets
@@ -31,10 +33,13 @@ impl UdpClientStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn new(
+    pub fn new<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = UdpClientStream, Error = io::Error>>, Box<DnsStreamHandle>) {
+    ) -> (Box<Future<Item = UdpClientStream, Error = io::Error>>, Box<DnsStreamHandle<Error = E>>)
+    where
+        E: FromProtoError + 'static,
+    {
         let (stream_future, sender) = UdpStream::new(name_server, loop_handle);
 
         let new_future: Box<Future<Item = UdpClientStream, Error = io::Error>> =
@@ -155,7 +160,7 @@ fn udp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-    let (stream, mut sender) = UdpClientStream::new(server_addr, &io_loop.handle());
+    let (stream, mut sender) = UdpClientStream::new::<ProtoError>(server_addr, &io_loop.handle());
     let mut stream: UdpClientStream = io_loop.run(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {

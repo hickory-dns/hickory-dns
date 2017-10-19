@@ -222,7 +222,7 @@ where
 
     let io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(catalog);
-    let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 

@@ -271,3 +271,7 @@ impl Clone for ProtoError {
         ProtoError(cloned_kind, (inner_error, (self.1).1.clone()))
     }
 }
+
+pub trait FromProtoError: From<ProtoError> + ::std::error::Error + Clone {}
+
+impl<E> FromProtoError for E where E: From<ProtoError> + ::std::error::Error + Clone {}
