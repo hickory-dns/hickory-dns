@@ -30,7 +30,7 @@ use hosts::Hosts;
 
 /// Root Handle to communicate with teh ResolverFuture
 ///
-/// This can be used directly to perform queries. See `trust_dns::client::SecureClientHandle` for
+/// This can be used directly to perform queries. See [`trust_dns_proto::SecureClientHandle`] for
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicResolverHandle {
