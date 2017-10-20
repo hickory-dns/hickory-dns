@@ -302,7 +302,6 @@ pub mod tests {
 
     use futures::{future, Future};
 
-    //use trust_dns_proto::error::*;
     use trust_dns_proto::op::Message;
     use trust_dns_proto::rr::{Name, Record, RData, RecordType};
 

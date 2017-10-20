@@ -7,6 +7,7 @@
 
 #![allow(missing_docs)]
 
+use std::io;
 use trust_dns_proto::op::Query;
 
 error_chain! {
@@ -83,5 +84,13 @@ impl Clone for ResolveError {
 impl PartialEq for ResolveErrorKind {
     fn eq(&self, other: &ResolveErrorKind) -> bool {
         self.to_string() == other.to_string()
+    }
+}
+
+impl From<ResolveError> for io::Error {
+    fn from(e: ResolveError) -> Self {
+        match e.kind() {
+            _ => io::Error::new(io::ErrorKind::Other, format!("ResolveError: {}", e)),
+        }
     }
 }
