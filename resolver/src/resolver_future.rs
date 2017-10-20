@@ -13,7 +13,9 @@ use std::sync::Arc;
 use futures::Future;
 use tokio_core::reactor::Handle;
 use trust_dns_proto::op::Message;
-use trust_dns_proto::{DnsHandle, BasicDnsHandle, RetryDnsHandle, SecureDnsHandle};
+use trust_dns_proto::{DnsHandle, BasicDnsHandle, RetryDnsHandle};
+#[cfg(feature = "dnssec")]
+use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::rr::{Name, RecordType};
 
 use config::{ResolverConfig, ResolverOpts};
@@ -103,7 +105,15 @@ impl ResolverFuture {
         let either;
         let client = RetryDnsHandle::new(pool.clone(), options.attempts);
         if options.validate {
-            either = LookupEither::Secure(SecureDnsHandle::new(client));
+            #[cfg(feature = "dnssec")] {
+                either = LookupEither::Secure(SecureDnsHandle::new(client));
+            } 
+            
+            #[cfg(not(feature = "dnssec"))] {
+                // TODO: should this just be a panic, or a pinned error?
+                warn!("validate option is only available with 'dnssec' feature");
+                either = LookupEither::Retry(client);
+            }
         } else {
             either = LookupEither::Retry(client);
         }

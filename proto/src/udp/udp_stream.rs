@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std;
-use std::error::Error;
 use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::io;

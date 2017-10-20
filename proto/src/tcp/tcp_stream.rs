@@ -7,7 +7,6 @@
 
 //! This module contains all the TCP structures for demuxing TCP into streams of DNS packets.
 
-use std::error::Error;
 use std::io;
 use std::marker::PhantomData;
 use std::mem;
