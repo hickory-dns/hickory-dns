@@ -20,7 +20,9 @@ use error::*;
 
 
 macro_rules! map_ipconfig_error {
-    ($result:expr) => ($result.map_err(|e| ResolveErrorKind::Msg("failed to read from registry: {}", e).into()));
+    ($result:expr) => (
+            $result.map_err(|e| ResolveErrorKind::Msg(format!("failed to read from registry: {}", e)).into())
+        );
 }
 
 /// Returns the name servers of the computer (of all adapters)
