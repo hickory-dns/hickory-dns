@@ -3,11 +3,10 @@ use std::sync::{Arc, Mutex};
 
 use futures::{future, Future};
 
-use trust_dns::error::*;
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, Record, RData, RecordType};
 use trust_dns_proto::DnsHandle;
-use trust_dns_proto::error::{FromProtoError, ProtoResult};
+use trust_dns_proto::error::FromProtoError;
 
 #[derive(Clone)]
 pub struct MockClientHandle<E: FromProtoError> {

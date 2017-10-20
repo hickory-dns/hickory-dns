@@ -16,7 +16,9 @@ use std::sync::Arc;
 
 use futures::{Async, future, Future, Poll, task};
 
-use trust_dns_proto::{DnsHandle, RetryDnsHandle, SecureDnsHandle};
+use trust_dns_proto::{DnsHandle, RetryDnsHandle};
+#[cfg(feature = "dnssec")]
+use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::op::{Message, Query};
 use trust_dns_proto::rr::{Name, RecordType, RData};
 use trust_dns_proto::rr::rdata;
@@ -79,6 +81,7 @@ impl<'a> Iterator for LookupIter<'a> {
 #[doc(hidden)]
 pub enum LookupEither<C: DnsHandle<Error = ResolveError> + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     Retry(RetryDnsHandle<NameServerPool<C, P>>),
+    #[cfg(feature = "dnssec")]    
     Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
@@ -89,6 +92,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
             LookupEither::Retry(ref c) => c.is_verifying_dnssec(),
+            #[cfg(feature = "dnssec")]
             LookupEither::Secure(ref c) => c.is_verifying_dnssec(),
         }
     }
@@ -96,6 +100,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
         match *self {
             LookupEither::Retry(ref mut c) => c.send(message),
+            #[cfg(feature = "dnssec")]
             LookupEither::Secure(ref mut c) => c.send(message),
         }
     }

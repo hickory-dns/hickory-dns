@@ -9,7 +9,6 @@
 
 use std::clone::Clone;
 use std::collections::HashSet;
-use std::error::Error;
 use std::mem;
 use std::rc::Rc;
 

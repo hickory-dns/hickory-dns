@@ -5,8 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::error::Error;
-
 use futures::{Future, Poll};
 
 use error::FromProtoError;
@@ -18,10 +16,10 @@ use op::Message;
 /// *note* Current value of this is not clear, it may be removed
 #[derive(Clone)]
 #[must_use = "queries can only be sent through a ClientHandle"]
-pub struct RetryDnsHandle<H: DnsHandle<Error = E>, E = <H as DnsHandle>::Error> 
+pub struct RetryDnsHandle<H: DnsHandle<Error = E>, E = <H as DnsHandle>::Error>
 where
-    E: FromProtoError + 'static, 
- {
+    E: FromProtoError + 'static,
+{
     handle: H,
     attempts: usize,
 }

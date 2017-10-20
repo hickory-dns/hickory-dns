@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::collections::{HashMap, HashSet};
-use std::error::Error;
 use std::io;
 use std::marker::PhantomData;
 use std::time::Duration;

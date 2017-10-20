@@ -10,7 +10,7 @@ use std::sync::Arc;
 
 use tokio_core::reactor::Core;
 
-use trust_dns_proto::{BasicDnsHandle, DnsFuture};
+use trust_dns_proto::DnsFuture;
 use trust_dns_proto::op::{Query, NoopMessageFinalizer};
 use trust_dns_proto::rr::domain;
 use trust_dns_proto::rr::{RData, RecordType};

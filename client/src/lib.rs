@@ -240,12 +240,6 @@ pub mod tcp;
 pub mod udp;
 pub mod serialize;
 
-use std::net::SocketAddr;
-
-use futures::sync::mpsc::UnboundedSender;
-
-use op::Message;
-
 /// A sender to which serialized DNS Messages can be sent
 #[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
 pub use trust_dns_proto::BufStreamHandle;
