@@ -13,7 +13,7 @@ use std::net::SocketAddr;
 use ipconfig::get_adapters;
 use ipconfig::computer::{get_search_list, get_domain, is_round_robin_enabled};
 
-use trust_dns::rr::Name;
+use trust_dns_proto::rr::Name;
 
 use config::{ResolverConfig, ResolverOpts, NameServerConfig, Protocol};
 use error::*;
