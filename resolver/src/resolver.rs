@@ -7,11 +7,10 @@
 
 //! Structs for creating and using a Resolver
 
-use std::cell::RefCell;
 use std::net::IpAddr;
 use std::io;
 
-use tokio_core::reactor::Core;
+use tokio_core::reactor::{Core, Handle};
 use trust_dns_proto::rr::RecordType;
 
 use config::{ResolverConfig, ResolverOpts};
@@ -24,9 +23,11 @@ use ResolverFuture;
 /// The Resolver is used for performing DNS queries.
 ///
 /// For forward (A) lookups, hostname -> IP address, see: `Resolver::lookup_ip`
+///
+/// Special note about resource consumption. The Resolver and all TRust-DNS software is built around the Tokio async-io library. This synchronous Resolver is intended to be a simpler wrapper for of the [`trust_dns_resolver::ResolverFuture`]. To allow the Resolver to be [`Send`], there will actually only ever be one resolver per `clone` of a Resolver. If sharing caches across threads is desired, then the [`ResolverFuture`] type should be used instead.
 pub struct Resolver {
-    resolver_future: RefCell<ResolverFuture>,
-    io_loop: RefCell<Core>,
+    config: ResolverConfig,
+    options: ResolverOpts,
 }
 
 macro_rules! lookup_fn {
@@ -39,11 +40,9 @@ macro_rules! lookup_fn {
 ///
 /// * `query` - a str which parses to a domain name, failure to parse will return an error
 pub fn $p(&self, query: &str) -> ResolveResult<$l> {
-    self.io_loop.borrow_mut().run(
-            self.resolver_future
-                .borrow()
-                .$p(query),
-        )
+    let mut reactor = Core::new()?;
+    let future = self.construct_and_run(&reactor.handle())?;
+    reactor.run(future.$p(query))
 }
     };
     ($p:ident, $l:ty, $t:ty) => {
@@ -53,11 +52,9 @@ pub fn $p(&self, query: &str) -> ResolveResult<$l> {
 ///
 /// * `query` - a type which can be converted to `Name` via `From`.
 pub fn $p(&self, query: $t) -> ResolveResult<$l> {
-    self.io_loop.borrow_mut().run(
-            self.resolver_future
-                .borrow()            
-                .$p(query),
-        )
+    let mut reactor = Core::new()?;
+    let future = self.construct_and_run(&reactor.handle())?;
+    reactor.run(future.$p(query))
 }
     };
 }
@@ -71,15 +68,22 @@ impl Resolver {
     /// * `client_connection` - ClientConnection for establishing the connection to the DNS server
     ///
     /// # Returns
-    /// A new Resolver
+    ///
+    /// A new Resolver or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        let io_loop = Core::new()?;
-        let resolver = ResolverFuture::new(config, options, &io_loop.handle());
+        // TODO: for the sync resolver, we should take ownership of the Cache...
+        Ok(Resolver { config, options })
+    }
 
-        Ok(Resolver {
-            resolver_future: RefCell::new(resolver),
-            io_loop: RefCell::new(io_loop),
-        })
+    /// Constructs a new Resolver with default config and default options.
+    ///
+    /// See [`ResolverConfig::default`] and [`ResolverOpts::default`] for more information.
+    ///
+    /// # Returns
+    ///
+    /// A new Resolver or an error if there was an error with the configuration.
+    pub fn default() -> io::Result<Self> {
+        Self::new(ResolverConfig::default(), ResolverOpts::default())
     }
 
     /// Constructs a new Resolver with the system configuration.
@@ -92,20 +96,26 @@ impl Resolver {
         Self::new(config, options)
     }
 
+    /// Constructs a new Core
+    fn construct_and_run(&self, reactor: &Handle) -> ResolveResult<ResolverFuture> {
+        // TODO: get a pair of the Future and the Handle, to run on the same Core.
+        let future = ResolverFuture::new(self.config.clone(), self.options.clone(), reactor);
+
+        Ok(future)
+    }
+
     /// Generic lookup for any RecordType
     ///
-    /// *WARNING* This interface may change in the future
+    /// *WARNING* This interface may change in the future, please use [`Self::lookkup_ip`] or another variant for more stable interfaces.
     ///
     /// # Arguments
     ///
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
     /// * `record_type` - type of record to lookup
     pub fn lookup(&self, name: &str, record_type: RecordType) -> ResolveResult<Lookup> {
-        self.io_loop.borrow_mut().run(
-            self.resolver_future
-                .borrow()
-                .lookup(name, record_type),
-        )
+        let mut reactor = Core::new()?;
+        let future = self.construct_and_run(&reactor.handle())?;
+        reactor.run(future.lookup(name, record_type))
     }
 
     /// Performs a dual-stack DNS lookup for the IP for the given hostname.
@@ -116,11 +126,9 @@ impl Resolver {
     ///
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
     pub fn lookup_ip(&self, host: &str) -> ResolveResult<LookupIp> {
-        self.io_loop.borrow_mut().run(
-            self.resolver_future
-                .borrow()
-                .lookup_ip(host),
-        )
+        let mut reactor = Core::new()?;
+        let future = self.construct_and_run(&reactor.handle())?;
+        reactor.run(future.lookup_ip(host))
     }
 
     /// Performs a DNS lookup for an SRV record for the specified service type and protocol at the given name.
@@ -138,13 +146,13 @@ impl Resolver {
         protocol: &str,
         name: &str,
     ) -> ResolveResult<lookup::SrvLookup> {
-        self.io_loop.borrow_mut().run(
-            self.resolver_future.borrow().lookup_service(
+        let mut reactor = Core::new()?;
+        let future = self.construct_and_run(&reactor.handle())?;
+        reactor.run(future.lookup_service(
                 service,
                 protocol,
                 name,
-            ),
-        )
+            ))
     }
 
     lookup_fn!(reverse_lookup, lookup::ReverseLookup, IpAddr);
@@ -160,6 +168,16 @@ mod tests {
     use std::net::*;
 
     use super::*;
+
+    fn require_send<S: Send>(_sendable: S) {
+        assert!(true);
+    }
+
+    #[test]
+    fn test_resolver_sendable() {
+        let resolver = Resolver::default();
+        require_send(resolver);
+    }
 
     #[test]
     fn test_lookup() {

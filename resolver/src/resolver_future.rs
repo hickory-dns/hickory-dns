@@ -27,7 +27,7 @@ use lookup;
 use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
 use hosts::Hosts;
 
-/// Root Handle to communicate with teh ResolverFuture
+/// Root Handle to communicate with the ResolverFuture
 ///
 /// This can be used directly to perform queries. See [`trust_dns_proto::SecureClientHandle`] for
 ///  a DNSSEc chain validator.
