@@ -36,7 +36,7 @@ coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = 
 
 [features]
 dnssec-openssl = ["dnssec", "openssl"]
-dnssec-ring = ["dnssec", "ring"]
+dnssec-ring = ["dnssec", "ring", "untrusted"]
 dnssec = ["data-encoding"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
@@ -59,4 +59,4 @@ ring = { version = "^0.12", optional = true }
 time = "^0.1"
 tokio-core = "^0.1"
 tokio-io = "^0.1"
-untrusted = "^0.5"
+untrusted = { version = "^0.5", optional = true }
