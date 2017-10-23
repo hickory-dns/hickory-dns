@@ -71,7 +71,7 @@ impl Resolver {
     ///
     /// A new Resolver or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        // TODO: for the sync resolver, we should take ownership of the Cache...
+        // FIXME: for the sync resolver, we should take ownership of the Cache such that it is shared across instances...
         Ok(Resolver { config, options })
     }
 

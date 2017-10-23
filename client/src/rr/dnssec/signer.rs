@@ -241,6 +241,7 @@ use serialize::binary::BinEncoder;
 ///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
 /// ```
 #[cfg(any(feature = "openssl", feature = "ring"))]
+#[derive(Clone)]
 pub struct Signer {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
@@ -253,6 +254,7 @@ pub struct Signer {
 
 /// Placeholder type for when OpenSSL and *ring* are disabled; enable OpenSSL and Ring for support
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
+#[derive(Clone)]
 pub struct Signer;
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
