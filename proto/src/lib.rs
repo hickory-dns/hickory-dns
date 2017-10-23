@@ -10,7 +10,6 @@
 
 //! TRust-DNS Protocol library
 
-extern crate chrono;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 extern crate data_encoding;
 #[macro_use]
