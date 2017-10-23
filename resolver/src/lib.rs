@@ -134,7 +134,7 @@ extern crate log;
 extern crate lru_cache;
 extern crate tokio_core;
 extern crate trust_dns_proto;
-#[cfg(all(target_os = "windows", target_pointer_width = "64"))]
+#[cfg(all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64"))]
 extern crate ipconfig;
 
 pub mod config;
