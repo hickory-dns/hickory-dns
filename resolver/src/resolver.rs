@@ -6,9 +6,9 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Structs for creating and using a Resolver
-
 use std::net::IpAddr;
 use std::io;
+use std::sync::{Arc, Mutex};
 
 use tokio_core::reactor::{Core, Handle};
 use trust_dns_proto::rr::RecordType;
@@ -18,6 +18,7 @@ use error::*;
 use lookup;
 use lookup::Lookup;
 use lookup_ip::LookupIp;
+use lookup_state::DnsLru;
 use ResolverFuture;
 
 /// The Resolver is used for performing DNS queries.
@@ -28,6 +29,7 @@ use ResolverFuture;
 pub struct Resolver {
     config: ResolverConfig,
     options: ResolverOpts,
+    lru: Arc<Mutex<DnsLru>>,
 }
 
 macro_rules! lookup_fn {
@@ -71,8 +73,8 @@ impl Resolver {
     ///
     /// A new Resolver or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        // FIXME: for the sync resolver, we should take ownership of the Cache such that it is shared across instances...
-        Ok(Resolver { config, options })
+        let lru = Arc::new(Mutex::new(DnsLru::new(options.cache_size)));
+        Ok(Resolver { config, options, lru })
     }
 
     /// Constructs a new Resolver with default config and default options.
@@ -99,7 +101,7 @@ impl Resolver {
     /// Constructs a new Core
     fn construct_and_run(&self, reactor: &Handle) -> ResolveResult<ResolverFuture> {
         // TODO: get a pair of the Future and the Handle, to run on the same Core.
-        let future = ResolverFuture::new(self.config.clone(), self.options.clone(), reactor);
+        let future = ResolverFuture::with_cache(self.config.clone(), self.options.clone(), self.lru.clone(), reactor);
 
         Ok(future)
     }
