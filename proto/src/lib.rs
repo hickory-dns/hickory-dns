@@ -16,8 +16,6 @@ extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
-extern crate lazy_static;
-#[macro_use]
 extern crate log;
 #[macro_use]
 extern crate futures;
