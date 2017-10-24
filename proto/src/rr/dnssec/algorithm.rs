@@ -15,7 +15,6 @@
  */
 use std::fmt;
 use std::fmt::{Display, Formatter};
-use std::str::FromStr;
 
 use serialize::binary::*;
 use error::*;
@@ -170,25 +169,6 @@ impl BinSerializable<Algorithm> for Algorithm {
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit(u8::from(*self))
-    }
-}
-
-impl FromStr for Algorithm {
-    type Err = ProtoError;
-
-    fn from_str(s: &str) -> ProtoResult<Algorithm> {
-        match s {
-            "RSASHA1" => Ok(Algorithm::RSASHA1),
-            "RSASHA256" => Ok(Algorithm::RSASHA256),
-            "RSASHA1-NSEC3-SHA1" => Ok(Algorithm::RSASHA1NSEC3SHA1),
-            "RSASHA512" => Ok(Algorithm::RSASHA512),
-            "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
-            "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
-            "ED25519" => Ok(Algorithm::ED25519),
-            _ => Err(
-                ProtoErrorKind::Msg(format!("unrecognized string {}", s)).into(),
-            ),
-        }
     }
 }
 
