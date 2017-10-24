@@ -40,12 +40,12 @@
 //! use trust_dns_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
-//! let mut resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+//! let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // The final dot forces this to be an FQDN, otherwise the search rules as specified
 //! //  in `ResolverOpts` will take effect. FQDN's are generally cheaper queries.
-//! let mut response = resolver.lookup_ip("www.example.com.").unwrap();
+//! let response = resolver.lookup_ip("www.example.com.").unwrap();
 //!
 //! // There can be many addresses associated with the name,
 //! //  this can return IPv4 and/or IPv6 addresses
@@ -66,9 +66,9 @@
 //! # use trust_dns_resolver::Resolver;
 //! // Use the host OS'es `/etc/resolv.conf`
 //! # #[cfg(unix)]
-//! let mut resolver = Resolver::from_system_conf().unwrap();
+//! let resolver = Resolver::from_system_conf().unwrap();
 //! # #[cfg(unix)]
-//! let mut response = resolver.lookup_ip("www.example.com.").unwrap();
+//! let response = resolver.lookup_ip("www.example.com.").unwrap();
 //! ```
 //!
 //! ## Using the Tokio/Async Resolver
@@ -90,7 +90,7 @@
 //! let mut io_loop = Core::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let mut resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), &io_loop.handle());
+//! let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), &io_loop.handle());
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
