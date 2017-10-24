@@ -1,3 +1,4 @@
+#![cfg(feature = "bug")] // https://github.com/bluejekyll/trust-dns/issues/255
 #![cfg(not(windows))]
 #![cfg(feature = "tls")]
 
@@ -35,7 +36,7 @@ fn test_example_tls_toml_startup() {
         println!("using server src path: {}", server_path);
 
         File::open(&format!(
-            "{}/tests/named_test_configs/sec/example.cert",
+            "{}/tests/named_test_configs/sec/example.cert-der",
             server_path
         )).unwrap()
             .read_to_end(&mut cert_der)

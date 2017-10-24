@@ -138,6 +138,8 @@ fn test_ipv4_and_ipv6_toml_startup() {
     })
 }
 
+#[cfg(feature = "bug")]
+// https://github.com/bluejekyll/trust-dns/issues/255
 #[cfg(feature = "tls")]
 #[test]
 fn test_example_tls_toml_startup() {
