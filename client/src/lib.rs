@@ -210,7 +210,6 @@ extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
 extern crate futures;
-extern crate lazy_static;
 #[macro_use]
 extern crate log;
 #[cfg(feature = "native-tls")]
@@ -220,8 +219,6 @@ extern crate openssl;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
-extern crate rustc_serialize;
-extern crate tokio_io;
 extern crate tokio_core;
 #[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;
