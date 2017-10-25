@@ -134,14 +134,6 @@ impl Record {
         self
     }
 
-    /// Appends a label to a name
-    #[deprecated]
-    pub fn add_name(&mut self, label: String) -> &mut Self {
-        let name = self.name_labels.clone();
-        self.name_labels = name.append_label(label);
-        self
-    }
-
     /// ```text
     /// TYPE            two octets containing one of the RR type codes.  This
     ///                 field specifies the meaning of the data in the RDATA
