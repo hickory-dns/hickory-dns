@@ -296,7 +296,16 @@ impl KeyConfig {
 
     /// algorithm for for the key, see `Algorithm` for supported algorithms.
     pub fn algorithm(&self) -> ParseResult<Algorithm> {
-        Algorithm::from_str(&self.algorithm).map_err(|e| e.into())
+        match self.algorithm.as_str() {
+            "RSASHA1" => Ok(Algorithm::RSASHA1),
+            "RSASHA256" => Ok(Algorithm::RSASHA256),
+            "RSASHA1-NSEC3-SHA1" => Ok(Algorithm::RSASHA1NSEC3SHA1),
+            "RSASHA512" => Ok(Algorithm::RSASHA512),
+            "ECDSAP256SHA256" => Ok(Algorithm::ECDSAP256SHA256),
+            "ECDSAP384SHA384" => Ok(Algorithm::ECDSAP384SHA384),
+            "ED25519" => Ok(Algorithm::ED25519),
+            s => Err(format!("unrecognized string {}", s).into()),
+        }
     }
 
     /// the signer name for the key, this defaults to the $ORIGIN aka zone name.

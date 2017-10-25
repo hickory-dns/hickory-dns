@@ -5,8 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-// TODO: move to proto
-
 use std::clone::Clone;
 use std::collections::HashSet;
 use std::mem;
