@@ -102,19 +102,6 @@ impl Name {
         self.is_fqdn = val
     }
 
-    /// inline builder
-    ///
-    /// *see: `append_label` for replacement*
-    #[deprecated]
-    pub fn label(mut self, label: &'static str) -> Self {
-        // TODO get_mut() on Arc was unstable when this was written
-        let mut new_labels: Vec<Rc<String>> = self.labels;
-        new_labels.push(Rc::new(label.into()));
-        self.labels = new_labels;
-        assert!(self.labels.len() < 256); // this should be an error
-        self
-    }
-
     /// Appends the label to the end of this name
     ///
     /// # Example
@@ -157,57 +144,6 @@ impl Name {
             is_fqdn: true,
             labels: labels.into_iter().map(|s| Rc::new(s.into())).collect(),
         }
-    }
-
-    /// Deprecated in favor of `from_labels`
-    #[deprecated]
-    pub fn with_labels(labels: Vec<String>) -> Self {
-        Self::from_labels(labels)
-    }
-
-    /// Prepends the label to this Name, returning a new name
-    ///
-    /// Carries forward is_fqdn from self.
-    ///
-    /// *no direct replacement, consider reordering prepends to conform with appends*
-    #[deprecated]
-    pub fn prepend_label(&self, label: Rc<String>) -> Self {
-        let mut new_labels: Vec<Rc<String>> = Vec::with_capacity(self.labels.len() + 1);
-        new_labels.push(label);
-
-        for label in &*self.labels {
-            new_labels.push(label.clone());
-        }
-
-        assert!(new_labels.len() < 256); // this should be an error
-        Name {
-            is_fqdn: self.is_fqdn,
-            labels: new_labels,
-        }
-    }
-
-    /// appends the String to this label at the end
-    ///
-    /// *see: `append_label` for replacement*
-    #[deprecated]
-    pub fn add_label(&mut self, label: Rc<String>) -> &mut Self {
-        // TODO get_mut() on Arc was unstable when this was written
-        self.labels.push(label);
-        assert!(self.labels.len() < 256); // this should be an error
-        self
-    }
-
-    /// appends the other to this name
-    ///
-    /// *see: `append_name` and `append_domain` for replacements*
-    #[deprecated]
-    #[allow(deprecated)]
-    pub fn append(&mut self, other: &Self) -> &mut Self {
-        for rcs in &*other.labels {
-            self.add_label(rcs.clone());
-        }
-
-        self
     }
 
     /// Appends `other` to `self`, returning a new `Name`
@@ -959,15 +895,6 @@ mod tests {
         assert_eq!(zone.base_name(), Name::from_labels(vec!["com"]));
         assert!(zone.base_name().base_name().is_root());
         assert!(zone.base_name().base_name().base_name().is_root());
-    }
-
-    #[test]
-    #[allow(deprecated)]
-    fn test_prepend() {
-        let zone = Name::from_labels(vec!["example", "com"]);
-        let www = zone.prepend_label(Rc::new("www".to_string()));
-
-        assert_eq!(www, Name::from_labels(vec!["www", "example", "com"]));
     }
 
     #[test]
