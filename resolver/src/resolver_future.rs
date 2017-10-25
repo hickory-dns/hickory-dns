@@ -25,7 +25,6 @@ use name_server_pool::{NameServerPool, StandardConnection};
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use lookup;
 use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
-use system_conf;
 use hosts::Hosts;
 
 /// Root Handle to communicate with teh ResolverFuture
@@ -135,9 +134,10 @@ impl ResolverFuture {
     /// Constructs a new Resolver with the system configuration.
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
-    #[cfg(not(all(target_os = "windows", target_pointer_width = "32")))]
+    #[cfg(any(unix,
+              all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
     pub fn from_system_conf(reactor: &Handle) -> ResolveResult<Self> {
-        let (config, options) = system_conf::read_system_conf()?;
+        let (config, options) = super::system_conf::read_system_conf()?;
         Ok(Self::new(config, options, reactor))
     }
 
@@ -378,7 +378,8 @@ mod tests {
 
     #[test]
     #[ignore]
-    #[cfg(not(all(target_os = "windows", target_pointer_width = "32")))]
+    #[cfg(any(unix,
+              all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
     fn test_system_lookup() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
