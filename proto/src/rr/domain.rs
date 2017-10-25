@@ -809,7 +809,6 @@ impl FromStr for Name {
 mod tests {
     use std::cmp::Ordering;
     use std::str::FromStr;
-    use std::sync::Arc as Rc;
 
     use super::*;
 
