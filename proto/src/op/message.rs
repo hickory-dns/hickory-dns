@@ -22,6 +22,7 @@ use error::*;
 use rr::{Record, RecordType};
 use serialize::binary::{BinEncoder, BinDecoder, BinSerializable, EncodeMode};
 use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
+use rr::dnssec::rdata::DNSSECRecordType;
 
 /// The basic request and response datastructure, used for all DNS protocols.
 ///
@@ -289,7 +290,7 @@ impl Message {
     ///
     /// This must be don't only after all records have been associated. Generally this will be handled by the client and not need to be used directly
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
-        assert_eq!(RecordType::SIG, record.rr_type());
+        assert_eq!(RecordType::DNSSEC(DNSSECRecordType::SIG), record.rr_type());
         self.sig0.push(record);
         self
     }
@@ -526,7 +527,7 @@ impl Message {
                 records.push(record)
             } else {
                 match record.rr_type() {
-                    RecordType::SIG => {
+                    RecordType::DNSSEC(DNSSECRecordType::SIG) => {
                         saw_sig0 = true;
                         sig0s.push(record);
                     }
@@ -606,7 +607,7 @@ impl Message {
         for fin in finals {
             match fin.rr_type() {
                 // SIG0's are special, and come at the very end of the message
-                RecordType::SIG => self.add_sig0(fin),
+                RecordType::DNSSEC(DNSSECRecordType::SIG) => self.add_sig0(fin),
                 _ => self.add_additional(fin),
             };
         }

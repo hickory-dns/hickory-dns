@@ -767,7 +767,7 @@ impl KEY {
 
 impl From<KEY> for RData {
     fn from(key: KEY) -> RData {
-        RData::KEY(key)
+        RData::DNSSEC(super::DNSSECRData::KEY(key))
     }
 }
 

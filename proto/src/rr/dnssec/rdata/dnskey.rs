@@ -247,7 +247,7 @@ impl DNSKEY {
 
 impl From<DNSKEY> for RData {
     fn from(key: DNSKEY) -> RData {
-        RData::DNSKEY(key)
+        RData::DNSSEC(super::DNSSECRData::DNSKEY(key))
     }
 }
 

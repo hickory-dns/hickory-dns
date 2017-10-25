@@ -10,6 +10,7 @@ use std::vec;
 
 use rr::{DNSClass, Name, Record, RecordType, RData};
 use rr::dnssec::{Algorithm, SupportedAlgorithms};
+use rr::dnssec::rdata::DNSSECRData;
 
 /// Set of resource records associated to a name and type
 #[derive(Clone, Debug, PartialEq)]
@@ -165,12 +166,12 @@ impl RecordSet {
 
             let rrsigs = self.rrsigs
                 .iter()
-                .filter(|record| if let &RData::SIG(ref rrsig) = record.rdata() {
+                .filter(|record| if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = record.rdata() {
                     supported_algorithms.has(rrsig.algorithm())
                 } else {
                     false
                 })
-                .max_by_key(|record| if let &RData::SIG(ref rrsig) = record.rdata() {
+                .max_by_key(|record| if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = record.rdata() {
                     rrsig.algorithm()
                 } else {
                     Algorithm::RSASHA1
