@@ -192,16 +192,6 @@ impl Message {
         self
     }
 
-    /// Adds a slice of Queries to the message
-    #[deprecated = "will be removed post 0.9.x"]
-    pub fn add_all_queries(&mut self, queries: &[Query]) -> &mut Self {
-        for q in queries {
-            // TODO: the clone here should really be performed (or not) by the caller
-            self.add_query(q.clone());
-        }
-        self
-    }
-
     /// Adds an iterator over a set of Queries to be added to the message
     pub fn add_queries<Q, I>(&mut self, queries: Q) -> &mut Self
     where
@@ -218,17 +208,6 @@ impl Message {
     /// Add an answer to the Message
     pub fn add_answer(&mut self, record: Record) -> &mut Self {
         self.answers.push(record);
-        self
-    }
-
-    /// Add an entire set of Answers
-    #[deprecated = "will be removed post 0.9.x"]
-    pub fn add_all_answers(&mut self, vector: &[&Record]) -> &mut Self {
-        for &r in vector {
-            // TODO: in order to get rid of this clone, we need an owned Message for decoding, and a
-            //  reference Message for encoding.
-            self.add_answer(r.clone());
-        }
         self
     }
 
@@ -258,17 +237,6 @@ impl Message {
     /// Add a name server record to the Message
     pub fn add_name_server(&mut self, record: Record) -> &mut Self {
         self.name_servers.push(record);
-        self
-    }
-
-    /// Adds a set of name server records to the message
-    #[deprecated = "will be removed post 0.9.x"]
-    pub fn add_all_name_servers(&mut self, vector: &[&Record]) -> &mut Self {
-        for &r in vector {
-            // TODO: in order to get rid of this clone, we need an owned Message for decoding, and a
-            //  reference Message for encoding.
-            self.add_name_server(r.clone());
-        }
         self
     }
 
