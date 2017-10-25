@@ -20,7 +20,6 @@ use lookup;
 use lookup::Lookup;
 use lookup_ip::LookupIp;
 use ResolverFuture;
-use system_conf;
 
 /// The Resolver is used for performing DNS queries.
 ///
@@ -86,9 +85,10 @@ impl Resolver {
     /// Constructs a new Resolver with the system configuration.
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
-    #[cfg(not(all(target_os = "windows", target_pointer_width = "32")))]
+    #[cfg(any(unix,
+              all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
     pub fn from_system_conf() -> io::Result<Self> {
-        let (config, options) = system_conf::read_system_conf()?;
+        let (config, options) = super::system_conf::read_system_conf()?;
         Self::new(config, options)
     }
 
@@ -192,7 +192,8 @@ mod tests {
 
     #[test]
     #[ignore]
-    #[cfg(not(all(target_os = "windows", target_pointer_width = "32")))]
+    #[cfg(any(unix,
+             all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
     fn test_system_lookup() {
         let resolver = Resolver::from_system_conf().unwrap();
 
