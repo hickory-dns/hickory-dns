@@ -8,9 +8,8 @@
 use std::collections::{HashMap, HashSet};
 use std::io;
 use std::marker::PhantomData;
-use std::time::Duration;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use chrono::Utc;
 use futures::{Async, Complete, Future, Poll, task};
 use futures::IntoFuture;
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
@@ -268,14 +267,15 @@ where
                     let query_id = query_id.expect("query_id should have been set above");
                     message.set_id(query_id);
 
+                    let now = SystemTime::now().duration_since(UNIX_EPOCH)
+                        .map_err(|_| "Current time is before the Unix epoch.".into())?
+                        .as_secs();
+                    let now = now as u32; // XXX: truncates u64 to u32.
+
                     // update messages need to be signed.
                     if let OpCode::Update = message.op_code() {
                         if let Some(ref signer) = self.signer {
-                            if let Err(e) = message.finalize(
-                                signer,
-                                Utc::now().timestamp() as u32,
-                            )
-                            {
+                            if let Err(e) = message.finalize(signer, now) {
                                 warn!("could not sign message: {}", e);
                                 complete.send(Err(e.into())).expect(
                                     "error notifying wait, possible future leak",
