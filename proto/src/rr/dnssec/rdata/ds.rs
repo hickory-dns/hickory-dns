@@ -239,7 +239,7 @@ pub fn test() {
 #[test]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub fn test_covers() {
-    use rr::rdata::DNSKEY;
+    use rr::dnssec::rdata::DNSKEY;
 
     let name = Name::parse("www.example.com.", None).unwrap();
 

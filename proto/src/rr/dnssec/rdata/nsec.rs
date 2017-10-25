@@ -145,14 +145,15 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
 #[test]
 pub fn test() {
     use rr::RecordType;
+    use rr::dnssec::rdata::DNSSECRecordType;
 
     let rdata = NSEC::new(
         Name::from_labels(vec!["www", "example", "com"]),
         vec![
             RecordType::A,
             RecordType::AAAA,
-            RecordType::DS,
-            RecordType::RRSIG,
+            RecordType::DNSSEC(DNSSECRecordType::DS),
+            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
         ],
     );
 

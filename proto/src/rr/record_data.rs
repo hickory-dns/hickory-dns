@@ -827,21 +827,26 @@ mod tests {
             RData::A(..) => RecordType::A,
             RData::AAAA(..) => RecordType::AAAA,
             RData::CNAME(..) => RecordType::CNAME,
-            RData::DS(..) => RecordType::DS,
-            RData::KEY(..) => RecordType::KEY,
-            RData::DNSKEY(..) => RecordType::DNSKEY,
             RData::MX(..) => RecordType::MX,
             RData::NS(..) => RecordType::NS,
-            RData::NSEC(..) => RecordType::NSEC,
-            RData::NSEC3(..) => RecordType::NSEC3,
-            RData::NSEC3PARAM(..) => RecordType::NSEC3PARAM,
             RData::NULL(..) => RecordType::NULL,
             RData::OPT(..) => RecordType::OPT,
             RData::PTR(..) => RecordType::PTR,
-            RData::SIG(..) => RecordType::SIG,
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
             RData::TXT(..) => RecordType::TXT,
+            RData::DNSSEC(ref rdata) => {
+                use rr::dnssec::rdata::DNSSECRecordType;
+                RecordType::DNSSEC(match *rdata {
+                    DNSSECRData::DS(..) => DNSSECRecordType::DS,
+                    DNSSECRData::KEY(..) => DNSSECRecordType::KEY,
+                    DNSSECRData::DNSKEY(..) => DNSSECRecordType::DNSKEY,
+                    DNSSECRData::NSEC(..) => DNSSECRecordType::NSEC,
+                    DNSSECRData::NSEC3(..) => DNSSECRecordType::NSEC3,
+                    DNSSECRData::NSEC3PARAM(..) => DNSSECRecordType::NSEC3PARAM,
+                    DNSSECRData::SIG(..) => DNSSECRecordType::SIG,
+                })
+            }
         }
     }
 
