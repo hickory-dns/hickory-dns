@@ -30,13 +30,13 @@ pub mod sig;
 use error::*;
 use serialize::binary::*;
 
-pub(in super) use self::dnskey::DNSKEY;
+pub(crate) use self::dnskey::DNSKEY;
 pub(in super) use self::ds::DS;
-pub(in super) use self::key::KEY;
+pub(crate) use self::key::KEY;
 pub(in super) use self::nsec::NSEC;
 pub(in super) use self::nsec3::NSEC3;
 pub(in super) use self::nsec3param::NSEC3PARAM;
-pub(in super) use self::sig::SIG;
+pub(crate) use self::sig::SIG;
 
 /// The type of the resource record, for DNSSEC-specific records.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
