@@ -681,8 +681,9 @@ mod test {
 
     #[test]
     fn test_get_filter() {
-        use rr::rdata::SIG;
+        use rr::dnssec::rdata::SIG;
         use rr::dnssec::{Algorithm, SupportedAlgorithms};
+        use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType};
 
         let name = Name::root();
         let rsasha256 = SIG::new(
@@ -733,30 +734,30 @@ mod test {
         let rrsig_rsa = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::RRSIG)
+            .set_rr_type(RecordType::DNSSEC(DNSSECRecordType::RRSIG))
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SIG(rsasha256))
+            .set_rdata(RData::DNSSEC(DNSSECRData::SIG(rsasha256)))
             .clone();
         let rrsig_ecp256 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::RRSIG)
+            .set_rr_type(RecordType::DNSSEC(DNSSECRecordType::RRSIG))
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SIG(ecp256))
+            .set_rdata(RData::DNSSEC(DNSSECRData::SIG(ecp256)))
             .clone();
         let rrsig_ecp384 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::RRSIG)
+            .set_rr_type(RecordType::DNSSEC(DNSSECRecordType::RRSIG))
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SIG(ecp384))
+            .set_rdata(RData::DNSSEC(DNSSECRData::SIG(ecp384)))
             .clone();
         let rrsig_ed25519 = Record::new()
             .set_name(name.clone())
             .set_ttl(3600)
-            .set_rr_type(RecordType::RRSIG)
+            .set_rr_type(RecordType::DNSSEC(DNSSECRecordType::RRSIG))
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SIG(ed25519))
+            .set_rdata(RData::DNSSEC(DNSSECRData::SIG(ed25519)))
             .clone();
 
         let a = Record::new()
@@ -775,7 +776,7 @@ mod test {
 
         assert!(rrset.records(true, SupportedAlgorithms::all()).iter().any(
             |r| {
-                if let &RData::SIG(ref sig) = r.rdata() {
+                if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = r.rdata() {
                     sig.algorithm() == Algorithm::ED25519
                 } else {
                     false
@@ -786,7 +787,7 @@ mod test {
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ECDSAP384SHA384);
         assert!(rrset.records(true, supported_algorithms).iter().any(|r| {
-            if let &RData::SIG(ref sig) = r.rdata() {
+            if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = r.rdata() {
                 sig.algorithm() == Algorithm::ECDSAP384SHA384
             } else {
                 false
@@ -796,7 +797,7 @@ mod test {
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ED25519);
         assert!(rrset.records(true, supported_algorithms).iter().any(|r| {
-            if let &RData::SIG(ref sig) = r.rdata() {
+            if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = r.rdata() {
                 sig.algorithm() == Algorithm::ED25519
             } else {
                 false

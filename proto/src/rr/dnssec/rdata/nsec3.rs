@@ -450,6 +450,8 @@ pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -
 
 #[test]
 pub fn test() {
+    use rr::dnssec::rdata::DNSSECRecordType;
+
     let rdata = NSEC3::new(
         Nsec3HashAlgorithm::SHA1,
         true,
@@ -459,8 +461,8 @@ pub fn test() {
         vec![
             RecordType::A,
             RecordType::AAAA,
-            RecordType::DS,
-            RecordType::RRSIG,
+            RecordType::DNSSEC(DNSSECRecordType::DS),
+            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
         ],
     );
 
@@ -482,6 +484,8 @@ pub fn test() {
 
 #[test]
 pub fn test_dups() {
+    use rr::dnssec::rdata::DNSSECRecordType;
+
     let rdata_with_dups = NSEC3::new(
         Nsec3HashAlgorithm::SHA1,
         true,
@@ -491,9 +495,9 @@ pub fn test_dups() {
         vec![
             RecordType::A,
             RecordType::AAAA,
-            RecordType::DS,
+            RecordType::DNSSEC(DNSSECRecordType::DS),
             RecordType::AAAA,
-            RecordType::RRSIG,
+            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
         ],
     );
 
@@ -507,8 +511,8 @@ pub fn test_dups() {
         vec![
             RecordType::A,
             RecordType::AAAA,
-            RecordType::DS,
-            RecordType::RRSIG,
+            RecordType::DNSSEC(DNSSECRecordType::DS),
+            RecordType::DNSSEC(DNSSECRecordType::RRSIG),
         ],
     );
 
