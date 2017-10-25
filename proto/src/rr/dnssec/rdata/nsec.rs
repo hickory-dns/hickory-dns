@@ -19,7 +19,7 @@
 use serialize::binary::*;
 use error::*;
 use rr::{Name, RecordType};
-use rr::rdata::nsec3;
+use super::nsec3;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-4)
 ///

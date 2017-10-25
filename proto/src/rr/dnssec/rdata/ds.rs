@@ -20,7 +20,7 @@ use serialize::binary::*;
 use error::*;
 use rr::dnssec::{Algorithm, DigestType};
 
-use rr::rdata::DNSKEY;
+use rr::dnssec::rdata::DNSKEY;
 use rr::Name;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5)
