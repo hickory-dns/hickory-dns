@@ -22,6 +22,8 @@ use error::*;
 use rr::{Record, RecordType};
 use serialize::binary::{BinEncoder, BinDecoder, BinSerializable, EncodeMode};
 use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
+
+#[cfg(feature = "dnssec")]
 use rr::dnssec::rdata::DNSSECRecordType;
 
 /// The basic request and response datastructure, used for all DNS protocols.
@@ -289,6 +291,7 @@ impl Message {
     /// Add a SIG0 record, i.e. sign this message
     ///
     /// This must be don't only after all records have been associated. Generally this will be handled by the client and not need to be used directly
+    #[cfg(feature = "dnssec")]
     pub fn add_sig0(&mut self, record: Record) -> &mut Self {
         assert_eq!(RecordType::DNSSEC(DNSSECRecordType::SIG), record.rr_type());
         self.sig0.push(record);
@@ -504,6 +507,7 @@ impl Message {
         )
     }
 
+    #[cfg_attr(not(feature = "dnssec"), allow(unused_mut))]
     fn read_records(
         decoder: &mut BinDecoder,
         count: usize,
@@ -527,6 +531,7 @@ impl Message {
                 records.push(record)
             } else {
                 match record.rr_type() {
+                    #[cfg(feature = "dnssec")]
                     RecordType::DNSSEC(DNSSECRecordType::SIG) => {
                         saw_sig0 = true;
                         sig0s.push(record);
@@ -607,6 +612,7 @@ impl Message {
         for fin in finals {
             match fin.rr_type() {
                 // SIG0's are special, and come at the very end of the message
+                #[cfg(feature = "dnssec")]
                 RecordType::DNSSEC(DNSSECRecordType::SIG) => self.add_sig0(fin),
                 _ => self.add_additional(fin),
             };

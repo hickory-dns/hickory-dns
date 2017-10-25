@@ -24,6 +24,7 @@ use std::fmt::{Display, Formatter};
 use serialize::binary::*;
 use error::*;
 
+#[cfg(feature = "dnssec")]
 use rr::dnssec::rdata::DNSSECRecordType;
 
 /// The type of the resource record.
@@ -79,6 +80,7 @@ pub enum RecordType {
     TXT,
 
     /// DNSSEC-specific record types.
+    #[cfg(feature = "dnssec")]
     DNSSEC(DNSSECRecordType),
 }
 
@@ -132,7 +134,11 @@ impl RecordType {
             6 => Ok(RecordType::SOA),
             33 => Ok(RecordType::SRV),
             16 => Ok(RecordType::TXT),
+            #[cfg(feature = "dnssec")]
             value => Ok(RecordType::DNSSEC(DNSSECRecordType::from_u16(value)?)),
+            #[cfg(not(feature = "dnssec"))]
+            // TODO: this should probably return a generic value wrapper.
+            _ => Err(ProtoErrorKind::UnknownRecordTypeValue(value).into()),
         }
     }
 }
@@ -180,6 +186,7 @@ impl From<RecordType> for &'static str {
             RecordType::SOA => "SOA",
             RecordType::SRV => "SRV",
             RecordType::TXT => "TXT",
+            #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
         }
     }
@@ -211,6 +218,7 @@ impl From<RecordType> for u16 {
             RecordType::SOA => 6,
             RecordType::SRV => 33,
             RecordType::TXT => 16,
+            #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
         }
     }

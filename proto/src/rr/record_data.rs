@@ -27,6 +27,8 @@ use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
 use super::rdata::{MX, NULL, OPT, SOA, SRV, TXT};
+
+#[cfg(feature = "dnssec")]
 use super::dnssec::rdata::DNSSECRData;
 
 /// Record data enum variants
@@ -332,6 +334,7 @@ pub enum RData {
     TXT(TXT),
 
     /// A DNSSEC-specific record. See `DNSSECRData` for details.
+    #[cfg(feature = "dnssec")]
     DNSSEC(DNSSECRData),
 }
 
@@ -410,6 +413,7 @@ impl RData {
                 debug!("reading TXT");
                 RData::TXT(try!(rdata::txt::read(decoder, rdata_length)))
             }
+            #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(record_type) => {
                 RData::DNSSEC(try!(DNSSECRData::read(decoder, record_type, rdata_length)))
             }
@@ -460,6 +464,7 @@ impl RData {
             // to_lowercase for rfc4034 and rfc6840
             RData::SRV(ref srv) => rdata::srv::emit(encoder, srv),
             RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
+            #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => rdata.emit(encoder),
         }
     }
@@ -478,6 +483,7 @@ impl RData {
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
             RData::TXT(..) => RecordType::TXT,
+            #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) =>
                 RecordType::DNSSEC(DNSSECRData::to_record_type(rdata)),
         }
@@ -835,6 +841,7 @@ mod tests {
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
             RData::TXT(..) => RecordType::TXT,
+            #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => {
                 use rr::dnssec::rdata::DNSSECRecordType;
                 RecordType::DNSSEC(match *rdata {
