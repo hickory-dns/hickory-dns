@@ -61,6 +61,3 @@ trust-dns-proto = { version = "^0.1", path = "../proto" }
 
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
 ipconfig = "^0.1.1"
-
-[dev-dependencies]
-tokio-core = "^0.1"

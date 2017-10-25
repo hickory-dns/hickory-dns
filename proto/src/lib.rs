@@ -10,12 +10,10 @@
 
 //! TRust-DNS Protocol library
 
-extern crate chrono;
+#[cfg(any(feature = "openssl", feature = "ring"))]
 extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;
-#[macro_use]
-extern crate lazy_static;
 #[macro_use]
 extern crate log;
 #[macro_use]
