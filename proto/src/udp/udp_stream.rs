@@ -22,11 +22,6 @@ use tokio_core::reactor::Handle;
 use BufStreamHandle;
 use error::*;
 
-lazy_static!{
-  static ref IPV4_ZERO: Ipv4Addr = Ipv4Addr::new(0,0,0,0);
-  static ref IPV6_ZERO: Ipv6Addr = Ipv6Addr::new(0,0,0,0,0,0,0,0);
-}
-
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream {
@@ -131,8 +126,8 @@ impl UdpStream {
     /// Creates a future for randomly binding to a local socket address for client connections.
     fn next_bound_local_address(name_server: &SocketAddr) -> NextRandomUdpSocket {
         let zero_addr: IpAddr = match *name_server {
-            SocketAddr::V4(..) => IpAddr::V4(*IPV4_ZERO),
-            SocketAddr::V6(..) => IpAddr::V6(*IPV6_ZERO),
+            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0,0,0,0)),
+            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0,0,0,0,0,0,0,0)),
         };
 
         NextRandomUdpSocket { bind_address: zero_addr }

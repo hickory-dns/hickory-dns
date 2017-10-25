@@ -36,8 +36,8 @@ coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = 
 
 [features]
 dnssec-openssl = ["dnssec", "openssl"]
-dnssec-ring = ["dnssec", "ring"]
-dnssec = []
+dnssec-ring = ["dnssec", "ring", "untrusted"]
+dnssec = ["data-encoding"]
 
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
@@ -47,16 +47,13 @@ name = "trust_dns_proto"
 path = "src/lib.rs"
 
 [dependencies]
-chrono = "^0.4"
-data-encoding = "^1.2.0"
+data-encoding = { version = "^1.2.0", optional = true }
 error-chain = "0.1.12"
 futures = "^0.1.6"
-lazy_static = "^0.2.1"
 log = "^0.3.5"
 openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
 rand = "^0.3"
 ring = { version = "^0.12", optional = true }
-time = "^0.1"
 tokio-core = "^0.1"
 tokio-io = "^0.1"
-untrusted = "^0.5"
+untrusted = { version = "^0.5", optional = true }
