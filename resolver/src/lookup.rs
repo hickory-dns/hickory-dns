@@ -28,7 +28,7 @@ use lookup_state::CachingClient;
 use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
 use resolver_future::BasicResolverHandle;
 
-/// Result of a DNS query when querying for any record type supported by the TRust-DNS Client library.
+/// Result of a DNS query when querying for any record type supported by the TRust-DNS Proto library.
 ///
 /// For IP resolution see LookupIp, as it has more features for A and AAAA lookups.
 #[derive(Debug, Clone)]
