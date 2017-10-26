@@ -19,24 +19,24 @@
 // TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
 //  and also a little more ergonomic when accessing.
 // each of these module's has the parser for that rdata embedded, to keep the file sizes down...
-mod dnskey;
-mod ds;
-mod key;
+pub mod dnskey;
+pub mod ds;
+pub mod key;
 pub mod nsec;
-mod nsec3;
-mod nsec3param;
+pub mod nsec3;
+pub mod nsec3param;
 pub mod sig;
 
 use error::*;
 use serialize::binary::*;
 
-pub(crate) use self::dnskey::DNSKEY;
-pub(in super) use self::ds::DS;
-pub(crate) use self::key::KEY;
-pub(in super) use self::nsec::NSEC;
-pub(in super) use self::nsec3::NSEC3;
-pub(in super) use self::nsec3param::NSEC3PARAM;
-pub(crate) use self::sig::SIG;
+pub use self::dnskey::DNSKEY;
+pub use self::ds::DS;
+pub use self::key::KEY;
+pub use self::nsec::NSEC;
+pub use self::nsec3::NSEC3;
+pub use self::nsec3param::NSEC3PARAM;
+pub use self::sig::SIG;
 
 /// The type of the resource record, for DNSSEC-specific records.
 #[derive(Debug, PartialEq, Eq, Hash, Copy, Clone)]
