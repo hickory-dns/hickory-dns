@@ -5,7 +5,7 @@ use op::Message;
 use rr::{DNSClass, Name, Record};
 use rr::dnssec::Algorithm;
 use rr::dnssec::{tbs, PublicKey, PublicKeyEnum};
-use rr::rdata::{DNSKEY, KEY, SIG};
+use rr::dnssec::rdata::{DNSKEY, KEY, SIG};
 
 /// Types which are able to verify DNS based signatures
 pub trait Verifier {

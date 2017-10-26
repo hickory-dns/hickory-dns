@@ -22,6 +22,7 @@ mod digest_type;
 mod ec_public_key;
 mod nsec3;
 pub mod public_key;
+pub mod rdata;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 mod rsa_public_key;
 mod supported_algorithm;

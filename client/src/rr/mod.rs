@@ -21,7 +21,6 @@ pub mod dnssec;
 use trust_dns_proto::rr;
 pub use trust_dns_proto::rr::dns_class;
 pub use trust_dns_proto::rr::domain;
-pub use trust_dns_proto::rr::rdata;
 pub use trust_dns_proto::rr::record_data;
 pub use trust_dns_proto::rr::record_type;
 pub use trust_dns_proto::rr::resource;
@@ -34,3 +33,9 @@ pub use self::resource::Record;
 pub use self::rr::RrKey;
 pub use self::rr::IntoRecordSet;
 pub use self::rr::RecordSet;
+
+/// All record data structures and related serialization methods
+pub mod rdata {
+    pub use trust_dns_proto::rr::rdata::*;
+    pub use trust_dns_proto::rr::dnssec::rdata::*;
+}

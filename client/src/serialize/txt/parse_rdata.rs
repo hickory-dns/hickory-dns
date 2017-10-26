@@ -18,6 +18,7 @@
 
 use error::*;
 use rr::{Name, RData, RecordType};
+use rr::rdata::DNSSECRecordType;
 use serialize::txt::Token;
 use serialize::txt::rdata_parsers::*;
 
@@ -42,23 +43,24 @@ impl RDataParser for RData {
             RecordType::ANY => panic!("parsing ANY doesn't make sense"), // valid panic, never should happen
             RecordType::AXFR => panic!("parsing AXFR doesn't make sense"), // valid panic, never should happen
             RecordType::CNAME => RData::CNAME(name::parse(tokens, origin)?),
-            RecordType::KEY => panic!("KEY should be dynamically generated"), // valid panic, never should happen
-            RecordType::DNSKEY => panic!("DNSKEY should be dynamically generated"), // valid panic, never should happen
-            RecordType::DS => panic!("DS should be dynamically generated"), // valid panic, never should happen
             RecordType::IXFR => panic!("parsing IXFR doesn't make sense"), // valid panic, never should happen
             RecordType::MX => RData::MX(mx::parse(tokens, origin)?),
             RecordType::NULL => RData::NULL(null::parse(tokens)?),
             RecordType::NS => RData::NS(name::parse(tokens, origin)?),
-            RecordType::NSEC => panic!("NSEC should be dynamically generated"), // valid panic, never should happen
-            RecordType::NSEC3 => panic!("NSEC3 should be dynamically generated"), // valid panic, never should happen
-            RecordType::NSEC3PARAM => panic!("NSEC3PARAM should be dynamically generated"), // valid panic, never should happen
             RecordType::OPT => panic!("parsing OPT doesn't make sense"), // valid panic, never should happen
             RecordType::PTR => RData::PTR(name::parse(tokens, origin)?),
-            RecordType::RRSIG => panic!("RRSIG should be dynamically generated"), // valid panic, never should happen
-            RecordType::SIG => panic!("parsing SIG doesn't make sense"), // valid panic, never should happen
             RecordType::SOA => RData::SOA(soa::parse(tokens, origin)?),
             RecordType::SRV => RData::SRV(srv::parse(tokens, origin)?),
             RecordType::TXT => RData::TXT(txt::parse(tokens)?),
+            RecordType::DNSSEC(DNSSECRecordType::SIG) => panic!("parsing SIG doesn't make sense"), // valid panic, never should happen
+            RecordType::DNSSEC(DNSSECRecordType::DNSKEY) => panic!("DNSKEY should be dynamically generated"), // valid panic, never should happen
+            RecordType::DNSSEC(DNSSECRecordType::KEY) => panic!("KEY should be dynamically generated"), // valid panic, never should happen
+            RecordType::DNSSEC(DNSSECRecordType::DS) => panic!("DS should be dynamically generated"), // valid panic, never should happen
+            RecordType::DNSSEC(DNSSECRecordType::NSEC) => panic!("NSEC should be dynamically generated"), // valid panic, never should happen
+            RecordType::DNSSEC(DNSSECRecordType::NSEC3) => panic!("NSEC3 should be dynamically generated"), // valid panic, never should happen
+            RecordType::DNSSEC(DNSSECRecordType::NSEC3PARAM) => panic!("NSEC3PARAM should be dynamically generated"), // valid panic, never should happen
+            RecordType::DNSSEC(DNSSECRecordType::RRSIG) => panic!("RRSIG should be dynamically generated"), // valid panic, never should happen
+
         };
 
         Ok(rdata)
