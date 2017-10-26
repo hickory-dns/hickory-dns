@@ -333,7 +333,10 @@ pub enum RData {
     /// ```
     TXT(TXT),
 
-    /// A DNSSEC-specific record. See `DNSSECRData` for details.
+    /// A DNSSEC- or SIG(0)- specific record. See `DNSSECRData` for details.
+    ///
+    /// These types are in `DNSSECRData` to make them easy to disable when
+    /// crypto functionality isn't needed.
     #[cfg(feature = "dnssec")]
     DNSSEC(DNSSECRData),
 }
