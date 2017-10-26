@@ -20,6 +20,8 @@ use std::collections::HashMap;
 
 use serialize::binary::*;
 use error::*;
+
+#[cfg(feature = "dnssec")]
 use rr::dnssec::SupportedAlgorithms;
 
 /// The OPT record type is used for ExtendedDNS records.
@@ -366,12 +368,15 @@ impl From<EdnsCode> for u16 {
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Hash)]
 pub enum EdnsOption {
     /// [RFC 6975, DNSSEC Algorithm Understood](https://tools.ietf.org/html/rfc6975)
+    #[cfg(feature = "dnssec")]
     DAU(SupportedAlgorithms),
 
     /// [RFC 6975, DS Hash Understood](https://tools.ietf.org/html/rfc6975)
+    #[cfg(feature = "dnssec")]
     DHU(SupportedAlgorithms),
 
     /// [RFC 6975, NSEC3 Hash Understood](https://tools.ietf.org/html/rfc6975)
+    #[cfg(feature = "dnssec")]
     N3U(SupportedAlgorithms),
 
     /// Unknown, used to deal with unknown or unsupported codes
@@ -382,6 +387,7 @@ impl EdnsOption {
     /// Returns the length in bytes of the EdnsOption
     pub fn len(&self) -> u16 {
         match *self {
+            #[cfg(feature = "dnssec")]
             EdnsOption::DAU(ref algorithms) |
             EdnsOption::DHU(ref algorithms) |
             EdnsOption::N3U(ref algorithms) => algorithms.len(),
@@ -394,8 +400,11 @@ impl EdnsOption {
 impl<'a> From<(EdnsCode, &'a [u8])> for EdnsOption {
     fn from(value: (EdnsCode, &'a [u8])) -> EdnsOption {
         match value.0 {
+            #[cfg(feature = "dnssec")]
             EdnsCode::DAU => EdnsOption::DAU(value.1.into()),
+            #[cfg(feature = "dnssec")]
             EdnsCode::DHU => EdnsOption::DHU(value.1.into()),
+            #[cfg(feature = "dnssec")]
             EdnsCode::N3U => EdnsOption::N3U(value.1.into()),
             _ => EdnsOption::Unknown(value.0.into(), value.1.to_vec()),
         }
@@ -405,6 +414,7 @@ impl<'a> From<(EdnsCode, &'a [u8])> for EdnsOption {
 impl<'a> From<&'a EdnsOption> for Vec<u8> {
     fn from(value: &'a EdnsOption) -> Vec<u8> {
         match *value {
+            #[cfg(feature = "dnssec")]
             EdnsOption::DAU(ref algorithms) |
             EdnsOption::DHU(ref algorithms) |
             EdnsOption::N3U(ref algorithms) => algorithms.into(),
@@ -416,8 +426,11 @@ impl<'a> From<&'a EdnsOption> for Vec<u8> {
 impl<'a> From<&'a EdnsOption> for EdnsCode {
     fn from(value: &'a EdnsOption) -> EdnsCode {
         match *value {
+            #[cfg(feature = "dnssec")]
             EdnsOption::DAU(..) => EdnsCode::DAU,
+            #[cfg(feature = "dnssec")]
             EdnsOption::DHU(..) => EdnsCode::DHU,
+            #[cfg(feature = "dnssec")]
             EdnsOption::N3U(..) => EdnsCode::N3U,
             EdnsOption::Unknown(code, _) => EdnsCode::Unknown(code),
         }
@@ -425,6 +438,7 @@ impl<'a> From<&'a EdnsOption> for EdnsCode {
 }
 
 #[test]
+#[cfg(feature = "dnssec")]
 pub fn test() {
     let mut rdata = OPT::default();
     rdata.insert(EdnsOption::DAU(SupportedAlgorithms::all()));

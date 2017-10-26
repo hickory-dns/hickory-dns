@@ -16,6 +16,7 @@ use tokio_core::reactor::Core;
 use trust_dns::client::*;
 use trust_dns::op::Message;
 use trust_dns::rr::*;
+use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns::rr::dnssec::*;
 
 use self::mut_message_client::MutMessageHandle;
@@ -184,13 +185,14 @@ pub fn query_all_dnssec(
         client.support_algorithms = Some(SupportedAlgorithms::from_vec(&[algorithm]));
     }
 
-    let response = query_message(io_loop, &mut client, name, RecordType::DNSKEY);
+    let response = query_message(io_loop, &mut client, name,
+                                 RecordType::DNSSEC(DNSSECRecordType::DNSKEY));
 
     let dnskey = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::DNSKEY)
-        .map(|r| if let &RData::DNSKEY(ref dnskey) = r.rdata() {
+        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY))
+        .map(|r| if let &RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = r.rdata() {
             dnskey.clone()
         } else {
             panic!("wrong RDATA")
@@ -201,14 +203,14 @@ pub fn query_all_dnssec(
     let rrsig = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::RRSIG)
-        .map(|r| if let &RData::SIG(ref rrsig) = r.rdata() {
+        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG))
+        .map(|r| if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = r.rdata() {
             rrsig.clone()
         } else {
             panic!("wrong RDATA")
         })
         .filter(|rrsig| rrsig.algorithm() == algorithm)
-        .find(|rrsig| rrsig.type_covered() == RecordType::DNSKEY);
+        .find(|rrsig| rrsig.type_covered() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY));
     assert!(rrsig.is_some(), "Associated RRSIG not found");
 }
 

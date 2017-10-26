@@ -4,7 +4,7 @@ use error::*;
 use op::Message;
 use rr::{DNSClass, Name, Record, RecordType, RData};
 use rr::dnssec::Algorithm;
-use rr::rdata::{sig, SIG};
+use super::rdata::{DNSSECRData, sig, SIG};
 use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
 /// Data To Be Signed.
@@ -189,7 +189,7 @@ pub fn rrset_tbs(
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
 pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> ProtoResult<TBS> {
-    if let &RData::SIG(ref sig) = rrsig.rdata() {
+    if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = rrsig.rdata() {
         rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
         return Err(

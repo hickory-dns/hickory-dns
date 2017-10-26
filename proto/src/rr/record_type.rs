@@ -24,6 +24,9 @@ use std::fmt::{Display, Formatter};
 use serialize::binary::*;
 use error::*;
 
+#[cfg(feature = "dnssec")]
+use rr::dnssec::rdata::DNSSECRecordType;
+
 /// The type of the resource record.
 ///
 /// This specifies the type of data in the RData field of the Resource Record
@@ -41,24 +44,15 @@ pub enum RecordType {
     /// RFC 1035[1]	Authoritative Zone Transfer
     AXFR,
     //  CAA,        //	257	RFC 6844	Certification Authority Authorization
-    //  CDNSKEY,    //	60	RFC 7344	Child DNSKEY
-    //  CDS,        //	59	RFC 7344	Child DS
     //  CERT,       //	37	RFC 4398	Certificate record
     /// RFC 1035[1]	Canonical name record
     CNAME,
     //  DHCID,      //	49	RFC 4701	DHCP identifier
-    //  DLV,        //	32769	RFC 4431	DNSSEC Lookaside Validation record
     //  DNAME,      //	39	RFC 2672	Delegation Name
-    /// RFC 4034	DNS Key record: RSASHA256 and RSASHA512, RFC5702
-    DNSKEY,
-    /// RFC 4034	Delegation signer: RSASHA256 and RSASHA512, RFC5702
-    DS,
     //  HIP,        //	55	RFC 5205	Host Identity Protocol
     //  IPSECKEY,   //	45	RFC 4025	IPsec Key
     /// RFC 1996	Incremental Zone Transfer
     IXFR,
-    /// RFC 2535[3] and RFC 2930[4]	Key record
-    KEY,
     //  KX,         //	36	RFC 2230	Key eXchanger record
     //  LOC,        //	29	RFC 1876	Location record
     /// RFC 1035[1]	Mail exchange record
@@ -68,21 +62,11 @@ pub enum RecordType {
     NS,
     /// RFC 1035[1]	Null server record, for testing
     NULL,
-    /// RFC 4034	Next-Secure record
-    NSEC,
-    /// RFC 5155	NSEC record version 3
-    NSEC3,
-    /// RFC 5155	NSEC3 parameters
-    NSEC3PARAM,
     /// RFC 6891	Option
     OPT,
     /// RFC 1035[1]	Pointer record
     PTR,
-    /// RFC 4034	DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
-    RRSIG,
     //  RP,         //	17	RFC 1183	Responsible person
-    /// RFC 2535 (2931)	Signature, to support 2137 Update
-    SIG,
     /// RFC 1035[1] and RFC 2308[9]	Start of [a zone of] authority record
     SOA,
     /// RFC 2782	Service locator
@@ -94,6 +78,13 @@ pub enum RecordType {
     //  TSIG,       //	250	RFC 2845	Transaction Signature
     /// RFC 1035[1]	Text record
     TXT,
+
+    /// A DNSSEC- or SIG(0)- specific record type.
+    ///
+    /// These types are in `DNSSECRecordType` to make them easy to disable when
+    /// crypto functionality isn't needed.
+    #[cfg(feature = "dnssec")]
+    DNSSEC(DNSSECRecordType),
 }
 
 impl RecordType {
@@ -138,22 +129,17 @@ impl RecordType {
             255 => Ok(RecordType::ANY),
             252 => Ok(RecordType::AXFR),
             5 => Ok(RecordType::CNAME),
-            48 => Ok(RecordType::DNSKEY),
-            43 => Ok(RecordType::DS),
-            25 => Ok(RecordType::KEY),
             15 => Ok(RecordType::MX),
             2 => Ok(RecordType::NS),
-            47 => Ok(RecordType::NSEC),
-            50 => Ok(RecordType::NSEC3),
-            51 => Ok(RecordType::NSEC3PARAM),
             0 => Ok(RecordType::NULL),
             41 => Ok(RecordType::OPT),
             12 => Ok(RecordType::PTR),
-            46 => Ok(RecordType::RRSIG),
-            24 => Ok(RecordType::SIG),
             6 => Ok(RecordType::SOA),
             33 => Ok(RecordType::SRV),
             16 => Ok(RecordType::TXT),
+            #[cfg(feature = "dnssec")]
+            value => Ok(RecordType::DNSSEC(DNSSECRecordType::from_u16(value)?)),
+            #[cfg(not(feature = "dnssec"))]
             // TODO: this should probably return a generic value wrapper.
             _ => Err(ProtoErrorKind::UnknownRecordTypeValue(value).into()),
         }
@@ -194,23 +180,17 @@ impl From<RecordType> for &'static str {
             RecordType::ANY => "ANY",
             RecordType::AXFR => "AXFR",
             RecordType::CNAME => "CNAME",
-            RecordType::DNSKEY => "DNSKEY",
-            RecordType::DS => "DS",
             RecordType::IXFR => "IXFR",
-            RecordType::KEY => "KEY",
             RecordType::MX => "MX",
             RecordType::NULL => "NULL",
             RecordType::NS => "NS",
-            RecordType::NSEC => "NSEC",
-            RecordType::NSEC3 => "NSEC3",
-            RecordType::NSEC3PARAM => "NSEC3PARAM",
             RecordType::OPT => "OPT",
             RecordType::PTR => "PTR",
-            RecordType::RRSIG => "RRSIG",
-            RecordType::SIG => "SIG",
             RecordType::SOA => "SOA",
             RecordType::SRV => "SRV",
             RecordType::TXT => "TXT",
+            #[cfg(feature = "dnssec")]
+            RecordType::DNSSEC(rt) => rt.into(),
         }
     }
 }
@@ -232,23 +212,17 @@ impl From<RecordType> for u16 {
             RecordType::ANY => 255,
             RecordType::AXFR => 252,
             RecordType::CNAME => 5,
-            RecordType::KEY => 25,
-            RecordType::DNSKEY => 48,
-            RecordType::DS => 43,
             RecordType::IXFR => 251,
             RecordType::MX => 15,
             RecordType::NS => 2,
             RecordType::NULL => 0,
-            RecordType::NSEC => 47,
-            RecordType::NSEC3 => 50,
-            RecordType::NSEC3PARAM => 51,
             RecordType::OPT => 41,
             RecordType::PTR => 12,
-            RecordType::RRSIG => 46,
-            RecordType::SIG => 24,
             RecordType::SOA => 6,
             RecordType::SRV => 33,
             RecordType::TXT => 16,
+            #[cfg(feature = "dnssec")]
+            RecordType::DNSSEC(rt) => rt.into(),
         }
     }
 }
