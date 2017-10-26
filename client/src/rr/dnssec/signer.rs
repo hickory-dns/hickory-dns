@@ -34,7 +34,7 @@ use rr::dnssec::Algorithm;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::SIG;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::{DNSKEY, KEY};
+use rr::rdata::{DNSKEY, DNSSECRData, DNSSECRecordType, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::BinEncoder;
 
@@ -536,7 +536,7 @@ impl MessageFinalizer for Signer {
 
         let expiration_time: u32 = current_time + (5 * 60); // +5 minutes in seconds
 
-        sig0.set_rr_type(RecordType::SIG);
+        sig0.set_rr_type(RecordType::DNSSEC(DNSSECRecordType::SIG));
         let pre_sig0 = SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
             RecordType::NULL,
@@ -555,7 +555,7 @@ impl MessageFinalizer for Signer {
             Vec::new(),
         );
         let signature: Vec<u8> = self.sign_message(message, &pre_sig0)?;
-        sig0.set_rdata(RData::SIG(pre_sig0.set_sig(signature)));
+        sig0.set_rdata(RData::DNSSEC(DNSSECRData::SIG(pre_sig0.set_sig(signature))));
 
         Ok(vec![sig0])
     }
