@@ -7,6 +7,7 @@
 
 //! Caching related functionality for the Resolver.
 
+use std::borrow::Cow;
 use std::cell::RefCell;
 use std::mem;
 use std::sync::{Arc, Mutex, TryLockError};
@@ -239,61 +240,64 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
 
     fn handle_noerror(&mut self, mut message: Message) -> Poll<Records, ResolveError> {
         // seek out CNAMES
-        // TODO: figure out how to get rid of this clone
         let mut cname_ttl = 0;
         let mut was_cname = false;
-        let mut search_name: Name = self.query.name().clone();
-        while let Some(cname) = message.answers().iter().find(|r| {
-            r.rr_type() == RecordType::CNAME && r.name() == &search_name
-        })
-        {
-            was_cname = true;
-            cname_ttl = cname.ttl();
-            if let &RData::CNAME(ref name) = cname.rdata() {
-                if search_name == *name {
-                    break; // already searched for this name
-                } else {
-                    search_name = name.clone();
-                }
-            } else {
-                // now that is very odd...
-                warn!("Expected RData::CNAME in response record {:?}", cname);
-                break;
-            }
-        }
-
-        // After following all the CNAMES to the last one, try and lookup the final name
-        let records = message
-            .take_answers()
-            .into_iter()
-            .chain(message.take_additionals().into_iter())
-            .filter_map(|r| {
-                let ttl = r.ttl();
-                // TODO: disable name validation with ResolverOpts?
-                // restrict to the RData type requested
-                if self.query.query_type() == r.rr_type() && &search_name == r.name() {
-                    Some((r.unwrap_rdata(), ttl))
-                } else {
-                    None
-                }
+        let search_name = {
+            let mut search_name = Cow::Borrowed(self.query.name());
+            while let Some(cname) = message.answers().iter().find(|r| {
+                r.rr_type() == RecordType::CNAME && r.name() == search_name.as_ref()
             })
-            .collect::<Vec<_>>();
-
-        if !records.is_empty() {
-            Ok(Async::Ready(Records::Exists(records)))
-        } else {
-            // It was a CNAME, but not included in the request...
-            if was_cname {
-                let next_query = Query::query(search_name, self.query.query_type());
-                Ok(Async::Ready(
-                    self.next_query(next_query, cname_ttl, message),
-                ))
-            } else {
-                // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
-                // Note on DNSSec, in secure_client_hanle, if verify_nsec fails then the request fails.
-                //   this will mean that no unverified negative caches will make it to this point and be stored
-                Ok(Async::Ready(self.handle_nxdomain(message, true)))
+            {
+                was_cname = true;
+                cname_ttl = cname.ttl();
+                if let &RData::CNAME(ref name) = cname.rdata() {
+                    if search_name.as_ref() == name {
+                        break; // already searched for this name
+                    } else {
+                        search_name = Cow::Owned(name.clone());
+                    }
+                } else {
+                    // now that is very odd...
+                    warn!("Expected RData::CNAME in response record {:?}", cname);
+                    break;
+                }
             }
+
+            // After following all the CNAMES to the last one, try and lookup the final name
+            let records = message
+                .take_answers()
+                .into_iter()
+                .chain(message.take_additionals().into_iter())
+                .filter_map(|r| {
+                    let ttl = r.ttl();
+                    // TODO: disable name validation with ResolverOpts?
+                    // restrict to the RData type requested
+                    if self.query.query_type() == r.rr_type() && search_name.as_ref() == r.name() {
+                        Some((r.unwrap_rdata(), ttl))
+                    } else {
+                        None
+                    }
+                })
+                .collect::<Vec<_>>();
+
+            if !records.is_empty() {
+                return Ok(Async::Ready(Records::Exists(records)));
+            }
+
+            search_name.into_owned()
+        };
+
+        // It was a CNAME, but not included in the request...
+        if was_cname {
+            let next_query = Query::query(search_name, self.query.query_type());
+            Ok(Async::Ready(
+                self.next_query(next_query, cname_ttl, message),
+            ))
+        } else {
+            // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
+            // Note on DNSSec, in secure_client_hanle, if verify_nsec fails then the request fails.
+            //   this will mean that no unverified negative caches will make it to this point and be stored
+            Ok(Async::Ready(self.handle_nxdomain(message, true)))
         }
     }
 
