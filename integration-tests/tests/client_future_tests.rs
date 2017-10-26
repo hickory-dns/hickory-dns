@@ -20,6 +20,7 @@ use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, IntoRecordSet, RData, Record, RecordType, RecordSet};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
+use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns_server::authority::Catalog;
@@ -196,10 +197,10 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     // insert the KEY for the trusted.example.com
     let mut auth_key = Record::with(
         trusted_name,
-        RecordType::KEY,
+        RecordType::DNSSEC(DNSSECRecordType::KEY),
         Duration::minutes(5).num_seconds() as u32,
     );
-    auth_key.set_rdata(RData::KEY(sig0_key));
+    auth_key.set_rdata(RData::DNSSEC(DNSSECRData::KEY(sig0_key)));
     authority.upsert(auth_key, 0);
 
     // setup the catalog
