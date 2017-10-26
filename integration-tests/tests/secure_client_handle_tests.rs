@@ -12,6 +12,7 @@ use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle, MemoizeCl
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
 use trust_dns::rr::{DNSClass, RData, RecordType};
+use trust_dns::rr::rdata::DNSSECRecordType;
 use trust_dns::rr::dnssec::TrustAnchor;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
@@ -152,7 +153,7 @@ where
     let name = domain::Name::parse("rollernet.us.", None).unwrap();
 
     let response = io_loop
-        .run(client.query(name.clone(), DNSClass::IN, RecordType::DS))
+        .run(client.query(name.clone(), DNSClass::IN, RecordType::DNSSEC(DNSSECRecordType::DS)))
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -168,7 +169,7 @@ where
     let name = domain::Name::parse("RollErnet.Us.", None).unwrap();
 
     let response = io_loop
-        .run(client.query(name.clone(), DNSClass::IN, RecordType::DS))
+        .run(client.query(name.clone(), DNSClass::IN, RecordType::DNSSEC(DNSSECRecordType::DS)))
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);

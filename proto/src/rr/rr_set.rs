@@ -154,7 +154,6 @@ impl RecordSet {
     /// * `and_rrsigs` - if true, RRSIGs will be returned if they exist
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
-    #[deprecated = "Use `records_with_rrsigs()` or `records_without_rrsigs()`"]
     #[cfg(feature = "dnssec")]
     pub fn records(
         &self,

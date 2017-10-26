@@ -261,7 +261,7 @@ fn test_dnssec_rollernet_td_udp() {
     c.secure_query(
         &domain::Name::parse("rollernet.us.", None).unwrap(),
         DNSClass::IN,
-        RecordType::DS,
+        RecordType::DNSSEC(DNSSECRecordType::DS),
     ).unwrap();
 }
 
@@ -276,7 +276,7 @@ fn test_dnssec_rollernet_td_tcp() {
     c.secure_query(
         &domain::Name::parse("rollernet.us.", None).unwrap(),
         DNSClass::IN,
-        RecordType::DS,
+        RecordType::DNSSEC(DNSSECRecordType::DS),
     ).unwrap();
 }
 
@@ -291,7 +291,7 @@ fn test_dnssec_rollernet_td_tcp_mixed_case() {
     c.secure_query(
         &domain::Name::parse("RollErnet.Us.", None).unwrap(),
         DNSClass::IN,
-        RecordType::DS,
+        RecordType::DNSSEC(DNSSECRecordType::DS),
     ).unwrap();
 }
 
@@ -431,17 +431,17 @@ fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient, domain::Name) 
     // insert the KEY for the trusted.example.com
     let mut auth_key = Record::with(
         domain::Name::from_labels(vec!["trusted", "example", "com"]),
-        RecordType::KEY,
+        RecordType::DNSSEC(DNSSECRecordType::KEY),
         Duration::minutes(5).num_seconds() as u32,
     );
-    auth_key.set_rdata(RData::KEY(KEY::new(
+    auth_key.set_rdata(RData::DNSSEC(DNSSECRData::KEY(KEY::new(
         Default::default(),
         Default::default(),
         Default::default(),
         Default::default(),
         signer.algorithm(),
         signer.key().to_public_bytes().expect("to_vec failed"),
-    )));
+    ))));
     authority.upsert(auth_key, 0);
 
     catalog.upsert(authority.origin().clone(), authority);
