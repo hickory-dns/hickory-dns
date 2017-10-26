@@ -16,7 +16,7 @@ use DnsHandle;
 use error::*;
 use op::{Message, OpCode, Query};
 use rr::{domain, DNSClass, RData, Record, RecordType};
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use rr::dnssec::Verifier;
 use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use rr::dnssec::rdata::{DNSKEY, DNSSECRData, DNSSECRecordType, SIG};
@@ -124,7 +124,7 @@ where
             let handle: SecureDnsHandle<H> = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
-            #[cfg(any(feature = "openssl", feature = "ring"))]
+            #[cfg(feature = "dnssec")]
             {
                 let edns = message.edns_mut();
 
@@ -746,7 +746,7 @@ where
 }
 
 /// Verifies the given SIG of the RRSET with the DNSKEY.
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> ProtoResult<()> {
     if dnskey.revoke() {
         debug!("revoked");
@@ -765,7 +765,7 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> ProtoR
 }
 
 /// Will always return an error. To enable record verification compile with the openssl feature.
-#[cfg(not(any(feature = "openssl", feature = "ring")))]
+#[cfg(not(feature = "dnssec"))]
 fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ProtoResult<()> {
     Err(
         ProtoErrorKind::Message("openssl or ring feature(s) not enabled").into(),
