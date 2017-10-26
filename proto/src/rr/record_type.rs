@@ -79,7 +79,10 @@ pub enum RecordType {
     /// RFC 1035[1]	Text record
     TXT,
 
-    /// DNSSEC-specific record types.
+    /// A DNSSEC- or SIG(0)- specific record type.
+    ///
+    /// These types are in `DNSSECRecordType` to make them easy to disable when
+    /// crypto functionality isn't needed.
     #[cfg(feature = "dnssec")]
     DNSSEC(DNSSECRecordType),
 }

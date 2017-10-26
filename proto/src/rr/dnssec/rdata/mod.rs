@@ -58,7 +58,11 @@ pub enum DNSSECRecordType {
     NSEC3PARAM,
     /// RFC 4034	DNSSEC signature: RSASHA256 and RSASHA512, RFC5702
     RRSIG,
-    /// RFC 2535 (2931)	Signature, to support 2137 Update
+    /// RFC 2535 (2931)	Signature, to support 2137 Update.
+    ///
+    /// This isn't really a DNSSEC record type, but it is here because, at least
+    /// for now, we enable/disable SIG(0) in exactly the same circumstances that
+    /// we enable/disable DNSSEC. This may change in the future.
     SIG,
 }
 
