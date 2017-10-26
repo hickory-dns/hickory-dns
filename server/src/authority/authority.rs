@@ -22,7 +22,7 @@ use chrono::Utc;
 use trust_dns::error::*;
 use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
-use trust_dns::rr::rdata::{NSEC, SIG};
+use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, NSEC, SIG};
 use trust_dns::rr::dnssec::{tbs, Signer, SupportedAlgorithms, Verifier};
 
 use authority::{Journal, UpdateResult, ZoneType};
@@ -96,8 +96,8 @@ impl Authority {
         let dnskey = Record::from_rdata(
             self.origin.clone(),
             zone_ttl,
-            RecordType::DNSKEY,
-            RData::DNSKEY(dnskey),
+            RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
+            RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
         );
 
         // TODO: also generate the CDS and CDNSKEY
@@ -497,7 +497,7 @@ impl Authority {
         if !sig0s.is_empty() &&
             sig0s
                 .iter()
-                .filter_map(|sig0| if let &RData::SIG(ref sig) = sig0.rdata() {
+                .filter_map(|sig0| if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = sig0.rdata() {
                     Some(sig)
                 } else {
                     None
@@ -505,11 +505,11 @@ impl Authority {
                 .any(|sig| {
                     let name = sig.signer_name();
                     let keys =
-                        self.lookup(name, RecordType::KEY, false, SupportedAlgorithms::new());
+                        self.lookup(name, RecordType::DNSSEC(DNSSECRecordType::KEY), false, SupportedAlgorithms::new());
                     debug!("found keys {:?}", keys);
                     // FIXME: check key usage flags and restrictions
                     keys.iter()
-                        .filter_map(|rr_set| if let &RData::KEY(ref key) = rr_set.rdata() {
+                        .filter_map(|rr_set| if let &RData::DNSSEC(DNSSECRData::KEY(ref key)) = rr_set.rdata() {
                             Some(key)
                         } else {
                             None
@@ -1029,7 +1029,7 @@ impl Authority {
     ) -> Vec<&Record> {
         self.records
             .values()
-            .filter(|rr_set| rr_set.record_type() == RecordType::NSEC)
+            .filter(|rr_set| rr_set.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC))
             .skip_while(|rr_set| name < rr_set.name())
             .next()
             .map_or(vec![], |rr_set| {
@@ -1065,7 +1065,7 @@ impl Authority {
         // first remove all existing nsec records
         let delete_keys: Vec<RrKey> = self.records
             .keys()
-            .filter(|k| k.record_type == RecordType::NSEC)
+            .filter(|k| k.record_type == RecordType::DNSSEC(DNSSECRecordType::NSEC))
             .cloned()
             .collect();
 
@@ -1086,9 +1086,9 @@ impl Authority {
                     Some((name, ref mut vec)) if name == &key.name => vec.push(key.record_type),
                     Some((name, vec)) => {
                         // names aren't equal, create the NSEC record
-                        let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
+                        let mut record = Record::with(name.clone(), RecordType::DNSSEC(DNSSECRecordType::NSEC), ttl);
                         let rdata = NSEC::new(key.name.clone(), vec);
-                        record.set_rdata(RData::NSEC(rdata));
+                        record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                         records.push(record);
 
                         // new record...
@@ -1100,9 +1100,9 @@ impl Authority {
             // the last record
             if let Some((name, vec)) = nsec_info {
                 // names aren't equal, create the NSEC record
-                let mut record = Record::with(name.clone(), RecordType::NSEC, ttl);
+                let mut record = Record::with(name.clone(), RecordType::DNSSEC(DNSSECRecordType::NSEC), ttl);
                 let rdata = NSEC::new(self.origin().clone(), vec);
-                record.set_rdata(RData::NSEC(rdata));
+                record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                 records.push(record);
             }
         }
@@ -1127,7 +1127,9 @@ impl Authority {
         // sign all record_sets, as of 0.12.1 this includes DNSKEY
         for (_, rr_set) in self.records.iter_mut() {
             rr_set.clear_rrsigs();
-            let rrsig_temp = Record::with(rr_set.name().clone(), RecordType::RRSIG, zone_ttl);
+            let rrsig_temp = Record::with(
+                rr_set.name().clone(), RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+                zone_ttl);
 
             for signer in self.secure_keys.iter() {
                 debug!(
@@ -1153,7 +1155,7 @@ impl Authority {
                     // TODO: this is a nasty clone... the issue is that the vec
                     //  from records is of Vec<&R>, but we really want &[R]
                     &rr_set
-                        .records(false, SupportedAlgorithms::new())
+                        .records_without_rrsigs()
                         .into_iter()
                         .cloned()
                         .collect::<Vec<Record>>(),
@@ -1178,7 +1180,7 @@ impl Authority {
                 };
 
                 let mut rrsig = rrsig_temp.clone();
-                rrsig.set_rdata(RData::SIG(SIG::new(
+                rrsig.set_rdata(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
                     // type_covered: RecordType,
                     rr_set.record_type(),
                     // algorithm: Algorithm,
@@ -1197,7 +1199,7 @@ impl Authority {
                     signer.signer_name().clone(),
                     // sig: Vec<u8>
                     signature,
-                )));
+                ))));
 
                 rr_set.insert_rrsig(rrsig);
             }

@@ -171,6 +171,7 @@ impl<'a> From<&'a Edns> for Record {
     }
 }
 
+#[cfg(feature = "dnssec")]
 #[test]
 fn test_encode_decode() {
     use rr::dnssec::SupportedAlgorithms;
