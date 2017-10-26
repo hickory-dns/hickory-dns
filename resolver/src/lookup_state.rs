@@ -240,28 +240,18 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
 
     fn handle_noerror(&mut self, mut message: Message) -> Poll<Records, ResolveError> {
         // seek out CNAMES
-        let mut cname_ttl = 0;
-        let mut was_cname = false;
-        let search_name = {
-            let mut search_name = Cow::Borrowed(self.query.name());
-            while let Some(cname) = message.answers().iter().find(|r| {
-                r.rr_type() == RecordType::CNAME && r.name() == search_name.as_ref()
-            })
-            {
-                was_cname = true;
-                cname_ttl = cname.ttl();
-                if let &RData::CNAME(ref name) = cname.rdata() {
-                    if search_name.as_ref() == name {
-                        break; // already searched for this name
-                    } else {
-                        search_name = Cow::Owned(name.clone());
-                    }
-                } else {
-                    // now that is very odd...
-                    warn!("Expected RData::CNAME in response record {:?}", cname);
-                    break;
-                }
-            }
+        let (search_name, cname_ttl, was_cname) = {
+            let (search_name, cname_ttl, was_cname) = message.answers().iter()
+                .fold((Cow::Borrowed(self.query.name()), 0, false),
+                      |(search_name, cname_ttl, was_cname), r| {
+                          if let &RData::CNAME(ref cname) = r.rdata() {
+                              debug_assert_eq!(r.rr_type(), RecordType::CNAME);
+                              if search_name.as_ref() == r.name() {
+                                  return (Cow::Owned(cname.clone()), r.ttl(), true);
+                              }
+                          }
+                          (search_name, cname_ttl, was_cname)
+                      });
 
             // After following all the CNAMES to the last one, try and lookup the final name
             let records = message
@@ -284,7 +274,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                 return Ok(Async::Ready(Records::Exists(records)));
             }
 
-            search_name.into_owned()
+            (search_name.into_owned(), cname_ttl, was_cname)
         };
 
         // It was a CNAME, but not included in the request...
