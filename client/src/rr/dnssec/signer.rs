@@ -20,6 +20,7 @@ use chrono::Duration;
 use trust_dns_proto::error::{ProtoResult, ProtoErrorKind};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use trust_dns_proto::rr::dnssec::{tbs, TBS};
+use rr::rdata::DNSSECRData;
 
 use op::{Message, MessageFinalizer};
 use rr::Record;
@@ -34,7 +35,7 @@ use rr::dnssec::Algorithm;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::SIG;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::{DNSKEY, KEY};
+use rr::rdata::{DNSKEY, DNSSECRecordType, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::BinEncoder;
 
@@ -536,7 +537,7 @@ impl MessageFinalizer for Signer {
 
         let expiration_time: u32 = current_time + (5 * 60); // +5 minutes in seconds
 
-        sig0.set_rr_type(RecordType::SIG);
+        sig0.set_rr_type(RecordType::DNSSEC(DNSSECRecordType::SIG));
         let pre_sig0 = SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
             RecordType::NULL,
@@ -555,7 +556,7 @@ impl MessageFinalizer for Signer {
             Vec::new(),
         );
         let signature: Vec<u8> = self.sign_message(message, &pre_sig0)?;
-        sig0.set_rdata(RData::SIG(pre_sig0.set_sig(signature)));
+        sig0.set_rdata(RData::DNSSEC(DNSSECRData::SIG(pre_sig0.set_sig(signature))));
 
         Ok(vec![sig0])
     }
@@ -577,7 +578,7 @@ mod tests {
     use self::openssl::rsa::Rsa;
 
     use rr::{DNSClass, Name, Record, RecordType};
-    use rr::rdata::SIG;
+    use rr::rdata::{DNSSECRData, SIG};
     use rr::rdata::key::KeyUsage;
     use rr::dnssec::*;
     use op::{Message, Query};
@@ -633,7 +634,7 @@ mod tests {
         let sig = signer.sign_message(&question, &pre_sig0);
         println!("sig after sign: {:?}", sig);
 
-        if let &RData::SIG(ref sig) = question.sig0()[0].rdata() {
+        if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = question.sig0()[0].rdata() {
             assert!(sig0key.verify_message(&question, sig.sig(), &sig).is_ok());
         }
     }
@@ -653,7 +654,7 @@ mod tests {
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
-            .set_rdata(RData::SIG(SIG::new(
+            .set_rdata(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
                 RecordType::NS,
                 Algorithm::RSASHA256,
                 origin.num_labels(),
@@ -663,7 +664,7 @@ mod tests {
                 signer.calculate_key_tag().unwrap(),
                 origin.clone(),
                 vec![],
-            )))
+            ))))
             .clone();
         let rrset = vec![
             Record::new()
@@ -791,7 +792,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         use self::openssl::rsa::Rsa;
 
         use rr::*;
-        use rr::rdata::SIG;
+        use rr::rdata::{DNSSECRData, SIG};
         use rr::dnssec::*;
         use rr::dnssec::tbs::*;
 
@@ -808,7 +809,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                 .set_ttl(86400)
                 .set_rr_type(RecordType::NS)
                 .set_dns_class(DNSClass::IN)
-                .set_rdata(RData::SIG(SIG::new(
+                .set_rdata(RData::DNSSEC(DNSSECRData::SIG(SIG::new(
                     RecordType::NS,
                     Algorithm::RSASHA256,
                     origin.num_labels(),
@@ -818,7 +819,7 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
                     signer.calculate_key_tag().unwrap(),
                     origin.clone(),
                     vec![],
-                )))
+                ))))
                 .clone();
             let rrset = vec![
                 Record::new()

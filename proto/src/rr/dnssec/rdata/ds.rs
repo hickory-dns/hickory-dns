@@ -20,7 +20,7 @@ use serialize::binary::*;
 use error::*;
 use rr::dnssec::{Algorithm, DigestType};
 
-use rr::rdata::DNSKEY;
+use rr::dnssec::rdata::DNSKEY;
 use rr::Name;
 
 /// [RFC 4034, DNSSEC Resource Records, March 2005](https://tools.ietf.org/html/rfc4034#section-5)
@@ -239,7 +239,7 @@ pub fn test() {
 #[test]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub fn test_covers() {
-    use rr::rdata::DNSKEY;
+    use rr::dnssec::rdata::DNSKEY;
 
     let name = Name::parse("www.example.com.", None).unwrap();
 
