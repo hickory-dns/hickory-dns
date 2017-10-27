@@ -1,6 +1,6 @@
 [![Build Status](https://travis-ci.org/bluejekyll/trust-dns.svg?branch=master)](https://travis-ci.org/bluejekyll/trust-dns)
 [![Build status](https://ci.appveyor.com/api/projects/status/tmlih8wdt7628vyl/branch/master?svg=true)](https://ci.appveyor.com/project/bluejekyll/trust-dns/branch/master)
-[![Coverage Status](https://coveralls.io/repos/github/bluejekyll/trust-dns/badge.svg?branch=master)](https://coveralls.io/github/bluejekyll/trust-dns?branch=master)
+[![codecov](https://codecov.io/gh/bluejekyll/trust-dns/branch/master/graph/badge.svg)](https://codecov.io/gh/bluejekyll/trust-dns)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE-MIT)
 [![License: Apache 2.0](https://img.shields.io/badge/license-Apache_2.0-blue.svg)](LICENSE-APACHE)
 

@@ -37,7 +37,7 @@ license = "MIT/Apache-2.0"
 [badges]
 travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
-coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
 default = ["dnssec-openssl"]
