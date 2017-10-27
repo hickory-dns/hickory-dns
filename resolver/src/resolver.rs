@@ -74,7 +74,11 @@ impl Resolver {
     /// A new Resolver or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
         let lru = Arc::new(Mutex::new(DnsLru::new(options.cache_size)));
-        Ok(Resolver { config, options, lru })
+        Ok(Resolver {
+            config,
+            options,
+            lru,
+        })
     }
 
     /// Constructs a new Resolver with default config and default options.
@@ -92,7 +96,7 @@ impl Resolver {
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix,
-              all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
+                all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
     pub fn from_system_conf() -> io::Result<Self> {
         let (config, options) = super::system_conf::read_system_conf()?;
         Self::new(config, options)
@@ -101,7 +105,12 @@ impl Resolver {
     /// Constructs a new Core
     fn construct_and_run(&self, reactor: &Handle) -> ResolveResult<ResolverFuture> {
         // TODO: get a pair of the Future and the Handle, to run on the same Core.
-        let future = ResolverFuture::with_cache(self.config.clone(), self.options.clone(), self.lru.clone(), reactor);
+        let future = ResolverFuture::with_cache(
+            self.config.clone(),
+            self.options.clone(),
+            self.lru.clone(),
+            reactor,
+        );
 
         Ok(future)
     }
@@ -150,11 +159,7 @@ impl Resolver {
     ) -> ResolveResult<lookup::SrvLookup> {
         let mut reactor = Core::new()?;
         let future = self.construct_and_run(&reactor.handle())?;
-        reactor.run(future.lookup_service(
-                service,
-                protocol,
-                name,
-            ))
+        reactor.run(future.lookup_service(service, protocol, name))
     }
 
     lookup_fn!(reverse_lookup, lookup::ReverseLookup, IpAddr);
@@ -171,14 +176,13 @@ mod tests {
 
     use super::*;
 
-    fn require_send<S: Send>(_sendable: S) {
+    fn require_send_sync<S: Send + Sync>() {
         assert!(true);
     }
 
     #[test]
     fn test_resolver_sendable() {
-        let resolver = Resolver::default();
-        require_send(resolver);
+        require_send_sync::<Resolver>();
     }
 
     #[test]
@@ -213,7 +217,7 @@ mod tests {
     #[test]
     #[ignore]
     #[cfg(any(unix,
-             all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
+                all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
     fn test_system_lookup() {
         let resolver = Resolver::from_system_conf().unwrap();
 
