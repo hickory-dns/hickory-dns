@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+use std::sync::Arc;
 use std::io;
 
 use futures::Stream;
@@ -40,7 +41,7 @@ use op::Message;
 /// *note* When upgrading from previous usage, both `SyncClient` and `SecureSyncClient` have an
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
 /// parameter, and it will sign all update requests (this matches the `ClientFuture` API).
-pub trait Client<C: ClientHandle>: Clone + Send {
+pub trait Client<C: ClientHandle>: Send + Sync {
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
@@ -370,10 +371,9 @@ pub trait Client<C: ClientHandle>: Clone + Send {
 ///
 /// Usage of TCP or UDP is up to the user. Some DNS servers
 ///  disallow TCP in some cases, so if TCP double check if UDP works.
-#[derive(Clone)]
 pub struct SyncClient<CC> {
     conn: CC,
-    signer: Option<Signer>,
+    signer: Option<Arc<Signer>>,
 }
 
 impl<CC> SyncClient<CC>
@@ -399,7 +399,7 @@ where
     /// * `conn` - the [`ClientConnection`] to use for all communication
     /// * `signer` - signer to use, this needs an associated private key
     pub fn with_signer(conn: CC, signer: Signer) -> Self {
-        SyncClient { conn, signer: Some(signer) }
+        SyncClient { conn, signer: Some(Arc::new(signer)) }
     }
 }
 
@@ -419,10 +419,9 @@ where
 
 /// A DNS client which will validate DNSSec records upon receipt
 #[cfg(any(feature = "openssl", feature = "ring"))]
-#[derive(Clone)]
 pub struct SecureSyncClient<CC> {
     conn: CC,
-    signer: Option<Signer>,
+    signer: Option<Arc<Signer>>,
 }
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -448,24 +447,24 @@ where
     ///  validated against the trust_anchor.
     ///
     /// *Deprecated* This function only exists for backward compatibility. It's just a wrapper around `Client::query` at this point
-///
-/// When the resolver receives an answer via the normal DNS lookup process, it then checks to
-///  make sure that the answer is correct. Then starts
-///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
-///  records for the top level domain found at the root, e.g. 'com', to verify the DNSKEY
-///  records in the 'com' zone. From there see if there is a DS record for the
-///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
-///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
-///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
-///
-/// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
-///        the caller.
-///
-/// # Arguments
-///
-/// * `query_name` - the label to lookup
-/// * `query_class` - most likely this should always be DNSClass::IN
-/// * `query_type` - record type to lookup
+    ///
+    /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
+    ///  make sure that the answer is correct. Then starts
+    ///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
+    ///  records for the top level domain found at the root, e.g. 'com', to verify the DNSKEY
+    ///  records in the 'com' zone. From there see if there is a DS record for the
+    ///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
+    ///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
+    ///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
+    ///
+    /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
+    ///        the caller.
+    ///
+    /// # Arguments
+    ///
+    /// * `query_name` - the label to lookup
+    /// * `query_class` - most likely this should always be DNSClass::IN
+    /// * `query_type` - record type to lookup
     #[deprecated(note = "use `Client::query` instead")]
     pub fn secure_query(
         &self,
@@ -506,7 +505,7 @@ where
 {
     conn: CC,
     trust_anchor: Option<TrustAnchor>,
-    signer: Option<Signer>,
+    signer: Option<Arc<Signer>>,
 }
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -535,7 +534,7 @@ where
   ///
   /// * `signer` - signer to use, this needs an associated private key
   pub fn signer(mut self, signer: Signer) -> Self {
-    self.signer = Some(signer);
+    self.signer = Some(Arc::new(signer));
     self
   }
 
@@ -545,4 +544,21 @@ where
       signer: self.signer,
     }
   }
+}
+
+#[cfg(test)]
+fn assert_send_and_sync<T: Send + Sync>() {
+    assert!(true)
+}
+
+#[test]
+fn test_sync_client_send_and_sync() {
+    use udp::UdpClientConnection;
+    assert_send_and_sync::<SyncClient<UdpClientConnection>>();
+}
+
+#[test]
+fn test_secure_client_send_and_sync() {
+    use udp::UdpClientConnection;
+    assert_send_and_sync::<SecureSyncClient<UdpClientConnection>>();
 }

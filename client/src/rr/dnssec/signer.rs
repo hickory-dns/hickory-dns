@@ -241,7 +241,6 @@ use serialize::binary::BinEncoder;
 ///    NSEC RRs needed to authenticate the response (see Section 3.1.3).
 /// ```
 #[cfg(any(feature = "openssl", feature = "ring"))]
-#[derive(Clone)]
 pub struct Signer {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
@@ -586,6 +585,15 @@ mod tests {
     use op::{Message, Query};
 
     pub use super::*;
+
+    fn assert_send_and_sync<T: Send + Sync>() {
+        assert!(true)
+    }
+
+    #[test]
+    fn test_send_and_sync() {
+        assert_send_and_sync::<Signer>();
+    }
 
     fn pre_sig0(signer: &Signer, inception_time: u32, expiration_time: u32) -> SIG {
         SIG::new(

@@ -495,34 +495,6 @@ impl KeyPair {
     }
 }
 
-impl Clone for KeyPair {
-    /// *Note* clone with PKey and OpenSSL is not cheap.
-    fn clone(&self) -> Self {
-        match *self {
-            #[cfg(feature = "openssl")]
-            KeyPair::RSA(ref pkey) => {
-                // TODO: is this a problem?
-                let private_key = pkey.private_key_to_der().expect("this panic represents that an OpenSSL private key failed to be converted to DER, check associated private keys");
-
-                let pkey = PKey::private_key_from_der(&private_key).expect("this panic represents that an OpenSSL private key failed to be converted from DER, check associated private keys");
-
-                KeyPair::RSA(pkey)
-            }
-            #[cfg(feature = "openssl")]
-            KeyPair::EC(ref pkey) => {
-                // TODO: is this a problem?
-                let private_key = pkey.private_key_to_der().expect("this panic represents that an OpenSSL private key failed to be converted to DER, check associated private keys");
-
-                let pkey = PKey::private_key_from_der(&private_key).expect("this panic represents that an OpenSSL private key failed to be converted from DER, check associated private keys");
-
-                KeyPair::EC(pkey)
-            }
-            #[cfg(feature = "ring")]
-            KeyPair::ED25519(ed_key) => ed_key.clone(),
-        }
-    }
-}
-
 #[cfg(any(feature = "openssl", feature = "ring"))]
 #[cfg(test)]
 mod tests {

@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::borrow::Borrow;
+use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
 use std::io;
 use std::marker::PhantomData;
@@ -80,7 +82,7 @@ where
     stream_handle: Box<DnsStreamHandle<Error = E>>,
     new_receiver: Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<Result<Message, E>>)>>>,
     active_requests: HashMap<u16, (Complete<Result<Message, E>>, Timeout)>,
-    signer: Option<MF>,
+    signer: Option<Arc<MF>>,
 }
 
 impl<S, E, MF> DnsFuture<S, E, MF>
@@ -103,7 +105,7 @@ where
         stream: Box<Future<Item = S, Error = io::Error>>,
         stream_handle: Box<DnsStreamHandle<Error = E>>,
         loop_handle: &Handle,
-        signer: Option<MF>,
+        signer: Option<Arc<MF>>,
     ) -> BasicDnsHandle<E> {
         Self::with_timeout(
             stream,
@@ -131,7 +133,7 @@ where
         stream_handle: Box<DnsStreamHandle<Error = E>>,
         loop_handle: &Handle,
         timeout_duration: Duration,
-        signer: Option<MF>,
+        signer: Option<Arc<MF>>,
     ) -> BasicDnsHandle<E> {
         let (sender, rx) = unbounded();
 
@@ -275,7 +277,7 @@ where
                     // update messages need to be signed.
                     if let OpCode::Update = message.op_code() {
                         if let Some(ref signer) = self.signer {
-                            if let Err(e) = message.finalize(signer, now) {
+                            if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
                                 warn!("could not sign message: {}", e);
                                 complete.send(Err(e.into())).expect(
                                     "error notifying wait, possible future leak",
