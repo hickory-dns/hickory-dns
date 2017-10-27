@@ -66,6 +66,7 @@ pub fn tls_from_stream(
     (stream, message_sender)
 }
 
+#[derive(Clone)]
 pub struct TlsStreamBuilder {
     ca_chain: Vec<Certificate>,
     //identity: Option<Pkcs12>,

@@ -22,6 +22,7 @@ use TlsStreamBuilder;
 
 pub type TlsClientStream = TcpClientStream<TokioTlsStream<TokioTcpStream, ClientSession>>;
 
+#[derive(Clone)]
 pub struct TlsClientStreamBuilder(TlsStreamBuilder);
 
 impl TlsClientStreamBuilder {
