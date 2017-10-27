@@ -55,15 +55,6 @@ done
 
 echo "----> ran $test_count test(s)"
 
-# echo "----> merging and uploading to coveralls.io"
-# if [[ "$test_count" -eq 1 ]] ; then
-#   echo kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only target/kcov-* ${last_test}
-#   kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only target/kcov-* ${last_test}
-# elif [[ "$test_count" -gt 1 ]] ; then
-#   echo kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only --merge target/kcov-*
-#   kcov --coveralls-id=${TRAVIS_JOB_ID} --report-only --merge target/kcov-*
-# fi
-
 echo "----> uploading to codecov.io"
 bash <(curl -s https://codecov.io/bash)
 echo "----> coverage reports done"
