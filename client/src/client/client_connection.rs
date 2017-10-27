@@ -24,7 +24,7 @@ use trust_dns_proto::DnsStreamHandle;
 use error::*;
 
 /// Trait for client connections
-pub trait ClientConnection: Clone + Send + Sync + Sized {
+pub trait ClientConnection: Sized {
     /// The associated DNS Message stream type.
     type MessageStream;
 

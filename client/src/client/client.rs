@@ -41,7 +41,7 @@ use op::Message;
 /// *note* When upgrading from previous usage, both `SyncClient` and `SecureSyncClient` have an
 /// signer which can be optionally associated to the Client. This replaces the previous per-function
 /// parameter, and it will sign all update requests (this matches the `ClientFuture` API).
-pub trait Client<C: ClientHandle>: Send + Sync {
+pub trait Client<C: ClientHandle> {
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
@@ -554,11 +554,15 @@ fn assert_send_and_sync<T: Send + Sync>() {
 #[test]
 fn test_sync_client_send_and_sync() {
     use udp::UdpClientConnection;
+    use tcp::TcpClientConnection;
     assert_send_and_sync::<SyncClient<UdpClientConnection>>();
+    assert_send_and_sync::<SyncClient<TcpClientConnection>>();
 }
 
 #[test]
 fn test_secure_client_send_and_sync() {
     use udp::UdpClientConnection;
+    use tcp::TcpClientConnection;
     assert_send_and_sync::<SecureSyncClient<UdpClientConnection>>();
+    assert_send_and_sync::<SecureSyncClient<TcpClientConnection>>();
 }
