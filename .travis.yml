@@ -60,5 +60,3 @@ before_install:
   - if [[ "$MODULES" == "compatibility-tests" ]]; then scripts/install_bind.sh ; fi
 script: scripts/run_tests.sh
 after_success: scripts/run_kcov.sh
-notifications:
-  webhooks: https://coveralls.io/webhook?repo_token=0fXi81cx3Khi8g0Q0mGqsABePoEdJfMcf

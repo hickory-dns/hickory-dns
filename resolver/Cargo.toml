@@ -34,7 +34,7 @@ build = "build.rs"
 [badges]
 travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
-coveralls = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
+codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
 default = ["ipconfig"]
