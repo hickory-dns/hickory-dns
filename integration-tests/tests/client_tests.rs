@@ -129,36 +129,6 @@ where
 }
 
 #[test]
-#[allow(deprecated)]
-fn test_secure_query_example_nonet() {
-    let authority = create_secure_example();
-
-    let trust_anchor = {
-        let signers = authority.secure_keys();
-        let public_key = signers
-            .first()
-            .expect("expected a key in the authority")
-            .key()
-            .to_public_key()
-            .expect("could not convert keypair to public_key");
-
-        let mut trust_anchor = TrustAnchor::new();
-        trust_anchor.insert_trust_anchor(public_key);
-
-        trust_anchor
-    };
-
-    let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
-
-    let client = SecureSyncClient::new(TestClientConnection::new(catalog))
-        .trust_anchor(trust_anchor)
-        .build();
-
-    test_secure_query_example(client);
-}
-
-#[test]
 #[ignore]
 #[allow(deprecated)]
 fn test_secure_query_example_udp() {
@@ -310,35 +280,6 @@ fn test_dnssec_rollernet_td_tcp_mixed_case() {
         DNSClass::IN,
         RecordType::DNSSEC(DNSSECRecordType::DS),
     ).unwrap();
-}
-
-#[test]
-#[allow(deprecated)]
-fn test_nsec_query_example_nonet() {
-    let authority = create_secure_example();
-
-    let trust_anchor = {
-        let signers = authority.secure_keys();
-        let public_key = signers
-            .first()
-            .expect("expected a key in the authority")
-            .key()
-            .to_public_key()
-            .expect("could not convert keypair to public_key");
-
-        let mut trust_anchor = TrustAnchor::new();
-        trust_anchor.insert_trust_anchor(public_key);
-
-        trust_anchor
-    };
-
-    let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
-
-    let client = SecureSyncClient::new(TestClientConnection::new(catalog))
-        .trust_anchor(trust_anchor)
-        .build();
-    test_nsec_query_example::<TestClientConnection>(client);
 }
 
 #[test]
