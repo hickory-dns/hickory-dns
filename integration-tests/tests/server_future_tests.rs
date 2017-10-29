@@ -1,9 +1,11 @@
 extern crate futures;
 extern crate openssl;
+extern crate rustls;
 extern crate trust_dns;
-extern crate trust_dns_openssl;
-extern crate trust_dns_server;
 extern crate trust_dns_integration;
+extern crate trust_dns_openssl;
+extern crate trust_dns_rustls;
+extern crate trust_dns_server;
 
 use std::io;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
@@ -22,13 +24,15 @@ use openssl::pkey::PKey;
 use openssl::rsa::Rsa;
 use openssl::x509::*;
 use openssl::x509::extension::*;
+use rustls::Certificate;
+use rustls::internal::msgs::codec::{Codec, Reader};
 
 use trust_dns::client::*;
 use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns::tcp::TcpClientConnection;
-use trust_dns_openssl::TlsClientConnection;
+use trust_dns_rustls::TlsClientConnection;
 
 use trust_dns_server::ServerFuture;
 use trust_dns_server::authority::*;
@@ -89,6 +93,7 @@ fn test_server_www_tcp() {
     server_thread.join().unwrap();;
 }
 
+// TODO: switch to generated certificates
 #[test]
 fn test_server_www_tls() {
     let subject_name = "ns.example.com";
@@ -195,8 +200,9 @@ fn lazy_tls_client(
     cert_der: Vec<u8>,
 ) -> TlsClientConnection {
     let mut builder = TlsClientConnection::builder();
+    let mut cert_reader = Reader::init(&cert_der);
 
-    let trust_chain = X509::from_der(&cert_der).unwrap();
+    let trust_chain = Certificate::read(&mut cert_reader).unwrap();
 
     builder.add_ca(trust_chain);
     builder.build(ipaddr, subject_name).unwrap()

@@ -1239,11 +1239,13 @@ dependencies = [
  "openssl 0.9.19 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.3.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "rusqlite 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)",
+ "rustls 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.12.0",
  "trust-dns-openssl 0.1.0",
  "trust-dns-proto 0.1.0",
  "trust-dns-resolver 0.6.0",
+ "trust-dns-rustls 0.1.5",
  "trust-dns-server 0.12.0",
 ]
 

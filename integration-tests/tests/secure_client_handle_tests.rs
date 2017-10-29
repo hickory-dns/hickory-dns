@@ -4,6 +4,7 @@ extern crate trust_dns_server;
 extern crate trust_dns_integration;
 
 use std::net::*;
+use std::sync::Arc;
 
 use tokio_core::reactor::Core;
 
@@ -222,7 +223,7 @@ where
     catalog.upsert(authority.origin().clone(), authority);
 
     let io_loop = Core::new().unwrap();
-    let (stream, sender) = TestClientStream::new(catalog);
+    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
     let client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);

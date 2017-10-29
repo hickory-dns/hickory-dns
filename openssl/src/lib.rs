@@ -23,11 +23,9 @@ extern crate tokio_openssl;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 
-mod tls_client_connection;
 mod tls_client_stream;
 pub mod tls_server;
 mod tls_stream;
 
-pub use self::tls_client_connection::{TlsClientConnection, TlsClientConnectionBuilder};
 pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
 pub use self::tls_stream::{TlsStream, TlsStreamBuilder, tls_stream_from_existing_tls_stream};

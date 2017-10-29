@@ -5,20 +5,22 @@ extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
+extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
 use std::io;
 use std::net::*;
+use std::sync::Arc;
 use std::time;
 
 use chrono::Duration;
-use futures::Future;
+use futures::{Future, Stream};
 use openssl::rsa::Rsa;
-use tokio_core::reactor::Core;
+use tokio_core::reactor::Handle;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
-use trust_dns::error::ClientError;
+use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
@@ -31,24 +33,27 @@ use trust_dns_integration::{TestClientStream, NeverReturnsClientConnection};
 use trust_dns_integration::authority::{create_example, create_secure_example};
 
 pub struct TestClientConnection {
-    catalog: Catalog,
+    catalog: Arc<Catalog>,
 }
 
 impl TestClientConnection {
     pub fn new(catalog: Catalog) -> TestClientConnection {
-        TestClientConnection { catalog: catalog }
+        TestClientConnection { catalog: Arc::new(catalog) }
     }
 }
 
 impl ClientConnection for TestClientConnection {
     type MessageStream = TestClientStream;
 
-    fn unwrap(
-        self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
-        let io_loop = Core::new().unwrap();
-        let (stream, handle) = TestClientStream::new(self.catalog);
-        (io_loop, stream, Box::new(handle))
+    fn new_stream(
+        &self,
+        handle: &Handle,
+    ) -> ClientResult<
+        (Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+         Box<DnsStreamHandle<Error = ClientError>>),
+    > {
+        let (stream, handle) = TestClientStream::new(self.catalog.clone());
+        Ok((stream, Box::new(handle)))
     }
 }
 
@@ -87,7 +92,11 @@ fn test_query_tcp() {
 }
 
 #[allow(deprecated)]
-fn test_query(client: SyncClient) {
+fn test_query<CC>(client: SyncClient<CC>)
+where 
+    CC: ClientConnection,
+    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static
+{
     use std::cmp::Ordering;
     let name = domain::Name::from_labels(vec!["WWW", "example", "com"]);
 
@@ -172,7 +181,11 @@ fn test_secure_query_example_tcp() {
 }
 
 #[allow(deprecated)]
-fn test_secure_query_example(client: SecureSyncClient) {
+fn test_secure_query_example<CC>(client: SecureSyncClient<CC>)
+where 
+    CC: ClientConnection,
+    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static
+{
     let name = domain::Name::from_labels(vec!["www", "example", "com"]);
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
 
@@ -200,7 +213,11 @@ fn test_secure_query_example(client: SecureSyncClient) {
     }
 }
 
-fn test_timeout_query(client: SyncClient) {
+fn test_timeout_query<CC>(client: SyncClient<CC>)
+where 
+    CC: ClientConnection,
+    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static
+{
     let name = domain::Name::from_labels(vec!["WWW", "example", "com"]);
 
     let response = client.query(&name, DNSClass::IN, RecordType::A);
@@ -345,7 +362,11 @@ fn test_nsec_query_example_tcp() {
 }
 
 #[allow(deprecated)]
-fn test_nsec_query_example<C: ClientConnection>(client: SecureSyncClient) {
+fn test_nsec_query_example<CC>(client: SecureSyncClient<CC>)
+where 
+    CC: ClientConnection,
+    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static
+{
     let name = domain::Name::from_labels(vec!["none", "example", "com"]);
 
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
@@ -411,7 +432,7 @@ fn test_nsec_query_type() {
 // }
 
 #[allow(deprecated)]
-fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient, domain::Name) {
+fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, domain::Name) {
     let mut authority = create_example();
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
