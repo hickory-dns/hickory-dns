@@ -25,9 +25,6 @@ use std::time::Duration;
 
 use log::LogLevel;
 
-use trust_dns::rr::Name;
-use trust_dns::rr::dnssec::Algorithm;
-
 use trust_dns_server::authority::ZoneType;
 use trust_dns_server::config::*;
 
@@ -154,8 +151,12 @@ fn test_parse_toml() {
     assert_eq!(config.get_directory(), Path::new("/dev/null"));
 }
 
+#[cfg(feature = "dnsssec")]
 #[test]
 fn test_parse_zone_keys() {
+    use trust_dns::rr::Name;
+    use trust_dns::rr::dnssec::Algorithm;
+
     let config: Config = "
 [[zones]]
 zone = \"example.com\"

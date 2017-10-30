@@ -147,6 +147,7 @@ fn test_example_tls_toml_startup() {
     use std::env;
     use std::fs::File;
     use std::io::*;
+    use trust_dns_openssl::TlsClientStreamBuilder;
 
     named_test_harness("dns_over_tls.toml", move |_, tls_port| {
         let mut cert_der = vec![];
