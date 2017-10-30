@@ -27,8 +27,10 @@ use log::LogLevel;
 use rustc_serialize::Decodable;
 use toml::{Decoder, Value};
 
+#[cfg(feature = "dnssec")]
 use trust_dns::error::*;
 use trust_dns::rr::Name;
+#[cfg(feature = "dnssec")]
 use trust_dns::rr::dnssec::{Algorithm, KeyFormat};
 use trust_dns_proto::error::ProtoResult;
 
@@ -222,6 +224,7 @@ impl ZoneConfig {
 }
 
 /// Key pair configuration for DNSSec keys for signing a zone
+#[cfg(feature = "dnssec")]
 #[derive(RustcDecodable, PartialEq, Debug)]
 pub struct KeyConfig {
     key_path: String,
@@ -232,6 +235,7 @@ pub struct KeyConfig {
     is_zone_update_auth: Option<bool>,
 }
 
+#[cfg(feature = "dnssec")]
 impl KeyConfig {
     /// Return a new KeyConfig
     ///
@@ -333,6 +337,11 @@ impl KeyConfig {
         self.is_zone_update_auth.unwrap_or(false)
     }
 }
+
+#[cfg(not(feature = "dnssec"))]
+#[allow(missing_docs)]
+#[derive(RustcDecodable, PartialEq, Debug)]
+pub struct KeyConfig {}
 
 /// Configuration for a TLS certificate
 #[derive(RustcDecodable, PartialEq, Debug)]

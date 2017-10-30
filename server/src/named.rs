@@ -48,7 +48,9 @@ use std::net::{Ipv4Addr, IpAddr, SocketAddr, TcpListener, ToSocketAddrs, UdpSock
 use std::path::{Path, PathBuf};
 use std::io::Read;
 
+#[cfg(feature = "dnssec")]
 use chrono::Duration;
+
 use docopt::Docopt;
 use log::LogLevel;
 
@@ -57,10 +59,17 @@ use trust_dns::logger;
 use trust_dns::version;
 use trust_dns::serialize::txt::{Lexer, Parser};
 use trust_dns::rr::Name;
+
+#[cfg(feature = "dnssec")]
 use trust_dns::rr::dnssec::{KeyPair, Signer};
 
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
-use trust_dns_server::config::{Config, KeyConfig, TlsCertConfig, ZoneConfig};
+
+use trust_dns_server::config::{Config, TlsCertConfig, ZoneConfig};
+
+#[cfg(feature = "dnssec")]
+use trust_dns_server::config::KeyConfig;
+
 use trust_dns_server::server::ServerFuture;
 
 #[cfg(feature = "tls")]
@@ -121,6 +130,7 @@ fn parse_file(
     ))
 }
 
+#[cfg_attr(not(feature = "dnssec"), allow(unused_mut))]
 fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, String> {
     debug!("loading zone with config: {:#?}", zone_config);
 
@@ -188,26 +198,39 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
         return Err(format!("no zone file defined at: {:?}", zone_path));
     };
 
-    // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-    if zone_config.is_dnssec_enabled() {
-        for key_config in zone_config.get_keys() {
-            let signer = try!(load_key(zone_name.clone(), &key_config).map_err(|e| {
-                format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
-            }));
-            info!(
-                "adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
-                key_config.key_path(),
-                key_config.is_zone_signing_key(),
-                key_config.is_zone_update_auth()
-            );
-            authority.add_secure_key(signer).expect(
-                "failed to add key to authority",
-            );
-        }
+    #[cfg(feature = "dnssec")]
+    fn load_keys(authority: &mut Authority, zone_name: Name,
+                 zone_config: &ZoneConfig) -> Result<(), String> {
+        if zone_config.is_dnssec_enabled() {
+            for key_config in zone_config.get_keys() {
+                let signer = try!(load_key(zone_name.clone(), &key_config).map_err(|e| {
+                    format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
+                }));
+                info!(
+                    "adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
+                    key_config.key_path(),
+                    key_config.is_zone_signing_key(),
+                    key_config.is_zone_update_auth()
+                );
+                authority.add_secure_key(signer).expect(
+                    "failed to add key to authority",
+                );
+            }
 
-        info!("signing zone: {}", zone_config.get_zone().unwrap());
-        authority.secure_zone().expect("failed to sign zone");
+            info!("signing zone: {}", zone_config.get_zone().unwrap());
+            authority.secure_zone().expect("failed to sign zone");
+        }
+        Ok(())
     }
+
+    #[cfg(not(feature = "dnssec"))]
+    fn load_keys(_authority: &mut Authority, _zone_name: Name, _zone_config: &ZoneConfig)
+        -> Result<(), String> {
+        Ok(())
+    }
+
+    // load any keys for the Zone, if it is a dynamic update zone, then keys are required
+    try!(load_keys(&mut authority, zone_name, zone_config));
 
     info!(
         "zone successfully loaded: {}",
@@ -230,6 +253,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
 /// keys are listed in pairs of key_name and algorithm, the search path is the
 /// same directory has the zone $file:
 ///  keys = [ "my_rsa_2048|RSASHA256", "/path/to/my_ed25519|ED25519" ]
+#[cfg(feature = "dnssec")]
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     let key_path = key_config.key_path();
     let algorithm = try!(key_config.algorithm().map_err(
