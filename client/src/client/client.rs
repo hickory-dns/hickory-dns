@@ -387,7 +387,10 @@ where
     ///
     /// * `conn` - the [`ClientConnection`] to use for all communication
     pub fn new(conn: CC) -> Self {
-        SyncClient { conn, signer: None }
+        SyncClient {
+            conn,
+            signer: None
+        }
     }
 
     /// Creates a new DNS client with the specified connection type and a SIG0 signer.
@@ -418,13 +421,13 @@ where
 }
 
 /// A DNS client which will validate DNSSec records upon receipt
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 pub struct SecureSyncClient<CC> {
     conn: CC,
     signer: Option<Arc<Signer>>,
 }
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 impl<CC> SecureSyncClient<CC>
 where
     CC: ClientConnection,
@@ -447,24 +450,24 @@ where
     ///  validated against the trust_anchor.
     ///
     /// *Deprecated* This function only exists for backward compatibility. It's just a wrapper around `Client::query` at this point
-    ///
-    /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
-    ///  make sure that the answer is correct. Then starts
-    ///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
-    ///  records for the top level domain found at the root, e.g. 'com', to verify the DNSKEY
-    ///  records in the 'com' zone. From there see if there is a DS record for the
-    ///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
-    ///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
-    ///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
-    ///
-    /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
-    ///        the caller.
-    ///
-    /// # Arguments
-    ///
-    /// * `query_name` - the label to lookup
-    /// * `query_class` - most likely this should always be DNSClass::IN
-    /// * `query_type` - record type to lookup
+///
+/// When the resolver receives an answer via the normal DNS lookup process, it then checks to
+///  make sure that the answer is correct. Then starts
+///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
+///  records for the top level domain found at the root, e.g. 'com', to verify the DNSKEY
+///  records in the 'com' zone. From there see if there is a DS record for the
+///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
+///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
+///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
+///
+/// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
+///        the caller.
+///
+/// # Arguments
+///
+/// * `query_name` - the label to lookup
+/// * `query_class` - most likely this should always be DNSClass::IN
+/// * `query_type` - record type to lookup
     #[deprecated(note = "use `Client::query` instead")]
     pub fn secure_query(
         &self,
@@ -483,7 +486,7 @@ where
     }
 }
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 impl<CC> Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient<CC>
 where
     CC: ClientConnection,
@@ -497,7 +500,7 @@ where
     }
 }
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 pub struct SecureSyncClientBuilder<CC>
 where
     CC: ClientConnection,
@@ -508,7 +511,7 @@ where
     signer: Option<Arc<Signer>>,
 }
 
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 impl<CC> SecureSyncClientBuilder<CC>
 where
     CC: ClientConnection,
@@ -560,6 +563,7 @@ fn test_sync_client_send_and_sync() {
 }
 
 #[test]
+#[cfg(feature = "dnssec")]
 fn test_secure_client_send_and_sync() {
     use udp::UdpClientConnection;
     use tcp::TcpClientConnection;

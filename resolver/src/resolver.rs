@@ -25,7 +25,7 @@ use ResolverFuture;
 ///
 /// For forward (A) lookups, hostname -> IP address, see: `Resolver::lookup_ip`
 ///
-/// Special note about resource consumption. The Resolver and all TRust-DNS software is built around the Tokio async-io library. This synchronous Resolver is intended to be a simpler wrapper for of the [`trust_dns_resolver::ResolverFuture`]. To allow the Resolver to be [`Send`], there will actually only ever be one resolver per `clone` of a Resolver. If sharing caches across threads is desired, then the [`ResolverFuture`] type should be used instead.
+/// Special note about resource consumption. The Resolver and all TRust-DNS software is built around the Tokio async-io library. This synchronous Resolver is intended to be a simpler wrapper for of the [`trust_dns_resolver::ResolverFuture`]. To allow the Resolver to be [`Send`] + [`Sync`], the construction of the `ResolverFuture` is lazy, this means some of the features of the `ResolverFuture`, like performance based resolution via the most efficient `NameServer` will be lost (the lookup cache is shared across invocations of the `Resolver`). If these other features of the TRust-DNS Resolver are desired, please use the tokio based `ResolverFuture`.
 pub struct Resolver {
     config: ResolverConfig,
     options: ResolverOpts,

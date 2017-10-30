@@ -22,11 +22,15 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Many interfaces moved from `client::ClientStreamHandle` to `trust_dns_proto::DnsStreamHandle`
 - `Message::sign` has been renamed and change to the more general method `Message::finalize`
 - Some `io::Error`s have been converted to `trust_dns_proto::ProtoError`
-- `SyncClient` and `SecureSyncClient` are now `Send`
+- `SyncClient` and `SecureSyncClient` are now `Send + Sync`
 
 ### Fixed
 
 - Server signing issues when loading from persistence
+
+### Removed
+
+- Removed the `NativeTls` and `OpenSSL` `ClientConnection` variants, used the Rustls impls or the tokio based `TlsClientStream` instead. This was required for `SyncClient` being `Send + Sync`
 
 ## 0.12.0
 
