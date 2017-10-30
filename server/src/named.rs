@@ -57,7 +57,7 @@ use trust_dns::logger;
 use trust_dns::version;
 use trust_dns::serialize::txt::{Lexer, Parser};
 use trust_dns::rr::Name;
-use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
+use trust_dns::rr::dnssec::{KeyPair, Signer};
 
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 use trust_dns_server::config::{Config, KeyConfig, TlsCertConfig, ZoneConfig};
@@ -127,7 +127,6 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     let zone_name: Name = zone_config.get_zone().expect("bad zone name");
     let zone_path: PathBuf = zone_dir.to_owned().join(zone_config.get_file());
     let journal_path: PathBuf = zone_path.with_extension("jrnl");
-    let original_key_path: PathBuf = zone_path.with_extension("key");
 
     // load the zone
     let mut authority = if zone_config.is_update_allowed() && journal_path.exists() {
@@ -191,18 +190,8 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
 
     // load any keys for the Zone, if it is a dynamic update zone, then keys are required
     if zone_config.is_dnssec_enabled() {
-        // old backward compatible logic, TODO: deprecated
-        if zone_config.get_keys().is_empty() {
-            // original RSA key construction
-            let key_config = KeyConfig::new(
-                original_key_path.to_string_lossy().to_string(),
-                None,
-                Algorithm::RSASHA256,
-                zone_name.clone().to_string(),
-                true,
-                true,
-            );
-            let signer = try!(load_key(zone_name, &key_config).map_err(|e| {
+        for key_config in zone_config.get_keys() {
+            let signer = try!(load_key(zone_name.clone(), &key_config).map_err(|e| {
                 format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
             }));
             info!(
@@ -214,21 +203,6 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
             authority.add_secure_key(signer).expect(
                 "failed to add key to authority",
             );
-        } else {
-            for key_config in zone_config.get_keys() {
-                let signer = try!(load_key(zone_name.clone(), &key_config).map_err(|e| {
-                    format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
-                }));
-                info!(
-                    "adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
-                    key_config.key_path(),
-                    key_config.is_zone_signing_key(),
-                    key_config.is_zone_update_auth()
-                );
-                authority.add_secure_key(signer).expect(
-                    "failed to add key to authority",
-                );
-            }
         }
 
         info!("signing zone: {}", zone_config.get_zone().unwrap());
