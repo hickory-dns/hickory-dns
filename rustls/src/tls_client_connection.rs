@@ -35,7 +35,7 @@ use TlsClientStreamBuilder;
 pub struct TlsClientConnection {
     builder: TlsClientStreamBuilder,
     name_server: SocketAddr,
-    subject_name: String,
+    dns_name: String,
 }
 
 impl TlsClientConnection {
@@ -56,7 +56,7 @@ impl ClientConnection for TlsClientConnection {
     > {
         let (tls_client_stream, handle) = self.builder.clone().build(
             self.name_server,
-            self.subject_name.clone(),
+            self.dns_name.clone(),
             handle,
         );
 
@@ -88,17 +88,17 @@ impl TlsClientConnectionBuilder {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `subject_name` - The Subject Public Key Info (SPKI) name as associated to a certificate
+    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
     pub fn build(
         self,
         name_server: SocketAddr,
-        subject_name: String,
+        dns_name: String,
     ) -> ClientResult<TlsClientConnection> {
         Ok(TlsClientConnection {
             builder: self.0,
             name_server,
-            subject_name,
+            dns_name,
         })
     }
 }

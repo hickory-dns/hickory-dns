@@ -118,12 +118,12 @@ impl TlsStreamBuilder {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `subject_name` - The Subject Public Key Info (SPKI) name as associated to a certificate
+    /// * `dns_name` - The DNS name,  Subject Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
     pub fn build(
         self,
         name_server: SocketAddr,
-        subject_name: String,
+        dns_name: String,
         loop_handle: &Handle,
     ) -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle<ClientError>) {
         let (message_sender, outbound_messages) = unbounded();
@@ -152,7 +152,7 @@ impl TlsStreamBuilder {
             Box::new(
                 tcp.and_then(move |tcp_stream| {
                     tls_connector
-                        .connect_async(&subject_name, tcp_stream)
+                        .connect_async(&dns_name, tcp_stream)
                         .map(move |s| {
                             TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
                         })

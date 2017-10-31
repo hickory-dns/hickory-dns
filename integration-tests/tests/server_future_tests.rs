@@ -109,7 +109,7 @@ fn read_file(path: &str) -> Vec<u8> {
 
 #[test]
 fn test_server_www_tls() {
-    let subject_name = "ns.example.com";
+    let dns_name = "ns.example.com";
     
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
     println!("using server src path: {}", server_path);
@@ -118,7 +118,7 @@ fn test_server_www_tls() {
     let cert_der_copy = cert_der.clone();
 
     // Generate X509 certificate
-    let subject_name = "ns.example.com";
+    let dns_name = "ns.example.com";
     let pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
     
     // Server address
@@ -140,7 +140,7 @@ fn test_server_www_tls() {
     let client_thread = thread::Builder::new()
         .name("test_server:tcp:client".to_string())
         .spawn(move || {
-            client_thread_www(lazy_tls_client(ipaddr, subject_name.to_string(), cert_der))
+            client_thread_www(lazy_tls_client(ipaddr, dns_name.to_string(), cert_der))
         })
         .unwrap();
 
@@ -161,7 +161,7 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
 
 fn lazy_tls_client(
     ipaddr: SocketAddr,
-    subject_name: String,
+    dns_name: String,
     cert_der: Vec<u8>,
 ) -> TlsClientConnection {
     let mut builder = TlsClientConnection::builder();
@@ -169,7 +169,7 @@ fn lazy_tls_client(
     let trust_chain = Certificate(cert_der);
 
     builder.add_ca(trust_chain);
-    builder.build(ipaddr, subject_name).unwrap()
+    builder.build(ipaddr, dns_name).unwrap()
 }
 
 fn client_thread_www<C: ClientConnection>(conn: C)

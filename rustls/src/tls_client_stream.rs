@@ -48,15 +48,15 @@ impl TlsClientStreamBuilder {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `subject_name` - The Subject Public Key Info (SPKI) name as associated to a certificate
+    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
     pub fn build(
         self,
         name_server: SocketAddr,
-        subject_name: String,
+        dns_name: String,
         loop_handle: &Handle,
     ) -> (Box<Future<Item = TlsClientStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
-        let (stream_future, sender) = self.0.build(name_server, subject_name, loop_handle);
+        let (stream_future, sender) = self.0.build(name_server, dns_name, loop_handle);
 
         let new_future: Box<Future<Item = TlsClientStream, Error = io::Error>> = Box::new(
             stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)),
