@@ -17,7 +17,7 @@ use futures::{Async, Future, Poll, task};
 
 use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::{Message, Query, ResponseCode};
-use trust_dns_proto::rr::{Name, RData, RecordType};
+use trust_dns_proto::rr::{RData, RecordType};
 
 use error::*;
 use lookup::Lookup;

@@ -23,14 +23,14 @@ use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
 use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
 use trust_dns::rr::{DNSClass, Record, RecordType, domain, RData};
-use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer, TrustAnchor};
+use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::*;
 use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns_proto::DnsStreamHandle;
 use trust_dns_server::authority::Catalog;
 use trust_dns_integration::{TestClientStream, NeverReturnsClientConnection};
-use trust_dns_integration::authority::{create_example, create_secure_example};
+use trust_dns_integration::authority::create_example;
 
 pub struct TestClientConnection {
     catalog: Arc<Catalog>,
@@ -47,7 +47,7 @@ impl ClientConnection for TestClientConnection {
 
     fn new_stream(
         &self,
-        handle: &Handle,
+        _: &Handle,
     ) -> ClientResult<
         (Box<Future<Item = Self::MessageStream, Error = io::Error>>,
          Box<DnsStreamHandle<Error = ClientError>>),

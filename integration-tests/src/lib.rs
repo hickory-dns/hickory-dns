@@ -16,7 +16,7 @@ use futures::{Async, Future, finished, Poll};
 use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::Handle;
 
 use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::client::ClientConnection;
@@ -155,7 +155,7 @@ impl NeverReturnsClientConnection {
 impl ClientConnection for NeverReturnsClientConnection {
     type MessageStream = NeverReturnsClientStream;
 
-    fn new_stream(&self, handle: &Handle) -> ClientResult<(Box<Future<Item = Self::MessageStream, Error = io::Error>>, 
+    fn new_stream(&self, _: &Handle) -> ClientResult<(Box<Future<Item = Self::MessageStream, Error = io::Error>>, 
         Box<DnsStreamHandle<Error = ClientError>>)> {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 

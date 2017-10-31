@@ -18,17 +18,8 @@ use std::thread;
 use std::time::Duration;
 
 use futures::Stream;
-use openssl::asn1::*;
-use openssl::bn::*;
-use openssl::hash::MessageDigest;
-use openssl::nid;
 use openssl::pkcs12::Pkcs12;
-use openssl::pkey::PKey;
-use openssl::rsa::Rsa;
-use openssl::x509::*;
-use openssl::x509::extension::*;
 use rustls::Certificate;
-use rustls::internal::msgs::codec::Codec;
 
 use trust_dns::client::*;
 use trust_dns::op::*;
@@ -110,17 +101,14 @@ fn read_file(path: &str) -> Vec<u8> {
 #[test]
 fn test_server_www_tls() {
     let dns_name = "ns.example.com";
-    
+
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
     println!("using server src path: {}", server_path);
 
     let cert_der = read_file(&format!("{}/../tests/ca.der", server_path));
-    let cert_der_copy = cert_der.clone();
 
-    // Generate X509 certificate
-    let dns_name = "ns.example.com";
     let pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
-    
+
     // Server address
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
     let tcp_listener = TcpListener::bind(&addr).unwrap();
@@ -159,11 +147,7 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
     TcpClientConnection::new(ipaddr).unwrap()
 }
 
-fn lazy_tls_client(
-    ipaddr: SocketAddr,
-    dns_name: String,
-    cert_der: Vec<u8>,
-) -> TlsClientConnection {
+fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
     let mut builder = TlsClientConnection::builder();
 
     let trust_chain = Certificate(cert_der);

@@ -20,8 +20,9 @@ use trust_dns::client::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::TcpClientStream;
 
-#[cfg(feature = "tls")]
-use trust_dns_openssl::TlsClientStreamBuilder;
+// TODO: Needed for when TLS tests are added back
+// #[cfg(feature = "tls")]
+// use trust_dns_openssl::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
 
