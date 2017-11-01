@@ -3,14 +3,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
-## 0.12.1
+## 0.13.0
 
 ### Added
 
-- TRust-DNS Proto crate to separate server management from base operations
+- TRust-DNS Proto crate to separate server management from base operations #222
 - TRust-DNS Util crate for dnssec management tools (@briansmith)
 - Integration tests for Server to validate all supported DNSSec key types
-- Common feature `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates
+- Common features `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates
 - Clarified `tls` feature with `tls-openssl`, and `tls` in server
 
 ### Changed
@@ -22,15 +22,19 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Many interfaces moved from `client::ClientStreamHandle` to `trust_dns_proto::DnsStreamHandle`
 - `Message::sign` has been renamed and change to the more general method `Message::finalize`
 - Some `io::Error`s have been converted to `trust_dns_proto::ProtoError`
-- `SyncClient` and `SecureSyncClient` are now `Send + Sync`
+- `SyncClient` and `SecureSyncClient` are now `Send + Sync` #245
 
 ### Fixed
 
-- Server signing issues when loading from persistence
+- Server: signing issues when loading from persistence
+- Server: When SupportedAlgorithms (rfc6975) not supplied default to returning all signatures #215
 
 ### Removed
 
 - Removed the `NativeTls` and `OpenSSL` `ClientConnection` variants, used the Rustls impls or the tokio based `TlsClientStream` instead. This was required for `SyncClient` being `Send + Sync`
+- Server: no longer auto-generate keys on startup #218
+- All deprecated APIs removed from -proto #262
+- Server: removed deprated RSA config loading options, see reference test cargo.tomls #276 (@briansmith)
 
 ## 0.12.0
 
