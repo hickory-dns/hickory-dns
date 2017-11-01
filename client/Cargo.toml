@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns"
-version = "0.12.0"
+version = "0.13.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when

@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-openssl"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -46,7 +46,7 @@ futures = "^0.1.17"
 openssl = { version = "^0.9.8", features = ["v102", "v110"] }
 tokio-core = "^0.1"
 tokio-openssl = "^0.1"
-trust-dns = { version = "^0.12", path = "../client" }
+trust-dns = { version = "^0.13", path = "../client" }
 trust-dns-proto = { version = "^0.2", path = "../proto" }
 
 [dev-dependencies]
