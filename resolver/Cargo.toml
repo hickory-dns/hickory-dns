@@ -57,7 +57,7 @@ log = "^0.3.5"
 lru-cache = "^0.1.1"
 regex = "0.2.1"
 tokio-core = "^0.1"
-trust-dns-proto = { version = "^0.1", path = "../proto" }
+trust-dns-proto = { version = "^0.2", path = "../proto" }
 
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
 ipconfig = { version = "^0.1.1", optional = true }
