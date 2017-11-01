@@ -31,7 +31,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Removed
 
-- Removed the `NativeTls` and `OpenSSL` `ClientConnection` variants, used the Rustls impls or the tokio based `TlsClientStream` instead. This was required for `SyncClient` being `Send + Sync`
+- Removed the `NativeTls` and `OpenSSL` `ClientConnection` variants, use the Rustls impls or the tokio based `TlsClientStream` instead. This was required for `SyncClient` being `Send + Sync`
 - Server: no longer auto-generate keys on startup #218
 - All deprecated APIs removed from -proto #262
 - Server: removed deprated RSA config loading options, see reference test cargo.tomls #276 (@briansmith)
