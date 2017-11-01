@@ -52,7 +52,10 @@ _ldap._tcp.service SRV 1 2 3 short
 short 70 A      \
                             26.3.0.104
 venera  A       10.1.0.52
-      A       128.9.0.32",
+      A       128.9.0.32 \
+nocerts       CAA 0 issue \";\" \
+certs         CAA 0 issue \"example.net\" \
+",
     );
 
     let records = Parser::new().parse(lexer, Some(Name::from_labels(vec!["isi", "edu"])));

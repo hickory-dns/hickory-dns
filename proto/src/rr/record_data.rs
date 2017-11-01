@@ -26,7 +26,7 @@ use serialize::binary::*;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{MX, NULL, OPT, SOA, SRV, TXT};
+use super::rdata::{CAA, MX, NULL, OPT, SOA, SRV, TXT};
 
 #[cfg(feature = "dnssec")]
 use super::dnssec::rdata::DNSSECRData;
@@ -87,6 +87,36 @@ pub enum RData {
     /// ```
     AAAA(Ipv6Addr),
 
+    /// ```text
+    /// -- RFC 6844          Certification Authority Authorization     January 2013
+    ///
+    /// 5.1.  Syntax
+    ///
+    /// A CAA RR contains a single property entry consisting of a tag-value
+    /// pair.  Each tag represents a property of the CAA record.  The value
+    /// of a CAA property is that specified in the corresponding value field.
+    ///
+    /// A domain name MAY have multiple CAA RRs associated with it and a
+    /// given property MAY be specified more than once.
+    ///
+    /// The CAA data field contains one property entry.  A property entry
+    /// consists of the following data fields:
+    ///
+    /// +0-1-2-3-4-5-6-7-|0-1-2-3-4-5-6-7-|
+    /// | Flags          | Tag Length = n |
+    /// +----------------+----------------+...+---------------+
+    /// | Tag char 0     | Tag char 1     |...| Tag char n-1  |
+    /// +----------------+----------------+...+---------------+
+    /// +----------------+----------------+.....+----------------+
+    /// | Value byte 0   | Value byte 1   |.....| Value byte m-1 |
+    /// +----------------+----------------+.....+----------------+
+
+    /// Where n is the length specified in the Tag length field and m is the
+    /// remaining octets in the Value field (m = d - n - 2) where d is the
+    /// length of the RDATA section.
+    /// ```
+    CAA(CAA),
+  
     /// ```text
     ///   3.3. Standard RRs
     ///
@@ -365,17 +395,21 @@ impl RData {
         let result = match record_type {
             RecordType::A => {
                 debug!("reading A");
-                RData::A(try!(rdata::a::read(decoder)))
+                RData::A(rdata::a::read(decoder)?)
             }
             RecordType::AAAA => {
                 debug!("reading AAAA");
-                RData::AAAA(try!(rdata::aaaa::read(decoder)))
+                RData::AAAA(rdata::aaaa::read(decoder)?)
             }
             rt @ RecordType::ANY => {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
             }
             rt @ RecordType::AXFR => {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
+            }
+            RecordType::CAA => {
+                debug!("reading CAA");
+                rdata::caa::read(decoder).map(RData::CAA)?
             }
             RecordType::CNAME => {
                 debug!("reading CNAME");
@@ -452,6 +486,7 @@ impl RData {
         match *self {
             RData::A(ref address) => rdata::a::emit(encoder, address),
             RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
+            RData::CAA(ref caa) => rdata::caa::emit(encoder, caa),
             // to_lowercase for rfc4034 and rfc6840
             RData::CNAME(ref name) => rdata::name::emit(encoder, name),
             // to_lowercase for rfc4034 and rfc6840
@@ -472,11 +507,12 @@ impl RData {
         }
     }
 
-    /// Converts this to a Recordtyp
+    /// Converts this to a Recordtype
     pub fn to_record_type(&self) -> RecordType {
         match *self {
             RData::A(..) => RecordType::A,
             RData::AAAA(..) => RecordType::AAAA,
+            RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
             RData::MX(..) => RecordType::MX,
             RData::NS(..) => RecordType::NS,

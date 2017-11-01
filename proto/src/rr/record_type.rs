@@ -43,7 +43,8 @@ pub enum RecordType {
     //  APL,        //	42	RFC 3123	Address Prefix List
     /// RFC 1035[1]	Authoritative Zone Transfer
     AXFR,
-    //  CAA,        //	257	RFC 6844	Certification Authority Authorization
+    /// RFC 6844 Certification Authority Authorization
+    CAA,
     //  CERT,       //	37	RFC 4398	Certificate record
     /// RFC 1035[1]	Canonical name record
     CNAME,
@@ -128,6 +129,7 @@ impl RecordType {
             28 => Ok(RecordType::AAAA),
             255 => Ok(RecordType::ANY),
             252 => Ok(RecordType::AXFR),
+            257 => Ok(RecordType::CAA),
             5 => Ok(RecordType::CNAME),
             15 => Ok(RecordType::MX),
             2 => Ok(RecordType::NS),
@@ -179,6 +181,7 @@ impl From<RecordType> for &'static str {
             RecordType::AAAA => "AAAA",
             RecordType::ANY => "ANY",
             RecordType::AXFR => "AXFR",
+            RecordType::CAA => "CAA",
             RecordType::CNAME => "CNAME",
             RecordType::IXFR => "IXFR",
             RecordType::MX => "MX",
@@ -211,6 +214,7 @@ impl From<RecordType> for u16 {
             RecordType::AAAA => 28,
             RecordType::ANY => 255,
             RecordType::AXFR => 252,
+            RecordType::CAA => 257,
             RecordType::CNAME => 5,
             RecordType::IXFR => 251,
             RecordType::MX => 15,

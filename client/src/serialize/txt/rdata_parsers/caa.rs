@@ -14,17 +14,14 @@
  * limitations under the License.
  */
 
-//! All record data structures and related serialization methods
+//! mail exchange, email, record
 
-// TODO: these should each be it's own struct, it would make parsing and decoding a little cleaner
-//  and also a little more ergonomic when accessing.
-// each of these module's has the parser for that rdata embedded, to keep the file sizes down...
-pub mod a;
-pub mod aaaa;
-pub mod caa;
-pub mod mx;
-pub mod name;
-pub mod null;
-pub mod soa;
-pub mod srv;
-pub mod txt;
+use serialize::txt::*;
+use error::*;
+use rr::domain::Name;
+use rr::rdata::CAA;
+
+/// Parse the RData from a set of Tokens
+pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<CAA> {
+    unimplemented!()
+}

@@ -58,7 +58,7 @@ openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
 rand = "^0.3"
 ring = { version = "^0.12", optional = true }
 tokio-core = "^0.1"
-trust-dns-proto = {version = "^0.1", path = "../proto", features = ["dnssec"] }
+trust-dns-proto = {version = "^0.2", path = "../proto", features = ["dnssec"] }
 untrusted = { version = "^0.5", optional = true }
 
 [dev-dependencies]
