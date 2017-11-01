@@ -54,7 +54,7 @@ fn test_get() {
     }
 }
 
-fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient
+fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient<CC>
 where
     CC: ClientConnection,
     <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,

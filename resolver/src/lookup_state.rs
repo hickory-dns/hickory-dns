@@ -17,7 +17,7 @@ use futures::{Async, Future, Poll, task};
 
 use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::{Message, Query, ResponseCode};
-use trust_dns_proto::rr::{Name, RData, RecordType};
+use trust_dns_proto::rr::{RData, RecordType};
 
 use error::*;
 use lookup::Lookup;
@@ -46,10 +46,10 @@ impl LruValue {
 }
 
 #[derive(Debug)]
-struct DnsLru(LruCache<Query, LruValue>);
+pub(crate) struct DnsLru(LruCache<Query, LruValue>);
 
 impl DnsLru {
-    fn new(capacity: usize) -> Self {
+    pub(crate) fn new(capacity: usize) -> Self {
         DnsLru(LruCache::new(capacity))
     }
 
@@ -160,7 +160,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
         Self::with_cache(Arc::new(Mutex::new(DnsLru::new(max_size))), client)
     }
 
-    fn with_cache(lru: Arc<Mutex<DnsLru>>, client: C) -> Self {
+    pub(crate) fn with_cache(lru: Arc<Mutex<DnsLru>>, client: C) -> Self {
         CachingClient { lru, client }
     }
 

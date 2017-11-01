@@ -1,11 +1,16 @@
 extern crate futures;
 extern crate openssl;
+extern crate rustls;
 extern crate trust_dns;
-extern crate trust_dns_openssl;
-extern crate trust_dns_server;
 extern crate trust_dns_integration;
+extern crate trust_dns_openssl;
+extern crate trust_dns_rustls;
+extern crate trust_dns_server;
 
+use std::env;
+use std::fs::File;
 use std::io;
+use std::io::Read;
 use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -13,22 +18,15 @@ use std::thread;
 use std::time::Duration;
 
 use futures::Stream;
-use openssl::asn1::*;
-use openssl::bn::*;
-use openssl::hash::MessageDigest;
-use openssl::nid;
 use openssl::pkcs12::Pkcs12;
-use openssl::pkey::PKey;
-use openssl::rsa::Rsa;
-use openssl::x509::*;
-use openssl::x509::extension::*;
+use rustls::Certificate;
 
 use trust_dns::client::*;
 use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::udp::UdpClientConnection;
 use trust_dns::tcp::TcpClientConnection;
-use trust_dns_openssl::TlsClientConnection;
+use trust_dns_rustls::TlsClientConnection;
 
 use trust_dns_server::ServerFuture;
 use trust_dns_server::authority::*;
@@ -89,67 +87,27 @@ fn test_server_www_tcp() {
     server_thread.join().unwrap();;
 }
 
+fn read_file(path: &str) -> Vec<u8> {
+    let mut bytes = vec![];
+
+    let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
+    file.read_to_end(&mut bytes).expect(&format!(
+        "failed to read file: {}",
+        path
+    ));
+    bytes
+}
+
 #[test]
 fn test_server_www_tls() {
-    let subject_name = "ns.example.com";
-    let rsa = Rsa::generate(2048).unwrap();
-    let pkey = PKey::from_rsa(rsa).unwrap();
+    let dns_name = "ns.example.com";
 
-    let mut x509_name = X509NameBuilder::new().unwrap();
-    x509_name
-        .append_entry_by_nid(nid::COMMONNAME, subject_name)
-        .unwrap();
-    let x509_name = x509_name.build();
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
+    println!("using server src path: {}", server_path);
 
-    let mut serial: BigNum = BigNum::new().unwrap();
-    serial.pseudo_rand(32, MSB_MAYBE_ZERO, false).unwrap();
-    let serial = serial.to_asn1_integer().unwrap();
+    let cert_der = read_file(&format!("{}/../tests/ca.der", server_path));
 
-    let mut x509_build = X509::builder().unwrap();
-    x509_build
-        .set_not_before(&Asn1Time::days_from_now(0).unwrap())
-        .unwrap();
-    x509_build
-        .set_not_after(&Asn1Time::days_from_now(256).unwrap())
-        .unwrap();
-    x509_build.set_issuer_name(&x509_name).unwrap();
-    x509_build.set_subject_name(&x509_name).unwrap();
-    x509_build.set_pubkey(&pkey).unwrap();
-    x509_build.set_serial_number(&serial).unwrap();
-
-    let ext_key_usage = ExtendedKeyUsage::new()
-        .client_auth()
-        .server_auth()
-        .build()
-        .unwrap();
-    x509_build.append_extension(ext_key_usage).unwrap();
-
-    let subject_key_identifier = SubjectKeyIdentifier::new()
-        .build(&x509_build.x509v3_context(None, None))
-        .unwrap();
-    x509_build.append_extension(subject_key_identifier).unwrap();
-
-    let authority_key_identifier = AuthorityKeyIdentifier::new()
-        .keyid(true)
-        .build(&x509_build.x509v3_context(None, None))
-        .unwrap();
-    x509_build
-        .append_extension(authority_key_identifier)
-        .unwrap();
-
-    // CA:FALSE
-    let basic_constraints = BasicConstraints::new().critical().build().unwrap();
-    x509_build.append_extension(basic_constraints).unwrap();
-
-    x509_build.sign(&pkey, MessageDigest::sha256()).unwrap();
-    let cert = x509_build.build();
-    let cert_der = cert.to_der().unwrap();
-
-    let pkcs12_builder = Pkcs12::builder();
-    let pkcs12 = pkcs12_builder
-        .build("mypass", subject_name, &pkey, &cert)
-        .unwrap();
-    let pkcs12_der = pkcs12.to_der().unwrap();
+    let pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
 
     // Server address
     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
@@ -170,7 +128,7 @@ fn test_server_www_tls() {
     let client_thread = thread::Builder::new()
         .name("test_server:tcp:client".to_string())
         .spawn(move || {
-            client_thread_www(lazy_tls_client(ipaddr, subject_name.to_string(), cert_der))
+            client_thread_www(lazy_tls_client(ipaddr, dns_name.to_string(), cert_der))
         })
         .unwrap();
 
@@ -189,17 +147,13 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
     TcpClientConnection::new(ipaddr).unwrap()
 }
 
-fn lazy_tls_client(
-    ipaddr: SocketAddr,
-    subject_name: String,
-    cert_der: Vec<u8>,
-) -> TlsClientConnection {
+fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
     let mut builder = TlsClientConnection::builder();
 
-    let trust_chain = X509::from_der(&cert_der).unwrap();
+    let trust_chain = Certificate(cert_der);
 
     builder.add_ca(trust_chain);
-    builder.build(ipaddr, subject_name).unwrap()
+    builder.build(ipaddr, dns_name).unwrap()
 }
 
 fn client_thread_www<C: ClientConnection>(conn: C)

@@ -33,8 +33,13 @@ fn test_lookup() {
     catalog.upsert(authority.origin().clone(), authority);
 
     let mut io_loop = Core::new().unwrap();
-    let (stream, sender) = TestClientStream::new(catalog);
-    let client = DnsFuture::new(stream, Box::new(sender), &io_loop.handle(), NoopMessageFinalizer::new());
+    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
+    let client = DnsFuture::new(
+        stream,
+        Box::new(sender),
+        &io_loop.handle(),
+        NoopMessageFinalizer::new(),
+    );
 
     let lookup = InnerLookupFuture::lookup(
         vec![domain::Name::from_str("www.example.com.").unwrap()],
@@ -56,8 +61,13 @@ fn test_lookup_hosts() {
     catalog.upsert(authority.origin().clone(), authority);
 
     let mut io_loop = Core::new().unwrap();
-    let (stream, sender) = TestClientStream::new(catalog);
-    let client = DnsFuture::new(stream, Box::new(sender), &io_loop.handle(), NoopMessageFinalizer::new());
+    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
+    let client = DnsFuture::new(
+        stream,
+        Box::new(sender),
+        &io_loop.handle(),
+        NoopMessageFinalizer::new(),
+    );
 
     let mut hosts = Hosts::default();
 

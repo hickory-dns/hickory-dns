@@ -16,6 +16,7 @@
 
 //! Basic protocol message for DNS
 
+use std::sync::Arc;
 use std::mem;
 
 use error::*;
@@ -648,7 +649,7 @@ pub struct NoopMessageFinalizer;
 
 impl NoopMessageFinalizer {
     /// Always returns None
-    pub fn new() -> Option<Self> {
+    pub fn new() -> Option<Arc<Self>> {
         None
     }
 }

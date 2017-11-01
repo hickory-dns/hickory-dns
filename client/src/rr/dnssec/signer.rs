@@ -253,6 +253,7 @@ pub struct Signer {
 
 /// Placeholder type for when OpenSSL and *ring* are disabled; enable OpenSSL and Ring for support
 #[cfg(not(any(feature = "openssl", feature = "ring")))]
+#[derive(Clone)]
 pub struct Signer;
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -584,6 +585,15 @@ mod tests {
     use op::{Message, Query};
 
     pub use super::*;
+
+    fn assert_send_and_sync<T: Send + Sync>() {
+        assert!(true)
+    }
+
+    #[test]
+    fn test_send_and_sync() {
+        assert_send_and_sync::<Signer>();
+    }
 
     fn pre_sig0(signer: &Signer, inception_time: u32, expiration_time: u32) -> SIG {
         SIG::new(

@@ -93,7 +93,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     let root_cert_der_copy = root_cert_der.clone();
 
     // Generate X509 certificate
-    let subject_name = "ns.example.com";
+    let dns_name = "ns.example.com";
     let server_pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
 
     // TODO: need a timeout on listen
@@ -201,7 +201,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     //     config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
     // }
 
-    let (stream, sender) = builder.build(server_addr, subject_name.to_string(), &io_loop.handle());
+    let (stream, sender) = builder.build(server_addr, dns_name.to_string(), &io_loop.handle());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
     let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");

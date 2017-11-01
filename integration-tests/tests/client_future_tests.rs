@@ -9,6 +9,7 @@ extern crate trust_dns_integration;
 
 use std::net::*;
 use std::cmp::Ordering;
+use std::sync::Arc;
 
 use chrono::Duration;
 use futures::Future;
@@ -35,7 +36,7 @@ fn test_query_nonet() {
     catalog.upsert(authority.origin().clone(), authority);
 
     let mut io_loop = Core::new().unwrap();
-    let (stream, sender) = TestClientStream::new(catalog);
+    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
     let mut client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
 
     io_loop.run(test_query(&mut client)).unwrap();
@@ -157,7 +158,7 @@ fn test_notify() {
     catalog.upsert(authority.origin().clone(), authority);
 
     let mut io_loop = Core::new().unwrap();
-    let (stream, sender) = TestClientStream::new(catalog);
+    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
     let mut client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
 
     let name = domain::Name::from_labels(vec!["ping", "example", "com"]);
@@ -207,8 +208,8 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone(), authority);
 
-    let (stream, sender) = TestClientStream::new(catalog);
-    let client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), Some(signer));
+    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
+    let client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), Some(Arc::new(signer)));
 
     (client, origin)
 }

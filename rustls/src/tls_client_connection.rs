@@ -19,7 +19,7 @@ use std::io;
 
 use futures::Future;
 use rustls::Certificate;
-use tokio_core::reactor::Core;
+use tokio_core::reactor::Handle;
 
 use trust_dns::error::*;
 use trust_dns::client::ClientConnection;
@@ -33,9 +33,9 @@ use TlsClientStreamBuilder;
 ///
 /// Use with `trust_dns::client::Client` impls
 pub struct TlsClientConnection {
-    io_loop: Core,
-    tls_client_stream: Box<Future<Item = TlsClientStream, Error = io::Error>>,
-    client_stream_handle: Box<DnsStreamHandle<Error = ClientError>>,
+    builder: TlsClientStreamBuilder,
+    name_server: SocketAddr,
+    dns_name: String,
 }
 
 impl TlsClientConnection {
@@ -47,14 +47,20 @@ impl TlsClientConnection {
 impl ClientConnection for TlsClientConnection {
     type MessageStream = TlsClientStream;
 
-    fn unwrap(
-        self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
-        (
-            self.io_loop,
-            self.tls_client_stream,
-            self.client_stream_handle,
-        )
+    fn new_stream(
+        &self,
+        handle: &Handle,
+    ) -> ClientResult<
+        (Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+         Box<DnsStreamHandle<Error = ClientError>>),
+    > {
+        let (tls_client_stream, handle) = self.builder.clone().build(
+            self.name_server,
+            self.dns_name.clone(),
+            handle,
+        );
+
+        Ok((tls_client_stream, handle))
     }
 }
 
@@ -82,21 +88,17 @@ impl TlsClientConnectionBuilder {
     /// # Arguments
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
-    /// * `subject_name` - The Subject Public Key Info (SPKI) name as associated to a certificate
+    /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
     pub fn build(
         self,
         name_server: SocketAddr,
-        subject_name: String,
+        dns_name: String,
     ) -> ClientResult<TlsClientConnection> {
-        let io_loop = try!(Core::new());
-        let (tls_client_stream, handle) =
-            self.0.build(name_server, subject_name, &io_loop.handle());
-
         Ok(TlsClientConnection {
-            io_loop: io_loop,
-            tls_client_stream: tls_client_stream,
-            client_stream_handle: handle,
+            builder: self.0,
+            name_server,
+            dns_name,
         })
     }
 }

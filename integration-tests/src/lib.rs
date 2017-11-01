@@ -8,6 +8,7 @@ extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
+use std::sync::Arc;
 use std::fmt;
 use std::io;
 
@@ -15,7 +16,7 @@ use futures::{Async, Future, finished, Poll};
 use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
-use tokio_core::reactor::Core;
+use tokio_core::reactor::Handle;
 
 use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::client::ClientConnection;
@@ -32,14 +33,14 @@ pub mod mock_client;
 
 #[allow(unused)]
 pub struct TestClientStream {
-    catalog: Catalog,
+    catalog: Arc<Catalog>,
     outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
 }
 
 #[allow(unused)]
 impl TestClientStream {
     pub fn new<E: FromProtoError>(
-        catalog: Catalog,
+        catalog: Arc<Catalog>,
     ) -> (Box<Future<Item = Self, Error = io::Error>>, StreamHandle<E>) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
@@ -143,31 +144,21 @@ impl fmt::Debug for NeverReturnsClientStream {
 }
 
 #[allow(dead_code)]
-pub struct NeverReturnsClientConnection {
-    io_loop: Core,
-    client_stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>>,
-    client_stream_handle: StreamHandle<ClientError>,
-}
+pub struct NeverReturnsClientConnection {}
 
 impl NeverReturnsClientConnection {
     pub fn new() -> ClientResult<Self> {
-        let io_loop = try!(Core::new());
-        let (client_stream, handle) = NeverReturnsClientStream::new();
-
-        Ok(NeverReturnsClientConnection {
-            io_loop: io_loop,
-            client_stream: client_stream,
-            client_stream_handle: handle,
-        })
+        Ok(NeverReturnsClientConnection {})
     }
 }
 
 impl ClientConnection for NeverReturnsClientConnection {
     type MessageStream = NeverReturnsClientStream;
 
-    fn unwrap(
-        self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>) {
-        (self.io_loop, self.client_stream, Box::new(self.client_stream_handle))
+    fn new_stream(&self, _: &Handle) -> ClientResult<(Box<Future<Item = Self::MessageStream, Error = io::Error>>, 
+        Box<DnsStreamHandle<Error = ClientError>>)> {
+        let (client_stream, handle) = NeverReturnsClientStream::new();
+
+        Ok((client_stream, Box::new(handle)))
     }
 }

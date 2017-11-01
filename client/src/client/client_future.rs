@@ -5,6 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::sync::Arc;
 use std::marker::PhantomData;
 use std::io;
 use std::time::Duration;
@@ -46,7 +47,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
         stream: Box<Future<Item = S, Error = io::Error>>,
         stream_handle: Box<ClientStreamHandle<Error = ClientError>>,
         loop_handle: &Handle,
-        signer: Option<Signer>,
+        signer: Option<Arc<Signer>>,
     ) -> BasicClientHandle {
         Self::with_timeout(
             stream,
@@ -74,7 +75,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
         stream_handle: Box<DnsStreamHandle<Error = ClientError>>,
         loop_handle: &Handle,
         timeout_duration: Duration,
-        finalizer: Option<Signer>,
+        finalizer: Option<Arc<Signer>>,
     ) -> BasicClientHandle {
         let dns_future_handle = DnsFuture::with_timeout(
             stream,

@@ -35,7 +35,7 @@ export TDNS_SERVER_SRC_ROOT=./server
 export COVERALLS_PARALLEL=true
 
 SRC_PATHS=client/src,native-tls/src,openssl/src,proto/src,resolver/src,rustls/src,server/src
-EXCLUDE_PATHS=client/src/error,proto/src/error.rs,server/src/error
+EXCLUDE_PATHS=client/src/error,proto/src/error.rs,server/src/error,compatibility-tests/src/lib.rs
 
 for i in target/debug/deps/trust_dns*-* target/debug/deps/*_tests-* ; do
   if [ -f $i ] && [ -x $i ]; then

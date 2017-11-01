@@ -8,7 +8,7 @@
 //! Structs for creating and using a ResolverFuture
 use std::net::IpAddr;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use futures::Future;
 use tokio_core::reactor::Handle;
@@ -23,11 +23,12 @@ use error::*;
 use lookup_state::CachingClient;
 use name_server_pool::{NameServerPool, StandardConnection};
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
+use lookup_state::DnsLru;
 use lookup;
 use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
 use hosts::Hosts;
 
-/// Root Handle to communicate with teh ResolverFuture
+/// Root Handle to communicate with the ResolverFuture
 ///
 /// This can be used directly to perform queries. See [`trust_dns_proto::SecureClientHandle`] for
 ///  a DNSSEc chain validator.
@@ -94,8 +95,28 @@ pub fn $p(&self, query: $t) -> $f {
 }
 
 impl ResolverFuture {
-    /// Construct a new ResolverFuture with the associated Client.
+    /// Construct a new ResolverFuture with the associated Client and configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - configuration, name_servers, etc. for the Resolver
+    /// * `options` - basic lookup options for the resolver
+    /// * `reactor` - the [`tokio_core::Core`] to use with this future 
     pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
+        let lru = Arc::new(Mutex::new(DnsLru::new(options.cache_size)));
+        
+        Self::with_cache(config, options, lru, reactor)
+    }
+    
+    /// Construct a new ResolverFuture with the associated Client and configuration.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - configuration, name_servers, etc. for the Resolver
+    /// * `options` - basic lookup options for the resolver
+    /// * `lru` - the cache to be used with the resolver
+    /// * `reactor` - the [`tokio_core::Core`] to use with this future 
+    pub(crate) fn with_cache(config: ResolverConfig, options: ResolverOpts, lru: Arc<Mutex<DnsLru>>, reactor: &Handle) -> Self {
         let pool = NameServerPool::<BasicResolverHandle, StandardConnection>::from_config(
             &config,
             &options,
@@ -126,7 +147,7 @@ impl ResolverFuture {
         ResolverFuture {
             config,
             options,
-            client_cache: CachingClient::new(options.cache_size, either),
+            client_cache: CachingClient::with_cache(lru, either),
             hosts: hosts,
         }
     }

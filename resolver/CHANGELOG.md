@@ -9,6 +9,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - Resolver no longer depends on Client
 - *breaking* Resolver no longer returns io:Errors, use `From<ResolveError>` for `io::Error`
+- Resolver is now `Send`
 
 ### Added
 

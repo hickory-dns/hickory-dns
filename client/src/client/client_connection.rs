@@ -17,7 +17,7 @@
 use std::io;
 
 use futures::Future;
-use tokio_core::reactor::Core;
+use tokio_core::reactor::Handle;
 
 use trust_dns_proto::DnsStreamHandle;
 
@@ -31,7 +31,5 @@ pub trait ClientConnection: Sized {
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
-    fn unwrap(
-        self,
-    ) -> (Core, Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>);
+    fn new_stream(&self, handle: &Handle) -> ClientResult<(Box<Future<Item = Self::MessageStream, Error = io::Error>>, Box<DnsStreamHandle<Error = ClientError>>)>;
 }
