@@ -75,7 +75,7 @@ rusqlite = { version = "^0.9.5", features = ["bundled"] }
 time = "^0.1"
 tokio-core = "^0.1"
 toml = "^0.1"
-trust-dns = { version = "^0.12", path = "../client" }
+trust-dns = { version = "^0.12", path = "../client", features = ["dnssec-openssl"] }
 trust-dns-proto = { version = "^0.1", path = "../proto" }
 trust-dns-openssl = { version = "^0.1.0", path = "../openssl", optional = true }
 
