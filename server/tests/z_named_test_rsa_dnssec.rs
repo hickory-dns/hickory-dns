@@ -9,7 +9,6 @@ extern crate trust_dns_proto;
 mod server_harness;
 
 use std::env;
-use std::fs;
 use std::fs::File;
 use std::path::Path;
 use std::io::*;
@@ -23,18 +22,17 @@ use trust_dns::rr::dnssec::*;
 
 use server_harness::*;
 
-
-#[cfg(all(not(feature = "ring"), feature = "openssl"))]
+#[cfg(all(not(feature = "dnssec-ring"), feature = "dnssec-openssl"))]
 fn confg_toml() -> &'static str {
     "openssl_dnssec.toml"
 }
 
-#[cfg(all(feature = "ring", not(feature = "openssl")))]
+#[cfg(all(feature = "dnssec-ring", not(feature = "dnssec-openssl")))]
 fn confg_toml() -> &'static str {
     "ring_dnssec.toml"
 }
 
-#[cfg(all(feature = "ring", feature = "openssl"))]
+#[cfg(all(feature = "dnssec-ring", feature = "dnssec-openssl"))]
 fn confg_toml() -> &'static str {
     "all_supported_dnssec.toml"
 }
@@ -92,7 +90,7 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
 }
 
 #[test]
-#[cfg(feature = "openssl")]
+#[cfg(feature = "dnssec-openssl")]
 fn test_rsa_sha256() {
     generic_test(
         confg_toml(),
@@ -103,7 +101,7 @@ fn test_rsa_sha256() {
 }
 
 #[test]
-#[cfg(feature = "openssl")]
+#[cfg(feature = "dnssec-openssl")]
 fn test_rsa_sha512() {
     generic_test(
         confg_toml(),
@@ -114,7 +112,7 @@ fn test_rsa_sha512() {
 }
 
 #[test]
-#[cfg(feature = "openssl")]
+#[cfg(feature = "dnssec-openssl")]
 fn test_ecdsa_p256() {
     generic_test(
         confg_toml(),
@@ -125,7 +123,7 @@ fn test_ecdsa_p256() {
 }
 
 #[test]
-#[cfg(feature = "openssl")]
+#[cfg(feature = "dnssec-openssl")]
 fn test_ecdsa_p384() {
     generic_test(
         confg_toml(),
@@ -136,7 +134,7 @@ fn test_ecdsa_p384() {
 }
 
 #[test]
-#[cfg(feature = "ring")]
+#[cfg(feature = "dnssec-ring")]
 fn test_ed25519() {
     generic_test(
         confg_toml(),
@@ -157,13 +155,14 @@ fn test_rsa_sha1_fails() {
     );
 }
 
+#[cfg(feature = "dnssec-openssl")]
 #[test]
 fn test_dnssec_restart_with_update_journal() {
     // TODO: make journal path configurable, it should be in target/tests/...
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
     let server_path = Path::new(&server_path);
     let journal = server_path.join("tests/named_test_configs/example.com.jrnl");
-    fs::remove_file(&journal).ok();
+    std::fs::remove_file(&journal).ok();
 
     generic_test(
         "dnssec_with_update.toml",
@@ -188,5 +187,5 @@ fn test_dnssec_restart_with_update_journal() {
 
     // cleanup...
     // TODO: fix journal path so that it doesn't leave the dir dirty...
-    fs::remove_file(&journal).expect("failed to cleanup after test");
+    std::fs::remove_file(&journal).expect("failed to cleanup after test");
 }
