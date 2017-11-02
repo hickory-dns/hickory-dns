@@ -49,5 +49,4 @@ env_logger = "0.4.2"
 futures = "^0.1.6"
 openssl = { version = "^0.9.8", features = ["v102", "v110"] }
 rand = "^0.3"
-trust-dns = { version = "*", path="../client", features = ["openssl"] }
-
+trust-dns = { version = "*", path="../client", features = ["dnssec-openssl"] }
