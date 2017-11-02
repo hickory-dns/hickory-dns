@@ -913,7 +913,6 @@ impl Authority {
     pub fn update(&mut self, update: &Message) -> UpdateResult<bool> {
         // the spec says to authorize after prereqs, seems better to auth first.
         try!(self.authorize(update));
-
         try!(self.verify_prerequisites(update.prerequisites()));
         try!(self.pre_scan(update.updates()));
 
