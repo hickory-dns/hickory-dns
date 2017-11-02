@@ -1,4 +1,4 @@
-#![cfg(not(windows))]
+#![cfg(feature = "dnssec")]
 
 extern crate futures;
 extern crate log;
