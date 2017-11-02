@@ -19,7 +19,12 @@ use std::collections::BTreeMap;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
-use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
+
+use trust_dns::op::{Message, ResponseCode, Query};
+
+#[cfg(feature = "dnssec")]
+use trust_dns::op::UpdateMessage;
+
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
 
 use authority::{Journal, UpdateResult, ZoneType};
@@ -904,15 +909,21 @@ impl Authority {
     ///
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
+    #[cfg(feature = "dnssec")]
     pub fn update(&mut self, update: &Message) -> UpdateResult<bool> {
         // the spec says to authorize after prereqs, seems better to auth first.
-        #[cfg(feature = "dnssec")]
         try!(self.authorize(update));
 
         try!(self.verify_prerequisites(update.prerequisites()));
         try!(self.pre_scan(update.updates()));
 
         self.update_records(update.updates(), true)
+    }
+
+    /// Always fail when DNSSEC is disabled.
+    #[cfg(not(feature = "dnssec"))]
+    pub fn update(&mut self, _update: &Message) -> UpdateResult<bool> {
+        Err(ResponseCode::NotImp)
     }
 
     /// Using the specified query, perform a lookup against this zone.
