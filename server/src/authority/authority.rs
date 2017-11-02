@@ -1094,7 +1094,7 @@ impl Authority {
         return Err("DNSSEC is not enabled.")
     }
 
-    /// Dummy impleme
+    /// Dummy implementation for when DNSSEC is disabled.
     #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self) {
         use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, NSEC};
