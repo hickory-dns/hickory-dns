@@ -24,12 +24,17 @@ use trust_dns::rr::dnssec::*;
 use server_harness::*;
 
 
-#[cfg(not(feature = "ring"))]
+#[cfg(all(not(feature = "ring"), feature = "openssl"))]
 fn confg_toml() -> &'static str {
     "openssl_dnssec.toml"
 }
 
-#[cfg(feature = "ring")]
+#[cfg(all(feature = "ring", not(feature = "openssl")))]
+fn confg_toml() -> &'static str {
+    "ring_dnssec.toml"
+}
+
+#[cfg(all(feature = "ring", feature = "openssl"))]
 fn confg_toml() -> &'static str {
     "all_supported_dnssec.toml"
 }
@@ -87,6 +92,7 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_rsa_sha256() {
     generic_test(
         confg_toml(),
@@ -97,6 +103,7 @@ fn test_rsa_sha256() {
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_rsa_sha512() {
     generic_test(
         confg_toml(),
@@ -107,6 +114,7 @@ fn test_rsa_sha512() {
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_ecdsa_p256() {
     generic_test(
         confg_toml(),
@@ -117,6 +125,7 @@ fn test_ecdsa_p256() {
 }
 
 #[test]
+#[cfg(feature = "openssl")]
 fn test_ecdsa_p384() {
     generic_test(
         confg_toml(),
