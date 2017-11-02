@@ -1,0 +1,46 @@
+## Example configuration for all supported (including ring) signing options for DNSSec.
+
+## Default zones, these should be present on all nameservers, except in rare
+##  configuration cases
+[[zones]]
+zone = "localhost"
+zone_type = "Master"
+file = "default/localhost.zone"
+
+[[zones]]
+zone = "0.0.127.in-addr.arpa"
+zone_type = "Master"
+file = "default/127.0.0.1.zone"
+
+[[zones]]
+zone = "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa"
+zsone_type = "Master"
+file = "default/ipv6_1.zone"
+
+[[zones]]
+zone = "255.in-addr.arpa"
+zone_type = "Master"
+file = "default/255.zone"
+
+[[zones]]
+zone = "0.in-addr.arpa"
+zone_type = "Master"
+file = "default/0.zone"
+
+[[zones]]
+## zone: this is the ORIGIN of the zone, aka the base name, '.' is implied on the end
+zone = "example.com"
+
+## zone_type: Master, Slave, Hint, Forward
+zone_type = "Master"
+
+## file: this is relative to the directory above
+file = "example.com.zone"
+
+enable_dnssec = true
+
+[[zones.keys]]
+# Requires --features=ring
+key_path = "./tests/named_test_configs/dnssec/ed25519.pk8"
+algorithm = "ED25519"
+is_zone_signing_key = true
