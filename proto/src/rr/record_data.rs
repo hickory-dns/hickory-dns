@@ -409,7 +409,7 @@ impl RData {
             }
             RecordType::CAA => {
                 debug!("reading CAA");
-                rdata::caa::read(decoder).map(RData::CAA)?
+                rdata::caa::read(decoder, rdata_length).map(RData::CAA)?
             }
             RecordType::CNAME => {
                 debug!("reading CNAME");
@@ -871,6 +871,7 @@ mod tests {
         match *rdata {
             RData::A(..) => RecordType::A,
             RData::AAAA(..) => RecordType::AAAA,
+            RData::CAA(..) => RecordType::CAA,
             RData::CNAME(..) => RecordType::CNAME,
             RData::MX(..) => RecordType::MX,
             RData::NS(..) => RecordType::NS,
