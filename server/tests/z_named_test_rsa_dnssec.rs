@@ -1,4 +1,5 @@
 #![cfg(feature = "dnssec")]
+#![cfg(not(windows))]
 
 extern crate futures;
 extern crate log;
@@ -156,7 +157,6 @@ fn test_rsa_sha1_fails() {
 }
 
 #[cfg(feature = "dnssec-openssl")]
-#[cfg(not(windows))]
 #[test]
 fn test_dnssec_restart_with_update_journal() {
     // TODO: make journal path configurable, it should be in target/tests/...
