@@ -73,11 +73,13 @@ where
 
             let mut kill_named = || {
                 println!("killing named");
-                named.kill().expect("could not kill process");
-                named.wait().expect("waiting failed");
+                
+                if let Err(e) = named.kill() {
+                    println!("warning: failed to kill named: {:?}", e);
+                }
             };
 
-            for _ in 0..15 {
+            for _ in 0..30 {
                 thread::sleep(Duration::from_secs(1));
                 if succeeded.load(atomic::Ordering::Relaxed) {
                     kill_named();
