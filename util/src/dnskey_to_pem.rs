@@ -1,4 +1,5 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -17,7 +18,7 @@ use std::io::{BufRead, BufReader, Lines, Write};
 use std::str::FromStr;
 
 use clap::{App, Arg, ArgMatches};
-use data_encoding::base64;
+use data_encoding::BASE64;
 use openssl::bn::BigNum;
 use openssl::rsa::Rsa;
 
@@ -139,7 +140,7 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
         let (field, value) = split_field_value(&line);
 
         let num = Some(
-            BigNum::from_slice(&base64::decode(value.as_bytes()).expect(&format!(
+            BigNum::from_slice(&BASE64.decode(value.as_bytes()).expect(&format!(
                 "badly formated line, expected base64: {}",
                 line
             ))).unwrap(),

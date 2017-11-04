@@ -1,4 +1,5 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2017 Google Inc.
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -20,7 +21,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
-use data_encoding::base32;
+use data_encoding::BASE32;
 
 mod bind;
 mod none;
@@ -59,10 +60,10 @@ fn new_working_dir() -> String {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
 
     let rand = rand::random::<u32>();
-    let rand = base32::encode(&[rand as u8,
-                                (rand >> 8) as u8,
-                                (rand >> 16) as u8,
-                                (rand >> 24) as u8]);
+    let rand = BASE32.encode(&[rand as u8,
+                               (rand >> 8) as u8,
+                               (rand >> 16) as u8,
+                               (rand >> 24) as u8]);
     let working_dir = format!("{}/../target/bind_pwd_{}", server_path, rand);
 
     if !Path::new(&working_dir).exists() {
