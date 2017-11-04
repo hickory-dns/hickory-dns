@@ -156,6 +156,7 @@ fn test_rsa_sha1_fails() {
 }
 
 #[cfg(feature = "dnssec-openssl")]
+#[cfg(not(windows))]
 #[test]
 fn test_dnssec_restart_with_update_journal() {
     // TODO: make journal path configurable, it should be in target/tests/...
@@ -186,6 +187,6 @@ fn test_dnssec_restart_with_update_journal() {
     assert!(journal.exists());
 
     // cleanup...
-    // TODO: fix journal path so that it doesn't leave the dir dirty...
+    // TODO: fix journal path so that it doesn't leave the dir dirty... this might make windows an option after that
     std::fs::remove_file(&journal).expect("failed to cleanup after test");
 }
