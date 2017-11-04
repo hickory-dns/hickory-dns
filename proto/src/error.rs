@@ -50,9 +50,11 @@ error_chain! {
       ::std::io::Error, Io, "io error";
       ::std::net::AddrParseError, AddrParseError, "network address parse error";
       ::std::num::ParseIntError, ParseIntError, "error parsing number";
+      ::std::str::Utf8Error, Utf8Error, "error parsing utf string";
       ::std::string::FromUtf8Error, FromUtf8Error, "utf8 conversion error";
       SslErrorStack, SSL, "ssl error";
       Unspecified, Ring, "ring error";
+      ::url::ParseError, UrlParsingError, "url parsing error";
     }
 
     // Define additional `ErrorKind` variants. The syntax here is
