@@ -249,6 +249,8 @@ impl Clone for ProtoErrorKind {
             &ProtoErrorKind::UnknownRecordTypeValue(value) => {
                 ProtoErrorKind::UnknownRecordTypeValue(value)
             }
+            &ProtoErrorKind::UrlParsingError => ProtoErrorKind::UrlParsingError, 
+            &ProtoErrorKind::Utf8Error => ProtoErrorKind::Utf8Error,
             &ProtoErrorKind::Ring => ProtoErrorKind::Ring,
             &ProtoErrorKind::SSL => ProtoErrorKind::SSL,
             &ProtoErrorKind::RrsigsNotPresent(ref name, ref record_type) => {

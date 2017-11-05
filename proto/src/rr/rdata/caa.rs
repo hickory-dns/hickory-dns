@@ -129,7 +129,7 @@ use url::Url;
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CAA {
     issuer_critical: bool,
-    property_tag: Property,
+    tag: Property,
     value: Value,
 }
 
@@ -172,20 +172,9 @@ impl From<String> for Property {
     }
 }
 
-#[test]
-fn test_from_str_property() {
-    assert_eq!(Property::from("issue".to_string()), Property::Issue);
-    assert_eq!(Property::from("issuewild".to_string()), Property::IssueWild);
-    assert_eq!(Property::from("iodef".to_string()), Property::Iodef);
-    assert_eq!(
-        Property::from("unknown".to_string()),
-        Property::Unknown("unknown".to_string())
-    );
-}
-
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
-    Issuer(Name, Vec<KeyValue>),
+    Issuer(Option<Name>, Vec<KeyValue>),
     Url(Url),
     Unknown(Vec<u8>),
 }
@@ -194,23 +183,258 @@ fn read_value(tag: &Property, decoder: &mut BinDecoder, value_len: u16) -> Proto
     match *tag {
         Property::Issue | Property::IssueWild => {
             let slice = decoder.read_slice(value_len as usize)?;
-            let value = parse_name_and_key_pairs(slice)?;
+            let value = read_issuer(slice)?;
             Ok(Value::Issuer(value.0, value.1))
-        },
+        }
         Property::Iodef => {
             let url = decoder.read_slice(value_len as usize)?;
-            let url = str::from_utf8(url)?;
-            let url = Url::parse(url)?;
+            let url = read_iodef(url)?;
             Ok(Value::Url(url))
-        },
-        Property::Unknown(_) => {
-            Ok(Value::Unknown(decoder.read_vec(value_len as usize)?))
-        },
+        }
+        Property::Unknown(_) => Ok(Value::Unknown(decoder.read_vec(value_len as usize)?)),
     }
 }
 
-fn parse_name_and_key_pairs(bytes: &[u8]) -> ProtoResult<(Name, Vec<KeyValue>)> {
-    unimplemented!()
+enum ParseNameKeyPairState {
+    BeforeKey(Vec<KeyValue>),
+    Key {
+        key: String,
+        key_values: Vec<KeyValue>,
+    },
+    Value {
+        key: String,
+        value: String,
+        key_values: Vec<KeyValue>,
+    },
+}
+
+/// Reads the issuer field according to the spec
+///
+/// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.2)
+///
+/// ```text
+/// 5.2.  CAA issue Property
+///
+///    The issue property tag is used to request that certificate issuers
+///    perform CAA issue restriction processing for the domain and to grant
+///    authorization to specific certificate issuers.
+///
+///    The CAA issue property value has the following sub-syntax (specified
+///    in ABNF as per [RFC5234]).
+///
+///    issuevalue  = space [domain] space [";" *(space parameter) space]
+///
+///    domain = label *("." label)
+///    label = (ALPHA / DIGIT) *( *("-") (ALPHA / DIGIT))
+///
+///    space = *(SP / HTAB)
+///
+///    parameter =  tag "=" value
+///
+///    tag = 1*(ALPHA / DIGIT)
+///
+///    value = *VCHAR
+///
+///    For consistency with other aspects of DNS administration, domain name
+///    values are specified in letter-digit-hyphen Label (LDH-Label) form.
+///
+///    A CAA record with an issue parameter tag that does not specify a
+///    domain name is a request that certificate issuers perform CAA issue
+///    restriction processing for the corresponding domain without granting
+///    authorization to any certificate issuer.
+///
+///    This form of issue restriction would be appropriate to specify that
+///    no certificates are to be issued for the domain in question.
+///
+///    For example, the following CAA record set requests that no
+///    certificates be issued for the domain 'nocerts.example.com' by any
+///    certificate issuer.
+///
+///    nocerts.example.com       CAA 0 issue ";"
+///
+///    A CAA record with an issue parameter tag that specifies a domain name
+///    is a request that certificate issuers perform CAA issue restriction
+///    processing for the corresponding domain and grants authorization to
+///    the certificate issuer specified by the domain name.
+///
+///    For example, the following CAA record set requests that no
+///    certificates be issued for the domain 'certs.example.com' by any
+///    certificate issuer other than the example.net certificate issuer.
+///
+///    certs.example.com       CAA 0 issue "example.net"
+///
+///    CAA authorizations are additive; thus, the result of specifying both
+///    the empty issuer and a specified issuer is the same as specifying
+///    just the specified issuer alone.
+///
+///    An issuer MAY choose to specify issuer-parameters that further
+///    constrain the issue of certificates by that issuer, for example,
+///    specifying that certificates are to be subject to specific validation
+///    polices, billed to certain accounts, or issued under specific trust
+///    anchors.
+///
+///    The semantics of issuer-parameters are determined by the issuer
+///    alone.
+/// ```
+fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
+    let mut byte_iter = bytes.iter();
+
+    // we want to reuse the name parsing rules
+    let name: Option<Name> = {
+        let take_name = byte_iter.by_ref().take_while(|ch| char::from(**ch) != ';');
+        let name_str = take_name.cloned().collect::<Vec<u8>>();
+
+        if name_str.len() > 0 {
+            let name_str = str::from_utf8(&name_str)?;
+            Some(Name::parse(name_str, None)?)
+        } else {
+            None
+        }
+    };
+
+    // initial state is looking for a key ';' is valid...
+    let mut state = ParseNameKeyPairState::BeforeKey(vec![]);
+
+    // run the state machine through all remaining data, collecting all key/value pairs.
+    for ch in byte_iter {
+        match state {
+            // Name was already successfully parsed, otherwise we couldn't get here.
+            ParseNameKeyPairState::BeforeKey(key_values) => {
+                match char::from(*ch) {
+                    // gobble ';', ' ', and tab
+                    ';' | ' ' | '\u{0009}' => state = ParseNameKeyPairState::BeforeKey(key_values),
+                    ch @ _ if ch.is_alphanumeric() && ch != '=' => {
+                        // We found the beginning of a new Key
+                        let mut key = String::new();
+                        key.push(ch);
+
+                        state = ParseNameKeyPairState::Key { key, key_values }
+                    }
+                    ch @ _ => {
+                        return Err(
+                            ProtoErrorKind::Msg(
+                                format!("bad character in CAA issuer key: {}", ch),
+                            ).into(),
+                        )
+                    }
+                }
+            }
+            ParseNameKeyPairState::Key {
+                mut key,
+                key_values,
+            } => {
+                match char::from(*ch) {
+                    // transition to value
+                    '=' => {
+                        let value = String::new();
+                        state = ParseNameKeyPairState::Value {
+                            key,
+                            value,
+                            key_values,
+                        }
+                    }
+                    // push onto the existing key
+                    ch @ _ if ch.is_alphanumeric() && ch != '=' && ch != ';' => {
+                        key.push(ch);
+
+                        state = ParseNameKeyPairState::Key { key, key_values }
+                    }
+                    ch @ _ => {
+                        return Err(
+                            ProtoErrorKind::Msg(
+                                format!("bad character in CAA issuer key: {}", ch),
+                            ).into(),
+                        )
+                    }
+                }
+
+            }
+            ParseNameKeyPairState::Value {
+                key,
+                mut value,
+                mut key_values,
+            } => {
+                match char::from(*ch) {
+                    // transition back to find another pair
+                    ';' => {
+                        key_values.push(KeyValue { key, value });
+                        state = ParseNameKeyPairState::BeforeKey(key_values);
+                    }
+                    // push onto the existing key
+                    ch @ _ if ch.is_alphanumeric() => {
+                        value.push(ch);
+
+                        state = ParseNameKeyPairState::Value {
+                            key,
+                            value,
+                            key_values,
+                        }
+                    }
+                    ch @ _ => {
+                        return Err(
+                            ProtoErrorKind::Msg(
+                                format!("bad character in CAA issuer value: {}", ch),
+                            ).into(),
+                        )
+                    }
+                }
+            }
+        }
+    }
+
+    // valid final states are BeforeKey, where there was a final ';' but nothing followed it.
+    //                        Value, where we collected the final chars of the value, but no more data
+    let key_values = match state {
+        ParseNameKeyPairState::BeforeKey(key_values) => key_values,
+        ParseNameKeyPairState::Value {
+            key,
+            value,
+            mut key_values,
+        } => {
+            key_values.push(KeyValue { key, value });
+            key_values
+        }
+        ParseNameKeyPairState::Key { key, .. } => {
+            return Err(
+                ProtoErrorKind::Msg(format!("key missing value: {}", key)).into(),
+            )
+        }
+    };
+
+    Ok((name, key_values))
+}
+
+/// Incident Object Description Exchange Format
+///
+/// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.4)
+///
+/// ```text
+/// 5.4.  CAA iodef Property
+///
+///    The iodef property specifies a means of reporting certificate issue
+///    requests or cases of certificate issue for the corresponding domain
+///    that violate the security policy of the issuer or the domain name
+///    holder.
+///
+///    The Incident Object Description Exchange Format (IODEF) [RFC5070] is
+///    used to present the incident report in machine-readable form.
+///
+///    The iodef property takes a URL as its parameter.  The URL scheme type
+///    determines the method used for reporting:
+///
+///    mailto:  The IODEF incident report is reported as a MIME email
+///       attachment to an SMTP email that is submitted to the mail address
+///       specified.  The mail message sent SHOULD contain a brief text
+///       message to alert the recipient to the nature of the attachment.
+///
+///    http or https:  The IODEF report is submitted as a Web service
+///       request to the HTTP address specified using the protocol specified
+///       in [RFC6546].
+/// ```
+fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
+    let url = str::from_utf8(url)?;
+    let url = Url::parse(url)?;
+    Ok(url)
 }
 
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
@@ -304,10 +528,17 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<CAA> {
     let value_len = (rdata_length - tag_len as u16) - 2;
 
     let tag = read_tag(decoder, tag_len)?;
+    let tag = Property::from(tag);
+    let value = read_value(&tag, decoder, value_len)?;
 
-    unimplemented!()
+    Ok(CAA {
+        issuer_critical,
+        tag,
+        value,
+    })
 }
 
+// TODO: change this to return &str
 fn read_tag(decoder: &mut BinDecoder, len: u8) -> ProtoResult<String> {
     if len == 0 || len > 15 {
         return Err(
@@ -379,4 +610,60 @@ mod tests {
         assert!(read_tag(&mut decoder, too_long.len() as u8).is_err());
     }
 
+    #[test]
+    fn test_from_str_property() {
+        assert_eq!(Property::from("issue".to_string()), Property::Issue);
+        assert_eq!(Property::from("issuewild".to_string()), Property::IssueWild);
+        assert_eq!(Property::from("iodef".to_string()), Property::Iodef);
+        assert_eq!(
+            Property::from("unknown".to_string()),
+            Property::Unknown("unknown".to_string())
+        );
+    }
+
+    #[test]
+    fn test_read_issuer() {
+        // (Option<Name>, Vec<KeyValue>)
+        assert_eq!(read_issuer(b"ca.example.net; account=230123").unwrap(), (
+            Some(Name::parse("ca.example.net", None).unwrap()),
+            vec![
+                KeyValue {
+                    key: "account".to_string(),
+                    value: "230123".to_string(),
+                },
+            ],
+        ));
+
+        assert_eq!(read_issuer(b"ca.example.net").unwrap(), (
+            Some(
+                Name::parse(
+                    "ca.example.net",
+                    None,
+                ).unwrap(),
+            ),
+            vec![],
+        ));
+        assert_eq!(read_issuer(b"ca.example.net; policy=ev").unwrap(), (
+            Some(Name::parse("ca.example.net", None).unwrap()),
+            vec![
+                KeyValue {
+                    key: "policy".to_string(),
+                    value: "ev".to_string(),
+                },
+            ],
+        ));
+        assert_eq!(read_issuer(b";").unwrap(), (None, vec![]));
+    }
+
+    #[test]
+    fn test_read_iodef() {
+        assert_eq!(
+            read_iodef(b"mailto:security@example.com").unwrap(),
+            Url::parse("mailto:security@example.com").unwrap()
+        );
+        assert_eq!(
+            read_iodef(b"http://iodef.example.com/").unwrap(),
+            Url::parse("http://iodef.example.com/").unwrap()
+        );
+    }
 }
