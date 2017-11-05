@@ -172,10 +172,20 @@ impl From<String> for Property {
     }
 }
 
+/// Potential values.
+///
+/// These are based off the Tag field:
+///
+/// `Issue` and `IssueWild` => `Issuer`,
+/// `Iodef` => `Url`,
+/// `Unknown` => `Unknown`,
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Value {
+    /// Issuer authorized to issue certs for this zone, and any associated parameters
     Issuer(Option<Name>, Vec<KeyValue>),
+    /// Url to which to send CA errors
     Url(Url),
+    /// Unrecognized tag and value by TRust-DNS
     Unknown(Vec<u8>),
 }
 
@@ -437,6 +447,10 @@ fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
     Ok(url)
 }
 
+/// Issuer key and value pairs.
+///
+/// See [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.2)
+/// for more explanation.
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct KeyValue {
     key: String,
@@ -573,7 +587,6 @@ pub fn emit(encoder: &mut BinEncoder, opt: &CAA) -> ProtoResult<()> {
 #[cfg(test)]
 mod tests {
     use std::str;
-    use serialize::binary::*;
     use super::*;
 
     #[test]
@@ -644,8 +657,25 @@ mod tests {
             vec![],
         ));
         assert_eq!(read_issuer(b"ca.example.net; policy=ev").unwrap(), (
-            Some(Name::parse("ca.example.net", None).unwrap()),
+            Some(
+                Name::parse("ca.example.net", None).unwrap(),
+            ),
             vec![
+                KeyValue {
+                    key: "policy".to_string(),
+                    value: "ev".to_string(),
+                },
+            ],
+        ));
+        assert_eq!(read_issuer(b"ca.example.net; account=230123; policy=ev").unwrap(), (
+            Some(
+                Name::parse("ca.example.net", None).unwrap(),
+            ),
+            vec![
+                KeyValue {
+                    key: "account".to_string(),
+                    value: "230123".to_string(),
+                },
                 KeyValue {
                     key: "policy".to_string(),
                     value: "ev".to_string(),

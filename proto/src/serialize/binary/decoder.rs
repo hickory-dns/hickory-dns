@@ -125,6 +125,15 @@ impl<'a> BinDecoder<'a> {
         Ok(vec)
     }
 
+    /// Reads a slice out of the buffer, without allocating
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - number of bytes to read from the buffer
+    ///
+    /// # Returns
+    ///
+    /// The slice of the specified length, otherwise an error
     pub fn read_slice(&mut self, len: usize) -> ProtoResult<&'a [u8]> {
         if self.index + len > self.buffer.len() {
             return Err(ProtoErrorKind::Message("buffer exhausted").into())
