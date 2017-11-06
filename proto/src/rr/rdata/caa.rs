@@ -128,9 +128,12 @@ use url::Url;
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CAA {
-    issuer_critical: bool,
-    tag: Property,
-    value: Value,
+    #[doc(hidden)]
+    pub issuer_critical: bool,
+    #[doc(hidden)]
+    pub tag: Property,
+    #[doc(hidden)]
+    pub value: Value,
 }
 
 impl CAA {
@@ -471,7 +474,7 @@ enum ParseNameKeyPairState {
 ///    The semantics of issuer-parameters are determined by the issuer
 ///    alone.
 /// ```
-fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
+pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
     let mut byte_iter = bytes.iter();
 
     // we want to reuse the name parsing rules
@@ -626,7 +629,7 @@ fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 ///       request to the HTTP address specified using the protocol specified
 ///       in [RFC6546].
 /// ```
-fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
+pub fn read_iodef(url: &[u8]) -> ProtoResult<Url> {
     let url = str::from_utf8(url)?;
     let url = Url::parse(url)?;
     Ok(url)
