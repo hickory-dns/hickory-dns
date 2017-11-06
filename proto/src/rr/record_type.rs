@@ -101,6 +101,7 @@ impl RecordType {
         match str {
             "A" => Ok(RecordType::A),
             "AAAA" => Ok(RecordType::AAAA),
+            "CAA" => Ok(RecordType::CAA),
             "CNAME" => Ok(RecordType::CNAME),
             "NULL" => Ok(RecordType::NULL),
             "MX" => Ok(RecordType::MX),
