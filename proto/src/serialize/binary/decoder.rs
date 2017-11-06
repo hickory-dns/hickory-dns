@@ -135,12 +135,13 @@ impl<'a> BinDecoder<'a> {
     ///
     /// The slice of the specified length, otherwise an error
     pub fn read_slice(&mut self, len: usize) -> ProtoResult<&'a [u8]> {
-        if self.index + len > self.buffer.len() {
+        let end = self.index + len;
+        if end > self.buffer.len() {
             return Err(ProtoErrorKind::Message("buffer exhausted").into())
         }
 
      
-        let slice: &'a [u8] = &self.buffer[self.index .. len];
+        let slice: &'a [u8] = &self.buffer[self.index .. end];
         self.index += len;
         Ok(slice)
     }

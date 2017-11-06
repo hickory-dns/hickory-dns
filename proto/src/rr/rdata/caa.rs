@@ -133,6 +133,82 @@ pub struct CAA {
     value: Value,
 }
 
+impl CAA {
+    fn issue(
+        issuer_critical: bool,
+        tag: Property,
+        name: Option<Name>,
+        options: Vec<KeyValue>,
+    ) -> Self {
+        assert!(tag.is_issue() || tag.is_issuewild());
+
+        CAA {
+            issuer_critical,
+            tag,
+            value: Value::Issuer(name, options),
+        }
+    }
+
+    /// Creates a new CAA issue record data, the tag is `issue`
+    ///
+    /// # Arguments
+    ///
+    /// * `issuer_critical` - indicates that the corresponding property tag MUST be understood if the semantics of the CAA record are to be correctly interpreted by an issuer
+    /// * `name` - authorized to issue certificates for the associated record label
+    /// * `options` - additional options for the issuer, e.g. 'account', etc.
+    pub fn new_issue(issuer_critical: bool, name: Option<Name>, options: Vec<KeyValue>) -> Self {
+        Self::issue(issuer_critical, Property::Issue, name, options)
+    }
+
+    /// Creates a new CAA issue record data, the tag is `issuewild`
+    ///
+    /// # Arguments
+    ///
+    /// * `issuer_critical` - indicates that the corresponding property tag MUST be understood if the semantics of the CAA record are to be correctly interpreted by an issuer
+    /// * `name` - authorized to issue certificates for the associated record label
+    /// * `options` - additional options for the issuer, e.g. 'account', etc.
+    pub fn new_issuewild(
+        issuer_critical: bool,
+        name: Option<Name>,
+        options: Vec<KeyValue>,
+    ) -> Self {
+        Self::issue(issuer_critical, Property::IssueWild, name, options)
+    }
+
+    /// Creates a new CAA issue record data, the tag is `iodef`
+    ///
+    /// # Arguments
+    ///
+    /// * `issuer_critical` - indicates that the corresponding property tag MUST be understood if the semantics of the CAA record are to be correctly interpreted by an issuer
+    /// * `url` - Url where issuer errors should be reported
+    ///
+    /// # Panics
+    ///
+    /// If `value` is not `Value::Issuer`
+    pub fn new_iodef(issuer_critical: bool, url: Url) -> Self {
+        CAA {
+            issuer_critical,
+            tag: Property::Iodef,
+            value: Value::Url(url),
+        }
+    }
+
+    /// Indicates that the corresponding property tag MUST be understood if the semantics of the CAA record are to be correctly interpreted by an issuer
+    pub fn issuer_critical(&self) -> bool {
+        self.issuer_critical
+    }
+
+    /// The property tag, see struct documentation
+    pub fn tag(&self) -> &Property {
+        &self.tag
+    }
+
+    /// a potentially associated value with the property tag, see struct documentation
+    pub fn value(&self) -> &Value {
+        &self.value
+    }
+}
+
 /// Specifies in what contexts this key may be trusted for use
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub enum Property {
@@ -157,6 +233,53 @@ pub enum Property {
     Iodef,
     /// Unknown format to TRust-DNS
     Unknown(String),
+}
+
+impl Property {
+    fn as_str(&self) -> &str {
+        match *self {
+            Property::Issue => "issue",
+            Property::IssueWild => "issuewild",
+            Property::Iodef => "iodef",
+            Property::Unknown(ref property) => property,
+        }
+    }
+
+    /// true if the property is `issue`
+    pub fn is_issue(&self) -> bool {
+        if let Property::Issue = *self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// true if the property is `issueworld`
+    pub fn is_issuewild(&self) -> bool {
+        if let Property::IssueWild = *self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// true if the property is `iodef`
+    pub fn is_iodef(&self) -> bool {
+        if let Property::Iodef = *self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// true if the property is not known to TRust-DNS
+    pub fn is_unknown(&self) -> bool {
+        if let Property::Unknown(_) = *self {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 impl From<String> for Property {
@@ -189,6 +312,35 @@ pub enum Value {
     Unknown(Vec<u8>),
 }
 
+impl Value {
+    /// true if this is an `Issuer`
+    pub fn is_issuer(&self) -> bool {
+        if let Value::Issuer(..) = *self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// true if this is a `Url`
+    pub fn is_url(&self) -> bool {
+        if let Value::Url(..) = *self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// true if this is an `Unknown`
+    pub fn is_unknown(&self) -> bool {
+        if let Value::Unknown(..) = *self {
+            true
+        } else {
+            false
+        }
+    }
+}
+
 fn read_value(tag: &Property, decoder: &mut BinDecoder, value_len: u16) -> ProtoResult<Value> {
     match *tag {
         Property::Issue | Property::IssueWild => {
@@ -202,6 +354,39 @@ fn read_value(tag: &Property, decoder: &mut BinDecoder, value_len: u16) -> Proto
             Ok(Value::Url(url))
         }
         Property::Unknown(_) => Ok(Value::Unknown(decoder.read_vec(value_len as usize)?)),
+    }
+}
+
+fn emit_value(encoder: &mut BinEncoder, value: &Value) -> ProtoResult<()> {
+    match *value {
+        Value::Issuer(ref name, ref key_values) => {
+            // output the name
+            if let Some(ref name) = *name {
+                let name = name.to_string();
+                encoder.emit_vec(name.as_bytes())?;
+            }
+
+            // if there was no name, then we just output ';'
+            if name.is_none() && key_values.is_empty() {
+                return encoder.emit(b';');
+            }
+
+            for key_value in key_values {
+                encoder.emit(b';')?;
+                encoder.emit(b' ')?;
+                encoder.emit_vec(key_value.key.as_bytes())?;
+                encoder.emit(b'=')?;
+                encoder.emit_vec(key_value.value.as_bytes())?;
+            }
+
+            Ok(())
+        }
+        Value::Url(ref url) => {
+            let url = url.as_str();
+            let bytes = url.as_bytes();
+            encoder.emit_vec(bytes)
+        }
+        Value::Unknown(ref data) => encoder.emit_vec(data),
     }
 }
 
@@ -457,6 +642,13 @@ pub struct KeyValue {
     value: String,
 }
 
+impl KeyValue {
+    /// Contstruct a new KeyValue pair
+    pub fn new<K: Into<String>, V: Into<String>>(key: K, value: V) -> Self {
+        KeyValue{ key: key.into(), value: value.into() }
+    }
+}
+
 /// Read the bincary CAA format
 ///
 /// [RFC 6844, DNS Certification Authority Authorization, January 2013](https://tools.ietf.org/html/rfc6844#section-5.1)
@@ -579,9 +771,51 @@ fn read_tag(decoder: &mut BinDecoder, len: u8) -> ProtoResult<String> {
     Ok(tag)
 }
 
+/// writes out the tag in bincary form to the buffer, returning the number of bytes written
+fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
+    let property = tag.as_str();
+    let property = property.as_bytes();
+
+    let len = property.len();
+    if len > ::std::u8::MAX as usize {
+        return Err(
+            ProtoErrorKind::Msg(format!("CAA property too long: {}", len)).into(),
+        );
+    }
+    if buf.len() < len {
+        return Err(
+            ProtoErrorKind::Msg(format!(
+                "insufficient capacity in CAA buffer: {} for tag: {}",
+                buf.len(),
+                len
+            )).into(),
+        );
+    }
+
+    // copy into the buffer
+    let buf = &mut buf[0..len];
+    buf.copy_from_slice(property);
+
+    Ok(len as u8)
+}
+
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, opt: &CAA) -> ProtoResult<()> {
-    unimplemented!()
+pub fn emit(encoder: &mut BinEncoder, caa: &CAA) -> ProtoResult<()> {
+    let mut flags = 0_u8;
+
+    if caa.issuer_critical { flags |= 0b1000_0000; }
+
+    encoder.emit(flags)?;
+    // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
+    let mut tag_buf = [0_u8; ::std::u8::MAX as usize];
+    let len = emit_tag(&mut tag_buf, &caa.tag)?;
+
+    // now write to the encoder
+    encoder.emit(len)?;
+    encoder.emit_vec(&tag_buf[0..len as usize])?;
+    emit_value(encoder, &caa.value)?;
+
+    Ok(())
 }
 
 #[cfg(test)]
@@ -695,5 +929,39 @@ mod tests {
             read_iodef(b"http://iodef.example.com/").unwrap(),
             Url::parse("http://iodef.example.com/").unwrap()
         );
+    }
+
+    fn test_encode_decode(rdata: CAA) {
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        emit(&mut encoder, &rdata).expect("failed to emit caa");
+        let bytes = encoder.as_bytes();
+
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let read_rdata = read(&mut decoder, bytes.len() as u16).expect("failed to read back");
+        assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_encode_decode_issue() {
+        test_encode_decode(CAA::new_issue(true, None, vec![]));
+        test_encode_decode(CAA::new_issue(true, Some(Name::parse("example.com", None).unwrap()), vec![]));
+        test_encode_decode(CAA::new_issue(true, Some(Name::parse("example.com", None).unwrap()), vec![KeyValue::new("key", "value")]));
+        // technically the this parser supports this case, though it's not clear it's something the spec allows for
+        test_encode_decode(CAA::new_issue(true, None, vec![KeyValue::new("key", "value")])); 
+    }
+
+    #[test]
+    fn test_encode_decode_issuewild() {
+        test_encode_decode(CAA::new_issuewild(false, None, vec![]));
+        // other variants handled in test_encode_decode_issue
+    }
+
+    #[test]
+    fn test_encode_decode_iodef() {
+        test_encode_decode(CAA::new_iodef(true, Url::parse("http://www.example.com").unwrap()));
+        test_encode_decode(CAA::new_iodef(false, Url::parse("mailto:root@example.com").unwrap()));
     }
 }
