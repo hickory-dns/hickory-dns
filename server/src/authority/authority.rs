@@ -17,17 +17,19 @@
 
 use std::collections::BTreeMap;
 
-use chrono::Utc;
-
+#[cfg(feature = "dnssec")]
 use trust_dns::error::*;
-use trust_dns::op::{Message, UpdateMessage, ResponseCode, Query};
+
+use trust_dns::op::{Message, ResponseCode, Query};
+
+#[cfg(feature = "dnssec")]
+use trust_dns::op::UpdateMessage;
+
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
-use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, NSEC, SIG};
-use trust_dns::rr::dnssec::{tbs, Signer, SupportedAlgorithms, Verifier};
 
 use authority::{Journal, UpdateResult, ZoneType};
 use error::{PersistenceErrorKind, PersistenceResult};
-
+use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
 
 /// Authority is responsible for storing the resource records for a particular zone.
 ///
@@ -89,7 +91,10 @@ impl Authority {
     /// # Arguments
     ///
     /// * `signer` - Signer with associated private key
+    #[cfg(feature = "dnssec")]
     pub fn add_secure_key(&mut self, signer: Signer) -> DnsSecResult<()> {
+        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+
         // also add the key to the zone
         let zone_ttl = self.minimum_ttl();
         let dnskey = try!(signer.key().to_dnskey(signer.algorithm()));
@@ -472,7 +477,12 @@ impl Authority {
     ///   and restore the zone to its original state before answering the
     ///   requestor.
     /// ```
+    ///
+    #[cfg(feature = "dnssec")]
     pub fn authorize(&self, update_message: &Message) -> UpdateResult<()> {
+        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+        use trust_dns_proto::rr::dnssec::Verifier;
+
         // 3.3.3 - Pseudocode for Permission Checking
         //
         //      if (security policy exists)
@@ -899,6 +909,7 @@ impl Authority {
     ///
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
+    #[cfg(feature = "dnssec")]
     pub fn update(&mut self, update: &Message) -> UpdateResult<bool> {
         // the spec says to authorize after prereqs, seems better to auth first.
         try!(self.authorize(update));
@@ -906,6 +917,12 @@ impl Authority {
         try!(self.pre_scan(update.updates()));
 
         self.update_records(update.updates(), true)
+    }
+
+    /// Always fail when DNSSEC is disabled.
+    #[cfg(not(feature = "dnssec"))]
+    pub fn update(&mut self, _update: &Message) -> UpdateResult<bool> {
+        Err(ResponseCode::NotImp)
     }
 
     /// Using the specified query, perform a lookup against this zone.
@@ -1027,9 +1044,24 @@ impl Authority {
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Vec<&Record> {
+
+        #[cfg(feature = "dnssec")]
+        fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
+            use trust_dns::rr::rdata::DNSSECRecordType;
+
+            rr_set.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC)
+        }
+
+        #[cfg(not(feature = "dnssec"))]
+        fn is_nsec_rrset(_record: &RecordSet) -> bool {
+            // There's no way to create an NSEC record when DNSSEC is disabled
+            // at build time.
+            false
+        }
+
         self.records
             .values()
-            .filter(|rr_set| rr_set.record_type() == RecordType::DNSSEC(DNSSECRecordType::NSEC))
+            .filter(|rr_set| is_nsec_rrset(rr_set))
             .skip_while(|rr_set| name < rr_set.name())
             .next()
             .map_or(vec![], |rr_set| {
@@ -1041,6 +1073,7 @@ impl Authority {
     }
 
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    #[cfg(feature = "dnssec")]
     pub fn secure_zone(&mut self) -> DnsSecResult<()> {
         // TODO: only call nsec_zone after adds/deletes
         // needs to be called before incrementing the soa serial, to make sur IXFR works properly
@@ -1054,8 +1087,17 @@ impl Authority {
         self.sign_zone()
     }
 
-    /// Creates all nsec records needed for the zone, replaces any existing records.
+    /// (Re)generates the nsec records, increments the serial number nad signs the zone
+    #[cfg(not(feature = "dnssec"))]
+    pub fn secure_zone(&mut self) -> Result<(), &str> {
+        return Err("DNSSEC is not enabled.")
+    }
+
+    /// Dummy implementation for when DNSSEC is disabled.
+    #[cfg(feature = "dnssec")]
     fn nsec_zone(&mut self) {
+        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, NSEC};
+
         // only create nsec records for secure zones
         if self.secure_keys.is_empty() {
             return;
@@ -1114,7 +1156,12 @@ impl Authority {
     }
 
     /// Signs any records in the zone that have serial numbers greater than or equal to `serial`
+    #[cfg(feature = "dnssec")]
     fn sign_zone(&mut self) -> DnsSecResult<()> {
+        use chrono::Utc;
+        use trust_dns::rr::dnssec::tbs;
+        use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType, SIG};
+
         debug!("signing zone: {}", self.origin);
         let inception = Utc::now();
         let zone_ttl = self.minimum_ttl();
