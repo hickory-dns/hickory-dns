@@ -953,7 +953,9 @@ mod tests {
         test_encode_decode(CAA::new_issue(true, Some(Name::parse("example.com", None).unwrap()), vec![]));
         test_encode_decode(CAA::new_issue(true, Some(Name::parse("example.com", None).unwrap()), vec![KeyValue::new("key", "value")]));
         // technically the this parser supports this case, though it's not clear it's something the spec allows for
-        test_encode_decode(CAA::new_issue(true, None, vec![KeyValue::new("key", "value")])); 
+        test_encode_decode(CAA::new_issue(true, None, vec![KeyValue::new("key", "value")]));
+        // test fqdn
+        test_encode_decode(CAA::new_issue(true, Some(Name::parse("example.com.", None).unwrap()), vec![]));
     }
 
     #[test]
@@ -966,5 +968,31 @@ mod tests {
     fn test_encode_decode_iodef() {
         test_encode_decode(CAA::new_iodef(true, Url::parse("http://www.example.com").unwrap()));
         test_encode_decode(CAA::new_iodef(false, Url::parse("mailto:root@example.com").unwrap()));
+    }
+
+    fn test_encode(rdata: CAA, encoded: &[u8]) {
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        emit(&mut encoder, &rdata).expect("failed to emit caa");
+        let bytes = encoder.as_bytes();
+        assert_eq!(&bytes as &[u8], encoded);
+    }
+
+    #[test]
+    fn test_encode_non_fqdn() {
+        let name_bytes: &[u8] = b"issueexample.com";
+        let header: &[u8] = &[128, 5];
+        let encoded: Vec<u8> = header.into_iter().chain(name_bytes.iter()).map(|b|*b).collect(); 
+
+        test_encode(CAA::new_issue(true, Some(Name::parse("example.com", None).unwrap()), vec![]), &encoded);
+    }
+
+    #[test]
+    fn test_encode_fqdn() {
+        let name_bytes: &[u8] = b"issueexample.com.";
+        let header: [u8; 2] = [128, 5];
+        let encoded: Vec<u8> = header.iter().chain(name_bytes.iter()).map(|b|*b).collect(); 
+ 
+        test_encode(CAA::new_issue(true, Some(Name::parse("example.com.", None).unwrap()), vec![]), &encoded);
     }
 }
