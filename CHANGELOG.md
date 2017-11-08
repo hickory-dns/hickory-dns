@@ -12,6 +12,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Integration tests for Server to validate all supported DNSSec key types
 - Common features `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates
 - Clarified `tls` feature with `tls-openssl`, and `tls` in server
+- Added support for rfc6844, CAA record types #234
 
 ### Changed
 
