@@ -8,11 +8,32 @@ CRT_FILE=example.cert
 P12_FILE=example.p12
 
 # ec key request
-${OPENSSL:?} ecparam -out ${KEY_FILE:?} -name secp256k1 -genkey
-${OPENSSL:?} req -new -key ${KEY_FILE:?} -keyform pem -out ${CSR_FILE:?} -subj '/CN=ns.example.com'
+echo "====> generating key"
+### Apple doesn't allow ECC keys? Ecc will fail native-tls
+# ${OPENSSL:?} ecparam -out ${KEY_FILE:?} -name secp256k1 -genkey
+### Using RSA for now
+${OPENSSL:?} genrsa -out ${KEY_FILE:?} 2048
 
-# self-signed
-${OPENSSL:?} x509 -req -days 365 -in ${CSR_FILE:?} -signkey ${KEY_FILE:?} -out ${CRT_FILE:?}
+## self-signed cert...
+echo "====> generating cert"
+${OPENSSL:?} req -new -x509 -days 365 -sha256 \
+                 -key ${KEY_FILE:?} -keyform pem \
+                 -out ${CRT_FILE:?} -outform der \
+                 -subj '/O=TRust-DNS/CN=ns.example.com' \
+                 -config <(cat /etc/ssl/openssl.cnf <(printf "\n[x509v3]\nsubjectAltName=critical,DNS:ns.example.com\nkeyUsage=critical,digitalSignature,keyAgreement,keyCertSign\nextendedKeyUsage=critical,serverAuth,clientAuth\nbasicConstraints=critical,CA:TRUE,pathlen:0")) \
+                 -extensions x509v3 \
+                 -reqexts x509v3
+
+
+${OPENSSL:?} x509 -in ${CRT_FILE:?} -inform der -out ${CRT_FILE:?}.pem
 
 # pkcs12 chain
-${OPENSSL:?} pkcs12 -export -out ${P12_FILE:?} -inkey ${KEY_FILE:?} -in ${CRT_FILE:?} -password pass:mypass
+echo "====> generating p12"
+${OPENSSL:?} pkcs12 -export -out ${P12_FILE:?} -inkey ${KEY_FILE:?} -in ${CRT_FILE:?}.pem \
+                    -password pass:mypass \
+                    -macalg sha256 \
+                    -name "ns.example.com" \
+                    -info
+                
+echo "====> verifying certificate"
+${OPENSSL:?} verify -CAfile ${CRT_FILE:?}.pem ${CRT_FILE:?}.pem

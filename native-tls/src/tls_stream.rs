@@ -32,7 +32,7 @@ fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsCon
             format!("tls error: {}", e),
         )
     }));
-    try!(builder.supported_protocols(&[Tlsv11, Tlsv12]).map_err(
+    try!(builder.supported_protocols(&[Tlsv12]).map_err(
         |e| {
             io::Error::new(
                 io::ErrorKind::ConnectionRefused,
