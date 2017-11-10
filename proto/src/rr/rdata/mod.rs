@@ -28,6 +28,7 @@ pub mod null;
 pub mod opt;
 pub mod soa;
 pub mod srv;
+pub mod tlsa;
 pub mod txt;
 
 pub use self::caa::CAA;
@@ -36,4 +37,5 @@ pub use self::null::NULL;
 pub use self::opt::OPT;
 pub use self::srv::SRV;
 pub use self::soa::SOA;
+pub use self::tlsa::TLSA;
 pub use self::txt::TXT;

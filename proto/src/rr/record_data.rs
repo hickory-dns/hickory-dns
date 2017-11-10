@@ -26,7 +26,7 @@ use serialize::binary::*;
 use super::domain::Name;
 use super::record_type::RecordType;
 use super::rdata;
-use super::rdata::{CAA, MX, NULL, OPT, SOA, SRV, TXT};
+use super::rdata::{CAA, MX, NULL, OPT, SOA, SRV, TLSA, TXT};
 
 #[cfg(feature = "dnssec")]
 use super::dnssec::rdata::DNSSECRData;
@@ -116,7 +116,7 @@ pub enum RData {
     /// length of the RDATA section.
     /// ```
     CAA(CAA),
-  
+
     /// ```text
     ///   3.3. Standard RRs
     ///
@@ -347,6 +347,21 @@ pub enum RData {
     /// ```
     SRV(SRV),
 
+    /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
+    ///
+    /// ```text
+    ///                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+    ///     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+    ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    ///    |  Cert. Usage  |   Selector    | Matching Type |               /
+    ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               /
+    ///    /                                                               /
+    ///    /                 Certificate Association Data                  /
+    ///    /                                                               /
+    ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+    /// ```
+    TLSA(TLSA),
+
     /// ```text
     /// 3.3.14. TXT RDATA format
     ///
@@ -446,6 +461,10 @@ impl RData {
                 debug!("reading SRV");
                 RData::SRV(try!(rdata::srv::read(decoder)))
             }
+            RecordType::TLSA => {
+                debug!("reading TLSA");
+                RData::TLSA(try!(rdata::tlsa::read(decoder, rdata_length)))
+            }
             RecordType::TXT => {
                 debug!("reading TXT");
                 RData::TXT(try!(rdata::txt::read(decoder, rdata_length)))
@@ -501,6 +520,7 @@ impl RData {
             RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
             // to_lowercase for rfc4034 and rfc6840
             RData::SRV(ref srv) => rdata::srv::emit(encoder, srv),
+            RData::TLSA(ref tlsa) => rdata::tlsa::emit(encoder, tlsa),
             RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => rdata.emit(encoder),
@@ -521,10 +541,10 @@ impl RData {
             RData::PTR(..) => RecordType::PTR,
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
+            RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
-            RData::DNSSEC(ref rdata) =>
-                RecordType::DNSSEC(DNSSECRData::to_record_type(rdata)),
+            RData::DNSSEC(ref rdata) => RecordType::DNSSEC(DNSSECRData::to_record_type(rdata)),
         }
     }
 
@@ -856,11 +876,7 @@ mod tests {
             let mut decoder = BinDecoder::new(&binary);
 
             assert_eq!(
-                RData::read(
-                    &mut decoder,
-                    record_type_from_rdata(&expect),
-                    length,
-                ).unwrap(),
+                RData::read(&mut decoder, record_type_from_rdata(&expect), length).unwrap(),
                 expect
             );
         }
@@ -880,6 +896,7 @@ mod tests {
             RData::PTR(..) => RecordType::PTR,
             RData::SOA(..) => RecordType::SOA,
             RData::SRV(..) => RecordType::SRV,
+            RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => {

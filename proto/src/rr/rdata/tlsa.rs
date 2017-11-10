@@ -1,0 +1,359 @@
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+//! text records for storing arbitrary data
+
+use serialize::binary::*;
+use error::*;
+
+/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1)
+///
+/// ```text
+/// 2.1.  TLSA RDATA Wire Format
+///
+///    The RDATA for a TLSA RR consists of a one-octet certificate usage
+///    field, a one-octet selector field, a one-octet matching type field,
+///    and the certificate association data field.
+///
+///                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+///     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///    |  Cert. Usage  |   Selector    | Matching Type |               /
+///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               /
+///    /                                                               /
+///    /                 Certificate Association Data                  /
+///    /                                                               /
+///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// ```
+#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+pub struct TLSA {
+    cert_usage: CertUsage,
+    selector: Selector,
+    matching: Matching,
+    cert_data: Vec<u8>,
+}
+
+/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1.1)
+///
+/// ```text
+/// 2.1.1.  The Certificate Usage Field
+///
+///    A one-octet value, called "certificate usage", specifies the provided
+///    association that will be used to match the certificate presented in
+///    the TLS handshake.  This value is defined in a new IANA registry (see
+///    Section 7.2) in order to make it easier to add additional certificate
+///    usages in the future.  The certificate usages defined in this
+///    document are:
+///
+///       0 -- CA
+///
+///       1 -- Service
+///
+///       2 -- TrustAnchor
+///
+///       3 -- DomainIssued
+///
+///    The certificate usages defined in this document explicitly only apply
+///    to PKIX-formatted certificates in DER encoding [X.690].  If TLS
+///    allows other formats later, or if extensions to this RRtype are made
+///    that accept other formats for certificates, those certificates will
+///    need their own certificate usage values.
+/// ```
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum CertUsage {
+    /// ```text
+    ///       0 -- Certificate usage 0 is used to specify a CA certificate, or
+    ///       the public key of such a certificate, that MUST be found in any of
+    ///       the PKIX certification paths for the end entity certificate given
+    ///       by the server in TLS.  This certificate usage is sometimes
+    ///       referred to as "CA constraint" because it limits which CA can be
+    ///       used to issue certificates for a given service on a host.  The
+    ///       presented certificate MUST pass PKIX certification path
+    ///       validation, and a CA certificate that matches the TLSA record MUST
+    ///       be included as part of a valid certification path.  Because this
+    ///       certificate usage allows both trust anchors and CA certificates,
+    ///       the certificate might or might not have the basicConstraints
+    ///       extension present.
+    /// ```
+    CA,
+
+    /// ```text
+    ///       1 -- Certificate usage 1 is used to specify an end entity
+    ///       certificate, or the public key of such a certificate, that MUST be
+    ///       matched with the end entity certificate given by the server in
+    ///       TLS.  This certificate usage is sometimes referred to as "service
+    ///       certificate constraint" because it limits which end entity
+    ///       certificate can be used by a given service on a host.  The target
+    ///       certificate MUST pass PKIX certification path validation and MUST
+    ///       match the TLSA record.
+    /// ```
+    Service,
+
+    /// ```text
+    ///       2 -- Certificate usage 2 is used to specify a certificate, or the
+    ///       public key of such a certificate, that MUST be used as the trust
+    ///       anchor when validating the end entity certificate given by the
+    ///       server in TLS.  This certificate usage is sometimes referred to as
+    ///       "trust anchor assertion" and allows a domain name administrator to
+    ///       specify a new trust anchor -- for example, if the domain issues
+    ///       its own certificates under its own CA that is not expected to be
+    ///       in the end users' collection of trust anchors.  The target
+    ///       certificate MUST pass PKIX certification path validation, with any
+    ///       certificate matching the TLSA record considered to be a trust
+    ///       anchor for this certification path validation.
+    /// ```
+    TrustAnchor,
+
+    /// ```text
+    ///       3 -- Certificate usage 3 is used to specify a certificate, or the
+    ///       public key of such a certificate, that MUST match the end entity
+    ///       certificate given by the server in TLS.  This certificate usage is
+    ///       sometimes referred to as "domain-issued certificate" because it
+    ///       allows for a domain name administrator to issue certificates for a
+    ///       domain without involving a third-party CA.  The target certificate
+    ///       MUST match the TLSA record.  The difference between certificate
+    ///       usage 1 and certificate usage 3 is that certificate usage 1
+    ///       requires that the certificate pass PKIX validation, but PKIX
+    ///       validation is not tested for certificate usage 3.
+    /// ```
+    DomainIssued,
+
+    /// Unassined at the time of this implementation
+    Unassigned(u8),
+
+    /// Private usage
+    Private,
+}
+
+impl From<u8> for CertUsage {
+    fn from(usage: u8) -> Self {
+        match usage {
+            0 => CertUsage::CA,
+            1 => CertUsage::Service,
+            2 => CertUsage::TrustAnchor,
+            3 => CertUsage::DomainIssued,
+            4...254 => CertUsage::Unassigned(usage),
+            255 => CertUsage::Private,
+            _ => panic!("programmer error, all CertUsage variants should be covered above"),
+        }
+    }
+}
+
+impl From<CertUsage> for u8 {
+    fn from(usage: CertUsage) -> u8 {
+        match usage {
+            CertUsage::CA => 0,
+            CertUsage::Service => 1,
+            CertUsage::TrustAnchor => 2,
+            CertUsage::DomainIssued => 3,
+            CertUsage::Unassigned(usage) => usage,
+            CertUsage::Private => 255,
+        }
+    }
+}
+
+/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1.1)
+///
+/// ```text
+/// 2.1.2.  The Selector Field
+///
+///    A one-octet value, called "selector", specifies which part of the TLS
+///    certificate presented by the server will be matched against the
+///    association data.  This value is defined in a new IANA registry (see
+///    Section 7.3).  The selectors defined in this document are:
+///
+///       0 -- Full
+///
+///       1 -- Spki
+///
+///    (Note that the use of "selector" in this document is completely
+///    unrelated to the use of "selector" in DomainKeys Identified Mail
+///    (DKIM) [RFC6376].)
+/// ```
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum Selector {
+    /// ```
+    ///       0 -- Full certificate: the Certificate binary structure as defined
+    ///       in [RFC5280]
+    /// ```
+    Full,
+
+    /// ```
+    ///       1 -- SubjectPublicKeyInfo: DER-encoded binary structure as defined
+    ///       in [RFC5280]
+    /// ```
+    Spki,
+
+    /// Unassigned at the time of this writing
+    Unassigned(u8),
+
+    /// Private usage
+    Private,
+}
+
+impl From<u8> for Selector {
+    fn from(selector: u8) -> Self {
+        match selector {
+            0 => Selector::Full,
+            1 => Selector::Spki,
+            2...254 => Selector::Unassigned(selector),
+            255 => Selector::Private,
+            _ => panic!("programmer error, all Selector variants should be covered above"),            
+        }
+    }
+}
+
+impl From<Selector> for u8 {
+    fn from(selector: Selector) -> u8 {
+        match selector {
+            Selector::Full => 0,
+            Selector::Spki => 1,
+            Selector::Unassigned(selector) => selector,
+            Selector::Private => 255,
+        }
+    }
+}
+
+/// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2.1.3)
+///
+/// ```text
+/// 2.1.3.  The Matching Type Field
+/// 
+///    A one-octet value, called "matching type", specifies how the
+///    certificate association is presented.  This value is defined in a new
+///    IANA registry (see Section 7.4).  The types defined in this document
+///    are:
+/// 
+///       0 -- Raw
+/// 
+///       1 -- Sha256
+/// 
+///       2 -- Sha512
+/// 
+///    If the TLSA record's matching type is a hash, having the record use
+///    the same hash algorithm that was used in the signature in the
+///    certificate (if possible) will assist clients that support a small
+///    number of hash algorithms.
+/// ```
+#[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
+pub enum Matching {
+    /// ``` text
+    ///       0 -- Exact match on selected content
+    /// ```
+    Raw,
+
+    /// ``` text
+    ///       1 -- SHA-256 hash of selected content [RFC6234]
+    /// ```
+    Sha256,
+
+    /// ``` text
+    ///       2 -- SHA-512 hash of selected content [RFC6234]
+    /// ```
+    Sha512,
+    
+    /// Unassigned at the time of this writing
+    Unassigned(u8),
+    
+    /// Private usage
+    Private,
+}
+
+impl From<u8> for Matching {
+    fn from(matching: u8) -> Self {
+        match matching {
+            0 => Matching::Raw,
+            1 => Matching::Sha256,
+            2 => Matching::Sha512,
+            3...254 => Matching::Unassigned(matching),
+            255 => Matching::Private,
+            _ => panic!("programmer error, all Matching variants should be covered above"),            
+        }
+    }
+}
+
+impl From<Matching> for u8 {
+    fn from(matching: Matching) -> u8 {
+        match matching {
+            Matching::Raw => 0,
+            Matching::Sha256 => 1,
+            Matching::Sha512 => 2,
+            Matching::Unassigned(matching) => matching,
+            Matching::Private => 255,
+        }
+    }
+}
+
+impl TLSA {
+    /// Constructs a new TLSA
+    ///
+    /// [RFC 6698, DNS-Based Authentication for TLS](https://tools.ietf.org/html/rfc6698#section-2)
+    ///
+    /// ```text
+    /// 2.  The TLSA Resource Record
+    ///
+    ///    The TLSA DNS resource record (RR) is used to associate a TLS server
+    ///    certificate or public key with the domain name where the record is
+    ///    found, thus forming a "TLSA certificate association".  The semantics
+    ///    of how the TLSA RR is interpreted are given later in this document.
+    ///
+    ///    The type value for the TLSA RR type is defined in Section 7.1.
+    ///
+    ///    The TLSA RR is class independent.
+    ///
+    ///    The TLSA RR has no special Time to Live (TTL) requirements.
+    /// ```
+    pub fn new(cert_usage: CertUsage,
+    selector: Selector,
+    matching: Matching,
+    cert_data: Vec<u8>) -> Self {
+        TLSA{
+            cert_usage,
+            selector,
+            matching,
+            cert_data 
+        }
+    }
+}
+
+/// Read the RData from the given Decoder
+///
+/// ```text
+///                         1 1 1 1 1 1 1 1 1 1 2 2 2 2 2 2 2 2 2 2 3 3
+///     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
+///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+///    |  Cert. Usage  |   Selector    | Matching Type |               /
+///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+               /
+///    /                                                               /
+///    /                 Certificate Association Data                  /
+///    /                                                               /
+///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
+/// ```
+pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TLSA> {
+    let cert_usage = decoder.read_u8()?.into();
+    let selector = decoder.read_u8()?.into();
+    let matching = decoder.read_u8()?.into();
+
+    // the remaining data is for the cert
+    let cert_data = decoder.read_vec((rdata_length - 3) as usize)?;
+
+    Ok(TLSA{ cert_usage, selector, matching, cert_data})
+}
+
+/// Write the RData from the given Decoder
+pub fn emit(encoder: &mut BinEncoder, tlsa: &TLSA) -> ProtoResult<()> {
+    encoder.emit_u8(tlsa.cert_usage.into())?;
+    encoder.emit_u8(tlsa.selector.into())?;
+    encoder.emit_u8(tlsa.matching.into())?;
+    encoder.emit_vec(&tlsa.cert_data)?;
+    Ok(())
+}
+
+#[test]
+fn test() {
+
+}

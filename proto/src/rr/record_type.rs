@@ -75,7 +75,8 @@ pub enum RecordType {
     //  SSHFP,      //	44	RFC 4255	SSH Public Key Fingerprint
     //  TA,         //	32768	N/A	DNSSEC Trust Authorities
     //  TKEY,       //	249	RFC 2930	Secret key record
-    //  TLSA,       //	52	RFC 6698	TLSA certificate association
+    ///	RFC 6698	TLSA certificate association
+    TLSA,
     //  TSIG,       //	250	RFC 2845	Transaction Signature
     /// RFC 1035[1]	Text record
     TXT,
@@ -109,6 +110,7 @@ impl RecordType {
             "PTR" => Ok(RecordType::PTR),
             "SOA" => Ok(RecordType::SOA),
             "SRV" => Ok(RecordType::SRV),
+            "TLSA" => Ok(RecordType::TLSA),
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
             "AXFR" => Ok(RecordType::AXFR),
@@ -139,6 +141,7 @@ impl RecordType {
             12 => Ok(RecordType::PTR),
             6 => Ok(RecordType::SOA),
             33 => Ok(RecordType::SRV),
+            52 => Ok(RecordType::TLSA),
             16 => Ok(RecordType::TXT),
             #[cfg(feature = "dnssec")]
             value => Ok(RecordType::DNSSEC(DNSSECRecordType::from_u16(value)?)),
@@ -192,6 +195,7 @@ impl From<RecordType> for &'static str {
             RecordType::PTR => "PTR",
             RecordType::SOA => "SOA",
             RecordType::SRV => "SRV",
+            RecordType::TLSA => "TLSA",
             RecordType::TXT => "TXT",
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
@@ -225,6 +229,7 @@ impl From<RecordType> for u16 {
             RecordType::PTR => 12,
             RecordType::SOA => 6,
             RecordType::SRV => 33,
+            RecordType::TLSA => 52,
             RecordType::TXT => 16,
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),

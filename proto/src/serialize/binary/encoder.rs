@@ -153,6 +153,11 @@ impl<'a> BinEncoder<'a> {
         Ok(())
     }
 
+    /// Emit one byte into the buffer
+    pub fn emit_u8(&mut self, data: u8) -> ProtoResult<()> {
+        self.emit(data)
+    }
+
     /// Writes a u16 in network byte order to the buffer
     pub fn emit_u16(&mut self, data: u16) -> ProtoResult<()> {
         self.buffer.reserve(2); // two bytes coming
