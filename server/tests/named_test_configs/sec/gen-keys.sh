@@ -14,19 +14,6 @@ echo "====> generating key"
 ### Using RSA for now
 ${OPENSSL:?} genrsa -out ${KEY_FILE:?} 2048
 
-# echo "====> generating csr"
-# ${OPENSSL:?} req -new -key ${KEY_FILE:?} -keyform pem -out ${CSR_FILE:?} \
-#                  -subj '/O=TRust-DNS/CN=ns.example.com'
-
-# # self-signed
-# echo "====> generating cert"
-# ${OPENSSL:?} x509 -req -days 365 -sha256 -in ${CSR_FILE:?} -signkey ${KEY_FILE:?} \
-#              -out ${CRT_FILE:?} -outform der \
-#              -CA ${CSR_FILE:?} \
-#              -trustout \
-#              -extfile <(printf "\n[x509v3]\nsubjectAltName=DNS:ns.example.com\nextendedKeyUsage=serverAuth,clientAuth\nbasicConstraints=critical,CA:TRUE,pathlen:1\nkeyUsage=digitalSignature,keyEncipherment") \
-#              -extensions x509v3
-
 ## self-signed cert...
 echo "====> generating cert"
 ${OPENSSL:?} req -new -x509 -days 365 -sha256 \
