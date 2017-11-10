@@ -9,7 +9,10 @@ P12_FILE=example.p12
 
 # ec key request
 echo "====> generating key"
-${OPENSSL:?} ecparam -out ${KEY_FILE:?} -name secp256k1 -genkey
+### Apple doesn't allow ECC keys? Ecc will fail native-tls
+# ${OPENSSL:?} ecparam -out ${KEY_FILE:?} -name secp256k1 -genkey
+### Using RSA for now
+${OPENSSL:?} genrsa -out ${KEY_FILE:?} 2048
 
 # echo "====> generating csr"
 # ${OPENSSL:?} req -new -key ${KEY_FILE:?} -keyform pem -out ${CSR_FILE:?} \
@@ -30,7 +33,8 @@ ${OPENSSL:?} req -new -x509 -days 365 -sha256 \
                  -key ${KEY_FILE:?} -keyform pem \
                  -out ${CRT_FILE:?} -outform der \
                  -subj '/O=TRust-DNS/CN=ns.example.com' \
-                 -config <(cat /etc/ssl/openssl.cnf <(printf "\n[x509v3]\nsubjectAltName=DNS:ns.example.com\nextendedKeyUsage=serverAuth,clientAuth\nbasicConstraints=critical,CA:TRUE,pathlen:1\nkeyUsage=digitalSignature,keyEncipherment")) \
+                 -config <(cat /etc/ssl/openssl.cnf <(printf "\n[x509v3]\nsubjectAltName=critical,DNS:ns.example.com\nkeyUsage=critical,digitalSignature,keyAgreement,keyCertSign\nextendedKeyUsage=critical,serverAuth,clientAuth\nbasicConstraints=critical,CA:TRUE,pathlen:0")) \
+                 -extensions x509v3 \
                  -reqexts x509v3
 
 
