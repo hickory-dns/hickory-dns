@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! text records for storing arbitrary data
+//! TLSA records for storing TLS certificate validation information
 
 use serialize::binary::*;
 use error::*;
@@ -176,16 +176,10 @@ impl From<CertUsage> for u8 {
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Selector {
-    /// ```
-    ///       0 -- Full certificate: the Certificate binary structure as defined
-    ///       in [RFC5280]
-    /// ```
+    /// Full certificate: the Certificate binary structure as defined in [RFC5280]
     Full,
 
-    /// ```
-    ///       1 -- SubjectPublicKeyInfo: DER-encoded binary structure as defined
-    ///       in [RFC5280]
-    /// ```
+    /// SubjectPublicKeyInfo: DER-encoded binary structure as defined in [RFC5280]
     Spki,
 
     /// Unassigned at the time of this writing
@@ -222,18 +216,18 @@ impl From<Selector> for u8 {
 ///
 /// ```text
 /// 2.1.3.  The Matching Type Field
-/// 
+///
 ///    A one-octet value, called "matching type", specifies how the
 ///    certificate association is presented.  This value is defined in a new
 ///    IANA registry (see Section 7.4).  The types defined in this document
 ///    are:
-/// 
+///
 ///       0 -- Raw
-/// 
+///
 ///       1 -- Sha256
-/// 
+///
 ///       2 -- Sha512
-/// 
+///
 ///    If the TLSA record's matching type is a hash, having the record use
 ///    the same hash algorithm that was used in the signature in the
 ///    certificate (if possible) will assist clients that support a small
@@ -241,24 +235,18 @@ impl From<Selector> for u8 {
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone, Copy)]
 pub enum Matching {
-    /// ``` text
-    ///       0 -- Exact match on selected content
-    /// ```
+    /// Exact match on selected content
     Raw,
 
-    /// ``` text
-    ///       1 -- SHA-256 hash of selected content [RFC6234]
-    /// ```
+    /// SHA-256 hash of selected content [RFC6234]
     Sha256,
 
-    /// ``` text
-    ///       2 -- SHA-512 hash of selected content [RFC6234]
-    /// ```
+    /// SHA-512 hash of selected content [RFC6234]
     Sha512,
-    
+
     /// Unassigned at the time of this writing
     Unassigned(u8),
-    
+
     /// Private usage
     Private,
 }
@@ -307,15 +295,17 @@ impl TLSA {
     ///
     ///    The TLSA RR has no special Time to Live (TTL) requirements.
     /// ```
-    pub fn new(cert_usage: CertUsage,
-    selector: Selector,
-    matching: Matching,
-    cert_data: Vec<u8>) -> Self {
-        TLSA{
+    pub fn new(
+        cert_usage: CertUsage,
+        selector: Selector,
+        matching: Matching,
+        cert_data: Vec<u8>,
+    ) -> Self {
+        TLSA {
             cert_usage,
             selector,
             matching,
-            cert_data 
+            cert_data,
         }
     }
 }
@@ -341,7 +331,12 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TLSA> {
     // the remaining data is for the cert
     let cert_data = decoder.read_vec((rdata_length - 3) as usize)?;
 
-    Ok(TLSA{ cert_usage, selector, matching, cert_data})
+    Ok(TLSA {
+        cert_usage,
+        selector,
+        matching,
+        cert_data,
+    })
 }
 
 /// Write the RData from the given Decoder
@@ -353,7 +348,79 @@ pub fn emit(encoder: &mut BinEncoder, tlsa: &TLSA) -> ProtoResult<()> {
     Ok(())
 }
 
-#[test]
-fn test() {
+#[cfg(test)]
+mod tests {
+    use super::*;
 
+    #[test]
+    fn read_cert_usage() {
+        assert_eq!(CertUsage::CA, CertUsage::from(0));
+        assert_eq!(CertUsage::Service, CertUsage::from(1));
+        assert_eq!(CertUsage::TrustAnchor, CertUsage::from(2));
+        assert_eq!(CertUsage::DomainIssued, CertUsage::from(3));
+        assert_eq!(CertUsage::Unassigned(4), CertUsage::from(4));
+        assert_eq!(CertUsage::Unassigned(254), CertUsage::from(254));
+        assert_eq!(CertUsage::Private, CertUsage::from(255));
+
+        assert_eq!(u8::from(CertUsage::CA), 0);
+        assert_eq!(u8::from(CertUsage::Service), 1);
+        assert_eq!(u8::from(CertUsage::TrustAnchor), 2);
+        assert_eq!(u8::from(CertUsage::DomainIssued), 3);
+        assert_eq!(u8::from(CertUsage::Unassigned(4)), 4);
+        assert_eq!(u8::from(CertUsage::Unassigned(254)), 254);
+        assert_eq!(u8::from(CertUsage::Private), 255);
+    }
+
+    #[test]
+    fn read_selector() {
+        assert_eq!(Selector::Full, Selector::from(0));
+        assert_eq!(Selector::Spki, Selector::from(1));
+        assert_eq!(Selector::Unassigned(2), Selector::from(2));
+        assert_eq!(Selector::Unassigned(254), Selector::from(254));
+        assert_eq!(Selector::Private, Selector::from(255));
+
+        assert_eq!(u8::from(Selector::Full), 0);
+        assert_eq!(u8::from(Selector::Spki), 1);
+        assert_eq!(u8::from(Selector::Unassigned(2)), 2);
+        assert_eq!(u8::from(Selector::Unassigned(254)), 254);
+        assert_eq!(u8::from(Selector::Private), 255);
+    }
+
+    #[test]
+    fn read_matching() {
+        assert_eq!(Matching::Raw, Matching::from(0));
+        assert_eq!(Matching::Sha256, Matching::from(1));
+        assert_eq!(Matching::Sha512, Matching::from(2));
+        assert_eq!(Matching::Unassigned(3), Matching::from(3));
+        assert_eq!(Matching::Unassigned(254), Matching::from(254));
+        assert_eq!(Matching::Private, Matching::from(255));
+
+        assert_eq!(u8::from(Matching::Raw), 0);
+        assert_eq!(u8::from(Matching::Sha256), 1);
+        assert_eq!(u8::from(Matching::Sha512), 2);
+        assert_eq!(u8::from(Matching::Unassigned(3)), 3);
+        assert_eq!(u8::from(Matching::Unassigned(254)), 254);
+        assert_eq!(u8::from(Matching::Private), 255);
+    }
+
+    fn test_encode_decode(rdata: TLSA) {
+        let mut bytes = Vec::new();
+        let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
+        emit(&mut encoder, &rdata).expect("failed to emit tlsa");
+        let bytes = encoder.as_bytes();
+
+        println!("bytes: {:?}", bytes);
+
+        let mut decoder: BinDecoder = BinDecoder::new(bytes);
+        let read_rdata = read(&mut decoder, bytes.len() as u16).expect("failed to read back");
+        assert_eq!(rdata, read_rdata);
+    }
+
+    #[test]
+    fn test_encode_decode_tlsa() {
+        test_encode_decode(TLSA::new(CertUsage::Service, Selector::Spki, Matching::Sha256, vec![1,2,3,4,5,6,7,8]));
+        test_encode_decode(TLSA::new(CertUsage::CA, Selector::Full, Matching::Raw, vec![1,2,3,4,5,6,7,8]));
+        test_encode_decode(TLSA::new(CertUsage::DomainIssued, Selector::Full, Matching::Sha512, vec![1,2,3,4,5,6,7,8]));
+        test_encode_decode(TLSA::new(CertUsage::Unassigned(40), Selector::Unassigned(39), Matching::Unassigned(6), vec![1,2,3,4,5,6,7,8]));
+    }
 }
