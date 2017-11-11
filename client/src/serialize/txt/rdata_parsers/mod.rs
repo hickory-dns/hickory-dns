@@ -27,4 +27,5 @@ pub mod name;
 pub mod null;
 pub mod soa;
 pub mod srv;
+pub mod tlsa;
 pub mod txt;

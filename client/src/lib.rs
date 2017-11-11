@@ -205,7 +205,6 @@
 
 
 extern crate chrono;
-#[cfg(test)]
 extern crate data_encoding;
 #[macro_use]
 extern crate error_chain;

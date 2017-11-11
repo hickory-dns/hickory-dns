@@ -52,7 +52,7 @@ impl RDataParser for RData {
             RecordType::PTR => RData::PTR(name::parse(tokens, origin)?),
             RecordType::SOA => RData::SOA(soa::parse(tokens, origin)?),
             RecordType::SRV => RData::SRV(srv::parse(tokens, origin)?),
-            RecordType::TLSA => unimplemented!(),//RData::TLSA(tlsa::parse(tokens, origin)?),
+            RecordType::TLSA => RData::TLSA(tlsa::parse(tokens)?),//RData::TLSA(tlsa::parse(tokens, origin)?),
             RecordType::TXT => RData::TXT(txt::parse(tokens)?),
             RecordType::DNSSEC(DNSSECRecordType::SIG) => panic!("parsing SIG doesn't make sense"), // valid panic, never should happen
             RecordType::DNSSEC(DNSSECRecordType::DNSKEY) => panic!("DNSKEY should be dynamically generated"), // valid panic, never should happen
