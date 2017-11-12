@@ -15,64 +15,47 @@
  */
 
 //! service records for identify port mapping for specific services on a host
+use std::str::FromStr;
 
-use serialize::txt::*;
 use error::*;
 use rr::domain::Name;
 use rr::rdata::SRV;
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SRV> {
-    let mut token = tokens.iter();
-
-    let priority: u16 = try!(
-        token
-            .next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("priority".to_string()),
-            ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Ok(try!(s.parse()))
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let weight: u16 = try!(
-        token
+pub fn parse<'i, I: Iterator<Item = &'i str>>(
+    mut tokens: I,
+    origin: Option<&Name>,
+) -> ParseResult<SRV> {
+    let priority: u16 = tokens
+        .next()
+        .ok_or(ParseError::from(
+            ParseErrorKind::MissingToken("priority".to_string()),
+        ))
+        .and_then(|s| u16::from_str(s).map_err(Into::into))?;
+    
+    let weight: u16 = 
+        tokens
             .next()
             .ok_or(ParseError::from(
                 ParseErrorKind::MissingToken("weight".to_string()),
             ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Ok(try!(s.parse()))
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let port: u16 = try!(
-        token
+            .and_then(|s| u16::from_str(s).map_err(Into::into))?;
+
+    let port: u16 = 
+        tokens
             .next()
             .ok_or(ParseError::from(
                 ParseErrorKind::MissingToken("port".to_string()),
             ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Ok(try!(s.parse()))
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let target: Name = try!(
-        token
+            .and_then(|s| u16::from_str(s).map_err(Into::into))?;
+
+    let target: Name =
+        tokens
             .next()
             .ok_or(ParseError::from(
                 ParseErrorKind::MissingToken("target".to_string()),
             ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin).map_err(ParseError::from)
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
+            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
 
     Ok(SRV::new(priority, weight, port, target))
 }

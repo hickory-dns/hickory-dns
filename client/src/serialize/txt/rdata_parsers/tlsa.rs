@@ -7,21 +7,15 @@
 
 
 //! tlsa records for storing TLS authentication records
-use std::slice::Iter;
 
 use data_encoding::hex;
 
-use serialize::txt::*;
 use error::*;
 use rr::rdata::TLSA;
 use rr::rdata::tlsa::CertUsage;
 
-fn to_u8(token: &Token) -> ParseResult<u8> {
-    if let &Token::CharData(ref data) = token {
-        u8::from_str_radix(data, 10).map_err(ParseError::from)
-    } else {
-        Err(ParseErrorKind::Message("expected CharData").into())
-    }
+fn to_u8(data: &str) -> ParseResult<u8> {
+    u8::from_str_radix(data, 10).map_err(ParseError::from)
 }
 
 /// Parse the RData from a set of Tokens
@@ -47,10 +41,10 @@ fn to_u8(token: &Token) -> ParseResult<u8> {
 ///       string of hexadecimal characters.  Whitespace is allowed within
 ///       the string of hexadecimal characters, as described in [RFC1035].
 /// ```
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<TLSA> {
-    let mut iter: Iter<Token> = tokens.iter();
+pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
+    let mut iter = tokens;
 
-    let token: &Token = iter.next().ok_or_else(|| {
+    let token: &str = iter.next().ok_or_else(|| {
         ParseError::from(ParseErrorKind::Message("TLSA usage field missing"))
     })?;
     let usage = CertUsage::from(to_u8(token)?);
@@ -65,32 +59,14 @@ pub fn parse(tokens: &Vec<Token>) -> ParseResult<TLSA> {
     })?;
     let matching = to_u8(token)?.into();
 
-    if iter.clone().any(|token| *token != Token::EOL) {
-        return Err(
-            ParseErrorKind::Message("TLSA unexpected data in record").into(),
-        );
-    }
-    let (cert_data, error): (Vec<u8>, Option<ParseResult<TLSA>>) = iter.take_while(|token| **token != Token::EOL).fold((Vec::new(), None), |(mut cert_data, e), token| 
-            if let Token::CharData(ref data) = *token {
-                // these are all in hex: "a string of hexadecimal characters"
-                //   aside: personally I find it funny that the other fields are decimal, while this is hex encoded...
-                match hex::decode_nopad(data.as_bytes()) {
-                    Ok(bytes) => {
-                        cert_data.extend(bytes);
-                        (cert_data, e)
-                    },
-                    Err(e) => {
-                        (cert_data, Some(Err(e.into())))
-                    }
-                }
-            } else {
-                panic!("programming error, only CharData expected");
-            }
-    );
+    // these are all in hex: "a string of hexadecimal characters"
+    //   aside: personally I find it funny that the other fields are decimal, while this is hex encoded...
+    let cert_data = iter.fold(String::new(), |mut cert_data, data| { cert_data.extend(data.chars()); cert_data });
+    let cert_data = hex::decode_nopad(cert_data.as_bytes())?;
 
-    if let Some(e) = error {
-        return e;
+    if !cert_data.is_empty() {
+        Ok(TLSA::new(usage, selector, matching, cert_data))
+    } else {
+        Err(ParseErrorKind::Message("TLSA data field missing").into())
     }
-
-    Ok(TLSA::new(usage, selector, matching, cert_data))
 }

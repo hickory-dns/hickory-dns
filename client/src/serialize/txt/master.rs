@@ -147,14 +147,12 @@ impl Parser {
         let mut ttl: Option<u32> = None;
         let mut class: Option<DNSClass> = None;
         let mut state = State::StartLine;
-        let mut tokens: Vec<Token> = Vec::new();
 
-        while let Some(t) = try!(lexer.next_token()) {
+        while let Some(t) = lexer.next_token()? {
             state = match state {
                 State::StartLine => {
                     // current_name is not reset on the next line b/c it might be needed from the previous
                     rtype = None;
-                    tokens.clear();
 
                     match t {
                         // if Dollar, then $INCLUDE or $ORIGIN
@@ -163,8 +161,8 @@ impl Parser {
                         Token::Ttl => State::Ttl,
 
                         // if CharData, then Name then ttl_class_type
-                        Token::CharData(ref data) => {
-                            current_name = Some(try!(Name::parse(data, origin.as_ref())));
+                        Token::CharData(data) => {
+                            current_name = Some(Name::parse(&data, origin.as_ref())?);
                             State::TtlClassType
                         }
 
@@ -182,8 +180,8 @@ impl Parser {
                 }
                 State::Ttl => {
                     match t {
-                        Token::CharData(ref data) => {
-                            ttl = Some(try!(Self::parse_time(data)));
+                        Token::CharData(data) => {
+                            ttl = Some(Self::parse_time(&data)?);
                             State::StartLine
                         }
                         _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
@@ -191,9 +189,9 @@ impl Parser {
                 }
                 State::Origin => {
                     match t {
-                        Token::CharData(ref data) => {
+                        Token::CharData(data) => {
                             // TODO an origin was specified, should this be legal? definitely confusing...
-                            origin = Some(try!(Name::parse(data, None)));
+                            origin = Some(Name::parse(&data, None)?);
                             State::StartLine
                         }
                         _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
@@ -205,23 +203,23 @@ impl Parser {
                         // if number, TTL
                         // Token::Number(ref num) => ttl = Some(*num),
                         // One of Class or Type (these cannot be overlapping!)
-                        Token::CharData(ref data) => {
+                        Token::CharData(data) => {
                             // if it's a number it's a ttl
-                            let result: ParseResult<u32> = Self::parse_time(data);
+                            let result: ParseResult<u32> = Self::parse_time(&data);
                             if result.is_ok() {
                                 ttl = result.ok();
                                 State::TtlClassType // hm, should this go to just ClassType?
                             } else {
                                 // if can parse DNSClass, then class
-                                let result = DNSClass::from_str(data);
+                                let result = DNSClass::from_str(&data);
                                 if result.is_ok() {
                                     class = result.ok();
                                     State::TtlClassType
                                 } else {
 
                                     // if can parse RecordType, then RecordType
-                                    rtype = Some(try!(RecordType::from_str(data)));
-                                    State::Record
+                                    rtype = Some(RecordType::from_str(&data)?);
+                                    State::Record(vec![])
                                 }
                             }
                         }
@@ -232,34 +230,35 @@ impl Parser {
                         _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
                     }
                 }
-                State::Record => {
+                State::Record(record_parts) => {
                     // b/c of ownership rules, perhaps, just collect all the RData components as a list of
                     //  tokens to pass into the processor
                     match t {
                         Token::EOL => {
                             // call out to parsers for difference record types
-                            let rdata = try!(RData::parse(
-                                try!(rtype.ok_or(ParseError::from(
+                            // all tokens as part of the Record should be chardata...
+                            let rdata = RData::parse(
+                                rtype.ok_or(ParseError::from(
                                     ParseErrorKind::Message("record type not specified"),
-                                ))),
-                                &tokens,
+                                ))?,
+                                record_parts.iter().map(|s| s.as_ref()),
                                 origin.as_ref(),
-                            ));
+                            )?;
 
                             // verify that we have everything we need for the record
                             let mut record = Record::new();
                             // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
                             //  might want to wait until RC.weak() stabilizes, as that would be needed for global
                             //  memory where you want
-                            record.set_name(try!(current_name.clone().ok_or(ParseError::from(
+                            record.set_name(current_name.clone().ok_or(ParseError::from(
                                 ParseErrorKind::Message(
                                     "record name not specified",
                                 ),
-                            ))));
+                            ))?);
                             record.set_rr_type(rtype.unwrap());
-                            record.set_dns_class(try!(class.ok_or(ParseError::from(
+                            record.set_dns_class(class.ok_or(ParseError::from(
                                 ParseErrorKind::Message("record class not specified"),
-                            ))));
+                            ))?);
 
                             // slightly annoying, need to grab the TTL, then move rdata into the record,
                             //  then check the Type again and have custom add logic.
@@ -282,9 +281,9 @@ impl Parser {
                                     }
                                 }
                                 _ => {
-                                    record.set_ttl(try!(ttl.ok_or(ParseError::from(
+                                    record.set_ttl(ttl.ok_or(ParseError::from(
                                         ParseErrorKind::Message("record ttl not specified"),
-                                    ))));
+                                    ))?);
                                 }
                             }
 
@@ -321,10 +320,18 @@ impl Parser {
 
                             State::StartLine
                         }
-                        _ => {
-                            tokens.push(t);
-                            State::Record
+                        Token::CharData(part) => {
+                            let mut record_parts = record_parts;
+                            record_parts.push(part);
+                            State::Record(record_parts)
                         }
+                        // TODO: we should not tokenize the list...
+                        Token::List(list) => {
+                            let mut record_parts = record_parts;
+                            record_parts.extend(list);
+                            State::Record(record_parts)
+                        }
+                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
                     }
                 }
             }
@@ -332,9 +339,9 @@ impl Parser {
 
         //
         // build the Authority and return.
-        let origin = try!(origin.ok_or(ParseError::from(
+        let origin = origin.ok_or(ParseError::from(
             ParseErrorKind::Message("$ORIGIN was not specified"),
-        )));
+        ))?;
         Ok((origin, records))
     }
 
@@ -381,7 +388,7 @@ impl Parser {
                 // TODO, should these all be checked operations?
                 '0'...'9' => {
                     collect *= 10;
-                    collect += try!(c.to_digit(10).ok_or(ParseErrorKind::CharToIntError(c)));
+                    collect += c.to_digit(10).ok_or(ParseErrorKind::CharToIntError(c))?;
                 }
                 'S' | 's' => {
                     value += collect;
@@ -416,7 +423,7 @@ enum State {
     StartLine, // start of line, @, $<WORD>, Name, Blank
     TtlClassType, // [<TTL>] [<class>] <type>,
     Ttl, // $TTL <time>
-    Record,
+    Record(Vec<String>),
     Include, // $INCLUDE <filename>
     Origin,
 }

@@ -20,6 +20,7 @@ use chrono::Duration;
 use trust_dns_proto::error::{ProtoResult, ProtoErrorKind};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use trust_dns_proto::rr::dnssec::{tbs, TBS};
+#[cfg(feature = "dnssec")]
 use rr::rdata::DNSSECRData;
 
 use op::{Message, MessageFinalizer};
