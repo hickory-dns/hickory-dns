@@ -13,7 +13,7 @@ use std::io;
 use futures::{future, Future, IntoFuture};
 use futures::sync::mpsc::unbounded;
 use native_tls::{Certificate, Pkcs12, TlsConnector};
-use native_tls::Protocol::{Tlsv11, Tlsv12};
+use native_tls::Protocol::Tlsv12;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_tls::{TlsConnectorExt, TlsStream as TokioTlsStream};
