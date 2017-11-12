@@ -308,6 +308,26 @@ impl TLSA {
             cert_data,
         }
     }
+
+    /// Specifies the provided association that will be used to match the certificate presented in the TLS handshake
+    pub fn cert_usage(&self) -> &CertUsage {
+        &self.cert_usage
+    }
+
+    /// Specifies which part of the TLS certificate presented by the server will be matched against the association data
+    pub fn selector(&self) -> &Selector {
+        &self.selector
+    }
+
+    /// Specifies how the certificate association is presented
+    pub fn matching(&self) -> &Matching {
+        &self.matching
+    }
+    
+    /// Binary data for validating the cert, see other members to understand format
+    pub fn cert_data(&self) -> &[u8] {
+        &self.cert_data
+    }
 }
 
 /// Read the RData from the given Decoder
