@@ -61,7 +61,11 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
 
     // these are all in hex: "a string of hexadecimal characters"
     //   aside: personally I find it funny that the other fields are decimal, while this is hex encoded...
-    let cert_data = iter.fold(String::new(), |mut cert_data, data| { cert_data.extend(data.chars()); cert_data });
+    let cert_data = iter.fold(String::new(), |mut cert_data, data| {
+        cert_data.extend(data.chars());
+        cert_data
+    }).to_uppercase();
+    println!("cert_data: {}", cert_data);
     let cert_data = hex::decode_nopad(cert_data.as_bytes())?;
 
     if !cert_data.is_empty() {
@@ -69,4 +73,10 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
     } else {
         Err(ParseErrorKind::Message("TLSA data field missing").into())
     }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_parsing() {}
 }
