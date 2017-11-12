@@ -105,8 +105,8 @@ mod tests {
     #[test]
     fn test_parsing() {
         //nocerts       CAA 0 issue \";\"
-        assert!(parse(vec!["0", "issue", ";"]).is_ok());
+        assert!(parse(vec!["0", "issue", ";"].into_iter()).is_ok());
         // certs         CAA 0 issuewild \"example.net\"
-        assert!(parse(vec!["0", "issue", "example.net"]).is_ok());
+        assert!(parse(vec!["0", "issue", "example.net"].into_iter()).is_ok());
     }
 }
