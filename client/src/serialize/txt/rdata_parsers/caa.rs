@@ -97,3 +97,16 @@ pub fn parse<'i, I: Iterator<Item=&'i str>>(mut tokens: I) -> ParseResult<CAA> {
         value,
     })
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_parsing() {
+        //nocerts       CAA 0 issue \";\"
+        assert!(parse(vec!["0", "issue", ";"]).is_ok());
+        // certs         CAA 0 issuewild \"example.net\"
+        assert!(parse(vec!["0", "issue", "example.net"]).is_ok());
+    }
+}
