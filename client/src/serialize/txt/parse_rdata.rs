@@ -19,22 +19,21 @@
 use error::*;
 use rr::{Name, RData, RecordType};
 use rr::rdata::DNSSECRecordType;
-use serialize::txt::Token;
 use serialize::txt::rdata_parsers::*;
 
 pub trait RDataParser: Sized {
-    fn parse(
+    fn parse<'i, I: Iterator<Item=&'i str>>(
         record_type: RecordType,
-        tokens: &Vec<Token>,
+        tokens: I,
         origin: Option<&Name>,
     ) -> ParseResult<Self>;
 }
 
 impl RDataParser for RData {
     /// Parse the RData from a set of Tokens
-    fn parse(
+    fn parse<'i, I: Iterator<Item=&'i str>>(
         record_type: RecordType,
-        tokens: &Vec<Token>,
+        tokens: I,
         origin: Option<&Name>,
     ) -> ParseResult<Self> {
         let rdata = match record_type {
@@ -42,7 +41,7 @@ impl RDataParser for RData {
             RecordType::AAAA => RData::AAAA(aaaa::parse(tokens)?),
             RecordType::ANY => panic!("parsing ANY doesn't make sense"), // valid panic, never should happen
             RecordType::AXFR => panic!("parsing AXFR doesn't make sense"), // valid panic, never should happen
-            RecordType::CAA => caa::parse(tokens, origin).map(RData::CAA)?,
+            RecordType::CAA => caa::parse(tokens).map(RData::CAA)?,
             RecordType::CNAME => RData::CNAME(name::parse(tokens, origin)?),
             RecordType::IXFR => panic!("parsing IXFR doesn't make sense"), // valid panic, never should happen
             RecordType::MX => RData::MX(mx::parse(tokens, origin)?),
@@ -62,7 +61,6 @@ impl RDataParser for RData {
             RecordType::DNSSEC(DNSSECRecordType::NSEC3) => panic!("NSEC3 should be dynamically generated"), // valid panic, never should happen
             RecordType::DNSSEC(DNSSECRecordType::NSEC3PARAM) => panic!("NSEC3PARAM should be dynamically generated"), // valid panic, never should happen
             RecordType::DNSSEC(DNSSECRecordType::RRSIG) => panic!("RRSIG should be dynamically generated"), // valid panic, never should happen
-
         };
 
         Ok(rdata)

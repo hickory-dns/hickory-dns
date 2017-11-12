@@ -16,19 +16,11 @@
 
 //! text records for storing arbitrary data
 
-use serialize::txt::*;
 use error::*;
 use rr::rdata::TXT;
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<TXT> {
-    let mut txt_data: Vec<String> = Vec::with_capacity(tokens.len());
-    for t in tokens {
-        match *t {
-            Token::CharData(ref txt) => txt_data.push(txt.clone()),
-            _ => return Err(ParseErrorKind::UnexpectedToken(t.clone()).into()),
-        }
-    }
-
+pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TXT> {
+    let txt_data: Vec<String> = tokens.map(|s| s.to_string()).collect();
     Ok(TXT::new(txt_data))
 }
