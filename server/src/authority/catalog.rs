@@ -25,7 +25,7 @@ use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
 use server::{Request, RequestHandler};
 
-use authority::{Authority, ZoneType};
+use authority::{AuthLookup, Authority, ZoneType};
 
 /// Set of authorities, zones, available to this server.
 pub struct Catalog {
@@ -309,14 +309,14 @@ impl Catalog {
                 if !records.is_empty() {
                     response.set_response_code(ResponseCode::NoError);
                     response.set_authoritative(true);
-                    response.add_answers(records.into_iter().cloned());
+                    response.add_answers(records.iter().cloned());
 
                     // get the NS records
                     let ns = authority.ns(is_dnssec, supported_algorithms);
                     if ns.is_empty() {
                         warn!("there are no NS records for: {:?}", authority.origin());
                     } else {
-                        response.add_name_servers(ns.into_iter().cloned());
+                        response.add_name_servers(ns.iter().cloned());
                     }
                 } else {
                     if is_dnssec {
@@ -330,14 +330,23 @@ impl Catalog {
                     }
 
                     // in the not found case it's standard to return the SOA in the authority section
-                    // TODO: improve: see https://tools.ietf.org/html/rfc2308 for proper response construct
-                    response.set_response_code(ResponseCode::NXDomain);
+                    //   if the name is in this zone, etc.
+                    // see https://tools.ietf.org/html/rfc2308 for proper response construct
+                    match records {
+                        AuthLookup::NoName => response.set_response_code(ResponseCode::NXDomain),
+                        AuthLookup::NameExists => response.set_response_code(ResponseCode::NoError),
+                        AuthLookup::Records(..) => {
+                            panic!(
+                                "programming error, should have return NoError with records above"
+                            )
+                        }
+                    };
 
                     let soa = authority.soa_secure(is_dnssec, supported_algorithms);
                     if soa.is_empty() {
                         warn!("there is no SOA record for: {:?}", authority.origin());
                     } else {
-                        response.add_name_servers(soa.into_iter().cloned());
+                        response.add_name_servers(soa.iter().cloned());
                     }
                 }
             } else {
