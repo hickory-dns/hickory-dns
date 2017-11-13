@@ -19,17 +19,15 @@ use std::collections::BTreeMap;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
-
 use trust_dns::op::{Message, ResponseCode, Query};
-
 #[cfg(feature = "dnssec")]
 use trust_dns::op::UpdateMessage;
-
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
-
-use authority::{Journal, UpdateResult, ZoneType};
-use error::{PersistenceErrorKind, PersistenceResult};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
+
+use authority::{AuthLookup, Journal, UpdateResult, ZoneType};
+use error::{PersistenceErrorKind, PersistenceResult};
+
 
 /// Authority is responsible for storing the resource records for a particular zone.
 ///
@@ -211,23 +209,22 @@ impl Authority {
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    pub fn soa(&self) -> Option<&Record> {
+    pub fn soa<'s>(&'s self) -> AuthLookup<'s> {
         // SOA should be origin|SOA
         self.lookup(
             &self.origin,
             RecordType::SOA,
             false,
             SupportedAlgorithms::new(),
-        ).first()
-            .map(|v| *v)
+        )
     }
 
     /// Returns the SOA record for the zone
-    pub fn soa_secure(
-        &self,
+    pub fn soa_secure<'s>(
+        &'s self,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Vec<&Record> {
+    ) -> AuthLookup<'s> {
         self.lookup(
             &self.origin,
             RecordType::SOA,
@@ -238,52 +235,63 @@ impl Authority {
 
     /// Returns the minimum ttl (as used in the SOA record)
     pub fn minimum_ttl(&self) -> u32 {
-        self.soa().map_or(0, |soa| if let &RData::SOA(ref rdata) =
-            soa.rdata()
-        {
-            rdata.minimum()
-        } else {
-            0
+        self.soa().iter().next().map_or(0, |soa| {
+            if let &RData::SOA(ref rdata) = soa.rdata() {
+                rdata.minimum()
+            } else {
+                0
+            }
         })
     }
 
     /// get the current serial number for the zone.
     pub fn serial(&self) -> u32 {
-        let soa = if let Some(ref soa_record) = self.soa() {
-            soa_record.clone()
-        } else {
-            warn!("no soa record found for zone: {}", self.origin);
-            return 0;
-        };
-
-        if let &RData::SOA(ref soa_rdata) = soa.rdata() {
-            soa_rdata.serial()
-        } else {
-            panic!("This was not an SOA record"); // valid panic, never should happen
-        }
+        self.soa().iter().next().map_or_else(
+            || {
+                warn!("no soa record found for zone: {}", self.origin);
+                0
+            },
+            |soa| {
+                if let &RData::SOA(ref soa_rdata) = soa.rdata() {
+                    soa_rdata.serial()
+                } else {
+                    panic!("This was not an SOA record"); // valid panic, never should happen
+                }
+            },
+        )
     }
 
     fn increment_soa_serial(&mut self) -> u32 {
-        let mut soa = if let Some(ref mut soa_record) = self.soa() {
-            soa_record.clone()
-        } else {
-            warn!("no soa record found for zone: {}", self.origin);
-            return 0;
-        };
+        let opt_soa_serial = self.soa().iter().next().map(|soa| {
+            // TODO: can we get a mut reference to SOA directly?
+            let mut soa = soa.clone();
 
-        let serial = if let &mut RData::SOA(ref mut soa_rdata) = soa.rdata_mut() {
-            soa_rdata.increment_serial();
-            soa_rdata.serial()
-        } else {
-            panic!("This was not an SOA record"); // valid panic, never should happen
-        };
+            let serial = if let &mut RData::SOA(ref mut soa_rdata) = soa.rdata_mut() {
+                soa_rdata.increment_serial();
+                let serial = soa_rdata.serial();
 
-        self.upsert(soa, serial);
-        return serial;
+                serial
+            } else {
+                panic!("This was not an SOA record"); // valid panic, never should happen
+            };
+
+            (soa, serial)
+        });
+
+        if let Some((soa, serial)) = opt_soa_serial {
+            self.upsert(soa, serial);
+            serial
+        } else {
+            error!(
+                "no soa record found for zone while attempting increment: {}",
+                self.origin
+            );
+            0
+        }
     }
 
     /// Get the NS, NameServer, record for the zone
-    pub fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
+    pub fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
         self.lookup(
             &self.origin,
             RecordType::NS,
@@ -439,7 +447,7 @@ impl Authority {
           // zone     rrset    rr       RRset exists (value dependent)
           if self.lookup(require.name(), require.rr_type(), false, SupportedAlgorithms::new())
                  .iter()
-                 .filter(|rr| *rr == &require)
+                 .filter(|rr| *rr == require)
                  .next()
                  .is_none() {
             return Err(ResponseCode::NXRRSet);
@@ -507,22 +515,30 @@ impl Authority {
         if !sig0s.is_empty() &&
             sig0s
                 .iter()
-                .filter_map(|sig0| if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = sig0.rdata() {
+                .filter_map(|sig0| if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) =
+                    sig0.rdata()
+                {
                     Some(sig)
                 } else {
                     None
                 })
                 .any(|sig| {
                     let name = sig.signer_name();
-                    let keys =
-                        self.lookup(name, RecordType::DNSSEC(DNSSECRecordType::KEY), false, SupportedAlgorithms::new());
+                    let keys = self.lookup(
+                        name,
+                        RecordType::DNSSEC(DNSSECRecordType::KEY),
+                        false,
+                        SupportedAlgorithms::new(),
+                    );
                     debug!("found keys {:?}", keys);
                     // FIXME: check key usage flags and restrictions
                     keys.iter()
-                        .filter_map(|rr_set| if let &RData::DNSSEC(DNSSECRData::KEY(ref key)) = rr_set.rdata() {
-                            Some(key)
-                        } else {
-                            None
+                        .filter_map(|rr_set| {
+                            if let &RData::DNSSEC(DNSSECRData::KEY(ref key)) = rr_set.rdata() {
+                                Some(key)
+                            } else {
+                                None
+                            }
                         })
                         .any(|key| {
                             key.verify_message(update_message, sig.sig(), sig)
@@ -936,12 +952,12 @@ impl Authority {
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    pub fn search(
-        &self,
+    pub fn search<'s>(
+        &'s self,
         query: &Query,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Vec<&Record> {
+    ) -> AuthLookup<'s> {
         let record_type: RecordType = query.query_type();
 
         // if this is an AXFR zone transfer, verify that this is either the slave or master
@@ -949,26 +965,35 @@ impl Authority {
         if RecordType::AXFR == record_type {
             match self.zone_type() {
                 ZoneType::Master | ZoneType::Slave => (),
-                // TODO Forward?
-                _ => return vec![], // TODO this sould be an error.
+                // TODO: Forward?
+                _ => return AuthLookup::NoName, // TODO: this sould be an error.
             }
         }
 
         // it would be better to stream this back, rather than packaging everything up in an array
         //  though for UDP it would still need to be bundled
-        let mut query_result: Vec<_> =
-            self.lookup(query.name(), record_type, is_secure, supported_algorithms);
+        let query_result = self.lookup(query.name(), record_type, is_secure, supported_algorithms);
 
         if RecordType::AXFR == record_type {
-            if let Some(soa) = self.soa() {
-                let mut xfr: Vec<&Record> = query_result;
-                // TODO: probably make Records Rc or Arc, to remove the clone
-                xfr.insert(0, soa);
-                xfr.push(soa);
+            let lookup = self.soa();
+            match lookup {
+                AuthLookup::Records(soa) => {
+                    let soa = soa.first().expect("soa should exist here");
+                    // TODO: make a custom return type with it's own chained iterator for prepending and appending the SOA...
+                    let mut xfr: Vec<&Record> =
+                        if let AuthLookup::Records(records) = query_result {
+                            records
+                        } else {
+                            vec![]
+                        };
+                    xfr.insert(0, soa);
+                    xfr.push(soa);
 
-                query_result = xfr;
-            } else {
-                return vec![]; // TODO is this an error?
+                    return AuthLookup::Records(xfr);
+                }
+                AuthLookup::NameExists | AuthLookup::NoName => {
+                    return AuthLookup::NoName;
+                }
             }
         }
 
@@ -989,13 +1014,13 @@ impl Authority {
     /// # Return value
     ///
     /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    pub fn lookup(
-        &self,
+    pub fn lookup<'s>(
+        &'s self,
         name: &Name,
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Vec<&Record> {
+    ) -> AuthLookup<'s> {
         // on an SOA request always return the SOA, regardless of the name
         let name: &Name = if rtype == RecordType::SOA {
             &self.origin
@@ -1028,7 +1053,19 @@ impl Authority {
             }
         };
 
-        result
+        // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
+        //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
+        //   always return empty sets. This is only important in the negative case, where other DNS authorities
+        //   generally return NoError and no results when other types exist at the same name. bah.
+        if result.is_empty() {
+            if self.records.keys().any(|key| key.name() == name) {
+                return AuthLookup::NameExists;
+            } else {
+                return AuthLookup::NoName;
+            }
+        }
+
+        AuthLookup::Records(result)
     }
 
     /// Return the NSEC records based on the given name
@@ -1090,7 +1127,7 @@ impl Authority {
     /// (Re)generates the nsec records, increments the serial number nad signs the zone
     #[cfg(not(feature = "dnssec"))]
     pub fn secure_zone(&mut self) -> Result<(), &str> {
-        return Err("DNSSEC is not enabled.")
+        return Err("DNSSEC is not enabled.");
     }
 
     /// Dummy implementation for when DNSSEC is disabled.
@@ -1107,7 +1144,9 @@ impl Authority {
         // first remove all existing nsec records
         let delete_keys: Vec<RrKey> = self.records
             .keys()
-            .filter(|k| k.record_type == RecordType::DNSSEC(DNSSECRecordType::NSEC))
+            .filter(|k| {
+                k.record_type == RecordType::DNSSEC(DNSSECRecordType::NSEC)
+            })
             .cloned()
             .collect();
 
@@ -1128,7 +1167,11 @@ impl Authority {
                     Some((name, ref mut vec)) if name == &key.name => vec.push(key.record_type),
                     Some((name, vec)) => {
                         // names aren't equal, create the NSEC record
-                        let mut record = Record::with(name.clone(), RecordType::DNSSEC(DNSSECRecordType::NSEC), ttl);
+                        let mut record = Record::with(
+                            name.clone(),
+                            RecordType::DNSSEC(DNSSECRecordType::NSEC),
+                            ttl,
+                        );
                         let rdata = NSEC::new(key.name.clone(), vec);
                         record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                         records.push(record);
@@ -1142,7 +1185,11 @@ impl Authority {
             // the last record
             if let Some((name, vec)) = nsec_info {
                 // names aren't equal, create the NSEC record
-                let mut record = Record::with(name.clone(), RecordType::DNSSEC(DNSSECRecordType::NSEC), ttl);
+                let mut record = Record::with(
+                    name.clone(),
+                    RecordType::DNSSEC(DNSSECRecordType::NSEC),
+                    ttl,
+                );
                 let rdata = NSEC::new(self.origin().clone(), vec);
                 record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                 records.push(record);
@@ -1175,8 +1222,10 @@ impl Authority {
         for (_, rr_set) in self.records.iter_mut() {
             rr_set.clear_rrsigs();
             let rrsig_temp = Record::with(
-                rr_set.name().clone(), RecordType::DNSSEC(DNSSECRecordType::RRSIG),
-                zone_ttl);
+                rr_set.name().clone(),
+                RecordType::DNSSEC(DNSSECRecordType::RRSIG),
+                zone_ttl,
+            );
 
             for signer in self.secure_keys.iter() {
                 debug!(
