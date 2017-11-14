@@ -10,7 +10,7 @@ use std::slice::Iter;
 use trust_dns::rr::Record;
 
 /// The result of a lookup on an Authority
-#[derive(Debug)]
+#[derive(Debug, Eq, PartialEq)]
 pub enum AuthLookup<'r> {
     /// There are other record types with the specified name
     NameExists,
