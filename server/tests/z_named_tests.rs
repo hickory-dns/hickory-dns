@@ -25,6 +25,7 @@ use tokio_core::reactor::Core;
 
 use trust_dns::client::*;
 use trust_dns::rr::*;
+use trust_dns::op::ResponseCode;
 use trust_dns::tcp::TcpClientStream;
 
 // TODO: Needed for when TLS tests are added back
@@ -142,6 +143,56 @@ fn test_ipv4_and_ipv6_toml_startup() {
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);
 
+        assert!(true);
+    })
+}
+
+#[test]
+fn test_nodata_where_name_exists() {
+    named_test_harness("example.toml", |port, _| {
+        let mut io_loop = Core::new().unwrap();
+        let addr: SocketAddr = ("127.0.0.1", port)
+            .to_socket_addrs()
+            .unwrap()
+            .next()
+            .unwrap();
+        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+
+        let msg = io_loop.run(client
+            .query(
+                Name::from_str("www.example.com.").unwrap(),
+                DNSClass::IN,
+                RecordType::SRV,
+            ))
+            .unwrap();
+        assert_eq!(msg.response_code(), ResponseCode::NoError);
+        assert!(msg.answers().is_empty());
+        assert!(true);
+    })
+}
+
+#[test]
+fn test_nxdomain_where_no_name_exists() {
+    named_test_harness("example.toml", |port, _| {
+        let mut io_loop = Core::new().unwrap();
+        let addr: SocketAddr = ("127.0.0.1", port)
+            .to_socket_addrs()
+            .unwrap()
+            .next()
+            .unwrap();
+        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+
+        let msg = io_loop.run(client
+            .query(
+                Name::from_str("nxdomain.example.com.").unwrap(),
+                DNSClass::IN,
+                RecordType::SRV,
+            ))
+            .unwrap();
+        assert_eq!(msg.response_code(), ResponseCode::NXDomain);
+        assert!(msg.answers().is_empty());
         assert!(true);
     })
 }
