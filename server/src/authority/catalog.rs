@@ -40,12 +40,6 @@ impl RequestHandler for Catalog {
     /// * `request` - the requested action to perform.
     fn handle_request(&self, request: &Request) -> Message {
         let request_message = &request.message;
-        info!(
-            "request id: {} type: {:?} op_code: {:?}",
-            request_message.id(),
-            request_message.message_type(),
-            request_message.op_code()
-        );
         trace!("request: {:?}", request_message);
 
         let mut resp_edns_opt: Option<Edns> = None;
@@ -283,7 +277,11 @@ impl Catalog {
         for query in request.queries() {
             if let Some(ref_authority) = self.find_auth_recurse(query.name()) {
                 let authority = &ref_authority.read().unwrap(); // poison errors should panic
-                debug!("found authority: {:?}", authority.origin());
+                info!(
+                    "request: {} found authority: {}",
+                    request.id(),
+                    authority.origin()
+                );
                 let (is_dnssec, supported_algorithms) =
                     request.edns().map_or(
                         (false, SupportedAlgorithms::new()),
@@ -299,11 +297,15 @@ impl Catalog {
                             (edns.dnssec_ok(), supported_algorithms)
                         },
                     );
-                debug!(
-                    "request: {} supported_algs: {}",
-                    request.id(),
-                    supported_algorithms
-                );
+
+                // log algorithms being requested
+                if is_dnssec {
+                    info!(
+                        "request: {} supported_algs: {}",
+                        request.id(),
+                        supported_algorithms
+                    );
+                }
 
                 let records = authority.search(query, is_dnssec, supported_algorithms);
                 if !records.is_empty() {
@@ -356,7 +358,7 @@ impl Catalog {
             }
         }
 
-        // TODO a lot of things do a recursive query for non-A or AAAA records, and return those in
+        // TODO: a lot of authorities do a recursive query for non-A or AAAA records, and return those in
         //  additional
         response
     }
