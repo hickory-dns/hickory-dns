@@ -321,16 +321,6 @@ impl Catalog {
                         response.add_name_servers(ns.iter().cloned());
                     }
                 } else {
-                    if is_dnssec {
-                        // get NSEC records
-                        let nsecs = authority.get_nsec_records(
-                            query.name(),
-                            is_dnssec,
-                            supported_algorithms,
-                        );
-                        response.add_name_servers(nsecs.into_iter().cloned());
-                    }
-
                     // in the not found case it's standard to return the SOA in the authority section
                     //   if the name is in this zone, etc.
                     // see https://tools.ietf.org/html/rfc2308 for proper response construct
@@ -343,6 +333,21 @@ impl Catalog {
                             )
                         }
                     };
+
+                    // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
+                    if is_dnssec {
+                        // get NSEC records
+                        let nsecs = authority.get_nsec_records(
+                            query.name(),
+                            is_dnssec,
+                            supported_algorithms,
+                        );
+                        info!("request: {} non-existent adding nsecs: {}", request.id(), nsecs.len());
+                        response.add_name_servers(nsecs.into_iter().cloned());
+                        response.set_response_code(ResponseCode::NoError);
+                    } else {
+                        info!("request: {} non-existent", request.id());
+                    }
 
                     let soa = authority.soa_secure(is_dnssec, supported_algorithms);
                     if soa.is_empty() {
