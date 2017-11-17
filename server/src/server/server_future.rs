@@ -213,11 +213,12 @@ impl<T: RequestHandler> ServerFuture<T> {
         handler: Arc<T>,
     ) -> io::Result<()> {
         info!(
-            "request: {} src: {} type: {:?} op_code: {:?} {}",
+            "request: {} src: {} type: {:?} op_code: {:?} dnssec: {} {}",
             request.message.id(),
             request.src,
             request.message.message_type(),
             request.message.op_code(),
+            request.message.edns().map_or(false, |edns| edns.dnssec_ok()),
             request.message.queries().first().map(|q| q.to_string()).unwrap_or_else(|| "empty_queries".to_string()),
         );
         let response = handler.handle_request(&request);
