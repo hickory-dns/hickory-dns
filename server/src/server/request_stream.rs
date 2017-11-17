@@ -112,6 +112,7 @@ impl ResponseHandle {
             )
         }));
 
+        info!("request: {} sending message len: {}", response.id(), buffer.len());
         self.stream_handle
             .unbounded_send((buffer, self.dst))
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
