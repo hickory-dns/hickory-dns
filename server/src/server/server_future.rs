@@ -189,7 +189,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         Ok(())
     }
 
-    /// TODO how to do threads? should we do a bunch of listener threads and then query threads?
+    /// TODO: how to do threads? should we do a bunch of listener threads and then query threads?
     /// Ideally the processing would be n-threads for recieving, which hand off to m-threads for
     ///  request handling. It would generally be the case that n <= m.
     pub fn listen(&mut self) -> io::Result<()> {
@@ -213,9 +213,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         handler: Arc<T>,
     ) -> io::Result<()> {
         info!(
-            "request: {} src: {} type: {:?} op_code: {:?} dnssec: {} {}",
+            "request: {} type: {:?} op_code: {:?} dnssec: {} {}",
             request.message.id(),
-            request.src,
             request.message.message_type(),
             request.message.op_code(),
             request.message.edns().map_or(false, |edns| edns.dnssec_ok()),
