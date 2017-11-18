@@ -1,4 +1,5 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2017 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -8,11 +9,16 @@
 
 //! tlsa records for storing TLS authentication records
 
-use data_encoding::hex;
-
 use error::*;
 use rr::rdata::TLSA;
 use rr::rdata::tlsa::CertUsage;
+
+const HEX: ::data_encoding::Encoding = new_encoding!{
+    symbols: "0123456789abcdef",
+    ignore: " \t\r\n",
+    translate_from: "ABCDEF",
+    translate_to: "abcdef",
+};
 
 fn to_u8(data: &str) -> ParseResult<u8> {
     u8::from_str_radix(data, 10).map_err(ParseError::from)
@@ -66,7 +72,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
         cert_data
     }).to_uppercase();
     println!("cert_data: {}", cert_data);
-    let cert_data = hex::decode_nopad(cert_data.as_bytes())?;
+    let cert_data = HEX.decode(cert_data.as_bytes())?;
 
     if !cert_data.is_empty() {
         Ok(TLSA::new(usage, selector, matching, cert_data))

@@ -1,6 +1,6 @@
 /*
  * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- * Copyright (C) 2017 Google Inc.
+ * Copyright (C) 2017 Google LLC.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -288,7 +288,7 @@ fn test_known_hashes() {
 #[cfg(test)]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 fn hash_with_base32(name: &str) -> String {
-    use data_encoding::BASE32HEX;
+    use data_encoding::BASE32_DNSSEC;
 
     // NSEC3PARAM 1 0 12 aabbccdd
     let known_name = Name::parse(name, Some(&Name::new())).unwrap();
@@ -296,5 +296,5 @@ fn hash_with_base32(name: &str) -> String {
     let hash = Nsec3HashAlgorithm::SHA1
         .hash(&known_salt, &known_name, 12)
         .unwrap();
-    BASE32HEX.encode(hash.as_ref()).to_lowercase()
+    BASE32_DNSSEC.encode(hash.as_ref())
 }
