@@ -17,24 +17,17 @@
 //! Parser for A text form
 
 use std::net::Ipv4Addr;
-use serialize::txt::*;
+use std::str::FromStr;
 use error::*;
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<Ipv4Addr> {
-    let mut token = tokens.iter();
-
-    let address: Ipv4Addr = try!(
-        token
+pub fn parse<'i, I: Iterator<Item=&'i str>>(mut tokens: I) -> ParseResult<Ipv4Addr> {
+    let address: Ipv4Addr = 
+        tokens
             .next()
             .ok_or(ParseError::from(
                 ParseErrorKind::MissingToken("ipv4 address".to_string()),
             ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                s.parse().map_err(Into::into)
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
+            .and_then(|s| Ipv4Addr::from_str(s).map_err(Into::into))?;
     Ok(address)
 }

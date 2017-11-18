@@ -16,23 +16,18 @@
 
 //! Parse for Name text form
 
-use serialize::txt::*;
 use error::*;
 use rr::domain::Name;
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<Name> {
-    let mut token = tokens.iter();
-
-    let name: Name = try!(
-        token
+pub fn parse<'i, I: Iterator<Item = &'i str>>(
+    mut tokens: I,
+    origin: Option<&Name>,
+) -> ParseResult<Name> {
+    let name: Name = 
+        tokens
             .next()
             .ok_or(ParseErrorKind::MissingToken("name".to_string()).into())
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin).map_err(ParseError::from)
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
+            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
     Ok(name)
 }

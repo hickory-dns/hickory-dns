@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-proto"
-version = "0.1.0"
+version = "0.2.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -57,3 +57,4 @@ ring = { version = "^0.12", optional = true }
 tokio-core = "^0.1"
 tokio-io = "^0.1"
 untrusted = { version = "^0.5", optional = true }
+url = "1.6.0"

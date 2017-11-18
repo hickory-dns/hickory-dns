@@ -16,12 +16,11 @@
 
 //! null record type, generally not used except as an internal tool for representing null data
 
-use serialize::txt::*;
 use error::*;
 use rr::rdata::NULL;
 
 /// Parse the RData from a set of Tokens
 #[allow(unused)]
-pub fn parse(tokens: &Vec<Token>) -> ParseResult<NULL> {
+pub fn parse<'i, I: Iterator<Item=&'i str>>(mut tokens: I) -> ParseResult<NULL> {
     unimplemented!()
 }

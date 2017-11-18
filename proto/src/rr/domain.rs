@@ -727,10 +727,17 @@ impl BinSerializable<Name> for Name {
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        for label in &*self.labels {
-            try!(write!(f, "{}.", label));
+        let mut iter = self.labels.iter();
+        if let Some(label) = iter.next() {
+            write!(f, "{}", label)?;
         }
-        if self.is_root() {
+
+        for label in iter {
+            write!(f, ".{}", label)?;
+        }
+
+        // if it was the root name
+        if self.is_root() || self.is_fqdn() {
             try!(write!(f, "."));
         }
         Ok(())
@@ -1077,5 +1084,17 @@ mod tests {
         assert!(!Name::from_str("www.example.com").unwrap().is_fqdn());
         assert!(!Name::from_str("www.example").unwrap().is_fqdn());
         assert!(!Name::from_str("www").unwrap().is_fqdn());
+    }
+
+    #[test]
+    fn test_to_string() {
+        assert_eq!(
+            Name::from_str("www.example.com.").unwrap().to_string(),
+            "www.example.com."
+        );
+        assert_eq!(
+            Name::from_str("www.example.com").unwrap().to_string(),
+            "www.example.com"
+        );
     }
 }

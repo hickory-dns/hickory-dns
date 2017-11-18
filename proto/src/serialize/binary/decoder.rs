@@ -105,6 +105,7 @@ impl<'a> BinDecoder<'a> {
         Ok(data)
     }
 
+    // TODO: deprecate in favor of read_slice
     /// Reads a Vec out of the buffer
     ///
     /// # Arguments
@@ -122,6 +123,27 @@ impl<'a> BinDecoder<'a> {
         }
 
         Ok(vec)
+    }
+
+    /// Reads a slice out of the buffer, without allocating
+    ///
+    /// # Arguments
+    ///
+    /// * `len` - number of bytes to read from the buffer
+    ///
+    /// # Returns
+    ///
+    /// The slice of the specified length, otherwise an error
+    pub fn read_slice(&mut self, len: usize) -> ProtoResult<&'a [u8]> {
+        let end = self.index + len;
+        if end > self.buffer.len() {
+            return Err(ProtoErrorKind::Message("buffer exhausted").into())
+        }
+
+     
+        let slice: &'a [u8] = &self.buffer[self.index .. end];
+        self.index += len;
+        Ok(slice)
     }
 
     /// Reads a byte from the buffer, equivalent to `Self::pop()`
@@ -185,5 +207,28 @@ impl<'a> BinDecoder<'a> {
         Ok(
             ((b1 as u32) << 24) + ((b2 as u32) << 16) + ((b3 as u32) << 8) + (b4 as u32),
         )
+    }
+}
+
+#[cfg(tests)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_read_slice() {
+        let deadbeef = b"deadbeef";
+        let mut decoder = BinDecoder::new(deadbeef);
+
+        let read = decoder.read_slice(4).expect("failed to read dead");
+        assert_eq!(read, "dead");
+
+        let read = decoder.read_slice(2).expect("failed to read be");
+        assert_eq!(read, "be");
+
+        let read = decoder.read_slice(0).expect("failed to read nothing");
+        assert_eq!(read, "");
+
+        // this should fail
+        assert!(decoder.read_slice(3).is_err());
     }
 }

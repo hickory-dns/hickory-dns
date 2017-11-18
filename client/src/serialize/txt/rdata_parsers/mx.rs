@@ -16,37 +16,25 @@
 
 //! mail exchange, email, record
 
-use serialize::txt::*;
 use error::*;
 use rr::domain::Name;
 use rr::rdata::MX;
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<MX> {
-    let mut token = tokens.iter();
-
-    let preference: u16 = try!(
-        token
-            .next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("preference".to_string()),
-            ))
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                s.parse().map_err(Into::into)
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let exchange: Name = try!(
-        token
-            .next()
-            .ok_or(ParseErrorKind::MissingToken("exchange".to_string()).into())
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin).map_err(ParseError::from)
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
+pub fn parse<'i, I: Iterator<Item = &'i str>>(
+    mut tokens: I,
+    origin: Option<&Name>,
+) -> ParseResult<MX> {
+    let preference: u16 = tokens
+        .next()
+        .ok_or(ParseError::from(
+            ParseErrorKind::MissingToken("preference".to_string()),
+        ))
+        .and_then(|s| s.parse().map_err(Into::into))?;
+    let exchange: Name = tokens
+        .next()
+        .ok_or(ParseErrorKind::MissingToken("exchange".to_string()).into())
+        .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
 
     Ok(MX::new(preference, exchange))
 }

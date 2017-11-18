@@ -1,6 +1,5 @@
 /*
  * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- * Copyright (C) 2017 Google Inc.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -21,7 +20,7 @@ use chrono::Duration;
 use trust_dns_proto::error::{ProtoResult, ProtoErrorKind};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use trust_dns_proto::rr::dnssec::{tbs, TBS};
-#[cfg(any(feature = "openssl", feature = "ring"))]
+#[cfg(feature = "dnssec")]
 use rr::rdata::DNSSECRData;
 
 use op::{Message, MessageFinalizer};

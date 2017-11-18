@@ -8,6 +8,7 @@ use std::str::FromStr;
 use trust_dns::rr::*;
 use trust_dns::rr::dnssec::*;
 use trust_dns::serialize::txt::*;
+use trust_dns_proto::rr::rdata::tlsa::*;
 use trust_dns_server::authority::*;
 
 
@@ -52,7 +53,15 @@ _ldap._tcp.service SRV 1 2 3 short
 short 70 A      \
                             26.3.0.104
 venera  A       10.1.0.52
-      A       128.9.0.32",
+      A       128.9.0.32
+
+nocerts       CAA 0 issue \";\"
+certs         CAA 0 issuewild \"example.net\"
+
+_443._tcp.www.example.com. IN TLSA (
+      0 0 1 d2abde240d7cd3ee6b4b28c54df034b9
+            7983a1d16e8a410e4561cb106618e971 )
+",
     );
 
     let records = Parser::new().parse(lexer, Some(Name::from_labels(vec!["isi", "edu"])));
@@ -245,8 +254,8 @@ venera  A       10.1.0.52
 
     txt_records.sort();
 
-    println!("compare: {:?}", compare);
-    println!("txt_records: {:?}", txt_records);
+    println!("compare: {:#?}", compare);
+    println!("txt_records: {:#?}", txt_records);
 
     let compare = txt_records.iter().zip(compare);
 
@@ -297,5 +306,45 @@ venera  A       10.1.0.52
         );
     } else {
         panic!("Not an SRV record!!!") // valid panic, test code
+    }
+
+    // CAA
+    let caa_record: &Record = authority
+        .lookup(
+            &Name::parse("nocerts.isi.edu.", None).unwrap(),
+            RecordType::CAA,
+            false,
+            SupportedAlgorithms::new(),
+        )
+        .first()
+        .cloned()
+        .expect("nocerts not found");
+    if let RData::CAA(ref rdata) = *caa_record.rdata() {
+        assert!(!rdata.issuer_critical());
+        assert!(rdata.tag().is_issue());
+        assert!(rdata.value().is_issuer());
+    } else {
+        assert!(false);
+    }
+
+    // TLSA
+    let tlsa_record: &Record = authority
+        .lookup(
+            &Name::parse("_443._tcp.www.example.com.", None).unwrap(),
+            RecordType::TLSA,
+            false,
+            SupportedAlgorithms::new(),
+        )
+        .first()
+        .cloned()
+        .expect("tlsa record not found");
+
+    if let RData::TLSA(ref rdata) = *tlsa_record.rdata() {
+        assert_eq!(*rdata.cert_usage(), CertUsage::CA);
+        assert_eq!(*rdata.selector(), Selector::Full);
+        assert_eq!(*rdata.matching(), Matching::Sha256);
+        assert_eq!(rdata.cert_data(), &[210, 171, 222, 36, 13, 124, 211, 238, 107, 75, 40, 197, 77, 240, 52, 185, 121, 131, 161, 209, 110, 138, 65, 14, 69, 97, 203, 16, 102, 24, 233, 113]);
+    } else {
+        assert!(false);
     }
 }

@@ -46,6 +46,7 @@ error_chain! {
     //
     // This section can be empty.
     foreign_links {
+      ::data_encoding::decode::Error, DataEncoding, "data encoding error";
       io::Error, Io, "io error";
       num::ParseIntError, ParseInt, "parse int error";
       AddrParseError, AddrParse, "address parse error";

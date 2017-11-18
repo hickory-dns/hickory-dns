@@ -43,7 +43,8 @@ pub enum RecordType {
     //  APL,        //	42	RFC 3123	Address Prefix List
     /// RFC 1035[1]	Authoritative Zone Transfer
     AXFR,
-    //  CAA,        //	257	RFC 6844	Certification Authority Authorization
+    /// RFC 6844 Certification Authority Authorization
+    CAA,
     //  CERT,       //	37	RFC 4398	Certificate record
     /// RFC 1035[1]	Canonical name record
     CNAME,
@@ -74,7 +75,8 @@ pub enum RecordType {
     //  SSHFP,      //	44	RFC 4255	SSH Public Key Fingerprint
     //  TA,         //	32768	N/A	DNSSEC Trust Authorities
     //  TKEY,       //	249	RFC 2930	Secret key record
-    //  TLSA,       //	52	RFC 6698	TLSA certificate association
+    ///	RFC 6698	TLSA certificate association
+    TLSA,
     //  TSIG,       //	250	RFC 2845	Transaction Signature
     /// RFC 1035[1]	Text record
     TXT,
@@ -100,6 +102,7 @@ impl RecordType {
         match str {
             "A" => Ok(RecordType::A),
             "AAAA" => Ok(RecordType::AAAA),
+            "CAA" => Ok(RecordType::CAA),
             "CNAME" => Ok(RecordType::CNAME),
             "NULL" => Ok(RecordType::NULL),
             "MX" => Ok(RecordType::MX),
@@ -107,6 +110,7 @@ impl RecordType {
             "PTR" => Ok(RecordType::PTR),
             "SOA" => Ok(RecordType::SOA),
             "SRV" => Ok(RecordType::SRV),
+            "TLSA" => Ok(RecordType::TLSA),
             "TXT" => Ok(RecordType::TXT),
             "ANY" | "*" => Ok(RecordType::ANY),
             "AXFR" => Ok(RecordType::AXFR),
@@ -128,6 +132,7 @@ impl RecordType {
             28 => Ok(RecordType::AAAA),
             255 => Ok(RecordType::ANY),
             252 => Ok(RecordType::AXFR),
+            257 => Ok(RecordType::CAA),
             5 => Ok(RecordType::CNAME),
             15 => Ok(RecordType::MX),
             2 => Ok(RecordType::NS),
@@ -136,6 +141,7 @@ impl RecordType {
             12 => Ok(RecordType::PTR),
             6 => Ok(RecordType::SOA),
             33 => Ok(RecordType::SRV),
+            52 => Ok(RecordType::TLSA),
             16 => Ok(RecordType::TXT),
             #[cfg(feature = "dnssec")]
             value => Ok(RecordType::DNSSEC(DNSSECRecordType::from_u16(value)?)),
@@ -179,6 +185,7 @@ impl From<RecordType> for &'static str {
             RecordType::AAAA => "AAAA",
             RecordType::ANY => "ANY",
             RecordType::AXFR => "AXFR",
+            RecordType::CAA => "CAA",
             RecordType::CNAME => "CNAME",
             RecordType::IXFR => "IXFR",
             RecordType::MX => "MX",
@@ -188,6 +195,7 @@ impl From<RecordType> for &'static str {
             RecordType::PTR => "PTR",
             RecordType::SOA => "SOA",
             RecordType::SRV => "SRV",
+            RecordType::TLSA => "TLSA",
             RecordType::TXT => "TXT",
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
@@ -211,6 +219,7 @@ impl From<RecordType> for u16 {
             RecordType::AAAA => 28,
             RecordType::ANY => 255,
             RecordType::AXFR => 252,
+            RecordType::CAA => 257,
             RecordType::CNAME => 5,
             RecordType::IXFR => 251,
             RecordType::MX => 15,
@@ -220,6 +229,7 @@ impl From<RecordType> for u16 {
             RecordType::PTR => 12,
             RecordType::SOA => 6,
             RecordType::SRV => 33,
+            RecordType::TLSA => 52,
             RecordType::TXT => 16,
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),

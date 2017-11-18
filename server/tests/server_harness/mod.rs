@@ -151,9 +151,8 @@ pub fn query_message<C: ClientHandle>(
 ) -> Message {
     println!("sending request");
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, record_type));
-    println!("got response: {}", response.is_ok());
-    assert!(response.is_ok());
-    response.unwrap()
+    println!("got response: {:#?}", response);
+    response.expect("request failed")
 }
 
 // This only validates that a query to the server works, it shouldn't be used for more than this.

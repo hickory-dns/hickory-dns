@@ -13,7 +13,7 @@ use std::io;
 use futures::{future, Future, IntoFuture};
 use futures::sync::mpsc::unbounded;
 use native_tls::{Certificate, Pkcs12, TlsConnector};
-use native_tls::Protocol::{Tlsv11, Tlsv12};
+use native_tls::Protocol::Tlsv12;
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_tls::{TlsConnectorExt, TlsStream as TokioTlsStream};
@@ -32,7 +32,7 @@ fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsCon
             format!("tls error: {}", e),
         )
     }));
-    try!(builder.supported_protocols(&[Tlsv11, Tlsv12]).map_err(
+    try!(builder.supported_protocols(&[Tlsv12]).map_err(
         |e| {
             io::Error::new(
                 io::ErrorKind::ConnectionRefused,

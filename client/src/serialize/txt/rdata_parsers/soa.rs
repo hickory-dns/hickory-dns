@@ -15,84 +15,60 @@
  */
 
 //! Parser for SOA text form
+use std::str::FromStr;
 
-use serialize::txt::*;
 use error::*;
 use rr::domain::Name;
 use rr::rdata::SOA;
 
 /// Parse the RData from a set of Tokens
-pub fn parse(tokens: &Vec<Token>, origin: Option<&Name>) -> ParseResult<SOA> {
-    let mut token = tokens.iter();
-
-    let mname: Name = try!(
-        token
+pub fn parse<'i, I: Iterator<Item=&'i str>>(mut tokens: I, origin: Option<&Name>) -> ParseResult<SOA> {
+    let mname: Name =
+        tokens
             .next()
             .ok_or(ParseErrorKind::MissingToken("mname".to_string()).into())
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin).map_err(ParseError::from)
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let rname: Name = try!(
-        token
+            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+    
+    let rname: Name =
+        tokens
             .next()
             .ok_or(ParseErrorKind::MissingToken("rname".to_string()).into())
-            .and_then(|t| if let &Token::CharData(ref s) = t {
-                Name::parse(s, origin).map_err(ParseError::from)
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    );
-    let mut list = try!(
-        token
-            .next()
-            .ok_or(ParseError::from(
-                ParseErrorKind::MissingToken("List".to_string()),
-            ))
-            .and_then(|t| if let &Token::List(ref v) = t {
-                Ok(v)
-            } else {
-                Err(ParseErrorKind::UnexpectedToken(t.clone()).into())
-            })
-    ).iter();
-
-    let serial: u32 = try!(
-        list.next()
+            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+    
+    let serial: u32 = 
+        tokens.next()
             .ok_or(ParseError::from(
                 ParseErrorKind::MissingToken("serial".to_string()),
             ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
-    let refresh: i32 = try!(
-        list.next()
+            .and_then(|s| u32::from_str(s).map_err(Into::into))?;
+    
+    let refresh: i32 = 
+        tokens.next()
             .ok_or(ParseError::from(
                 ParseErrorKind::MissingToken("refresh".to_string()),
             ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
-    let retry: i32 = try!(
-        list.next()
+            .and_then(|s| i32::from_str(s).map_err(Into::into))?;
+    
+    let retry: i32 =
+        tokens.next()
             .ok_or(ParseError::from(
                 ParseErrorKind::MissingToken("retry".to_string()),
             ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
-    let expire: i32 = try!(
-        list.next()
+            .and_then(|s| i32::from_str(s).map_err(Into::into))?;
+    
+    let expire: i32 =
+        tokens.next()
             .ok_or(ParseError::from(
                 ParseErrorKind::MissingToken("expire".to_string()),
             ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
-    let minimum: u32 = try!(
-        list.next()
+            .and_then(|s| i32::from_str(s).map_err(Into::into))?;
+    
+    let minimum: u32 = 
+        tokens.next()
             .ok_or(ParseError::from(
                 ParseErrorKind::MissingToken("minimum".to_string()),
             ))
-            .and_then(|s| Ok(try!(s.parse())))
-    );
+            .and_then(|s| u32::from_str(s).map_err(Into::into))?;
 
     Ok(SOA::new(
         mname,

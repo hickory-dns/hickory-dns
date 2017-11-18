@@ -1,4 +1,10 @@
-#![cfg(feature = "bug")] // https://github.com/bluejekyll/trust-dns/issues/255
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 #![cfg(not(windows))]
 #![cfg(feature = "tls")]
 
@@ -27,7 +33,6 @@ use trust_dns_native_tls::TlsClientStreamBuilder;
 
 use server_harness::{named_test_harness, query_a};
 
-
 #[test]
 fn test_example_tls_toml_startup() {
     named_test_harness("dns_over_tls.toml", move |_, tls_port| {
@@ -36,11 +41,11 @@ fn test_example_tls_toml_startup() {
         println!("using server src path: {}", server_path);
 
         File::open(&format!(
-            "{}/tests/named_test_configs/sec/example.cert-der",
+            "{}/tests/named_test_configs/sec/example.cert",
             server_path
-        )).unwrap()
+        )).expect("failed to open cert")
             .read_to_end(&mut cert_der)
-            .unwrap();
+            .expect("failed to read cert");
 
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = ("127.0.0.1", tls_port)
