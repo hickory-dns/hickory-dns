@@ -70,7 +70,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
     let cert_data = iter.fold(String::new(), |mut cert_data, data| {
         cert_data.extend(data.chars());
         cert_data
-    }).to_uppercase();
+    });
     println!("cert_data: {}", cert_data);
     let cert_data = HEX.decode(cert_data.as_bytes())?;
 
