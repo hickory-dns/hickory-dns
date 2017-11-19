@@ -481,10 +481,6 @@ fn test_append_multi() {
 
 #[test]
 fn test_compare_and_swap() {
-    use log::LogLevel;
-    use trust_dns;
-    trust_dns::logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
-
     let mut io_loop = Core::new().unwrap();
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
@@ -557,10 +553,6 @@ fn test_compare_and_swap() {
 
 #[test]
 fn test_compare_and_swap_multi() {
-    use log::LogLevel;
-    use trust_dns;
-    trust_dns::logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
-
     let mut io_loop = Core::new().unwrap();
     let (mut client, origin) = create_sig0_ready_client(&io_loop);
 
