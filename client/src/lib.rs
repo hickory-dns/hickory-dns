@@ -231,7 +231,6 @@ extern crate untrusted;
 
 pub mod client;
 pub mod error;
-pub mod logger;
 pub mod op;
 pub mod rr;
 pub mod tcp;

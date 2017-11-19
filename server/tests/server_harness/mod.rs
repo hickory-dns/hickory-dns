@@ -73,7 +73,7 @@ where
 
             let mut kill_named = || {
                 println!("killing named");
-                
+
                 if let Err(e) = named.kill() {
                     println!("warning: failed to kill named: {:?}", e);
                 }
@@ -104,7 +104,7 @@ where
             stdout().write(b"SRV: ").unwrap();
             stdout().write(output.as_bytes()).unwrap();
         }
-        if output.ends_with("awaiting connections...\n") {
+        if output.contains("awaiting connections...") {
             found = true;
             break;
         }
@@ -186,17 +186,25 @@ pub fn query_all_dnssec(
         client.support_algorithms = Some(SupportedAlgorithms::from_vec(&[algorithm]));
     }
 
-    let response = query_message(io_loop, &mut client, name,
-                                 RecordType::DNSSEC(DNSSECRecordType::DNSKEY));
+    let response = query_message(
+        io_loop,
+        &mut client,
+        name,
+        RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
+    );
 
     let dnskey = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY))
-        .map(|r| if let &RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = r.rdata() {
-            dnskey.clone()
-        } else {
-            panic!("wrong RDATA")
+        .filter(|r| {
+            r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY)
+        })
+        .map(|r| {
+            if let &RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = r.rdata() {
+                dnskey.clone()
+            } else {
+                panic!("wrong RDATA")
+            }
         })
         .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
@@ -204,14 +212,20 @@ pub fn query_all_dnssec(
     let rrsig = response
         .answers()
         .iter()
-        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG))
-        .map(|r| if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = r.rdata() {
+        .filter(|r| {
+            r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
+        })
+        .map(|r| if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) =
+            r.rdata()
+        {
             rrsig.clone()
         } else {
             panic!("wrong RDATA")
         })
         .filter(|rrsig| rrsig.algorithm() == algorithm)
-        .find(|rrsig| rrsig.type_covered() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY));
+        .find(|rrsig| {
+            rrsig.type_covered() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY)
+        });
     assert!(rrsig.is_some(), "Associated RRSIG not found");
 }
 

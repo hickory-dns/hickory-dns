@@ -36,10 +36,6 @@ use server_harness::{named_test_harness, query_a};
 
 #[test]
 fn test_example_toml_startup() {
-    use trust_dns::logger;
-    use log::LogLevel;
-    logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
-
     named_test_harness("example.toml", |port, _| {
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = ("127.0.0.1", port)

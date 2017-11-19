@@ -28,6 +28,9 @@
 //! * New features for securing public information
 
 extern crate chrono;
+#[cfg(feature = "colored")]
+extern crate colored;
+extern crate env_logger;
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
@@ -48,6 +51,7 @@ extern crate trust_dns_openssl;
 pub mod authority;
 pub mod config;
 pub mod error;
+pub mod logger;
 pub mod server;
 
 pub use self::server::ServerFuture;
@@ -59,7 +63,5 @@ pub fn version() -> &'static str {
 
 #[test]
 fn enable_logging_for_tests() {
-    use trust_dns::logger;
-    use log::LogLevel;
-    logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
+    logger::default(true);
 }
