@@ -128,7 +128,8 @@ impl From<DNSClass> for u16 {
             DNSClass::HS => 4,
             DNSClass::NONE => 254,
             DNSClass::ANY => 255,
-            DNSClass::OPT(version) => version,
+            // see https://tools.ietf.org/html/rfc6891#section-6.1.2
+            DNSClass::OPT(max_payload_len) => max_payload_len,
         }
     }
 }
