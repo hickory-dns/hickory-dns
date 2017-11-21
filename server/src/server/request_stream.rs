@@ -65,7 +65,12 @@ where
                     let mut decoder = BinDecoder::new(&buffer);
                     match Message::read(&mut decoder) {
                         Ok(message) => {
-                            info!("request: {} recieved from: {} len: {}", message.id(), addr, buffer.len());
+                            info!(
+                                "request: {} recieved from: {} len: {}",
+                                message.id(),
+                                addr,
+                                buffer.len()
+                            );
                             let request = Request {
                                 message: message,
                                 src: addr,
@@ -79,7 +84,12 @@ where
                         // on errors, we will loop around and see if more are ready
                         Err(e) => {
                             // FIXME: respond with an error here? right now this will drop and ignore the request
-                            warn!("bad message from: {} len: {}: err: {} ", addr, buffer.len(), e);
+                            warn!(
+                                "bad message from: {} len: {}: err: {} ",
+                                addr,
+                                buffer.len(),
+                                e
+                            );
                         }
                     }
                 }
@@ -112,7 +122,6 @@ impl ResponseHandle {
             )
         }));
 
-        info!("request: {} sending message len: {}", response.id(), buffer.len());
         self.stream_handle
             .unbounded_send((buffer, self.dst))
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
