@@ -25,6 +25,8 @@ use tokio_core::reactor::{Handle, Timeout};
 use error::*;
 use op::{Message, MessageFinalizer, MessageType, OpCode, Query};
 
+// TODO: this should be configurable
+const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
 /// The StreamHandle is the general interface for communicating with the DnsFuture
@@ -36,10 +38,16 @@ where
     phantom: PhantomData<E>,
 }
 
-impl<E> StreamHandle<E> where E: FromProtoError {
+impl<E> StreamHandle<E>
+where
+    E: FromProtoError,
+{
     /// Constructs a new StreamHandle for wrapping the sender
     pub fn new(sender: UnboundedSender<Vec<u8>>) -> Self {
-        StreamHandle { sender, phantom: PhantomData::<E> }
+        StreamHandle {
+            sender,
+            phantom: PhantomData::<E>,
+        }
     }
 }
 
@@ -271,7 +279,8 @@ where
                     let query_id = query_id.expect("query_id should have been set above");
                     message.set_id(query_id);
 
-                    let now = SystemTime::now().duration_since(UNIX_EPOCH)
+                    let now = SystemTime::now()
+                        .duration_since(UNIX_EPOCH)
                         .map_err(|_| "Current time is before the Unix epoch.".into())?
                         .as_secs();
                     let now = now as u32; // XXX: truncates u64 to u32.
@@ -543,7 +552,7 @@ pub trait DnsHandle: Clone {
         {
             // TODO: this should really be configurable...
             let edns = message.edns_mut();
-            edns.set_max_payload(1500);
+            edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
         }
 
