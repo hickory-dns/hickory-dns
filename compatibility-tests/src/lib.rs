@@ -1,4 +1,5 @@
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2017 Google LLC.
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -20,7 +21,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
 
-use data_encoding::base32;
+use data_encoding::BASE32;
 
 mod bind;
 mod none;
@@ -39,16 +40,18 @@ fn find_test_port() -> u16 {
 
 pub struct NamedProcess {
     working_dir: String,
-    named: Child,
+    named: Option<Child>,
     thread_notice: Arc<AtomicBool>,
 }
 
 impl Drop for NamedProcess {
     fn drop(&mut self) {
-        self.named.kill().expect("could not kill process");
-        self.named.wait().expect("waiting failed");
+        if let Some(ref mut named) = self.named {
+            named.kill().expect("could not kill process");
+            named.wait().expect("waiting failed");
+        }
 
-        self.thread_notice.store(true, Ordering::Relaxed);
+        self.thread_notice.store(true, Ordering::Release);
 
         println!("----> cleanup work dir: {}", self.working_dir);
         fs::remove_dir_all(&self.working_dir).ok();
@@ -59,10 +62,10 @@ fn new_working_dir() -> String {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
 
     let rand = rand::random::<u32>();
-    let rand = base32::encode(&[rand as u8,
-                                (rand >> 8) as u8,
-                                (rand >> 16) as u8,
-                                (rand >> 24) as u8]);
+    let rand = BASE32.encode(&[rand as u8,
+                               (rand >> 8) as u8,
+                               (rand >> 16) as u8,
+                               (rand >> 24) as u8]);
     let working_dir = format!("{}/../target/bind_pwd_{}", server_path, rand);
 
     if !Path::new(&working_dir).exists() {
@@ -111,7 +114,7 @@ fn wrap_process<R>(working_dir: String, named: Child, io: R, started_str: &str) 
         .name("named stdout".into())
         .spawn(move || {
             let thread_notice = thread_notice_clone;
-            while !thread_notice.load(std::sync::atomic::Ordering::Relaxed) {
+            while !thread_notice.load(std::sync::atomic::Ordering::Acquire) {
                 output.clear();
                 named_out
                     .read_line(&mut output)
@@ -125,7 +128,7 @@ fn wrap_process<R>(working_dir: String, named: Child, io: R, started_str: &str) 
     // return handle to child process
     NamedProcess {
         working_dir: working_dir,
-        named: named,
+        named: Some(named),
         thread_notice: thread_notice,
     }
 }

@@ -207,6 +207,8 @@
 extern crate chrono;
 extern crate data_encoding;
 #[macro_use]
+extern crate data_encoding_macro;
+#[macro_use]
 extern crate error_chain;
 extern crate futures;
 #[macro_use]

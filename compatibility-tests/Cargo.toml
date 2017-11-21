@@ -37,6 +37,7 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 default = ["none"]
 none = []
 bind = []
+trust_dns = []
 
 [lib]
 name = "trust_dns_compatibility"
@@ -44,7 +45,7 @@ path = "src/lib.rs"
 
 [dependencies]
 chrono = "^0.4"
-data-encoding = "^1.2.0"
+data-encoding = "2.1.0"
 env_logger = "0.4.2"
 futures = "^0.1.6"
 openssl = { version = "^0.9.8", features = ["v102", "v110"] }

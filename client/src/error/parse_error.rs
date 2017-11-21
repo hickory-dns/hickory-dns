@@ -1,5 +1,6 @@
 /*
  * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
+ * Copyright (C) 2017 Google LLC.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -46,7 +47,7 @@ error_chain! {
     //
     // This section can be empty.
     foreign_links {
-      ::data_encoding::decode::Error, DataEncoding, "data encoding error";
+      ::data_encoding::DecodeError, DataEncoding, "data encoding error";
       io::Error, Io, "io error";
       num::ParseIntError, ParseInt, "parse int error";
       AddrParseError, AddrParse, "address parse error";

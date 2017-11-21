@@ -30,6 +30,7 @@ use trust_dns::rr::dnssec::{Algorithm, Signer, KeyPair};
 use trust_dns::rr::rdata::key::{KEY, KeyUsage};
 use trust_dns_compatibility::named_process;
 
+#[cfg(not(feature = "none"))]
 #[test]
 #[allow(unused)]
 fn test_get() {
@@ -54,6 +55,7 @@ fn test_get() {
     }
 }
 
+#[allow(unused)]
 fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient<CC>
 where
     CC: ClientConnection,
@@ -89,6 +91,7 @@ where
     SyncClient::with_signer(conn, signer)
 }
 
+#[cfg(not(feature = "none"))]
 #[test]
 #[allow(unused)]
 fn test_create() {
