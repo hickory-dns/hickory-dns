@@ -13,7 +13,7 @@ use std::fmt::Display;
 #[cfg(feature = "colored")]
 use colored::Colorize;
 use env_logger::{LogBuilder, LogTarget};
-use log::{LogLevel, LogRecord};
+use log::LogRecord;
 
 fn format<L, M, LN, A>(level: L, module: M, line: LN, args: A) -> String
 where
@@ -35,7 +35,10 @@ fn plain_formatter(record: &LogRecord) -> String {
     )
 }
 
+#[cfg(feature = "colored")]
 fn color_formatter(record: &LogRecord) -> String {
+    use log::LogLevel;
+
     let color = match record.level() {
         LogLevel::Error => "red",
         LogLevel::Warn => "yellow",
@@ -88,16 +91,21 @@ pub fn env(no_color: bool) {
 }
 
 /// see env_logger docs
-fn logger(config: &str, no_color: bool) {
+fn logger(config: &str, _no_color: bool) {
+    #[cfg(feature = "colored")]    
     let is_tty = env::var("TERM").ok().map_or(false, |_| true);
 
     let mut builder = LogBuilder::new();
 
-    let log_formatter = if is_tty && !no_color {
+    #[cfg(feature = "colored")]    
+    let log_formatter = if is_tty && !_no_color {
         color_formatter
     } else {
         plain_formatter
     };
+    
+    #[cfg(not(feature = "colored"))]
+    let log_formatter = plain_formatter;    
 
     builder.format(log_formatter);
     builder.parse(&config);
