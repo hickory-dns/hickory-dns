@@ -56,8 +56,8 @@ impl TrustAnchor {
     }
 
     /// inserts the trust_anchor to the trusted chain
-    pub fn insert_trust_anchor<P: PublicKey>(&mut self, public_key: P) {
-        if !self.contains(&public_key) {
+    pub fn insert_trust_anchor<P: PublicKey>(&mut self, public_key: &P) {
+        if !self.contains(public_key) {
             self.pkeys.push(public_key.public_bytes().to_vec())
         }
     }

@@ -117,7 +117,7 @@ impl RecordSet {
     /// This will traverse every record and associate with it the specified dns_class
     pub fn set_dns_class(&mut self, dns_class: DNSClass) {
         self.dns_class = dns_class;
-        for r in self.records.iter_mut() {
+        for r in &mut self.records {
             r.set_dns_class(dns_class);
         }
     }
@@ -132,7 +132,7 @@ impl RecordSet {
     /// This will traverse every record and associate with it the specified ttl
     pub fn set_ttl(&mut self, ttl: u32) {
         self.ttl = ttl;
-        for r in self.records.iter_mut() {
+        for r in &mut self.records {
             r.set_ttl(ttl);
         }
     }
@@ -186,12 +186,12 @@ impl RecordSet {
 
         let rrsigs = self.rrsigs
             .iter()
-            .filter(|record| if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = record.rdata() {
+            .filter(|record| if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
                 supported_algorithms.has(rrsig.algorithm())
             } else {
                 false
             })
-            .max_by_key(|record| if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = record.rdata() {
+            .max_by_key(|record| if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
                 rrsig.algorithm()
             } else {
                 Algorithm::RSASHA1
@@ -248,14 +248,14 @@ impl RecordSet {
     }
 
     /// creates a new Record as part of this RecordSet, adding the associated RData
-    pub fn new_record(&mut self, rdata: RData) -> &Record {
+    pub fn new_record(&mut self, rdata: &RData) -> &Record {
         assert_eq!(self.record_type, rdata.to_record_type());
 
         let mut record = Record::with(self.name.clone(), self.record_type, self.ttl);
         record.set_rdata(rdata.clone()); // TODO: remove clone()? this is only needed for the record return
         self.insert(record, 0);
 
-        self.records.iter().find(|r| *r.rdata() == rdata).expect(
+        self.records.iter().find(|r| r.rdata() == rdata).expect(
             "insert failed? 172",
         )
     }
@@ -312,7 +312,7 @@ impl RecordSet {
                 if let Some(soa_record) = self.records.iter().next() {
                     match soa_record.rdata() {
                         &RData::SOA(ref existing_soa) => {
-                            if let &RData::SOA(ref new_soa) = record.rdata() {
+                            if let RData::SOA(ref new_soa) = *record.rdata() {
                                 if new_soa.serial() <= existing_soa.serial() {
                                     info!(
                                         "update ignored serial out of data: {:?} <= {:?}",
@@ -327,7 +327,7 @@ impl RecordSet {
                                 return false;
                             }
                         }
-                        rdata @ _ => panic!("wrong rdata: {:?}", rdata), // valid panic, never should happen
+                        rdata => panic!("wrong rdata: {:?}", rdata), // valid panic, never should happen
                     }
                 }
 
@@ -788,7 +788,7 @@ mod test {
 
         assert!(rrset.records_with_rrsigs(SupportedAlgorithms::all()).iter().any(
             |r| {
-                if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = r.rdata() {
+                if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
                     sig.algorithm() == Algorithm::ED25519
                 } else {
                     false
@@ -799,7 +799,7 @@ mod test {
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ECDSAP384SHA384);
         assert!(rrset.records_with_rrsigs(supported_algorithms).iter().any(|r| {
-            if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = r.rdata() {
+            if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
                 sig.algorithm() == Algorithm::ECDSAP384SHA384
             } else {
                 false
@@ -809,7 +809,7 @@ mod test {
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ED25519);
         assert!(rrset.records_with_rrsigs(supported_algorithms).iter().any(|r| {
-            if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = r.rdata() {
+            if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
                 sig.algorithm() == Algorithm::ED25519
             } else {
                 false

@@ -37,7 +37,7 @@ impl SupportedAlgorithms {
 
     /// Specify the entire set is supported
     pub fn all() -> Self {
-        SupportedAlgorithms { bit_map: 0b01111111 }
+        SupportedAlgorithms { bit_map: 0b0111_1111 }
     }
 
     /// Based on the set of Algorithms, return the supported set
@@ -62,8 +62,6 @@ impl SupportedAlgorithms {
             Algorithm::ECDSAP384SHA384 => 5,
             Algorithm::ED25519 => 6,
         };
-
-        assert!(bit_pos <= u8::max_value());
         1u8 << bit_pos
     }
 

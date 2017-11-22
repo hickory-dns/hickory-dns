@@ -112,7 +112,7 @@ impl UdpStream {
         };
 
         // TODO: consider making this return a Result...
-        let socket = tokio_core::net::UdpSocket::from_socket(socket, &loop_handle)
+        let socket = tokio_core::net::UdpSocket::from_socket(socket, loop_handle)
             .expect("could not register socket to loop");
 
         let stream = UdpStream {
@@ -143,8 +143,7 @@ impl Stream for UdpStream {
         //  makes this self throttling.
         loop {
             // first try to send
-            match try!(self.outbound_messages.peek().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
-        Async::Ready(Some(&(ref buffer, addr))) => {
+            if let Async::Ready(Some(&(ref buffer, addr))) = try!(self.outbound_messages.peek().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
           match self.socket.poll_write() {
             Async::NotReady => {
               return Ok(Async::NotReady)
@@ -154,10 +153,7 @@ impl Stream for UdpStream {
               try_nb!(self.socket.send_to(buffer, &addr));
             },
           }
-        },
-        // all others will drop through to the poll()
-        _ => (),
-      }
+        }
 
             // now pop the request and check if we should break or continue.
             match try!(self.outbound_messages.poll().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {

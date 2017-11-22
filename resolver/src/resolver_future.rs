@@ -183,7 +183,7 @@ impl ResolverFuture {
                 Self::push_name(name_search, &mut names);
             }
 
-            let domain = name.clone().append_domain(&self.config.domain());
+            let domain = name.clone().append_domain(self.config.domain());
             Self::push_name(domain, &mut names);
 
             // this is the direct name lookup

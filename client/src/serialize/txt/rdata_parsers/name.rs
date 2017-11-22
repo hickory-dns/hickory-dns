@@ -27,7 +27,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
     let name: Name = 
         tokens
             .next()
-            .ok_or(ParseErrorKind::MissingToken("name".to_string()).into())
+            .ok_or_else(|| ParseErrorKind::MissingToken("name".to_string()).into())
             .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
     Ok(name)
 }

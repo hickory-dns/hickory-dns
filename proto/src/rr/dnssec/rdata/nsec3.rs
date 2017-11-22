@@ -356,7 +356,7 @@ pub fn decode_type_bit_maps(
                     if bit_map & 0b1000_0000 == 0b1000_0000 {
                         // len - left is the block in the bitmap, times 8 for the bits, + the bit in the current_byte
                         let low_byte = ((len - left) * 8) + i;
-                        let rr_type: u16 = (window as u16) << 8 | low_byte as u16;
+                        let rr_type: u16 = (u16::from(window) << 8) | u16::from(low_byte);
                         record_types.push(try!(RecordType::from_u16(rr_type)));
                     }
                     // shift left and look at the next bit
@@ -424,7 +424,7 @@ pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -
         let window: u8 = (code >> 8) as u8;
         let low: u8 = (code & 0x00FF) as u8;
 
-        let bit_map: &mut Vec<u8> = hash.entry(window).or_insert(Vec::new());
+        let bit_map: &mut Vec<u8> = hash.entry(window).or_insert_with(Vec::new);
         // len + left is the block in the bitmap, divided by 8 for the bits, + the bit in the current_byte
         let index: u8 = low / 8;
         let bit: u8 = 0b1000_0000 >> (low % 8);
@@ -471,7 +471,7 @@ pub fn test() {
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
     assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.as_bytes();
+    let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);
 
@@ -521,7 +521,7 @@ pub fn test_dups() {
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
     assert!(emit(&mut encoder, &rdata_with_dups).is_ok());
-    let bytes = encoder.as_bytes();
+    let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);
 

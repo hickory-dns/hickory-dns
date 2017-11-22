@@ -214,7 +214,7 @@ where
 
 
         let mut trust_anchor = TrustAnchor::new();
-        trust_anchor.insert_trust_anchor(public_key);
+        trust_anchor.insert_trust_anchor(&public_key);
 
         trust_anchor
     };

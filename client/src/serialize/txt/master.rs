@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 use std::collections::BTreeMap;
+use std::str::FromStr;
 
 use error::*;
 use rr::{Name, IntoRecordSet, RecordType, Record, DNSClass, RData, RrKey, RecordSet};
@@ -120,6 +121,7 @@ use serialize::txt::parse_rdata::RDataParser;
 /// ;               Semicolon is used to start a comment; the remainder of
 ///                 the line is ignored.
 /// ```
+#[derive(Default)]
 pub struct Parser;
 
 impl Parser {
@@ -238,7 +240,7 @@ impl Parser {
                             // call out to parsers for difference record types
                             // all tokens as part of the Record should be chardata...
                             let rdata = RData::parse(
-                                rtype.ok_or(ParseError::from(
+                                rtype.ok_or_else(|| ParseError::from(
                                     ParseErrorKind::Message("record type not specified"),
                                 ))?,
                                 record_parts.iter().map(|s| s.as_ref()),
@@ -250,13 +252,13 @@ impl Parser {
                             // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
                             //  might want to wait until RC.weak() stabilizes, as that would be needed for global
                             //  memory where you want
-                            record.set_name(current_name.clone().ok_or(ParseError::from(
+                            record.set_name(current_name.clone().ok_or_else(|| ParseError::from(
                                 ParseErrorKind::Message(
                                     "record name not specified",
                                 ),
                             ))?);
                             record.set_rr_type(rtype.unwrap());
-                            record.set_dns_class(class.ok_or(ParseError::from(
+                            record.set_dns_class(class.ok_or_else(|| ParseError::from(
                                 ParseErrorKind::Message("record class not specified"),
                             ))?);
 
@@ -281,7 +283,7 @@ impl Parser {
                                     }
                                 }
                                 _ => {
-                                    record.set_ttl(ttl.ok_or(ParseError::from(
+                                    record.set_ttl(ttl.ok_or_else(|| ParseError::from(
                                         ParseErrorKind::Message("record ttl not specified"),
                                     ))?);
                                 }
@@ -309,7 +311,7 @@ impl Parser {
                                 }
                                 _ => {
                                     // add a Vec if it's not there, then add the record to the list
-                                    let set = records.entry(key).or_insert(RecordSet::new(
+                                    let set = records.entry(key).or_insert_with(|| RecordSet::new(
                                         record.name(),
                                         record.rr_type(),
                                         0,
@@ -339,7 +341,7 @@ impl Parser {
 
         //
         // build the Authority and return.
-        let origin = origin.ok_or(ParseError::from(
+        let origin = origin.ok_or_else(|| ParseError::from(
             ParseErrorKind::Message("$ORIGIN was not specified"),
         ))?;
         Ok((origin, records))
@@ -388,7 +390,7 @@ impl Parser {
                 // TODO, should these all be checked operations?
                 '0'...'9' => {
                     collect *= 10;
-                    collect += c.to_digit(10).ok_or(ParseErrorKind::CharToIntError(c))?;
+                    collect += c.to_digit(10).ok_or_else(|| ParseErrorKind::CharToIntError(c))?;
                 }
                 'S' | 's' => {
                     value += collect;
@@ -399,22 +401,22 @@ impl Parser {
                     collect = 0;
                 }
                 'H' | 'h' => {
-                    value += collect * 3600;
+                    value += collect * 3_600;
                     collect = 0;
                 }
                 'D' | 'd' => {
-                    value += collect * 86400;
+                    value += collect * 86_400;
                     collect = 0;
                 }
                 'W' | 'w' => {
-                    value += collect * 604800;
+                    value += collect * 604_800;
                     collect = 0;
                 }
                 _ => return Err(ParseErrorKind::ParseTimeError(ttl_str.to_string()).into()),
             }
         }
 
-        return Ok(value + collect); // collects the initial num, or 0 if it was already collected
+        Ok(value + collect) // collects the initial num, or 0 if it was already collected
     }
 }
 

@@ -248,11 +248,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<()> {
-    for (ref edns_code, ref edns_option) in opt.options().iter() {
-        try!(encoder.emit_u16(u16::from(**edns_code)));
+    for (edns_code, edns_option) in opt.options().iter() {
+        try!(encoder.emit_u16(u16::from(*edns_code)));
         try!(encoder.emit_u16(edns_option.len()));
 
-        let data: Vec<u8> = Vec::from(*edns_option);
+        let data: Vec<u8> = Vec::from(edns_option);
         try!(encoder.emit_vec(&data))
     }
     Ok(())
@@ -394,6 +394,17 @@ impl EdnsOption {
             EdnsOption::Unknown(_, ref data) => data.len() as u16, // TODO: should we verify?
         }
     }
+
+    /// Returns `true` if the length in bytes of the EdnsOption is 0
+    pub fn is_empty(&self) -> bool {
+        match *self {
+            #[cfg(feature = "dnssec")]
+            EdnsOption::DAU(ref algorithms) |
+            EdnsOption::DHU(ref algorithms) |
+            EdnsOption::N3U(ref algorithms) => algorithms.is_empty(),
+            EdnsOption::Unknown(_, ref data) => data.is_empty(),
+        }
+    }
 }
 
 /// only the supported extensions are listed right now.
@@ -446,7 +457,7 @@ pub fn test() {
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
     assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.as_bytes();
+    let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);
 

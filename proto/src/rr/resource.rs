@@ -70,12 +70,8 @@ pub struct Record {
     rdata: RData,
 }
 
-impl Record {
-    /// Creates a default record, use the setters to build a more useful object.
-    ///
-    /// There are no optional elements in this object, defaults are an empty name, type A, class IN,
-    /// ttl of 0 and the 0.0.0.0 ip address.
-    pub fn new() -> Record {
+impl Default for Record {
+    fn default() -> Self {
         Record {
             // TODO: these really should all be Optionals, I was lazy.
             name_labels: domain::Name::new(),
@@ -84,6 +80,16 @@ impl Record {
             ttl: 0,
             rdata: RData::NULL(NULL::new()),
         }
+    }
+}
+
+impl Record {
+    /// Creates a default record, use the setters to build a more useful object.
+    ///
+    /// There are no optional elements in this object, defaults are an empty name, type A, class IN,
+    /// ttl of 0 and the 0.0.0.0 ip address.
+    pub fn new() -> Record {
+        Default::default()
     }
 
     /// Create a record with the specified initial values.
@@ -327,10 +333,6 @@ impl PartialEq for Record {
         // self == other && // the same pointer
         self.name_labels == other.name_labels && self.rr_type == other.rr_type &&
             self.dns_class == other.dns_class && self.rdata == other.rdata
-    }
-
-    fn ne(&self, other: &Self) -> bool {
-        !self.eq(other)
     }
 }
 
