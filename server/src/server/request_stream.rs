@@ -65,7 +65,12 @@ where
                     let mut decoder = BinDecoder::new(&buffer);
                     match Message::read(&mut decoder) {
                         Ok(message) => {
-                            debug!("received message: {}", message.id());
+                            info!(
+                                "request: {} recieved from: {} len: {}",
+                                message.id(),
+                                addr,
+                                buffer.len()
+                            );
                             let request = Request {
                                 message: message,
                                 src: addr,
@@ -79,7 +84,12 @@ where
                         // on errors, we will loop around and see if more are ready
                         Err(e) => {
                             // FIXME: respond with an error here? right now this will drop and ignore the request
-                            debug!("bad message format: {}", e);
+                            warn!(
+                                "bad message from: {} len: {}: err: {} ",
+                                addr,
+                                buffer.len(),
+                                e
+                            );
                         }
                     }
                 }

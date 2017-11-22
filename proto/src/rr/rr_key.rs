@@ -29,6 +29,11 @@ impl RrKey {
             record_type: record_type,
         }
     }
+
+    /// Returns the name of the key
+    pub fn name(&self) -> &Name {
+        &self.name
+    }
 }
 
 impl PartialOrd for RrKey {

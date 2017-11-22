@@ -16,7 +16,7 @@
 
 //! hashed negative cache proof for non-existence
 
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use serialize::binary::*;
 use error::*;
@@ -414,11 +414,13 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
 /// * `encoder` - the encoder to write to
 /// * `type_bit_maps` - types to encode into the bitmap
 pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -> ProtoResult<()> {
-    let mut hash: HashMap<u8, Vec<u8>> = HashMap::new();
+    let mut hash: BTreeMap<u8, Vec<u8>> = BTreeMap::new();
+    let mut type_bit_maps = type_bit_maps.to_vec();
+    type_bit_maps.sort();
 
     // collect the bitmaps
     for rr_type in type_bit_maps {
-        let code: u16 = (*rr_type).into();
+        let code: u16 = (rr_type).into();
         let window: u8 = (code >> 8) as u8;
         let low: u8 = (code & 0x00FF) as u8;
 

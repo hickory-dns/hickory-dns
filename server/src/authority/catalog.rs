@@ -25,7 +25,7 @@ use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
 use server::{Request, RequestHandler};
 
-use authority::{Authority, ZoneType};
+use authority::{AuthLookup, Authority, ZoneType};
 
 /// Set of authorities, zones, available to this server.
 pub struct Catalog {
@@ -40,12 +40,6 @@ impl RequestHandler for Catalog {
     /// * `request` - the requested action to perform.
     fn handle_request(&self, request: &Request) -> Message {
         let request_message = &request.message;
-        info!(
-            "request id: {} type: {:?} op_code: {:?}",
-            request_message.id(),
-            request_message.message_type(),
-            request_message.op_code()
-        );
         trace!("request: {:?}", request_message);
 
         let mut resp_edns_opt: Option<Edns> = None;
@@ -283,7 +277,11 @@ impl Catalog {
         for query in request.queries() {
             if let Some(ref_authority) = self.find_auth_recurse(query.name()) {
                 let authority = &ref_authority.read().unwrap(); // poison errors should panic
-                debug!("found authority: {:?}", authority.origin());
+                info!(
+                    "request: {} found authority: {}",
+                    request.id(),
+                    authority.origin()
+                );
                 let (is_dnssec, supported_algorithms) =
                     request.edns().map_or(
                         (false, SupportedAlgorithms::new()),
@@ -299,26 +297,44 @@ impl Catalog {
                             (edns.dnssec_ok(), supported_algorithms)
                         },
                     );
-                debug!(
-                    "request: {} supported_algs: {}",
-                    request.id(),
-                    supported_algorithms
-                );
+
+                // log algorithms being requested
+                if is_dnssec {
+                    info!(
+                        "request: {} supported_algs: {}",
+                        request.id(),
+                        supported_algorithms
+                    );
+                }
 
                 let records = authority.search(query, is_dnssec, supported_algorithms);
                 if !records.is_empty() {
                     response.set_response_code(ResponseCode::NoError);
                     response.set_authoritative(true);
-                    response.add_answers(records.into_iter().cloned());
+                    response.add_answers(records.iter().cloned());
 
                     // get the NS records
                     let ns = authority.ns(is_dnssec, supported_algorithms);
                     if ns.is_empty() {
                         warn!("there are no NS records for: {:?}", authority.origin());
                     } else {
-                        response.add_name_servers(ns.into_iter().cloned());
+                        response.add_name_servers(ns.iter().cloned());
                     }
                 } else {
+                    // in the not found case it's standard to return the SOA in the authority section
+                    //   if the name is in this zone, etc.
+                    // see https://tools.ietf.org/html/rfc2308 for proper response construct
+                    match records {
+                        AuthLookup::NoName => response.set_response_code(ResponseCode::NXDomain),
+                        AuthLookup::NameExists => response.set_response_code(ResponseCode::NoError),
+                        AuthLookup::Records(..) => {
+                            panic!(
+                                "programming error, should have return NoError with records above"
+                            )
+                        }
+                    };
+
+                    // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
                     if is_dnssec {
                         // get NSEC records
                         let nsecs = authority.get_nsec_records(
@@ -326,18 +342,18 @@ impl Catalog {
                             is_dnssec,
                             supported_algorithms,
                         );
+                        info!("request: {} non-existent adding nsecs: {}", request.id(), nsecs.len());
                         response.add_name_servers(nsecs.into_iter().cloned());
+                        response.set_response_code(ResponseCode::NoError);
+                    } else {
+                        info!("request: {} non-existent", request.id());
                     }
-
-                    // in the not found case it's standard to return the SOA in the authority section
-                    // TODO: improve: see https://tools.ietf.org/html/rfc2308 for proper response construct
-                    response.set_response_code(ResponseCode::NXDomain);
 
                     let soa = authority.soa_secure(is_dnssec, supported_algorithms);
                     if soa.is_empty() {
                         warn!("there is no SOA record for: {:?}", authority.origin());
                     } else {
-                        response.add_name_servers(soa.into_iter().cloned());
+                        response.add_name_servers(soa.iter().cloned());
                     }
                 }
             } else {
@@ -347,7 +363,7 @@ impl Catalog {
             }
         }
 
-        // TODO a lot of things do a recursive query for non-A or AAAA records, and return those in
+        // TODO: a lot of authorities do a recursive query for non-A or AAAA records, and return those in
         //  additional
         response
     }

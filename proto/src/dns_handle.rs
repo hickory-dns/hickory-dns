@@ -12,13 +12,14 @@ use std::io;
 use std::marker::PhantomData;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+
 use futures::{Async, Complete, Future, Poll, task};
 use futures::IntoFuture;
 use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::sync::oneshot;
-use rand::Rng;
 use rand;
+use rand::distributions::{IndependentSample, Range};
 use tokio_core::reactor::{Handle, Timeout};
 
 use error::*;
@@ -220,10 +221,11 @@ where
 
     /// creates random query_id, validates against all active queries
     fn next_random_query_id(&self) -> Async<u16> {
+        let between = Range::new(0, u16::max_value());
         let mut rand = rand::thread_rng();
 
         for _ in 0..100 {
-            let id = rand.gen_range(0_u16, u16::max_value());
+            let id = between.ind_sample(&mut rand);
 
             if !self.active_requests.contains_key(&id) {
                 return Async::Ready(id);

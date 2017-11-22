@@ -75,7 +75,7 @@ _443._tcp.www.example.com. IN TLSA (
     // not validating everything, just one of each...
 
     // SOA
-    let soa_record = authority.soa().unwrap();
+    let soa_record = authority.soa().unwrap().first().cloned().unwrap();
     assert_eq!(RecordType::SOA, soa_record.rr_type());
     assert_eq!(&Name::from_labels(vec!["isi", "edu"]), soa_record.name()); // i.e. the origin or domain
     assert_eq!(3600000, soa_record.ttl());
@@ -100,12 +100,14 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // NS
-    let mut ns_records: Vec<&Record> = authority.lookup(
-        &Name::from_labels(vec!["isi", "edu"]),
-        RecordType::NS,
-        false,
-        SupportedAlgorithms::new(),
-    );
+    let mut ns_records: Vec<&Record> = authority
+        .lookup(
+            &Name::from_labels(vec!["isi", "edu"]),
+            RecordType::NS,
+            false,
+            SupportedAlgorithms::new(),
+        )
+        .unwrap();
     let mut compare = vec![
         // this is cool, zip up the expected results... works as long as the order is good.
         Name::from_labels(vec!["a", "isi", "edu"]),
@@ -135,7 +137,7 @@ _443._tcp.www.example.com. IN TLSA (
         RecordType::MX,
         false,
         SupportedAlgorithms::new(),
-    );
+    ).unwrap();
     let mut compare = vec![
         (10, Name::from_labels(vec!["venera", "isi", "edu"])),
         (20, Name::from_labels(vec!["vaxa", "isi", "edu"])),
@@ -167,6 +169,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .unwrap()
         .first()
         .cloned()
         .unwrap();
@@ -188,6 +191,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .unwrap()
         .first()
         .cloned()
         .unwrap();
@@ -212,6 +216,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .unwrap()
         .first()
         .cloned()
         .unwrap();
@@ -232,7 +237,7 @@ _443._tcp.www.example.com. IN TLSA (
         RecordType::TXT,
         false,
         SupportedAlgorithms::new(),
-    );
+    ).unwrap();
     let compare = vec![
         vec![
             "I".to_string(),
@@ -276,6 +281,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .unwrap()
         .first()
         .cloned()
         .unwrap();
@@ -293,6 +299,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .unwrap()
         .first()
         .cloned()
         .unwrap();
@@ -316,6 +323,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .unwrap()
         .first()
         .cloned()
         .expect("nocerts not found");
@@ -335,6 +343,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
+        .unwrap()
         .first()
         .cloned()
         .expect("tlsa record not found");
@@ -343,7 +352,43 @@ _443._tcp.www.example.com. IN TLSA (
         assert_eq!(*rdata.cert_usage(), CertUsage::CA);
         assert_eq!(*rdata.selector(), Selector::Full);
         assert_eq!(*rdata.matching(), Matching::Sha256);
-        assert_eq!(rdata.cert_data(), &[210, 171, 222, 36, 13, 124, 211, 238, 107, 75, 40, 197, 77, 240, 52, 185, 121, 131, 161, 209, 110, 138, 65, 14, 69, 97, 203, 16, 102, 24, 233, 113]);
+        assert_eq!(
+            rdata.cert_data(),
+            &[
+                210,
+                171,
+                222,
+                36,
+                13,
+                124,
+                211,
+                238,
+                107,
+                75,
+                40,
+                197,
+                77,
+                240,
+                52,
+                185,
+                121,
+                131,
+                161,
+                209,
+                110,
+                138,
+                65,
+                14,
+                69,
+                97,
+                203,
+                16,
+                102,
+                24,
+                233,
+                113,
+            ]
+        );
     } else {
         assert!(false);
     }
