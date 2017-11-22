@@ -213,11 +213,11 @@ where
 
     /// creates random query_id, validates against all active queries
     fn next_random_query_id(&self) -> Async<u16> {
-        let between = Range::new(0, u16::max_value());
+        let between = Range::new(0_u32, u32::from(u16::max_value()) + 1);
         let mut rand = rand::thread_rng();
 
         for _ in 0..100 {
-            let id = between.ind_sample(&mut rand);
+            let id = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
 
             if !self.active_requests.contains_key(&id) {
                 return Async::Ready(id);
