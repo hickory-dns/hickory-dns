@@ -36,7 +36,7 @@ use error::*;
 /// allowed in master files.  NULLs are used as placeholders in some
 /// experimental extensions of the DNS.
 /// ```
-#[derive(Debug, PartialEq, Eq, Hash, Clone)]
+#[derive(Default, Debug, PartialEq, Eq, Hash, Clone)]
 pub struct NULL {
     anything: Option<Vec<u8>>,
 }
@@ -44,7 +44,7 @@ pub struct NULL {
 impl NULL {
     /// Construct a new NULL RData
     pub fn new() -> NULL {
-        NULL { anything: None }
+        Default::default()
     }
 
     /// Constructs a new NULL RData with the associated data
@@ -80,7 +80,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NULL> {
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> ProtoResult<()> {
-    if let Some(ref anything) = nil.anything() {
+    if let Some(anything) = nil.anything() {
         for b in anything.iter() {
             try!(encoder.emit(*b));
         }
@@ -96,7 +96,7 @@ pub fn test() {
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
     assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.as_bytes();
+    let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);
 

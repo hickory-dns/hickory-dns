@@ -354,10 +354,10 @@ impl Signer {
     /// Internal checksum function (used for non-RSAMD5 hashes only,
     /// however, RSAMD5 is considered deprecated and not implemented in
     /// trust-dns, anyways).
-    fn calculate_key_tag_internal(bytes: &Vec<u8>) -> u16 {
+    fn calculate_key_tag_internal(bytes: &[u8]) -> u16 {
         let mut ac: u32 = 0;
         for (i, k) in bytes.iter().enumerate() {
-            ac += (*k as u32) << if i & 0x01 != 0 { 0 } else { 8 };
+            ac += u32::from(*k) << if i & 0x01 != 0 { 0 } else { 8 };
         }
         ac += ac >> 16;
         (ac & 0xFFFF) as u16

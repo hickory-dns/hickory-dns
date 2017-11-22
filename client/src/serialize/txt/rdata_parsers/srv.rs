@@ -28,7 +28,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
 ) -> ParseResult<SRV> {
     let priority: u16 = tokens
         .next()
-        .ok_or(ParseError::from(
+        .ok_or_else(|| ParseError::from(
             ParseErrorKind::MissingToken("priority".to_string()),
         ))
         .and_then(|s| u16::from_str(s).map_err(Into::into))?;
@@ -36,7 +36,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
     let weight: u16 = 
         tokens
             .next()
-            .ok_or(ParseError::from(
+            .ok_or_else(|| ParseError::from(
                 ParseErrorKind::MissingToken("weight".to_string()),
             ))
             .and_then(|s| u16::from_str(s).map_err(Into::into))?;
@@ -44,7 +44,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
     let port: u16 = 
         tokens
             .next()
-            .ok_or(ParseError::from(
+            .ok_or_else(|| ParseError::from(
                 ParseErrorKind::MissingToken("port".to_string()),
             ))
             .and_then(|s| u16::from_str(s).map_err(Into::into))?;
@@ -52,7 +52,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
     let target: Name =
         tokens
             .next()
-            .ok_or(ParseError::from(
+            .ok_or_else(|| ParseError::from(
                 ParseErrorKind::MissingToken("target".to_string()),
             ))
             .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;

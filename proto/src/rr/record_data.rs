@@ -416,10 +416,9 @@ impl RData {
                 debug!("reading AAAA");
                 RData::AAAA(rdata::aaaa::read(decoder)?)
             }
-            rt @ RecordType::ANY => {
-                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
-            }
-            rt @ RecordType::AXFR => {
+            rt @ RecordType::ANY |
+            rt @ RecordType::AXFR |
+            rt @ RecordType::IXFR => {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
             }
             RecordType::CAA => {
@@ -429,9 +428,6 @@ impl RData {
             RecordType::CNAME => {
                 debug!("reading CNAME");
                 RData::CNAME(try!(rdata::name::read(decoder)))
-            }
-            rt @ RecordType::IXFR => {
-                return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
             }
             RecordType::MX => {
                 debug!("reading MX");
@@ -507,15 +503,11 @@ impl RData {
             RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
             RData::CAA(ref caa) => rdata::caa::emit(encoder, caa),
             // to_lowercase for rfc4034 and rfc6840
-            RData::CNAME(ref name) => rdata::name::emit(encoder, name),
+            RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => rdata::name::emit(encoder, name),
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
             RData::NULL(ref null) => rdata::null::emit(encoder, null),
-            // to_lowercase for rfc4034 and rfc6840
-            RData::NS(ref name) => rdata::name::emit(encoder, name),
             RData::OPT(ref opt) => rdata::opt::emit(encoder, opt),
-            // to_lowercase for rfc4034 and rfc6840
-            RData::PTR(ref name) => rdata::name::emit(encoder, name),
             // to_lowercase for rfc4034 and rfc6840
             RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
             // to_lowercase for rfc4034 and rfc6840
@@ -560,7 +552,7 @@ impl RData {
 
 impl PartialOrd<RData> for RData {
     fn partial_cmp(&self, other: &RData) -> Option<Ordering> {
-        Some(self.cmp(&other))
+        Some(self.cmp(other))
     }
 }
 

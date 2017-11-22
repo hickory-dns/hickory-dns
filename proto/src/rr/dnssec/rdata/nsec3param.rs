@@ -184,7 +184,7 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> ProtoResult<()> {
     try!(encoder.emit(flags));
     try!(encoder.emit_u16(rdata.iterations()));
     try!(encoder.emit(rdata.salt().len() as u8));
-    try!(encoder.emit_vec(&rdata.salt()));
+    try!(encoder.emit_vec(rdata.salt()));
 
     Ok(())
 }
@@ -196,7 +196,7 @@ pub fn test() {
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
     assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.as_bytes();
+    let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);
 

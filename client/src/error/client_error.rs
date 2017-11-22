@@ -90,8 +90,8 @@ impl<T> From<SendError<T>> for Error {
 
 impl Clone for Error {
     fn clone(&self) -> Self {
-        match self.kind() {
-            &ErrorKind::Timeout => ErrorKind::Timeout.into(),
+        match *self.kind() {
+            ErrorKind::Timeout => ErrorKind::Timeout.into(),
             _ => ErrorKind::Msg(format!("Cloned error: {}", self)).into(),
         }
     }
@@ -108,8 +108,8 @@ impl<'a> From<&'a io::Error> for Error {
 
 impl From<Error> for io::Error {
     fn from(e: Error) -> Self {
-        match e.kind() {
-            &ErrorKind::Timeout => io::ErrorKind::TimedOut.into(),
+        match *e.kind() {
+            ErrorKind::Timeout => io::ErrorKind::TimedOut.into(),
             _ => io::Error::new(io::ErrorKind::Other, format!("ClientError: {}", e)),
         }
     }

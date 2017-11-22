@@ -572,10 +572,10 @@ fn test_compare_and_swap_multi() {
     );
 
     let current1 = current
-        .new_record(RData::A(Ipv4Addr::new(100, 10, 100, 10)))
+        .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 10)))
         .clone();
     let current2 = current
-        .new_record(RData::A(Ipv4Addr::new(100, 10, 100, 11)))
+        .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 11)))
         .clone();
     let current = current;
 
@@ -585,9 +585,9 @@ fn test_compare_and_swap_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let mut new = RecordSet::with_ttl(current.name().clone(), current.record_type(), current.ttl());
-    let new1 = new.new_record(RData::A(Ipv4Addr::new(100, 10, 101, 10)))
+    let new1 = new.new_record(&RData::A(Ipv4Addr::new(100, 10, 101, 10)))
         .clone();
-    let new2 = new.new_record(RData::A(Ipv4Addr::new(100, 10, 101, 11)))
+    let new2 = new.new_record(&RData::A(Ipv4Addr::new(100, 10, 101, 11)))
         .clone();
     let new = new;
 
@@ -704,16 +704,16 @@ fn test_delete_by_rdata_multi() {
     );
 
     let record1 = rrset
-        .new_record(RData::A(Ipv4Addr::new(100, 10, 100, 10)))
+        .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 10)))
         .clone();
     let record2 = rrset
-        .new_record(RData::A(Ipv4Addr::new(100, 10, 100, 11)))
+        .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 11)))
         .clone();
     let record3 = rrset
-        .new_record(RData::A(Ipv4Addr::new(100, 10, 100, 12)))
+        .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 12)))
         .clone();
     let record4 = rrset
-        .new_record(RData::A(Ipv4Addr::new(100, 10, 100, 13)))
+        .new_record(&RData::A(Ipv4Addr::new(100, 10, 100, 13)))
         .clone();
     let rrset = rrset;
 
@@ -736,8 +736,8 @@ fn test_delete_by_rdata_multi() {
         Duration::minutes(5).num_seconds() as u32,
     );
 
-    let record1 = rrset.new_record(record1.rdata().clone()).clone();
-    let record3 = rrset.new_record(record3.rdata().clone()).clone();
+    let record1 = rrset.new_record(record1.rdata()).clone();
+    let record3 = rrset.new_record(record3.rdata()).clone();
     let rrset = rrset;
 
     let result = io_loop

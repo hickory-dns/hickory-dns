@@ -233,7 +233,7 @@ impl DNSKEY {
             }
         }
 
-        digest_type.hash(&buf).map_err(|e| e.into())
+        digest_type.hash(&buf)
     }
 
     /// This will always return an error unless the Ring or OpenSSL features are enabled
@@ -258,7 +258,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DNSKEY> 
     //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
     //    creation of the DNSKEY RR and MUST be ignored upon receipt.
     let zone_key: bool = flags & 0b0000_0001_0000_0000 == 0b0000_0001_0000_0000;
-    let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_00001;
+    let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_0001;
     let revoke: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
     let protocol: u8 = try!(decoder.read_u8());
 
@@ -324,7 +324,7 @@ pub fn test() {
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
     assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.as_bytes();
+    let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);
 

@@ -41,7 +41,7 @@ impl KeyFormat {
             #[cfg(feature = "openssl")]
             e @ Algorithm::RSASHA1 |
             e @ Algorithm::RSASHA1NSEC3SHA1 => {
-                return Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
+                Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
             }
             #[cfg(feature = "openssl")]
             Algorithm::RSASHA256 |
@@ -59,7 +59,7 @@ impl KeyFormat {
                             format!("could not decode RSA from PEM, bad password?: {}", e)
                         }))
                     }
-                    e @ _ => {
+                    e => {
                         return Err(
                             format!(
                                 "unsupported key format with RSA (DER or PEM only): \
@@ -70,9 +70,9 @@ impl KeyFormat {
                     }
                 };
 
-                return Ok(try!(KeyPair::from_rsa(key).map_err(|e| {
+                Ok(try!(KeyPair::from_rsa(key).map_err(|e| {
                     format!("could not tranlate RSA to KeyPair: {}", e)
-                })));
+                })))
             }
             #[cfg(feature = "openssl")]
             Algorithm::ECDSAP256SHA256 |
@@ -90,20 +90,20 @@ impl KeyFormat {
                             format!("could not decode EC from PEM, bad password?: {}", e)
                         }))
                     }
-                    e @ _ => {
+                    e => {
                         return Err(
                             format!(
                                 "unsupported key format with EC (DER or PEM only): \
                                             {:?}",
                                 e
                             ).into(),
-                        )
+                        );
                     }
                 };
 
-                return Ok(try!(KeyPair::from_ec_key(key).map_err(|e| {
+                Ok(try!(KeyPair::from_ec_key(key).map_err(|e| {
                     format!("could not tranlate RSA to KeyPair: {}", e)
-                })));
+                })))
             }
             Algorithm::ED25519 => {
                 match self {
@@ -111,10 +111,10 @@ impl KeyFormat {
                     KeyFormat::Pkcs8 => {
                         let key = try!(Ed25519KeyPair::from_pkcs8(Input::from(bytes)));
 
-                        return Ok(KeyPair::from_ed25519(key));
+                        Ok(KeyPair::from_ed25519(key))
                     }
-                    e @ _ => {
-                        return Err(
+                    e => {
+                        Err(
                             format!(
                                 "unsupported key format with ED25519 (only Pkcs8 supported): {:?}",
                                 e
@@ -124,7 +124,7 @@ impl KeyFormat {
                 }
             }
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
-            e @ _ => {
+            e => {
                 return Err(
                     format!(
                         "unsupported Algorithm, enable openssl or ring feature: {:?}",
@@ -165,7 +165,7 @@ impl KeyFormat {
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => return KeyPair::generate_pkcs8(algorithm),
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
-            e @ _ => {
+            e => {
                 return Err(
                     format!(
                         "unsupported Algorithm, enable openssl or ring feature: {:?}",
@@ -187,9 +187,9 @@ impl KeyFormat {
                         if password.is_some() {
                             return Err(format!("Can only password protect PEM: {:?}", self).into());
                         }
-                        return pkey.private_key_to_der().map_err(|e| {
+                        pkey.private_key_to_der().map_err(|e| {
                             format!("error writing key as DER: {}", e).into()
-                        });
+                        })
                     }
                     KeyFormat::Pem => {
                         let key = if let Some(password) = password {
@@ -198,10 +198,10 @@ impl KeyFormat {
                             pkey.private_key_to_pem()
                         };
 
-                        return key.map_err(|e| format!("error writing key as PEM: {}", e).into());
+                        key.map_err(|e| format!("error writing key as PEM: {}", e).into())
                     }
-                    e @ _ => {
-                        return Err(
+                    e => {
+                        Err(
                             format!(
                                 "unsupported key format with RSA or EC (DER or PEM \
                                             only): {:?}",
@@ -214,7 +214,7 @@ impl KeyFormat {
             #[cfg(feature = "ring")]
             KeyPair::ED25519(..) => panic!("should have returned early"),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
-            _ => return Err(format!("unsupported Algorithm, enable openssl feature (encode not supported with ring)").into()),
+            _ => Err(format!("unsupported Algorithm, enable openssl feature (encode not supported with ring)").into()),
         }
     }
 
@@ -239,9 +239,9 @@ impl KeyFormat {
                         if password.is_some() {
                             return Err(format!("Can only password protect PEM: {:?}", self).into());
                         }
-                        return pkey.private_key_to_der().map_err(|e| {
+                        pkey.private_key_to_der().map_err(|e| {
                             format!("error writing key as DER: {}", e).into()
-                        });
+                        })
                     }
                     KeyFormat::Pem => {
                         let key = if let Some(password) = password {
@@ -250,10 +250,10 @@ impl KeyFormat {
                             pkey.private_key_to_pem()
                         };
 
-                        return key.map_err(|e| format!("error writing key as PEM: {}", e).into());
+                        key.map_err(|e| format!("error writing key as PEM: {}", e).into())
                     }
-                    e @ _ => {
-                        return Err(
+                    e => {
+                        Err(
                             format!(
                                 "unsupported key format with RSA or EC (DER or PEM \
                                             only): {:?}",
@@ -264,7 +264,7 @@ impl KeyFormat {
                 }
             }
             #[cfg(any(feature = "ring", not(feature = "openssl")))]
-            _ => return Err(format!("unsupported Algorithm, enable openssl feature (encode not supported with ring)").into()),
+            _ => Err("unsupported Algorithm, enable openssl feature (encode not supported with ring)".into()),
         }
     }
 }

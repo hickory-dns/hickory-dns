@@ -70,7 +70,7 @@ where
         let mut map = self.active_queries.borrow_mut();
         map.insert(query, request.clone());
 
-        return Box::new(request);
+        Box::new(request)
     }
 }
 

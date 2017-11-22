@@ -31,7 +31,7 @@ use error::*;
 /// TODO: all Names should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
 /// TODO: Currently this probably doesn't support binary names, it would be nice to do that.
-#[derive(Debug, Eq, Clone)]
+#[derive(Default, Debug, Eq, Clone)]
 pub struct Name {
     is_fqdn: bool,
     labels: Vec<Rc<String>>,
@@ -40,10 +40,7 @@ pub struct Name {
 impl Name {
     /// Create a new domain::Name, i.e. label
     pub fn new() -> Self {
-        Name {
-            is_fqdn: false,
-            labels: Vec::new(),
-        }
+        Default::default()
     }
 
     /// Returns the root label, i.e. no labels, can probably make this better in the future.
@@ -173,8 +170,8 @@ impl Name {
     /// ```
     pub fn append_name(mut self, other: &Self) -> Self {
         self.labels.reserve_exact(other.labels.len());
-        for label in other.labels.iter() {
-            self.labels.push(label.clone());
+        for label in &other.labels {
+            self.labels.push(Rc::clone(label));
         }
 
         self.is_fqdn = other.is_fqdn;
@@ -218,7 +215,7 @@ impl Name {
     /// ```
     pub fn to_lowercase(&self) -> Self {
         let mut new_labels = Vec::with_capacity(self.labels.len());
-        for label in self.labels.iter() {
+        for label in &self.labels {
             new_labels.push(label.to_lowercase());
         }
 
@@ -308,7 +305,7 @@ impl Name {
             }
         }
 
-        return true;
+        true
     }
 
     /// Returns the number of labels in the name, discounting `*`.
@@ -342,12 +339,18 @@ impl Name {
     /// This can be used as an estimate, when serializing labels, they will often be compressed
     /// and/or escaped causing the exact length to be different.
     pub fn len(&self) -> usize {
-        let dots = if self.labels.len() > 0 {
+        let dots = if !self.labels.is_empty() {
             self.labels.len()
         } else {
             1
         };
         self.labels.iter().fold(dots, |acc, item| acc + item.len())
+    }
+
+    /// Returns whether the length of the labels, in bytes is 0. In practive, since '.' counts as
+    /// 1, this is never the case so the method returns false.
+    pub fn is_empty(&self) -> bool {
+        false
     }
 
     /// attempts to parse a name such as `"example.com."` or `"subdomain.example.com."`
@@ -394,10 +397,11 @@ impl Name {
                 ParseState::Escape1 => {
                     if ch.is_numeric() {
                         state = ParseState::Escape2(try!(
-                            ch.to_digit(10).ok_or(ProtoError::from(ProtoErrorKind::Msg(
-                                format!("illegal char: {}", ch),
-                            )))
-                        ))
+                            ch.to_digit(10).ok_or_else(|| {
+                                ProtoError::from(ProtoErrorKind::Msg(
+                                        format!("illegal char: {}", ch)))
+                            }))
+                        );
                     } else {
                         // it's a single escaped char
                         label.push(ch);
@@ -408,9 +412,10 @@ impl Name {
                     if ch.is_numeric() {
                         state = ParseState::Escape3(
                             i,
-                            try!(ch.to_digit(10).ok_or(ProtoError::from(ProtoErrorKind::Msg(
-                                format!("illegal char: {}", ch),
-                            )))),
+                            try!(ch.to_digit(10).ok_or_else(|| {
+                                ProtoError::from(ProtoErrorKind::Msg(
+                                        format!("illegal char: {}", ch)))
+                            }))
                         );
                     } else {
                         return try!(Err(
@@ -421,14 +426,15 @@ impl Name {
                 ParseState::Escape3(i, ii) => {
                     if ch.is_numeric() {
                         let val: u32 = (i << 16) + (ii << 8) +
-                            try!(ch.to_digit(10).ok_or(ProtoError::from(ProtoErrorKind::Msg(
-                                format!("illegal char: {}", ch),
-                            ))));
-                        let new: char = try!(char::from_u32(val).ok_or(
+                            try!(ch.to_digit(10).ok_or_else(|| {
+                                ProtoError::from(ProtoErrorKind::Msg(
+                                        format!("illegal char: {}", ch)))
+                            }));
+                        let new: char = try!(char::from_u32(val).ok_or_else(|| {
                             ProtoError::from(ProtoErrorKind::Msg(
                                 format!("illegal char: {}", ch),
-                            )),
-                        ));
+                            ))
+                        }));
                         label.push(new);
                         state = ParseState::Label;
                     } else {
@@ -446,10 +452,8 @@ impl Name {
 
         if local.ends_with('.') {
             name.set_fqdn(true);
-        } else {
-            if let Some(other) = origin {
-                return Ok(name.append_domain(other));
-            }
+        } else if let Some(other) = origin {
+            return Ok(name.append_domain(other));
         }
 
         Ok(name)
@@ -620,7 +624,7 @@ impl Hash for Name {
     where
         H: Hasher,
     {
-        for label in self.labels.iter() {
+        for label in &self.labels {
             state.write(label.to_lowercase().as_bytes());
         }
     }
@@ -699,7 +703,7 @@ impl BinSerializable<Name> for Name {
                     let pointed = try!(Name::read(&mut pointer));
 
                     for l in &*pointed.labels {
-                        labels.push(l.clone());
+                        labels.push(Rc::clone(l));
                     }
 
                     // Pointers always finish the name, break like Root.
@@ -747,7 +751,7 @@ impl fmt::Display for Name {
 impl Index<usize> for Name {
     type Output = String;
 
-    fn index<'a>(&'a self, _index: usize) -> &'a String {
+    fn index(&self, _index: usize) -> &String {
         &*(self.labels[_index])
     }
 }

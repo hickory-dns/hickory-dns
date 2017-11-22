@@ -27,7 +27,7 @@ impl Hosts {
 
     /// lookup_static_host looks up the addresses for the given host from /etc/hosts.
     pub fn lookup_static_host(&self, name: &Name) -> Option<Lookup> {
-        if self.by_name.len() > 0 {
+        if !self.by_name.is_empty() {
             if let Some(val) = self.by_name.get(name) {
                 return Some(val.clone());
             }
@@ -72,13 +72,12 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
             continue;
         };
 
-        for i in 1..fields.len() {
-            let domain = fields[i].to_lowercase();
+        for domain in fields.iter().skip(1).map(|domain| domain.to_lowercase()) {
             if let Ok(name) = Name::from_str(&domain) {
                 let lookup = hosts
                     .by_name
                     .entry(name.clone())
-                    .or_insert(Lookup::new(Arc::new(vec![])))
+                    .or_insert_with(|| Lookup::new(Arc::new(vec![])))
                     .append(Lookup::new(Arc::new(vec![addr.clone()])));
 
                 hosts.by_name.insert(name, lookup);
