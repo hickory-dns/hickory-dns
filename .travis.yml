@@ -32,13 +32,13 @@ matrix:
       env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features --features=dnssec-ring"
            RUN_KCOV=1
-           
+
     # just tls using openssl
     - rust: stable
       env: MODULES="integration-tests server"
            OPTIONS="--no-default-features --features=tls-openssl"
            RUN_KCOV=1
-           
+
     # min rust version
     # - rust: 1.14.0
     - rust: beta
@@ -58,5 +58,7 @@ matrix:
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
   - if [[ "$MODULES" == "compatibility-tests" ]]; then scripts/install_bind.sh ; fi
-script: scripts/run_tests.sh
+script:
+    - scripts/run_tests.sh
+    - bash -c 'if [[ "$TRAVIS_RUST_VERSION" == "nightly" ]] ; then cargo install clippy --force && scripts/run_clippy.sh ; fi'
 after_success: scripts/run_kcov.sh

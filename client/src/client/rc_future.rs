@@ -49,11 +49,11 @@ impl<F> Future for RcFuture<F>
 
         // TODO convert this to try_borrow_mut when that stabilizes...
         match self.rc_future.borrow_mut().poll() {
-            result @ Ok(Async::NotReady) => return result,
-            result @ _ => {
+            result @ Ok(Async::NotReady) => result,
+            result => {
                 let mut store = self.result.borrow_mut();
                 *store = Some(result.clone());
-                return result;
+                result
             }
         }
     }
@@ -65,8 +65,8 @@ impl<F> Clone for RcFuture<F>
 {
     fn clone(&self) -> Self {
         RcFuture {
-            rc_future: self.rc_future.clone(),
-            result: self.result.clone(),
+            rc_future: Rc::clone(&self.rc_future),
+            result: Rc::clone(&self.result),
         }
     }
 }

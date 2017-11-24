@@ -149,9 +149,9 @@ impl From<Algorithm> for DigestType {
         match a {
             Algorithm::RSASHA1 |
             Algorithm::RSASHA1NSEC3SHA1 => DigestType::SHA1,
-            Algorithm::RSASHA256 => DigestType::SHA256,
-            Algorithm::RSASHA512 => DigestType::SHA512,
+            Algorithm::RSASHA256 |
             Algorithm::ECDSAP256SHA256 => DigestType::SHA256,
+            Algorithm::RSASHA512 => DigestType::SHA512,
             Algorithm::ECDSAP384SHA384 => DigestType::SHA384,
             Algorithm::ED25519 => DigestType::ED25519,
         }

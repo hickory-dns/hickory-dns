@@ -82,10 +82,8 @@ pub enum MessageType {
     Response,
 }
 
-impl Header {
-    // TODO: we should make id, message_type and op_code all required and non-editable
-    /// A default Header, not very useful.
-    pub fn new() -> Self {
+impl Default for Header {
+    fn default() -> Self {
         Header {
             id: 0,
             message_type: MessageType::Query,
@@ -102,6 +100,14 @@ impl Header {
             name_server_count: 0,
             additional_count: 0,
         }
+    }
+}
+
+impl Header {
+    // TODO: we should make id, message_type and op_code all required and non-editable
+    /// A default Header, not very useful.
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// Length of the header, always 12 bytes
@@ -468,7 +474,7 @@ impl BinSerializable<Header> for Header {
         } else {
             0b0000_0000
         };
-        r_z_ad_cd_rcod |= u8::from(self.response_code);
+        r_z_ad_cd_rcod |= self.response_code;
         try!(encoder.emit(r_z_ad_cd_rcod));
 
         try!(encoder.emit_u16(self.query_count));

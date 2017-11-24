@@ -588,7 +588,7 @@ fn test() {
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
     assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.as_bytes();
+    let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);
 

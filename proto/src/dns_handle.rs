@@ -186,7 +186,7 @@ where
     fn drop_cancelled(&mut self) {
         // TODO: should we have a timeout here? or always expect the caller to do this?
         let mut canceled = HashSet::new();
-        for (&id, &mut (ref mut req, ref mut timeout)) in self.active_requests.iter_mut() {
+        for (&id, &mut (ref mut req, ref mut timeout)) in &mut self.active_requests {
             if let Ok(Async::Ready(())) = req.poll_cancel() {
               canceled.insert(id);
             }
@@ -221,11 +221,11 @@ where
 
     /// creates random query_id, validates against all active queries
     fn next_random_query_id(&self) -> Async<u16> {
-        let between = Range::new(0, u16::max_value());
+        let between = Range::new(0_u32, u32::from(u16::max_value()) + 1);
         let mut rand = rand::thread_rng();
 
         for _ in 0..100 {
-            let id = between.ind_sample(&mut rand);
+            let id = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
 
             if !self.active_requests.contains_key(&id) {
                 return Async::Ready(id);
@@ -391,7 +391,7 @@ where
         }
 
         // Finally, return not ready to keep the 'driver task' alive.
-        return Ok(Async::NotReady);
+        Ok(Async::NotReady)
     }
 }
 
@@ -422,10 +422,10 @@ where
                     .expect("error notifying wait, possible future leak");
 
                 task::current().notify();
-                return Ok(Async::NotReady);
+                Ok(Async::NotReady)
             }
-            Ok(Async::Ready(None)) => return Ok(Async::Ready(())),            
-            _ => return Err(E::from(ProtoErrorKind::NoError.into())),
+            Ok(Async::Ready(None)) => Ok(Async::Ready(())),
+            _ => Err(E::from(ProtoErrorKind::NoError.into())),
         }
     }
 }

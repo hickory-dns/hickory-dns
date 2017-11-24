@@ -119,13 +119,13 @@ impl TcpStream<TokioTcpStream> {
     {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::<E>::new(message_sender);
-        let timeout = match Timeout::new(timeout, &loop_handle) {
+        let timeout = match Timeout::new(timeout, loop_handle) {
             Ok(timeout) => timeout,
             Err(e) => return (Box::new(future::err(e)), message_sender),
         };
 
 
-        let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
+        let tcp = TokioTcpStream::connect(&name_server, loop_handle);
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
@@ -348,7 +348,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         debug!("remain ReadTcpState::LenBytes: {}", pos);
                         None
                     } else {
-                        let length = (bytes[0] as u16) << 8 & 0xFF00 | bytes[1] as u16 & 0x00FF;
+                        let length = u16::from(bytes[0]) << 8 & 0xFF00 | u16::from(bytes[1]) & 0x00FF;
                         debug!("got length: {}", length);
                         let mut bytes = Vec::with_capacity(length as usize);
                         bytes.resize(length as usize, 0);
@@ -396,13 +396,10 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
             // this will move to the next state,
             //  if it was a completed receipt of bytes, then it will move out the bytes
             if let Some(state) = new_state {
-                match mem::replace(&mut self.read_state, state) {
-                    ReadTcpState::Bytes { pos, bytes } => {
-                        debug!("returning bytes");
-                        assert_eq!(pos, bytes.len());
-                        ret_buf = Some(bytes);
-                    }
-                    _ => (),
+                if let ReadTcpState::Bytes { pos, bytes } = mem::replace(&mut self.read_state, state) {
+                    debug!("returning bytes");
+                    assert_eq!(pos, bytes.len());
+                    ret_buf = Some(bytes);
                 }
             }
         }

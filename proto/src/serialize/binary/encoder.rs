@@ -64,13 +64,18 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// Returns a reference to the internal buffer
-    pub fn as_bytes(self) -> &'a Vec<u8> {
+    pub fn into_bytes(self) -> &'a Vec<u8> {
         self.buffer
     }
 
     /// Returns the length of the buffer
     pub fn len(&self) -> usize {
         self.buffer.len()
+    }
+
+    /// Returns `true` if the buffer is empty
+    pub fn is_empty(&self) -> bool {
+        self.buffer.is_empty()
     }
 
     /// Returns the current offset into the buffer
@@ -117,7 +122,7 @@ impl<'a> BinEncoder<'a> {
 
     /// Looks up the index of an already written label
     pub fn get_label_pointer(&self, labels: &[Rc<String>]) -> Option<u16> {
-        self.name_pointers.get(labels).map(|i| *i)
+        self.name_pointers.get(labels).cloned()
     }
 
     /// matches description from above.

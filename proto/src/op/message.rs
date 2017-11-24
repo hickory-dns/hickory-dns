@@ -69,7 +69,7 @@ use rr::dnssec::rdata::DNSSECRecordType;
 ///
 /// By default Message is a Query. Use the Message::as_update() to create and update, or
 ///  Message::new_update()
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, Default)]
 pub struct Message {
     header: Header,
     queries: Vec<Query>,
@@ -574,7 +574,7 @@ impl Message {
         Ok((records, edns, sig0s))
     }
 
-    fn emit_records(encoder: &mut BinEncoder, records: &Vec<Record>) -> ProtoResult<()> {
+    fn emit_records(encoder: &mut BinEncoder, records: &[Record]) -> ProtoResult<()> {
         for r in records {
             try!(r.emit(encoder));
         }

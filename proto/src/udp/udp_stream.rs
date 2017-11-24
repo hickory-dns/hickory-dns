@@ -14,8 +14,8 @@ use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
-use rand::Rng;
 use rand;
+use rand::distributions::{IndependentSample, Range};
 use tokio_core;
 use tokio_core::reactor::Handle;
 
@@ -112,7 +112,7 @@ impl UdpStream {
         };
 
         // TODO: consider making this return a Result...
-        let socket = tokio_core::net::UdpSocket::from_socket(socket, &loop_handle)
+        let socket = tokio_core::net::UdpSocket::from_socket(socket, loop_handle)
             .expect("could not register socket to loop");
 
         let stream = UdpStream {
@@ -126,8 +126,8 @@ impl UdpStream {
     /// Creates a future for randomly binding to a local socket address for client connections.
     fn next_bound_local_address(name_server: &SocketAddr) -> NextRandomUdpSocket {
         let zero_addr: IpAddr = match *name_server {
-            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0,0,0,0)),
-            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0,0,0,0,0,0,0,0)),
+            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
         };
 
         NextRandomUdpSocket { bind_address: zero_addr }
@@ -143,8 +143,7 @@ impl Stream for UdpStream {
         //  makes this self throttling.
         loop {
             // first try to send
-            match try!(self.outbound_messages.peek().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
-        Async::Ready(Some(&(ref buffer, addr))) => {
+            if let Async::Ready(Some(&(ref buffer, addr))) = try!(self.outbound_messages.peek().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
           match self.socket.poll_write() {
             Async::NotReady => {
               return Ok(Async::NotReady)
@@ -154,10 +153,7 @@ impl Stream for UdpStream {
               try_nb!(self.socket.send_to(buffer, &addr));
             },
           }
-        },
-        // all others will drop through to the poll()
-        _ => (),
-      }
+        }
 
             // now pop the request and check if we should break or continue.
             match try!(self.outbound_messages.poll().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
@@ -196,12 +192,14 @@ impl Future for NextRandomUdpSocket {
     ///
     /// if there is no port available after 10 attempts, returns NotReady
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let between = Range::new(1025_u32, u32::from(u16::max_value()) + 1);
         let mut rand = rand::thread_rng();
-
+        
         for attempt in 0..10 {
+            let port = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
             let zero_addr = SocketAddr::new(
                 self.bind_address,
-                rand.gen_range(1025_u16, u16::max_value()),
+                port,
             );
 
             match std::net::UdpSocket::bind(&zero_addr) {
@@ -317,7 +315,8 @@ fn udp_stream_test(server_addr: std::net::IpAddr) {
 
     for _ in 0..send_recv_times {
         // test once
-        sender.sender
+        sender
+            .sender
             .unbounded_send((test_bytes.to_vec(), server_addr))
             .unwrap();
         let (buffer_and_addr, stream_tmp) = io_loop.run(stream.into_future()).ok().unwrap();

@@ -20,6 +20,7 @@ use std::convert::From;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 use serialize::binary::*;
 use error::*;
@@ -89,16 +90,19 @@ pub enum RecordType {
     DNSSEC(DNSSECRecordType),
 }
 
-impl RecordType {
-    /// Convert from RecordType to &str
+impl FromStr for RecordType {
+    type Err = ProtoError;
+
+    /// Convert `&str` to `RecordType`
     ///
     /// ```
+    /// use std::str::FromStr;
     /// use trust_dns_proto::rr::record_type::RecordType;
     ///
     /// let var: RecordType = RecordType::from_str("A").unwrap();
     /// assert_eq!(RecordType::A, var);
     /// ```
-    pub fn from_str(str: &str) -> ProtoResult<Self> {
+    fn from_str(str: &str) -> ProtoResult<Self> {
         match str {
             "A" => Ok(RecordType::A),
             "AAAA" => Ok(RecordType::AAAA),
@@ -117,8 +121,10 @@ impl RecordType {
             _ => Err(ProtoErrorKind::UnknownRecordTypeStr(str.to_string()).into()),
         }
     }
+}
 
-    /// Convert from RecordType to &str
+impl RecordType {
+    /// Convert from `u16` to `RecordType`
     ///
     /// ```
     /// use trust_dns_proto::rr::record_type::RecordType;
