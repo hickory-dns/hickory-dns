@@ -10,8 +10,6 @@
 use std::env;
 use std::fmt::Display;
 
-#[cfg(feature = "colored")]
-use colored::Colorize;
 use env_logger::{LogBuilder, LogTarget};
 use log::LogRecord;
 
@@ -35,77 +33,49 @@ fn plain_formatter(record: &LogRecord) -> String {
     )
 }
 
-#[cfg(feature = "colored")]
-fn color_formatter(record: &LogRecord) -> String {
-    use log::LogLevel;
-
-    let color = match record.level() {
-        LogLevel::Error => "red",
-        LogLevel::Warn => "yellow",
-        LogLevel::Info => "green",
-        LogLevel::Trace => "magenta",
-        LogLevel::Debug => "cyan",
-    };
-
-    format(
-        record.level().to_string().color(color),
-        record.location().module_path(),
-        record.location().line(),
-        record.args().to_string().color(color),
-    )
-}
-
 fn get_env() -> String {
     env::var("RUST_LOG").unwrap_or(String::new())
 }
 
 fn all_trust_dns(level: &str) -> String {
-    format!(",named={level},trust_dns_server={level},trust_dns_proto={level}", level=level)
+    format!(
+        ",named={level},trust_dns_server={level},trust_dns_proto={level}",
+        level = level
+    )
 }
 
 /// appends trust-dns-server debug to RUST_LOG
-pub fn debug(no_color: bool) {
+pub fn debug() {
     let mut rust_log = get_env();
     rust_log.push_str(&all_trust_dns("debug"));
-    logger(&rust_log, no_color);
+    logger(&rust_log);
 }
 
 /// appends trust-dns-server info to RUST_LOG
-pub fn default(no_color: bool) {
+pub fn default() {
     let mut rust_log = get_env();
     rust_log.push_str(&all_trust_dns("info"));
-    logger(&rust_log, no_color);
+    logger(&rust_log);
 }
 
 /// appends trust-dns-server info to RUST_LOG
-pub fn quiet(no_color: bool) {
+pub fn quiet() {
     let mut rust_log = get_env();
     rust_log.push_str(&all_trust_dns("info"));
-    logger(&rust_log, no_color);
+    logger(&rust_log);
 }
 
 /// only uses the RUST_LOG environment variable.
-pub fn env(no_color: bool) {
+pub fn env() {
     let rust_log = get_env();
-    logger(&rust_log, no_color);
+    logger(&rust_log);
 }
 
 /// see env_logger docs
-fn logger(config: &str, _no_color: bool) {
-    #[cfg(feature = "colored")]    
-    let is_tty = env::var("TERM").ok().map_or(false, |_| true);
-
+fn logger(config: &str) {
     let mut builder = LogBuilder::new();
 
-    #[cfg(feature = "colored")]    
-    let log_formatter = if is_tty && !_no_color {
-        color_formatter
-    } else {
-        plain_formatter
-    };
-    
-    #[cfg(not(feature = "colored"))]
-    let log_formatter = plain_formatter;    
+    let log_formatter = plain_formatter;
 
     builder.format(log_formatter);
     builder.parse(&config);

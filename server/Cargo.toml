@@ -41,7 +41,7 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = ["tls-openssl", "dnssec-openssl", "colored"]
+default = ["tls-openssl", "dnssec-openssl"]
 dnssec-openssl = ["dnssec", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
@@ -65,7 +65,6 @@ path = "src/named.rs"
 backtrace = "^0.2.1"
 chrono = "^0.4"
 clap = "^2.27"
-colored = { version = "1.6.0", optional = true }
 env_logger = "^0.4"
 error-chain = "0.1.12"
 futures = "^0.1.6"

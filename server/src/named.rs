@@ -286,7 +286,6 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedP
 // argument name constants for the CLI options
 const QUIET_ARG: &str = "quiet";
 const DEBUG_ARG: &str = "debug";
-const NO_COLOR_ARG: &str = "no-color";
 const CONFIG_ARG: &str = "config";
 const ZONEDIR_ARG: &str = "zonedir";
 const PORT_ARG: &str = "port";
@@ -296,7 +295,6 @@ const TLS_PORT_ARG: &str = "tls-port";
 struct Args {
     pub flag_quiet: bool,
     pub flag_debug: bool,
-    pub flag_no_color: bool,
     pub flag_config: String,
     pub flag_zonedir: Option<String>,
     pub flag_port: Option<u16>,
@@ -308,7 +306,6 @@ impl<'a> From<ArgMatches<'a>> for Args {
         Args {
             flag_quiet: matches.is_present(QUIET_ARG),
             flag_debug: matches.is_present(DEBUG_ARG),
-            flag_no_color: matches.is_present(NO_COLOR_ARG),
             flag_config: matches.value_of(CONFIG_ARG).map(|s| s.to_string()).expect(
                 "config path should have had default",
             ),
@@ -341,11 +338,6 @@ pub fn main() {
                 .short("d")
                 .help("Turn on DEBUG messages (default is only INFO)")
                 .conflicts_with(QUIET_ARG),
-        )
-        .arg(
-            Arg::with_name(NO_COLOR_ARG)
-                .long(NO_COLOR_ARG)
-                .help("Disable all color output"),
         )
         .arg(
             Arg::with_name(CONFIG_ARG)
@@ -388,11 +380,11 @@ pub fn main() {
     // FIXME: add env_logger support
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
     if args.flag_quiet {
-        logger::quiet(args.flag_no_color);
+        logger::quiet();
     } else if args.flag_debug {
-        logger::debug(args.flag_no_color);
+        logger::debug();
     } else {
-        logger::default(args.flag_no_color);
+        logger::default();
     }
 
     info!("Trust-DNS {} starting", trust_dns::version());

@@ -40,8 +40,8 @@ extern crate log;
 extern crate rusqlite;
 extern crate rustc_serialize;
 extern crate time;
-extern crate toml;
 extern crate tokio_core;
+extern crate toml;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 
@@ -63,5 +63,5 @@ pub fn version() -> &'static str {
 
 #[test]
 fn enable_logging_for_tests() {
-    logger::default(true);
+    logger::debug();
 }
