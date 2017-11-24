@@ -14,8 +14,8 @@ use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
-use rand::Rng;
 use rand;
+use rand::distributions::{IndependentSample, Range};
 use tokio_core;
 use tokio_core::reactor::Handle;
 
@@ -126,8 +126,8 @@ impl UdpStream {
     /// Creates a future for randomly binding to a local socket address for client connections.
     fn next_bound_local_address(name_server: &SocketAddr) -> NextRandomUdpSocket {
         let zero_addr: IpAddr = match *name_server {
-            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0,0,0,0)),
-            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0,0,0,0,0,0,0,0)),
+            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
         };
 
         NextRandomUdpSocket { bind_address: zero_addr }
@@ -192,12 +192,14 @@ impl Future for NextRandomUdpSocket {
     ///
     /// if there is no port available after 10 attempts, returns NotReady
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let between = Range::new(1025_u32, u32::from(u16::max_value()) + 1);
         let mut rand = rand::thread_rng();
-
+        
         for attempt in 0..10 {
+            let port = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
             let zero_addr = SocketAddr::new(
                 self.bind_address,
-                rand.gen_range(1025_u16, u16::max_value()),
+                port,
             );
 
             match std::net::UdpSocket::bind(&zero_addr) {
@@ -313,7 +315,8 @@ fn udp_stream_test(server_addr: std::net::IpAddr) {
 
     for _ in 0..send_recv_times {
         // test once
-        sender.sender
+        sender
+            .sender
             .unbounded_send((test_bytes.to_vec(), server_addr))
             .unwrap();
         let (buffer_and_addr, stream_tmp) = io_loop.run(stream.into_future()).ok().unwrap();

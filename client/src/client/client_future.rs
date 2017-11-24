@@ -23,6 +23,9 @@ use rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use rr::dnssec::Signer;
 use rr::rdata::NULL;
 
+// TODO: this should be configurable
+const MAX_PAYLOAD_LEN: u16 = 1500-40-8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header) 
+
 /// A DNS Client implemented over futures-rs.
 ///
 /// This Client is generic and capable of wrapping UDP, TCP, and other underlying DNS protocol
@@ -219,7 +222,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         // Extended dns
         {
             let edns = message.edns_mut();
-            edns.set_max_payload(1500);
+            edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
         }
 
@@ -307,7 +310,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         // Extended dns
         {
             let edns = message.edns_mut();
-            edns.set_max_payload(1500);
+            edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
         }
 
@@ -386,7 +389,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         // Extended dns
         {
             let edns = message.edns_mut();
-            edns.set_max_payload(1500);
+            edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
         }
 
@@ -484,7 +487,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         // Extended dns
         {
             let edns = message.edns_mut();
-            edns.set_max_payload(1500);
+            edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
         }
 
@@ -562,7 +565,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         // Extended dns
         {
             let edns = message.edns_mut();
-            edns.set_max_payload(1500);
+            edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
         }
 
@@ -636,7 +639,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         // Extended dns
         {
             let edns = message.edns_mut();
-            edns.set_max_payload(1500);
+            edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
         }
 
@@ -703,7 +706,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         // Extended dns
         {
             let edns = message.edns_mut();
-            edns.set_max_payload(1500);
+            edns.set_max_payload(MAX_PAYLOAD_LEN);
             edns.set_version(0);
         }
 
