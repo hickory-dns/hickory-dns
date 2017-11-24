@@ -32,7 +32,8 @@
 //! ```
 
 extern crate chrono;
-extern crate docopt;
+#[macro_use]
+extern crate clap;
 #[macro_use]
 extern crate log;
 extern crate rustc_serialize;
@@ -51,12 +52,9 @@ use std::io::Read;
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
 
-use docopt::Docopt;
-use log::LogLevel;
+use clap::{Arg, ArgMatches};
 
 use trust_dns::error::ParseResult;
-use trust_dns::logger;
-use trust_dns::version;
 use trust_dns::serialize::txt::{Lexer, Parser};
 use trust_dns::rr::Name;
 
@@ -64,8 +62,8 @@ use trust_dns::rr::Name;
 use trust_dns::rr::dnssec::{KeyPair, Signer};
 
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
-
 use trust_dns_server::config::{Config, TlsCertConfig, ZoneConfig};
+use trust_dns_server::logger;
 
 #[cfg(feature = "dnssec")]
 use trust_dns_server::config::KeyConfig;
@@ -75,37 +73,7 @@ use trust_dns_server::server::ServerFuture;
 #[cfg(feature = "tls")]
 use trust_dns_openssl::tls_server::*;
 
-// the Docopt usage string.
-//  http://docopt.org
-// TODO: add option for specifying list of addresses instead of just port.
-const USAGE: &'static str = "
-Usage: named [options]
-       named (-h | --help | --version)
-
-Options:
-    -q, --quiet             Disable INFO messages, WARN and ERROR will remain
-    -d, --debug             Turn on DEBUG messages (default is only INFO)
-    -h, --help              Show this message
-    -v, --version           Show the version of trust-dns
-    -c FILE, --config=FILE  Path to configuration file, default is /etc/named.toml
-    -z DIR, --zonedir=DIR   Path to the root directory for all zone files, see also config toml
-    -p PORT, --port=PORT    Override the listening port
-    --tls-port=PORT         Override the listening port for TLS connections
-";
-
-#[derive(RustcDecodable)]
-struct Args {
-    pub flag_quiet: bool,
-    pub flag_debug: bool,
-    pub flag_help: bool,
-    pub flag_version: bool,
-    pub flag_config: Option<String>,
-    pub flag_zonedir: Option<String>,
-    pub flag_port: Option<u16>,
-    pub flag_tls_port: Option<u16>,
-}
-
-fn parse_file(
+fn parse_zone_file(
     file: File,
     origin: Option<Name>,
     zone_type: ZoneType,
@@ -168,7 +136,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
         }));
 
         let mut authority = try!(
-            parse_file(
+            parse_zone_file(
                 zone_file,
                 Some(zone_name.clone()),
                 zone_config.get_zone_type(),
@@ -199,8 +167,11 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     };
 
     #[cfg(feature = "dnssec")]
-    fn load_keys(authority: &mut Authority, zone_name: Name,
-                 zone_config: &ZoneConfig) -> Result<(), String> {
+    fn load_keys(
+        authority: &mut Authority,
+        zone_name: Name,
+        zone_config: &ZoneConfig,
+    ) -> Result<(), String> {
         if zone_config.is_dnssec_enabled() {
             for key_config in zone_config.get_keys() {
                 let signer = try!(load_key(zone_name.clone(), &key_config).map_err(|e| {
@@ -224,8 +195,11 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     }
 
     #[cfg(not(feature = "dnssec"))]
-    fn load_keys(_authority: &mut Authority, _zone_name: Name, _zone_config: &ZoneConfig)
-        -> Result<(), String> {
+    fn load_keys(
+        _authority: &mut Authority,
+        _zone_name: Name,
+        _zone_config: &ZoneConfig,
+    ) -> Result<(), String> {
         Ok(())
     }
 
@@ -309,31 +283,114 @@ fn load_cert(zone_dir: &Path, tls_cert_config: &TlsCertConfig) -> Result<ParsedP
     read_cert(&path, password)
 }
 
+// argument name constants for the CLI options
+const QUIET_ARG: &str = "quiet";
+const DEBUG_ARG: &str = "debug";
+const CONFIG_ARG: &str = "config";
+const ZONEDIR_ARG: &str = "zonedir";
+const PORT_ARG: &str = "port";
+const TLS_PORT_ARG: &str = "tls-port";
+
+/// Args struct for all options
+struct Args {
+    pub flag_quiet: bool,
+    pub flag_debug: bool,
+    pub flag_config: String,
+    pub flag_zonedir: Option<String>,
+    pub flag_port: Option<u16>,
+    pub flag_tls_port: Option<u16>,
+}
+
+impl<'a> From<ArgMatches<'a>> for Args {
+    fn from(matches: ArgMatches<'a>) -> Args {
+        Args {
+            flag_quiet: matches.is_present(QUIET_ARG),
+            flag_debug: matches.is_present(DEBUG_ARG),
+            flag_config: matches.value_of(CONFIG_ARG).map(|s| s.to_string()).expect(
+                "config path should have had default",
+            ),
+            flag_zonedir: matches.value_of(ZONEDIR_ARG).map(|s| s.to_string()),
+            flag_port: matches.value_of(PORT_ARG).map(|s| {
+                u16::from_str_radix(s, 10).expect("bad port argument")
+            }),
+            flag_tls_port: matches.value_of(TLS_PORT_ARG).map(|s| {
+                u16::from_str_radix(s, 10).expect("bad tls-port argument")
+            }),
+        }
+    }
+}
+
 /// Main method for running the named server.
 ///
 /// `Note`: Tries to avoid panics, in favor of always starting.
 pub fn main() {
-    // read any command line options
-    let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.help(true).version(Some(version().into())).decode())
-        .unwrap_or_else(|e| e.exit());
+    let args = app_from_crate!()
+        .arg(
+            Arg::with_name(QUIET_ARG)
+                .long(QUIET_ARG)
+                .short("q")
+                .help("Disable INFO messages, WARN and ERROR will remain")
+                .conflicts_with(DEBUG_ARG),
+        )
+        .arg(
+            Arg::with_name(DEBUG_ARG)
+                .long(DEBUG_ARG)
+                .short("d")
+                .help("Turn on DEBUG messages (default is only INFO)")
+                .conflicts_with(QUIET_ARG),
+        )
+        .arg(
+            Arg::with_name(CONFIG_ARG)
+                .long(CONFIG_ARG)
+                .short("c")
+                .help("Path to configuration file")
+                .value_name("FILE")
+                .default_value("/etc/named.toml"),
+        )
+        .arg(
+            Arg::with_name(ZONEDIR_ARG)
+                .long(ZONEDIR_ARG)
+                .short("z")
+                .help(
+                    "Path to the root directory for all zone files, see also config toml",
+                )
+                .value_name("DIR"),
+        )
+        .arg(
+            Arg::with_name(PORT_ARG)
+                .long(PORT_ARG)
+                .short("p")
+                .help(
+                    "Listening port for DNS queries, overrides any value in config file",
+                )
+                .value_name(PORT_ARG),
+        )
+        .arg(
+            Arg::with_name(TLS_PORT_ARG)
+                .long(TLS_PORT_ARG)
+                .help(
+                    "Listening port for DNS over TLS queries, overrides any value in config file",
+                )
+                .value_name(TLS_PORT_ARG),
+        )
+        .get_matches();
+
+    let args: Args = args.into();
 
     // FIXME: add env_logger support
     // TODO: this should be set after loading config, but it's necessary for initial log lines, no?
     if args.flag_quiet {
-        logger::TrustDnsLogger::enable_logging(LogLevel::Warn);
+        logger::quiet();
     } else if args.flag_debug {
-        logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
+        logger::debug();
     } else {
-        logger::TrustDnsLogger::enable_logging(LogLevel::Info);
+        logger::default();
     }
 
     info!("Trust-DNS {} starting", trust_dns::version());
     // start up the server for listening
 
-    let config_path = Path::new(args.flag_config.as_ref().map(|s| s as &str).unwrap_or(
-        "/etc/named.toml",
-    ));
+    let config_path = Path::new(&args.flag_config);
     info!("loading configuration from: {:?}", config_path);
     let config = Config::read_config(config_path).expect(&format!(
         "could not read config: {:?}",

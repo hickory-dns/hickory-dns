@@ -231,7 +231,6 @@ extern crate untrusted;
 
 pub mod client;
 pub mod error;
-pub mod logger;
 pub mod op;
 pub mod rr;
 pub mod tcp;
@@ -250,11 +249,4 @@ pub use trust_dns_proto::BufDnsStreamHandle as BufClientStreamHandle;
 /// Returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {
     env!("CARGO_PKG_VERSION")
-}
-
-// TODO switch env_logger and remove this
-#[test]
-fn enable_logging_for_tests() {
-    use log::LogLevel;
-    logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 }

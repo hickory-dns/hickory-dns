@@ -64,7 +64,7 @@ where
 
         print!("SRV: {}", output);
 
-        if output.ends_with(started_str) {
+        if output.contains(started_str) {
             found = true;
             break;
         }
@@ -125,7 +125,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
     //
 
     let stdout = mem::replace(&mut named.stdout, None).unwrap();
-    let process = wrap_process(named, stdout, "awaiting connections...\n");
+    let process = wrap_process(named, stdout, "awaiting connections...");
 
     println!("TRust-DNS startup complete");
 
