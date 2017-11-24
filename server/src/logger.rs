@@ -10,6 +10,7 @@
 use std::env;
 use std::fmt::Display;
 
+use chrono::Utc;
 use env_logger::{LogBuilder, LogTarget};
 use log::LogRecord;
 
@@ -20,8 +21,10 @@ where
     LN: Display,
     A: Display,
 {
+    let now = Utc::now();
+    let now_secs = now.format("%s%.6f");
     // TODO: replace with String concatination...
-    format!("{}:{}:{}:{}", level, module, line, args,)
+    format!("{}:{}:{}:{}:{}", now_secs, level, module, line, args,)
 }
 
 fn plain_formatter(record: &LogRecord) -> String {
