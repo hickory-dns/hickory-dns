@@ -135,7 +135,7 @@ pub fn rrset_tbs(
                 sig_expiration,
                 sig_inception,
                 key_tag,
-                &signer_name,
+                signer_name,
             ).is_ok()
         );
 
@@ -189,7 +189,7 @@ pub fn rrset_tbs(
 ///
 /// binary hash of the RRSet with the information from the RRSIG record
 pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> ProtoResult<TBS> {
-    if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = rrsig.rdata() {
+    if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *rrsig.rdata() {
         rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
         return Err(

@@ -8,6 +8,7 @@
 #![allow(missing_docs)]
 
 use std::io;
+use std::sync::Arc;
 
 use rr::{Name, RecordType};
 
@@ -197,8 +198,8 @@ pub mod not_ring {
 
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
-        let error_kind = match e.kind() {
-            &ProtoErrorKind::Timeout => io::ErrorKind::TimedOut,
+        let error_kind = match *e.kind() {
+            ProtoErrorKind::Timeout => io::ErrorKind::TimedOut,
             _ => io::ErrorKind::Other,
         };
 
@@ -208,52 +209,52 @@ impl From<ProtoError> for io::Error {
 
 impl Clone for ProtoErrorKind {
     fn clone(&self) -> Self {
-        match self {
-            &ProtoErrorKind::AddrParseError => ProtoErrorKind::AddrParseError,
-            &ProtoErrorKind::Canceled(ref c) => ProtoErrorKind::Canceled(c.clone()),
-            &ProtoErrorKind::CharacterDataTooLong(len) => ProtoErrorKind::CharacterDataTooLong(len),
-            &ProtoErrorKind::DnsKeyProtocolNot3(value) => ProtoErrorKind::DnsKeyProtocolNot3(value),
-            &ProtoErrorKind::DomainNameTooLong(len) => ProtoErrorKind::DomainNameTooLong(len),
-            &ProtoErrorKind::EdnsNameNotRoot(ref found) => ProtoErrorKind::EdnsNameNotRoot(
+        match *self {
+            ProtoErrorKind::AddrParseError => ProtoErrorKind::AddrParseError,
+            ProtoErrorKind::Canceled(ref c) => ProtoErrorKind::Canceled(*c),
+            ProtoErrorKind::CharacterDataTooLong(len) => ProtoErrorKind::CharacterDataTooLong(len),
+            ProtoErrorKind::DnsKeyProtocolNot3(value) => ProtoErrorKind::DnsKeyProtocolNot3(value),
+            ProtoErrorKind::DomainNameTooLong(len) => ProtoErrorKind::DomainNameTooLong(len),
+            ProtoErrorKind::EdnsNameNotRoot(ref found) => ProtoErrorKind::EdnsNameNotRoot(
                 found.clone(),
             ),
-            &ProtoErrorKind::FromUtf8Error => ProtoErrorKind::FromUtf8Error,
-            &ProtoErrorKind::Io => ProtoErrorKind::Io,
-            &ProtoErrorKind::IncorrectRDataLengthRead(read, len) => {
+            ProtoErrorKind::FromUtf8Error => ProtoErrorKind::FromUtf8Error,
+            ProtoErrorKind::Io => ProtoErrorKind::Io,
+            ProtoErrorKind::IncorrectRDataLengthRead(read, len) => {
                 ProtoErrorKind::IncorrectRDataLengthRead(read, len)
             }
-            &ProtoErrorKind::LabelBytesTooLong(len) => ProtoErrorKind::LabelBytesTooLong(len),            
-            &ProtoErrorKind::Message(msg) => ProtoErrorKind::Message(msg),
-            &ProtoErrorKind::Msg(ref string) => ProtoErrorKind::Msg(string.clone()),
-            &ProtoErrorKind::NoError => ProtoErrorKind::NoError,
-            &ProtoErrorKind::ParseIntError => ProtoErrorKind::ParseIntError,
-            &ProtoErrorKind::Timeout => ProtoErrorKind::Timeout,
-            &ProtoErrorKind::UnknownAlgorithmTypeValue(value) => {
+            ProtoErrorKind::LabelBytesTooLong(len) => ProtoErrorKind::LabelBytesTooLong(len),
+            ProtoErrorKind::Message(msg) => ProtoErrorKind::Message(msg),
+            ProtoErrorKind::Msg(ref string) => ProtoErrorKind::Msg(string.clone()),
+            ProtoErrorKind::NoError => ProtoErrorKind::NoError,
+            ProtoErrorKind::ParseIntError => ProtoErrorKind::ParseIntError,
+            ProtoErrorKind::Timeout => ProtoErrorKind::Timeout,
+            ProtoErrorKind::UnknownAlgorithmTypeValue(value) => {
                 ProtoErrorKind::UnknownAlgorithmTypeValue(value)
             }
-            &ProtoErrorKind::UnknownDnsClassStr(ref value) => ProtoErrorKind::UnknownDnsClassStr(
+            ProtoErrorKind::UnknownDnsClassStr(ref value) => ProtoErrorKind::UnknownDnsClassStr(
                 value.clone(),
             ),
-            &ProtoErrorKind::UnknownDnsClassValue(value) => ProtoErrorKind::UnknownDnsClassValue(
+            ProtoErrorKind::UnknownDnsClassValue(value) => ProtoErrorKind::UnknownDnsClassValue(
                 value,
             ),
-            &ProtoErrorKind::UnrecognizedLabelCode(value) => {
+            ProtoErrorKind::UnrecognizedLabelCode(value) => {
                 ProtoErrorKind::UnrecognizedLabelCode(value)
             }
-            &ProtoErrorKind::UnrecognizedNsec3Flags(value) => {
+            ProtoErrorKind::UnrecognizedNsec3Flags(value) => {
                 ProtoErrorKind::UnrecognizedNsec3Flags(value)
             }
-            &ProtoErrorKind::UnknownRecordTypeStr(ref value) => {
+            ProtoErrorKind::UnknownRecordTypeStr(ref value) => {
                 ProtoErrorKind::UnknownRecordTypeStr(value.clone())
             }
-            &ProtoErrorKind::UnknownRecordTypeValue(value) => {
+            ProtoErrorKind::UnknownRecordTypeValue(value) => {
                 ProtoErrorKind::UnknownRecordTypeValue(value)
             }
-            &ProtoErrorKind::UrlParsingError => ProtoErrorKind::UrlParsingError, 
-            &ProtoErrorKind::Utf8Error => ProtoErrorKind::Utf8Error,
-            &ProtoErrorKind::Ring => ProtoErrorKind::Ring,
-            &ProtoErrorKind::SSL => ProtoErrorKind::SSL,
-            &ProtoErrorKind::RrsigsNotPresent(ref name, ref record_type) => {
+            ProtoErrorKind::UrlParsingError => ProtoErrorKind::UrlParsingError,
+            ProtoErrorKind::Utf8Error => ProtoErrorKind::Utf8Error,
+            ProtoErrorKind::Ring => ProtoErrorKind::Ring,
+            ProtoErrorKind::SSL => ProtoErrorKind::SSL,
+            ProtoErrorKind::RrsigsNotPresent(ref name, ref record_type) => {
                 ProtoErrorKind::RrsigsNotPresent(name.clone(), *record_type)
             }
         }
@@ -272,7 +273,7 @@ impl Clone for ProtoError {
                 Box::new(ProtoError::from(ProtoErrorKind::Msg(format!("{}", e)))) as
                     Box<::std::error::Error + Send + 'static>
             });
-        ProtoError(cloned_kind, (inner_error, (self.1).1.clone()))
+        ProtoError(cloned_kind, (inner_error, Arc::clone(&(self.1).1)))
     }
 }
 

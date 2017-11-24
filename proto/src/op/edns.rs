@@ -37,9 +37,8 @@ pub struct Edns {
     options: OPT,
 }
 
-impl Edns {
-    /// Creates a new extended DNS object.
-    pub fn new() -> Self {
+impl Default for Edns {
+    fn default() -> Self {
         Edns {
             rcode_high: 0,
             version: 0,
@@ -47,6 +46,13 @@ impl Edns {
             max_payload: 512,
             options: OPT::default(),
         }
+    }
+}
+
+impl Edns {
+    /// Creates a new extended DNS object.
+    pub fn new() -> Self {
+        Default::default()
     }
 
     /// The high order bytes for the response code in the DNS Message
@@ -109,26 +115,26 @@ impl<'a> From<&'a Record> for Edns {
     fn from(value: &'a Record) -> Self {
         assert!(value.rr_type() == RecordType::OPT);
 
-        let rcode_high: u8 = ((value.ttl() & 0xFF000000u32) >> 24) as u8;
-        let version: u8 = ((value.ttl() & 0x00FF0000u32) >> 16) as u8;
-        let dnssec_ok: bool = value.ttl() & 0x00008000 == 0x00008000;
+        let rcode_high: u8 = ((value.ttl() & 0xFF00_0000u32) >> 24) as u8;
+        let version: u8 = ((value.ttl() & 0x00FF_0000u32) >> 16) as u8;
+        let dnssec_ok: bool = value.ttl() & 0x0000_8000 == 0x0000_8000;
         let max_payload: u16 = if u16::from(value.dns_class()) < 512 {
             512
         } else {
             value.dns_class().into()
         };
 
-        let options: OPT = match value.rdata() {
-            &RData::NULL(..) => {
+        let options: OPT = match *value.rdata() {
+            RData::NULL(..) => {
                 // NULL, there was no data in the OPT
                 OPT::default()
             }
-            &RData::OPT(ref option_data) => {
+            RData::OPT(ref option_data) => {
                 option_data.clone() // TODO: Edns should just refer to this, have the same lifetime as the Record
             }
             _ => {
                 // this should be a coding error, as opposed to a parsing error.
-                panic!("rr_type doesn't match the RData: {:?}", value.rdata()); // valid panic, never should happen
+                panic!("rr_type doesn't match the RData: {:?}", value.rdata()) // valid panic, never should happen
             }
         };
 
@@ -153,11 +159,11 @@ impl<'a> From<&'a Edns> for Record {
         record.set_dns_class(DNSClass::OPT(value.max_payload()));
 
         // rebuild the TTL field
-        let mut ttl: u32 = (value.rcode_high() as u32) << 24;
-        ttl |= (value.version() as u32) << 16;
+        let mut ttl: u32 = u32::from(value.rcode_high()) << 24;
+        ttl |= u32::from(value.version()) << 16;
 
         if value.dnssec_ok() {
-            ttl |= 0x00008000;
+            ttl |= 0x0000_8000;
         }
         record.set_ttl(ttl);
 

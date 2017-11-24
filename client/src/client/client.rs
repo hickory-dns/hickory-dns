@@ -415,7 +415,7 @@ where
     fn new_future(&self, handle: &Handle) -> ClientResult<BasicClientHandle> {
         let (stream, stream_handle) = self.conn.new_stream(handle)?;
 
-        let client = ClientFuture::new(stream, stream_handle, &handle, self.signer.clone());
+        let client = ClientFuture::new(stream, stream_handle, handle, self.signer.clone());
         Ok(client)
     }
 }
@@ -495,7 +495,7 @@ where
     fn new_future(&self, handle: &Handle) -> ClientResult<SecureClientHandle<BasicClientHandle>> {
         let (stream, stream_handle) = self.conn.new_stream(handle)?;
 
-        let client = ClientFuture::new(stream, stream_handle, &handle, self.signer.clone());
+        let client = ClientFuture::new(stream, stream_handle, handle, self.signer.clone());
         Ok(SecureClientHandle::new(client))
     }
 }

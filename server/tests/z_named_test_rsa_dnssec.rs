@@ -50,7 +50,7 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
     let public_key = key_pair.to_public_key().unwrap();
     let mut trust_anchor = TrustAnchor::new();
 
-    trust_anchor.insert_trust_anchor(public_key);
+    trust_anchor.insert_trust_anchor(&public_key);
     trust_anchor
 }
 

@@ -11,6 +11,7 @@ use std::convert::From;
 use std::cmp::Ordering;
 use std::fmt;
 use std::fmt::{Display, Formatter};
+use std::str::FromStr;
 
 use serialize::binary::*;
 use error::*;
@@ -33,16 +34,19 @@ pub enum DNSClass {
     OPT(u16),
 }
 
-impl DNSClass {
-    /// Convert from &str to DNSClass
+impl FromStr for DNSClass {
+    type Err = ProtoError;
+
+    /// Convert from `&str` to `DNSClass`
     ///
     /// ```
+    /// use std::str::FromStr;
     /// use trust_dns_proto::rr::dns_class::DNSClass;
     ///
     /// let var: DNSClass = DNSClass::from_str("IN").unwrap();
     /// assert_eq!(DNSClass::IN, var);
     /// ```
-    pub fn from_str(str: &str) -> ProtoResult<Self> {
+    fn from_str(str: &str) -> ProtoResult<Self> {
         match str {
             "IN" => Ok(DNSClass::IN),
             "CH" => Ok(DNSClass::CH),
@@ -52,8 +56,9 @@ impl DNSClass {
             _ => Err(ProtoErrorKind::UnknownDnsClassStr(str.to_string()).into()),
         }
     }
+}
 
-
+impl DNSClass {
     /// Convert from u16 to DNSClass
     ///
     /// ```

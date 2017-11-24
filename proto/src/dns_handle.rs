@@ -178,7 +178,7 @@ where
     fn drop_cancelled(&mut self) {
         // TODO: should we have a timeout here? or always expect the caller to do this?
         let mut canceled = HashSet::new();
-        for (&id, &mut (ref mut req, ref mut timeout)) in self.active_requests.iter_mut() {
+        for (&id, &mut (ref mut req, ref mut timeout)) in &mut self.active_requests {
             if let Ok(Async::Ready(())) = req.poll_cancel() {
               canceled.insert(id);
             }
@@ -382,7 +382,7 @@ where
         }
 
         // Finally, return not ready to keep the 'driver task' alive.
-        return Ok(Async::NotReady);
+        Ok(Async::NotReady)
     }
 }
 
@@ -413,10 +413,10 @@ where
                     .expect("error notifying wait, possible future leak");
 
                 task::current().notify();
-                return Ok(Async::NotReady);
+                Ok(Async::NotReady)
             }
-            Ok(Async::Ready(None)) => return Ok(Async::Ready(())),            
-            _ => return Err(E::from(ProtoErrorKind::NoError.into())),
+            Ok(Async::Ready(None)) => Ok(Async::Ready(())),
+            _ => Err(E::from(ProtoErrorKind::NoError.into())),
         }
     }
 }

@@ -58,6 +58,11 @@ impl<'a> BinDecoder<'a> {
         self.buffer.len() - self.index
     }
 
+    /// Returns `true` if the buffer is empty
+    pub fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+
     /// Peed one byte forward, without moving the current index forward
     pub fn peek(&self) -> Option<u8> {
         if self.index < self.buffer.len() {
@@ -69,7 +74,7 @@ impl<'a> BinDecoder<'a> {
 
     /// Returns the current index in the buffer
     pub fn index(&self) -> usize {
-        return self.index;
+        self.index
     }
 
     /// This is a pretty efficient clone, as the buffer is never cloned, and only the index is set
@@ -164,7 +169,7 @@ impl<'a> BinDecoder<'a> {
         let b2: u8 = try!(self.pop());
 
         // translate from network byte order, i.e. big endian
-        Ok(((b1 as u16) << 8) + (b2 as u16))
+        Ok((u16::from(b1) << 8) + u16::from(b2))
     }
 
     /// Reads the next four bytes into i32.
@@ -184,7 +189,7 @@ impl<'a> BinDecoder<'a> {
 
         // translate from network byte order, i.e. big endian
         Ok(
-            ((b1 as i32) << 24) + ((b2 as i32) << 16) + ((b3 as i32) << 8) + (b4 as i32),
+            (i32::from(b1) << 24) + (i32::from(b2) << 16) + (i32::from(b3) << 8) + (i32::from(b4) as i32),
         )
     }
 
@@ -205,7 +210,7 @@ impl<'a> BinDecoder<'a> {
 
         // translate from network byte order, i.e. big endian
         Ok(
-            ((b1 as u32) << 24) + ((b2 as u32) << 16) + ((b3 as u32) << 8) + (b4 as u32),
+            (u32::from(b1) << 24) + (u32::from(b2) << 16) + (u32::from(b3) << 8) + u32::from(b4),
         )
     }
 }

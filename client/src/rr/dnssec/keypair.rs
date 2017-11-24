@@ -56,7 +56,7 @@ impl KeyPair {
     /// Creates an RSA type keypair.
     #[cfg(feature = "openssl")]
     pub fn from_rsa(rsa: OpenSslRsa) -> DnsSecResult<Self> {
-        PKey::from_rsa(rsa).map(|pkey| KeyPair::RSA(pkey)).map_err(
+        PKey::from_rsa(rsa).map(KeyPair::RSA).map_err(
             |e| {
                 e.into()
             },
@@ -73,7 +73,7 @@ impl KeyPair {
     #[cfg(feature = "openssl")]
     pub fn from_ec_key(ec_key: EcKey) -> DnsSecResult<Self> {
         PKey::from_ec_key(ec_key)
-            .map(|pkey| KeyPair::EC(pkey))
+            .map(KeyPair::EC)
             .map_err(|e| e.into())
     }
 
@@ -133,7 +133,7 @@ impl KeyPair {
                 ec_key
                     .group()
                     .and_then(|group| ec_key.public_key().map(|point| (group, point)))
-                    .ok_or(DnsSecErrorKind::Message("missing group or point on ec_key").into())
+                    .ok_or_else(|| DnsSecErrorKind::Message("missing group or point on ec_key").into())
                     .and_then(|(group, point)| {
                         BigNumContext::new()
                             .and_then(|mut ctx| {
@@ -225,7 +225,7 @@ impl KeyPair {
         }
 
         ac += (ac >> 16) & 0xFFFF;
-        return Ok((ac & 0xFFFF) as u16); // this is unnecessary, no?
+        Ok((ac & 0xFFFF) as u16) // this is unnecessary, no?
     }
 
     /// Creates a Record that represents the public key for this Signer
@@ -330,7 +330,7 @@ impl KeyPair {
             KeyPair::RSA(ref pkey) |
             KeyPair::EC(ref pkey) => {
                 let digest_type = DigestType::from(algorithm).to_openssl_digest()?;
-                let mut signer = Signer::new(digest_type, &pkey).unwrap();
+                let mut signer = Signer::new(digest_type, pkey).unwrap();
                 try!(signer.update(tbs.as_ref()));
                 signer.finish().map_err(|e| e.into()).and_then(|bytes| {
                     if let KeyPair::RSA(_) = *self {
@@ -431,14 +431,14 @@ impl KeyPair {
                 EcGroup::from_curve_name(nid::X9_62_PRIME256V1)
                     .and_then(|group| EcKey::generate(&group))
                     .map_err(|e| e.into())
-                    .and_then(|ec_key| KeyPair::from_ec_key(ec_key))
+                    .and_then(KeyPair::from_ec_key)
             }
             #[cfg(feature = "openssl")]
             Algorithm::ECDSAP384SHA384 => {
                 EcGroup::from_curve_name(nid::SECP384R1)
                     .and_then(|group| EcKey::generate(&group))
                     .map_err(|e| e.into())
-                    .and_then(|ec_key| KeyPair::from_ec_key(ec_key))
+                    .and_then(KeyPair::from_ec_key)
             }
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => {
@@ -463,18 +463,8 @@ impl KeyPair {
             Algorithm::RSASHA1 |
             Algorithm::RSASHA1NSEC3SHA1 |
             Algorithm::RSASHA256 |
-            Algorithm::RSASHA512 => {
-                Err(
-                    DnsSecErrorKind::Message("openssl does not yet support pkcs8").into(),
-                )
-            }
-            #[cfg(feature = "openssl")]
-            Algorithm::ECDSAP256SHA256 => {
-                Err(
-                    DnsSecErrorKind::Message("openssl does not yet support pkcs8").into(),
-                )
-            }
-            #[cfg(feature = "openssl")]
+            Algorithm::RSASHA512 |
+            Algorithm::ECDSAP256SHA256 |
             Algorithm::ECDSAP384SHA384 => {
                 Err(
                     DnsSecErrorKind::Message("openssl does not yet support pkcs8").into(),

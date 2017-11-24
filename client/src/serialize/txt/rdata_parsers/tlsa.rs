@@ -68,7 +68,7 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(tokens: I) -> ParseResult<TLSA> {
     // these are all in hex: "a string of hexadecimal characters"
     //   aside: personally I find it funny that the other fields are decimal, while this is hex encoded...
     let cert_data = iter.fold(String::new(), |mut cert_data, data| {
-        cert_data.extend(data.chars());
+        cert_data.push_str(data);
         cert_data
     });
     println!("cert_data: {}", cert_data);

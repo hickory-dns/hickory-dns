@@ -174,7 +174,6 @@ impl DS {
     #[cfg(any(feature = "openssl", feature = "ring"))]
     pub fn covers(&self, name: &Name, key: &DNSKEY) -> ProtoResult<bool> {
         key.to_digest(name, self.digest_type())
-            .map_err(|e| e.into())
             .map(|hash| hash.as_ref() == self.digest())
     }
 
@@ -223,7 +222,7 @@ pub fn test() {
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
     assert!(emit(&mut encoder, &rdata).is_ok());
-    let bytes = encoder.as_bytes();
+    let bytes = encoder.into_bytes();
 
     println!("bytes: {:?}", bytes);
 

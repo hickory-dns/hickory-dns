@@ -482,7 +482,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
         let take_name = byte_iter.by_ref().take_while(|ch| char::from(**ch) != ';');
         let name_str = take_name.cloned().collect::<Vec<u8>>();
 
-        if name_str.len() > 0 {
+        if !name_str.is_empty() {
             let name_str = str::from_utf8(&name_str)?;
             Some(Name::parse(name_str, None)?)
         } else {
@@ -501,14 +501,14 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                 match char::from(*ch) {
                     // gobble ';', ' ', and tab
                     ';' | ' ' | '\u{0009}' => state = ParseNameKeyPairState::BeforeKey(key_values),
-                    ch @ _ if ch.is_alphanumeric() && ch != '=' => {
+                    ch if ch.is_alphanumeric() && ch != '=' => {
                         // We found the beginning of a new Key
                         let mut key = String::new();
                         key.push(ch);
 
                         state = ParseNameKeyPairState::Key { key, key_values }
                     }
-                    ch @ _ => {
+                    ch => {
                         return Err(
                             ProtoErrorKind::Msg(
                                 format!("bad character in CAA issuer key: {}", ch),
@@ -532,12 +532,12 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                         }
                     }
                     // push onto the existing key
-                    ch @ _ if ch.is_alphanumeric() && ch != '=' && ch != ';' => {
+                    ch if ch.is_alphanumeric() && ch != '=' && ch != ';' => {
                         key.push(ch);
 
                         state = ParseNameKeyPairState::Key { key, key_values }
                     }
-                    ch @ _ => {
+                    ch => {
                         return Err(
                             ProtoErrorKind::Msg(
                                 format!("bad character in CAA issuer key: {}", ch),
@@ -559,7 +559,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                         state = ParseNameKeyPairState::BeforeKey(key_values);
                     }
                     // push onto the existing key
-                    ch @ _ if ch.is_alphanumeric() => {
+                    ch if ch.is_alphanumeric() => {
                         value.push(ch);
 
                         state = ParseNameKeyPairState::Value {
@@ -568,7 +568,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                             key_values,
                         }
                     }
-                    ch @ _ => {
+                    ch => {
                         return Err(
                             ProtoErrorKind::Msg(
                                 format!("bad character in CAA issuer value: {}", ch),
@@ -734,7 +734,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<CAA> {
     // the spec declares that other flags should be ignored for future compatability...
     let issuer_critical: bool = decoder.read_u8()? & 0b1000_0000 != 0;
     let tag_len = decoder.read_u8()?;
-    let value_len = (rdata_length - tag_len as u16) - 2;
+    let value_len = (rdata_length - u16::from(tag_len)) - 2;
 
     let tag = read_tag(decoder, tag_len)?;
     let tag = Property::from(tag);
@@ -938,7 +938,7 @@ mod tests {
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
         emit(&mut encoder, &rdata).expect("failed to emit caa");
-        let bytes = encoder.as_bytes();
+        let bytes = encoder.into_bytes();
 
         println!("bytes: {:?}", bytes);
 
@@ -974,7 +974,7 @@ mod tests {
         let mut bytes = Vec::new();
         let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);
         emit(&mut encoder, &rdata).expect("failed to emit caa");
-        let bytes = encoder.as_bytes();
+        let bytes = encoder.into_bytes();
         assert_eq!(&bytes as &[u8], encoded);
     }
 

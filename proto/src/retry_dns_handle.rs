@@ -35,7 +35,7 @@ where
     ///
     /// * `handle` - handle to the dns connection
     /// * `attempts` - number of attempts before failing
-    pub fn new(handle: H, attempts: usize) -> RetryDnsHandle<H> {
+    pub fn new(handle: H, attempts: usize) -> Self {
         RetryDnsHandle { handle, attempts }
     }
 }
@@ -52,12 +52,12 @@ where
         //  obviously it would be nice to be lazy about this...
         let future = self.handle.send(message.clone());
 
-        return Box::new(RetrySendFuture {
+        Box::new(RetrySendFuture {
             message: message,
             handle: self.handle.clone(),
             future: future,
             remaining_attempts: self.attempts,
-        });
+        })
     }
 }
 
@@ -88,7 +88,7 @@ where
                         return Err(e);
                     }
 
-                    self.remaining_attempts = self.remaining_attempts - 1;
+                    self.remaining_attempts -= 1;
                     // TODO: if the "sent" Message is part of the error result,
                     //  then we can just reuse it... and no clone necessary
                     self.future = self.handle.send(self.message.clone());
