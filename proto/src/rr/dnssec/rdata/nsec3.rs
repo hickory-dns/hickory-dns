@@ -357,7 +357,7 @@ pub fn decode_type_bit_maps(
                         // len - left is the block in the bitmap, times 8 for the bits, + the bit in the current_byte
                         let low_byte = ((len - left) * 8) + i;
                         let rr_type: u16 = (u16::from(window) << 8) | u16::from(low_byte);
-                        record_types.push(try!(RecordType::from_u16(rr_type)));
+                        record_types.push(RecordType::from(rr_type));
                     }
                     // shift left and look at the next bit
                     bit_map <<= 1;
