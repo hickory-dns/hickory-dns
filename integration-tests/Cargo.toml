@@ -58,7 +58,7 @@ tls = []
 chrono = "^0.4"
 env_logger = "0.4.2"
 log = "^0.3.5"
-futures = "^0.1.6"
+futures = "^0.1.17"
 openssl = { version = "^0.9.8", features = ["v102", "v110"] }
 rand = "^0.3"
 rusqlite = { version = "^0.9.5", features = ["bundled"] }
