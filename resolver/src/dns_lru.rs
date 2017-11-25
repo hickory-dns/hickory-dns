@@ -42,7 +42,12 @@ impl DnsLru {
         DnsLru(LruCache::new(capacity))
     }
 
-    pub(crate) fn insert(&mut self, query: Query, rdatas_and_ttl: Vec<(RData, u32)>, now: Instant) -> Lookup {
+    pub(crate) fn insert(
+        &mut self,
+        query: Query,
+        rdatas_and_ttl: Vec<(RData, u32)>,
+        now: Instant,
+    ) -> Lookup {
         let len = rdatas_and_ttl.len();
         // collapse the values, we're going to take the Minimum TTL as the correct one
         let (rdatas, ttl): (Vec<RData>, u32) =
@@ -72,7 +77,13 @@ impl DnsLru {
         lookup
     }
 
-    pub(crate) fn duplicate(&mut self, query: Query, lookup: Lookup, ttl: u32, now: Instant) -> Lookup {
+    pub(crate) fn duplicate(
+        &mut self,
+        query: Query,
+        lookup: Lookup,
+        ttl: u32,
+        now: Instant,
+    ) -> Lookup {
         let ttl = Duration::from_secs(ttl as u64);
         let ttl_until = now + ttl;
 
@@ -144,7 +155,6 @@ mod tests {
     use trust_dns_proto::rr::{Name, RecordType};
 
     use super::*;
-    use lookup_ip::tests::*;
 
     #[test]
     fn test_is_current() {
