@@ -384,6 +384,14 @@ pub enum RData {
     /// crypto functionality isn't needed.
     #[cfg(feature = "dnssec")]
     DNSSEC(DNSSECRData),
+
+    /// Unknown RecordData is for record types not supported by TRust-DNS
+    Unknown{
+        /// RecordType code
+        code: u16,
+        /// RData associated to the record
+        rdata: NULL
+    },
 }
 
 impl RData {
@@ -410,11 +418,11 @@ impl RData {
         let result = match record_type {
             RecordType::A => {
                 debug!("reading A");
-                RData::A(rdata::a::read(decoder)?)
+                rdata::a::read(decoder).map(RData::A)
             }
             RecordType::AAAA => {
                 debug!("reading AAAA");
-                RData::AAAA(rdata::aaaa::read(decoder)?)
+                rdata::aaaa::read(decoder).map(RData::AAAA)
             }
             rt @ RecordType::ANY |
             rt @ RecordType::AXFR |
@@ -423,51 +431,55 @@ impl RData {
             }
             RecordType::CAA => {
                 debug!("reading CAA");
-                rdata::caa::read(decoder, rdata_length).map(RData::CAA)?
+                rdata::caa::read(decoder, rdata_length).map(RData::CAA)
             }
             RecordType::CNAME => {
                 debug!("reading CNAME");
-                RData::CNAME(try!(rdata::name::read(decoder)))
+                rdata::name::read(decoder).map(RData::CNAME)
             }
             RecordType::MX => {
                 debug!("reading MX");
-                RData::MX(try!(rdata::mx::read(decoder)))
+                rdata::mx::read(decoder).map(RData::MX)
             }
             RecordType::NULL => {
                 debug!("reading NULL");
-                RData::NULL(try!(rdata::null::read(decoder, rdata_length)))
+                rdata::null::read(decoder, rdata_length).map(RData::NULL)
             }
             RecordType::NS => {
                 debug!("reading NS");
-                RData::NS(try!(rdata::name::read(decoder)))
+                rdata::name::read(decoder).map(RData::NS)
             }
             RecordType::OPT => {
                 debug!("reading OPT");
-                RData::OPT(try!(rdata::opt::read(decoder, rdata_length)))
+                rdata::opt::read(decoder, rdata_length).map(RData::OPT)
             }
             RecordType::PTR => {
                 debug!("reading PTR");
-                RData::PTR(try!(rdata::name::read(decoder)))
+                rdata::name::read(decoder).map(RData::PTR)
             }
             RecordType::SOA => {
                 debug!("reading SOA");
-                RData::SOA(try!(rdata::soa::read(decoder)))
+                rdata::soa::read(decoder).map(RData::SOA)
             }
             RecordType::SRV => {
                 debug!("reading SRV");
-                RData::SRV(try!(rdata::srv::read(decoder)))
+                rdata::srv::read(decoder).map(RData::SRV)
             }
             RecordType::TLSA => {
                 debug!("reading TLSA");
-                RData::TLSA(try!(rdata::tlsa::read(decoder, rdata_length)))
+                rdata::tlsa::read(decoder, rdata_length).map(RData::TLSA)
             }
             RecordType::TXT => {
                 debug!("reading TXT");
-                RData::TXT(try!(rdata::txt::read(decoder, rdata_length)))
+                rdata::txt::read(decoder, rdata_length).map(RData::TXT)
             }
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(record_type) => {
-                RData::DNSSEC(try!(DNSSECRData::read(decoder, record_type, rdata_length)))
+                DNSSECRData::read(decoder, record_type, rdata_length).map(RData::DNSSEC)
+            }
+            RecordType::Unknown(code) => {
+                debug!("reading Unknown");
+                rdata::null::read(decoder, rdata_length).map(|rdata| RData::Unknown{code, rdata})
             }
         };
 
@@ -478,7 +490,8 @@ impl RData {
                 ProtoErrorKind::IncorrectRDataLengthRead(read, rdata_length as usize).into(),
             );
         }
-        Ok(result)
+        
+        result
     }
 
     /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
@@ -516,6 +529,7 @@ impl RData {
             RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => rdata.emit(encoder),
+            RData::Unknown{ref rdata, ..} => rdata::null::emit(encoder, rdata),
         }
     }
 
@@ -537,6 +551,7 @@ impl RData {
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(DNSSECRData::to_record_type(rdata)),
+            RData::Unknown{code, ..} => RecordType::Unknown(code),
         }
     }
 
@@ -891,18 +906,8 @@ mod tests {
             RData::TLSA(..) => RecordType::TLSA,
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
-            RData::DNSSEC(ref rdata) => {
-                use rr::dnssec::rdata::DNSSECRecordType;
-                RecordType::DNSSEC(match *rdata {
-                    DNSSECRData::DS(..) => DNSSECRecordType::DS,
-                    DNSSECRData::KEY(..) => DNSSECRecordType::KEY,
-                    DNSSECRData::DNSKEY(..) => DNSSECRecordType::DNSKEY,
-                    DNSSECRData::NSEC(..) => DNSSECRecordType::NSEC,
-                    DNSSECRData::NSEC3(..) => DNSSECRecordType::NSEC3,
-                    DNSSECRData::NSEC3PARAM(..) => DNSSECRecordType::NSEC3PARAM,
-                    DNSSECRData::SIG(..) => DNSSECRecordType::SIG,
-                })
-            }
+            RData::DNSSEC(ref rdata) => RecordType::DNSSEC(rdata.to_record_type()),
+            RData::Unknown{code, ..} => RecordType::Unknown(code),
         }
     }
 

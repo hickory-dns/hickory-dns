@@ -29,6 +29,8 @@ pub mod sig;
 
 use error::*;
 use serialize::binary::*;
+use rr::rdata::NULL;
+use rr::rdata::null;
 
 pub use self::dnskey::DNSKEY;
 pub use self::ds::DS;
@@ -64,22 +66,22 @@ pub enum DNSSECRecordType {
     /// for now, we enable/disable SIG(0) in exactly the same circumstances that
     /// we enable/disable DNSSEC. This may change in the future.
     SIG,
+    /// Unknown or not yet supported DNSSec record type
+    Unknown(u16),
 }
 
-impl DNSSECRecordType {
-    pub(crate) fn from_u16(value: u16) -> ProtoResult<Self> {
+impl From<u16> for DNSSECRecordType {
+    fn from(value: u16) -> Self {
         match value {
-            48 => Ok(DNSSECRecordType::DNSKEY),
-            43 => Ok(DNSSECRecordType::DS),
-            25 => Ok(DNSSECRecordType::KEY),
-            47 => Ok(DNSSECRecordType::NSEC),
-            50 => Ok(DNSSECRecordType::NSEC3),
-            51 => Ok(DNSSECRecordType::NSEC3PARAM),
-            46 => Ok(DNSSECRecordType::RRSIG),
-            24 => Ok(DNSSECRecordType::SIG),
-
-            // TODO: this should probably return a generic value wrapper.
-            _ => Err(ProtoErrorKind::UnknownRecordTypeValue(value).into()),
+            48 => DNSSECRecordType::DNSKEY,
+            43 => DNSSECRecordType::DS,
+            25 => DNSSECRecordType::KEY,
+            47 => DNSSECRecordType::NSEC,
+            50 => DNSSECRecordType::NSEC3,
+            51 => DNSSECRecordType::NSEC3PARAM,
+            46 => DNSSECRecordType::RRSIG,
+            24 => DNSSECRecordType::SIG,
+            _ => DNSSECRecordType::Unknown(value),
         }
     }
 }
@@ -95,6 +97,7 @@ impl From<DNSSECRecordType> for &'static str {
             DNSSECRecordType::NSEC3PARAM => "NSEC3PARAM",
             DNSSECRecordType::RRSIG => "RRSIG",
             DNSSECRecordType::SIG => "SIG",
+            DNSSECRecordType::Unknown(..) => "DnsSecUnknown",
         }
     }
 }
@@ -110,6 +113,7 @@ impl From<DNSSECRecordType> for u16 {
             DNSSECRecordType::NSEC3PARAM => 51,
             DNSSECRecordType::RRSIG => 46,
             DNSSECRecordType::SIG => 24,
+            DNSSECRecordType::Unknown(value) => value,
         }
     }
 }
@@ -441,6 +445,14 @@ pub enum DNSSECRData {
     ///    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
     /// ```
     SIG(SIG),
+
+    /// Unknown or unsupported DNSSec record data
+    Unknown {
+        /// RecordType code
+        code: u16,
+        /// RData associated to the record
+        rdata: NULL,
+    },
 }
 
 impl DNSSECRData {
@@ -449,41 +461,44 @@ impl DNSSECRData {
         record_type: DNSSECRecordType,
         rdata_length: u16,
     ) -> ProtoResult<Self> {
-        let result = match record_type {
+        match record_type {
             DNSSECRecordType::DNSKEY => {
                 debug!("reading DNSKEY");
-                DNSSECRData::DNSKEY(try!(dnskey::read(decoder, rdata_length)))
+                dnskey::read(decoder, rdata_length).map(DNSSECRData::DNSKEY)
             }
             DNSSECRecordType::DS => {
                 debug!("reading DS");
-                DNSSECRData::DS(try!(ds::read(decoder, rdata_length)))
+                ds::read(decoder, rdata_length).map(DNSSECRData::DS)
             }
             DNSSECRecordType::KEY => {
                 debug!("reading KEY");
-                DNSSECRData::KEY(try!(key::read(decoder, rdata_length)))
+                key::read(decoder, rdata_length).map(DNSSECRData::KEY)
             }
             DNSSECRecordType::NSEC => {
                 debug!("reading NSEC");
-                DNSSECRData::NSEC(try!(nsec::read(decoder, rdata_length)))
+                nsec::read(decoder, rdata_length).map(DNSSECRData::NSEC)
             }
             DNSSECRecordType::NSEC3 => {
                 debug!("reading NSEC3");
-                DNSSECRData::NSEC3(try!(nsec3::read(decoder, rdata_length)))
+                nsec3::read(decoder, rdata_length).map(DNSSECRData::NSEC3)
             }
             DNSSECRecordType::NSEC3PARAM => {
                 debug!("reading NSEC3PARAM");
-                DNSSECRData::NSEC3PARAM(try!(nsec3param::read(decoder)))
+                nsec3param::read(decoder).map(DNSSECRData::NSEC3PARAM)
             }
             DNSSECRecordType::RRSIG => {
                 debug!("reading RRSIG");
-                DNSSECRData::SIG(try!(sig::read(decoder, rdata_length)))
+                sig::read(decoder, rdata_length).map(DNSSECRData::SIG)
             }
             DNSSECRecordType::SIG => {
                 debug!("reading SIG");
-                DNSSECRData::SIG(try!(sig::read(decoder, rdata_length)))
+                sig::read(decoder, rdata_length).map(DNSSECRData::SIG)
             }
-        };
-        Ok(result)
+            DNSSECRecordType::Unknown(code) => {
+                debug!("reading unknown dnssec: {}", code);
+                null::read(decoder, rdata_length).map(|rdata| DNSSECRData::Unknown { code, rdata })
+            }
+        }
     }
 
     pub(crate) fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
@@ -493,9 +508,9 @@ impl DNSSECRData {
             DNSSECRData::DNSKEY(ref dnskey) => dnskey::emit(encoder, dnskey),
             DNSSECRData::NSEC(ref nsec) => nsec::emit(encoder, nsec),
             DNSSECRData::NSEC3(ref nsec3) => nsec3::emit(encoder, nsec3),
-            DNSSECRData::NSEC3PARAM(ref nsec3param) =>
-                nsec3param::emit(encoder, nsec3param),
+            DNSSECRData::NSEC3PARAM(ref nsec3param) => nsec3param::emit(encoder, nsec3param),
             DNSSECRData::SIG(ref sig) => sig::emit(encoder, sig),
+            DNSSECRData::Unknown { ref rdata, .. } => null::emit(encoder, rdata), 
         }
     }
 
@@ -508,6 +523,7 @@ impl DNSSECRData {
             DNSSECRData::NSEC3(..) => DNSSECRecordType::NSEC3,
             DNSSECRData::NSEC3PARAM(..) => DNSSECRecordType::NSEC3PARAM,
             DNSSECRData::SIG(..) => DNSSECRecordType::SIG,
+            DNSSECRData::Unknown { code, .. } => DNSSECRecordType::Unknown(code), 
         }
     }
 }
