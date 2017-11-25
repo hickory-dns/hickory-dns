@@ -215,9 +215,9 @@ impl Clone for ProtoErrorKind {
             ProtoErrorKind::CharacterDataTooLong(len) => ProtoErrorKind::CharacterDataTooLong(len),
             ProtoErrorKind::DnsKeyProtocolNot3(value) => ProtoErrorKind::DnsKeyProtocolNot3(value),
             ProtoErrorKind::DomainNameTooLong(len) => ProtoErrorKind::DomainNameTooLong(len),
-            ProtoErrorKind::EdnsNameNotRoot(ref found) => ProtoErrorKind::EdnsNameNotRoot(
-                found.clone(),
-            ),
+            ProtoErrorKind::EdnsNameNotRoot(ref found) => {
+                ProtoErrorKind::EdnsNameNotRoot(found.clone())
+            }
             ProtoErrorKind::FromUtf8Error => ProtoErrorKind::FromUtf8Error,
             ProtoErrorKind::Io => ProtoErrorKind::Io,
             ProtoErrorKind::IncorrectRDataLengthRead(read, len) => {
@@ -232,12 +232,12 @@ impl Clone for ProtoErrorKind {
             ProtoErrorKind::UnknownAlgorithmTypeValue(value) => {
                 ProtoErrorKind::UnknownAlgorithmTypeValue(value)
             }
-            ProtoErrorKind::UnknownDnsClassStr(ref value) => ProtoErrorKind::UnknownDnsClassStr(
-                value.clone(),
-            ),
-            ProtoErrorKind::UnknownDnsClassValue(value) => ProtoErrorKind::UnknownDnsClassValue(
-                value,
-            ),
+            ProtoErrorKind::UnknownDnsClassStr(ref value) => {
+                ProtoErrorKind::UnknownDnsClassStr(value.clone())
+            }
+            ProtoErrorKind::UnknownDnsClassValue(value) => {
+                ProtoErrorKind::UnknownDnsClassValue(value)
+            }
             ProtoErrorKind::UnrecognizedLabelCode(value) => {
                 ProtoErrorKind::UnrecognizedLabelCode(value)
             }
@@ -270,8 +270,8 @@ impl Clone for ProtoError {
 
         let inner_error: Option<Box<::std::error::Error + Send + 'static>> =
             (&self.1).0.as_ref().map(|e| {
-                Box::new(ProtoError::from(ProtoErrorKind::Msg(format!("{}", e)))) as
-                    Box<::std::error::Error + Send + 'static>
+                Box::new(ProtoError::from(ProtoErrorKind::Msg(format!("{}", e))))
+                    as Box<::std::error::Error + Send + 'static>
             });
         ProtoError(cloned_kind, (inner_error, Arc::clone(&(self.1).1)))
     }
@@ -279,4 +279,8 @@ impl Clone for ProtoError {
 
 pub trait FromProtoError: From<ProtoError> + ::std::error::Error + Clone {}
 
-impl<E> FromProtoError for E where E: From<ProtoError> + ::std::error::Error + Clone {}
+impl<E> FromProtoError for E
+where
+    E: From<ProtoError> + ::std::error::Error + Clone,
+{
+}

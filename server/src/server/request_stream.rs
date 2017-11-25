@@ -115,12 +115,12 @@ impl ResponseHandle {
             response.emit(&mut encoder)
         };
 
-        try!(encode_result.map_err(|e| {
+        encode_result.map_err(|e| {
             io::Error::new(
                 io::ErrorKind::Other,
                 format!("error encoding message: {}", e),
             )
-        }));
+        })?;
 
         self.stream_handle
             .unbounded_send((buffer, self.dst))

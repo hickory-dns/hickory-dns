@@ -2,9 +2,9 @@
 
 use error::*;
 use op::Message;
-use rr::{DNSClass, Name, Record, RecordType, RData};
+use rr::{DNSClass, Name, RData, Record, RecordType};
 use rr::dnssec::Algorithm;
-use super::rdata::{DNSSECRData, sig, SIG};
+use super::rdata::{sig, DNSSECRData, SIG};
 use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
 
 /// Data To Be Signed.
@@ -93,8 +93,8 @@ pub fn rrset_tbs(
 
     // collect only the records for this rrset
     for record in records {
-        if dns_class == record.dns_class() && type_covered == record.rr_type() &&
-            name == record.name()
+        if dns_class == record.dns_class() && type_covered == record.rr_type()
+            && name == record.name()
         {
             rrset.push(record);
         }
@@ -106,9 +106,7 @@ pub fn rrset_tbs(
     let name: Name = if let Some(name) = determine_name(name, num_labels) {
         name
     } else {
-        return Err(
-            ProtoErrorKind::Msg(format!("could not determine name from {}", name)).into(),
-        );
+        return Err(ProtoErrorKind::Msg(format!("could not determine name from {}", name)).into());
     };
 
     // TODO: rather than buffering here, use the Signer/Verifier? might mean fewer allocations...
@@ -193,8 +191,7 @@ pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> ProtoResult<T
         rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
         return Err(
-            ProtoErrorKind::Msg(format!("could not determine name from {}", rrsig.name()))
-                .into(),
+            ProtoErrorKind::Msg(format!("could not determine name from {}", rrsig.name())).into(),
         );
     }
 }

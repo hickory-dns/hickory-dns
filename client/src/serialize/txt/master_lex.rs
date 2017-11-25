@@ -104,13 +104,11 @@ impl<'a> Lexer<'a> {
                 }
                 State::Comment { is_list } => {
                     match ch {
-                        Some('\r') | Some('\n') => {
-                            if is_list {
-                                self.state = State::List;
-                            } else {
-                                self.state = State::EOL;
-                            }
-                        } // out of the comment
+                        Some('\r') | Some('\n') => if is_list {
+                            self.state = State::List;
+                        } else {
+                            self.state = State::EOL;
+                        }, // out of the comment
                         Some(_) => {
                             self.txt.next();
                         } // advance the token by default and maintain state
@@ -125,14 +123,16 @@ impl<'a> Lexer<'a> {
                         Some('"') => {
                             self.state = State::RestOfLine;
                             self.txt.next();
-                            return Ok(Some(Token::CharData(char_data.take().unwrap_or_else(|| "".into()))));
+                            return Ok(Some(Token::CharData(
+                                char_data.take().unwrap_or_else(|| "".into()),
+                            )));
                         }
                         Some('\\') => {
-                            try!(Self::push_to_str(&mut char_data, try!(self.escape_seq())));
+                            Self::push_to_str(&mut char_data, self.escape_seq()?)?;
                         }
                         Some(ch) => {
                             self.txt.next();
-                            try!(Self::push_to_str(&mut char_data, ch));
+                            Self::push_to_str(&mut char_data, ch)?;
                         }
                         None => return Err(LexerErrorKind::UnclosedQuotedString.into()),
                     }
@@ -142,17 +142,17 @@ impl<'a> Lexer<'a> {
                         // even this is a little broad for what's actually possible in a dollar...
                         Some('A'...'Z') => {
                             self.txt.next();
-                            try!(Self::push_to_str(&mut char_data, ch.unwrap()));
+                            Self::push_to_str(&mut char_data, ch.unwrap())?;
                         }
                         // finishes the Dollar...
                         Some(_) | None => {
                             self.state = State::RestOfLine;
-                            let dollar: String = try!(char_data.take().ok_or_else(|| LexerError::from(
-                                LexerErrorKind::IllegalState(
+                            let dollar: String = char_data.take().ok_or_else(|| {
+                                LexerError::from(LexerErrorKind::IllegalState(
                                     "char_data \
-                                                                                      is None",
-                                ),
-                            )));
+                                     is None",
+                                ))
+                            })?;
 
                             if "INCLUDE" == dollar {
                                 return Ok(Some(Token::Include));
@@ -170,76 +170,72 @@ impl<'a> Lexer<'a> {
                         }
                     }
                 }
-                State::List => {
-                    match ch {
-                        Some(';') => {
-                            self.txt.next();
-                            self.state = State::Comment { is_list: true }
-                        }
-                        Some(')') => {
-                            self.txt.next();
-                            self.state = State::RestOfLine;
-                            return char_data_vec
-                                .take()
-                                .ok_or_else(|| LexerErrorKind::IllegalState("char_data_vec is None").into())
-                                .map(|v| Some(Token::List(v)));
-                        }
-                        Some(ch) if ch.is_whitespace() => {
-                            self.txt.next();
-                        }
-                        Some(ch) if !ch.is_control() && !ch.is_whitespace() => {
-                            char_data = Some(String::new());
-                            self.state = State::CharData { is_list: true }
-                        }
-                        Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
-                        None => return Err(LexerErrorKind::UnclosedList.into()),
+                State::List => match ch {
+                    Some(';') => {
+                        self.txt.next();
+                        self.state = State::Comment { is_list: true }
                     }
-                }
+                    Some(')') => {
+                        self.txt.next();
+                        self.state = State::RestOfLine;
+                        return char_data_vec
+                            .take()
+                            .ok_or_else(|| {
+                                LexerErrorKind::IllegalState("char_data_vec is None").into()
+                            })
+                            .map(|v| Some(Token::List(v)));
+                    }
+                    Some(ch) if ch.is_whitespace() => {
+                        self.txt.next();
+                    }
+                    Some(ch) if !ch.is_control() && !ch.is_whitespace() => {
+                        char_data = Some(String::new());
+                        self.state = State::CharData { is_list: true }
+                    }
+                    Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
+                    None => return Err(LexerErrorKind::UnclosedList.into()),
+                },
                 State::CharData { is_list } => {
                     match ch {
                         Some(')') if !is_list => {
                             return Err(LexerErrorKind::IllegalCharacter(ch.unwrap_or(')')).into())
                         }
-                        Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => {
-                            if is_list {
-                                try!(
-                                    char_data_vec
-                                        .as_mut()
-                                        .ok_or_else(|| LexerError::from(
-                                            LexerErrorKind::IllegalState("char_data_vec is None"),
-                                        ))
-                                        .and_then(|v| {
-                                            Ok(v.push(try!(
-                                                char_data.take().ok_or_else(|| LexerErrorKind::IllegalState(
-                                                    "char_data is None",
-                                                ))
-                                            )))
-                                        })
-                                );
-                                self.state = State::List;
-                            } else {
-                                self.state = State::RestOfLine;
-                                let result = char_data.take().ok_or_else(||
-                                    LexerErrorKind::IllegalState(
-                                        "char_data is None",
-                                    ).into(),
-                                );
-                                let opt = result.map(|s| Some(Token::CharData(s)));
-                                return opt;
-                            }
-                        }
+                        Some(ch) if ch.is_whitespace() || ch == ')' || ch == ';' => if is_list {
+                            char_data_vec
+                                .as_mut()
+                                .ok_or_else(|| {
+                                    LexerError::from(
+                                        LexerErrorKind::IllegalState("char_data_vec is None"),
+                                    )
+                                })
+                                .and_then(|v| {
+                                    Ok(v.push(char_data.take().ok_or_else(
+                                        || LexerErrorKind::IllegalState("char_data is None"),
+                                    )?))
+                                })?;
+                            self.state = State::List;
+                        } else {
+                            self.state = State::RestOfLine;
+                            let result = char_data.take().ok_or_else(
+                                || LexerErrorKind::IllegalState("char_data is None").into(),
+                            );
+                            let opt = result.map(|s| Some(Token::CharData(s)));
+                            return opt;
+                        },
                         // TODO: this next one can be removed, but will keep unescaping for quoted strings
                         //Some('\\') => { try!(Self::push_to_str(&mut char_data, try!(self.escape_seq()))); },
                         Some(ch) if !ch.is_control() && !ch.is_whitespace() => {
                             self.txt.next();
-                            try!(Self::push_to_str(&mut char_data, ch));
+                            Self::push_to_str(&mut char_data, ch)?;
                         }
                         Some(ch) => return Err(LexerErrorKind::UnrecognizedChar(ch).into()),
                         None => {
                             self.state = State::EOF;
                             return char_data
                                 .take()
-                                .ok_or_else(|| LexerErrorKind::IllegalState("char_data is None").into())
+                                .ok_or_else(
+                                    || LexerErrorKind::IllegalState("char_data is None").into(),
+                                )
                                 .map(|s| Some(Token::CharData(s)));
                         }
                     }
@@ -249,27 +245,24 @@ impl<'a> Lexer<'a> {
                     self.state = State::RestOfLine;
                     return Ok(Some(Token::At));
                 }
-                State::EOL => {
-                    match ch {
-                        Some('\r') => {
-                            self.txt.next();
-                        }
-                        Some('\n') => {
-                            self.txt.next();
-                            self.state = State::StartLine;
-                            return Ok(Some(Token::EOL));
-                        }
-                        Some(_) => return Err(LexerErrorKind::IllegalCharacter(ch.unwrap()).into()),
-                        None => return Err(LexerErrorKind::EOF.into()),
+                State::EOL => match ch {
+                    Some('\r') => {
+                        self.txt.next();
                     }
-                }
+                    Some('\n') => {
+                        self.txt.next();
+                        self.state = State::StartLine;
+                        return Ok(Some(Token::EOL));
+                    }
+                    Some(_) => return Err(LexerErrorKind::IllegalCharacter(ch.unwrap()).into()),
+                    None => return Err(LexerErrorKind::EOF.into()),
+                },
                 // to exhaust all cases, this should never be run...
                 State::EOF => {
                     self.txt.next(); // making sure we consume the last... it will always return None after.
                     return Ok(None);
                 }
             }
-
         }
 
         unreachable!("The above match statement should have found a terminal state");
@@ -285,46 +278,37 @@ impl<'a> Lexer<'a> {
     fn escape_seq(&mut self) -> LexerResult<char> {
         // escaped character, let's decode it.
         self.txt.next(); // consume the escape
-        let ch = try!(self.peek().ok_or_else(|| LexerError::from(LexerErrorKind::EOF)));
+        let ch = self.peek()
+            .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))?;
 
         if !ch.is_control() {
             if ch.is_numeric() {
                 // in this case it's an excaped octal: \DDD
-                let d1: u32 = try!(try!(
-                    self.txt
-                        .next()
-                        .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))
-                        .map(|c| {
-                            c.to_digit(10).ok_or_else(|| LexerError::from(
-                                LexerErrorKind::IllegalCharacter(c),
-                            ))
-                        })
-                )); // gobble
-                let d2: u32 = try!(try!(
-                    self.txt
-                        .next()
-                        .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))
-                        .map(|c| {
-                            c.to_digit(10).ok_or_else(|| LexerError::from(
-                                LexerErrorKind::IllegalCharacter(c),
-                            ))
-                        })
-                )); // gobble
-                let d3: u32 = try!(try!(
-                    self.txt
-                        .next()
-                        .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))
-                        .map(|c| {
-                            c.to_digit(10).ok_or_else(|| LexerError::from(
-                                LexerErrorKind::IllegalCharacter(c),
-                            ))
-                        })
-                )); // gobble
+                let d1: u32 = self.txt
+                    .next()
+                    .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))
+                    .map(|c| {
+                        c.to_digit(10)
+                            .ok_or_else(|| LexerError::from(LexerErrorKind::IllegalCharacter(c)))
+                    })??; // gobble
+                let d2: u32 = self.txt
+                    .next()
+                    .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))
+                    .map(|c| {
+                        c.to_digit(10)
+                            .ok_or_else(|| LexerError::from(LexerErrorKind::IllegalCharacter(c)))
+                    })??; // gobble
+                let d3: u32 = self.txt
+                    .next()
+                    .ok_or_else(|| LexerError::from(LexerErrorKind::EOF))
+                    .map(|c| {
+                        c.to_digit(10)
+                            .ok_or_else(|| LexerError::from(LexerErrorKind::IllegalCharacter(c)))
+                    })??; // gobble
 
                 let val: u32 = (d1 << 16) + (d2 << 8) + d3;
-                let ch: char = try!(char::from_u32(val).ok_or_else(|| LexerError::from(
-                    LexerErrorKind::UnrecognizedOctet(val),
-                )));
+                let ch: char = char::from_u32(val)
+                    .ok_or_else(|| LexerError::from(LexerErrorKind::UnrecognizedOctet(val)))?;
 
                 Ok(ch)
             } else {
@@ -335,7 +319,6 @@ impl<'a> Lexer<'a> {
         } else {
             Err(LexerErrorKind::IllegalCharacter(ch).into())
         }
-
     }
 
     fn peek(&mut self) -> Option<char> {
@@ -348,15 +331,15 @@ impl<'a> Lexer<'a> {
 pub enum State {
     StartLine,
     RestOfLine,
-    Blank, // only if the first part of the line
-    List, // (..)
+    Blank,                      // only if the first part of the line
+    List,                       // (..)
     CharData { is_list: bool }, // [a-zA-Z, non-control utf8]+
     //  Name,              // CharData + '.' + CharData
     Comment { is_list: bool }, // ;.*
-    At, // @
-    Quote, // ".*"
-    Dollar, // $
-    EOL, // \n or \r\n
+    At,                        // @
+    Quote,                     // ".*"
+    Dollar,                    // $
+    EOL,                       // \n or \r\n
     EOF,
 }
 
@@ -452,7 +435,6 @@ mod lex_test {
             next_token(&mut lexer).unwrap(),
             Token::CharData("after".to_string())
         );
-
     }
 
     #[test]

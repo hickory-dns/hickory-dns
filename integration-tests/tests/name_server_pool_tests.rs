@@ -9,7 +9,7 @@ use std::str::FromStr;
 
 use tokio_core::reactor::{Core, Handle};
 
-use trust_dns::op::{Query, Message};
+use trust_dns::op::{Message, Query};
 use trust_dns::rr::domain;
 use trust_dns::rr::RecordType;
 use trust_dns_proto::DnsHandle;

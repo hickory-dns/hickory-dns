@@ -49,7 +49,9 @@ impl NULL {
 
     /// Constructs a new NULL RData with the associated data
     pub fn with(anything: Vec<u8>) -> NULL {
-        NULL { anything: Some(anything) }
+        NULL {
+            anything: Some(anything),
+        }
     }
 
     /// Returns the buffer stored in the NULL
@@ -66,9 +68,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NULL> {
             if let Ok(byte) = decoder.pop() {
                 anything.push(byte);
             } else {
-                return Err(
-                    ProtoErrorKind::Message("unexpected end of input reached").into(),
-                );
+                return Err(ProtoErrorKind::Message("unexpected end of input reached").into());
             }
         }
 
@@ -82,7 +82,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NULL> {
 pub fn emit(encoder: &mut BinEncoder, nil: &NULL) -> ProtoResult<()> {
     if let Some(anything) = nil.anything() {
         for b in anything.iter() {
-            try!(encoder.emit(*b));
+            encoder.emit(*b)?;
         }
     }
 

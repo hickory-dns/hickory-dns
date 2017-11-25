@@ -1,4 +1,3 @@
-
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
@@ -15,7 +14,7 @@ use std::mem;
 use std::net::IpAddr;
 use std::sync::Arc;
 
-use futures::{Async, future, Future, Poll, task};
+use futures::{future, task, Async, Future, Poll};
 
 use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::Query;
@@ -66,11 +65,13 @@ impl<'i> Iterator for LookupIpIter<'i> {
 }
 
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
-pub type LookupIpFuture = InnerLookupIpFuture<LookupEither<BasicResolverHandle, StandardConnection>>;
+pub type LookupIpFuture = InnerLookupIpFuture<
+    LookupEither<BasicResolverHandle, StandardConnection>,
+>;
 
 #[doc(hidden)]
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
-pub struct InnerLookupIpFuture<C: DnsHandle<Error=ResolveError> + 'static> {
+pub struct InnerLookupIpFuture<C: DnsHandle<Error = ResolveError> + 'static> {
     client_cache: CachingClient<C>,
     names: Vec<Name>,
     strategy: LookupIpStrategy,
@@ -78,7 +79,7 @@ pub struct InnerLookupIpFuture<C: DnsHandle<Error=ResolveError> + 'static> {
     hosts: Option<Arc<Hosts>>,
 }
 
-impl<C: DnsHandle<Error=ResolveError> + 'static> InnerLookupIpFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
     /// Perform a lookup from a hostname to a set of IPs
     ///
     /// # Arguments
@@ -110,7 +111,12 @@ impl<C: DnsHandle<Error=ResolveError> + 'static> InnerLookupIpFuture<C> {
     ) -> Poll<LookupIp, ResolveError> {
         let name = self.names.pop();
         if let Some(name) = name {
-            let query = strategic_lookup(name, self.strategy, self.client_cache.clone(), self.hosts.clone());
+            let query = strategic_lookup(
+                name,
+                self.strategy,
+                self.client_cache.clone(),
+                self.hosts.clone(),
+            );
 
             mem::replace(&mut self.future, Box::new(query));
             // guarantee that we get scheduled for the next turn...
@@ -128,26 +134,24 @@ impl<C: DnsHandle<Error=ResolveError> + 'static> InnerLookupIpFuture<C> {
             names: vec![],
             strategy: LookupIpStrategy::default(),
             future: Box::new(future::err(
-                ResolveErrorKind::Msg(format!("{}", error)).into()
+                ResolveErrorKind::Msg(format!("{}", error)).into(),
             )),
             hosts: None,
         };
     }
 }
 
-impl<C: DnsHandle<Error=ResolveError> + 'static> Future for InnerLookupIpFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> Future for InnerLookupIpFuture<C> {
     type Item = LookupIp;
     type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.future.poll() {
-            Ok(Async::Ready(lookup)) => {
-                if lookup.is_empty() {
-                    return self.next_lookup(|| Ok(Async::Ready(LookupIp::from(lookup))));
-                } else {
-                    return Ok(Async::Ready(LookupIp::from(lookup)));
-                }
-            }
+            Ok(Async::Ready(lookup)) => if lookup.is_empty() {
+                return self.next_lookup(|| Ok(Async::Ready(LookupIp::from(lookup))));
+            } else {
+                return Ok(Async::Ready(LookupIp::from(lookup)));
+            },
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => {
                 return self.next_lookup(|| Err(e));
@@ -157,7 +161,7 @@ impl<C: DnsHandle<Error=ResolveError> + 'static> Future for InnerLookupIpFuture<
 }
 
 /// returns a new future for lookup
-fn strategic_lookup<C: DnsHandle<Error=ResolveError> + 'static>(
+fn strategic_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: CachingClient<C>,
@@ -179,7 +183,7 @@ fn strategic_lookup<C: DnsHandle<Error=ResolveError> + 'static>(
 }
 
 /// queries only for A records
-fn ipv4_only<C: DnsHandle<Error=ResolveError> + 'static>(
+fn ipv4_only<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     mut client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
@@ -187,7 +191,7 @@ fn ipv4_only<C: DnsHandle<Error=ResolveError> + 'static>(
 }
 
 /// queries only for AAAA records
-fn ipv6_only<C: DnsHandle<Error=ResolveError> + 'static>(
+fn ipv6_only<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     mut client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
@@ -195,7 +199,7 @@ fn ipv6_only<C: DnsHandle<Error=ResolveError> + 'static>(
 }
 
 /// queries only for A and AAAA in parallel
-fn ipv4_and_ipv6<C: DnsHandle<Error=ResolveError> + 'static>(
+fn ipv4_and_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     mut client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
@@ -229,7 +233,7 @@ fn ipv4_and_ipv6<C: DnsHandle<Error=ResolveError> + 'static>(
 }
 
 /// queries only for AAAA and on no results queries for A
-fn ipv6_then_ipv4<C: DnsHandle<Error=ResolveError> + 'static>(
+fn ipv6_then_ipv4<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
@@ -237,7 +241,7 @@ fn ipv6_then_ipv4<C: DnsHandle<Error=ResolveError> + 'static>(
 }
 
 /// queries only for A and on no results queries for AAAA
-fn ipv4_then_ipv6<C: DnsHandle<Error=ResolveError> + 'static>(
+fn ipv4_then_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     client: CachingClient<C>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
@@ -245,40 +249,30 @@ fn ipv4_then_ipv6<C: DnsHandle<Error=ResolveError> + 'static>(
 }
 
 /// queries only for first_type and on no results queries for second_type
-fn rt_then_swap<C: DnsHandle<Error=ResolveError> + 'static>(
+fn rt_then_swap<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     mut client: CachingClient<C>,
     first_type: RecordType,
     second_type: RecordType,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
     let mut or_client = client.clone();
-    Box::new(
-        client
-            .lookup(Query::query(name.clone(), first_type))
-            .then(move |res| {
-                match res {
-                    Ok(ips) => {
-                        if ips.is_empty() {
-                            // no ips returns, NXDomain or Otherwise, doesn't matter
-                            Box::new(
-                                or_client
-                                    .lookup(Query::query(name.clone(), second_type)),
-                            ) as
-                                Box<Future<Item = Lookup, Error = ResolveError>>
-                        } else {
-                            Box::new(future::ok(ips)) as
-                                Box<Future<Item = Lookup, Error = ResolveError>>
-                        }
-                    }
-                    Err(_) => {
-                        Box::new(
-                            or_client
-                                .lookup(Query::query(name.clone(), second_type))
-                        )
+    Box::new(client.lookup(Query::query(name.clone(), first_type)).then(
+        move |res| {
+            match res {
+                Ok(ips) => {
+                    if ips.is_empty() {
+                        // no ips returns, NXDomain or Otherwise, doesn't matter
+                        Box::new(or_client.lookup(Query::query(name.clone(), second_type)))
+                            as Box<Future<Item = Lookup, Error = ResolveError>>
+                    } else {
+                        Box::new(future::ok(ips))
+                            as Box<Future<Item = Lookup, Error = ResolveError>>
                     }
                 }
-            }),
-    )
+                Err(_) => Box::new(or_client.lookup(Query::query(name.clone(), second_type))),
+            }
+        },
+    ))
 }
 
 #[cfg(test)]
@@ -290,7 +284,7 @@ pub mod tests {
 
     //use trust_dns_proto::error::*;
     use trust_dns_proto::op::Message;
-    use trust_dns_proto::rr::{Name, Record, RData, RecordType};
+    use trust_dns_proto::rr::{Name, RData, Record, RecordType};
     use trust_dns_proto::DnsHandle;
 
     use super::*;
@@ -317,7 +311,7 @@ pub mod tests {
                 Name::root(),
                 86400,
                 RecordType::A,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1))
+                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
             ),
         ]);
         Ok(message)
@@ -330,7 +324,7 @@ pub mod tests {
                 Name::root(),
                 86400,
                 RecordType::AAAA,
-                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))
+                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             ),
         ]);
         Ok(message)
@@ -345,7 +339,9 @@ pub mod tests {
     }
 
     pub fn mock(messages: Vec<ResolveResult<Message>>) -> MockDnsHandle {
-        MockDnsHandle { messages: Arc::new(Mutex::new(messages)) }
+        MockDnsHandle {
+            messages: Arc::new(Mutex::new(messages)),
+        }
     }
 
     #[test]

@@ -56,11 +56,7 @@ impl KeyPair {
     /// Creates an RSA type keypair.
     #[cfg(feature = "openssl")]
     pub fn from_rsa(rsa: OpenSslRsa) -> DnsSecResult<Self> {
-        PKey::from_rsa(rsa).map(KeyPair::RSA).map_err(
-            |e| {
-                e.into()
-            },
-        )
+        PKey::from_rsa(rsa).map(KeyPair::RSA).map_err(|e| e.into())
     }
 
     /// Given a know pkey of an RSA key, return the wrapped keypair
@@ -100,9 +96,8 @@ impl KeyPair {
             KeyPair::RSA(ref pkey) => {
                 let mut bytes: Vec<u8> = Vec::new();
                 // TODO: make these expects a try! and Err()
-                let rsa: OpenSslRsa = pkey.rsa().expect(
-                    "pkey should have been initialized with RSA",
-                );
+                let rsa: OpenSslRsa = pkey.rsa()
+                    .expect("pkey should have been initialized with RSA");
 
                 // this is to get us access to the exponent and the modulus
                 // TODO: make these expects a try! and Err()
@@ -127,9 +122,8 @@ impl KeyPair {
             #[cfg(feature = "openssl")]
             KeyPair::EC(ref pkey) => {
                 // TODO: make these expects a try! and Err()
-                let ec_key: EcKey = pkey.ec_key().expect(
-                    "pkey should have been initialized with EC",
-                );
+                let ec_key: EcKey = pkey.ec_key()
+                    .expect("pkey should have been initialized with EC");
                 ec_key
                     .group()
                     .and_then(|group| ec_key.public_key().map(|point| (group, point)))
@@ -149,9 +143,7 @@ impl KeyPair {
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.public_key_bytes().to_vec()),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
-            _ => Err(
-                DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into(),
-            ),
+            _ => Err(DnsSecErrorKind::Message("openssl or ring feature(s) not enabled").into()),
         }
     }
 
@@ -216,7 +208,7 @@ impl KeyPair {
     pub fn key_tag(&self) -> DnsSecResult<u16> {
         let mut ac: usize = 0;
 
-        for (i, k) in try!(self.to_public_bytes()).iter().enumerate() {
+        for (i, k) in self.to_public_bytes()?.iter().enumerate() {
             ac += if i & 0x0001 == 0x0001 {
                 *k as usize
             } else {
@@ -238,9 +230,8 @@ impl KeyPair {
     ///
     /// the DNSKEY record data
     pub fn to_dnskey(&self, algorithm: Algorithm) -> DnsSecResult<DNSKEY> {
-        self.to_public_bytes().map(|bytes| {
-            DNSKEY::new(true, true, false, algorithm, bytes)
-        })
+        self.to_public_bytes()
+            .map(|bytes| DNSKEY::new(true, true, false, algorithm, bytes))
     }
 
     /// Convert this keypair into a KEY record type for usage with SIG0
@@ -327,11 +318,10 @@ impl KeyPair {
     pub fn sign(&self, algorithm: Algorithm, tbs: &TBS) -> DnsSecResult<Vec<u8>> {
         match *self {
             #[cfg(feature = "openssl")]
-            KeyPair::RSA(ref pkey) |
-            KeyPair::EC(ref pkey) => {
+            KeyPair::RSA(ref pkey) | KeyPair::EC(ref pkey) => {
                 let digest_type = DigestType::from(algorithm).to_openssl_digest()?;
                 let mut signer = Signer::new(digest_type, pkey).unwrap();
-                try!(signer.update(tbs.as_ref()));
+                signer.update(tbs.as_ref())?;
                 signer.finish().map_err(|e| e.into()).and_then(|bytes| {
                     if let KeyPair::RSA(_) = *self {
                         return Ok(bytes);
@@ -403,9 +393,7 @@ impl KeyPair {
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.sign(tbs.as_ref()).as_ref().to_vec()),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
-            _ => Err(
-                DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into(),
-            ),
+            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
 
@@ -415,43 +403,33 @@ impl KeyPair {
     pub fn generate(algorithm: Algorithm) -> DnsSecResult<Self> {
         match algorithm {
             #[cfg(feature = "openssl")]
-            Algorithm::RSASHA1 |
-            Algorithm::RSASHA1NSEC3SHA1 |
-            Algorithm::RSASHA256 |
-            Algorithm::RSASHA512 => {
+            Algorithm::RSASHA1
+            | Algorithm::RSASHA1NSEC3SHA1
+            | Algorithm::RSASHA256
+            | Algorithm::RSASHA512 => {
                 // TODO: the only keysize right now, would be better for people to use other algorithms...
-                OpenSslRsa::generate(2048).map_err(|e| e.into()).and_then(
-                    |rsa| {
-                        KeyPair::from_rsa(rsa)
-                    },
-                )
+                OpenSslRsa::generate(2048)
+                    .map_err(|e| e.into())
+                    .and_then(|rsa| KeyPair::from_rsa(rsa))
             }
             #[cfg(feature = "openssl")]
-            Algorithm::ECDSAP256SHA256 => {
-                EcGroup::from_curve_name(nid::X9_62_PRIME256V1)
-                    .and_then(|group| EcKey::generate(&group))
-                    .map_err(|e| e.into())
-                    .and_then(KeyPair::from_ec_key)
-            }
+            Algorithm::ECDSAP256SHA256 => EcGroup::from_curve_name(nid::X9_62_PRIME256V1)
+                .and_then(|group| EcKey::generate(&group))
+                .map_err(|e| e.into())
+                .and_then(KeyPair::from_ec_key),
             #[cfg(feature = "openssl")]
-            Algorithm::ECDSAP384SHA384 => {
-                EcGroup::from_curve_name(nid::SECP384R1)
-                    .and_then(|group| EcKey::generate(&group))
-                    .map_err(|e| e.into())
-                    .and_then(KeyPair::from_ec_key)
-            }
+            Algorithm::ECDSAP384SHA384 => EcGroup::from_curve_name(nid::SECP384R1)
+                .and_then(|group| EcKey::generate(&group))
+                .map_err(|e| e.into())
+                .and_then(KeyPair::from_ec_key),
             #[cfg(feature = "ring")]
-            Algorithm::ED25519 => {
-                Err(
-                    DnsSecErrorKind::Message(
-                        "use generate_pkcs8 for generating private key and encoding",
-                    ).into(),
-                )
-            }
-            #[cfg(not(all(feature = "openssl", feature = "ring")))]
-            _ => Err(
-                DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into(),
+            Algorithm::ED25519 => Err(
+                DnsSecErrorKind::Message(
+                    "use generate_pkcs8 for generating private key and encoding",
+                ).into(),
             ),
+            #[cfg(not(all(feature = "openssl", feature = "ring")))]
+            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
 
@@ -460,15 +438,13 @@ impl KeyPair {
     pub fn generate_pkcs8(algorithm: Algorithm) -> DnsSecResult<Vec<u8>> {
         match algorithm {
             #[cfg(feature = "openssl")]
-            Algorithm::RSASHA1 |
-            Algorithm::RSASHA1NSEC3SHA1 |
-            Algorithm::RSASHA256 |
-            Algorithm::RSASHA512 |
-            Algorithm::ECDSAP256SHA256 |
-            Algorithm::ECDSAP384SHA384 => {
-                Err(
-                    DnsSecErrorKind::Message("openssl does not yet support pkcs8").into(),
-                )
+            Algorithm::RSASHA1
+            | Algorithm::RSASHA1NSEC3SHA1
+            | Algorithm::RSASHA256
+            | Algorithm::RSASHA512
+            | Algorithm::ECDSAP256SHA256
+            | Algorithm::ECDSAP384SHA384 => {
+                Err(DnsSecErrorKind::Message("openssl does not yet support pkcs8").into())
             }
             #[cfg(feature = "ring")]
             Algorithm::ED25519 => {
@@ -478,9 +454,7 @@ impl KeyPair {
                     .map(|pkcs8_bytes| pkcs8_bytes.to_vec())
             }
             #[cfg(not(all(feature = "openssl", feature = "ring")))]
-            _ => Err(
-                DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into(),
-            ),
+            _ => Err(DnsSecErrorKind::Message("openssl nor ring feature(s) not enabled").into()),
         }
     }
 }

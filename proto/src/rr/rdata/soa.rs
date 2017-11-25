@@ -212,13 +212,13 @@ impl SOA {
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SOA> {
     Ok(SOA {
-        mname: try!(Name::read(decoder)),
-        rname: try!(Name::read(decoder)),
-        serial: try!(decoder.read_u32()),
-        refresh: try!(decoder.read_i32()),
-        retry: try!(decoder.read_i32()),
-        expire: try!(decoder.read_i32()),
-        minimum: try!(decoder.read_u32()),
+        mname: Name::read(decoder)?,
+        rname: Name::read(decoder)?,
+        serial: decoder.read_u32()?,
+        refresh: decoder.read_i32()?,
+        retry: decoder.read_i32()?,
+        expire: decoder.read_i32()?,
+        minimum: decoder.read_u32()?,
     })
 }
 
@@ -243,13 +243,13 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SOA> {
 pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
 
-    try!(soa.mname.emit_with_lowercase(encoder, is_canonical_names));
-    try!(soa.rname.emit_with_lowercase(encoder, is_canonical_names));
-    try!(encoder.emit_u32(soa.serial));
-    try!(encoder.emit_i32(soa.refresh));
-    try!(encoder.emit_i32(soa.retry));
-    try!(encoder.emit_i32(soa.expire));
-    try!(encoder.emit_u32(soa.minimum));
+    soa.mname.emit_with_lowercase(encoder, is_canonical_names)?;
+    soa.rname.emit_with_lowercase(encoder, is_canonical_names)?;
+    encoder.emit_u32(soa.serial)?;
+    encoder.emit_i32(soa.refresh)?;
+    encoder.emit_i32(soa.retry)?;
+    encoder.emit_i32(soa.expire)?;
+    encoder.emit_u32(soa.minimum)?;
     Ok(())
 }
 

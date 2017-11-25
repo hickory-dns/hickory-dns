@@ -54,8 +54,10 @@ impl ClientConnection for UdpClientConnection {
         &self,
         handle: &Handle,
     ) -> ClientResult<
-        (Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-         Box<DnsStreamHandle<Error = ClientError>>),
+        (
+            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+            Box<DnsStreamHandle<Error = ClientError>>,
+        ),
     > {
         let (udp_client_stream, handle) = UdpClientStream::new(self.name_server, handle);
 

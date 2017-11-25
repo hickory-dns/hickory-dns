@@ -222,14 +222,11 @@ impl DNSKEY {
         {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buf);
             encoder.set_canonical_names(true);
-            if let Err(e) = name.emit(&mut encoder).and_then(
-                |_| emit(&mut encoder, self),
-            )
+            if let Err(e) = name.emit(&mut encoder)
+                .and_then(|_| emit(&mut encoder, self))
             {
                 warn!("error serializing dnskey: {}", e);
-                return Err(
-                    ProtoErrorKind::Msg(format!("error serializing dnskey: {}", e)).into(),
-                );
+                return Err(ProtoErrorKind::Msg(format!("error serializing dnskey: {}", e)).into());
             }
         }
 
@@ -239,9 +236,7 @@ impl DNSKEY {
     /// This will always return an error unless the Ring or OpenSSL features are enabled
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
     pub fn to_digest(&self, _: &Name, _: DigestType) -> ProtoResult<Digest> {
-        Err(
-            ProtoErrorKind::Message("Ring or OpenSSL must be enabled for this feature").into(),
-        )
+        Err(ProtoErrorKind::Message("Ring or OpenSSL must be enabled for this feature").into())
     }
 }
 
@@ -253,14 +248,14 @@ impl From<DNSKEY> for RData {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DNSKEY> {
-    let flags: u16 = try!(decoder.read_u16());
+    let flags: u16 = decoder.read_u16()?;
 
     //    Bits 0-6 and 8-14 are reserved: these bits MUST have value 0 upon
     //    creation of the DNSKEY RR and MUST be ignored upon receipt.
     let zone_key: bool = flags & 0b0000_0001_0000_0000 == 0b0000_0001_0000_0000;
     let secure_entry_point: bool = flags & 0b0000_0000_0000_0001 == 0b0000_0000_0000_0001;
     let revoke: bool = flags & 0b0000_0000_1000_0000 == 0b0000_0000_1000_0000;
-    let protocol: u8 = try!(decoder.read_u8());
+    let protocol: u8 = decoder.read_u8()?;
 
     // RFC 4034                DNSSEC Resource Records               March 2005
     //
@@ -275,11 +270,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DNSKEY> 
         return Err(ProtoErrorKind::DnsKeyProtocolNot3(protocol).into());
     }
 
-    let algorithm: Algorithm = try!(Algorithm::read(decoder));
+    let algorithm: Algorithm = Algorithm::read(decoder)?;
 
     // the public key is the left-over bytes minus 4 for the first fields
     // TODO: decode the key here?
-    let public_key: Vec<u8> = try!(decoder.read_vec((rdata_length - 4) as usize));
+    let public_key: Vec<u8> = decoder.read_vec((rdata_length - 4) as usize)?;
 
     Ok(DNSKEY::new(
         zone_key,
@@ -302,10 +297,10 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &DNSKEY) -> ProtoResult<()> {
     if rdata.revoke() {
         flags |= 0b0000_0000_1000_0000
     }
-    try!(encoder.emit_u16(flags));
-    try!(encoder.emit(3)); // always 3 for now
-    try!(rdata.algorithm().emit(encoder));
-    try!(encoder.emit_vec(rdata.public_key()));
+    encoder.emit_u16(flags)?;
+    encoder.emit(3)?; // always 3 for now
+    rdata.algorithm().emit(encoder)?;
+    encoder.emit_vec(rdata.public_key())?;
 
     Ok(())
 }
@@ -339,7 +334,7 @@ pub fn test() {
         rdata
             .to_digest(
                 &Name::parse("www.example.com.", None).unwrap(),
-                DigestType::SHA256,
+                DigestType::SHA256
             )
             .is_ok()
     );

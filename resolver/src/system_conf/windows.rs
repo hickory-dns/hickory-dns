@@ -11,11 +11,11 @@ use std::str::FromStr;
 use std::net::SocketAddr;
 
 use ipconfig::get_adapters;
-use ipconfig::computer::{get_search_list, get_domain, is_round_robin_enabled};
+use ipconfig::computer::{get_domain, get_search_list, is_round_robin_enabled};
 
 use trust_dns_proto::rr::Name;
 
-use config::{ResolverConfig, ResolverOpts, NameServerConfig, Protocol};
+use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
 
 
@@ -31,7 +31,10 @@ fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
     let adapters = map_ipconfig_error!(get_adapters())?;
     let mut name_servers = vec![];
 
-    for dns_server in adapters.iter().flat_map(|adapter| adapter.dns_servers().iter()) {
+    for dns_server in adapters
+        .iter()
+        .flat_map(|adapter| adapter.dns_servers().iter())
+    {
         let socket_addr = SocketAddr::new(*dns_server, 53);
         name_servers.push(NameServerConfig {
             socket_addr,
@@ -41,7 +44,7 @@ fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
             socket_addr,
             protocol: Protocol::Tcp,
         });
-    };
+    }
     Ok(name_servers)
 }
 

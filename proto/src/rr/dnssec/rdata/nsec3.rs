@@ -243,21 +243,21 @@ impl NSEC3 {
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NSEC3> {
     let start_idx = decoder.index();
 
-    let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
-    let flags: u8 = try!(decoder.read_u8());
+    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?)?;
+    let flags: u8 = decoder.read_u8()?;
 
     if flags & 0b1111_1110 != 0 {
         return Err(ProtoErrorKind::UnrecognizedNsec3Flags(flags).into());
     }
     let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
-    let iterations: u16 = try!(decoder.read_u16());
-    let salt_len: u8 = try!(decoder.read_u8());
-    let salt: Vec<u8> = try!(decoder.read_vec(salt_len as usize));
-    let hash_len: u8 = try!(decoder.read_u8());
-    let next_hashed_owner_name: Vec<u8> = try!(decoder.read_vec(hash_len as usize));
+    let iterations: u16 = decoder.read_u16()?;
+    let salt_len: u8 = decoder.read_u8()?;
+    let salt: Vec<u8> = decoder.read_vec(salt_len as usize)?;
+    let hash_len: u8 = decoder.read_u8()?;
+    let next_hashed_owner_name: Vec<u8> = decoder.read_vec(hash_len as usize)?;
 
     let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
-    let record_types = try!(decode_type_bit_maps(decoder, bit_map_len));
+    let record_types = decode_type_bit_maps(decoder, bit_map_len)?;
 
     Ok(NSEC3::new(
         hash_algorithm,
@@ -333,17 +333,17 @@ pub fn decode_type_bit_maps(
 
     // loop through all the bytes in the bitmap
     for _ in 0..bit_map_len {
-        let current_byte = try!(decoder.read_u8());
+        let current_byte = decoder.read_u8()?;
 
         state = match state {
-            BitMapState::ReadWindow => BitMapState::ReadLen { window: current_byte },
-            BitMapState::ReadLen { window } => {
-                BitMapState::ReadType {
-                    window: window,
-                    len: current_byte,
-                    left: current_byte,
-                }
-            }
+            BitMapState::ReadWindow => BitMapState::ReadLen {
+                window: current_byte,
+            },
+            BitMapState::ReadLen { window } => BitMapState::ReadType {
+                window: window,
+                len: current_byte,
+                left: current_byte,
+            },
             BitMapState::ReadType { window, len, left } => {
                 // window is the Window Block # from above
                 // len is the Bitmap Length
@@ -391,18 +391,18 @@ enum BitMapState {
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3) -> ProtoResult<()> {
-    try!(encoder.emit(rdata.hash_algorithm().into()));
+    encoder.emit(rdata.hash_algorithm().into())?;
     let mut flags: u8 = 0;
     if rdata.opt_out() {
         flags |= 0b0000_0001
     };
-    try!(encoder.emit(flags));
-    try!(encoder.emit_u16(rdata.iterations()));
-    try!(encoder.emit(rdata.salt().len() as u8));
-    try!(encoder.emit_vec(rdata.salt()));
-    try!(encoder.emit(rdata.next_hashed_owner_name().len() as u8));
-    try!(encoder.emit_vec(rdata.next_hashed_owner_name()));
-    try!(encode_bit_maps(encoder, rdata.type_bit_maps()));
+    encoder.emit(flags)?;
+    encoder.emit_u16(rdata.iterations())?;
+    encoder.emit(rdata.salt().len() as u8)?;
+    encoder.emit_vec(rdata.salt())?;
+    encoder.emit(rdata.next_hashed_owner_name().len() as u8)?;
+    encoder.emit_vec(rdata.next_hashed_owner_name())?;
+    encode_bit_maps(encoder, rdata.type_bit_maps())?;
 
     Ok(())
 }
@@ -439,11 +439,11 @@ pub fn encode_bit_maps(encoder: &mut BinEncoder, type_bit_maps: &[RecordType]) -
 
     // output bitmaps
     for (window, bitmap) in hash {
-        try!(encoder.emit(window));
+        encoder.emit(window)?;
         // the hashset should never be larger that 255 based on above logic.
-        try!(encoder.emit(bitmap.len() as u8));
+        encoder.emit(bitmap.len() as u8)?;
         for bits in bitmap {
-            try!(encoder.emit(bits));
+            encoder.emit(bits)?;
         }
     }
 

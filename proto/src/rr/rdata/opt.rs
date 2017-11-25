@@ -205,10 +205,12 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
         match state {
             // TODO: can condense Code1/2 and Length1/2 into read_u16() calls.
             OptReadState::ReadCode => {
-                state = OptReadState::Code { code: (try!(decoder.read_u16())).into() };
+                state = OptReadState::Code {
+                    code: (decoder.read_u16()?).into(),
+                };
             }
             OptReadState::Code { code } => {
-                let length: usize = try!(decoder.read_u16()) as usize;
+                let length: usize = decoder.read_u16()? as usize;
                 state = OptReadState::Data {
                     code: code,
                     length: length,
@@ -220,7 +222,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
                 length,
                 mut collected,
             } => {
-                collected.push(try!(decoder.pop()));
+                collected.push(decoder.pop()?);
                 if length == collected.len() {
                     options.insert(code, (code, &collected as &[u8]).into());
                     state = OptReadState::ReadCode;
@@ -249,11 +251,11 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<()> {
     for (edns_code, edns_option) in opt.options().iter() {
-        try!(encoder.emit_u16(u16::from(*edns_code)));
-        try!(encoder.emit_u16(edns_option.len()));
+        encoder.emit_u16(u16::from(*edns_code))?;
+        encoder.emit_u16(edns_option.len())?;
 
         let data: Vec<u8> = Vec::from(edns_option);
-        try!(encoder.emit_vec(&data))
+        encoder.emit_vec(&data)?
     }
     Ok(())
 }
@@ -261,7 +263,9 @@ pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<()> {
 #[derive(Debug, PartialEq, Eq)]
 enum OptReadState {
     ReadCode,
-    Code { code: EdnsCode }, // expect LSB for the opt code, store the high byte
+    Code {
+        code: EdnsCode,
+    }, // expect LSB for the opt code, store the high byte
     Data {
         code: EdnsCode,
         length: usize,
@@ -388,9 +392,9 @@ impl EdnsOption {
     pub fn len(&self) -> u16 {
         match *self {
             #[cfg(feature = "dnssec")]
-            EdnsOption::DAU(ref algorithms) |
-            EdnsOption::DHU(ref algorithms) |
-            EdnsOption::N3U(ref algorithms) => algorithms.len(),
+            EdnsOption::DAU(ref algorithms)
+            | EdnsOption::DHU(ref algorithms)
+            | EdnsOption::N3U(ref algorithms) => algorithms.len(),
             EdnsOption::Unknown(_, ref data) => data.len() as u16, // TODO: should we verify?
         }
     }
@@ -399,9 +403,9 @@ impl EdnsOption {
     pub fn is_empty(&self) -> bool {
         match *self {
             #[cfg(feature = "dnssec")]
-            EdnsOption::DAU(ref algorithms) |
-            EdnsOption::DHU(ref algorithms) |
-            EdnsOption::N3U(ref algorithms) => algorithms.is_empty(),
+            EdnsOption::DAU(ref algorithms)
+            | EdnsOption::DHU(ref algorithms)
+            | EdnsOption::N3U(ref algorithms) => algorithms.is_empty(),
             EdnsOption::Unknown(_, ref data) => data.is_empty(),
         }
     }
@@ -426,9 +430,9 @@ impl<'a> From<&'a EdnsOption> for Vec<u8> {
     fn from(value: &'a EdnsOption) -> Vec<u8> {
         match *value {
             #[cfg(feature = "dnssec")]
-            EdnsOption::DAU(ref algorithms) |
-            EdnsOption::DHU(ref algorithms) |
-            EdnsOption::N3U(ref algorithms) => algorithms.into(),
+            EdnsOption::DAU(ref algorithms)
+            | EdnsOption::DHU(ref algorithms)
+            | EdnsOption::N3U(ref algorithms) => algorithms.into(),
             EdnsOption::Unknown(_, ref data) => data.clone(), // gah, clone needed or make a crazy api.
         }
     }

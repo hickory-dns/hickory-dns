@@ -60,7 +60,9 @@ impl Clone for ResolveErrorKind {
             &ResolveErrorKind::Io => ResolveErrorKind::Io,
             &ResolveErrorKind::Message(ref string) => ResolveErrorKind::Message(string),
             &ResolveErrorKind::Msg(ref string) => ResolveErrorKind::Msg(string.clone()),
-            &ResolveErrorKind::NoRecordsFound(ref query) => ResolveErrorKind::NoRecordsFound(query.clone()),
+            &ResolveErrorKind::NoRecordsFound(ref query) => {
+                ResolveErrorKind::NoRecordsFound(query.clone())
+            }
             &ResolveErrorKind::Proto(ref kind) => ResolveErrorKind::Proto(kind.clone()),
         }
     }
@@ -72,8 +74,8 @@ impl Clone for ResolveError {
 
         let inner_error: Option<Box<::std::error::Error + Send + 'static>> =
             (&self.1).0.as_ref().map(|e| {
-                Box::new(ResolveError::from(ResolveErrorKind::Msg(format!("{}", e)))) as
-                    Box<::std::error::Error + Send + 'static>
+                Box::new(ResolveError::from(ResolveErrorKind::Msg(format!("{}", e))))
+                    as Box<::std::error::Error + Send + 'static>
             });
         ResolveError(cloned_kind, (inner_error, (self.1).1.clone()))
     }

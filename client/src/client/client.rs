@@ -18,11 +18,11 @@ use std::io;
 use futures::Stream;
 use tokio_core::reactor::{Core, Handle};
 
-use client::{BasicClientHandle, ClientHandle, ClientConnection, ClientFuture};
+use client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use client::SecureClientHandle;
 use error::*;
-use rr::{domain, DNSClass, IntoRecordSet, RecordType, Record};
+use rr::{domain, DNSClass, IntoRecordSet, Record, RecordType};
 use rr::dnssec::Signer;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::TrustAnchor;
@@ -379,7 +379,7 @@ pub struct SyncClient<CC> {
 impl<CC> SyncClient<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static
+    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     /// Creates a new DNS client with the specified connection type
     ///
@@ -387,10 +387,7 @@ where
     ///
     /// * `conn` - the [`ClientConnection`] to use for all communication
     pub fn new(conn: CC) -> Self {
-        SyncClient {
-            conn,
-            signer: None
-        }
+        SyncClient { conn, signer: None }
     }
 
     /// Creates a new DNS client with the specified connection type and a SIG0 signer.
@@ -402,15 +399,17 @@ where
     /// * `conn` - the [`ClientConnection`] to use for all communication
     /// * `signer` - signer to use, this needs an associated private key
     pub fn with_signer(conn: CC, signer: Signer) -> Self {
-        SyncClient { conn, signer: Some(Arc::new(signer)) }
+        SyncClient {
+            conn,
+            signer: Some(Arc::new(signer)),
+        }
     }
 }
 
 impl<CC> Client<BasicClientHandle> for SyncClient<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error>
-        + 'static,
+    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     fn new_future(&self, handle: &Handle) -> ClientResult<BasicClientHandle> {
         let (stream, stream_handle) = self.conn.new_stream(handle)?;
@@ -450,24 +449,24 @@ where
     ///  validated against the trust_anchor.
     ///
     /// *Deprecated* This function only exists for backward compatibility. It's just a wrapper around `Client::query` at this point
-///
-/// When the resolver receives an answer via the normal DNS lookup process, it then checks to
-///  make sure that the answer is correct. Then starts
-///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
-///  records for the top level domain found at the root, e.g. 'com', to verify the DNSKEY
-///  records in the 'com' zone. From there see if there is a DS record for the
-///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
-///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
-///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
-///
-/// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
-///        the caller.
-///
-/// # Arguments
-///
-/// * `query_name` - the label to lookup
-/// * `query_class` - most likely this should always be DNSClass::IN
-/// * `query_type` - record type to lookup
+    ///
+    /// When the resolver receives an answer via the normal DNS lookup process, it then checks to
+    ///  make sure that the answer is correct. Then starts
+    ///  with verifying the DS and DNSKEY records at the DNS root. Then use the DS
+    ///  records for the top level domain found at the root, e.g. 'com', to verify the DNSKEY
+    ///  records in the 'com' zone. From there see if there is a DS record for the
+    ///  subdomain, e.g. 'example.com', in the 'com' zone, and if there is use the
+    ///  DS record to verify a DNSKEY record found in the 'example.com' zone. Finally,
+    ///  verify the RRSIG record found in the answer for the rrset, e.g. 'www.example.com'.
+    ///
+    /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
+    ///        the caller.
+    ///
+    /// # Arguments
+    ///
+    /// * `query_name` - the label to lookup
+    /// * `query_class` - most likely this should always be DNSClass::IN
+    /// * `query_type` - record type to lookup
     #[deprecated(note = "use `Client::query` instead")]
     pub fn secure_query(
         &self,
@@ -477,11 +476,7 @@ where
     ) -> ClientResult<Message> {
         let mut reactor = Core::new()?;
         let mut client = self.new_future(&reactor.handle())?;
-        let future = client.query(
-            query_name.clone(),
-            query_class,
-            query_type,
-        );
+        let future = client.query(query_name.clone(), query_class, query_type);
         reactor.run(future)
     }
 }
@@ -515,38 +510,37 @@ where
 impl<CC> SecureSyncClientBuilder<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static
+    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
-
-  /// This variant allows for the trust_anchor to be replaced
-  ///
-  /// # Arguments
-  ///
-  /// * `trust_anchor` - the set of trusted DNSKEY public_keys, by default this only contains the
-  ///                    root public_key.
-  pub fn trust_anchor(mut self, trust_anchor: TrustAnchor) -> Self {
-    self.trust_anchor = Some(trust_anchor);
-    self
-  }
-
-  /// Associate a signer to produce a SIG0 for all udpate requests
-  ///
-  /// This is necessary for signed update requests to update trust-dns-server entries
-  ///
-  /// # Arguments
-  ///
-  /// * `signer` - signer to use, this needs an associated private key
-  pub fn signer(mut self, signer: Signer) -> Self {
-    self.signer = Some(Arc::new(signer));
-    self
-  }
-
-  pub fn build(self) -> SecureSyncClient<CC> {
-    SecureSyncClient {
-      conn: self.conn,
-      signer: self.signer,
+    /// This variant allows for the trust_anchor to be replaced
+    ///
+    /// # Arguments
+    ///
+    /// * `trust_anchor` - the set of trusted DNSKEY public_keys, by default this only contains the
+    ///                    root public_key.
+    pub fn trust_anchor(mut self, trust_anchor: TrustAnchor) -> Self {
+        self.trust_anchor = Some(trust_anchor);
+        self
     }
-  }
+
+    /// Associate a signer to produce a SIG0 for all udpate requests
+    ///
+    /// This is necessary for signed update requests to update trust-dns-server entries
+    ///
+    /// # Arguments
+    ///
+    /// * `signer` - signer to use, this needs an associated private key
+    pub fn signer(mut self, signer: Signer) -> Self {
+        self.signer = Some(Arc::new(signer));
+        self
+    }
+
+    pub fn build(self) -> SecureSyncClient<CC> {
+        SecureSyncClient {
+            conn: self.conn,
+            signer: self.signer,
+        }
+    }
 }
 
 #[cfg(test)]

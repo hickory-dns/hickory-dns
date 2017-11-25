@@ -195,10 +195,10 @@ impl SRV {
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SRV> {
     // SRV { priority: u16, weight: u16, port: u16, target: Name, },
     Ok(SRV::new(
-        try!(decoder.read_u16()),
-        try!(decoder.read_u16()),
-        try!(decoder.read_u16()),
-        try!(Name::read(decoder)),
+        decoder.read_u16()?,
+        decoder.read_u16()?,
+        decoder.read_u16()?,
+        Name::read(decoder)?,
     ))
 }
 
@@ -223,13 +223,11 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<SRV> {
 pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
 
-    try!(encoder.emit_u16(srv.priority()));
-    try!(encoder.emit_u16(srv.weight()));
-    try!(encoder.emit_u16(srv.port()));
-    try!(srv.target().emit_with_lowercase(
-        encoder,
-        is_canonical_names,
-    ));
+    encoder.emit_u16(srv.priority())?;
+    encoder.emit_u16(srv.weight())?;
+    encoder.emit_u16(srv.port())?;
+    srv.target()
+        .emit_with_lowercase(encoder, is_canonical_names)?;
     Ok(())
 }
 
