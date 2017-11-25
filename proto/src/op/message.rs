@@ -797,6 +797,7 @@ fn test_emit_and_read(message: Message) {
 }
 
 #[test]
+#[cfg_attr(rustfmt, rustfmt_skip)]
 fn test_legit_message() {
     let buf: Vec<u8> = vec![
   0x10,0x00,0x81,0x80, // id = 4096, response, op=query, recursion_desired, recursion_available, no_error
