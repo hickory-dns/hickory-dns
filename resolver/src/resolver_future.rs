@@ -23,7 +23,7 @@ use error::*;
 use lookup_state::CachingClient;
 use name_server_pool::{NameServerPool, StandardConnection};
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
-use lookup_state::DnsLru;
+use dns_lru::DnsLru;
 use lookup;
 use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
 use hosts::Hosts;

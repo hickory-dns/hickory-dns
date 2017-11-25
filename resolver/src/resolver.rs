@@ -18,7 +18,7 @@ use error::*;
 use lookup;
 use lookup::Lookup;
 use lookup_ip::LookupIp;
-use lookup_state::DnsLru;
+use dns_lru::DnsLru;
 use ResolverFuture;
 
 /// The Resolver is used for performing DNS queries.
