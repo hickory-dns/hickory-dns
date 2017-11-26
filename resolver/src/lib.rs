@@ -21,7 +21,7 @@
 //!
 //! ```toml
 //! [dependency]
-//! trust-dns-resolver = "^0.5"
+//! trust-dns-resolver = "^0.6"
 //! ```
 //!
 //! ## Extern the crate for usage in the library
