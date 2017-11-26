@@ -18,7 +18,7 @@ use lookup::Lookup;
 use lru_cache::LruCache;
 
 /// Maximum TTL as defined in https://tools.ietf.org/html/rfc2181
-const MAX_TTL: u32 = 2147483647_u32;
+pub const MAX_TTL: u32 = 2147483647_u32;
 
 #[derive(Debug)]
 struct LruValue {
@@ -50,16 +50,14 @@ impl DnsLru {
     ) -> Lookup {
         let len = rdatas_and_ttl.len();
         // collapse the values, we're going to take the Minimum TTL as the correct one
-        let (rdatas, ttl): (Vec<RData>, u32) =
-            rdatas_and_ttl.into_iter().fold(
-                (Vec::with_capacity(len), MAX_TTL),
-                |(mut rdatas, mut min_ttl),
-                 (rdata, ttl)| {
-                    rdatas.push(rdata);
-                    min_ttl = if ttl < min_ttl { ttl } else { min_ttl };
-                    (rdatas, min_ttl)
-                },
-            );
+        let (rdatas, ttl): (Vec<RData>, u32) = rdatas_and_ttl.into_iter().fold(
+            (Vec::with_capacity(len), MAX_TTL),
+            |(mut rdatas, mut min_ttl), (rdata, ttl)| {
+                rdatas.push(rdata);
+                min_ttl = if ttl < min_ttl { ttl } else { min_ttl };
+                (rdatas, min_ttl)
+            },
+        );
 
         let ttl = Duration::from_secs(ttl as u64);
         let ttl_until = now + ttl;
@@ -123,15 +121,15 @@ impl DnsLru {
     /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
     pub(crate) fn get(&mut self, query: &Query, now: Instant) -> Option<Lookup> {
         let mut out_of_date = false;
-        let lookup = self.0.get_mut(query).and_then(
-            |value| if value.is_current(now) {
+        let lookup = self.0.get_mut(query).and_then(|value| {
+            if value.is_current(now) {
                 out_of_date = false;
                 value.lookup.clone()
             } else {
                 out_of_date = true;
                 None
-            },
-        );
+            }
+        });
 
         // in this case, we can preemtively remove out of data elements
         // this assumes time is always moving forward, this would only not be true in contrived situations where now

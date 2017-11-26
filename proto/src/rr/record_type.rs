@@ -93,6 +93,26 @@ pub enum RecordType {
     Unknown(u16),
 }
 
+impl RecordType {
+    /// Returns true if this is an ANY
+    #[inline]
+    pub fn is_any(&self) -> bool {
+        *self == RecordType::ANY
+    }
+
+    /// Returns true if this is a CNAME
+    #[inline]
+    pub fn is_cname(&self) -> bool {
+        *self == RecordType::CNAME
+    }
+
+    /// Returns true if this is an SRV
+    #[inline]
+    pub fn is_srv(&self) -> bool {
+        *self == RecordType::SRV
+    }
+}
+
 impl FromStr for RecordType {
     type Err = ProtoError;
 
