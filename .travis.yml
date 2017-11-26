@@ -47,7 +47,6 @@ matrix:
       rust: stable
 
     - rust: nightly
-      env: ALLOW_FAILURE=true
 
     - rust: nightly
       env: CLIPPY=true
@@ -62,11 +61,6 @@ matrix:
 
   allow_failures:
     - rust: nightly
-      env: ALLOW_FAILURE=true
-
-    # TODO: once all the lints are fixed, we should not allow the clippy job to fail
-    - rust: nightly
-      env: CLIPPY=true
 
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
