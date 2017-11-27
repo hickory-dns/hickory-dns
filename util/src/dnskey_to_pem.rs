@@ -28,9 +28,7 @@ fn args<'a>() -> ArgMatches<'a> {
     App::new("TRust-DNS dnskey-to-pem")
         .version(trust_dns::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
-        .about(
-            "Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format",
-        )
+        .about("Converts a dnskey, as generated from BIND's dnssec-keygen, into pem format")
         .arg(
             Arg::with_name("key")
                 .value_name("PRIVATE_KEY_FILE")
@@ -110,10 +108,8 @@ pub fn main() {
         .open(output_path)
         .expect(&format!("could not create file: {}", output_path));
 
-    file.write_all(&pem_bytes).expect(&format!(
-        "could not write to file: {}",
-        output_path
-    ));
+    file.write_all(&pem_bytes)
+        .expect(&format!("could not write to file: {}", output_path));
 }
 
 fn split_field_value(line: &str) -> (&str, &str) {
@@ -140,10 +136,10 @@ fn read_rsa<B: BufRead>(lines: Lines<B>) -> Vec<u8> {
         let (field, value) = split_field_value(&line);
 
         let num = Some(
-            BigNum::from_slice(&BASE64.decode(value.as_bytes()).expect(&format!(
-                "badly formated line, expected base64: {}",
-                line
-            ))).unwrap(),
+            BigNum::from_slice(&BASE64
+                .decode(value.as_bytes())
+                .expect(&format!("badly formated line, expected base64: {}", line)))
+                .unwrap(),
         );
 
         match field {

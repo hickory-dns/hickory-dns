@@ -11,16 +11,18 @@ use std::rc::Rc;
 use futures::{Async, Fuse, Future, IntoFuture, Poll};
 
 pub struct RcFuture<F: Future>
-    where F: Future,
-          F::Item: Clone
+where
+    F: Future,
+    F::Item: Clone,
 {
     rc_future: Rc<RefCell<Fuse<F>>>,
     result: Rc<RefCell<Option<Poll<F::Item, F::Error>>>>,
 }
 
 pub fn rc_future<I>(future: I) -> RcFuture<I::Future>
-    where I: IntoFuture,
-          <I as IntoFuture>::Item: Clone
+where
+    I: IntoFuture,
+    <I as IntoFuture>::Item: Clone,
 {
     let rc_future = Rc::new(RefCell::new(future.into_future().fuse()));
 
@@ -31,9 +33,10 @@ pub fn rc_future<I>(future: I) -> RcFuture<I::Future>
 }
 
 impl<F> Future for RcFuture<F>
-    where F: Future,
-          F::Item: Clone,
-          F::Error: Clone
+where
+    F: Future,
+    F::Item: Clone,
+    F::Error: Clone,
 {
     type Item = F::Item;
     type Error = F::Error;
@@ -60,8 +63,9 @@ impl<F> Future for RcFuture<F>
 }
 
 impl<F> Clone for RcFuture<F>
-    where F: Future,
-          F::Item: Clone
+where
+    F: Future,
+    F::Item: Clone,
 {
     fn clone(&self) -> Self {
         RcFuture {

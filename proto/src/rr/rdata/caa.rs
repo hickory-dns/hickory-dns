@@ -128,12 +128,9 @@ use url::Url;
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CAA {
-    #[doc(hidden)]
-    pub issuer_critical: bool,
-    #[doc(hidden)]
-    pub tag: Property,
-    #[doc(hidden)]
-    pub value: Value,
+    #[doc(hidden)] pub issuer_critical: bool,
+    #[doc(hidden)] pub tag: Property,
+    #[doc(hidden)] pub value: Value,
 }
 
 impl CAA {
@@ -510,9 +507,8 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                     }
                     ch => {
                         return Err(
-                            ProtoErrorKind::Msg(
-                                format!("bad character in CAA issuer key: {}", ch),
-                            ).into(),
+                            ProtoErrorKind::Msg(format!("bad character in CAA issuer key: {}", ch))
+                                .into(),
                         )
                     }
                 }
@@ -539,13 +535,11 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                     }
                     ch => {
                         return Err(
-                            ProtoErrorKind::Msg(
-                                format!("bad character in CAA issuer key: {}", ch),
-                            ).into(),
+                            ProtoErrorKind::Msg(format!("bad character in CAA issuer key: {}", ch))
+                                .into(),
                         )
                     }
                 }
-
             }
             ParseNameKeyPairState::Value {
                 key,
@@ -593,9 +587,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
             key_values
         }
         ParseNameKeyPairState::Key { key, .. } => {
-            return Err(
-                ProtoErrorKind::Msg(format!("key missing value: {}", key)).into(),
-            )
+            return Err(ProtoErrorKind::Msg(format!("key missing value: {}", key)).into())
         }
     };
 
@@ -648,7 +640,10 @@ pub struct KeyValue {
 impl KeyValue {
     /// Contstruct a new KeyValue pair
     pub fn new<K: Into<String>, V: Into<String>>(key: K, value: V) -> Self {
-        KeyValue{ key: key.into(), value: value.into() }
+        KeyValue {
+            key: key.into(),
+            value: value.into(),
+        }
     }
 }
 
@@ -750,9 +745,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<CAA> {
 // TODO: change this to return &str
 fn read_tag(decoder: &mut BinDecoder, len: u8) -> ProtoResult<String> {
     if len == 0 || len > 15 {
-        return Err(
-            ProtoErrorKind::Message("CAA tag length out of bounds, 1-15").into(),
-        );
+        return Err(ProtoErrorKind::Message("CAA tag length out of bounds, 1-15").into());
     }
     let mut tag = String::with_capacity(len as usize);
 
@@ -763,11 +756,7 @@ fn read_tag(decoder: &mut BinDecoder, len: u8) -> ProtoResult<String> {
             ch @ 'a'...'z' | ch @ 'A'...'Z' | ch @ '0'...'9' => {
                 tag.push(ch);
             }
-            _ => {
-                return Err(
-                    ProtoErrorKind::Message("CAA tag character(s) out of bounds").into(),
-                )
-            }
+            _ => return Err(ProtoErrorKind::Message("CAA tag character(s) out of bounds").into()),
         }
     }
 
@@ -781,9 +770,7 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
 
     let len = property.len();
     if len > ::std::u8::MAX as usize {
-        return Err(
-            ProtoErrorKind::Msg(format!("CAA property too long: {}", len)).into(),
-        );
+        return Err(ProtoErrorKind::Msg(format!("CAA property too long: {}", len)).into());
     }
     if buf.len() < len {
         return Err(
@@ -806,7 +793,9 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
 pub fn emit(encoder: &mut BinEncoder, caa: &CAA) -> ProtoResult<()> {
     let mut flags = 0_u8;
 
-    if caa.issuer_critical { flags |= 0b1000_0000; }
+    if caa.issuer_critical {
+        flags |= 0b1000_0000;
+    }
 
     encoder.emit(flags)?;
     // TODO: it might be interesting to use the new place semantics here to output all the data, then place the length back to the beginning...
@@ -874,51 +863,51 @@ mod tests {
     #[test]
     fn test_read_issuer() {
         // (Option<Name>, Vec<KeyValue>)
-        assert_eq!(read_issuer(b"ca.example.net; account=230123").unwrap(), (
-            Some(Name::parse("ca.example.net", None).unwrap()),
-            vec![
-                KeyValue {
-                    key: "account".to_string(),
-                    value: "230123".to_string(),
-                },
-            ],
-        ));
+        assert_eq!(
+            read_issuer(b"ca.example.net; account=230123").unwrap(),
+            (
+                Some(Name::parse("ca.example.net", None).unwrap()),
+                vec![
+                    KeyValue {
+                        key: "account".to_string(),
+                        value: "230123".to_string(),
+                    },
+                ],
+            )
+        );
 
-        assert_eq!(read_issuer(b"ca.example.net").unwrap(), (
-            Some(
-                Name::parse(
-                    "ca.example.net",
-                    None,
-                ).unwrap(),
-            ),
-            vec![],
-        ));
-        assert_eq!(read_issuer(b"ca.example.net; policy=ev").unwrap(), (
-            Some(
-                Name::parse("ca.example.net", None).unwrap(),
-            ),
-            vec![
-                KeyValue {
-                    key: "policy".to_string(),
-                    value: "ev".to_string(),
-                },
-            ],
-        ));
-        assert_eq!(read_issuer(b"ca.example.net; account=230123; policy=ev").unwrap(), (
-            Some(
-                Name::parse("ca.example.net", None).unwrap(),
-            ),
-            vec![
-                KeyValue {
-                    key: "account".to_string(),
-                    value: "230123".to_string(),
-                },
-                KeyValue {
-                    key: "policy".to_string(),
-                    value: "ev".to_string(),
-                },
-            ],
-        ));
+        assert_eq!(
+            read_issuer(b"ca.example.net").unwrap(),
+            (Some(Name::parse("ca.example.net", None,).unwrap(),), vec![],)
+        );
+        assert_eq!(
+            read_issuer(b"ca.example.net; policy=ev").unwrap(),
+            (
+                Some(Name::parse("ca.example.net", None).unwrap(),),
+                vec![
+                    KeyValue {
+                        key: "policy".to_string(),
+                        value: "ev".to_string(),
+                    },
+                ],
+            )
+        );
+        assert_eq!(
+            read_issuer(b"ca.example.net; account=230123; policy=ev").unwrap(),
+            (
+                Some(Name::parse("ca.example.net", None).unwrap(),),
+                vec![
+                    KeyValue {
+                        key: "account".to_string(),
+                        value: "230123".to_string(),
+                    },
+                    KeyValue {
+                        key: "policy".to_string(),
+                        value: "ev".to_string(),
+                    },
+                ],
+            )
+        );
         assert_eq!(read_issuer(b";").unwrap(), (None, vec![]));
     }
 
@@ -950,12 +939,28 @@ mod tests {
     #[test]
     fn test_encode_decode_issue() {
         test_encode_decode(CAA::new_issue(true, None, vec![]));
-        test_encode_decode(CAA::new_issue(true, Some(Name::parse("example.com", None).unwrap()), vec![]));
-        test_encode_decode(CAA::new_issue(true, Some(Name::parse("example.com", None).unwrap()), vec![KeyValue::new("key", "value")]));
+        test_encode_decode(CAA::new_issue(
+            true,
+            Some(Name::parse("example.com", None).unwrap()),
+            vec![],
+        ));
+        test_encode_decode(CAA::new_issue(
+            true,
+            Some(Name::parse("example.com", None).unwrap()),
+            vec![KeyValue::new("key", "value")],
+        ));
         // technically the this parser supports this case, though it's not clear it's something the spec allows for
-        test_encode_decode(CAA::new_issue(true, None, vec![KeyValue::new("key", "value")]));
+        test_encode_decode(CAA::new_issue(
+            true,
+            None,
+            vec![KeyValue::new("key", "value")],
+        ));
         // test fqdn
-        test_encode_decode(CAA::new_issue(true, Some(Name::parse("example.com.", None).unwrap()), vec![]));
+        test_encode_decode(CAA::new_issue(
+            true,
+            Some(Name::parse("example.com.", None).unwrap()),
+            vec![],
+        ));
     }
 
     #[test]
@@ -966,8 +971,14 @@ mod tests {
 
     #[test]
     fn test_encode_decode_iodef() {
-        test_encode_decode(CAA::new_iodef(true, Url::parse("http://www.example.com").unwrap()));
-        test_encode_decode(CAA::new_iodef(false, Url::parse("mailto:root@example.com").unwrap()));
+        test_encode_decode(CAA::new_iodef(
+            true,
+            Url::parse("http://www.example.com").unwrap(),
+        ));
+        test_encode_decode(CAA::new_iodef(
+            false,
+            Url::parse("mailto:root@example.com").unwrap(),
+        ));
     }
 
     fn test_encode(rdata: CAA, encoded: &[u8]) {
@@ -982,17 +993,35 @@ mod tests {
     fn test_encode_non_fqdn() {
         let name_bytes: &[u8] = b"issueexample.com";
         let header: &[u8] = &[128, 5];
-        let encoded: Vec<u8> = header.into_iter().chain(name_bytes.iter()).map(|b|*b).collect(); 
+        let encoded: Vec<u8> = header
+            .into_iter()
+            .chain(name_bytes.iter())
+            .map(|b| *b)
+            .collect();
 
-        test_encode(CAA::new_issue(true, Some(Name::parse("example.com", None).unwrap()), vec![]), &encoded);
+        test_encode(
+            CAA::new_issue(
+                true,
+                Some(Name::parse("example.com", None).unwrap()),
+                vec![],
+            ),
+            &encoded,
+        );
     }
 
     #[test]
     fn test_encode_fqdn() {
         let name_bytes: &[u8] = b"issueexample.com.";
         let header: [u8; 2] = [128, 5];
-        let encoded: Vec<u8> = header.iter().chain(name_bytes.iter()).map(|b|*b).collect(); 
- 
-        test_encode(CAA::new_issue(true, Some(Name::parse("example.com.", None).unwrap()), vec![]), &encoded);
+        let encoded: Vec<u8> = header.iter().chain(name_bytes.iter()).map(|b| *b).collect();
+
+        test_encode(
+            CAA::new_issue(
+                true,
+                Some(Name::parse("example.com.", None).unwrap()),
+                vec![],
+            ),
+            &encoded,
+        );
     }
 }

@@ -11,7 +11,7 @@ use std::env;
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::str::FromStr;
@@ -105,14 +105,19 @@ fn test_server_unknown_type() {
 
     let conn = UdpClientConnection::new(ipaddr).unwrap();
     let client = SyncClient::new(conn);
-    let client_result = client.query(
-        &Name::from_str("www.example.com.").unwrap(),
-        DNSClass::IN,
-        RecordType::Unknown(65535),
-    ).expect("query failed for unknown");
+    let client_result = client
+        .query(
+            &Name::from_str("www.example.com.").unwrap(),
+            DNSClass::IN,
+            RecordType::Unknown(65535),
+        )
+        .expect("query failed for unknown");
 
     assert_eq!(client_result.response_code(), ResponseCode::NoError);
-    assert_eq!(client_result.queries().first().unwrap().query_type(), RecordType::Unknown(65535));
+    assert_eq!(
+        client_result.queries().first().unwrap().query_type(),
+        RecordType::Unknown(65535)
+    );
     assert!(client_result.answers().is_empty());
 
     server_continue.store(false, Ordering::Relaxed);
@@ -123,10 +128,8 @@ fn read_file(path: &str) -> Vec<u8> {
     let mut bytes = vec![];
 
     let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
-    file.read_to_end(&mut bytes).expect(&format!(
-        "failed to read file: {}",
-        path
-    ));
+    file.read_to_end(&mut bytes)
+        .expect(&format!("failed to read file: {}", path));
     bytes
 }
 
@@ -195,9 +198,9 @@ where
     let name = Name::from_labels(vec!["www", "example", "com"]);
     let client = SyncClient::new(conn);
 
-    let response = client.query(&name, DNSClass::IN, RecordType::A).expect(
-        "error querying",
-    );
+    let response = client
+        .query(&name, DNSClass::IN, RecordType::A)
+        .expect("error querying");
 
     assert!(
         response.response_code() == ResponseCode::NoError,

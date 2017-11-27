@@ -128,14 +128,14 @@
 #[macro_use]
 extern crate error_chain;
 extern crate futures;
+#[cfg(all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64"))]
+extern crate ipconfig;
 extern crate lalrpop_util;
 #[macro_use]
 extern crate log;
 extern crate lru_cache;
 extern crate tokio_core;
 extern crate trust_dns_proto;
-#[cfg(all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64"))]
-extern crate ipconfig;
 
 pub mod config;
 pub mod error;

@@ -453,18 +453,18 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<SIG> {
     let start_idx = decoder.index();
 
     // TODO should we verify here? or elsewhere...
-    let type_covered = try!(RecordType::read(decoder));
-    let algorithm = try!(Algorithm::read(decoder));
-    let num_labels = try!(decoder.read_u8());
-    let original_ttl = try!(decoder.read_u32());
-    let sig_expiration = try!(decoder.read_u32());
-    let sig_inception = try!(decoder.read_u32());
-    let key_tag = try!(decoder.read_u16());
-    let signer_name = try!(Name::read(decoder));
+    let type_covered = RecordType::read(decoder)?;
+    let algorithm = Algorithm::read(decoder)?;
+    let num_labels = decoder.read_u8()?;
+    let original_ttl = decoder.read_u32()?;
+    let sig_expiration = decoder.read_u32()?;
+    let sig_inception = decoder.read_u32()?;
+    let key_tag = decoder.read_u16()?;
+    let signer_name = Name::read(decoder)?;
 
     // read the signature, this will vary buy key size
     let bytes_read = decoder.index() - start_idx;
-    let sig = try!(decoder.read_vec(rdata_length as usize - bytes_read));
+    let sig = decoder.read_vec(rdata_length as usize - bytes_read)?;
 
     Ok(SIG::new(
         type_covered,
@@ -500,18 +500,16 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<SIG> {
 pub fn emit(encoder: &mut BinEncoder, sig: &SIG) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
 
-    try!(sig.type_covered().emit(encoder));
-    try!(sig.algorithm().emit(encoder));
-    try!(encoder.emit(sig.num_labels()));
-    try!(encoder.emit_u32(sig.original_ttl()));
-    try!(encoder.emit_u32(sig.sig_expiration()));
-    try!(encoder.emit_u32(sig.sig_inception()));
-    try!(encoder.emit_u16(sig.key_tag()));
-    try!(sig.signer_name().emit_with_lowercase(
-        encoder,
-        is_canonical_names,
-    ));
-    try!(encoder.emit_vec(sig.sig()));
+    sig.type_covered().emit(encoder)?;
+    sig.algorithm().emit(encoder)?;
+    encoder.emit(sig.num_labels())?;
+    encoder.emit_u32(sig.original_ttl())?;
+    encoder.emit_u32(sig.sig_expiration())?;
+    encoder.emit_u32(sig.sig_inception())?;
+    encoder.emit_u16(sig.key_tag())?;
+    sig.signer_name()
+        .emit_with_lowercase(encoder, is_canonical_names)?;
+    encoder.emit_vec(sig.sig())?;
     Ok(())
 }
 
@@ -527,14 +525,14 @@ pub fn emit_pre_sig(
     key_tag: u16,
     signer_name: &Name,
 ) -> ProtoResult<()> {
-    try!(type_covered.emit(encoder));
-    try!(algorithm.emit(encoder));
-    try!(encoder.emit(num_labels));
-    try!(encoder.emit_u32(original_ttl));
-    try!(encoder.emit_u32(sig_expiration));
-    try!(encoder.emit_u32(sig_inception));
-    try!(encoder.emit_u16(key_tag));
-    try!(signer_name.emit_as_canonical(encoder, true));
+    type_covered.emit(encoder)?;
+    algorithm.emit(encoder)?;
+    encoder.emit(num_labels)?;
+    encoder.emit_u32(original_ttl)?;
+    encoder.emit_u32(sig_expiration)?;
+    encoder.emit_u32(sig_inception)?;
+    encoder.emit_u16(key_tag)?;
+    signer_name.emit_as_canonical(encoder, true)?;
     Ok(())
 }
 

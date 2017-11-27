@@ -4,8 +4,8 @@ extern crate log;
 extern crate openssl;
 extern crate tokio_core;
 extern crate trust_dns;
-extern crate trust_dns_server;
 extern crate trust_dns_integration;
+extern crate trust_dns_server;
 
 use std::net::*;
 use std::cmp::Ordering;
@@ -16,10 +16,10 @@ use futures::Future;
 use openssl::rsa::Rsa;
 use tokio_core::reactor::Core;
 
-use trust_dns::client::{ClientFuture, BasicClientHandle, ClientHandle};
+use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::domain;
-use trust_dns::rr::{DNSClass, IntoRecordSet, RData, Record, RecordType, RecordSet};
+use trust_dns::rr::{DNSClass, IntoRecordSet, RData, Record, RecordSet, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns::udp::UdpClientStream;
@@ -209,7 +209,12 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     catalog.upsert(authority.origin().clone(), authority);
 
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
-    let client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), Some(Arc::new(signer)));
+    let client = ClientFuture::new(
+        stream,
+        Box::new(sender),
+        &io_loop.handle(),
+        Some(Arc::new(signer)),
+    );
 
     (client, origin)
 }
@@ -302,9 +307,9 @@ fn test_create_multi() {
 
     // trying to create again should error
     // TODO: it would be cool to make this
-    let result = io_loop.run(client.create(rrset, origin.clone())).expect(
-        "create failed",
-    );
+    let result = io_loop
+        .run(client.create(rrset, origin.clone()))
+        .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.

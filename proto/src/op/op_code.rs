@@ -96,9 +96,7 @@ impl OpCode {
             2 => Ok(OpCode::Status),
             4 => Ok(OpCode::Notify),
             5 => Ok(OpCode::Update),
-            _ => Err(
-                ProtoErrorKind::Msg(format!("unknown OpCode: {}", value)).into(),
-            ),
+            _ => Err(ProtoErrorKind::Msg(format!("unknown OpCode: {}", value)).into()),
         }
     }
 }

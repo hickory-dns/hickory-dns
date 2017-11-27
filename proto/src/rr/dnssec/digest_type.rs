@@ -72,12 +72,9 @@ impl DigestType {
             DigestType::SHA256 => Ok(hash::MessageDigest::sha256()),
             DigestType::SHA384 => Ok(hash::MessageDigest::sha384()),
             DigestType::SHA512 => Ok(hash::MessageDigest::sha512()),
-            _ => {
-                Err(
-                    ProtoErrorKind::Msg(format!("digest not supported by openssl: {:?}", self))
-                        .into(),
-                )
-            }
+            _ => Err(
+                ProtoErrorKind::Msg(format!("digest not supported by openssl: {:?}", self)).into(),
+            ),
         }
     }
 
@@ -89,31 +86,29 @@ impl DigestType {
             DigestType::SHA256 => Ok(&digest::SHA256),
             DigestType::SHA384 => Ok(&digest::SHA384),
             DigestType::SHA512 => Ok(&digest::SHA512),
-            _ => Err(
-                ProtoErrorKind::Msg(format!("digest not supported by ring: {:?}", self)).into(),
-            ),
+            _ => {
+                Err(ProtoErrorKind::Msg(format!("digest not supported by ring: {:?}", self)).into())
+            }
         }
     }
 
     /// Hash the data
     #[cfg(all(not(feature = "ring"), feature = "openssl"))]
     pub fn hash(&self, data: &[u8]) -> ProtoResult<Digest> {
-        hash::hash2(try!(self.to_openssl_digest()), data).map_err(|e| e.into())
+        hash::hash2(self.to_openssl_digest()?, data).map_err(|e| e.into())
     }
 
     /// Hash the data
     #[cfg(feature = "ring")]
     pub fn hash(&self, data: &[u8]) -> ProtoResult<Digest> {
-        let alg = try!(self.to_ring_digest_alg());
+        let alg = self.to_ring_digest_alg()?;
         Ok(digest::digest(alg, data))
     }
 
     /// This will always error, enable openssl feature at compile time
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
     pub fn hash(&self, _: &[u8]) -> ProtoResult<Vec<u8>> {
-        Err(
-            ProtoErrorKind::Message("The openssl and ring features are both disabled").into(),
-        )
+        Err(ProtoErrorKind::Message("The openssl and ring features are both disabled").into())
     }
 
     /// Digest all the data.
@@ -121,12 +116,12 @@ impl DigestType {
     pub fn digest_all(&self, data: &[&[u8]]) -> ProtoResult<Digest> {
         use std::io::Write;
 
-        let digest_type = try!(self.to_openssl_digest());
+        let digest_type = self.to_openssl_digest()?;
         hash::Hasher::new(digest_type)
             .map_err(|e| e.into())
             .and_then(|mut hasher| {
                 for d in data {
-                    try!(hasher.write_all(d));
+                    hasher.write_all(d)?;
                 }
                 hasher.finish2().map_err(|e| e.into())
             })
@@ -135,7 +130,7 @@ impl DigestType {
     /// Digest all the data.
     #[cfg(feature = "ring")]
     pub fn digest_all(&self, data: &[&[u8]]) -> ProtoResult<Digest> {
-        let alg = try!(self.to_ring_digest_alg());
+        let alg = self.to_ring_digest_alg()?;
         let mut ctx = digest::Context::new(alg);
         for d in data {
             ctx.update(d);
@@ -147,10 +142,8 @@ impl DigestType {
 impl From<Algorithm> for DigestType {
     fn from(a: Algorithm) -> DigestType {
         match a {
-            Algorithm::RSASHA1 |
-            Algorithm::RSASHA1NSEC3SHA1 => DigestType::SHA1,
-            Algorithm::RSASHA256 |
-            Algorithm::ECDSAP256SHA256 => DigestType::SHA256,
+            Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => DigestType::SHA1,
+            Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 => DigestType::SHA256,
             Algorithm::RSASHA512 => DigestType::SHA512,
             Algorithm::ECDSAP384SHA384 => DigestType::SHA384,
             Algorithm::ED25519 => DigestType::ED25519,

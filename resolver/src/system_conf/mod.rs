@@ -284,8 +284,10 @@ mod tests {
     fn test_advanced_options() {
         let mut errors = Vec::new();
         assert_eq!(
-            resolv_conf::parse_advanced_options(&mut errors, "options ndots:8 timeout:8 attempts:8")
-                .expect("failed"),
+            resolv_conf::parse_advanced_options(
+                &mut errors,
+                "options ndots:8 timeout:8 attempts:8"
+            ).expect("failed"),
             vec![
                 AdvancedOption::NumberOfDots(8),
                 AdvancedOption::Timeout(Duration::from_secs(8)),
@@ -340,41 +342,40 @@ mod tests {
         let mut file = File::open(format!("{}/resolv.conf-linux", tests_dir())).unwrap();
         file.read_to_string(&mut data).unwrap();
 
-        let configuration =
-            vec![
-                ConfigOption::Advanced(vec![
-                    AdvancedOption::NumberOfDots(8),
-                    AdvancedOption::Timeout(Duration::from_secs(8)),
-                    AdvancedOption::Attempts(8),
-                ]),
-                ConfigOption::Basic(BasicOption::Domain(
-                    Name::from_labels(vec!["example", "com"]),
-                )),
-                ConfigOption::Basic(BasicOption::Search(vec![
-                    Name::from_labels(vec!["example", "com"]),
-                    Name::from_labels(vec!["sub", "example", "com"]),
-                ])),
-                ConfigOption::Basic(BasicOption::Nameserver(
-                    IpAddr::from_str("2001:4860:4860::8888").unwrap(),
-                )),
-                ConfigOption::Basic(BasicOption::Nameserver(
-                    IpAddr::from_str("2001:4860:4860::8844").unwrap(),
-                )),
-                ConfigOption::Basic(BasicOption::Nameserver(
-                    IpAddr::from_str("8.8.8.8").unwrap(),
-                )),
-                ConfigOption::Basic(BasicOption::Nameserver(
-                    IpAddr::from_str("8.8.4.4").unwrap(),
-                )),
-                ConfigOption::Advanced(vec![AdvancedOption::Unknown("rotate", None)]),
-                ConfigOption::Advanced(vec![
-                    AdvancedOption::Unknown("inet6", None),
-                    AdvancedOption::Unknown("no-tld-query", None),
-                ]),
-                ConfigOption::Basic(BasicOption::SortList(
-                    vec!["130.155.160.0/255.255.240.0", "130.155.0.0"],
-                )),
-            ];
+        let configuration = vec![
+            ConfigOption::Advanced(vec![
+                AdvancedOption::NumberOfDots(8),
+                AdvancedOption::Timeout(Duration::from_secs(8)),
+                AdvancedOption::Attempts(8),
+            ]),
+            ConfigOption::Basic(BasicOption::Domain(
+                Name::from_labels(vec!["example", "com"]),
+            )),
+            ConfigOption::Basic(BasicOption::Search(vec![
+                Name::from_labels(vec!["example", "com"]),
+                Name::from_labels(vec!["sub", "example", "com"]),
+            ])),
+            ConfigOption::Basic(BasicOption::Nameserver(
+                IpAddr::from_str("2001:4860:4860::8888").unwrap(),
+            )),
+            ConfigOption::Basic(BasicOption::Nameserver(
+                IpAddr::from_str("2001:4860:4860::8844").unwrap(),
+            )),
+            ConfigOption::Basic(BasicOption::Nameserver(
+                IpAddr::from_str("8.8.8.8").unwrap(),
+            )),
+            ConfigOption::Basic(BasicOption::Nameserver(
+                IpAddr::from_str("8.8.4.4").unwrap(),
+            )),
+            ConfigOption::Advanced(vec![AdvancedOption::Unknown("rotate", None)]),
+            ConfigOption::Advanced(vec![
+                AdvancedOption::Unknown("inet6", None),
+                AdvancedOption::Unknown("no-tld-query", None),
+            ]),
+            ConfigOption::Basic(BasicOption::SortList(
+                vec!["130.155.160.0/255.255.240.0", "130.155.0.0"],
+            )),
+        ];
 
         let mut errors = Vec::new();
         assert_eq!(

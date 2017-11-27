@@ -165,7 +165,7 @@ impl Nsec3HashAlgorithm {
     fn sha1_recursive_hash(salt: &[u8], bytes: Vec<u8>, iterations: u16) -> ProtoResult<Digest> {
         let digested: Digest;
         let to_digest = if iterations > 0 {
-            digested = try!(Self::sha1_recursive_hash(salt, bytes, iterations - 1));
+            digested = Self::sha1_recursive_hash(salt, bytes, iterations - 1)?;
             digested.as_ref()
         } else {
             &bytes
@@ -185,7 +185,6 @@ impl From<Nsec3HashAlgorithm> for u8 {
 #[test]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 fn test_hash() {
-
     let name = Name::from_labels(vec!["www", "example", "com"]);
     let salt: Vec<u8> = vec![1, 2, 3, 4];
 

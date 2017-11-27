@@ -71,7 +71,7 @@ fn test_read_config() {
             ),
             ZoneConfig::new(
                 "0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.\
-                                 ip6.arpa"
+                 ip6.arpa"
                     .into(),
                 ZoneType::Master,
                 "default/ipv6_1.zone".into(),
@@ -102,7 +102,7 @@ fn test_read_config() {
                 None,
                 None,
                 vec![],
-            ),
+            )
         ]
     );
 }

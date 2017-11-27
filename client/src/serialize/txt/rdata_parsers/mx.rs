@@ -27,13 +27,15 @@ pub fn parse<'i, I: Iterator<Item = &'i str>>(
 ) -> ParseResult<MX> {
     let preference: u16 = tokens
         .next()
-        .ok_or_else(|| ParseError::from(
-            ParseErrorKind::MissingToken("preference".to_string()),
-        ))
+        .ok_or_else(|| {
+            ParseError::from(ParseErrorKind::MissingToken("preference".to_string()))
+        })
         .and_then(|s| s.parse().map_err(Into::into))?;
     let exchange: Name = tokens
         .next()
-        .ok_or_else(|| ParseErrorKind::MissingToken("exchange".to_string()).into())
+        .ok_or_else(|| {
+            ParseErrorKind::MissingToken("exchange".to_string()).into()
+        })
         .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
 
     Ok(MX::new(preference, exchange))

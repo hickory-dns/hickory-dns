@@ -136,11 +136,8 @@ impl Algorithm {
     /// length in bytes that the hash portion of this function will produce
     pub fn hash_len(&self) -> usize {
         match *self {
-            Algorithm::RSASHA1 |
-            Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
-            Algorithm::RSASHA256 |
-            Algorithm::ECDSAP256SHA256 |
-            Algorithm::ED25519 => 32, // 256 bits
+            Algorithm::RSASHA1 | Algorithm::RSASHA1NSEC3SHA1 => 20, // 160 bits
+            Algorithm::RSASHA256 | Algorithm::ECDSAP256SHA256 | Algorithm::ED25519 => 32, // 256 bits
             Algorithm::ECDSAP384SHA384 => 48,
             Algorithm::RSASHA512 => 64, // 512 bites
         }
@@ -163,7 +160,7 @@ impl Algorithm {
 impl BinSerializable<Algorithm> for Algorithm {
     // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Algorithm> {
-        let algorithm_id = try!(decoder.read_u8());
+        let algorithm_id = decoder.read_u8()?;
         Algorithm::from_u8(algorithm_id)
     }
 
@@ -208,8 +205,7 @@ fn test_into() {
         Algorithm::ECDSAP256SHA256,
         Algorithm::ECDSAP384SHA384,
         Algorithm::ED25519,
-    ]
-    {
+    ] {
         assert_eq!(
             *algorithm,
             Algorithm::from_u8(Into::<u8>::into(*algorithm)).unwrap()
@@ -241,8 +237,7 @@ fn test_order() {
             Algorithm::ECDSAP384SHA384,
             Algorithm::ED25519,
         ].iter(),
-    )
-    {
+    ) {
         assert_eq!(got, expect);
     }
 }

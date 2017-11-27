@@ -132,12 +132,14 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // MX
-    let mut mx_records: Vec<&Record> = authority.lookup(
-        &Name::from_labels(vec!["isi", "edu"]),
-        RecordType::MX,
-        false,
-        SupportedAlgorithms::new(),
-    ).unwrap();
+    let mut mx_records: Vec<&Record> = authority
+        .lookup(
+            &Name::from_labels(vec!["isi", "edu"]),
+            RecordType::MX,
+            false,
+            SupportedAlgorithms::new(),
+        )
+        .unwrap();
     let mut compare = vec![
         (10, Name::from_labels(vec!["venera", "isi", "edu"])),
         (20, Name::from_labels(vec!["vaxa", "isi", "edu"])),
@@ -232,12 +234,14 @@ _443._tcp.www.example.com. IN TLSA (
     }
 
     // TXT
-    let mut txt_records: Vec<&Record> = authority.lookup(
-        &Name::from_labels(vec!["a", "isi", "edu"]),
-        RecordType::TXT,
-        false,
-        SupportedAlgorithms::new(),
-    ).unwrap();
+    let mut txt_records: Vec<&Record> = authority
+        .lookup(
+            &Name::from_labels(vec!["a", "isi", "edu"]),
+            RecordType::TXT,
+            false,
+            SupportedAlgorithms::new(),
+        )
+        .unwrap();
     let compare = vec![
         vec![
             "I".to_string(),
@@ -386,7 +390,7 @@ _443._tcp.www.example.com. IN TLSA (
                 102,
                 24,
                 233,
-                113,
+                113
             ]
         );
     } else {

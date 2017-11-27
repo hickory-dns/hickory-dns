@@ -221,10 +221,10 @@ extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
 extern crate tokio_core;
-#[cfg(feature = "tokio-tls")]
-extern crate tokio_tls;
 #[cfg(feature = "tokio-openssl")]
 extern crate tokio_openssl;
+#[cfg(feature = "tokio-tls")]
+extern crate tokio_tls;
 extern crate trust_dns_proto;
 #[cfg(feature = "ring")]
 extern crate untrusted;

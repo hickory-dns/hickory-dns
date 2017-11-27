@@ -379,70 +379,50 @@ impl Name {
         // evaluate all characters
         for ch in local.chars() {
             match state {
-                ParseState::Label => {
-                    match ch {
-                        '.' => {
-                            name.labels.push(Rc::new(label.clone()));
-                            label.clear();
-                        }
-                        '\\' => state = ParseState::Escape1,
-                        ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
-                        _ => {
-                            return Err(
-                                ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)).into(),
-                            )
-                        }
+                ParseState::Label => match ch {
+                    '.' => {
+                        name.labels.push(Rc::new(label.clone()));
+                        label.clear();
                     }
-                }
+                    '\\' => state = ParseState::Escape1,
+                    ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
+                    _ => {
+                        return Err(ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)).into())
+                    }
+                },
                 ParseState::Escape1 => {
                     if ch.is_numeric() {
-                        state = ParseState::Escape2(try!(
-                            ch.to_digit(10).ok_or_else(|| {
-                                ProtoError::from(ProtoErrorKind::Msg(
-                                        format!("illegal char: {}", ch)))
-                            }))
-                        );
+                        state = ParseState::Escape2(ch.to_digit(10).ok_or_else(|| {
+                            ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
+                        })?);
                     } else {
                         // it's a single escaped char
                         label.push(ch);
                         state = ParseState::Label;
                     }
                 }
-                ParseState::Escape2(i) => {
-                    if ch.is_numeric() {
-                        state = ParseState::Escape3(
-                            i,
-                            try!(ch.to_digit(10).ok_or_else(|| {
-                                ProtoError::from(ProtoErrorKind::Msg(
-                                        format!("illegal char: {}", ch)))
-                            }))
-                        );
-                    } else {
-                        return try!(Err(
-                            ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)),
-                        ));
-                    }
-                }
-                ParseState::Escape3(i, ii) => {
-                    if ch.is_numeric() {
-                        let val: u32 = (i << 16) + (ii << 8) +
-                            try!(ch.to_digit(10).ok_or_else(|| {
-                                ProtoError::from(ProtoErrorKind::Msg(
-                                        format!("illegal char: {}", ch)))
-                            }));
-                        let new: char = try!(char::from_u32(val).ok_or_else(|| {
-                            ProtoError::from(ProtoErrorKind::Msg(
-                                format!("illegal char: {}", ch),
-                            ))
-                        }));
-                        label.push(new);
-                        state = ParseState::Label;
-                    } else {
-                        return try!(Err(
-                            ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)),
-                        ));
-                    }
-                }
+                ParseState::Escape2(i) => if ch.is_numeric() {
+                    state = ParseState::Escape3(
+                        i,
+                        ch.to_digit(10).ok_or_else(|| {
+                            ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
+                        })?,
+                    );
+                } else {
+                    return Err(ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)))?;
+                },
+                ParseState::Escape3(i, ii) => if ch.is_numeric() {
+                    let val: u32 = (i << 16) + (ii << 8) + ch.to_digit(10).ok_or_else(|| {
+                        ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
+                    })?;
+                    let new: char = char::from_u32(val).ok_or_else(|| {
+                        ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
+                    })?;
+                    label.push(new);
+                    state = ParseState::Label;
+                } else {
+                    return Err(ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)))?;
+                },
             }
         }
 
@@ -464,13 +444,13 @@ impl Name {
     /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
     pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
-        // lookup the label in the BinEncoder
-        // if it exists, write the Pointer
+                                     // lookup the label in the BinEncoder
+                                     // if it exists, write the Pointer
         let mut labels: &[Rc<String>] = &self.labels;
 
         if canonical {
             for label in labels {
-                try!(encoder.emit_character_data(label));
+                encoder.emit_character_data(label)?;
             }
         } else {
             while let Some(label) = labels.first() {
@@ -478,7 +458,7 @@ impl Name {
                 if let Some(loc) = encoder.get_label_pointer(labels) {
                     // write out the pointer marker
                     //  or'd with the location with shouldn't be larger than this 2^14 or 16k
-                    try!(encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16)));
+                    encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16))?;
 
                     // we found a pointer don't write more, break
                     return Ok(());
@@ -489,7 +469,7 @@ impl Name {
 
                     // to_owned is cloning the the vector, but the Rc's at least don't clone the strings.
                     encoder.store_label_pointer(labels.to_owned());
-                    try!(encoder.emit_character_data(label));
+                    encoder.emit_character_data(label)?;
 
                     // return the next parts of the labels
                     //  this should be safe, the labels.first() wouldn't have let us here if there wasn't
@@ -501,7 +481,7 @@ impl Name {
 
         // if we're getting here, then we didn't write out a pointer and are ending the name
         // the end of the list of names
-        try!(encoder.emit(0));
+        encoder.emit(0)?;
 
         // the entire name needs to be less than 256.
         let length = encoder.len() - buf_len;
@@ -520,10 +500,8 @@ impl Name {
     ) -> ProtoResult<()> {
         let is_canonical_names = encoder.is_canonical_names();
         if lowercase {
-            self.to_lowercase().emit_as_canonical(
-                encoder,
-                is_canonical_names,
-            )
+            self.to_lowercase()
+                .emit_as_canonical(encoder, is_canonical_names)
         } else {
             self.emit_as_canonical(encoder, is_canonical_names)
         }
@@ -542,14 +520,12 @@ impl Name {
         for (l, r) in self_labels.zip(other_labels) {
             if ignore_case {
                 match (*l).to_lowercase().cmp(&(*r).to_lowercase()) {
-                    o @ Ordering::Less |
-                    o @ Ordering::Greater => return o,
+                    o @ Ordering::Less | o @ Ordering::Greater => return o,
                     Ordering::Equal => continue,
                 }
             } else {
                 match l.cmp(r) {
-                    o @ Ordering::Less |
-                    o @ Ordering::Greater => return o,
+                    o @ Ordering::Less | o @ Ordering::Greater => return o,
                     Ordering::Equal => continue,
                 }
             }
@@ -581,13 +557,13 @@ impl From<Ipv4Addr> for Name {
     fn from(addr: Ipv4Addr) -> Name {
         let octets = addr.octets();
 
-        let mut labels = octets.iter().rev().fold(
-            Vec::with_capacity(6),
-            |mut labels, o| {
+        let mut labels = octets
+            .iter()
+            .rev()
+            .fold(Vec::with_capacity(6), |mut labels, o| {
                 labels.push(format!("{}", o));
                 labels
-            },
-        );
+            });
 
         labels.push("in-addr".to_string());
         labels.push("arpa".to_string());
@@ -600,16 +576,16 @@ impl From<Ipv6Addr> for Name {
     fn from(addr: Ipv6Addr) -> Name {
         let segments = addr.segments();
 
-        let mut labels = segments.iter().rev().fold(
-            Vec::with_capacity(34),
-            |mut labels, o| {
+        let mut labels = segments
+            .iter()
+            .rev()
+            .fold(Vec::with_capacity(34), |mut labels, o| {
                 labels.push(format!("{:x}", (*o & 0x000F) as u8));
                 labels.push(format!("{:x}", (*o >> 4 & 0x000F) as u8));
                 labels.push(format!("{:x}", (*o >> 8 & 0x000F) as u8));
                 labels.push(format!("{:x}", (*o >> 12 & 0x000F) as u8));
                 labels
-            },
-        );
+            });
 
         labels.push("ip6".to_string());
         labels.push("arpa".to_string());
@@ -671,7 +647,7 @@ impl BinSerializable<Name> for Name {
                     }
                 }
                 LabelParseState::Label => {
-                    labels.push(Rc::new(try!(decoder.read_character_data())));
+                    labels.push(Rc::new(decoder.read_character_data()?));
 
                     // reset to collect more data
                     LabelParseState::LabelLengthOrPointer
@@ -698,9 +674,9 @@ impl BinSerializable<Name> for Name {
                 // domain header).  A zero offset specifies the first byte of the ID field,
                 // etc.
                 LabelParseState::Pointer => {
-                    let location = try!(decoder.read_u16()) & 0x3FFF; // get rid of the two high order bits
+                    let location = decoder.read_u16()? & 0x3FFF; // get rid of the two high order bits
                     let mut pointer = decoder.clone(location);
-                    let pointed = try!(Name::read(&mut pointer));
+                    let pointed = Name::read(&mut pointer)?;
 
                     for l in &*pointed.labels {
                         labels.push(Rc::clone(l));
@@ -711,7 +687,7 @@ impl BinSerializable<Name> for Name {
                 }
                 LabelParseState::Root => {
                     // need to pop() the 0 off the stack...
-                    try!(decoder.pop());
+                    decoder.pop()?;
                     break;
                 }
             }
@@ -742,7 +718,7 @@ impl fmt::Display for Name {
 
         // if it was the root name
         if self.is_root() || self.is_fqdn() {
-            try!(write!(f, "."));
+            write!(f, ".")?;
         }
         Ok(())
     }
@@ -804,9 +780,9 @@ impl Ord for Name {
 /// This is the list of states for the label parsing state machine
 enum LabelParseState {
     LabelLengthOrPointer, // basically the start of the FSM
-    Label, // storing length of the label, must be < 63
-    Pointer, // location of pointer in slice,
-    Root, // root is the end of the labels list, aka null
+    Label,                // storing length of the label, must be < 63
+    Pointer,              // location of pointer in slice,
+    Root,                 // root is the end of the labels list, aka null
 }
 
 impl FromStr for Name {
@@ -823,17 +799,23 @@ mod tests {
 
     use super::*;
 
-    use serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
+    use serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
     #[allow(unused)]
     use serialize::binary::*;
 
     fn get_data() -> Vec<(Name, Vec<u8>)> {
         vec![
-      (Name::new(), vec![0]), // base case, only the root
-      (Name::from_labels(vec!["a"]), vec![1,b'a',0]), // a single 'a' label
-      (Name::from_labels(vec!["a","bc"]), vec![1,b'a',2,b'b',b'c',0]), // two labels, 'a.bc'
-      (Name::from_labels(vec!["a","♥"]), vec![1,b'a',3,0xE2,0x99,0xA5,0]), // two labels utf8, 'a.♥'
-    ]
+            (Name::new(), vec![0]),                           // base case, only the root
+            (Name::from_labels(vec!["a"]), vec![1, b'a', 0]), // a single 'a' label
+            (
+                Name::from_labels(vec!["a", "bc"]),
+                vec![1, b'a', 2, b'b', b'c', 0],
+            ), // two labels, 'a.bc'
+            (
+                Name::from_labels(vec!["a", "♥"]),
+                vec![1, b'a', 3, 0xE2, 0x99, 0xA5, 0],
+            ), // two labels utf8, 'a.♥'
+        ]
     }
 
     #[test]
@@ -939,7 +921,7 @@ mod tests {
             (root.clone().unwrap(), root.clone().unwrap()),
             (
                 Name::parse("example", root.as_ref()).unwrap(),
-                Name::parse("example", root.as_ref()).unwrap()
+                Name::parse("example", root.as_ref()).unwrap(),
             ),
         ];
 
@@ -952,41 +934,40 @@ mod tests {
     #[test]
     fn test_partial_cmp() {
         let root = Some(Name::from_labels(Vec::<String>::new()));
-        let comparisons: Vec<(Name, Name)> =
-            vec![
-                (
-                    Name::parse("example", root.as_ref()).unwrap(),
-                    Name::parse("a.example", root.as_ref()).unwrap()
-                ),
-                (
-                    Name::parse("a.example", root.as_ref()).unwrap(),
-                    Name::parse("yljkjljk.a.example", root.as_ref()).unwrap()
-                ),
-                (
-                    Name::parse("yljkjljk.a.example", root.as_ref()).unwrap(),
-                    Name::parse("Z.a.example", root.as_ref()).unwrap()
-                ),
-                (
-                    Name::parse("Z.a.example", root.as_ref()).unwrap(),
-                    Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap()
-                ),
-                (
-                    Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap(),
-                    Name::parse("z.example", root.as_ref()).unwrap()
-                ),
-                (
-                    Name::parse("z.example", root.as_ref()).unwrap(),
-                    Name::parse("\\001.z.example", root.as_ref()).unwrap()
-                ),
-                (
-                    Name::parse("\\001.z.example", root.as_ref()).unwrap(),
-                    Name::parse("*.z.example", root.as_ref()).unwrap()
-                ),
-                (
-                    Name::parse("*.z.example", root.as_ref()).unwrap(),
-                    Name::parse("\\200.z.example", root.as_ref()).unwrap()
-                ),
-            ];
+        let comparisons: Vec<(Name, Name)> = vec![
+            (
+                Name::parse("example", root.as_ref()).unwrap(),
+                Name::parse("a.example", root.as_ref()).unwrap(),
+            ),
+            (
+                Name::parse("a.example", root.as_ref()).unwrap(),
+                Name::parse("yljkjljk.a.example", root.as_ref()).unwrap(),
+            ),
+            (
+                Name::parse("yljkjljk.a.example", root.as_ref()).unwrap(),
+                Name::parse("Z.a.example", root.as_ref()).unwrap(),
+            ),
+            (
+                Name::parse("Z.a.example", root.as_ref()).unwrap(),
+                Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap(),
+            ),
+            (
+                Name::parse("zABC.a.EXAMPLE", root.as_ref()).unwrap(),
+                Name::parse("z.example", root.as_ref()).unwrap(),
+            ),
+            (
+                Name::parse("z.example", root.as_ref()).unwrap(),
+                Name::parse("\\001.z.example", root.as_ref()).unwrap(),
+            ),
+            (
+                Name::parse("\\001.z.example", root.as_ref()).unwrap(),
+                Name::parse("*.z.example", root.as_ref()).unwrap(),
+            ),
+            (
+                Name::parse("*.z.example", root.as_ref()).unwrap(),
+                Name::parse("\\200.z.example", root.as_ref()).unwrap(),
+            ),
+        ];
 
         for (left, right) in comparisons {
             println!("left: {}, right: {}", left, right);
@@ -1000,11 +981,11 @@ mod tests {
         let comparisons: Vec<(Name, Name)> = vec![
             (
                 Name::parse("ExAmPle", root.as_ref()).unwrap(),
-                Name::parse("example", root.as_ref()).unwrap()
+                Name::parse("example", root.as_ref()).unwrap(),
             ),
             (
                 Name::parse("A.example", root.as_ref()).unwrap(),
-                Name::parse("a.example", root.as_ref()).unwrap()
+                Name::parse("a.example", root.as_ref()).unwrap(),
             ),
         ];
 
