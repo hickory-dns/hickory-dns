@@ -139,6 +139,16 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
             hosts: None,
         };
     }
+
+    pub(crate) fn ok(client_cache: CachingClient<C>, lp: Lookup) -> Self {
+        return InnerLookupIpFuture {
+            client_cache,
+            names: vec![],
+            strategy: LookupIpStrategy::default(),
+            future: Box::new(future::ok(lp)),
+            hosts: None,
+        };
+    }
 }
 
 impl<C: DnsHandle<Error = ResolveError> + 'static> Future for InnerLookupIpFuture<C> {
