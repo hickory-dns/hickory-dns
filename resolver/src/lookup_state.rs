@@ -524,7 +524,9 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use trust_dns_proto::op::Query;
+    use futures::future;
+
+    use trust_dns_proto::op::{Message, Query};
     use trust_dns_proto::rr::{Name, Record};
     use trust_dns_proto::rr::rdata::SRV;
 
@@ -683,4 +685,60 @@ mod tests {
             ]
         );
     }
+
+    fn cname_ttl_test(first: u32, second: u32) {
+        let lru = Arc::new(Mutex::new(DnsLru::new(1)));
+        // expecting no queries to be performed
+        let client = CachingClient::with_cache(Arc::clone(&lru), mock(vec![error()]));
+
+        let mut query_future = QueryFuture {
+            message_future: Box::new(future::err(
+                ResolveErrorKind::Message("no message_future in test").into(),
+            )),
+            query: Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
+            cache: lru,
+            dnssec: false,
+            client: client,
+        };
+
+        let mut message = Message::new();
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("ttl.example.com.").unwrap(),
+                first,
+                RecordType::CNAME,
+                RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+            ),
+        ]);
+        message.insert_additionals(vec![
+            Record::from_rdata(
+                Name::from_str("actual.example.com.").unwrap(),
+                second,
+                RecordType::A,
+                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            ),
+        ]);
+
+        let poll: Async<Records> = query_future
+            .handle_noerror(message)
+            .expect("handle_noerror failed");
+
+        assert!(poll.is_ready());
+        if let Async::Ready(records) = poll {
+            if let Records::Exists(records) = records {
+                assert!(records.iter().all(|&(_, ttl)| ttl == 1));
+            } else {
+                panic!("records don't exist");
+            }
+        } else {
+            panic!("poll not ready");
+        }
+    }
+
+    #[test]
+    fn test_cname_ttl() {
+        cname_ttl_test(1, 2);
+        cname_ttl_test(2, 1);
+    }
+
 }
