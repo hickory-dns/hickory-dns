@@ -77,9 +77,9 @@ fn test_insert_and_select_record() {
     assert_eq!(journal_record, record);
 
     // check that we get nothing for id over row_id
-    let option_none = journal.select_record(row_id + 1).expect(
-        "persistence error",
-    );
+    let option_none = journal
+        .select_record(row_id + 1)
+        .expect("persistence error");
     assert!(option_none.is_none());
 }
 

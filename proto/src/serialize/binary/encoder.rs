@@ -140,19 +140,17 @@ impl<'a> BinEncoder<'a> {
     pub fn emit_character_data(&mut self, char_data: &str) -> ProtoResult<()> {
         let char_bytes = char_data.as_bytes();
         if char_bytes.len() > 255 {
-            return Err(
-                ProtoErrorKind::CharacterDataTooLong(char_bytes.len()).into(),
-            );
+            return Err(ProtoErrorKind::CharacterDataTooLong(char_bytes.len()).into());
         }
 
         self.buffer.reserve(char_bytes.len() + 1); // reserve the full space for the string and length marker
-        try!(self.emit(char_bytes.len() as u8));
+        self.emit(char_bytes.len() as u8)?;
 
         // a separate writer isn't necessary for label since it's the same first byte that's being written
 
         // TODO use append() once it stabalizes
         for b in char_bytes {
-            try!(self.emit(*b));
+            self.emit(*b)?;
         }
 
         Ok(())
@@ -170,8 +168,8 @@ impl<'a> BinEncoder<'a> {
         let b1: u8 = (data >> 8 & 0xFF) as u8;
         let b2: u8 = (data & 0xFF) as u8;
 
-        try!(self.emit(b1));
-        try!(self.emit(b2));
+        self.emit(b1)?;
+        self.emit(b2)?;
 
         Ok(())
     }
@@ -185,10 +183,10 @@ impl<'a> BinEncoder<'a> {
         let b3: u8 = (data >> 8 & 0xFF) as u8;
         let b4: u8 = (data & 0xFF) as u8;
 
-        try!(self.emit(b1));
-        try!(self.emit(b2));
-        try!(self.emit(b3));
-        try!(self.emit(b4));
+        self.emit(b1)?;
+        self.emit(b2)?;
+        self.emit(b3)?;
+        self.emit(b4)?;
 
         Ok(())
     }
@@ -202,10 +200,10 @@ impl<'a> BinEncoder<'a> {
         let b3: u8 = (data >> 8 & 0xFF) as u8;
         let b4: u8 = (data & 0xFF) as u8;
 
-        try!(self.emit(b1));
-        try!(self.emit(b2));
-        try!(self.emit(b3));
-        try!(self.emit(b4));
+        self.emit(b1)?;
+        self.emit(b2)?;
+        self.emit(b3)?;
+        self.emit(b4)?;
 
         Ok(())
     }
@@ -215,7 +213,7 @@ impl<'a> BinEncoder<'a> {
         self.buffer.reserve(data.len());
 
         for i in data {
-            try!(self.emit(*i));
+            self.emit(*i)?;
         }
 
         Ok(())

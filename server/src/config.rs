@@ -35,7 +35,7 @@ use trust_dns::rr::dnssec::{Algorithm, KeyFormat};
 use trust_dns_proto::error::ProtoResult;
 
 use authority::ZoneType;
-use error::{ConfigErrorKind, ConfigResult, ConfigError};
+use error::{ConfigError, ConfigErrorKind, ConfigResult};
 
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
@@ -68,9 +68,9 @@ pub struct Config {
 impl Config {
     /// read a Config file from the file specified at path.
     pub fn read_config(path: &Path) -> ConfigResult<Config> {
-        let mut file: File = try!(File::open(path));
+        let mut file: File = File::open(path)?;
         let mut toml: String = String::new();
-        try!(file.read_to_string(&mut toml));
+        file.read_to_string(&mut toml)?;
         toml.parse()
     }
 
@@ -98,9 +98,10 @@ impl Config {
     }
     /// default timeout for all TCP connections before forceably shutdown
     pub fn get_tcp_request_timeout(&self) -> Duration {
-        Duration::from_secs(self.tcp_request_timeout.unwrap_or(
-            DEFAULT_TCP_REQUEST_TIMEOUT,
-        ))
+        Duration::from_secs(
+            self.tcp_request_timeout
+                .unwrap_or(DEFAULT_TCP_REQUEST_TIMEOUT),
+        )
     }
 
     // TODO: also support env_logger
@@ -121,10 +122,9 @@ impl Config {
     }
     /// the path for all zone configurations, defaults to `/var/named`
     pub fn get_directory(&self) -> &Path {
-        self.directory.as_ref().map_or(
-            Path::new(DEFAULT_PATH),
-            |s| Path::new(s),
-        )
+        self.directory
+            .as_ref()
+            .map_or(Path::new(DEFAULT_PATH), |s| Path::new(s))
     }
     /// the set of zones which should be loaded
     pub fn get_zones(&self) -> &[ZoneConfig] {
@@ -140,11 +140,10 @@ impl FromStr for Config {
     type Err = ConfigError;
 
     fn from_str(toml: &str) -> ConfigResult<Config> {
-        let value: Value = try!(toml.parse().map_err(
-            |vec| ConfigErrorKind::VecParserError(vec),
-        ));
+        let value: Value = toml.parse()
+            .map_err(|vec| ConfigErrorKind::VecParserError(vec))?;
         let mut decoder: Decoder = Decoder::new(value);
-        Ok(try!(Self::decode(&mut decoder)))
+        Ok(Self::decode(&mut decoder)?)
     }
 }
 
@@ -272,24 +271,22 @@ impl KeyConfig {
 
     /// Converts key into
     pub fn format(&self) -> ParseResult<KeyFormat> {
-        let extension = try!(self.key_path().extension().ok_or(ParseErrorKind::Msg(
+        let extension = self.key_path().extension().ok_or(ParseErrorKind::Msg(
             format!("file lacks extension, e.g. '.pk8': {:?}", self.key_path()).into(),
-        )));
+        ))?;
 
         match extension.to_str() {
             Some("der") => Ok(KeyFormat::Der),
             Some("key") => Ok(KeyFormat::Pem), // TODO: deprecate this...
             Some("pem") => Ok(KeyFormat::Pem),
             Some("pk8") => Ok(KeyFormat::Pkcs8),
-            e @ _ => {
-                Err(
-                    ParseErrorKind::Msg(format!(
-                        "extension not understood, '{:?}': {:?}",
-                        e,
-                        self.key_path()
-                    )).into(),
-                )
-            }
+            e @ _ => Err(
+                ParseErrorKind::Msg(format!(
+                    "extension not understood, '{:?}': {:?}",
+                    e,
+                    self.key_path()
+                )).into(),
+            ),
         }
     }
 
@@ -315,7 +312,7 @@ impl KeyConfig {
     /// the signer name for the key, this defaults to the $ORIGIN aka zone name.
     pub fn signer_name(&self) -> ParseResult<Option<Name>> {
         if let Some(ref signer_name) = self.signer_name.as_ref() {
-            let name = try!(Name::parse(signer_name, None));
+            let name = Name::parse(signer_name, None)?;
             return Ok(Some(name));
         }
 

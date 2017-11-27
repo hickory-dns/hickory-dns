@@ -1,6 +1,6 @@
 extern crate trust_dns;
-extern crate trust_dns_server;
 extern crate trust_dns_integration;
+extern crate trust_dns_server;
 
 use std::net::*;
 use std::collections::*;

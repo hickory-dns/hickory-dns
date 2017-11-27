@@ -171,8 +171,8 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                     let ttl = cname_ttl.min(r.ttl());
                     // TODO: disable name validation with ResolverOpts?
                     // restrict to the RData type requested
-                    if (self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) && 
-                        self.query.query_class() == r.dns_class() && 
+                    if (self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
+                        self.query.query_class() == r.dns_class() &&
                         search_name.as_ref() == r.name() {
                         Some((r.unwrap_rdata(), ttl))
                     } else {

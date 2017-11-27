@@ -19,7 +19,7 @@
 use std::collections::HashMap;
 use std::sync::RwLock;
 
-use trust_dns::op::{Edns, Message, MessageType, OpCode, Query, UpdateMessage, ResponseCode};
+use trust_dns::op::{Edns, Message, MessageType, OpCode, Query, ResponseCode, UpdateMessage};
 use trust_dns::rr::{Name, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
@@ -148,7 +148,9 @@ impl RequestHandler for Catalog {
 impl Catalog {
     /// Constructs a new Catalog
     pub fn new() -> Self {
-        Catalog { authorities: HashMap::new() }
+        Catalog {
+            authorities: HashMap::new(),
+        }
     }
 
     /// Insert or update a zone authority
@@ -282,21 +284,20 @@ impl Catalog {
                     request.id(),
                     authority.origin()
                 );
-                let (is_dnssec, supported_algorithms) =
-                    request.edns().map_or(
-                        (false, SupportedAlgorithms::new()),
-                        |edns| {
-                            let supported_algorithms =
-                                if let Some(&EdnsOption::DAU(algs)) = edns.option(&EdnsCode::DAU) {
-                                    algs
-                                } else {
-                                    debug!("no DAU in request, used default SupportAlgorithms");
-                                    Default::default()
-                                };
+                let (is_dnssec, supported_algorithms) = request.edns().map_or(
+                    (false, SupportedAlgorithms::new()),
+                    |edns| {
+                        let supported_algorithms =
+                            if let Some(&EdnsOption::DAU(algs)) = edns.option(&EdnsCode::DAU) {
+                                algs
+                            } else {
+                                debug!("no DAU in request, used default SupportAlgorithms");
+                                Default::default()
+                            };
 
-                            (edns.dnssec_ok(), supported_algorithms)
-                        },
-                    );
+                        (edns.dnssec_ok(), supported_algorithms)
+                    },
+                );
 
                 // log algorithms being requested
                 if is_dnssec {
@@ -327,11 +328,9 @@ impl Catalog {
                     match records {
                         AuthLookup::NoName => response.set_response_code(ResponseCode::NXDomain),
                         AuthLookup::NameExists => response.set_response_code(ResponseCode::NoError),
-                        AuthLookup::Records(..) => {
-                            panic!(
-                                "programming error, should have return NoError with records above"
-                            )
-                        }
+                        AuthLookup::Records(..) => panic!(
+                            "programming error, should have return NoError with records above"
+                        ),
                     };
 
                     // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
@@ -342,7 +341,11 @@ impl Catalog {
                             is_dnssec,
                             supported_algorithms,
                         );
-                        info!("request: {} non-existent adding nsecs: {}", request.id(), nsecs.len());
+                        info!(
+                            "request: {} non-existent adding nsecs: {}",
+                            request.id(),
+                            nsecs.len()
+                        );
                         response.add_name_servers(nsecs.into_iter().cloned());
                         response.set_response_code(ResponseCode::NoError);
                     } else {

@@ -13,9 +13,9 @@ use std::marker::PhantomData;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 
-use futures::{Async, Complete, Future, Poll, task};
+use futures::{task, Async, Complete, Future, Poll};
 use futures::IntoFuture;
-use futures::stream::{Peekable, Fuse as StreamFuse, Stream};
+use futures::stream::{Fuse as StreamFuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::sync::oneshot;
 use rand;
@@ -150,35 +150,33 @@ where
         loop_handle.spawn(
             stream
                 .then(move |res| match res {
-                    Ok(stream) => {
-                        ClientStreamOrError::Future(DnsFuture {
-                            stream: stream,
-                            reactor_handle: loop_handle_clone,
-                            timeout_duration: timeout_duration,
-                            stream_handle: stream_handle,
-                            new_receiver: rx.fuse().peekable(),
-                            active_requests: HashMap::new(),
-                            signer: signer,
-                        })
-                    }
-                    Err(stream_error) => {
-                        ClientStreamOrError::Errored(ClientStreamErrored {
-                            error_msg: format!(
-                                "stream error {}:{}: {}",
-                                file!(),
-                                line!(),
-                                stream_error
-                            ),
-                            new_receiver: rx.fuse().peekable(),
-                        })
-                    }
+                    Ok(stream) => ClientStreamOrError::Future(DnsFuture {
+                        stream: stream,
+                        reactor_handle: loop_handle_clone,
+                        timeout_duration: timeout_duration,
+                        stream_handle: stream_handle,
+                        new_receiver: rx.fuse().peekable(),
+                        active_requests: HashMap::new(),
+                        signer: signer,
+                    }),
+                    Err(stream_error) => ClientStreamOrError::Errored(ClientStreamErrored {
+                        error_msg: format!(
+                            "stream error {}:{}: {}",
+                            file!(),
+                            line!(),
+                            stream_error
+                        ),
+                        new_receiver: rx.fuse().peekable(),
+                    }),
                 })
                 .map_err(|e| {
                     error!("error in Proto: {}", e);
                 }),
         );
 
-        BasicDnsHandle { message_sender: sender }
+        BasicDnsHandle {
+            message_sender: sender,
+        }
     }
 
     /// loop over active_requests and remove cancelled requests
@@ -188,7 +186,7 @@ where
         let mut canceled = HashSet::new();
         for (&id, &mut (ref mut req, ref mut timeout)) in &mut self.active_requests {
             if let Ok(Async::Ready(())) = req.poll_cancel() {
-              canceled.insert(id);
+                canceled.insert(id);
             }
 
             // check for timeouts...
@@ -266,7 +264,7 @@ where
                 Ok(_) => None,
                 Err(()) => {
                     warn!("receiver was shutdown?");
-                    break
+                    break;
                 }
             };
 
@@ -290,9 +288,9 @@ where
                         if let Some(ref signer) = self.signer {
                             if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
                                 warn!("could not sign message: {}", e);
-                                complete.send(Err(e.into())).expect(
-                                    "error notifying wait, possible future leak",
-                                );
+                                complete
+                                    .send(Err(e.into()))
+                                    .expect("error notifying wait, possible future leak");
                                 continue; // to the next message...
                             }
                         }
@@ -303,9 +301,9 @@ where
                         Ok(timeout) => timeout,
                         Err(e) => {
                             warn!("could not create timer: {}", e);
-                            complete.send(Err(E::from(e.into()))).expect(
-                                "error notifying wait, possible future leak",
-                            );
+                            complete
+                                .send(Err(E::from(e.into())))
+                                .expect("error notifying wait, possible future leak");
                             continue; // to the next message...
                         }
                     };
@@ -314,28 +312,26 @@ where
                     match message.to_vec() {
                         Ok(buffer) => {
                             debug!("sending message id: {}", query_id);
-                            try!(self.stream_handle.send(buffer));
+                            self.stream_handle.send(buffer)?;
                             // add to the map -after- the client send b/c we don't want to put it in the map if
                             //  we ended up returning from the send.
-                            self.active_requests.insert(
-                                message.id(),
-                                (complete, timeout),
-                            );
+                            self.active_requests
+                                .insert(message.id(), (complete, timeout));
                         }
                         Err(e) => {
                             debug!("error message id: {} error: {}", query_id, e);
                             // complete with the error, don't add to the map of active requests
-                            complete.send(Err(e.into())).expect(
-                                "error notifying wait, possible future leak",
-                            );
+                            complete
+                                .send(Err(e.into()))
+                                .expect("error notifying wait, possible future leak");
                         }
                     }
                 }
                 Ok(_) => break,
                 Err(()) => {
-          warn!("receiver was shutdown?");
-          break
-        }
+                    warn!("receiver was shutdown?");
+                    break;
+                }
             }
         }
 
@@ -350,23 +346,17 @@ where
 
                     //   deserialize or log decode_error
                     match Message::from_vec(&buffer) {
-                        Ok(message) => {
-                            match self.active_requests.remove(&message.id()) {
-                                Some((complete, _)) => {
-                                    complete.send(Ok(message)).expect(
-                                        "error notifying wait, possible future leak",
-                                    )
-                                }
-                                None => debug!("unexpected request_id: {}", message.id()),
-                            }
-                        }
+                        Ok(message) => match self.active_requests.remove(&message.id()) {
+                            Some((complete, _)) => complete
+                                .send(Ok(message))
+                                .expect("error notifying wait, possible future leak"),
+                            None => debug!("unexpected request_id: {}", message.id()),
+                        },
                         // TODO: return src address for diagnostics
                         Err(e) => debug!("error decoding message: {}", e),
                     }
-
                 }
-                Async::Ready(None) |
-                Async::NotReady => break,
+                Async::Ready(None) | Async::NotReady => break,
             }
         }
 
@@ -442,8 +432,7 @@ where
 
 impl<S, E, MF> Future for ClientStreamOrError<S, E, MF>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error>
-        + 'static,
+    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
     E: FromProtoError + 'static,
     MF: MessageFinalizer + 'static,
 {
@@ -484,9 +473,7 @@ where
                 let (complete, receiver) = oneshot::channel();
                 complete
                     .send(Err(E::from(
-                        ProtoErrorKind::Msg(
-                            format!("error sending to channel: {}", e),
-                        ).into(),
+                        ProtoErrorKind::Msg(format!("error sending to channel: {}", e)).into(),
                     )))
                     .expect("error notifying wait, possible future leak");
                 receiver

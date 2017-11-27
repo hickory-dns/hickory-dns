@@ -160,31 +160,31 @@ impl NSEC3PARAM {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<NSEC3PARAM> {
-    let hash_algorithm = try!(Nsec3HashAlgorithm::from_u8(try!(decoder.read_u8())));
-    let flags: u8 = try!(decoder.read_u8());
+    let hash_algorithm = Nsec3HashAlgorithm::from_u8(decoder.read_u8()?)?;
+    let flags: u8 = decoder.read_u8()?;
 
     if flags & 0b1111_1110 != 0 {
         return Err(ProtoErrorKind::UnrecognizedNsec3Flags(flags).into());
     }
     let opt_out: bool = flags & 0b0000_0001 == 0b0000_0001;
-    let iterations: u16 = try!(decoder.read_u16());
-    let salt_len: u8 = try!(decoder.read_u8());
-    let salt: Vec<u8> = try!(decoder.read_vec(salt_len as usize));
+    let iterations: u16 = decoder.read_u16()?;
+    let salt_len: u8 = decoder.read_u8()?;
+    let salt: Vec<u8> = decoder.read_vec(salt_len as usize)?;
 
     Ok(NSEC3PARAM::new(hash_algorithm, opt_out, iterations, salt))
 }
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC3PARAM) -> ProtoResult<()> {
-    try!(encoder.emit(rdata.hash_algorithm().into()));
+    encoder.emit(rdata.hash_algorithm().into())?;
     let mut flags: u8 = 0;
     if rdata.opt_out() {
         flags |= 0b0000_0001
     };
-    try!(encoder.emit(flags));
-    try!(encoder.emit_u16(rdata.iterations()));
-    try!(encoder.emit(rdata.salt().len() as u8));
-    try!(encoder.emit_vec(rdata.salt()));
+    encoder.emit(flags)?;
+    encoder.emit_u16(rdata.iterations())?;
+    encoder.emit(rdata.salt().len() as u8)?;
+    encoder.emit_vec(rdata.salt())?;
 
     Ok(())
 }

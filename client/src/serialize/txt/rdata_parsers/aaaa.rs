@@ -23,13 +23,12 @@ use error::*;
 
 
 /// Parse the RData from a set of Tokens
-pub fn parse<'i, I: Iterator<Item=&'i str>>(mut tokens: I) -> ParseResult<Ipv6Addr> {
-    let address: Ipv6Addr = 
-        tokens
-            .next()
-            .ok_or_else(|| ParseError::from(
-                ParseErrorKind::MissingToken("ipv6 address".to_string()),
-            ))
-            .and_then(|s| Ipv6Addr::from_str(s).map_err(Into::into))?;
+pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<Ipv6Addr> {
+    let address: Ipv6Addr = tokens
+        .next()
+        .ok_or_else(|| {
+            ParseError::from(ParseErrorKind::MissingToken("ipv6 address".to_string()))
+        })
+        .and_then(|s| Ipv6Addr::from_str(s).map_err(Into::into))?;
     Ok(address)
 }

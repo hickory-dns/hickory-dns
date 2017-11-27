@@ -180,9 +180,7 @@ impl DS {
     /// This will always return an error unless the Ring or OpenSSL features are enabled
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
     pub fn covers(&self, _: &Name, _: &DNSKEY) -> ProtoResult<bool> {
-        Err(
-            ProtoErrorKind::Message("Ring or OpenSSL must be enabled for this feature").into(),
-        )
+        Err(ProtoErrorKind::Message("Ring or OpenSSL must be enabled for this feature").into())
     }
 }
 
@@ -190,22 +188,22 @@ impl DS {
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<DS> {
     let start_idx = decoder.index();
 
-    let key_tag: u16 = try!(decoder.read_u16());
-    let algorithm: Algorithm = try!(Algorithm::read(decoder));
-    let digest_type: DigestType = try!(DigestType::from_u8(try!(decoder.read_u8())));
+    let key_tag: u16 = decoder.read_u16()?;
+    let algorithm: Algorithm = Algorithm::read(decoder)?;
+    let digest_type: DigestType = DigestType::from_u8(decoder.read_u8()?)?;
 
     let left: usize = rdata_length as usize - (decoder.index() - start_idx);
-    let digest = try!(decoder.read_vec(left));
+    let digest = decoder.read_vec(left)?;
 
     Ok(DS::new(key_tag, algorithm, digest_type, digest))
 }
 
 /// Write the RData from the given Decoder
 pub fn emit(encoder: &mut BinEncoder, rdata: &DS) -> ProtoResult<()> {
-    try!(encoder.emit_u16(rdata.key_tag()));
-    try!(rdata.algorithm().emit(encoder)); // always 3 for now
-    try!(encoder.emit(rdata.digest_type().into()));
-    try!(encoder.emit_vec(rdata.digest()));
+    encoder.emit_u16(rdata.key_tag())?;
+    rdata.algorithm().emit(encoder)?; // always 3 for now
+    encoder.emit(rdata.digest_type().into())?;
+    encoder.emit_vec(rdata.digest())?;
 
     Ok(())
 }

@@ -12,7 +12,7 @@ use std::mem;
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
-use futures::{Async, future, Future, Poll, task};
+use futures::{future, task, Async, Future, Poll};
 use tokio_core::reactor::Handle;
 
 use trust_dns_proto::{DnsFuture, DnsHandle};
@@ -108,12 +108,11 @@ impl NameServerStats {
             );
         } else {
             // preserve existing EDNS if it exists
-            let remote_edns =
-                if let NameServerState::Established { ref remote_edns } = self.state {
-                    remote_edns.clone()
-                } else {
-                    None
-                };
+            let remote_edns = if let NameServerState::Established { ref remote_edns } = self.state {
+                remote_edns.clone()
+            } else {
+                None
+            };
 
             mem::replace(
                 &mut self.state,
@@ -260,19 +259,15 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     fn try_reconnect(&mut self) -> ResolveResult<()> {
         let error_opt: Option<(ResolveError, Instant, usize, usize)> = self.stats
             .lock()
-            .map(|stats| if let NameServerState::Failed {
-                ref error,
-                when,
-            } = stats.state
-            {
-                Some((error.clone(), when, stats.successes, stats.failures))
-            } else {
-                None
+            .map(|stats| {
+                if let NameServerState::Failed { ref error, when } = stats.state {
+                    Some((error.clone(), when, stats.successes, stats.failures))
+                } else {
+                    None
+                }
             })
             .map_err(|e| {
-                ResolveErrorKind::Msg(
-                    format!("Error acquiring NameServerStats lock: {}", e).into(),
-                )
+                ResolveErrorKind::Msg(format!("Error acquiring NameServerStats lock: {}", e).into())
             })?;
 
         // if this is in a failure state
@@ -318,7 +313,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
 impl<C, P> DnsHandle for NameServer<C, P>
 where
     C: DnsHandle<Error = ResolveError>,
-    P: ConnectionProvider<ConnHandle = C>
+    P: ConnectionProvider<ConnHandle = C>,
 {
     type Error = ResolveError;
 
@@ -338,35 +333,44 @@ where
         // grab a reference to the stats for this NameServer
         let mutex1 = self.stats.clone();
         let mutex2 = self.stats.clone();
-        Box::new(self.client.send(message).and_then(move |response| {
-            // TODO: consider making message::take_edns...
-            let remote_edns = response.edns().cloned();
+        Box::new(
+            self.client
+                .send(message)
+                .and_then(move |response| {
+                    // TODO: consider making message::take_edns...
+                    let remote_edns = response.edns().cloned();
 
-            // this transitions the state to success
-            let response = 
-                mutex1
-                    .lock()
-                    .and_then(|mut stats| { stats.next_success(remote_edns); Ok(response) })
-                    .map_err(|e| format!("Error acquiring NameServerStats lock: {}", e).into());
+                    // this transitions the state to success
+                    let response = mutex1
+                        .lock()
+                        .and_then(|mut stats| {
+                            stats.next_success(remote_edns);
+                            Ok(response)
+                        })
+                        .map_err(|e| {
+                            format!("Error acquiring NameServerStats lock: {}", e).into()
+                        });
 
-            future::result(response)
-        }).or_else(move |error| {
-            // this transitions the state to failure
-            mutex2
-                .lock()
-                .and_then(|mut stats| {
-                    stats.next_failure(error.clone(), Instant::now());
-                    Ok(())
+                    future::result(response)
                 })
-                .or_else(|e| {
-                    warn!("Error acquiring NameServerStats lock (already in error state, ignoring): {}", e);
-                    Err(()) 
-                })
-                .is_ok(); // ignoring error, as this connection is already marked in error...
+                .or_else(move |error| {
+                    // this transitions the state to failure
+                    mutex2
+                        .lock()
+                        .and_then(|mut stats| {
+                            stats.next_failure(error.clone(), Instant::now());
+                            Ok(())
+                        })
+                        .or_else(|e| {
+                            warn!("Error acquiring NameServerStats lock (already in error state, ignoring): {}", e);
+                            Err(())
+                        })
+                        .is_ok(); // ignoring error, as this connection is already marked in error...
 
-            // These are connection failures, not lookup failures, that is handled in the resolver layer
-            future::err(error)
-        }))
+                    // These are connection failures, not lookup failures, that is handled in the resolver layer
+                    future::err(error)
+                }),
+        )
     }
 }
 
@@ -435,19 +439,18 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
                 })
                 .collect();
 
-        let stream_conns: BinaryHeap<NameServer<BasicResolverHandle, StandardConnection>> =
-            config
-                .name_servers()
-                .iter()
-                .filter(|ns_config| ns_config.protocol.is_stream())
-                .map(|ns_config| {
-                    NameServer::<_, StandardConnection>::new(
-                        ns_config.clone(),
-                        options.clone(),
-                        reactor,
-                    )
-                })
-                .collect();
+        let stream_conns: BinaryHeap<NameServer<BasicResolverHandle, StandardConnection>> = config
+            .name_servers()
+            .iter()
+            .filter(|ns_config| ns_config.protocol.is_stream())
+            .map(|ns_config| {
+                NameServer::<_, StandardConnection>::new(
+                    ns_config.clone(),
+                    options.clone(),
+                    reactor,
+                )
+            })
+            .collect();
 
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns)),
@@ -506,7 +509,6 @@ where
                     } else {
                         future::Either::B(future::ok(response))
                     }
-
                 })
                 .or_else(move |_| Self::try_send(stream_conns2, tcp_message2)),
         )
@@ -521,10 +523,10 @@ enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'st
     DoSend(Box<Future<Item = Message, Error = ResolveError>>),
 }
 
-impl<C, P> Future for TrySend<C, P> 
+impl<C, P> Future for TrySend<C, P>
 where
     C: DnsHandle<Error = ResolveError> + 'static,
-    P: ConnectionProvider<ConnHandle = C> + 'static
+    P: ConnectionProvider<ConnHandle = C> + 'static,
 {
     type Item = Message;
     type Error = ResolveError;
@@ -556,9 +558,8 @@ where
                         }
 
                         let message = mem::replace(message, None);
-                        future = conn.unwrap().send(message.expect(
-                            "bad state, mesage should never be None",
-                        ));
+                        future = conn.unwrap()
+                            .send(message.expect("bad state, mesage should never be None"));
                     }
                 }
             }
@@ -575,7 +576,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::net::{SocketAddr, IpAddr, Ipv4Addr};
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
     use tokio_core::reactor::Core;
 

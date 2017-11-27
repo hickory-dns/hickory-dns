@@ -196,7 +196,7 @@ impl From<u8> for Selector {
             1 => Selector::Spki,
             2...254 => Selector::Unassigned(selector),
             255 => Selector::Private,
-            _ => panic!("programmer error, all Selector variants should be covered above"),            
+            _ => panic!("programmer error, all Selector variants should be covered above"),
         }
     }
 }
@@ -259,7 +259,7 @@ impl From<u8> for Matching {
             2 => Matching::Sha512,
             3...254 => Matching::Unassigned(matching),
             255 => Matching::Private,
-            _ => panic!("programmer error, all Matching variants should be covered above"),            
+            _ => panic!("programmer error, all Matching variants should be covered above"),
         }
     }
 }
@@ -323,7 +323,7 @@ impl TLSA {
     pub fn matching(&self) -> &Matching {
         &self.matching
     }
-    
+
     /// Binary data for validating the cert, see other members to understand format
     pub fn cert_data(&self) -> &[u8] {
         &self.cert_data
@@ -438,9 +438,29 @@ mod tests {
 
     #[test]
     fn test_encode_decode_tlsa() {
-        test_encode_decode(TLSA::new(CertUsage::Service, Selector::Spki, Matching::Sha256, vec![1,2,3,4,5,6,7,8]));
-        test_encode_decode(TLSA::new(CertUsage::CA, Selector::Full, Matching::Raw, vec![1,2,3,4,5,6,7,8]));
-        test_encode_decode(TLSA::new(CertUsage::DomainIssued, Selector::Full, Matching::Sha512, vec![1,2,3,4,5,6,7,8]));
-        test_encode_decode(TLSA::new(CertUsage::Unassigned(40), Selector::Unassigned(39), Matching::Unassigned(6), vec![1,2,3,4,5,6,7,8]));
+        test_encode_decode(TLSA::new(
+            CertUsage::Service,
+            Selector::Spki,
+            Matching::Sha256,
+            vec![1, 2, 3, 4, 5, 6, 7, 8],
+        ));
+        test_encode_decode(TLSA::new(
+            CertUsage::CA,
+            Selector::Full,
+            Matching::Raw,
+            vec![1, 2, 3, 4, 5, 6, 7, 8],
+        ));
+        test_encode_decode(TLSA::new(
+            CertUsage::DomainIssued,
+            Selector::Full,
+            Matching::Sha512,
+            vec![1, 2, 3, 4, 5, 6, 7, 8],
+        ));
+        test_encode_decode(TLSA::new(
+            CertUsage::Unassigned(40),
+            Selector::Unassigned(39),
+            Matching::Unassigned(6),
+            vec![1, 2, 3, 4, 5, 6, 7, 8],
+        ));
     }
 }

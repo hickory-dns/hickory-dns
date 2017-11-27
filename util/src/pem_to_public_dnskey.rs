@@ -59,9 +59,9 @@ pub fn main() {
     let pkey = read_pem(&mut key_file);
     let key_pair = into_key_pair(pkey);
 
-    let public_key = key_pair.to_public_bytes().expect(
-        "failed to convert to public key",
-    );
+    let public_key = key_pair
+        .to_public_bytes()
+        .expect("failed to convert to public key");
 
     let mut public_key_file = OpenOptions::new()
         .write(true)
@@ -69,9 +69,9 @@ pub fn main() {
         .open(output_path)
         .expect("could not open public_key file for writing");
 
-    public_key_file.write_all(&public_key).expect(
-        "failed to write public_key to file",
-    );
+    public_key_file
+        .write_all(&public_key)
+        .expect("failed to write public_key to file");
 }
 
 fn into_key_pair(pkey: PKey) -> KeyPair {
@@ -92,9 +92,9 @@ fn read_pem<R: Read>(reader: &mut R) -> PKey {
     let mut reader = BufReader::new(reader);
     let mut buf = Vec::<u8>::new();
 
-    reader.read_to_end(&mut buf).expect(
-        "failed to read pem file",
-    );
+    reader
+        .read_to_end(&mut buf)
+        .expect("failed to read pem file");
     PKey::public_key_from_pem(&buf).expect("failed to detect PKey in PEM data")
 }
 
@@ -118,6 +118,8 @@ mod test {
         let pkey = read_pem(&mut pem);
         let keypair = into_key_pair(pkey);
 
-        keypair.to_public_bytes().expect("failed to get public bytes");
+        keypair
+            .to_public_bytes()
+            .expect("failed to get public bytes");
     }
 }

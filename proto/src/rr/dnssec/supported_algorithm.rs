@@ -37,7 +37,9 @@ impl SupportedAlgorithms {
 
     /// Specify the entire set is supported
     pub fn all() -> Self {
-        SupportedAlgorithms { bit_map: 0b0111_1111 }
+        SupportedAlgorithms {
+            bit_map: 0b0111_1111,
+        }
     }
 
     /// Based on the set of Algorithms, return the supported set

@@ -95,7 +95,10 @@ impl TcpStream<TokioTcpStream> {
     pub fn new<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle<E>)
+    ) -> (
+        Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>,
+        BufStreamHandle<E>,
+    )
     where
         E: FromProtoError,
     {
@@ -113,7 +116,10 @@ impl TcpStream<TokioTcpStream> {
         name_server: SocketAddr,
         loop_handle: &Handle,
         timeout: Duration,
-    ) -> (Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>, BufStreamHandle<E>)
+    ) -> (
+        Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>,
+        BufStreamHandle<E>,
+    )
     where
         E: FromProtoError,
     {
@@ -133,12 +139,10 @@ impl TcpStream<TokioTcpStream> {
             timeout
                 .select2(tcp)
                 .then(move |res| match res {
-                    Ok(Either::A((_, _))) => {
-                        future::err(io::Error::new(
-                            io::ErrorKind::TimedOut,
-                            format!("timed out connecting to: {}", name_server),
-                        ))
-                    }
+                    Ok(Either::A((_, _))) => future::err(io::Error::new(
+                        io::ErrorKind::TimedOut,
+                        format!("timed out connecting to: {}", name_server),
+                    )),
                     Ok(Either::B((tcp_stream, _))) => future::ok((tcp_stream, name_server)),
                     Err(Either::A((timeout_err, _))) => future::err(timeout_err),
                     Err(Either::B((tcp_err, _))) => future::err(tcp_err),
@@ -218,17 +222,17 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                 // sending...
                 match self.send_state {
                     Some(WriteTcpState::LenBytes {
-                             ref mut pos,
-                             ref length,
-                             ..
-                         }) => {
+                        ref mut pos,
+                        ref length,
+                        ..
+                    }) => {
                         let wrote = try_nb!(self.socket.write(&length[*pos..]));
                         *pos += wrote;
                     }
                     Some(WriteTcpState::Bytes {
-                             ref mut pos,
-                             ref bytes,
-                         }) => {
+                        ref mut pos,
+                        ref bytes,
+                    }) => {
                         let wrote = try_nb!(self.socket.write(&bytes[*pos..]));
                         *pos += wrote;
                     }
@@ -243,26 +247,24 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
 
                 // switch states
                 match current_state {
-                    Some(WriteTcpState::LenBytes { pos, length, bytes }) => {
-                        if pos < length.len() {
-                            mem::replace(
-                                &mut self.send_state,
-                                Some(WriteTcpState::LenBytes {
-                                    pos: pos,
-                                    length: length,
-                                    bytes: bytes,
-                                }),
-                            );
-                        } else {
-                            mem::replace(
-                                &mut self.send_state,
-                                Some(WriteTcpState::Bytes {
-                                    pos: 0,
-                                    bytes: bytes,
-                                }),
-                            );
-                        }
-                    }
+                    Some(WriteTcpState::LenBytes { pos, length, bytes }) => if pos < length.len() {
+                        mem::replace(
+                            &mut self.send_state,
+                            Some(WriteTcpState::LenBytes {
+                                pos: pos,
+                                length: length,
+                                bytes: bytes,
+                            }),
+                        );
+                    } else {
+                        mem::replace(
+                            &mut self.send_state,
+                            Some(WriteTcpState::Bytes {
+                                pos: 0,
+                                bytes: bytes,
+                            }),
+                        );
+                    },
                     Some(WriteTcpState::Bytes { pos, bytes }) => {
                         if pos < bytes.len() {
                             mem::replace(
@@ -286,29 +288,46 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                 };
             } else {
                 // then see if there is more to send
-                match try!(self.outbound_messages.poll().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
-          // already handled above, here to make sure the poll() pops the next message
-          Async::Ready(Some((buffer, dst))) => {
-            // if there is no peer, this connection should die...
-            let peer = self.peer_addr;
+                match self.outbound_messages
+                    .poll()
+                    .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
+                {
+                    // already handled above, here to make sure the poll() pops the next message
+                    Async::Ready(Some((buffer, dst))) => {
+                        // if there is no peer, this connection should die...
+                        let peer = self.peer_addr;
 
-            // This is an error if the destination is not our peer (this is TCP after all)
-            //  This will kill the connection...
-            if peer != dst { return Err(io::Error::new(io::ErrorKind::InvalidData, format!("mismatched peer: {} and dst: {}", peer, dst))); }
+                        // This is an error if the destination is not our peer (this is TCP after all)
+                        //  This will kill the connection...
+                        if peer != dst {
+                            return Err(io::Error::new(
+                                io::ErrorKind::InvalidData,
+                                format!("mismatched peer: {} and dst: {}", peer, dst),
+                            ));
+                        }
 
-            // will return if the socket will block
-            // the length is 16 bits
-            let len: [u8; 2] = [(buffer.len() >> 8 & 0xFF) as u8,
-                                (buffer.len() & 0xFF) as u8];
+                        // will return if the socket will block
+                        // the length is 16 bits
+                        let len: [u8; 2] = [
+                            (buffer.len() >> 8 & 0xFF) as u8,
+                            (buffer.len() & 0xFF) as u8,
+                        ];
 
-            debug!("sending message len: {} to: {}", buffer.len(), dst);
-            self.send_state = Some(WriteTcpState::LenBytes{ pos: 0, length: len, bytes: buffer });
-          },
-          // now we get to drop through to the receives...
-          // TODO: should we also return None if there are no more messages to send?
-          Async::NotReady => break,
-          Async::Ready(None) => { debug!("no messages to send"); break },
-        }
+                        debug!("sending message len: {} to: {}", buffer.len(), dst);
+                        self.send_state = Some(WriteTcpState::LenBytes {
+                            pos: 0,
+                            length: len,
+                            bytes: buffer,
+                        });
+                    }
+                    // now we get to drop through to the receives...
+                    // TODO: should we also return None if there are no more messages to send?
+                    Async::NotReady => break,
+                    Async::Ready(None) => {
+                        debug!("no messages to send");
+                        break;
+                    }
+                }
             }
         }
 
@@ -348,7 +367,8 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         debug!("remain ReadTcpState::LenBytes: {}", pos);
                         None
                     } else {
-                        let length = u16::from(bytes[0]) << 8 & 0xFF00 | u16::from(bytes[1]) & 0x00FF;
+                        let length =
+                            u16::from(bytes[0]) << 8 & 0xFF00 | u16::from(bytes[1]) & 0x00FF;
                         debug!("got length: {}", length);
                         let mut bytes = Vec::with_capacity(length as usize);
                         bytes.resize(length as usize, 0);
@@ -396,7 +416,9 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
             // this will move to the next state,
             //  if it was a completed receipt of bytes, then it will move out the bytes
             if let Some(state) = new_state {
-                if let ReadTcpState::Bytes { pos, bytes } = mem::replace(&mut self.read_state, state) {
+                if let ReadTcpState::Bytes { pos, bytes } =
+                    mem::replace(&mut self.read_state, state)
+                {
                     debug!("returning bytes");
                     assert_eq!(pos, bytes.len());
                     ret_buf = Some(bytes);
@@ -489,9 +511,9 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             for _ in 0..send_recv_times {
                 // wait for some bytes...
                 let mut len_bytes = [0_u8; 2];
-                socket.read_exact(&mut len_bytes).expect(
-                    "SERVER: receive failed",
-                );
+                socket
+                    .read_exact(&mut len_bytes)
+                    .expect("SERVER: receive failed");
                 let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
@@ -502,12 +524,12 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 assert_eq!(&buffer, TEST_BYTES);
 
                 // bounce them right back...
-                socket.write_all(&len_bytes).expect(
-                    "SERVER: send length failed",
-                );
-                socket.write_all(&buffer).expect(
-                    "SERVER: send buffer failed",
-                );
+                socket
+                    .write_all(&len_bytes)
+                    .expect("SERVER: send length failed");
+                socket
+                    .write_all(&buffer)
+                    .expect("SERVER: send buffer failed");
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
@@ -526,12 +548,14 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
 
     for _ in 0..send_recv_times {
         // test once
-        sender.sender
+        sender
+            .sender
             .unbounded_send((TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect(
-            "future iteration run failed",
-        );
+        let (buffer, stream_tmp) = io_loop
+            .run(stream.into_future())
+            .ok()
+            .expect("future iteration run failed");
         stream = stream_tmp;
         let (buffer, _) = buffer.expect("no buffer received");
         assert_eq!(&buffer, TEST_BYTES);

@@ -386,11 +386,11 @@ pub enum RData {
     DNSSEC(DNSSECRData),
 
     /// Unknown RecordData is for record types not supported by TRust-DNS
-    Unknown{
+    Unknown {
         /// RecordType code
         code: u16,
         /// RData associated to the record
-        rdata: NULL
+        rdata: NULL,
     },
 }
 
@@ -424,9 +424,7 @@ impl RData {
                 debug!("reading AAAA");
                 rdata::aaaa::read(decoder).map(RData::AAAA)
             }
-            rt @ RecordType::ANY |
-            rt @ RecordType::AXFR |
-            rt @ RecordType::IXFR => {
+            rt @ RecordType::ANY | rt @ RecordType::AXFR | rt @ RecordType::IXFR => {
                 return Err(ProtoErrorKind::UnknownRecordTypeValue(rt.into()).into())
             }
             RecordType::CAA => {
@@ -479,7 +477,7 @@ impl RData {
             }
             RecordType::Unknown(code) => {
                 debug!("reading Unknown");
-                rdata::null::read(decoder, rdata_length).map(|rdata| RData::Unknown{code, rdata})
+                rdata::null::read(decoder, rdata_length).map(|rdata| RData::Unknown { code, rdata })
             }
         };
 
@@ -490,7 +488,7 @@ impl RData {
                 ProtoErrorKind::IncorrectRDataLengthRead(read, rdata_length as usize).into(),
             );
         }
-        
+
         result
     }
 
@@ -516,7 +514,9 @@ impl RData {
             RData::AAAA(ref address) => rdata::aaaa::emit(encoder, address),
             RData::CAA(ref caa) => rdata::caa::emit(encoder, caa),
             // to_lowercase for rfc4034 and rfc6840
-            RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => rdata::name::emit(encoder, name),
+            RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => {
+                rdata::name::emit(encoder, name)
+            }
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
             RData::NULL(ref null) => rdata::null::emit(encoder, null),
@@ -529,7 +529,7 @@ impl RData {
             RData::TXT(ref txt) => rdata::txt::emit(encoder, txt),
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => rdata.emit(encoder),
-            RData::Unknown{ref rdata, ..} => rdata::null::emit(encoder, rdata),
+            RData::Unknown { ref rdata, .. } => rdata::null::emit(encoder, rdata),
         }
     }
 
@@ -551,7 +551,7 @@ impl RData {
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(DNSSECRData::to_record_type(rdata)),
-            RData::Unknown{code, ..} => RecordType::Unknown(code),
+            RData::Unknown { code, .. } => RecordType::Unknown(code),
         }
     }
 
@@ -632,11 +632,11 @@ mod tests {
                     b'o',
                     b'm',
                     0,
-                ]
+                ],
             ),
             (
                 RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
-                vec![1, 0, 1, b'n', 0]
+                vec![1, 0, 1, b'n', 0],
             ),
             (
                 RData::NS(Name::from_labels(vec!["www", "example", "com"])),
@@ -658,7 +658,7 @@ mod tests {
                     b'o',
                     b'm',
                     0,
-                ]
+                ],
             ),
             (
                 RData::PTR(Name::from_labels(vec!["www", "example", "com"])),
@@ -680,7 +680,7 @@ mod tests {
                     b'o',
                     b'm',
                     0,
-                ]
+                ],
             ),
             (
                 RData::SOA(SOA::new(
@@ -736,7 +736,7 @@ mod tests {
                     0xFF,
                     0xFF,
                     0xFF,
-                ]
+                ],
             ),
             (
                 RData::TXT(TXT::new(vec![
@@ -760,15 +760,15 @@ mod tests {
                     0,
                     1,
                     b'j',
-                ]
+                ],
             ),
             (
                 RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
-                vec![0, 0, 0, 0]
+                vec![0, 0, 0, 0],
             ),
             (
                 RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
-                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+                vec![0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
             ),
             (
                 RData::SRV(SRV::new(
@@ -801,7 +801,7 @@ mod tests {
                     b'o',
                     b'm',
                     0,
-                ]
+                ],
             ),
         ]
     }
@@ -809,36 +809,35 @@ mod tests {
     // TODO this test kinda sucks, shows the problem with not storing the binary parts
     #[test]
     fn test_order() {
-        let ordered: Vec<RData> =
-            vec![
-                RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
-                RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
-                RData::SRV(SRV::new(
-                    1,
-                    2,
-                    3,
-                    Name::from_labels(vec!["www", "example", "com"]),
-                )),
-                RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
-                RData::CNAME(Name::from_labels(vec!["www", "example", "com"])),
-                RData::PTR(Name::from_labels(vec!["www", "example", "com"])),
-                RData::NS(Name::from_labels(vec!["www", "example", "com"])),
-                RData::SOA(SOA::new(
-                    Name::from_labels(vec!["www", "example", "com"]),
-                    Name::from_labels(vec!["xxx", "example", "com"]),
-                    u32::max_value(),
-                    -1 as i32,
-                    -1 as i32,
-                    -1 as i32,
-                    u32::max_value(),
-                )),
-                RData::TXT(TXT::new(vec![
-                    "abcdef".to_string(),
-                    "ghi".to_string(),
-                    "".to_string(),
-                    "j".to_string(),
-                ])),
-            ];
+        let ordered: Vec<RData> = vec![
+            RData::A(Ipv4Addr::from_str("0.0.0.0").unwrap()),
+            RData::AAAA(Ipv6Addr::from_str("::").unwrap()),
+            RData::SRV(SRV::new(
+                1,
+                2,
+                3,
+                Name::from_labels(vec!["www", "example", "com"]),
+            )),
+            RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
+            RData::CNAME(Name::from_labels(vec!["www", "example", "com"])),
+            RData::PTR(Name::from_labels(vec!["www", "example", "com"])),
+            RData::NS(Name::from_labels(vec!["www", "example", "com"])),
+            RData::SOA(SOA::new(
+                Name::from_labels(vec!["www", "example", "com"]),
+                Name::from_labels(vec!["xxx", "example", "com"]),
+                u32::max_value(),
+                -1 as i32,
+                -1 as i32,
+                -1 as i32,
+                u32::max_value(),
+            )),
+            RData::TXT(TXT::new(vec![
+                "abcdef".to_string(),
+                "ghi".to_string(),
+                "".to_string(),
+                "j".to_string(),
+            ])),
+        ];
         let mut unordered = vec![
             RData::CNAME(Name::from_labels(vec!["www", "example", "com"])),
             RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
@@ -907,7 +906,7 @@ mod tests {
             RData::TXT(..) => RecordType::TXT,
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(rdata.to_record_type()),
-            RData::Unknown{code, ..} => RecordType::Unknown(code),
+            RData::Unknown { code, .. } => RecordType::Unknown(code),
         }
     }
 

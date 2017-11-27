@@ -13,7 +13,7 @@ use std::sync::{Arc, Mutex};
 use futures::Future;
 use tokio_core::reactor::Handle;
 use trust_dns_proto::op::Message;
-use trust_dns_proto::{DnsHandle, BasicDnsHandle, RetryDnsHandle};
+use trust_dns_proto::{BasicDnsHandle, DnsHandle, RetryDnsHandle};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::rr::{Name, RecordType};
@@ -39,7 +39,9 @@ pub struct BasicResolverHandle {
 
 impl BasicResolverHandle {
     pub(crate) fn new(dns_handle: BasicDnsHandle<ResolveError>) -> Self {
-        BasicResolverHandle { message_sender: dns_handle }
+        BasicResolverHandle {
+            message_sender: dns_handle,
+        }
     }
 }
 
@@ -47,9 +49,11 @@ impl DnsHandle for BasicResolverHandle {
     type Error = ResolveError;
 
     fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
-        Box::new(self.message_sender.send(message).map_err(
-            ResolveError::from,
-        ))
+        Box::new(
+            self.message_sender
+                .send(message)
+                .map_err(ResolveError::from),
+        )
     }
 }
 
@@ -101,13 +105,13 @@ impl ResolverFuture {
     ///
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
-    /// * `reactor` - the [`tokio_core::Core`] to use with this future 
+    /// * `reactor` - the [`tokio_core::Core`] to use with this future
     pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
         let lru = Arc::new(Mutex::new(DnsLru::new(options.cache_size)));
-        
+
         Self::with_cache(config, options, lru, reactor)
     }
-    
+
     /// Construct a new ResolverFuture with the associated Client and configuration.
     ///
     /// # Arguments
@@ -115,8 +119,13 @@ impl ResolverFuture {
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
     /// * `lru` - the cache to be used with the resolver
-    /// * `reactor` - the [`tokio_core::Core`] to use with this future 
-    pub(crate) fn with_cache(config: ResolverConfig, options: ResolverOpts, lru: Arc<Mutex<DnsLru>>, reactor: &Handle) -> Self {
+    /// * `reactor` - the [`tokio_core::Core`] to use with this future
+    pub(crate) fn with_cache(
+        config: ResolverConfig,
+        options: ResolverOpts,
+        lru: Arc<Mutex<DnsLru>>,
+        reactor: &Handle,
+    ) -> Self {
         let pool = NameServerPool::<BasicResolverHandle, StandardConnection>::from_config(
             &config,
             &options,
@@ -125,11 +134,13 @@ impl ResolverFuture {
         let either;
         let client = RetryDnsHandle::new(pool.clone(), options.attempts);
         if options.validate {
-            #[cfg(feature = "dnssec")] {
+            #[cfg(feature = "dnssec")]
+            {
                 either = LookupEither::Secure(SecureDnsHandle::new(client));
-            } 
-            
-            #[cfg(not(feature = "dnssec"))] {
+            }
+
+            #[cfg(not(feature = "dnssec"))]
+            {
                 // TODO: should this just be a panic, or a pinned error?
                 warn!("validate option is only available with 'dnssec' feature");
                 either = LookupEither::Retry(client);
@@ -294,7 +305,7 @@ mod tests {
     use self::tokio_core::reactor::Core;
     use trust_dns_proto::error::ProtoErrorKind;
 
-    use config::{NameServerConfig, LookupIpStrategy};
+    use config::{LookupIpStrategy, NameServerConfig};
 
     use super::*;
 
@@ -307,9 +318,9 @@ mod tests {
             &io_loop.handle(),
         );
 
-        let response = io_loop.run(resolver.lookup_ip("www.example.com.")).expect(
-            "failed to run lookup",
-        );
+        let response = io_loop
+            .run(resolver.lookup_ip("www.example.com."))
+            .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 2);
         for address in response.iter() {
@@ -346,9 +357,9 @@ mod tests {
             &io_loop.handle(),
         );
 
-        let response = io_loop.run(resolver.lookup_ip("www.example.com.")).expect(
-            "failed to run lookup",
-        );
+        let response = io_loop
+            .run(resolver.lookup_ip("www.example.com."))
+            .expect("failed to run lookup");
 
         // TODO: this test is flaky, sometimes 1 is returned, sometimes 2...
         assert_eq!(response.iter().count(), 1);
@@ -394,7 +405,10 @@ mod tests {
         assert!(response.is_err());
         let error = response.unwrap_err();
 
-        assert_eq!(error.kind(), &ResolveErrorKind::Proto(ProtoErrorKind::RrsigsNotPresent(name, RecordType::A)));
+        assert_eq!(
+            error.kind(),
+            &ResolveErrorKind::Proto(ProtoErrorKind::RrsigsNotPresent(name, RecordType::A))
+        );
     }
 
     #[test]
@@ -405,9 +419,9 @@ mod tests {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
 
-        let response = io_loop.run(resolver.lookup_ip("www.example.com.")).expect(
-            "failed to run lookup",
-        );
+        let response = io_loop
+            .run(resolver.lookup_ip("www.example.com."))
+            .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 2);
         for address in response.iter() {
@@ -439,9 +453,9 @@ mod tests {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
 
-        let response = io_loop.run(resolver.lookup_ip("a.com")).expect(
-            "failed to run lookup",
-        );
+        let response = io_loop
+            .run(resolver.lookup_ip("a.com"))
+            .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
@@ -473,9 +487,9 @@ mod tests {
             &io_loop.handle(),
         );
 
-        let response = io_loop.run(resolver.lookup_ip("www.example.com.")).expect(
-            "failed to run lookup",
-        );
+        let response = io_loop
+            .run(resolver.lookup_ip("www.example.com."))
+            .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
@@ -510,9 +524,9 @@ mod tests {
         );
 
         // notice this is not a FQDN, no trailing dot.
-        let response = io_loop.run(resolver.lookup_ip("www.example.com")).expect(
-            "failed to run lookup",
-        );
+        let response = io_loop
+            .run(resolver.lookup_ip("www.example.com"))
+            .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
@@ -546,9 +560,9 @@ mod tests {
         );
 
         // notice no dots, should not trigger ndots rule
-        let response = io_loop.run(resolver.lookup_ip("www")).expect(
-            "failed to run lookup",
-        );
+        let response = io_loop
+            .run(resolver.lookup_ip("www"))
+            .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {
@@ -583,9 +597,9 @@ mod tests {
         );
 
         // notice no dots, should not trigger ndots rule
-        let response = io_loop.run(resolver.lookup_ip("www")).expect(
-            "failed to run lookup",
-        );
+        let response = io_loop
+            .run(resolver.lookup_ip("www"))
+            .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
         for address in response.iter() {

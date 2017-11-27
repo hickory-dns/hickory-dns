@@ -25,9 +25,9 @@ use openssl::rsa::Rsa;
 use trust_dns::client::{Client, ClientConnection, SyncClient};
 use trust_dns::udp::UdpClientConnection;
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::{DNSClass, Name, Record, RData, RecordType};
-use trust_dns::rr::dnssec::{Algorithm, Signer, KeyPair};
-use trust_dns::rr::rdata::key::{KEY, KeyUsage};
+use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
+use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
+use trust_dns::rr::rdata::key::{KeyUsage, KEY};
 use trust_dns_compatibility::named_process;
 
 #[cfg(not(feature = "none"))]
@@ -40,9 +40,9 @@ fn test_get() {
     let client = SyncClient::new(conn);
 
     let name = Name::parse("www.example.com.", None).unwrap();
-    let result = client.query(&name, DNSClass::IN, RecordType::A).expect(
-        "query failed",
-    );
+    let result = client
+        .query(&name, DNSClass::IN, RecordType::A)
+        .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
     assert_eq!(result.answers()[0].rr_type(), RecordType::A);
@@ -111,9 +111,9 @@ fn test_create() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
 
 
-    let result = client.create(record.clone(), origin.clone()).expect(
-        "create failed",
-    );
+    let result = client
+        .create(record.clone(), origin.clone())
+        .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = client
         .query(record.name(), record.dns_class(), record.rr_type())
@@ -124,18 +124,18 @@ fn test_create() {
 
     // trying to create again should error
     // TODO: it would be cool to make this
-    let result = client.create(record.clone(), origin.clone()).expect(
-        "create failed",
-    );
+    let result = client
+        .create(record.clone(), origin.clone())
+        .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 
     // will fail if already set and not the same value.
     let mut record = record.clone();
     record.set_rdata(RData::A(Ipv4Addr::new(101, 11, 101, 11)));
 
-    let result = client.create(record.clone(), origin.clone()).expect(
-        "create failed",
-    );
+    let result = client
+        .create(record.clone(), origin.clone())
+        .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::YXRRSet);
 }
 

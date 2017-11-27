@@ -19,10 +19,10 @@ use std::collections::BTreeMap;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
-use trust_dns::op::{Message, ResponseCode, Query};
+use trust_dns::op::{Message, Query, ResponseCode};
 #[cfg(feature = "dnssec")]
 use trust_dns::op::UpdateMessage;
-use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType, RrKey, RecordSet};
+use trust_dns::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
 
 use authority::{AuthLookup, Journal, UpdateResult, ZoneType};
@@ -95,7 +95,7 @@ impl Authority {
 
         // also add the key to the zone
         let zone_ttl = self.minimum_ttl();
-        let dnskey = try!(signer.key().to_dnskey(signer.algorithm()));
+        let dnskey = signer.key().to_dnskey(signer.algorithm())?;
         let dnskey = Record::from_rdata(
             self.origin.clone(),
             zone_ttl,
@@ -152,15 +152,12 @@ impl Authority {
             info!("persisting zone to journal at SOA.serial: {}", serial);
 
             // TODO: THIS NEEDS TO BE IN A TRANSACTION!!!
-            try!(journal.insert_record(
-                serial,
-                Record::new().set_rr_type(RecordType::AXFR),
-            ));
+            journal.insert_record(serial, Record::new().set_rr_type(RecordType::AXFR))?;
 
             for rr_set in self.records.values() {
                 // TODO: should we preserve rr_sets or not?
                 for record in rr_set.iter() {
-                    try!(journal.insert_record(serial, record));
+                    journal.insert_record(serial, record)?;
                 }
             }
 
@@ -512,15 +509,15 @@ impl Authority {
         // verify sig0, currently the only authorization that is accepted.
         let sig0s: &[Record] = update_message.sig0();
         debug!("authorizing with: {:?}", sig0s);
-        if !sig0s.is_empty() &&
-            sig0s
+        if !sig0s.is_empty()
+            && sig0s
                 .iter()
-                .filter_map(|sig0| if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) =
-                    sig0.rdata()
-                {
-                    Some(sig)
-                } else {
-                    None
+                .filter_map(|sig0| {
+                    if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = sig0.rdata() {
+                        Some(sig)
+                    } else {
+                        None
+                    }
                 })
                 .any(|sig| {
                     let name = sig.signer_name();
@@ -551,8 +548,7 @@ impl Authority {
                                     false
                                 })
                         })
-                })
-        {
+                }) {
             return Ok(());
         } else {
             warn!(
@@ -760,8 +756,7 @@ impl Authority {
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
                     match rr.rr_type() {
-                        t @ RecordType::SOA |
-                        t @ RecordType::NS if rr.name() == &self.origin => {
+                        t @ RecordType::SOA | t @ RecordType::NS if rr.name() == &self.origin => {
                             // SOA and NS records are not to be deleted if they are the origin records
                             info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", t);
                             continue;
@@ -780,9 +775,9 @@ impl Authority {
                             let to_delete = self.records
                                 .keys()
                                 .filter(|k| {
-                                    !((k.record_type == RecordType::SOA ||
-                                           k.record_type == RecordType::NS) &&
-                                          k.name != self.origin)
+                                    !((k.record_type == RecordType::SOA
+                                        || k.record_type == RecordType::NS)
+                                        && k.name != self.origin)
                                 })
                                 .filter(|k| &k.name == rr.name())
                                 .cloned()
@@ -829,10 +824,10 @@ impl Authority {
         // update the serial...
         if updated && auto_signing_and_increment {
             if self.is_dnssec_enabled {
-                try!(self.secure_zone().map_err(|e| {
+                self.secure_zone().map_err(|e| {
                     error!("failure securing zone: {}", e);
                     ResponseCode::ServFail
-                }))
+                })?
             } else {
                 // the secure_zone() function increments the SOA during it's operation, if we're not
                 //  dnssec, then we need to do it here...
@@ -859,11 +854,9 @@ impl Authority {
         assert_eq!(self.class, record.dns_class());
 
         let rr_key = RrKey::new(record.name(), record.rr_type());
-        let records: &mut RecordSet = self.records.entry(rr_key).or_insert(RecordSet::new(
-            record.name(),
-            record.rr_type(),
-            serial,
-        ));
+        let records: &mut RecordSet = self.records
+            .entry(rr_key)
+            .or_insert(RecordSet::new(record.name(), record.rr_type(), serial));
 
         records.insert(record, serial)
     }
@@ -928,9 +921,9 @@ impl Authority {
     #[cfg(feature = "dnssec")]
     pub fn update(&mut self, update: &Message) -> UpdateResult<bool> {
         // the spec says to authorize after prereqs, seems better to auth first.
-        try!(self.authorize(update));
-        try!(self.verify_prerequisites(update.prerequisites()));
-        try!(self.pre_scan(update.updates()));
+        self.authorize(update)?;
+        self.verify_prerequisites(update.prerequisites())?;
+        self.pre_scan(update.updates())?;
 
         self.update_records(update.updates(), true)
     }
@@ -980,12 +973,11 @@ impl Authority {
                 AuthLookup::Records(soa) => {
                     let soa = soa.first().expect("soa should exist here");
                     // TODO: make a custom return type with it's own chained iterator for prepending and appending the SOA...
-                    let mut xfr: Vec<&Record> =
-                        if let AuthLookup::Records(records) = query_result {
-                            records
-                        } else {
-                            vec![]
-                        };
+                    let mut xfr: Vec<&Record> = if let AuthLookup::Records(records) = query_result {
+                        records
+                    } else {
+                        vec![]
+                    };
                     xfr.insert(0, soa);
                     xfr.push(soa);
 
@@ -1031,26 +1023,22 @@ impl Authority {
 
         // Collect the records from each rr_set
         let result: Vec<&Record> = match rtype {
-            RecordType::ANY | RecordType::AXFR => {
-                self.records
-                    .values()
-                    .filter(|rr_set| {
-                        rtype == RecordType::ANY || rr_set.record_type() != RecordType::SOA
-                    })
-                    .filter(|rr_set| rtype == RecordType::AXFR || rr_set.name() == name)
-                    .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
-                        vec.append(&mut rr_set.records(is_secure, supported_algorithms));
-                        vec
-                    })
-            }
-            _ => {
-                self.records.get(&rr_key).map_or(vec![], |rr_set| {
-                    rr_set
-                        .records(is_secure, supported_algorithms)
-                        .into_iter()
-                        .collect()
+            RecordType::ANY | RecordType::AXFR => self.records
+                .values()
+                .filter(|rr_set| {
+                    rtype == RecordType::ANY || rr_set.record_type() != RecordType::SOA
                 })
-            }
+                .filter(|rr_set| rtype == RecordType::AXFR || rr_set.name() == name)
+                .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
+                    vec.append(&mut rr_set.records(is_secure, supported_algorithms));
+                    vec
+                }),
+            _ => self.records.get(&rr_key).map_or(vec![], |rr_set| {
+                rr_set
+                    .records(is_secure, supported_algorithms)
+                    .into_iter()
+                    .collect()
+            }),
         };
 
         // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
@@ -1081,7 +1069,6 @@ impl Authority {
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Vec<&Record> {
-
         #[cfg(feature = "dnssec")]
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             use trust_dns::rr::rdata::DNSSECRecordType;
@@ -1246,7 +1233,7 @@ impl Authority {
                     rr_set.ttl(),
                     expiration.timestamp() as u32,
                     inception.timestamp() as u32,
-                    try!(signer.calculate_key_tag()),
+                    signer.calculate_key_tag()?,
                     signer.signer_name(),
                     // TODO: this is a nasty clone... the issue is that the vec
                     //  from records is of Vec<&R>, but we really want &[R]
@@ -1290,7 +1277,7 @@ impl Authority {
                     // sig_inception: u32,
                     inception.timestamp() as u32,
                     // key_tag: u16,
-                    try!(signer.calculate_key_tag()),
+                    signer.calculate_key_tag()?,
                     // signer_name: Name,
                     signer.signer_name().clone(),
                     // sig: Vec<u8>

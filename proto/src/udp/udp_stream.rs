@@ -48,7 +48,10 @@ impl UdpStream {
     pub fn new<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = UdpStream, Error = io::Error>>, BufStreamHandle<E>)
+    ) -> (
+        Box<Future<Item = UdpStream, Error = io::Error>>,
+        BufStreamHandle<E>,
+    )
     where
         E: FromProtoError,
     {
@@ -130,7 +133,9 @@ impl UdpStream {
             SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
         };
 
-        NextRandomUdpSocket { bind_address: zero_addr }
+        NextRandomUdpSocket {
+            bind_address: zero_addr,
+        }
     }
 }
 
@@ -143,26 +148,30 @@ impl Stream for UdpStream {
         //  makes this self throttling.
         loop {
             // first try to send
-            if let Async::Ready(Some(&(ref buffer, addr))) = try!(self.outbound_messages.peek().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
-          match self.socket.poll_write() {
-            Async::NotReady => {
-              return Ok(Async::NotReady)
-            },
-            Async::Ready(_) => {
-              // will return if the socket will block
-              try_nb!(self.socket.send_to(buffer, &addr));
-            },
-          }
-        }
+            if let Async::Ready(Some(&(ref buffer, addr))) = self.outbound_messages
+                .peek()
+                .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
+            {
+                match self.socket.poll_write() {
+                    Async::NotReady => return Ok(Async::NotReady),
+                    Async::Ready(_) => {
+                        // will return if the socket will block
+                        try_nb!(self.socket.send_to(buffer, &addr));
+                    }
+                }
+            }
 
             // now pop the request and check if we should break or continue.
-            match try!(self.outbound_messages.poll().map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))) {
-        // already handled above, here to make sure the poll() pops the next message
-        Async::Ready(Some(_)) => (),
-        // now we get to drop through to the receives...
-        // TODO: should we also return None if there are no more messages to send?
-        Async::NotReady | Async::Ready(None) => break,
-      }
+            match self.outbound_messages
+                .poll()
+                .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
+            {
+                // already handled above, here to make sure the poll() pops the next message
+                Async::Ready(Some(_)) => (),
+                // now we get to drop through to the receives...
+                // TODO: should we also return None if there are no more messages to send?
+                Async::NotReady | Async::Ready(None) => break,
+            }
         }
 
         // For QoS, this will only accept one message and output that
@@ -194,13 +203,10 @@ impl Future for NextRandomUdpSocket {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         let between = Range::new(1025_u32, u32::from(u16::max_value()) + 1);
         let mut rand = rand::thread_rng();
-        
+
         for attempt in 0..10 {
             let port = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
-            let zero_addr = SocketAddr::new(
-                self.bind_address,
-                port,
-            );
+            let zero_addr = SocketAddr::new(self.bind_address, port);
 
             match std::net::UdpSocket::bind(&zero_addr) {
                 Ok(socket) => return Ok(Async::Ready(socket)),
@@ -226,9 +232,12 @@ fn test_next_random_socket() {
         ),
         &io_loop.handle(),
     );
-    drop(io_loop.run(stream).ok().expect(
-        "failed to get next socket address",
-    ));
+    drop(
+        io_loop
+            .run(stream)
+            .ok()
+            .expect("failed to get next socket address"),
+    );
 }
 
 #[test]

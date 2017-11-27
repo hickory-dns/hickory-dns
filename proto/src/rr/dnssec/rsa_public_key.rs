@@ -15,11 +15,9 @@ pub struct RSAPublicKey<'a> {
 impl<'a> RSAPublicKey<'a> {
     pub fn try_from(encoded: &'a [u8]) -> ProtoResult<RSAPublicKey<'a>> {
         let (e_len_len, e_len) = match encoded.get(0) {
-            Some(&0) if encoded.len() >= 3 => (
-                3,
-                (usize::from(encoded[1]) << 8) |
-                    usize::from(encoded[2]),
-            ),
+            Some(&0) if encoded.len() >= 3 => {
+                (3, (usize::from(encoded[1]) << 8) | usize::from(encoded[2]))
+            }
             Some(e_len) if *e_len != 0 => (1, usize::from(*e_len)),
             _ => {
                 return Err(ProtoErrorKind::Message("bad public key").into());

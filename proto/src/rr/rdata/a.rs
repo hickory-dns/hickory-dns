@@ -48,10 +48,10 @@ use error::*;
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv4Addr> {
     Ok(Ipv4Addr::new(
-        try!(decoder.pop()),
-        try!(decoder.pop()),
-        try!(decoder.pop()),
-        try!(decoder.pop()),
+        decoder.pop()?,
+        decoder.pop()?,
+        decoder.pop()?,
+        decoder.pop()?,
     ))
 }
 
@@ -59,10 +59,10 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Ipv4Addr> {
 pub fn emit(encoder: &mut BinEncoder, address: &Ipv4Addr) -> ProtoResult<()> {
     let segments = address.octets();
 
-    try!(encoder.emit(segments[0]));
-    try!(encoder.emit(segments[1]));
-    try!(encoder.emit(segments[2]));
-    try!(encoder.emit(segments[3]));
+    encoder.emit(segments[0])?;
+    encoder.emit(segments[1])?;
+    encoder.emit(segments[2])?;
+    encoder.emit(segments[3])?;
     Ok(())
 }
 
@@ -72,7 +72,7 @@ mod mytests {
     use std::str::FromStr;
 
     use super::*;
-    use serialize::binary::bin_tests::{test_read_data_set, test_emit_data_set};
+    use serialize::binary::bin_tests::{test_emit_data_set, test_read_data_set};
 
     fn get_data() -> Vec<(Ipv4Addr, Vec<u8>)> {
         vec![
@@ -84,7 +84,7 @@ mod mytests {
             (Ipv4Addr::from_str("127.0.0.1").unwrap(), vec![127, 0, 0, 1]),
             (
                 Ipv4Addr::from_str("192.168.64.32").unwrap(),
-                vec![192, 168, 64, 32]
+                vec![192, 168, 64, 32],
             ),
         ]
     }

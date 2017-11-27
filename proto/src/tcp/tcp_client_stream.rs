@@ -39,8 +39,10 @@ impl TcpClientStream<TokioTcpStream> {
     pub fn new<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
-              Box<DnsStreamHandle<Error = E>>)
+    ) -> (
+        Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = E>>,
+    )
     where
         E: FromProtoError + 'static,
     {
@@ -58,20 +60,21 @@ impl TcpClientStream<TokioTcpStream> {
         name_server: SocketAddr,
         loop_handle: &Handle,
         timeout: Duration,
-    ) -> (Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
-              Box<DnsStreamHandle<Error = E>>)
+    ) -> (
+        Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = E>>,
+    )
     where
         E: FromProtoError + 'static,
     {
         let (stream_future, sender) = TcpStream::with_timeout(name_server, loop_handle, timeout);
 
         let new_future: Box<
-            Future<
-                Item = TcpClientStream<TokioTcpStream>,
-                Error = io::Error,
-            >,
+            Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>,
         > = Box::new(stream_future.map(move |tcp_stream| {
-            TcpClientStream { tcp_stream: tcp_stream }
+            TcpClientStream {
+                tcp_stream: tcp_stream,
+            }
         }));
 
         let sender = Box::new(BufDnsStreamHandle {
@@ -86,7 +89,9 @@ impl TcpClientStream<TokioTcpStream> {
 impl<S> TcpClientStream<S> {
     /// Wraps the TcpStream in TcpClientStream
     pub fn from_stream(tcp_stream: TcpStream<S>) -> Self {
-        TcpClientStream { tcp_stream: tcp_stream }
+        TcpClientStream {
+            tcp_stream: tcp_stream,
+        }
     }
 }
 
@@ -184,9 +189,9 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             for _ in 0..send_recv_times {
                 // wait for some bytes...
                 let mut len_bytes = [0_u8; 2];
-                socket.read_exact(&mut len_bytes).expect(
-                    "SERVER: receive failed",
-                );
+                socket
+                    .read_exact(&mut len_bytes)
+                    .expect("SERVER: receive failed");
                 let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
@@ -197,12 +202,12 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
                 assert_eq!(&buffer, TEST_BYTES);
 
                 // bounce them right back...
-                socket.write_all(&len_bytes).expect(
-                    "SERVER: send length failed",
-                );
-                socket.write_all(&buffer).expect(
-                    "SERVER: send buffer failed",
-                );
+                socket
+                    .write_all(&len_bytes)
+                    .expect("SERVER: send length failed");
+                socket
+                    .write_all(&buffer)
+                    .expect("SERVER: send buffer failed");
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
@@ -222,9 +227,10 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     for _ in 0..send_recv_times {
         // test once
         sender.send(TEST_BYTES.to_vec()).expect("send failed");
-        let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect(
-            "future iteration run failed",
-        );
+        let (buffer, stream_tmp) = io_loop
+            .run(stream.into_future())
+            .ok()
+            .expect("future iteration run failed");
         stream = stream_tmp;
         let buffer = buffer.expect("no buffer received");
         assert_eq!(&buffer, TEST_BYTES);

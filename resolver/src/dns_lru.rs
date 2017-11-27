@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Caching related functionality for the Resolver.
+//! An LRU cache designed for work with DNS lookups
 
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -54,7 +54,7 @@ impl DnsLru {
             (Vec::with_capacity(len), MAX_TTL),
             |(mut rdatas, mut min_ttl), (rdata, ttl)| {
                 rdatas.push(rdata);
-                min_ttl = if ttl < min_ttl { ttl } else { min_ttl };
+                min_ttl = min_ttl.min(ttl);
                 (rdatas, min_ttl)
             },
         );
@@ -75,6 +75,7 @@ impl DnsLru {
         lookup
     }
 
+    /// Generally for inserting a set of records that have already been cached, but with a different Query.
     pub(crate) fn duplicate(
         &mut self,
         query: Query,
@@ -153,6 +154,7 @@ mod tests {
     use trust_dns_proto::rr::{Name, RecordType};
 
     use super::*;
+    use lookup_ip::tests::*;
 
     #[test]
     fn test_is_current() {

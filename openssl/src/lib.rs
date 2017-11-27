@@ -28,4 +28,4 @@ pub mod tls_server;
 mod tls_stream;
 
 pub use self::tls_client_stream::{TlsClientStream, TlsClientStreamBuilder};
-pub use self::tls_stream::{TlsStream, TlsStreamBuilder, tls_stream_from_existing_tls_stream};
+pub use self::tls_stream::{tls_stream_from_existing_tls_stream, TlsStream, TlsStreamBuilder};

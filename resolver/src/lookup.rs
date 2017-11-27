@@ -1,4 +1,3 @@
-
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
@@ -14,13 +13,13 @@ use std::mem;
 use std::slice::Iter;
 use std::sync::Arc;
 
-use futures::{Async, future, Future, Poll, task};
+use futures::{future, task, Async, Future, Poll};
 
 use trust_dns_proto::{DnsHandle, RetryDnsHandle};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::op::{Message, Query};
-use trust_dns_proto::rr::{Name, RecordType, RData};
+use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_proto::rr::rdata;
 
 use error::*;
@@ -79,10 +78,12 @@ impl<'a> Iterator for LookupIter<'a> {
 /// Different lookup options for the lookup attempts and validation
 #[derive(Clone)]
 #[doc(hidden)]
-pub enum LookupEither<C: DnsHandle<Error = ResolveError> + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
+pub enum LookupEither<
+    C: DnsHandle<Error = ResolveError> + 'static,
+    P: ConnectionProvider<ConnHandle = C> + 'static,
+> {
     Retry(RetryDnsHandle<NameServerPool<C, P>>),
-    #[cfg(feature = "dnssec")]    
-    Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
+    #[cfg(feature = "dnssec")] Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
 impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> DnsHandle
@@ -151,9 +152,8 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
     ) -> Poll<Lookup, ResolveError> {
         let name = self.names.pop();
         if let Some(name) = name {
-            let query = self.client_cache.lookup(
-                Query::query(name, self.record_type),
-            );
+            let query = self.client_cache
+                .lookup(Query::query(name, self.record_type));
 
             mem::replace(&mut self.future, Box::new(query));
             // guarantee that we get scheduled for the next turn...
@@ -183,13 +183,11 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for InnerLookupFuture<
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.future.poll() {
-            Ok(Async::Ready(lookup_ip)) => {
-                if lookup_ip.rdatas.len() == 0 {
-                    return self.next_lookup(|| Ok(Async::Ready(lookup_ip)));
-                } else {
-                    return Ok(Async::Ready(lookup_ip));
-                }
-            }
+            Ok(Async::Ready(lookup_ip)) => if lookup_ip.rdatas.len() == 0 {
+                return self.next_lookup(|| Ok(Async::Ready(lookup_ip)));
+            } else {
+                return Ok(Async::Ready(lookup_ip));
+            },
             p @ Ok(Async::NotReady) => p,
             e @ Err(_) => {
                 return self.next_lookup(|| e);
@@ -303,7 +301,7 @@ pub mod tests {
     use futures::{future, Future};
 
     use trust_dns_proto::op::Message;
-    use trust_dns_proto::rr::{Name, Record, RData, RecordType};
+    use trust_dns_proto::rr::{Name, RData, Record, RecordType};
 
     use super::*;
 
@@ -329,7 +327,7 @@ pub mod tests {
                 Name::root(),
                 86400,
                 RecordType::A,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1))
+                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
             ),
         ]);
         Ok(message)
@@ -344,7 +342,9 @@ pub mod tests {
     }
 
     pub fn mock(messages: Vec<ResolveResult<Message>>) -> MockDnsHandle {
-        MockDnsHandle { messages: Arc::new(Mutex::new(messages)) }
+        MockDnsHandle {
+            messages: Arc::new(Mutex::new(messages)),
+        }
     }
 
     #[test]

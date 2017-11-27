@@ -8,8 +8,8 @@
 extern crate chrono;
 extern crate futures;
 extern crate log;
-extern crate trust_dns;
 extern crate tokio_core;
+extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
@@ -155,8 +155,8 @@ fn test_nodata_where_name_exists() {
         let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
-        let msg = io_loop.run(client
-            .query(
+        let msg = io_loop
+            .run(client.query(
                 Name::from_str("www.example.com.").unwrap(),
                 DNSClass::IN,
                 RecordType::SRV,
@@ -180,8 +180,8 @@ fn test_nxdomain_where_no_name_exists() {
         let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
-        let msg = io_loop.run(client
-            .query(
+        let msg = io_loop
+            .run(client.query(
                 Name::from_str("nxdomain.example.com.").unwrap(),
                 DNSClass::IN,
                 RecordType::SRV,
