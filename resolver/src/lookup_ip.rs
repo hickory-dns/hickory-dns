@@ -335,7 +335,7 @@ pub mod tests {
     }
 
     pub fn error() -> ResolveResult<Message> {
-        Err(ResolveErrorKind::Io.into())
+        Err(ResolveErrorKind::Message("forced test failure").into())
     }
 
     pub fn mock(messages: Vec<ResolveResult<Message>>) -> MockDnsHandle {

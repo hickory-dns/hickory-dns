@@ -138,6 +138,7 @@ extern crate tokio_core;
 extern crate trust_dns_proto;
 
 pub mod config;
+mod dns_lru;
 pub mod error;
 pub mod lookup_ip;
 pub mod lookup;

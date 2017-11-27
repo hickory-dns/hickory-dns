@@ -11,7 +11,7 @@ use std::borrow::Cow;
 use std::cell::RefCell;
 use std::mem;
 use std::sync::{Arc, Mutex, TryLockError};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use futures::{task, Async, Future, Poll};
 
@@ -19,127 +19,15 @@ use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::{Message, Query, ResponseCode};
 use trust_dns_proto::rr::{RData, RecordType};
 
+use dns_lru;
+use dns_lru::DnsLru;
 use error::*;
 use lookup::Lookup;
-use lru_cache::LruCache;
 
-/// Maximum TTL as defined in https://tools.ietf.org/html/rfc2181
-const MAX_TTL: u32 = 2147483647_u32;
 const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 
 thread_local! {
     static QUERY_DEPTH: RefCell<u8> = RefCell::new(0);
-}
-
-#[derive(Debug)]
-struct LruValue {
-    // In the None case, this represents an NXDomain
-    lookup: Option<Lookup>,
-    ttl_until: Instant,
-}
-
-impl LruValue {
-    /// Returns true if this set of ips is still valid
-    fn is_current(&self, now: Instant) -> bool {
-        now <= self.ttl_until
-    }
-}
-
-#[derive(Debug)]
-pub(crate) struct DnsLru(LruCache<Query, LruValue>);
-
-impl DnsLru {
-    pub(crate) fn new(capacity: usize) -> Self {
-        DnsLru(LruCache::new(capacity))
-    }
-
-    fn insert(&mut self, query: Query, rdatas_and_ttl: Vec<(RData, u32)>, now: Instant) -> Lookup {
-        let len = rdatas_and_ttl.len();
-        // collapse the values, we're going to take the Minimum TTL as the correct one
-        let (rdatas, ttl): (Vec<RData>, u32) = rdatas_and_ttl.into_iter().fold(
-            (Vec::with_capacity(len), MAX_TTL),
-            |(mut rdatas, mut min_ttl), (rdata, ttl)| {
-                rdatas.push(rdata);
-                min_ttl = if ttl < min_ttl { ttl } else { min_ttl };
-                (rdatas, min_ttl)
-            },
-        );
-
-        let ttl = Duration::from_secs(ttl as u64);
-        let ttl_until = now + ttl;
-
-        // insert into the LRU
-        let lookup = Lookup::new(Arc::new(rdatas));
-        self.0.insert(
-            query,
-            LruValue {
-                lookup: Some(lookup.clone()),
-                ttl_until,
-            },
-        );
-
-        lookup
-    }
-
-    fn duplicate(&mut self, query: Query, lookup: Lookup, ttl: u32, now: Instant) -> Lookup {
-        let ttl = Duration::from_secs(ttl as u64);
-        let ttl_until = now + ttl;
-
-        self.0.insert(
-            query,
-            LruValue {
-                lookup: Some(lookup.clone()),
-                ttl_until,
-            },
-        );
-
-        lookup
-    }
-
-    fn nx_error(query: Query) -> ResolveError {
-        ResolveErrorKind::NoRecordsFound(query).into()
-    }
-
-    fn negative(&mut self, query: Query, ttl: u32, now: Instant) -> ResolveError {
-        // TODO: if we are getting a negative response, should we instead fallback to cache?
-        //   this would cache indefinitely, probably not correct
-
-        let ttl = Duration::from_secs(ttl as u64);
-        let ttl_until = now + ttl;
-
-        self.0.insert(
-            query.clone(),
-            LruValue {
-                lookup: None,
-                ttl_until,
-            },
-        );
-
-        Self::nx_error(query)
-    }
-
-    /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
-    fn get(&mut self, query: &Query, now: Instant) -> Option<Lookup> {
-        let mut out_of_date = false;
-        let lookup = self.0.get_mut(query).and_then(|value| {
-            if value.is_current(now) {
-                out_of_date = false;
-                value.lookup.clone()
-            } else {
-                out_of_date = true;
-                None
-            }
-        });
-
-        // in this case, we can preemtively remove out of data elements
-        // this assumes time is always moving forward, this would only not be true in contrived situations where now
-        //  is not current time, like tests...
-        if out_of_date {
-            self.0.remove(query);
-        }
-
-        lookup
-    }
 }
 
 // TODO: need to consider this storage type as it compares to Authority in server...
@@ -217,11 +105,14 @@ enum Records {
     /// The records exists, a vec of rdata with ttl
     Exists(Vec<(RData, u32)>),
     /// Records do not exist, ttl for negative caching
-    NoData(Option<u32>),
+    NoData { ttl: Option<u32> },
     /// Future lookup for recursive cname records
-    CnameChain(Box<Future<Item = Lookup, Error = ResolveError>>, u32),
+    CnameChain {
+        next: Box<Future<Item = Lookup, Error = ResolveError>>,
+        min_ttl: u32,
+    },
     /// Already cached, chained queries
-    Chained(Lookup, u32),
+    Chained { cached: Lookup, min_ttl: u32 },
 }
 
 impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
@@ -230,36 +121,59 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
             // TODO: This should return an error
             self.handle_nxdomain(message, true)
         } else {
-            Records::CnameChain(self.client.lookup(query), cname_ttl)
+            Records::CnameChain {
+                next: self.client.lookup(query),
+                min_ttl: cname_ttl,
+            }
         }
     }
 
     fn handle_noerror(&mut self, mut message: Message) -> Poll<Records, ResolveError> {
-        // seek out CNAMES
+        // initial ttl is what CNAMES for min usage
+        const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
+
+        // seek out CNAMES, this is only performed if the query is not a CNAME, ANY, or SRV
         let (search_name, cname_ttl, was_cname) = {
-            let (search_name, cname_ttl, was_cname) = message.answers().iter().fold(
-                (Cow::Borrowed(self.query.name()), 0, false),
-                |(search_name, cname_ttl, was_cname), r| {
-                    if let &RData::CNAME(ref cname) = r.rdata() {
-                        debug_assert_eq!(r.rr_type(), RecordType::CNAME);
-                        if search_name.as_ref() == r.name() {
-                            return (Cow::Owned(cname.clone()), r.ttl(), true);
+            // TODO: look and see if there is SRV as the first response, then evaluate the chain to CNAME
+
+            // this will only search for CNAMEs if the request was not meant to be for one of the triggers for recursion
+            let (search_name, cname_ttl, was_cname) = if self.query.query_type().is_any()
+                || self.query.query_type().is_cname()
+                || self.query.query_type().is_srv()
+            {
+                (Cow::Borrowed(self.query.name()), INITIAL_TTL, false)
+            } else {
+                // Folds any cnames from the answers section, into the final cname in the answers section
+                message.answers().iter().fold(
+                    (Cow::Borrowed(self.query.name()), INITIAL_TTL, false),
+                    |(search_name, cname_ttl, was_cname), r| {
+                        if let &RData::CNAME(ref cname) = r.rdata() {
+                            // take the minimum TTL of the cname_ttl and the next record in the chain
+                            let ttl = cname_ttl.min(r.ttl());
+                            debug_assert_eq!(r.rr_type(), RecordType::CNAME);
+                            if search_name.as_ref() == r.name() {
+                                return (Cow::Owned(cname.clone()), ttl, true);
+                            }
                         }
-                    }
-                    (search_name, cname_ttl, was_cname)
-                },
-            );
+                        (search_name, cname_ttl, was_cname)
+                    },
+                )
+            };
 
             // After following all the CNAMES to the last one, try and lookup the final name
             let records = message
                 .take_answers()
                 .into_iter()
+                // Chained records will generally exist in the additionals section
                 .chain(message.take_additionals().into_iter())
                 .filter_map(|r| {
-                    let ttl = r.ttl();
+                    // because this resobled potentially recursively, we want the min TTL from the chain
+                    let ttl = cname_ttl.min(r.ttl());
                     // TODO: disable name validation with ResolverOpts?
                     // restrict to the RData type requested
-                    if self.query.query_type() == r.rr_type() && search_name.as_ref() == r.name() {
+                    if (self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
+                        self.query.query_class() == r.dns_class() &&
+                        search_name.as_ref() == r.name() {
                         Some((r.unwrap_rdata(), ttl))
                     } else {
                         None
@@ -316,9 +230,9 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                 None
             };
 
-            Records::NoData(ttl)
+            Records::NoData { ttl }
         } else {
-            Records::NoData(None)
+            Records::NoData { ttl: None }
         }
     }
 }
@@ -373,17 +287,24 @@ impl Future for InsertCache {
             Ok(mut lru) => {
                 // this will put this object into an inconsistent state, but no one should call poll again...
                 let query = mem::replace(&mut self.query, Query::new());
-                let rdata = mem::replace(&mut self.rdatas, Records::NoData(None));
+                let rdata = mem::replace(&mut self.rdatas, Records::NoData { ttl: None });
 
                 match rdata {
                     Records::Exists(rdata) => {
                         Ok(Async::Ready(lru.insert(query, rdata, Instant::now())))
                     }
-                    Records::Chained(lookup, ttl) => Ok(Async::Ready(
+                    Records::Chained {
+                        cached: lookup,
+                        min_ttl: ttl,
+                    } => Ok(Async::Ready(
                         lru.duplicate(query, lookup, ttl, Instant::now()),
                     )),
-                    Records::NoData(Some(ttl)) => Err(lru.negative(query, ttl, Instant::now())),
-                    Records::NoData(None) | Records::CnameChain(..) => Err(DnsLru::nx_error(query)),
+                    Records::NoData { ttl: Some(ttl) } => {
+                        Err(lru.negative(query, ttl, Instant::now()))
+                    }
+                    Records::NoData { ttl: None } | Records::CnameChain { .. } => {
+                        Err(DnsLru::nx_error(query))
+                    }
                 }
             }
         }
@@ -477,7 +398,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryState<C> {
             }) => {
                 match rdatas {
                     // There are Cnames to lookup
-                    Records::CnameChain(..) => {
+                    Records::CnameChain { .. } => {
                         panic!("CnameChain should have been polled in poll() of QueryState");
                     }
                     rdatas @ _ => {
@@ -495,7 +416,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryState<C> {
             QueryState::CnameChain(_, query, _, cache) => {
                 match rdatas {
                     // There are Cnames to lookup
-                    Records::CnameChain(..) => {
+                    Records::CnameChain { .. } => {
                         panic!("CnameChain should have been polled in poll() of QueryState");
                     }
                     rdatas @ _ => {
@@ -553,7 +474,10 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for QueryState<C> {
                         return Ok(Async::NotReady);
                     }
                     Ok(Async::Ready(lookup)) => {
-                        records = Some(Records::Chained(lookup, ttl));
+                        records = Some(Records::Chained {
+                            cached: lookup,
+                            min_ttl: ttl,
+                        });
                     }
                     Err(e) => {
                         return Err(e);
@@ -570,7 +494,10 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for QueryState<C> {
         match *self {
             QueryState::FromCache(..) => self.query_after_cache(),
             QueryState::Query(..) => match records {
-                Some(Records::CnameChain(future, ttl)) => self.cname(future, ttl),
+                Some(Records::CnameChain {
+                    next: future,
+                    min_ttl: ttl,
+                }) => self.cname(future, ttl),
                 Some(records) => {
                     self.cache(records);
                 }
@@ -597,70 +524,14 @@ mod tests {
     use std::str::FromStr;
     use std::time::*;
 
-    use trust_dns_proto::op::Query;
-    use trust_dns_proto::rr::{Name, RecordType};
+    use futures::future;
+
+    use trust_dns_proto::op::{Message, Query};
+    use trust_dns_proto::rr::{Name, Record};
+    use trust_dns_proto::rr::rdata::SRV;
 
     use super::*;
     use lookup_ip::tests::*;
-
-    #[test]
-    fn test_is_current() {
-        let now = Instant::now();
-        let not_the_future = now + Duration::from_secs(4);
-        let future = now + Duration::from_secs(5);
-        let past_the_future = now + Duration::from_secs(6);
-
-        let value = LruValue {
-            lookup: None,
-            ttl_until: future,
-        };
-
-        assert!(value.is_current(now));
-        assert!(value.is_current(not_the_future));
-        assert!(value.is_current(future));
-        assert!(!value.is_current(past_the_future));
-    }
-
-    #[test]
-    fn test_insert() {
-        let now = Instant::now();
-        let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-        let ips_ttl = vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), 1)];
-        let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
-        let mut lru = DnsLru::new(1);
-
-        let rc_ips = lru.insert(name.clone(), ips_ttl, now);
-        assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
-
-        let rc_ips = lru.get(&name, now).unwrap();
-        assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
-    }
-
-    #[test]
-    fn test_insert_ttl() {
-        let now = Instant::now();
-        let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
-        // TTL should be 1
-        let ips_ttl = vec![
-            (RData::A(Ipv4Addr::new(127, 0, 0, 1)), 1),
-            (RData::A(Ipv4Addr::new(127, 0, 0, 2)), 2),
-        ];
-        let ips = vec![
-            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
-            RData::A(Ipv4Addr::new(127, 0, 0, 2)),
-        ];
-        let mut lru = DnsLru::new(1);
-
-        lru.insert(name.clone(), ips_ttl, now);
-
-        // still valid
-        let rc_ips = lru.get(&name, now + Duration::from_secs(1)).unwrap();
-        assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
-
-        // 2 should be one too far
-        let rc_ips = lru.get(&name, now + Duration::from_secs(2));
-        assert!(rc_ips.is_none());
-    }
 
     #[test]
     fn test_empty_cache() {
@@ -724,4 +595,150 @@ mod tests {
             vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
         );
     }
+
+    pub fn cname_message() -> ResolveResult<Message> {
+        let mut message = Message::new();
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("www.example.com.").unwrap(),
+                86400,
+                RecordType::CNAME,
+                RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+            ),
+        ]);
+        Ok(message)
+    }
+
+    pub fn srv_message() -> ResolveResult<Message> {
+        let mut message = Message::new();
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("_443._tcp.www.example.com.").unwrap(),
+                86400,
+                RecordType::SRV,
+                RData::SRV(SRV::new(
+                    1,
+                    2,
+                    443,
+                    Name::from_str("actual.example.com.").unwrap(),
+                )),
+            ),
+        ]);
+        Ok(message)
+    }
+
+    fn no_recursion_on_query_test(query_type: RecordType) {
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+
+        // the cname should succeed, we shouldn't query again after that, which would cause an error...
+        let mut client = mock(vec![error(), cname_message()]);
+
+        let ips = QueryState::lookup(
+            Query::query(Name::from_str("www.example.com.").unwrap(), query_type),
+            &mut client,
+            cache.clone(),
+        ).wait()
+            .expect("lookup failed");
+
+        assert_eq!(
+            ips.iter().cloned().collect::<Vec<_>>(),
+            vec![RData::CNAME(Name::from_str("actual.example.com.").unwrap())]
+        );
+    }
+
+    #[test]
+    fn test_no_recursion_on_cname_query() {
+        no_recursion_on_query_test(RecordType::CNAME);
+    }
+
+    #[test]
+    fn test_no_recursion_on_all_query() {
+        no_recursion_on_query_test(RecordType::ANY);
+    }
+
+    #[test]
+    fn test_no_recursion_on_srv_query() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+
+        // the cname should succeed, we shouldn't query again after that, which would cause an error...
+        let mut client = mock(vec![error(), srv_message()]);
+
+        let ips = QueryState::lookup(
+            Query::query(
+                Name::from_str("_443._tcp.www.example.com.").unwrap(),
+                RecordType::SRV,
+            ),
+            &mut client,
+            cache.clone(),
+        ).wait()
+            .expect("lookup failed");
+
+        assert_eq!(
+            ips.iter().cloned().collect::<Vec<_>>(),
+            vec![
+                RData::SRV(SRV::new(
+                    1,
+                    2,
+                    443,
+                    Name::from_str("actual.example.com.").unwrap(),
+                )),
+            ]
+        );
+    }
+
+    fn cname_ttl_test(first: u32, second: u32) {
+        let lru = Arc::new(Mutex::new(DnsLru::new(1)));
+        // expecting no queries to be performed
+        let client = CachingClient::with_cache(Arc::clone(&lru), mock(vec![error()]));
+
+        let mut query_future = QueryFuture {
+            message_future: Box::new(future::err(
+                ResolveErrorKind::Message("no message_future in test").into(),
+            )),
+            query: Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
+            cache: lru,
+            dnssec: false,
+            client: client,
+        };
+
+        let mut message = Message::new();
+        message.insert_answers(vec![
+            Record::from_rdata(
+                Name::from_str("ttl.example.com.").unwrap(),
+                first,
+                RecordType::CNAME,
+                RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+            ),
+        ]);
+        message.insert_additionals(vec![
+            Record::from_rdata(
+                Name::from_str("actual.example.com.").unwrap(),
+                second,
+                RecordType::A,
+                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            ),
+        ]);
+
+        let poll: Async<Records> = query_future
+            .handle_noerror(message)
+            .expect("handle_noerror failed");
+
+        assert!(poll.is_ready());
+        if let Async::Ready(records) = poll {
+            if let Records::Exists(records) = records {
+                assert!(records.iter().all(|&(_, ttl)| ttl == 1));
+            } else {
+                panic!("records don't exist");
+            }
+        } else {
+            panic!("poll not ready");
+        }
+    }
+
+    #[test]
+    fn test_cname_ttl() {
+        cname_ttl_test(1, 2);
+        cname_ttl_test(2, 1);
+    }
+
 }
