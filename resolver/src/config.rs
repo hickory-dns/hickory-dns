@@ -189,7 +189,7 @@ pub enum LookupIpStrategy {
 impl Default for LookupIpStrategy {
     /// Returns Ipv4AndIpv6 as the default.
     fn default() -> Self {
-        LookupIpStrategy::Ipv4AndIpv6
+        LookupIpStrategy::Ipv4thenIpv6
     }
 }
 
