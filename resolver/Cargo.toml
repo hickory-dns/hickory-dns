@@ -51,7 +51,7 @@ lalrpop = "^0.13.1"
 
 [dependencies]
 error-chain = "0.1.12"
-futures = "^0.1.6"
+futures = "^0.1.17"
 lalrpop-util = "^0.13.1"
 log = "^0.3.5"
 lru-cache = "^0.1.1"

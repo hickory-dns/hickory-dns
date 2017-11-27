@@ -45,7 +45,7 @@ extern crate trust_dns_openssl;
 
 use std::fs::File;
 use std::collections::BTreeMap;
-use std::net::{Ipv4Addr, IpAddr, SocketAddr, TcpListener, ToSocketAddrs, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, ToSocketAddrs, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::io::Read;
 
@@ -85,9 +85,9 @@ fn parse_zone_file(
 
     // TODO, this should really use something to read line by line or some other method to
     //  keep the usage down. and be a custom lexer...
-    try!(file.read_to_string(&mut buf));
+    file.read_to_string(&mut buf)?;
     let lexer = Lexer::new(&buf);
-    let (origin, records) = try!(Parser::new().parse(lexer, origin));
+    let (origin, records) = Parser::new().parse(lexer, origin)?;
 
     Ok(Authority::new(
         origin,
@@ -109,9 +109,9 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     // load the zone
     let mut authority = if zone_config.is_update_allowed() && journal_path.exists() {
         info!("recovering zone from journal: {:?}", journal_path);
-        let journal = try!(Journal::from_file(&journal_path).map_err(|e| {
+        let journal = Journal::from_file(&journal_path).map_err(|e| {
             format!("error opening journal: {:?}: {}", journal_path, e)
-        }));
+        })?;
 
         let mut authority = Authority::new(
             zone_name.clone(),
@@ -120,9 +120,9 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
             zone_config.is_update_allowed(),
             zone_config.is_dnssec_enabled(),
         );
-        try!(authority.recover_with_journal(&journal).map_err(|e| {
-            format!("error recovering from journal: {}", e)
-        }));
+        authority
+            .recover_with_journal(&journal)
+            .map_err(|e| format!("error recovering from journal: {}", e))?;
 
         authority.set_journal(journal);
         info!("recovered zone: {}", zone_name);
@@ -131,33 +131,31 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     } else if zone_path.exists() {
         info!("loading zone file: {:?}", zone_path);
 
-        let zone_file = try!(File::open(&zone_path).map_err(|e| {
+        let zone_file = File::open(&zone_path).map_err(|e| {
             format!("error opening zone file: {:?}: {}", zone_path, e)
-        }));
+        })?;
 
-        let mut authority = try!(
-            parse_zone_file(
-                zone_file,
-                Some(zone_name.clone()),
-                zone_config.get_zone_type(),
-                zone_config.is_update_allowed(),
-                zone_config.is_dnssec_enabled(),
-            ).map_err(|e| format!("error reading zone: {:?}: {}", zone_path, e))
-        );
+        let mut authority = parse_zone_file(
+            zone_file,
+            Some(zone_name.clone()),
+            zone_config.get_zone_type(),
+            zone_config.is_update_allowed(),
+            zone_config.is_dnssec_enabled(),
+        ).map_err(|e| format!("error reading zone: {:?}: {}", zone_path, e))?;
 
         // if dynamic update is enabled, enable the journal
         if zone_config.is_update_allowed() {
             info!("enabling journal: {:?}", journal_path);
-            let journal = try!(Journal::from_file(&journal_path).map_err(|e| {
+            let journal = Journal::from_file(&journal_path).map_err(|e| {
                 format!("error creating journal {:?}: {}", journal_path, e)
-            }));
+            })?;
 
             authority.set_journal(journal);
 
             // preserve to the new journal, i.e. we just loaded the zone from disk, start the journal
-            try!(authority.persist_to_journal().map_err(|e| {
+            authority.persist_to_journal().map_err(|e| {
                 format!("error persisting to journal {:?}: {}", journal_path, e)
-            }));
+            })?;
         }
 
         info!("zone file loaded: {}", zone_name);
@@ -174,18 +172,18 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     ) -> Result<(), String> {
         if zone_config.is_dnssec_enabled() {
             for key_config in zone_config.get_keys() {
-                let signer = try!(load_key(zone_name.clone(), &key_config).map_err(|e| {
+                let signer = load_key(zone_name.clone(), &key_config).map_err(|e| {
                     format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
-                }));
+                })?;
                 info!(
                     "adding key to zone: {:?}, is_zsk: {}, is_auth: {}",
                     key_config.key_path(),
                     key_config.is_zone_signing_key(),
                     key_config.is_zone_update_auth()
                 );
-                authority.add_secure_key(signer).expect(
-                    "failed to add key to authority",
-                );
+                authority
+                    .add_secure_key(signer)
+                    .expect("failed to add key to authority");
             }
 
             info!("signing zone: {}", zone_config.get_zone().unwrap());
@@ -204,7 +202,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     }
 
     // load any keys for the Zone, if it is a dynamic update zone, then keys are required
-    try!(load_keys(&mut authority, zone_name, zone_config));
+    load_keys(&mut authority, zone_name, zone_config)?;
 
     info!(
         "zone successfully loaded: {}",
@@ -230,42 +228,40 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
 #[cfg(feature = "dnssec")]
 fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
     let key_path = key_config.key_path();
-    let algorithm = try!(key_config.algorithm().map_err(
-        |e| format!("bad algorithm: {}", e),
-    ));
-    let format = try!(key_config.format().map_err(
-        |e| format!("bad key format: {}", e),
-    ));
+    let algorithm = key_config
+        .algorithm()
+        .map_err(|e| format!("bad algorithm: {}", e))?;
+    let format = key_config
+        .format()
+        .map_err(|e| format!("bad key format: {}", e))?;
 
     // read the key in
     let key: KeyPair = {
         info!("reading key: {:?}", key_path);
 
-        let mut file = try!(File::open(&key_path).map_err(|e| {
+        let mut file = File::open(&key_path).map_err(|e| {
             format!("error opening private key file: {:?}: {}", key_path, e)
-        }));
+        })?;
 
         let mut key_bytes = Vec::with_capacity(256);
-        try!(file.read_to_end(&mut key_bytes).map_err(|e| {
+        file.read_to_end(&mut key_bytes).map_err(|e| {
             format!("could not read key from: {:?}: {}", key_path, e)
-        }));
+        })?;
 
-        try!(
-            format
-                .decode_key(&key_bytes, key_config.password(), algorithm)
-                .map_err(|e| format!("could not decode key: {}", e))
-        )
+        format
+            .decode_key(&key_bytes, key_config.password(), algorithm)
+            .map_err(|e| format!("could not decode key: {}", e))?
     };
 
-    let name = try!(key_config.signer_name().map_err(|e| {
-        format!("error reading name: {}", e)
-    })).unwrap_or(zone_name);
+    let name = key_config
+        .signer_name()
+        .map_err(|e| format!("error reading name: {}", e))?
+        .unwrap_or(zone_name);
 
     // add the key to the zone
     // TODO: allow the duration of signatutes to be customized
-    let dnskey = try!(key.to_dnskey(algorithm).map_err(|e| {
-        format!("error converting to dnskey: {}", e)
-    }));
+    let dnskey = key.to_dnskey(algorithm)
+        .map_err(|e| format!("error converting to dnskey: {}", e))?;
     Ok(Signer::dnssec(
         dnskey.clone(),
         key,
@@ -306,13 +302,14 @@ impl<'a> From<ArgMatches<'a>> for Args {
         Args {
             flag_quiet: matches.is_present(QUIET_ARG),
             flag_debug: matches.is_present(DEBUG_ARG),
-            flag_config: matches.value_of(CONFIG_ARG).map(|s| s.to_string()).expect(
-                "config path should have had default",
-            ),
+            flag_config: matches
+                .value_of(CONFIG_ARG)
+                .map(|s| s.to_string())
+                .expect("config path should have had default"),
             flag_zonedir: matches.value_of(ZONEDIR_ARG).map(|s| s.to_string()),
-            flag_port: matches.value_of(PORT_ARG).map(|s| {
-                u16::from_str_radix(s, 10).expect("bad port argument")
-            }),
+            flag_port: matches
+                .value_of(PORT_ARG)
+                .map(|s| u16::from_str_radix(s, 10).expect("bad port argument")),
             flag_tls_port: matches.value_of(TLS_PORT_ARG).map(|s| {
                 u16::from_str_radix(s, 10).expect("bad tls-port argument")
             }),
@@ -351,26 +348,20 @@ pub fn main() {
             Arg::with_name(ZONEDIR_ARG)
                 .long(ZONEDIR_ARG)
                 .short("z")
-                .help(
-                    "Path to the root directory for all zone files, see also config toml",
-                )
+                .help("Path to the root directory for all zone files, see also config toml")
                 .value_name("DIR"),
         )
         .arg(
             Arg::with_name(PORT_ARG)
                 .long(PORT_ARG)
                 .short("p")
-                .help(
-                    "Listening port for DNS queries, overrides any value in config file",
-                )
+                .help("Listening port for DNS queries, overrides any value in config file")
                 .value_name(PORT_ARG),
         )
         .arg(
             Arg::with_name(TLS_PORT_ARG)
                 .long(TLS_PORT_ARG)
-                .help(
-                    "Listening port for DNS over TLS queries, overrides any value in config file",
-                )
+                .help("Listening port for DNS over TLS queries, overrides any value in config file")
                 .value_name(TLS_PORT_ARG),
         )
         .get_matches();
@@ -392,21 +383,18 @@ pub fn main() {
 
     let config_path = Path::new(&args.flag_config);
     info!("loading configuration from: {:?}", config_path);
-    let config = Config::read_config(config_path).expect(&format!(
-        "could not read config: {:?}",
-        config_path
-    ));
-    let zone_dir: &Path = args.flag_zonedir.as_ref().map(|s| Path::new(s)).unwrap_or(
-        config.get_directory(),
-    );
+    let config = Config::read_config(config_path)
+        .expect(&format!("could not read config: {:?}", config_path));
+    let zone_dir: &Path = args.flag_zonedir
+        .as_ref()
+        .map(|s| Path::new(s))
+        .unwrap_or(config.get_directory());
 
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
     for zone in config.get_zones() {
-        let zone_name = zone.get_zone().expect(&format!(
-            "bad zone name in {:?}",
-            config_path
-        ));
+        let zone_name = zone.get_zone()
+            .expect(&format!("bad zone name in {:?}", config_path));
 
         match load_zone(zone_dir, zone) {
             Ok(authority) => catalog.upsert(zone_name, authority),

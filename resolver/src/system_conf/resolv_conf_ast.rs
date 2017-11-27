@@ -84,23 +84,23 @@ impl<'input> AdvancedOption<'input> {
     pub fn parse(option: &'input str) -> Self {
         let mut key_value = option.split(":");
 
-        let key = key_value.next().expect(
-            "check lalrpop for AdvancedOption case",
-        );
+        let key = key_value
+            .next()
+            .expect("check lalrpop for AdvancedOption case");
         let value = key_value.next();
         match key {
-            "ndots" => AdvancedOption::NumberOfDots(
-                value.and_then(|s| u8::from_str(s).ok()).unwrap_or(1),
-            ),
+            "ndots" => {
+                AdvancedOption::NumberOfDots(value.and_then(|s| u8::from_str(s).ok()).unwrap_or(1))
+            }
             "timeout" => AdvancedOption::Timeout(
                 value
                     .and_then(|s| u64::from_str(s).ok())
                     .map(Duration::from_secs)
                     .unwrap_or(Duration::from_secs(5)),
             ),
-            "attempts" => AdvancedOption::Attempts(
-                value.and_then(|s| u8::from_str(s).ok()).unwrap_or(2),
-            ),
+            "attempts" => {
+                AdvancedOption::Attempts(value.and_then(|s| u8::from_str(s).ok()).unwrap_or(2))
+            }
             ref s => AdvancedOption::Unknown(s, value),
         }
     }

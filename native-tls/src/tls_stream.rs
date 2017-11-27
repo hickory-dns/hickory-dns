@@ -26,37 +26,35 @@ use trust_dns::tcp::TcpStream;
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream>>;
 
 fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsConnector> {
-    let mut builder = try!(TlsConnector::builder().map_err(|e| {
+    let mut builder = TlsConnector::builder().map_err(|e| {
         io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("tls error: {}", e),
         )
-    }));
-    try!(builder.supported_protocols(&[Tlsv12]).map_err(
-        |e| {
-            io::Error::new(
-                io::ErrorKind::ConnectionRefused,
-                format!("tls error: {}", e),
-            )
-        },
-    ));
+    })?;
+    builder.supported_protocols(&[Tlsv12]).map_err(|e| {
+        io::Error::new(
+            io::ErrorKind::ConnectionRefused,
+            format!("tls error: {}", e),
+        )
+    })?;
 
     for cert in certs {
-        try!(builder.add_root_certificate(cert).map_err(|e| {
+        builder.add_root_certificate(cert).map_err(|e| {
             io::Error::new(
                 io::ErrorKind::ConnectionRefused,
                 format!("tls error: {}", e),
             )
-        }));
+        })?;
     }
 
     if let Some(pkcs12) = pkcs12 {
-        try!(builder.identity(pkcs12).map_err(|e| {
+        builder.identity(pkcs12).map_err(|e| {
             io::Error::new(
                 io::ErrorKind::ConnectionRefused,
                 format!("tls error: {}", e),
             )
-        }));
+        })?;
     }
     builder.build().map_err(|e| {
         io::Error::new(
@@ -140,10 +138,13 @@ impl TlsStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = TlsStream, Error = io::Error>>, BufStreamHandle<ClientError>) {
+    ) -> (
+        Box<Future<Item = TlsStream, Error = io::Error>>,
+        BufStreamHandle<ClientError>,
+    ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
-        
+
         let tls_connector = match ::tls_stream::tls_new(self.ca_chain, self.identity) {
             Ok(c) => c,
             Err(e) => {
@@ -163,27 +164,26 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream: Box<Future<Item = TlsStream, Error = io::Error>> =
-            Box::new(
-                tcp.and_then(move |tcp_stream| {
-                    tls_connector
-                        .connect_async(&dns_name, tcp_stream)
-                        .map(move |s| {
-                            TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
-                        })
-                        .map_err(|e| {
-                            io::Error::new(
-                                io::ErrorKind::ConnectionRefused,
-                                format!("tls error: {}", e),
-                            )
-                        })
-                }).map_err(|e| {
+        let stream: Box<Future<Item = TlsStream, Error = io::Error>> = Box::new(
+            tcp.and_then(move |tcp_stream| {
+                tls_connector
+                    .connect_async(&dns_name, tcp_stream)
+                    .map(move |s| {
+                        TcpStream::from_stream_with_receiver(s, name_server, outbound_messages)
+                    })
+                    .map_err(|e| {
                         io::Error::new(
                             io::ErrorKind::ConnectionRefused,
                             format!("tls error: {}", e),
                         )
-                    }),
-            );
+                    })
+            }).map_err(|e| {
+                    io::Error::new(
+                        io::ErrorKind::ConnectionRefused,
+                        format!("tls error: {}", e),
+                    )
+                }),
+        );
 
         (stream, message_sender)
     }

@@ -75,6 +75,13 @@ impl RDataParser for RData {
             RecordType::DNSSEC(DNSSECRecordType::RRSIG) => {
                 panic!("RRSIG should be dynamically generated")
             } // valid panic, never should happen
+            RecordType::DNSSEC(DNSSECRecordType::Unknown(code)) => {
+                panic!("Unknown dnssec record type, if you want to support this type, please file an issue against TRust-DNS: {}", code)
+            } // valid panic, never should happen
+            RecordType::Unknown(code) => {
+                // TODO: add a way to associate generic record types to the zone
+                panic!("Unknown record type, if you want to support this type, please file an issue against TRust-DNS: {}", code)
+            }
         };
 
         Ok(rdata)

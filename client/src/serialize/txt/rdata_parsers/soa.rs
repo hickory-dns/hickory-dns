@@ -22,53 +22,54 @@ use rr::domain::Name;
 use rr::rdata::SOA;
 
 /// Parse the RData from a set of Tokens
-pub fn parse<'i, I: Iterator<Item=&'i str>>(mut tokens: I, origin: Option<&Name>) -> ParseResult<SOA> {
-    let mname: Name =
-        tokens
-            .next()
-            .ok_or_else(|| ParseErrorKind::MissingToken("mname".to_string()).into())
-            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
-    
-    let rname: Name =
-        tokens
-            .next()
-            .ok_or_else(|| ParseErrorKind::MissingToken("rname".to_string()).into())
-            .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
-    
-    let serial: u32 = 
-        tokens.next()
-            .ok_or_else(|| ParseError::from(
-                ParseErrorKind::MissingToken("serial".to_string()),
-            ))
-            .and_then(|s| u32::from_str(s).map_err(Into::into))?;
-    
-    let refresh: i32 = 
-        tokens.next()
-            .ok_or_else(|| ParseError::from(
-                ParseErrorKind::MissingToken("refresh".to_string()),
-            ))
-            .and_then(|s| i32::from_str(s).map_err(Into::into))?;
-    
-    let retry: i32 =
-        tokens.next()
-            .ok_or_else(|| ParseError::from(
-                ParseErrorKind::MissingToken("retry".to_string()),
-            ))
-            .and_then(|s| i32::from_str(s).map_err(Into::into))?;
-    
-    let expire: i32 =
-        tokens.next()
-            .ok_or_else(|| ParseError::from(
-                ParseErrorKind::MissingToken("expire".to_string()),
-            ))
-            .and_then(|s| i32::from_str(s).map_err(Into::into))?;
-    
-    let minimum: u32 = 
-        tokens.next()
-            .ok_or_else(|| ParseError::from(
-                ParseErrorKind::MissingToken("minimum".to_string()),
-            ))
-            .and_then(|s| u32::from_str(s).map_err(Into::into))?;
+pub fn parse<'i, I: Iterator<Item = &'i str>>(
+    mut tokens: I,
+    origin: Option<&Name>,
+) -> ParseResult<SOA> {
+    let mname: Name = tokens
+        .next()
+        .ok_or_else(|| ParseErrorKind::MissingToken("mname".to_string()).into())
+        .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+
+    let rname: Name = tokens
+        .next()
+        .ok_or_else(|| ParseErrorKind::MissingToken("rname".to_string()).into())
+        .and_then(|s| Name::parse(s, origin).map_err(ParseError::from))?;
+
+    let serial: u32 = tokens
+        .next()
+        .ok_or_else(|| {
+            ParseError::from(ParseErrorKind::MissingToken("serial".to_string()))
+        })
+        .and_then(|s| u32::from_str(s).map_err(Into::into))?;
+
+    let refresh: i32 = tokens
+        .next()
+        .ok_or_else(|| {
+            ParseError::from(ParseErrorKind::MissingToken("refresh".to_string()))
+        })
+        .and_then(|s| i32::from_str(s).map_err(Into::into))?;
+
+    let retry: i32 = tokens
+        .next()
+        .ok_or_else(|| {
+            ParseError::from(ParseErrorKind::MissingToken("retry".to_string()))
+        })
+        .and_then(|s| i32::from_str(s).map_err(Into::into))?;
+
+    let expire: i32 = tokens
+        .next()
+        .ok_or_else(|| {
+            ParseError::from(ParseErrorKind::MissingToken("expire".to_string()))
+        })
+        .and_then(|s| i32::from_str(s).map_err(Into::into))?;
+
+    let minimum: u32 = tokens
+        .next()
+        .ok_or_else(|| {
+            ParseError::from(ParseErrorKind::MissingToken("minimum".to_string()))
+        })
+        .and_then(|s| u32::from_str(s).map_err(Into::into))?;
 
     Ok(SOA::new(
         mname,

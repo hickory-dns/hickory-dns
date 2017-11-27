@@ -31,7 +31,9 @@ pub struct TrustAnchor {
 
 impl Default for TrustAnchor {
     fn default() -> TrustAnchor {
-        TrustAnchor { pkeys: vec![ROOT_ANCHOR.to_owned()] }
+        TrustAnchor {
+            pkeys: vec![ROOT_ANCHOR.to_owned()],
+        }
     }
 }
 

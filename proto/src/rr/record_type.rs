@@ -88,6 +88,29 @@ pub enum RecordType {
     /// crypto functionality isn't needed.
     #[cfg(feature = "dnssec")]
     DNSSEC(DNSSECRecordType),
+
+    /// Unknown Record type, or unsupported
+    Unknown(u16),
+}
+
+impl RecordType {
+    /// Returns true if this is an ANY
+    #[inline]
+    pub fn is_any(&self) -> bool {
+        *self == RecordType::ANY
+    }
+
+    /// Returns true if this is a CNAME
+    #[inline]
+    pub fn is_cname(&self) -> bool {
+        *self == RecordType::CNAME
+    }
+
+    /// Returns true if this is an SRV
+    #[inline]
+    pub fn is_srv(&self) -> bool {
+        *self == RecordType::SRV
+    }
 }
 
 impl FromStr for RecordType {
@@ -123,44 +146,50 @@ impl FromStr for RecordType {
     }
 }
 
-impl RecordType {
+impl From<u16> for RecordType {
     /// Convert from `u16` to `RecordType`
     ///
     /// ```
     /// use trust_dns_proto::rr::record_type::RecordType;
     ///
-    /// let var = RecordType::from_u16(1).unwrap();
+    /// let var = RecordType::from(1);
     /// assert_eq!(RecordType::A, var);
     /// ```
-    pub fn from_u16(value: u16) -> ProtoResult<Self> {
+    fn from(value: u16) -> Self {
         match value {
-            1 => Ok(RecordType::A),
-            28 => Ok(RecordType::AAAA),
-            255 => Ok(RecordType::ANY),
-            252 => Ok(RecordType::AXFR),
-            257 => Ok(RecordType::CAA),
-            5 => Ok(RecordType::CNAME),
-            15 => Ok(RecordType::MX),
-            2 => Ok(RecordType::NS),
-            0 => Ok(RecordType::NULL),
-            41 => Ok(RecordType::OPT),
-            12 => Ok(RecordType::PTR),
-            6 => Ok(RecordType::SOA),
-            33 => Ok(RecordType::SRV),
-            52 => Ok(RecordType::TLSA),
-            16 => Ok(RecordType::TXT),
+            1 => RecordType::A,
+            28 => RecordType::AAAA,
+            255 => RecordType::ANY,
+            252 => RecordType::AXFR,
+            257 => RecordType::CAA,
+            5 => RecordType::CNAME,
+            15 => RecordType::MX,
+            2 => RecordType::NS,
+            0 => RecordType::NULL,
+            41 => RecordType::OPT,
+            12 => RecordType::PTR,
+            6 => RecordType::SOA,
+            33 => RecordType::SRV,
+            52 => RecordType::TLSA,
+            16 => RecordType::TXT,
             #[cfg(feature = "dnssec")]
-            value => Ok(RecordType::DNSSEC(DNSSECRecordType::from_u16(value)?)),
-            #[cfg(not(feature = "dnssec"))]
-            // TODO: this should probably return a generic value wrapper.
-            _ => Err(ProtoErrorKind::UnknownRecordTypeValue(value).into()),
+            48/*DNSKEY*/ |
+            43/*DS*/ |
+            25/*KEY*/ |
+            47/*NSEC*/|
+            50/*NSEC3*/|
+            51/*NSEC3PARAM*/|
+            46/*RRSIG*/|
+            24/*SIG*/ => RecordType::DNSSEC(DNSSECRecordType::from(value)),
+            // all unknown record types
+            _ => RecordType::Unknown(value),
         }
     }
 }
 
 impl BinSerializable<RecordType> for RecordType {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
-        Self::from_u16(try!(decoder.read_u16()))
+        decoder.read_u16().map(Self::from)
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
@@ -205,6 +234,7 @@ impl From<RecordType> for &'static str {
             RecordType::TXT => "TXT",
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
+            RecordType::Unknown(_) => "Unknown",
         }
     }
 }
@@ -239,6 +269,7 @@ impl From<RecordType> for u16 {
             RecordType::TXT => 16,
             #[cfg(feature = "dnssec")]
             RecordType::DNSSEC(rt) => rt.into(),
+            RecordType::Unknown(code) => code,
         }
     }
 }

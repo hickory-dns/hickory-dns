@@ -1,8 +1,8 @@
 extern crate tokio_core;
-extern crate trust_dns_proto;
-extern crate trust_dns_server;
-extern crate trust_dns_resolver;
 extern crate trust_dns_integration;
+extern crate trust_dns_proto;
+extern crate trust_dns_resolver;
+extern crate trust_dns_server;
 
 use std::net::*;
 use std::str::FromStr;
@@ -11,7 +11,7 @@ use std::sync::Arc;
 use tokio_core::reactor::Core;
 
 use trust_dns_proto::DnsFuture;
-use trust_dns_proto::op::{Query, NoopMessageFinalizer};
+use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::domain;
 use trust_dns_proto::rr::{RData, RecordType};
 use trust_dns_server::authority::Catalog;

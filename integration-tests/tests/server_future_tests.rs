@@ -11,9 +11,10 @@ use std::env;
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket, TcpListener};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, UdpSocket};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
 
@@ -87,14 +88,48 @@ fn test_server_www_tcp() {
     server_thread.join().unwrap();;
 }
 
+#[test]
+fn test_server_unknown_type() {
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let udp_socket = UdpSocket::bind(&addr).unwrap();
+
+    let ipaddr = udp_socket.local_addr().unwrap();
+    println!("udp_socket on port: {}", ipaddr);
+    let server_continue = Arc::new(AtomicBool::new(true));
+    let server_continue2 = server_continue.clone();
+
+    let server_thread = thread::Builder::new()
+        .name("test_server:udp:server".to_string())
+        .spawn(move || server_thread_udp(udp_socket, server_continue2))
+        .unwrap();
+
+    let conn = UdpClientConnection::new(ipaddr).unwrap();
+    let client = SyncClient::new(conn);
+    let client_result = client
+        .query(
+            &Name::from_str("www.example.com.").unwrap(),
+            DNSClass::IN,
+            RecordType::Unknown(65535),
+        )
+        .expect("query failed for unknown");
+
+    assert_eq!(client_result.response_code(), ResponseCode::NoError);
+    assert_eq!(
+        client_result.queries().first().unwrap().query_type(),
+        RecordType::Unknown(65535)
+    );
+    assert!(client_result.answers().is_empty());
+
+    server_continue.store(false, Ordering::Relaxed);
+    server_thread.join().unwrap();;
+}
+
 fn read_file(path: &str) -> Vec<u8> {
     let mut bytes = vec![];
 
     let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
-    file.read_to_end(&mut bytes).expect(&format!(
-        "failed to read file: {}",
-        path
-    ));
+    file.read_to_end(&mut bytes)
+        .expect(&format!("failed to read file: {}", path));
     bytes
 }
 
@@ -163,9 +198,9 @@ where
     let name = Name::from_labels(vec!["www", "example", "com"]);
     let client = SyncClient::new(conn);
 
-    let response = client.query(&name, DNSClass::IN, RecordType::A).expect(
-        "error querying",
-    );
+    let response = client
+        .query(&name, DNSClass::IN, RecordType::A)
+        .expect("error querying");
 
     assert!(
         response.response_code() == ResponseCode::NoError,

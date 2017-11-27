@@ -20,11 +20,11 @@ use super::*;
 
 fn get_character_data() -> Vec<(String, Vec<u8>)> {
     vec![
-    ("".to_string(), vec![0]), // base case, only the root
-    ("a".to_string(), vec![1,b'a']), // a single 'a' label
-    ("bc".to_string(), vec![2,b'b',b'c']), // two labels, 'a.bc'
-    ("♥".to_string(), vec![3,0xE2,0x99,0xA5]), // two labels utf8, 'a.♥'
-  ]
+        ("".to_string(), vec![0]),                      // base case, only the root
+        ("a".to_string(), vec![1, b'a']),               // a single 'a' label
+        ("bc".to_string(), vec![2, b'b', b'c']),        // two labels, 'a.bc'
+        ("♥".to_string(), vec![3, 0xE2, 0x99, 0xA5]), // two labels utf8, 'a.♥'
+    ]
 }
 
 #[test]

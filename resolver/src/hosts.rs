@@ -104,7 +104,7 @@ pub fn parse_literal_ip(addr: &str) -> Option<RData> {
         Err(e) => {
             warn!("could not parse an IP from hosts file: {}", e);
             None
-        },
+        }
     }
 }
 

@@ -1,7 +1,7 @@
 extern crate tokio_core;
 extern crate trust_dns;
-extern crate trust_dns_server;
 extern crate trust_dns_integration;
+extern crate trust_dns_server;
 
 use std::net::*;
 use std::sync::Arc;
@@ -154,7 +154,11 @@ where
     let name = domain::Name::parse("rollernet.us.", None).unwrap();
 
     let response = io_loop
-        .run(client.query(name.clone(), DNSClass::IN, RecordType::DNSSEC(DNSSECRecordType::DS)))
+        .run(client.query(
+            name.clone(),
+            DNSClass::IN,
+            RecordType::DNSSEC(DNSSECRecordType::DS),
+        ))
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -170,7 +174,11 @@ where
     let name = domain::Name::parse("RollErnet.Us.", None).unwrap();
 
     let response = io_loop
-        .run(client.query(name.clone(), DNSClass::IN, RecordType::DNSSEC(DNSSECRecordType::DS)))
+        .run(client.query(
+            name.clone(),
+            DNSClass::IN,
+            RecordType::DNSSEC(DNSSECRecordType::DS),
+        ))
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -181,8 +189,7 @@ where
 
 fn with_nonet<F>(test: F)
 where
-    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>,
-       Core),
+    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Core),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -235,8 +242,7 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>,
-       Core),
+    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Core),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -269,8 +275,7 @@ where
 
 fn with_tcp<F>(test: F)
 where
-    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>,
-       Core),
+    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Core),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();

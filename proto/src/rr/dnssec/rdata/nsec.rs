@@ -114,10 +114,10 @@ impl NSEC {
 pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NSEC> {
     let start_idx = decoder.index();
 
-    let next_domain_name = try!(Name::read(decoder));
+    let next_domain_name = Name::read(decoder)?;
 
     let bit_map_len = rdata_length as usize - (decoder.index() - start_idx);
-    let record_types = try!(nsec3::decode_type_bit_maps(decoder, bit_map_len));
+    let record_types = nsec3::decode_type_bit_maps(decoder, bit_map_len)?;
 
     Ok(NSEC::new(next_domain_name, record_types))
 }
@@ -135,8 +135,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NSEC> {
 pub fn emit(encoder: &mut BinEncoder, rdata: &NSEC) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
     encoder.set_canonical_names(true);
-    try!(rdata.next_domain_name().emit(encoder));
-    try!(nsec3::encode_bit_maps(encoder, rdata.type_bit_maps()));
+    rdata.next_domain_name().emit(encoder)?;
+    nsec3::encode_bit_maps(encoder, rdata.type_bit_maps())?;
     encoder.set_canonical_names(is_canonical_names);
 
     Ok(())

@@ -97,9 +97,9 @@ where
     let mut found = false;
     for _ in 0..1000 {
         output.clear();
-        named_out.read_line(&mut output).expect(
-            "could not read stdout",
-        );
+        named_out
+            .read_line(&mut output)
+            .expect("could not read stdout");
         if !output.is_empty() {
             stdout().write(b"SRV: ").unwrap();
             stdout().write(output.as_bytes()).unwrap();
@@ -121,9 +121,9 @@ where
             let succeeded = succeeded_clone;
             while !succeeded.load(atomic::Ordering::Relaxed) {
                 output.clear();
-                named_out.read_line(&mut output).expect(
-                    "could not read stdout",
-                );
+                named_out
+                    .read_line(&mut output)
+                    .expect("could not read stdout");
                 if !output.is_empty() {
                     stdout().write(b"SRV: ").unwrap();
                     stdout().write(output.as_bytes()).unwrap();
@@ -215,12 +215,12 @@ pub fn query_all_dnssec(
         .filter(|r| {
             r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
         })
-        .map(|r| if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) =
-            r.rdata()
-        {
-            rrsig.clone()
-        } else {
-            panic!("wrong RDATA")
+        .map(|r| {
+            if let &RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = r.rdata() {
+                rrsig.clone()
+            } else {
+                panic!("wrong RDATA")
+            }
         })
         .filter(|rrsig| rrsig.algorithm() == algorithm)
         .find(|rrsig| {

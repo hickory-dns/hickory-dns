@@ -44,7 +44,7 @@ name = "trust_dns_native_tls"
 path = "src/lib.rs"
 
 [dependencies]
-futures = "^0.1.6"
+futures = "^0.1.17"
 native-tls = "^0.1"
 tokio-core = "^0.1"
 tokio-tls = "^0.1"

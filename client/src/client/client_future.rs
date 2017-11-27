@@ -14,7 +14,7 @@ use futures::Future;
 use futures::stream::Stream;
 use rand;
 use tokio_core::reactor::Handle;
-use trust_dns_proto::{BasicDnsHandle, DnsStreamHandle, DnsHandle, DnsFuture};
+use trust_dns_proto::{BasicDnsHandle, DnsFuture, DnsHandle, DnsStreamHandle};
 
 use client::ClientStreamHandle;
 use error::*;
@@ -24,7 +24,7 @@ use rr::dnssec::Signer;
 use rr::rdata::NULL;
 
 // TODO: this should be configurable
-const MAX_PAYLOAD_LEN: u16 = 1500-40-8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header) 
+const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
 
 /// A DNS Client implemented over futures-rs.
 ///
@@ -88,7 +88,9 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
             finalizer,
         );
 
-        BasicClientHandle { message_sender: dns_future_handle }
+        BasicClientHandle {
+            message_sender: dns_future_handle,
+        }
     }
 }
 
@@ -109,7 +111,11 @@ impl DnsHandle for BasicClientHandle {
     }
 }
 
-impl<T> ClientHandle for T where T: DnsHandle<Error = ClientError> {}
+impl<T> ClientHandle for T
+where
+    T: DnsHandle<Error = ClientError>,
+{
+}
 
 /// A trait for implementing high level functions of DNS.
 pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {

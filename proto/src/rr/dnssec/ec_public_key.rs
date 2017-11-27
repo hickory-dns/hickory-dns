@@ -24,11 +24,7 @@ impl ECPublicKey {
         let field_len = match algorithm {
             Algorithm::ECDSAP256SHA256 => 32,
             Algorithm::ECDSAP384SHA384 => 48,
-            _ => {
-                return Err(
-                    "only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into(),
-                )
-            }
+            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
         let len = 1 + (2 * field_len);
         if len - 1 != without_prefix.len() {

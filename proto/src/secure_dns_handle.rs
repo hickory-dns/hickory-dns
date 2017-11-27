@@ -19,7 +19,7 @@ use rr::{domain, DNSClass, RData, Record, RecordType};
 #[cfg(feature = "dnssec")]
 use rr::dnssec::Verifier;
 use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
-use rr::dnssec::rdata::{DNSKEY, DNSSECRData, DNSSECRecordType, SIG};
+use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
 use rr::rdata::opt::EdnsOption;
 
 #[derive(Debug)]
@@ -111,8 +111,7 @@ where
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
             return Box::new(failed(E::from(
-                ProtoErrorKind::Message("exceeded max validation depth")
-                    .into(),
+                ProtoErrorKind::Message("exceeded max validation depth").into(),
             )));
         }
 
@@ -149,10 +148,10 @@ where
 
             message.set_authentic_data(true);
             message.set_checking_disabled(false);
-            let dns_class = message.queries().first().map_or(
-                DNSClass::IN,
-                |q| q.query_class(),
-            );
+            let dns_class = message
+                .queries()
+                .first()
+                .map_or(DNSClass::IN, |q| q.query_class());
 
             return Box::new(
                 self.handle
@@ -179,7 +178,7 @@ where
                                 return Err(E::from(
                                     ProtoErrorKind::Message(
                                         "could not validate nxdomain \
-                                                                 with NSEC",
+                                         with NSEC",
                                     ).into(),
                                 ));
                             }
@@ -213,20 +212,24 @@ where
     E: FromProtoError + Clone,
 {
     let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
-    for rrset in message_result.answers()
-                             .iter()
-                             .chain(message_result.name_servers())
-                             .filter(|rr| !is_dnssec(rr, DNSSECRecordType::RRSIG) &&
+    for rrset in message_result
+        .answers()
+        .iter()
+        .chain(message_result.name_servers())
+        .filter(|rr| {
+            !is_dnssec(rr, DNSSECRecordType::RRSIG) &&
                              // if we are at a depth greater than 1, we are only interested in proving evaluation chains
                              //   this means that only DNSKEY and DS are intersting at that point.
                              //   this protects against looping over things like NS records and DNSKEYs in responses.
                              // TODO: is there a cleaner way to prevent cycles in the evaluations?
                                           (handle.request_depth <= 1 ||
                                            is_dnssec(rr, DNSSECRecordType::DNSKEY) ||
-                                           is_dnssec(rr, DNSSECRecordType::DS)))
-                             .map(|rr| (rr.name().clone(), rr.rr_type())) {
-    rrset_types.insert(rrset);
-  }
+                                           is_dnssec(rr, DNSSECRecordType::DS))
+        })
+        .map(|rr| (rr.name().clone(), rr.rr_type()))
+    {
+        rrset_types.insert(rrset);
+    }
 
     // there was no data returned in that message
     if rrset_types.is_empty() {
@@ -263,10 +266,12 @@ where
             .chain(message_result.name_servers())
             .chain(message_result.additionals())
             .filter(|rr| is_dnssec(rr, DNSSECRecordType::RRSIG))
-            .filter(|rr| if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *rr.rdata() {
-                rrsig.type_covered() == record_type
-            } else {
-                false
+            .filter(|rr| {
+                if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *rr.rdata() {
+                    rrsig.type_covered() == record_type
+                } else {
+                    false
+                }
             })
             .cloned()
             .collect();
@@ -361,10 +366,8 @@ where
                     .into_iter()
                     .chain(message_result.take_additionals().into_iter())
                     .filter(|record| {
-                        self.verified_rrsets.contains(&(
-                            record.name().clone(),
-                            record.rr_type(),
-                        ))
+                        self.verified_rrsets
+                            .contains(&(record.name().clone(), record.rr_type()))
                     })
                     .collect::<Vec<Record>>();
 
@@ -372,10 +375,8 @@ where
                     .take_name_servers()
                     .into_iter()
                     .filter(|record| {
-                        self.verified_rrsets.contains(&(
-                            record.name().clone(),
-                            record.rr_type(),
-                        ))
+                        self.verified_rrsets
+                            .contains(&(record.name().clone(), record.rr_type()))
                     })
                     .collect::<Vec<Record>>();
 
@@ -383,10 +384,8 @@ where
                     .take_additionals()
                     .into_iter()
                     .filter(|record| {
-                        self.verified_rrsets.contains(&(
-                            record.name().clone(),
-                            record.rr_type(),
-                        ))
+                        self.verified_rrsets
+                            .contains(&(record.name().clone(), record.rr_type()))
                     })
                     .collect::<Vec<Record>>();
 
@@ -432,21 +431,21 @@ where
     }
 
     // standard validation path
-    Box::new(verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs)
-        .and_then(|rrset|
+    Box::new(
+        verify_default_rrset(&handle.clone_with_context(), rrset, rrsigs)
+            .and_then(|rrset|
           // POST validation
           match rrset.record_type {
             RecordType::DNSSEC(DNSSECRecordType::DNSKEY) =>
                 verify_dnskey_rrset(handle, rrset),
             // RecordType::DNSSEC(DNSSECRecordType::DS) => verify_ds_rrset(handle, name, record_type, record_class, rrset, rrsigs),
             _ => Box::new(finished(rrset)),
-          }
-        )
-        .map_err(|e| {
-          debug!("rrset failed validation: {}", e);
-          e
-        })
-      )
+          })
+            .map_err(|e| {
+                debug!("rrset failed validation: {}", e);
+                e
+            }),
+    )
 }
 
 /// Verifies a dnskey rrset
@@ -475,15 +474,17 @@ where
             .iter()
             .enumerate()
             .filter(|&(_, rr)| is_dnssec(rr, DNSSECRecordType::DNSKEY))
-            .filter_map(|(i, rr)| if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
-                Some((i, rdata))
-            } else {
-                None
+            .filter_map(|(i, rr)| {
+                if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
+                    Some((i, rdata))
+                } else {
+                    None
+                }
             })
             .filter_map(|(i, rdata)| {
-                if handle.trust_anchor.contains_dnskey_bytes(
-                    rdata.public_key(),
-                )
+                if handle
+                    .trust_anchor
+                    .contains_dnskey_bytes(rdata.public_key())
                 {
                     debug!("in trust_anchor");
                     Some(i)
@@ -508,17 +509,22 @@ where
 
     // need to get DS records for each DNSKEY
     let valid_dnskey = handle
-        .lookup(Query::query(rrset.name.clone(), RecordType::DNSSEC(DNSSECRecordType::DS)))
+        .lookup(Query::query(
+            rrset.name.clone(),
+            RecordType::DNSSEC(DNSSECRecordType::DS),
+        ))
         .and_then(move |ds_message| {
             let valid_keys = rrset
                 .records
                 .iter()
                 .enumerate()
                 .filter(|&(_, rr)| is_dnssec(rr, DNSSECRecordType::DNSKEY))
-                .filter_map(|(i, rr)| if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
-                    Some((i, rdata))
-                } else {
-                    None
+                .filter_map(|(i, rr)| {
+                    if let RData::DNSSEC(DNSSECRData::DNSKEY(ref rdata)) = *rr.rdata() {
+                        Some((i, rdata))
+                    } else {
+                        None
+                    }
                 })
                 .filter(|&(_, key_rdata)| {
                     ds_message.answers()
@@ -543,9 +549,9 @@ where
                 debug!("validated dnskey: {}, {}", rrset.name, rrset.records.len());
                 Ok(rrset)
             } else {
-                Err(
-                    E::from(ProtoErrorKind::Message("Could not validate all DNSKEYs").into()),
-                )
+                Err(E::from(
+                    ProtoErrorKind::Message("Could not validate all DNSKEYs").into(),
+                ))
             }
         });
 
@@ -637,12 +643,14 @@ where
     if rrsigs
         .iter()
         .filter(|rrsig| is_dnssec(rrsig, DNSSECRecordType::RRSIG))
-        .any(|rrsig| if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *rrsig.rdata() {
-            return RecordType::DNSSEC(DNSSECRecordType::DNSKEY) == rrset.record_type && sig.signer_name() == &rrset.name;
-        } else {
-            panic!("expected a SIG here");
-        })
-    {
+        .any(|rrsig| {
+            if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *rrsig.rdata() {
+                return RecordType::DNSSEC(DNSSECRecordType::DNSKEY) == rrset.record_type
+                    && sig.signer_name() == &rrset.name;
+            } else {
+                panic!("expected a SIG here");
+            }
+        }) {
         // in this case it was looks like a self-signed key, first validate the signature
         //  then return rrset. Like the standard case below, the DNSKEY is validated
         //  after this function. This function is only responsible for validating the signature
@@ -729,9 +737,9 @@ where
 
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
-        return Box::new(failed(
-            E::from(ProtoErrorKind::RrsigsNotPresent(rrset.name.clone(), rrset.record_type).into()),
-        ));
+        return Box::new(failed(E::from(
+            ProtoErrorKind::RrsigsNotPresent(rrset.name.clone(), rrset.record_type).into(),
+        )));
     }
 
     // as long as any of the verifcations is good, then the RRSET is valid.
@@ -767,9 +775,7 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> ProtoR
 /// Will always return an error. To enable record verification compile with the openssl feature.
 #[cfg(not(feature = "dnssec"))]
 fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ProtoResult<()> {
-    Err(
-        ProtoErrorKind::Message("openssl or ring feature(s) not enabled").into(),
-    )
+    Err(ProtoErrorKind::Message("openssl or ring feature(s) not enabled").into())
 }
 
 
@@ -830,11 +836,8 @@ fn verify_nsec(query: &Query, nsecs: &[&Record]) -> bool {
     //  if they are, then the query_type should not exist in the NSEC record.
     //  if we got an NSEC record of the same name, but it is listed in the NSEC types,
     //    WTF? is that bad server, bad record
-    if nsecs
-           .iter()
-           .any(|r| {
-        query.name() == r.name() &&
-        {
+    if nsecs.iter().any(|r| {
+        query.name() == r.name() && {
             if let RData::DNSSEC(DNSSECRData::NSEC(ref rdata)) = *r.rdata() {
                 !rdata.type_bit_maps().contains(&query.query_type())
             } else {
@@ -846,12 +849,8 @@ fn verify_nsec(query: &Query, nsecs: &[&Record]) -> bool {
     }
 
     // based on the WTF? above, we will ignore any NSEC records of the same name
-    if nsecs
-           .iter()
-           .filter(|r| query.name() != r.name())
-           .any(|r| {
-        query.name() > r.name() &&
-        {
+    if nsecs.iter().filter(|r| query.name() != r.name()).any(|r| {
+        query.name() > r.name() && {
             if let RData::DNSSEC(DNSSECRData::NSEC(ref rdata)) = *r.rdata() {
                 query.name() < rdata.next_domain_name()
             } else {

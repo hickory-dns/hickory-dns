@@ -26,7 +26,7 @@ impl<S> TimeoutStream<S> {
     pub fn new(stream: S, timeout_duration: Duration, reactor_handle: &Handle) -> io::Result<Self> {
         // store a Timeout for this message before sending
 
-        let timeout = try!(Self::timeout(timeout_duration, reactor_handle));
+        let timeout = Self::timeout(timeout_duration, reactor_handle)?;
 
         Ok(TimeoutStream {
             stream: stream,
@@ -38,7 +38,7 @@ impl<S> TimeoutStream<S> {
 
     fn timeout(timeout_duration: Duration, reactor_handle: &Handle) -> io::Result<Option<Timeout>> {
         if timeout_duration > Duration::from_millis(0) {
-            Ok(Some(try!(Timeout::new(timeout_duration, reactor_handle))))
+            Ok(Some(Timeout::new(timeout_duration, reactor_handle)?))
         } else {
             Ok(None)
         }
@@ -46,7 +46,8 @@ impl<S> TimeoutStream<S> {
 }
 
 impl<S, I> Stream for TimeoutStream<S>
-    where S: Stream<Item = I, Error = io::Error>
+where
+    S: Stream<Item = I, Error = io::Error>,
 {
     type Item = I;
     type Error = io::Error;
@@ -54,10 +55,9 @@ impl<S, I> Stream for TimeoutStream<S>
     // somehow insert a timeout here...
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         match self.stream.poll() {
-            r @ Ok(Async::Ready(_)) |
-            r @ Err(_) => {
+            r @ Ok(Async::Ready(_)) | r @ Err(_) => {
                 // reset the timeout to wait for the next request...
-                let timeout = try!(Self::timeout(self.timeout_duration, &self.reactor_handle));
+                let timeout = Self::timeout(self.timeout_duration, &self.reactor_handle)?;
                 drop(mem::replace(&mut self.timeout, timeout));
 
                 return r;
@@ -70,9 +70,12 @@ impl<S, I> Stream for TimeoutStream<S>
                 // otherwise check if the timeout has expired.
                 match try_ready!(self.timeout.as_mut().unwrap().poll()) {
                     () => {
-            debug!("timeout on stream");
-            return Err(io::Error::new(io::ErrorKind::TimedOut, format!("nothing ready in {:?}", self.timeout_duration)))
-          }
+                        debug!("timeout on stream");
+                        return Err(io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            format!("nothing ready in {:?}", self.timeout_duration),
+                        ));
+                    }
                 }
             }
         }

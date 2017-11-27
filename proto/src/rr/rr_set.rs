@@ -8,7 +8,7 @@ use std::iter::Chain;
 use std::slice::Iter;
 use std::vec;
 
-use rr::{DNSClass, Name, Record, RecordType, RData};
+use rr::{DNSClass, Name, RData, Record, RecordType};
 
 #[cfg(feature = "dnssec")]
 use rr::dnssec::SupportedAlgorithms;
@@ -174,8 +174,7 @@ impl RecordSet {
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
     #[cfg(feature = "dnssec")]
-    pub fn records_with_rrsigs(&self, supported_algorithms: SupportedAlgorithms)
-        -> Vec<&Record> {
+    pub fn records_with_rrsigs(&self, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
         use rr::dnssec::Algorithm;
         use rr::dnssec::rdata::DNSSECRData;
 
@@ -186,15 +185,19 @@ impl RecordSet {
 
         let rrsigs = self.rrsigs
             .iter()
-            .filter(|record| if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
-                supported_algorithms.has(rrsig.algorithm())
-            } else {
-                false
+            .filter(|record| {
+                if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
+                    supported_algorithms.has(rrsig.algorithm())
+                } else {
+                    false
+                }
             })
-            .max_by_key(|record| if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
-                rrsig.algorithm()
-            } else {
-                Algorithm::RSASHA1
+            .max_by_key(|record| {
+                if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
+                    rrsig.algorithm()
+                } else {
+                    Algorithm::RSASHA1
+                }
             });
 
         self.records.iter().chain(rrsigs).collect()
@@ -255,9 +258,10 @@ impl RecordSet {
         record.set_rdata(rdata.clone()); // TODO: remove clone()? this is only needed for the record return
         self.insert(record, 0);
 
-        self.records.iter().find(|r| r.rdata() == rdata).expect(
-            "insert failed? 172",
-        )
+        self.records
+            .iter()
+            .find(|r| r.rdata() == rdata)
+            .expect("insert failed? 172")
     }
 
     /// Inserts a new Resource Record into the Set.
@@ -396,12 +400,10 @@ impl RecordSet {
 
         match record.rr_type() {
             // never delete the last NS record
-            RecordType::NS => {
-                if self.records.len() <= 1 {
-                    info!("ignoring delete of last NS record: {:?}", record);
-                    return false;
-                }
-            }
+            RecordType::NS => if self.records.len() <= 1 {
+                info!("ignoring delete of last NS record: {:?}", record);
+                return false;
+            },
             // never delete SOA
             RecordType::SOA => {
                 info!("ignored delete of SOA");
@@ -552,9 +554,7 @@ mod test {
         // same serial number
         assert!(!rr_set.insert(same_serial.clone(), 0));
         assert!(rr_set.records_without_rrsigs().contains(&&insert));
-        assert!(!rr_set.records_without_rrsigs().contains(
-            &&same_serial,
-        ));
+        assert!(!rr_set.records_without_rrsigs().contains(&&same_serial,));
 
         assert!(rr_set.insert(new_serial.clone(), 0));
         assert!(!rr_set.insert(same_serial.clone(), 0));
@@ -786,34 +786,41 @@ mod test {
         rrset.insert_rrsig(rrsig_ecp384);
         rrset.insert_rrsig(rrsig_ed25519);
 
-        assert!(rrset.records_with_rrsigs(SupportedAlgorithms::all()).iter().any(
+        assert!(
+            rrset
+                .records_with_rrsigs(SupportedAlgorithms::all(),)
+                .iter()
+                .any(|r| {
+                    if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
+                        sig.algorithm() == Algorithm::ED25519
+                    } else {
+                        false
+                    }
+                },)
+        );
+
+        let mut supported_algorithms = SupportedAlgorithms::new();
+        supported_algorithms.set(Algorithm::ECDSAP384SHA384);
+        assert!(rrset.records_with_rrsigs(supported_algorithms).iter().any(
+            |r| {
+                if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
+                    sig.algorithm() == Algorithm::ECDSAP384SHA384
+                } else {
+                    false
+                }
+            }
+        ));
+
+        let mut supported_algorithms = SupportedAlgorithms::new();
+        supported_algorithms.set(Algorithm::ED25519);
+        assert!(rrset.records_with_rrsigs(supported_algorithms).iter().any(
             |r| {
                 if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
                     sig.algorithm() == Algorithm::ED25519
                 } else {
                     false
                 }
-            },
+            }
         ));
-
-        let mut supported_algorithms = SupportedAlgorithms::new();
-        supported_algorithms.set(Algorithm::ECDSAP384SHA384);
-        assert!(rrset.records_with_rrsigs(supported_algorithms).iter().any(|r| {
-            if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
-                sig.algorithm() == Algorithm::ECDSAP384SHA384
-            } else {
-                false
-            }
-        }));
-
-        let mut supported_algorithms = SupportedAlgorithms::new();
-        supported_algorithms.set(Algorithm::ED25519);
-        assert!(rrset.records_with_rrsigs(supported_algorithms).iter().any(|r| {
-            if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
-                sig.algorithm() == Algorithm::ED25519
-            } else {
-                false
-            }
-        }));
     }
 }

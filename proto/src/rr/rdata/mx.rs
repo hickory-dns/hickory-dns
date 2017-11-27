@@ -85,7 +85,7 @@ impl MX {
 
 /// Read the RData from the given Decoder
 pub fn read(decoder: &mut BinDecoder) -> ProtoResult<MX> {
-    Ok(MX::new(try!(decoder.read_u16()), try!(Name::read(decoder))))
+    Ok(MX::new(decoder.read_u16()?, Name::read(decoder)?))
 }
 
 /// [RFC 4034](https://tools.ietf.org/html/rfc4034#section-6), DNSSEC Resource Records, March 2005
@@ -106,11 +106,9 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<MX> {
 /// ```
 pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
-    try!(encoder.emit_u16(mx.preference()));
-    try!(mx.exchange().emit_with_lowercase(
-        encoder,
-        is_canonical_names,
-    ));
+    encoder.emit_u16(mx.preference())?;
+    mx.exchange()
+        .emit_with_lowercase(encoder, is_canonical_names)?;
     Ok(())
 }
 

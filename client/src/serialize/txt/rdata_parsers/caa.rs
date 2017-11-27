@@ -43,19 +43,19 @@ use rr::rdata::CAA;
 ///    Value:  Is the <character-string> encoding of the value field as
 ///       specified in [RFC1035], Section 5.1.
 /// ```
-pub fn parse<'i, I: Iterator<Item=&'i str>>(mut tokens: I) -> ParseResult<CAA> {
-    let flags_str: &str = tokens.next().ok_or_else(
-        || ParseError::from(ParseErrorKind::Message("caa flags not present")),
-    )?;
-    let tag_str: &str = tokens.next().ok_or_else(
-        || ParseError::from(ParseErrorKind::Message("caa tag not present")),
-    )?;
-    let value_str: &str = tokens.next().ok_or_else(
-        || ParseError::from(ParseErrorKind::Message("caa value not present")),
-    )?;
+pub fn parse<'i, I: Iterator<Item = &'i str>>(mut tokens: I) -> ParseResult<CAA> {
+    let flags_str: &str = tokens.next().ok_or_else(|| {
+        ParseError::from(ParseErrorKind::Message("caa flags not present"))
+    })?;
+    let tag_str: &str = tokens.next().ok_or_else(|| {
+        ParseError::from(ParseErrorKind::Message("caa tag not present"))
+    })?;
+    let value_str: &str = tokens.next().ok_or_else(|| {
+        ParseError::from(ParseErrorKind::Message("caa value not present"))
+    })?;
 
     // parse the flags
-    let issuer_critical =  {
+    let issuer_critical = {
         let flags = u8::from_str_radix(flags_str, 10)?;
         if flags & 0b0111_1111 != 0 {
             warn!("unexpected flag values in caa (0 or 128): {}", flags);

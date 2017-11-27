@@ -18,7 +18,7 @@ use trust_dns::udp::UdpStream;
 use trust_dns::tcp::TcpStream;
 
 #[cfg(feature = "tls")]
-use trust_dns_openssl::{TlsStream, tls_server};
+use trust_dns_openssl::{tls_server, TlsStream};
 
 #[cfg(feature = "tls")]
 use trust_dns_openssl::tls_server::*;
@@ -37,7 +37,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> io::Result<ServerFuture<T>> {
         Ok(ServerFuture {
-            io_loop: try!(Core::new()),
+            io_loop: Core::new()?,
             handler: Arc::new(handler),
         })
     }
@@ -82,7 +82,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         let handle = self.io_loop.handle();
         let handler = self.handler.clone();
         // TODO: this is an awkward interface with socketaddr...
-        let addr = try!(listener.local_addr());
+        let addr = listener.local_addr()?;
         let listener = tokio_core::net::TcpListener::from_listener(listener, &addr, &handle)
             .expect("could not register listener");
         debug!("registered tcp: {:?}", listener);
@@ -95,7 +95,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     debug!("accepted request from: {}", src_addr);
                     // take the created stream...
                     let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
-                    let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, &handle));
+                    let timeout_stream = TimeoutStream::new(buf_stream, timeout, &handle)?;
                     let request_stream = RequestStream::new(timeout_stream, stream_handle);
                     let handler = handler.clone();
 
@@ -154,37 +154,55 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // for each incoming request...
         self.io_loop.handle().spawn(
-        listener.incoming()
+            listener
+                .incoming()
                 .for_each(move |(tcp_stream, src_addr)| {
-                  debug!("accepted request from: {}", src_addr);
-                  let timeout = timeout.clone();
-                  let handle = handle.clone();
-                  let handler = handler.clone();
+                    debug!("accepted request from: {}", src_addr);
+                    let timeout = timeout.clone();
+                    let handle = handle.clone();
+                    let handler = handler.clone();
 
-                  // take the created stream...
-                  tls_acceptor.accept_async(tcp_stream)
-                              .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("tls error: {}", e)))
-                              .and_then(move |tls_stream| {
-                                  let (buf_stream, stream_handle) =
-                                      TlsStream::from_stream(tls_stream, src_addr.clone());
-                                  let timeout_stream = try!(TimeoutStream::new(buf_stream, timeout, &handle));
-                                  let request_stream = RequestStream::new(timeout_stream, stream_handle);
-                                  let handler = handler.clone();
+                    // take the created stream...
+                    tls_acceptor
+                        .accept_async(tcp_stream)
+                        .map_err(|e| {
+                            io::Error::new(
+                                io::ErrorKind::ConnectionRefused,
+                                format!("tls error: {}", e),
+                            )
+                        })
+                        .and_then(move |tls_stream| {
+                            let (buf_stream, stream_handle) =
+                                TlsStream::from_stream(tls_stream, src_addr.clone());
+                            let timeout_stream = TimeoutStream::new(buf_stream, timeout, &handle)?;
+                            let request_stream = RequestStream::new(timeout_stream, stream_handle);
+                            let handler = handler.clone();
 
-                                  // and spawn to the io_loop
-                                  handle.spawn(
-                                  request_stream.for_each(move |(request, response_handle)| {
-                                      Self::handle_request(request, response_handle, handler.clone())
-                                  })
-                              .map_err(move |e| debug!("error in TCP request_stream src: {:?} error: {}", src_addr, e))
-                              );
+                            // and spawn to the io_loop
+                            handle.spawn(
+                                request_stream
+                                    .for_each(move |(request, response_handle)| {
+                                        Self::handle_request(
+                                            request,
+                                            response_handle,
+                                            handler.clone(),
+                                        )
+                                    })
+                                    .map_err(move |e| {
+                                        debug!(
+                                            "error in TCP request_stream src: {:?} error: {}",
+                                            src_addr,
+                                            e
+                                        )
+                                    }),
+                            );
 
-                              Ok(())
-                            })
-                            //.map_err(move |e| debug!("error TLS handshake: {:?} error: {:?}", src_addr, e))
-              })
-              .map_err(|e| debug!("error in inbound tcp_stream: {}", e))
-    );
+                            Ok(())
+                        })
+                    //.map_err(move |e| debug!("error TLS handshake: {:?} error: {:?}", src_addr, e))
+                })
+                .map_err(|e| debug!("error in inbound tcp_stream: {}", e)),
+        );
 
         Ok(())
     }
@@ -194,7 +212,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///  request handling. It would generally be the case that n <= m.
     pub fn listen(&mut self) -> io::Result<()> {
         info!("Server starting up");
-        try!(self.io_loop.run(Forever));
+        self.io_loop.run(Forever)?;
 
         Err(io::Error::new(
             io::ErrorKind::Interrupted,
@@ -217,8 +235,16 @@ impl<T: RequestHandler> ServerFuture<T> {
             request.message.id(),
             request.message.message_type(),
             request.message.op_code(),
-            request.message.edns().map_or(false, |edns| edns.dnssec_ok()),
-            request.message.queries().first().map(|q| q.to_string()).unwrap_or_else(|| "empty_queries".to_string()),
+            request
+                .message
+                .edns()
+                .map_or(false, |edns| edns.dnssec_ok()),
+            request
+                .message
+                .queries()
+                .first()
+                .map(|q| q.to_string())
+                .unwrap_or_else(|| "empty_queries".to_string()),
         );
         let response = handler.handle_request(&request);
 

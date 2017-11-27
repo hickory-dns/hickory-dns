@@ -28,7 +28,7 @@ pub use self::client::{Client, SyncClient};
 pub use self::client::SecureSyncClient;
 pub use self::client_connection::ClientConnection;
 #[allow(deprecated)]
-pub use self::client_future::{ClientFuture, BasicClientHandle, ClientHandle};
+pub use self::client_future::{BasicClientHandle, ClientFuture, ClientHandle};
 pub use self::memoize_client_handle::MemoizeClientHandle;
 
 /// This is an alias for [`trust_dns_proto::StreamHandle`]

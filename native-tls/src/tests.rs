@@ -55,10 +55,8 @@ fn read_file(path: &str) -> Vec<u8> {
     let mut bytes = vec![];
 
     let mut file = File::open(path).expect(&format!("failed to open file: {}", path));
-    file.read_to_end(&mut bytes).expect(&format!(
-        "failed to read file: {}",
-        path
-    ));
+    file.read_to_end(&mut bytes)
+        .expect(&format!("failed to read file: {}", path));
     bytes
 }
 
@@ -143,9 +141,9 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             for _ in 0..send_recv_times {
                 // wait for some bytes...
                 let mut len_bytes = [0_u8; 2];
-                socket.read_exact(&mut len_bytes).expect(
-                    "SERVER: receive failed",
-                );
+                socket
+                    .read_exact(&mut len_bytes)
+                    .expect("SERVER: receive failed");
                 let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
@@ -156,12 +154,12 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 assert_eq!(&buffer, TEST_BYTES);
 
                 // bounce them right back...
-                socket.write_all(&len_bytes).expect(
-                    "SERVER: send length failed",
-                );
-                socket.write_all(&buffer).expect(
-                    "SERVER: send buffer failed",
-                );
+                socket
+                    .write_all(&len_bytes)
+                    .expect("SERVER: send length failed");
+                socket
+                    .write_all(&buffer)
+                    .expect("SERVER: send buffer failed");
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
@@ -199,9 +197,10 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         sender
             .unbounded_send((TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect(
-            "future iteration run failed",
-        );
+        let (buffer, stream_tmp) = io_loop
+            .run(stream.into_future())
+            .ok()
+            .expect("future iteration run failed");
         stream = stream_tmp;
         let (buffer, _) = buffer.expect("no buffer received");
         assert_eq!(&buffer, TEST_BYTES);

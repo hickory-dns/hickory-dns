@@ -10,8 +10,8 @@ extern crate openssl;
 extern crate tokio_core;
 extern crate tokio_openssl;
 extern crate trust_dns;
-extern crate trust_dns_proto;
 extern crate trust_dns_openssl;
+extern crate trust_dns_proto;
 
 use std::{thread, time};
 use std::net::SocketAddr;
@@ -156,9 +156,9 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             for _ in 0..send_recv_times {
                 // wait for some bytes...
                 let mut len_bytes = [0_u8; 2];
-                socket.read_exact(&mut len_bytes).expect(
-                    "SERVER: receive failed",
-                );
+                socket
+                    .read_exact(&mut len_bytes)
+                    .expect("SERVER: receive failed");
                 let length = (len_bytes[0] as u16) << 8 & 0xFF00 | len_bytes[1] as u16 & 0x00FF;
                 assert_eq!(length as usize, TEST_BYTES_LEN);
 
@@ -169,12 +169,12 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                 assert_eq!(&buffer, TEST_BYTES);
 
                 // bounce them right back...
-                socket.write_all(&len_bytes).expect(
-                    "SERVER: send length failed",
-                );
-                socket.write_all(&buffer).expect(
-                    "SERVER: send buffer failed",
-                );
+                socket
+                    .write_all(&len_bytes)
+                    .expect("SERVER: send length failed");
+                socket
+                    .write_all(&buffer)
+                    .expect("SERVER: send buffer failed");
                 // println!("wrote bytes iter: {}", i);
                 std::thread::yield_now();
             }
@@ -212,9 +212,10 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         sender
             .unbounded_send((TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
-        let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().expect(
-            "future iteration run failed",
-        );
+        let (buffer, stream_tmp) = io_loop
+            .run(stream.into_future())
+            .ok()
+            .expect("future iteration run failed");
         stream = stream_tmp;
         let (buffer, _) = buffer.expect("no buffer received");
         assert_eq!(&buffer, TEST_BYTES);
@@ -241,8 +242,8 @@ fn config_mtls(
         let client_identity = Pkcs12::from_der(&client_identity)
             .and_then(|p| p.parse("mypass"))
             .expect("Pkcs12::from_der");
-        let client_identity = Pkcs12::from_der(&client_identity.to_der().unwrap(), "mypass")
-            .unwrap();
+        let client_identity =
+            Pkcs12::from_der(&client_identity.to_der().unwrap(), "mypass").unwrap();
 
         builder.identity(client_identity);
     }

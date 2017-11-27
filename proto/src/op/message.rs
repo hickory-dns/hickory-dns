@@ -21,8 +21,8 @@ use std::mem;
 
 use error::*;
 use rr::{Record, RecordType};
-use serialize::binary::{BinEncoder, BinDecoder, BinSerializable, EncodeMode};
-use super::{MessageType, Header, Query, Edns, OpCode, ResponseCode};
+use serialize::binary::{BinDecoder, BinEncoder, BinSerializable, EncodeMode};
+use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
 use rr::dnssec::rdata::DNSSECRecordType;
@@ -448,7 +448,11 @@ impl Message {
     /// the max payload value as it's defined in the EDNS section.
     pub fn max_payload(&self) -> u16 {
         let max_size = self.edns.as_ref().map_or(512, |e| e.max_payload());
-        if max_size < 512 { 512 } else { max_size }
+        if max_size < 512 {
+            512
+        } else {
+            max_size
+        }
     }
 
     /// # Return value
@@ -521,7 +525,7 @@ impl Message {
         // sig0 must be last, once this is set, disable.
         let mut saw_sig0 = false;
         for _ in 0..count {
-            let record = try!(Record::read(decoder));
+            let record = Record::read(decoder)?;
 
             if !is_additional {
                 if saw_sig0 {
@@ -542,7 +546,7 @@ impl Message {
                             return Err(
                                 ProtoErrorKind::Message(
                                     "sig0 must be final resource \
-                                                                 record",
+                                     record",
                                 ).into(),
                             );
                         } // SIG0 must be last
@@ -550,7 +554,7 @@ impl Message {
                             return Err(
                                 ProtoErrorKind::Message(
                                     "more than one edns record \
-                                                                 present",
+                                     present",
                                 ).into(),
                             );
                         }
@@ -561,7 +565,7 @@ impl Message {
                             return Err(
                                 ProtoErrorKind::Message(
                                     "sig0 must be final resource \
-                                                                 record",
+                                     record",
                                 ).into(),
                             );
                         } // SIG0 must be last
@@ -576,7 +580,7 @@ impl Message {
 
     fn emit_records(encoder: &mut BinEncoder, records: &[Record]) -> ProtoResult<()> {
         for r in records {
-            try!(r.emit(encoder));
+            r.emit(encoder)?;
         }
         Ok(())
     }
@@ -592,7 +596,7 @@ impl Message {
         let mut buffer = Vec::with_capacity(512);
         {
             let mut encoder = BinEncoder::new(&mut buffer);
-            try!(self.emit(&mut encoder));
+            self.emit(&mut encoder)?;
         }
 
         Ok(buffer)
@@ -662,7 +666,7 @@ impl MessageFinalizer for NoopMessageFinalizer {
 
 impl BinSerializable<Message> for Message {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
-        let header = try!(Header::read(decoder));
+        let header = Header::read(decoder)?;
 
         // TODO/FIXME: return just header, and in the case of the rest of message getting an error.
         //  this could improve error detection while decoding.
@@ -671,7 +675,7 @@ impl BinSerializable<Message> for Message {
         let count = header.query_count() as usize;
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
-            queries.push(try!(Query::read(decoder)));
+            queries.push(Query::read(decoder)?);
         }
 
         // get all counts before header moves
@@ -679,9 +683,9 @@ impl BinSerializable<Message> for Message {
         let name_server_count = header.name_server_count() as usize;
         let additional_count = header.additional_count() as usize;
 
-        let (answers, _, _) = try!(Self::read_records(decoder, answer_count, false));
-        let (name_servers, _, _) = try!(Self::read_records(decoder, name_server_count, false));
-        let (additionals, edns, sig0) = try!(Self::read_records(decoder, additional_count, true));
+        let (answers, _, _) = Self::read_records(decoder, answer_count, false)?;
+        let (name_servers, _, _) = Self::read_records(decoder, name_server_count, false)?;
+        let (additionals, edns, sig0) = Self::read_records(decoder, additional_count, true)?;
 
         Ok(Message {
             header: header,
@@ -697,29 +701,29 @@ impl BinSerializable<Message> for Message {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         // clone the header to set the counts lazily
         let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
-        try!(self.update_header_counts(include_sig0).emit(encoder));
+        self.update_header_counts(include_sig0).emit(encoder)?;
 
         for q in &self.queries {
-            try!(q.emit(encoder));
+            q.emit(encoder)?;
         }
 
         // TODO this feels like the right place to verify the max packet size of the message,
         //  will need to update the header for trucation and the lengths if we send less than the
         //  full response.
-        try!(Self::emit_records(encoder, &self.answers));
-        try!(Self::emit_records(encoder, &self.name_servers));
-        try!(Self::emit_records(encoder, &self.additionals));
+        Self::emit_records(encoder, &self.answers)?;
+        Self::emit_records(encoder, &self.name_servers)?;
+        Self::emit_records(encoder, &self.additionals)?;
 
         if let Some(edns) = self.edns() {
             // need to commit the error code
-            try!(Record::from(edns).emit(encoder));
+            Record::from(edns).emit(encoder)?;
         }
 
         // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
         //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
         //  part of the additionals section.
         if include_sig0 {
-            try!(Self::emit_records(encoder, &self.sig0));
+            Self::emit_records(encoder, &self.sig0)?;
         }
         Ok(())
     }
@@ -797,6 +801,7 @@ fn test_emit_and_read(message: Message) {
 }
 
 #[test]
+#[cfg_attr(rustfmt, rustfmt_skip)]
 fn test_legit_message() {
     let buf: Vec<u8> = vec![
   0x10,0x00,0x81,0x80, // id = 4096, response, op=query, recursion_desired, recursion_available, no_error
