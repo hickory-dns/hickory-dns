@@ -17,7 +17,7 @@
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
-use trust_dns_proto::error::{ProtoResult, ProtoErrorKind};
+use trust_dns_proto::error::{ProtoErrorKind, ProtoResult};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use trust_dns_proto::rr::dnssec::{tbs, TBS};
 #[cfg(feature = "dnssec")]
@@ -36,7 +36,7 @@ use rr::dnssec::Algorithm;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::SIG;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::rdata::{DNSKEY, DNSSECRecordType, KEY};
+use rr::rdata::{DNSSECRecordType, DNSKEY, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::BinEncoder;
 
@@ -318,9 +318,8 @@ impl Signer {
         is_zone_signing_key: bool,
         _: bool,
     ) -> Self {
-        let dnskey = key.to_dnskey(algorithm).expect(
-            "something went wrong, use one of the SIG0 or DNSSec constructors",
-        );
+        let dnskey = key.to_dnskey(algorithm)
+            .expect("something went wrong, use one of the SIG0 or DNSSec constructors");
 
         Signer {
             key_rdata: dnskey.into(),
@@ -450,7 +449,7 @@ impl Signer {
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
         {
             let mut e = BinEncoder::new(&mut bytes);
-            try!(self.key_rdata.emit(&mut e));
+            self.key_rdata.emit(&mut e)?;
         }
         Ok(Signer::calculate_key_tag_internal(&bytes))
     }
@@ -519,7 +518,7 @@ impl MessageFinalizer for Signer {
     #[cfg(any(feature = "openssl", feature = "ring"))]
     fn finalize_message(&self, message: &Message, current_time: u32) -> ProtoResult<Vec<Record>> {
         debug!("signing message: {:?}", message);
-        let key_tag: u16 = try!(self.calculate_key_tag());
+        let key_tag: u16 = self.calculate_key_tag()?;
 
         // this is based on RFCs 2535, 2931 and 3007
 
@@ -755,7 +754,7 @@ mod tests {
                     0x6275,
                     0x1095,
                 ],
-                42354
+                42354,
             ),
         ];
 

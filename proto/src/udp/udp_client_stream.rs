@@ -35,7 +35,10 @@ impl UdpClientStream {
     pub fn new<E>(
         name_server: SocketAddr,
         loop_handle: &Handle,
-    ) -> (Box<Future<Item = UdpClientStream, Error = io::Error>>, Box<DnsStreamHandle<Error = E>>)
+    ) -> (
+        Box<Future<Item = UdpClientStream, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = E>>,
+    )
     where
         E: FromProtoError + 'static,
     {

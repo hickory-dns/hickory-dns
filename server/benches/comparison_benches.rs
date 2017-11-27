@@ -9,7 +9,7 @@ extern crate trust_dns_server;
 
 use std::fs::DirBuilder;
 use std::env;
-use std::io::{BufRead, BufReader, Read, stdout, Write};
+use std::io::{stdout, BufRead, BufReader, Read, Write};
 use std::mem;
 use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::Path;
@@ -58,9 +58,9 @@ where
     let mut found = false;
     for _ in 0..1000 {
         output.clear();
-        named_out.read_line(&mut output).expect(
-            "could not read stdout",
-        );
+        named_out
+            .read_line(&mut output)
+            .expect("could not read stdout");
 
         print!("SRV: {}", output);
 
@@ -82,9 +82,9 @@ where
             let thread_notice = thread_notice_clone;
             while !thread_notice.load(std::sync::atomic::Ordering::Relaxed) {
                 output.clear();
-                named_out.read_line(&mut output).expect(
-                    "could not read stdout",
-                );
+                named_out
+                    .read_line(&mut output)
+                    .expect("could not read stdout");
                 // stdout().write(b"SRV: ").unwrap();
                 // stdout().write(output.as_bytes()).unwrap();
             }
@@ -216,9 +216,9 @@ fn bind_process() -> (NamedProcess, u16) {
     // create the work directory
     let working_dir = format!("{}/../target/bind_pwd", server_path);
     if !Path::new(&working_dir).exists() {
-        DirBuilder::new().create(&working_dir).expect(
-            "failed to create dir",
-        );
+        DirBuilder::new()
+            .create(&working_dir)
+            .expect("failed to create dir");
     }
 
     let mut named = Command::new(bind_path)

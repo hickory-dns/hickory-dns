@@ -17,7 +17,7 @@ use std::collections::BTreeMap;
 use std::str::FromStr;
 
 use error::*;
-use rr::{Name, IntoRecordSet, RecordType, Record, DNSClass, RData, RrKey, RecordSet};
+use rr::{DNSClass, IntoRecordSet, Name, RData, Record, RecordSet, RecordType, RrKey};
 use serialize::txt::master_lex::{Lexer, Token};
 use serialize::txt::parse_rdata::RDataParser;
 
@@ -180,15 +180,13 @@ impl Parser {
                         _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
                     }
                 }
-                State::Ttl => {
-                    match t {
-                        Token::CharData(data) => {
-                            ttl = Some(Self::parse_time(&data)?);
-                            State::StartLine
-                        }
-                        _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                State::Ttl => match t {
+                    Token::CharData(data) => {
+                        ttl = Some(Self::parse_time(&data)?);
+                        State::StartLine
                     }
-                }
+                    _ => return Err(ParseErrorKind::UnexpectedToken(t).into()),
+                },
                 State::Origin => {
                     match t {
                         Token::CharData(data) => {
@@ -218,7 +216,6 @@ impl Parser {
                                     class = result.ok();
                                     State::TtlClassType
                                 } else {
-
                                     // if can parse RecordType, then RecordType
                                     rtype = Some(RecordType::from_str(&data)?);
                                     State::Record(vec![])
@@ -240,9 +237,11 @@ impl Parser {
                             // call out to parsers for difference record types
                             // all tokens as part of the Record should be chardata...
                             let rdata = RData::parse(
-                                rtype.ok_or_else(|| ParseError::from(
-                                    ParseErrorKind::Message("record type not specified"),
-                                ))?,
+                                rtype.ok_or_else(|| {
+                                    ParseError::from(
+                                        ParseErrorKind::Message("record type not specified"),
+                                    )
+                                })?,
                                 record_parts.iter().map(|s| s.as_ref()),
                                 origin.as_ref(),
                             )?;
@@ -252,15 +251,17 @@ impl Parser {
                             // TODO COW or RC would reduce mem usage, perhaps Name should have an intern()...
                             //  might want to wait until RC.weak() stabilizes, as that would be needed for global
                             //  memory where you want
-                            record.set_name(current_name.clone().ok_or_else(|| ParseError::from(
-                                ParseErrorKind::Message(
-                                    "record name not specified",
-                                ),
-                            ))?);
+                            record.set_name(current_name.clone().ok_or_else(|| {
+                                ParseError::from(
+                                    ParseErrorKind::Message("record name not specified"),
+                                )
+                            })?);
                             record.set_rr_type(rtype.unwrap());
-                            record.set_dns_class(class.ok_or_else(|| ParseError::from(
-                                ParseErrorKind::Message("record class not specified"),
-                            ))?);
+                            record.set_dns_class(class.ok_or_else(|| {
+                                ParseError::from(
+                                    ParseErrorKind::Message("record class not specified"),
+                                )
+                            })?);
 
                             // slightly annoying, need to grab the TTL, then move rdata into the record,
                             //  then check the Type again and have custom add logic.
@@ -283,9 +284,11 @@ impl Parser {
                                     }
                                 }
                                 _ => {
-                                    record.set_ttl(ttl.ok_or_else(|| ParseError::from(
-                                        ParseErrorKind::Message("record ttl not specified"),
-                                    ))?);
+                                    record.set_ttl(ttl.ok_or_else(|| {
+                                        ParseError::from(
+                                            ParseErrorKind::Message("record ttl not specified"),
+                                        )
+                                    })?);
                                 }
                             }
 
@@ -304,18 +307,16 @@ impl Parser {
                                         return Err(
                                             ParseErrorKind::Message(
                                                 "SOA is already \
-                                                                            specified",
+                                                 specified",
                                             ).into(),
                                         );
                                     }
                                 }
                                 _ => {
                                     // add a Vec if it's not there, then add the record to the list
-                                    let set = records.entry(key).or_insert_with(|| RecordSet::new(
-                                        record.name(),
-                                        record.rr_type(),
-                                        0,
-                                    ));
+                                    let set = records.entry(key).or_insert_with(
+                                        || RecordSet::new(record.name(), record.rr_type(), 0),
+                                    );
                                     set.insert(record, 0);
                                 }
                             }
@@ -341,9 +342,9 @@ impl Parser {
 
         //
         // build the Authority and return.
-        let origin = origin.ok_or_else(|| ParseError::from(
-            ParseErrorKind::Message("$ORIGIN was not specified"),
-        ))?;
+        let origin = origin.ok_or_else(|| {
+            ParseError::from(ParseErrorKind::Message("$ORIGIN was not specified"))
+        })?;
         Ok((origin, records))
     }
 
@@ -390,7 +391,8 @@ impl Parser {
                 // TODO, should these all be checked operations?
                 '0'...'9' => {
                     collect *= 10;
-                    collect += c.to_digit(10).ok_or_else(|| ParseErrorKind::CharToIntError(c))?;
+                    collect += c.to_digit(10)
+                        .ok_or_else(|| ParseErrorKind::CharToIntError(c))?;
                 }
                 'S' | 's' => {
                     value += collect;
@@ -422,9 +424,9 @@ impl Parser {
 
 #[allow(unused)]
 enum State {
-    StartLine, // start of line, @, $<WORD>, Name, Blank
+    StartLine,    // start of line, @, $<WORD>, Name, Blank
     TtlClassType, // [<TTL>] [<class>] <type>,
-    Ttl, // $TTL <time>
+    Ttl,          // $TTL <time>
     Record(Vec<String>),
     Include, // $INCLUDE <filename>
     Origin,

@@ -510,7 +510,7 @@ impl DNSSECRData {
             DNSSECRData::NSEC3(ref nsec3) => nsec3::emit(encoder, nsec3),
             DNSSECRData::NSEC3PARAM(ref nsec3param) => nsec3param::emit(encoder, nsec3param),
             DNSSECRData::SIG(ref sig) => sig::emit(encoder, sig),
-            DNSSECRData::Unknown { ref rdata, .. } => null::emit(encoder, rdata), 
+            DNSSECRData::Unknown { ref rdata, .. } => null::emit(encoder, rdata),
         }
     }
 
@@ -523,7 +523,7 @@ impl DNSSECRData {
             DNSSECRData::NSEC3(..) => DNSSECRecordType::NSEC3,
             DNSSECRData::NSEC3PARAM(..) => DNSSECRecordType::NSEC3PARAM,
             DNSSECRData::SIG(..) => DNSSECRecordType::SIG,
-            DNSSECRData::Unknown { code, .. } => DNSSECRecordType::Unknown(code), 
+            DNSSECRData::Unknown { code, .. } => DNSSECRecordType::Unknown(code),
         }
     }
 }

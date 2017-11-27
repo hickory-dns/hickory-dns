@@ -42,10 +42,17 @@ matrix:
     # min rust version
     # - rust: 1.14.0
     - rust: beta
-    - rust: nightly
 
     - os: osx
       rust: stable
+
+    - rust: nightly
+
+    - rust: nightly
+      env: CLIPPY=true
+
+    - rust: nightly
+      env: RUSTFMT=true
 
     - rust: stable
       env: MODULES="compatibility-tests"
@@ -58,7 +65,11 @@ matrix:
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
   - if [[ "$MODULES" == "compatibility-tests" ]]; then scripts/install_bind.sh ; fi
+  - if [[ "$RUSTFMT" == "true" ]]; then cargo install rustfmt-nightly --force ; fi
+  - if [[ "$CLIPPY" == "true" ]]; then cargo install clippy --force; fi
+
 script:
-    - scripts/run_tests.sh
-    - bash -c 'if [[ "$TRAVIS_RUST_VERSION" == "nightly" ]] ; then cargo install clippy --force && scripts/run_clippy.sh ; fi'
+    - bash -c 'if [ -z ${CLIPPY+x} ] && [ -z ${RUSTFMT+x} ] ; then scripts/run_tests.sh ; fi'
+    - bash -c 'if [[ "$CLIPPY" == "true" ]] ; then scripts/run_clippy.sh ; fi'
+    - bash -c 'if [[ "$RUSTFMT" == "true" ]] ; then cargo fmt --all -- --write-mode=diff; fi'
 after_success: scripts/run_kcov.sh

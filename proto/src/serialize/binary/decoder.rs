@@ -47,9 +47,7 @@ impl<'a> BinDecoder<'a> {
             self.index += 1;
             Ok(byte)
         } else {
-            Err(
-                ProtoErrorKind::Message("unexpected end of input reached").into(),
-            )
+            Err(ProtoErrorKind::Message("unexpected end of input reached").into())
         }
     }
 
@@ -99,10 +97,10 @@ impl<'a> BinDecoder<'a> {
     ///
     /// A String version of the character data
     pub fn read_character_data(&mut self) -> ProtoResult<String> {
-        let length: u8 = try!(self.pop());
+        let length: u8 = self.pop()?;
 
         // TODO once Drain stabalizes on Vec, this should be replaced...
-        let label_vec: Vec<u8> = try!(self.read_vec(length as usize));
+        let label_vec: Vec<u8> = self.read_vec(length as usize)?;
 
         // translate bytes to string, then lowercase...
         let data = String::from_utf8(label_vec)?;
@@ -124,7 +122,7 @@ impl<'a> BinDecoder<'a> {
         // TODO once Drain stabalizes on Vec, this should be replaced...
         let mut vec: Vec<u8> = Vec::with_capacity(len);
         for _ in 0..len as usize {
-            vec.push(try!(self.pop()))
+            vec.push(self.pop()?)
         }
 
         Ok(vec)
@@ -142,11 +140,11 @@ impl<'a> BinDecoder<'a> {
     pub fn read_slice(&mut self, len: usize) -> ProtoResult<&'a [u8]> {
         let end = self.index + len;
         if end > self.buffer.len() {
-            return Err(ProtoErrorKind::Message("buffer exhausted").into())
+            return Err(ProtoErrorKind::Message("buffer exhausted").into());
         }
 
-     
-        let slice: &'a [u8] = &self.buffer[self.index .. end];
+
+        let slice: &'a [u8] = &self.buffer[self.index..end];
         self.index += len;
         Ok(slice)
     }
@@ -165,8 +163,8 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the u16 from the buffer
     pub fn read_u16(&mut self) -> ProtoResult<u16> {
-        let b1: u8 = try!(self.pop());
-        let b2: u8 = try!(self.pop());
+        let b1: u8 = self.pop()?;
+        let b2: u8 = self.pop()?;
 
         // translate from network byte order, i.e. big endian
         Ok((u16::from(b1) << 8) + u16::from(b2))
@@ -182,14 +180,15 @@ impl<'a> BinDecoder<'a> {
     /// Return the i32 from the buffer
     pub fn read_i32(&mut self) -> ProtoResult<i32> {
         // TODO should this use a default rather than the panic! that will happen in the None case?
-        let b1: u8 = try!(self.pop());
-        let b2: u8 = try!(self.pop());
-        let b3: u8 = try!(self.pop());
-        let b4: u8 = try!(self.pop());
+        let b1: u8 = self.pop()?;
+        let b2: u8 = self.pop()?;
+        let b3: u8 = self.pop()?;
+        let b4: u8 = self.pop()?;
 
         // translate from network byte order, i.e. big endian
         Ok(
-            (i32::from(b1) << 24) + (i32::from(b2) << 16) + (i32::from(b3) << 8) + (i32::from(b4) as i32),
+            (i32::from(b1) << 24) + (i32::from(b2) << 16) + (i32::from(b3) << 8)
+                + (i32::from(b4) as i32),
         )
     }
 
@@ -203,15 +202,13 @@ impl<'a> BinDecoder<'a> {
     /// Return the u32 from the buffer
     pub fn read_u32(&mut self) -> ProtoResult<u32> {
         // TODO should this use a default rather than the panic! that will happen in the None case?
-        let b1: u8 = try!(self.pop());
-        let b2: u8 = try!(self.pop());
-        let b3: u8 = try!(self.pop());
-        let b4: u8 = try!(self.pop());
+        let b1: u8 = self.pop()?;
+        let b2: u8 = self.pop()?;
+        let b3: u8 = self.pop()?;
+        let b4: u8 = self.pop()?;
 
         // translate from network byte order, i.e. big endian
-        Ok(
-            (u32::from(b1) << 24) + (u32::from(b2) << 16) + (u32::from(b3) << 8) + u32::from(b4),
-        )
+        Ok((u32::from(b1) << 24) + (u32::from(b2) << 16) + (u32::from(b3) << 8) + u32::from(b4))
     }
 }
 

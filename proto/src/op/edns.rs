@@ -16,7 +16,7 @@
 
 //! Extended DNS options
 
-use rr::{DNSClass, Name, Record, RecordType, RData};
+use rr::{DNSClass, Name, RData, Record, RecordType};
 use rr::rdata::OPT;
 use rr::rdata::opt::{EdnsCode, EdnsOption};
 

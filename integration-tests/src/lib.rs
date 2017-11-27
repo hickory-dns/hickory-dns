@@ -12,7 +12,7 @@ use std::sync::Arc;
 use std::fmt;
 use std::io;
 
-use futures::{Async, Future, finished, Poll};
+use futures::{finished, Async, Future, Poll};
 use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
@@ -60,12 +60,12 @@ impl Stream for TestClientStream {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match try!(self.outbound_messages.poll().map_err(|_| {
+        match self.outbound_messages.poll().map_err(|_| {
             io::Error::new(
                 io::ErrorKind::Interrupted,
                 "Server stopping due to interruption",
             )
-        })) {
+        })? {
             // already handled above, here to make sure the poll() pops the next message
             Async::Ready(Some(bytes)) => {
                 let mut decoder = BinDecoder::new(&bytes);
@@ -73,9 +73,9 @@ impl Stream for TestClientStream {
                 let message = Message::read(&mut decoder).expect("could not decode message");
                 let request = Request {
                     message: message,
-                    src: "127.0.0.1:1234".parse().expect(
-                        "cannot parse host and port",
-                    ),
+                    src: "127.0.0.1:1234"
+                        .parse()
+                        .expect("cannot parse host and port"),
                 };
                 let response = self.catalog.handle_request(&request);
 
@@ -113,7 +113,10 @@ pub struct NeverReturnsClientStream {
 
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
-    pub fn new() -> (Box<Future<Item = Self, Error = io::Error>>, StreamHandle<ClientError>) {
+    pub fn new() -> (
+        Box<Future<Item = Self, Error = io::Error>>,
+        StreamHandle<ClientError>,
+    ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
@@ -155,8 +158,15 @@ impl NeverReturnsClientConnection {
 impl ClientConnection for NeverReturnsClientConnection {
     type MessageStream = NeverReturnsClientStream;
 
-    fn new_stream(&self, _: &Handle) -> ClientResult<(Box<Future<Item = Self::MessageStream, Error = io::Error>>, 
-        Box<DnsStreamHandle<Error = ClientError>>)> {
+    fn new_stream(
+        &self,
+        _: &Handle,
+    ) -> ClientResult<
+        (
+            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+            Box<DnsStreamHandle<Error = ClientError>>,
+        ),
+    > {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 
         Ok((client_stream, Box::new(handle)))

@@ -14,7 +14,7 @@ extern crate rand;
 use std::env;
 use std::fs;
 use std::fs::DirBuilder;
-use std::io::{BufRead, BufReader, Read, stdout, Write};
+use std::io::{stdout, BufRead, BufReader, Read, Write};
 use std::path::Path;
 use std::process::Child;
 use std::sync::Arc;
@@ -62,10 +62,12 @@ fn new_working_dir() -> String {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
 
     let rand = rand::random::<u32>();
-    let rand = BASE32.encode(&[rand as u8,
-                               (rand >> 8) as u8,
-                               (rand >> 16) as u8,
-                               (rand >> 24) as u8]);
+    let rand = BASE32.encode(&[
+        rand as u8,
+        (rand >> 8) as u8,
+        (rand >> 16) as u8,
+        (rand >> 24) as u8,
+    ]);
     let working_dir = format!("{}/../target/bind_pwd_{}", server_path, rand);
 
     if !Path::new(&working_dir).exists() {
@@ -79,7 +81,8 @@ fn new_working_dir() -> String {
 }
 
 fn wrap_process<R>(working_dir: String, named: Child, io: R, started_str: &str) -> NamedProcess
-    where R: Read + Send + 'static
+where
+    R: Read + Send + 'static,
 {
     let mut named_out = BufReader::new(io);
 

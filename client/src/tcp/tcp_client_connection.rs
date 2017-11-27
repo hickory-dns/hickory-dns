@@ -74,13 +74,14 @@ impl ClientConnection for TcpClientConnection {
         &self,
         handle: &Handle,
     ) -> ClientResult<
-        (Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-         Box<DnsStreamHandle<Error = ClientError>>),
+        (
+            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+            Box<DnsStreamHandle<Error = ClientError>>,
+        ),
     > {
         let (tcp_client_stream, handle) =
             TcpClientStream::<TcpStream>::with_timeout(self.name_server, handle, self.timeout);
 
         Ok((tcp_client_stream, handle))
-
     }
 }

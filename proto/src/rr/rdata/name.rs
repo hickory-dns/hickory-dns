@@ -68,7 +68,7 @@ pub fn read(decoder: &mut BinDecoder) -> ProtoResult<Name> {
 /// ```
 pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> ProtoResult<()> {
     let is_canonical_names = encoder.is_canonical_names();
-    try!(name_data.emit_with_lowercase(encoder, is_canonical_names));
+    name_data.emit_with_lowercase(encoder, is_canonical_names)?;
     Ok(())
 }
 

@@ -231,10 +231,10 @@ impl BinSerializable<Record> for Record {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Record> {
         // NAME            an owner name, i.e., the name of the node to which this
         //                 resource record pertains.
-        let name_labels: domain::Name = try!(domain::Name::read(decoder));
+        let name_labels: domain::Name = domain::Name::read(decoder)?;
 
         // TYPE            two octets containing one of the RR TYPE codes.
-        let record_type: RecordType = try!(RecordType::read(decoder));
+        let record_type: RecordType = RecordType::read(decoder)?;
 
         // CLASS           two octets containing one of the RR CLASS codes.
         let class: DNSClass = if record_type == RecordType::OPT {
@@ -244,10 +244,9 @@ impl BinSerializable<Record> for Record {
             }
 
             //  DNS Class is overloaded for OPT records in EDNS - RFC 6891
-            DNSClass::for_opt(try!(decoder.read_u16()))
-
+            DNSClass::for_opt(decoder.read_u16()?)
         } else {
-            try!(DNSClass::read(decoder))
+            DNSClass::read(decoder)?
         };
 
         // TTL             a 32 bit signed integer that specifies the time interval
@@ -259,11 +258,11 @@ impl BinSerializable<Record> for Record {
         //                with a zero TTL to prohibit caching.  Zero values can
         //                also be used for extremely volatile data.
         // note: u32 seems more accurate given that it can only be positive
-        let ttl: u32 = try!(decoder.read_u32());
+        let ttl: u32 = decoder.read_u32()?;
 
         // RDLENGTH        an unsigned 16 bit integer that specifies the length in
         //                octets of the RDATA field.
-        let rd_length: u16 = try!(decoder.read_u16());
+        let rd_length: u16 = decoder.read_u16()?;
 
         // this is to handle updates, RFC 2136, which uses 0 to indicate certain aspects of
         //  pre-requisites
@@ -273,7 +272,7 @@ impl BinSerializable<Record> for Record {
             // RDATA           a variable length string of octets that describes the
             //                resource.  The format of this information varies
             //                according to the TYPE and CLASS of the resource record.
-            try!(RData::read(decoder, record_type, rd_length))
+            RData::read(decoder, record_type, rd_length)?
         };
 
         Ok(Record {
@@ -286,10 +285,10 @@ impl BinSerializable<Record> for Record {
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        try!(self.name_labels.emit(encoder));
-        try!(self.rr_type.emit(encoder));
-        try!(self.dns_class.emit(encoder));
-        try!(encoder.emit_u32(self.ttl));
+        self.name_labels.emit(encoder)?;
+        self.rr_type.emit(encoder)?;
+        self.dns_class.emit(encoder)?;
+        encoder.emit_u32(self.ttl)?;
 
         // gah... need to write rdata before we know the size of rdata...
         // TODO: should we skip the fixed size header and write the rdata first? then write the header?
@@ -300,17 +299,17 @@ impl BinSerializable<Record> for Record {
                 encoder.offset() + 2, /*for u16 len*/
                 EncodeMode::Normal,
             );
-            try!(self.rdata.emit(&mut tmp_encoder));
+            self.rdata.emit(&mut tmp_encoder)?;
         }
 
         assert!(tmp_buf.len() <= u16::max_value() as usize);
 
-        try!(encoder.emit_u16(tmp_buf.len() as u16));
+        encoder.emit_u16(tmp_buf.len() as u16)?;
         encoder.reserve(tmp_buf.len());
 
         tmp_buf.reverse();
         while let Some(byte) = tmp_buf.pop() {
-            try!(encoder.emit(byte));
+            encoder.emit(byte)?;
         }
 
         Ok(())
@@ -331,8 +330,8 @@ impl PartialEq for Record {
     /// ```
     fn eq(&self, other: &Self) -> bool {
         // self == other && // the same pointer
-        self.name_labels == other.name_labels && self.rr_type == other.rr_type &&
-            self.dns_class == other.dns_class && self.rdata == other.rdata
+        self.name_labels == other.name_labels && self.rr_type == other.rr_type
+            && self.dns_class == other.dns_class && self.rdata == other.rdata
     }
 }
 

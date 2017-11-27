@@ -778,7 +778,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<KEY> {
     //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
     //    |  A/C  | Z | XT| Z | Z | NAMTYP| Z | Z | Z | Z |      SIG      |
     //    +---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+---+
-    let flags: u16 = try!(decoder.read_u16());
+    let flags: u16 = decoder.read_u16()?;
 
     //    Bits 2 is reserved and must be zero.
     //    Bits 4-5 are reserved and must be zero.
@@ -797,13 +797,13 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<KEY> {
         return Err("extended flags currently not supported".into());
     }
 
-    let protocol = Protocol::from(try!(decoder.read_u8()));
+    let protocol = Protocol::from(decoder.read_u8()?);
 
-    let algorithm: Algorithm = try!(Algorithm::read(decoder));
+    let algorithm: Algorithm = Algorithm::read(decoder)?;
 
     // the public key is the left-over bytes minus 4 for the first fields
     // TODO: decode the key here?
-    let public_key: Vec<u8> = try!(decoder.read_vec((rdata_length - 4) as usize));
+    let public_key: Vec<u8> = decoder.read_vec((rdata_length - 4) as usize)?;
 
     Ok(KEY::new(
         key_trust,
@@ -822,10 +822,10 @@ pub fn emit(encoder: &mut BinEncoder, rdata: &KEY) -> ProtoResult<()> {
     flags |= u16::from(rdata.key_usage);
     flags |= u16::from(rdata.signatory);
 
-    try!(encoder.emit_u16(flags));
-    try!(encoder.emit(u8::from(rdata.protocol)));
-    try!(rdata.algorithm().emit(encoder));
-    try!(encoder.emit_vec(rdata.public_key()));
+    encoder.emit_u16(flags)?;
+    encoder.emit(u8::from(rdata.protocol))?;
+    rdata.algorithm().emit(encoder)?;
+    encoder.emit_vec(rdata.public_key())?;
 
     Ok(())
 }

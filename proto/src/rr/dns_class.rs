@@ -86,7 +86,7 @@ impl DNSClass {
 
 impl BinSerializable<DNSClass> for DNSClass {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
-        Self::from_u16(try!(decoder.read_u16()))
+        Self::from_u16(decoder.read_u16()?)
     }
 
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {

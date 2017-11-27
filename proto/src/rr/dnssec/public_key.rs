@@ -70,16 +70,19 @@ fn verify_with_pkey(
     message: &[u8],
     signature: &[u8],
 ) -> ProtoResult<()> {
-    let digest_type = try!(DigestType::from(algorithm).to_openssl_digest());
+    let digest_type = DigestType::from(algorithm).to_openssl_digest()?;
     let mut verifier = Verifier::new(digest_type, &pkey).unwrap();
-    try!(verifier.update(message));
-    verifier.finish(signature).map_err(|e| e.into()).and_then(
-        |b| if b {
-            Ok(())
-        } else {
-            Err(ProtoErrorKind::Message("could not verify").into())
-        },
-    )
+    verifier.update(message)?;
+    verifier
+        .finish(signature)
+        .map_err(|e| e.into())
+        .and_then(|b| {
+            if b {
+                Ok(())
+            } else {
+                Err(ProtoErrorKind::Message("could not verify").into())
+            }
+        })
 }
 
 /// Elyptic Curve public key type
@@ -127,11 +130,7 @@ impl<'k> Ec<'k> {
         let curve = match algorithm {
             Algorithm::ECDSAP256SHA256 => nid::X9_62_PRIME256V1,
             Algorithm::ECDSAP384SHA384 => nid::SECP384R1,
-            _ => {
-                return Err(
-                    "only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into(),
-                )
-            }
+            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
         // Key needs to be converted to OpenSSL format
         let k = ECPublicKey::from_unprefixed(public_key, algorithm)?;
@@ -143,7 +142,6 @@ impl<'k> Ec<'k> {
                 .and_then(|ec_key| PKey::from_ec_key(ec_key) )
                 .map_err(|e| e.into())
                 .map(|pkey| Ec{raw: public_key, pkey: pkey})
-
     }
 }
 
@@ -257,11 +255,7 @@ impl PublicKey for Ec {
         let alg = match algorithm {
             Algorithm::ECDSAP256SHA256 => &signature::ECDSA_P256_SHA256_FIXED,
             Algorithm::ECDSAP384SHA384 => &signature::ECDSA_P384_SHA384_FIXED,
-            _ => {
-                return Err(
-                    "only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into(),
-                )
-            }
+            _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
         signature::verify(
             alg,
@@ -326,11 +320,9 @@ impl<'k> PublicKey for Ed25519<'k> {
 pub struct Rsa<'k> {
     raw: &'k [u8],
 
-    #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-    pkey: PKey,
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))] pkey: PKey,
 
-    #[cfg(feature = "ring")]
-    pkey: RSAPublicKey<'k>,
+    #[cfg(feature = "ring")] pkey: RSAPublicKey<'k>,
 }
 
 #[cfg(any(feature = "openssl", feature = "ring"))]
@@ -377,8 +369,8 @@ impl<'k> Rsa<'k> {
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 fn into_pkey(parsed: RSAPublicKey) -> ProtoResult<PKey> {
     // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
-    let e = try!(BigNum::from_slice(parsed.e()));
-    let n = try!(BigNum::from_slice(parsed.n()));
+    let e = BigNum::from_slice(parsed.e())?;
+    let n = BigNum::from_slice(parsed.n())?;
 
     OpenSslRsa::from_public_components(n, e)
         .and_then(|rsa| PKey::from_rsa(rsa))
@@ -446,21 +438,18 @@ impl<'k> PublicKeyEnum<'k> {
     pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
         match algorithm {
             #[cfg(any(feature = "openssl", feature = "ring"))]
-            Algorithm::ECDSAP256SHA256 |
-            Algorithm::ECDSAP384SHA384 => Ok(PublicKeyEnum::Ec(
+            Algorithm::ECDSAP256SHA256 | Algorithm::ECDSAP384SHA384 => Ok(PublicKeyEnum::Ec(
                 Ec::from_public_bytes(public_key, algorithm)?,
             )),
             #[cfg(feature = "ring")]
-            Algorithm::ED25519 => {
-                Ok(PublicKeyEnum::Ed25519(
-                    Ed25519::from_public_bytes(public_key)?,
-                ))
-            }
+            Algorithm::ED25519 => Ok(PublicKeyEnum::Ed25519(
+                Ed25519::from_public_bytes(public_key)?,
+            )),
             #[cfg(any(feature = "openssl", feature = "ring"))]
-            Algorithm::RSASHA1 |
-            Algorithm::RSASHA1NSEC3SHA1 |
-            Algorithm::RSASHA256 |
-            Algorithm::RSASHA512 => Ok(PublicKeyEnum::Rsa(Rsa::from_public_bytes(public_key)?)),
+            Algorithm::RSASHA1
+            | Algorithm::RSASHA1NSEC3SHA1
+            | Algorithm::RSASHA256
+            | Algorithm::RSASHA512 => Ok(PublicKeyEnum::Rsa(Rsa::from_public_bytes(public_key)?)),
             #[cfg(not(feature = "ring"))]
             _ => Err("public key algorithm not supported".into()),
         }

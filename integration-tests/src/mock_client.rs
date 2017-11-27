@@ -4,7 +4,7 @@ use std::sync::{Arc, Mutex};
 use futures::{future, Future};
 
 use trust_dns::op::{Message, Query};
-use trust_dns::rr::{Name, Record, RData, RecordType};
+use trust_dns::rr::{Name, RData, Record, RecordType};
 use trust_dns_proto::DnsHandle;
 use trust_dns_proto::error::FromProtoError;
 
@@ -16,7 +16,9 @@ pub struct MockClientHandle<E: FromProtoError> {
 impl<E: FromProtoError> MockClientHandle<E> {
     /// constructs a new MockClient which returns each Message one after the other
     pub fn mock(messages: Vec<Result<Message, E>>) -> Self {
-        MockClientHandle { messages: Arc::new(Mutex::new(messages)) }
+        MockClientHandle {
+            messages: Arc::new(Mutex::new(messages)),
+        }
     }
 }
 
