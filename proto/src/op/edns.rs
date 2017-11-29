@@ -101,8 +101,9 @@ impl Edns {
     }
 
     /// Set the maximum payload which can be supported
+    /// From RFC 6891: `Values lower than 512 MUST be treated as equal to 512`
     pub fn set_max_payload(&mut self, max_payload: u16) {
-        self.max_payload = max_payload
+        self.max_payload = max_payload.max(512);
     }
 
     /// Set the specified EDNS option
@@ -118,11 +119,7 @@ impl<'a> From<&'a Record> for Edns {
         let rcode_high: u8 = ((value.ttl() & 0xFF00_0000u32) >> 24) as u8;
         let version: u8 = ((value.ttl() & 0x00FF_0000u32) >> 16) as u8;
         let dnssec_ok: bool = value.ttl() & 0x0000_8000 == 0x0000_8000;
-        let max_payload: u16 = if u16::from(value.dns_class()) < 512 {
-            512
-        } else {
-            value.dns_class().into()
-        };
+        let max_payload: u16 = u16::from(value.dns_class());
 
         let options: OPT = match *value.rdata() {
             RData::NULL(..) => {
@@ -156,7 +153,7 @@ impl<'a> From<&'a Edns> for Record {
 
         record.set_name(Name::root());
         record.set_rr_type(RecordType::OPT);
-        record.set_dns_class(DNSClass::OPT(value.max_payload()));
+        record.set_dns_class(DNSClass::for_opt(value.max_payload()));
 
         // rebuild the TTL field
         let mut ttl: u32 = u32::from(value.rcode_high()) << 24;
