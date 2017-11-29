@@ -31,6 +31,7 @@ pub enum DNSClass {
     /// QCLASS * (ANY)
     ANY,
     /// Special class for OPT Version, it was overloaded for EDNS - RFC 6891
+    /// From the RFC: `Values lower than 512 MUST be treated as equal to 512`
     OPT(u16),
 }
 
@@ -80,6 +81,8 @@ impl DNSClass {
 
     /// Return the OPT version from value
     pub fn for_opt(value: u16) -> Self {
+        // From RFC 6891: `Values lower than 512 MUST be treated as equal to 512`
+        let value = value.max(512);
         DNSClass::OPT(value)
     }
 }
@@ -134,7 +137,7 @@ impl From<DNSClass> for u16 {
             DNSClass::NONE => 254,
             DNSClass::ANY => 255,
             // see https://tools.ietf.org/html/rfc6891#section-6.1.2
-            DNSClass::OPT(max_payload_len) => max_payload_len,
+            DNSClass::OPT(max_payload_len) => max_payload_len.max(512),
         }
     }
 }
