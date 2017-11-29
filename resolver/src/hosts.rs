@@ -69,6 +69,7 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
         let addr = if let Some(a) = parse_literal_ip(&fields[0]) {
             a
         } else {
+            warn!("could not parse an IP from hosts file");
             continue;
         };
 
@@ -101,8 +102,7 @@ pub fn parse_literal_ip(addr: &str) -> Option<RData> {
     match IpAddr::from_str(addr) {
         Ok(IpAddr::V4(ip4)) => Some(RData::A(ip4)),
         Ok(IpAddr::V6(ip6)) => Some(RData::AAAA(ip6)),
-        Err(e) => {
-            warn!("could not parse an IP from hosts file: {}", e);
+        Err(_) => {
             None
         }
     }
