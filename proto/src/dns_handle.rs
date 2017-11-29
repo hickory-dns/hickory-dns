@@ -19,6 +19,7 @@ use futures::stream::{Fuse as StreamFuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::sync::oneshot;
 use rand;
+use rand::Rand;
 use rand::distributions::{IndependentSample, Range};
 use tokio_core::reactor::{Handle, Timeout};
 
@@ -219,11 +220,10 @@ where
 
     /// creates random query_id, validates against all active queries
     fn next_random_query_id(&self) -> Async<u16> {
-        let between = Range::new(0_u32, u32::from(u16::max_value()) + 1);
         let mut rand = rand::thread_rng();
 
         for _ in 0..100 {
-            let id = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
+            let id = u16::rand(&mut rand); // the range is [0 ... u16::max]
 
             if !self.active_requests.contains_key(&id) {
                 return Async::Ready(id);
