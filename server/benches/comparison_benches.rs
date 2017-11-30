@@ -149,7 +149,7 @@ fn bench(b: &mut Bencher, io_loop: &mut Core, client: &mut BasicClientHandle) {
     assert_eq!(response.response_code(), ResponseCode::NoError);
 
     let record = &response.answers()[0];
-    if let &RData::A(ref address) = record.rdata() {
+    if let RData::A(ref address) = *record.rdata() {
         assert_eq!(address, &Ipv4Addr::new(127, 0, 0, 1));
     } else {
         assert!(false);
