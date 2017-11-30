@@ -61,7 +61,7 @@ impl Journal {
     }
 
     /// this returns an iterator from the beginning of time, to be used to recreate an authority
-    pub fn iter<'j>(&'j self) -> JournalIter<'j> {
+    pub fn iter(&self) -> JournalIter {
         JournalIter::new(self)
     }
 
