@@ -78,7 +78,7 @@ _443._tcp.www.example.com. IN TLSA (
     let soa_record = authority.soa().unwrap().first().cloned().unwrap();
     assert_eq!(RecordType::SOA, soa_record.rr_type());
     assert_eq!(&Name::from_labels(vec!["isi", "edu"]), soa_record.name()); // i.e. the origin or domain
-    assert_eq!(3600000, soa_record.ttl());
+    assert_eq!(3_600_000, soa_record.ttl());
     assert_eq!(DNSClass::IN, soa_record.dns_class());
     if let RData::SOA(ref soa) = *soa_record.rdata() {
         // this should all be lowercased
@@ -93,7 +93,7 @@ _443._tcp.www.example.com. IN TLSA (
         assert_eq!(20, soa.serial());
         assert_eq!(7200, soa.refresh());
         assert_eq!(600, soa.retry());
-        assert_eq!(3600000, soa.expire());
+        assert_eq!(3_600_000, soa.expire());
         assert_eq!(60, soa.minimum());
     } else {
         panic!("Not an SOA record!!!") // valid panic, test code
