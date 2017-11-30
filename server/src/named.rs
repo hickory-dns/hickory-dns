@@ -172,7 +172,7 @@ fn load_zone(zone_dir: &Path, zone_config: &ZoneConfig) -> Result<Authority, Str
     ) -> Result<(), String> {
         if zone_config.is_dnssec_enabled() {
             for key_config in zone_config.get_keys() {
-                let signer = load_key(zone_name.clone(), &key_config).map_err(|e| {
+                let signer = load_key(zone_name.clone(), key_config).map_err(|e| {
                     format!("failed to load key: {:?} msg: {}", key_config.key_path(), e)
                 })?;
                 info!(
@@ -459,7 +459,7 @@ pub fn main() {
             &mut server,
             &config,
             tls_cert_config,
-            &zone_dir,
+            zone_dir,
             &listen_addrs,
         );
     }
