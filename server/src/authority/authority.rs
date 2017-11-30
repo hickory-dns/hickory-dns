@@ -265,9 +265,7 @@ impl Authority {
 
             let serial = if let RData::SOA(ref mut soa_rdata) = *soa.rdata_mut() {
                 soa_rdata.increment_serial();
-                let serial = soa_rdata.serial();
-
-                serial
+                soa_rdata.serial()
             } else {
                 panic!("This was not an SOA record"); // valid panic, never should happen
             };

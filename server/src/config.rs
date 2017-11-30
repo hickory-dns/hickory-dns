@@ -311,7 +311,7 @@ impl KeyConfig {
 
     /// the signer name for the key, this defaults to the $ORIGIN aka zone name.
     pub fn signer_name(&self) -> ParseResult<Option<Name>> {
-        if let Some(ref signer_name) = self.signer_name.as_ref() {
+        if let Some(signer_name) = self.signer_name.as_ref() {
             let name = Name::parse(signer_name, None)?;
             return Ok(Some(name));
         }
