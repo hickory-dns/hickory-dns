@@ -69,7 +69,7 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
     // use log::LogLevel;
     // logger::TrustDnsLogger::enable_logging(LogLevel::Debug);
 
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
     let server_path = Path::new(&server_path);
 
     named_test_harness(config_toml, |port, _| {
@@ -160,7 +160,7 @@ fn test_rsa_sha1_fails() {
 #[test]
 fn test_dnssec_restart_with_update_journal() {
     // TODO: make journal path configurable, it should be in target/tests/...
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
     let server_path = Path::new(&server_path);
     let journal = server_path.join("tests/named_test_configs/example.com.jrnl");
     std::fs::remove_file(&journal).ok();

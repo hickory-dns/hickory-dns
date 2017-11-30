@@ -41,7 +41,7 @@ where
         (test_port, test_tls_port)
     };
 
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
     println!("using server src path: {}", server_path);
 
     let mut named = Command::new(&format!("{}/../target/debug/named", server_path))

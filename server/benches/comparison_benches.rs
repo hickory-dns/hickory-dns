@@ -106,7 +106,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
     // find a random port to listen on
     let test_port = find_test_port();
 
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
 
     let mut named = Command::new(&format!("{}/../target/debug/named", server_path))
         .stdout(Stdio::piped())
@@ -210,8 +210,8 @@ fn trust_dns_tcp_bench(b: &mut Bencher) {
 fn bind_process() -> (NamedProcess, u16) {
     let test_port = find_test_port();
 
-    let bind_path = env::var("TDNS_BIND_PATH").unwrap_or("bind".to_owned());
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+    let bind_path = env::var("TDNS_BIND_PATH").unwrap_or_else(|_| "bind".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
 
     // create the work directory
     let working_dir = format!("{}/../target/bind_pwd", server_path);
