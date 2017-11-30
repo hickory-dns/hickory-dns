@@ -163,7 +163,7 @@ impl Journal {
         //
         match record_opt {
             Some(Ok((row_id, record))) => Ok(Some((row_id, record))),
-            Some(Err(err)) => return Err(Err(err)?),
+            Some(Err(err)) => Err(Err(err)?),
             None => Ok(None),
         }
     }

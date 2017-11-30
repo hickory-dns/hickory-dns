@@ -60,7 +60,7 @@ where
                 let timeout = Self::timeout(self.timeout_duration, &self.reactor_handle)?;
                 drop(mem::replace(&mut self.timeout, timeout));
 
-                return r;
+                r
             }
             Ok(Async::NotReady) => {
                 if self.timeout.is_none() {
@@ -71,10 +71,10 @@ where
                 match try_ready!(self.timeout.as_mut().unwrap().poll()) {
                     () => {
                         debug!("timeout on stream");
-                        return Err(io::Error::new(
+                        Err(io::Error::new(
                             io::ErrorKind::TimedOut,
                             format!("nothing ready in {:?}", self.timeout_duration),
-                        ));
+                        ))
                     }
                 }
             }

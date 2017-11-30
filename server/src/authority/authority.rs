@@ -653,7 +653,7 @@ impl Authority {
             }
         }
 
-        return Ok(());
+        Ok(())
     }
 
     /// Updates the specified records according to the update section.
