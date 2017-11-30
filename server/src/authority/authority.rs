@@ -206,7 +206,7 @@ impl Authority {
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    pub fn soa<'s>(&'s self) -> AuthLookup<'s> {
+    pub fn soa(&self) -> AuthLookup {
         // SOA should be origin|SOA
         self.lookup(
             &self.origin,
@@ -217,11 +217,11 @@ impl Authority {
     }
 
     /// Returns the SOA record for the zone
-    pub fn soa_secure<'s>(
-        &'s self,
+    pub fn soa_secure(
+        &self,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup<'s> {
+    ) -> AuthLookup {
         self.lookup(
             &self.origin,
             RecordType::SOA,
