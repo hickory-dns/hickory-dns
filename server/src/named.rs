@@ -414,7 +414,7 @@ pub fn main() {
     let listen_port: u16 = args.flag_port.unwrap_or_else(|| config.get_listen_port());
     let tcp_request_timeout = config.get_tcp_request_timeout();
 
-    if listen_addrs.len() == 0 {
+    if listen_addrs.is_empty() {
         listen_addrs.push(IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)));
     }
     let sockaddrs: Vec<SocketAddr> = listen_addrs

@@ -444,8 +444,7 @@ impl Authority {
           // zone     rrset    rr       RRset exists (value dependent)
           if self.lookup(require.name(), require.rr_type(), false, SupportedAlgorithms::new())
                  .iter()
-                 .filter(|rr| *rr == require)
-                 .next()
+                 .find(|rr| *rr == require)
                  .is_none() {
             return Err(ResponseCode::NXRRSet);
           } else {
@@ -1206,7 +1205,7 @@ impl Authority {
         }
 
         // sign all record_sets, as of 0.12.1 this includes DNSKEY
-        for (_, rr_set) in self.records.iter_mut() {
+        for rr_set in self.records.values_mut() {
             rr_set.clear_rrsigs();
             let rrsig_temp = Record::with(
                 rr_set.name().clone(),
@@ -1214,7 +1213,7 @@ impl Authority {
                 zone_ttl,
             );
 
-            for signer in self.secure_keys.iter() {
+            for signer in &self.secure_keys {
                 debug!(
                     "signing rr_set: {}, {} with: {}",
                     rr_set.name(),
