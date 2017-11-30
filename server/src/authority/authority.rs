@@ -128,13 +128,8 @@ impl Authority {
             //  authority.
             if record.rr_type() == RecordType::AXFR {
                 self.records.clear();
-            } else {
-                match self.update_records(&[record], false) {
-                    Err(error) => {
-                        return Err(PersistenceErrorKind::RecoveryError(error.to_str()).into())
-                    }
-                    _ => (),
-                }
+            } else if let Err(error) = self.update_records(&[record], false) {
+                return Err(PersistenceErrorKind::RecoveryError(error.to_str()).into())
             }
         }
 
