@@ -101,8 +101,8 @@ where
             .read_line(&mut output)
             .expect("could not read stdout");
         if !output.is_empty() {
-            stdout().write(b"SRV: ").unwrap();
-            stdout().write(output.as_bytes()).unwrap();
+            stdout().write_all(b"SRV: ").unwrap();
+            stdout().write_all(output.as_bytes()).unwrap();
         }
         if output.contains("awaiting connections...") {
             found = true;
@@ -125,8 +125,8 @@ where
                     .read_line(&mut output)
                     .expect("could not read stdout");
                 if !output.is_empty() {
-                    stdout().write(b"SRV: ").unwrap();
-                    stdout().write(output.as_bytes()).unwrap();
+                    stdout().write_all(b"SRV: ").unwrap();
+                    stdout().write_all(output.as_bytes()).unwrap();
                 }
             }
         })
