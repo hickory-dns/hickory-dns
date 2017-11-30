@@ -224,7 +224,7 @@ fn bind_process() -> (NamedProcess, u16) {
     let mut named = Command::new(bind_path)
                       .current_dir(&working_dir)
                       .stderr(Stdio::piped())
-                      .arg("-c").arg(&format!("../../server/benches/bind_conf/example.conf"))
+                      .arg("-c").arg("../../server/benches/bind_conf/example.conf")
                       //.arg("-d").arg("0")
                       .arg("-D").arg("TRust-DNS cmp bench")
                       .arg("-g")
