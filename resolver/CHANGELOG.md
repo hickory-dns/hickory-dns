@@ -12,10 +12,16 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Resolver is now `Send`
 - DNSSec now disabled by default in Resolver, see `dnssec-ring` or `dnssec-openssl` features #268
 - CNAME chaining was cleaned up #271 (@briansmith)
+- On hostname parsing to IpAddr, return without lookup #302 (@cssivision)
+- Change default `LookupIpStrategy` from `Ipv4AndIpv6` to `Ipv4thenIpv6` #301 (@cssivision)
 
 ### Added
 
 - ResolveError and associated types
+
+### Fixed
+
+- Cleaned up CNAME chained lookups, better TTL enforcement, etc #298
 
 ## 0.6.0
 

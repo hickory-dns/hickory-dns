@@ -10,9 +10,11 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - TRust-DNS Proto crate to separate server management from base operations #222
 - TRust-DNS Util crate for dnssec management tools (@briansmith)
 - Integration tests for Server to validate all supported DNSSec key types
-- Common features `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates
-- Clarified `tls` feature with `tls-openssl`, and `tls` in server
-- Added support for rfc6844, CAA record types #234
+- *breaking* Common features `dnssec-ring`, `dnssec-openssl`, and `dnssec` across all crates (replaces `openssl` and `ring` features)
+- Clarified `tls` feature with `tls-openssl`, and `tls` in server (in preperation for `tls-rustls`)
+- Support for rfc6844, CAA record type #234
+- Support for rfc6698, TLSA record type #285
+- Clippy validation in CI #288 (@little-dude)
 
 ### Changed
 
@@ -24,11 +26,15 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - `Message::sign` has been renamed and change to the more general method `Message::finalize`
 - Some `io::Error`s have been converted to `trust_dns_proto::ProtoError`
 - `SyncClient` and `SecureSyncClient` are now `Send + Sync` #245
+- Unknown RecordTypes and RDatas will no longer error #294
 
 ### Fixed
 
 - Server: signing issues when loading from persistence
 - Server: When SupportedAlgorithms (rfc6975) not supplied default to returning all signatures #215
+- Proto: u16::from(DNSClass) now enforces OPT is greater than/or 512 per spec #303
+- Improve usage of Rand for message ids and port assignment #291 & #292
+- NxDomain and empty NoData responses to be compliant #286 (lots of help from @Darkspirit)
 
 ### Removed
 

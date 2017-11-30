@@ -28,8 +28,6 @@
 //! * New features for securing public information
 
 extern crate chrono;
-#[cfg(feature = "colored")]
-extern crate colored;
 extern crate env_logger;
 #[macro_use]
 extern crate error_chain;
