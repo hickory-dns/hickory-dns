@@ -97,7 +97,7 @@ impl RequestHandler for Catalog {
                         trace!("update response: {:?}", response);
                         response
                     }
-                    c @ _ => {
+                    c => {
                         error!("unimplemented op_code: {:?}", c);
                         Message::error_msg(
                             request_message.id(),

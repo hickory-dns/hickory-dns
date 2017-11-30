@@ -404,7 +404,7 @@ impl Authority {
                 }
               },
               // ANY      rrset    empty    RRset exists (value independent)
-              rrset @ _ => {
+              rrset => {
                 if self.lookup(require.name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::NXRRSet);
                 } else {
@@ -428,7 +428,7 @@ impl Authority {
                 }
               },
               // NONE     rrset    empty    RRset does not exist
-              rrset @ _ => {
+              rrset => {
                 if !self.lookup(require.name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::YXRRSet);
                 } else {
@@ -440,7 +440,7 @@ impl Authority {
             return Err(ResponseCode::FormErr);
           }
         ,
-        class @ _ if class == self.class =>
+        class if class == self.class =>
           // zone     rrset    rr       RRset exists (value dependent)
           if self.lookup(require.name(), require.rr_type(), false, SupportedAlgorithms::new())
                  .iter()
@@ -737,7 +737,7 @@ impl Authority {
             let rr_key = RrKey::new(rr.name(), rr.rr_type());
 
             match rr.dns_class() {
-                class @ _ if class == self.class => {
+                class if class == self.class => {
                     // RFC 2136 - 3.4.2.2. Any Update RR whose CLASS is the same as ZCLASS is added to
                     //  the zone.  In case of duplicate RDATAs (which for SOA RRs is always
                     //  the case, and for WKS RRs is the case if the ADDRESS and PROTOCOL
@@ -814,7 +814,7 @@ impl Authority {
                         updated = updated || deleted;
                     }
                 }
-                class @ _ => {
+                class => {
                     info!("unexpected DNS Class: {:?}", class);
                     return Err(ResponseCode::FormErr);
                 }
