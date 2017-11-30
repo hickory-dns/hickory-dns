@@ -233,7 +233,7 @@ impl Authority {
     /// Returns the minimum ttl (as used in the SOA record)
     pub fn minimum_ttl(&self) -> u32 {
         self.soa().iter().next().map_or(0, |soa| {
-            if let &RData::SOA(ref rdata) = soa.rdata() {
+            if let RData::SOA(ref rdata) = *soa.rdata() {
                 rdata.minimum()
             } else {
                 0
@@ -249,7 +249,7 @@ impl Authority {
                 0
             },
             |soa| {
-                if let &RData::SOA(ref soa_rdata) = soa.rdata() {
+                if let RData::SOA(ref soa_rdata) = *soa.rdata() {
                     soa_rdata.serial()
                 } else {
                     panic!("This was not an SOA record"); // valid panic, never should happen
@@ -263,7 +263,7 @@ impl Authority {
             // TODO: can we get a mut reference to SOA directly?
             let mut soa = soa.clone();
 
-            let serial = if let &mut RData::SOA(ref mut soa_rdata) = soa.rdata_mut() {
+            let serial = if let RData::SOA(ref mut soa_rdata) = *soa.rdata_mut() {
                 soa_rdata.increment_serial();
                 let serial = soa_rdata.serial();
 
@@ -393,7 +393,7 @@ impl Authority {
 
             match require.dns_class() {
         DNSClass::ANY =>
-          if let &RData::NULL( .. ) = require.rdata() {
+          if let RData::NULL( .. ) = *require.rdata() {
             match require.rr_type() {
               // ANY      ANY      empty    Name is in use
               RecordType::ANY => {
@@ -417,7 +417,7 @@ impl Authority {
           }
         ,
         DNSClass::NONE =>
-          if let &RData::NULL( .. ) = require.rdata() {
+          if let RData::NULL( .. ) = *require.rdata() {
             match require.rr_type() {
               // NONE     ANY      empty    Name is not in use
               RecordType::ANY => {
@@ -513,7 +513,7 @@ impl Authority {
             && sig0s
                 .iter()
                 .filter_map(|sig0| {
-                    if let &RData::DNSSEC(DNSSECRData::SIG(ref sig)) = sig0.rdata() {
+                    if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *sig0.rdata() {
                         Some(sig)
                     } else {
                         None
@@ -531,7 +531,7 @@ impl Authority {
                     // FIXME: check key usage flags and restrictions
                     keys.iter()
                         .filter_map(|rr_set| {
-                            if let &RData::DNSSEC(DNSSECRData::KEY(ref key)) = rr_set.rdata() {
+                            if let RData::DNSSEC(DNSSECRData::KEY(ref key)) = *rr_set.rdata() {
                                 Some(key)
                             } else {
                                 None
@@ -625,7 +625,7 @@ impl Authority {
                         if rr.ttl() != 0 {
                             return Err(ResponseCode::FormErr);
                         }
-                        if let &RData::NULL(..) = rr.rdata() {
+                        if let RData::NULL(..) = *rr.rdata() {
                             ()
                         } else {
                             return Err(ResponseCode::FormErr);
@@ -794,7 +794,7 @@ impl Authority {
                             //   SOA or NS RRs will be deleted.
 
                             // ANY      rrset    empty    Delete an RRset
-                            if let &RData::NULL(..) = rr.rdata() {
+                            if let RData::NULL(..) = *rr.rdata() {
                                 let deleted = self.records.remove(&rr_key);
                                 info!("deleted rrset: {:?}", deleted);
                                 updated = updated || deleted.is_some();
