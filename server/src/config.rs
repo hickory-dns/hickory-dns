@@ -141,7 +141,7 @@ impl FromStr for Config {
 
     fn from_str(toml: &str) -> ConfigResult<Config> {
         let value: Value = toml.parse()
-            .map_err(|vec| ConfigErrorKind::VecParserError(vec))?;
+            .map_err(ConfigErrorKind::VecParserError)?;
         let mut decoder: Decoder = Decoder::new(value);
         Ok(Self::decode(&mut decoder)?)
     }

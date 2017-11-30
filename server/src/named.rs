@@ -387,7 +387,7 @@ pub fn main() {
         .expect(&format!("could not read config: {:?}", config_path));
     let zone_dir: &Path = args.flag_zonedir
         .as_ref()
-        .map(|s| Path::new(s))
+        .map(Path::new)
         .unwrap_or_else(|| config.get_directory());
 
     let mut catalog: Catalog = Catalog::new();
@@ -408,8 +408,8 @@ pub fn main() {
     let v6addr = config.get_listen_addrs_ipv6();
     let mut listen_addrs: Vec<IpAddr> = v4addr
         .into_iter()
-        .map(|x| IpAddr::V4(x))
-        .chain(v6addr.into_iter().map(|x| IpAddr::V6(x)))
+        .map(IpAddr::V4)
+        .chain(v6addr.into_iter().map(IpAddr::V6))
         .collect();
     let listen_port: u16 = args.flag_port.unwrap_or_else(|| config.get_listen_port());
     let tcp_request_timeout = config.get_tcp_request_timeout();
