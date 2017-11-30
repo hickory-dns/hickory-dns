@@ -102,9 +102,7 @@ pub fn parse_literal_ip(addr: &str) -> Option<RData> {
     match IpAddr::from_str(addr) {
         Ok(IpAddr::V4(ip4)) => Some(RData::A(ip4)),
         Ok(IpAddr::V6(ip6)) => Some(RData::AAAA(ip6)),
-        Err(_) => {
-            None
-        }
+        Err(_) => None,
     }
 }
 
