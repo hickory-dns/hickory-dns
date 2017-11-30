@@ -26,7 +26,7 @@ use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use dns_lru::DnsLru;
 use lookup::{self, Lookup};
 use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
-use hosts::{Hosts, parse_literal_ip};
+use hosts::{parse_literal_ip, Hosts};
 
 /// Root Handle to communicate with the ResolverFuture
 ///
@@ -245,7 +245,10 @@ impl ResolverFuture {
     pub fn lookup_ip(&self, host: &str) -> LookupIpFuture {
         // if host is a ip address, return directly.
         if let Some(addr) = parse_literal_ip(host) {
-            return InnerLookupIpFuture::ok(self.client_cache.clone(), Lookup::new(Arc::new(vec![addr])));
+            return InnerLookupIpFuture::ok(
+                self.client_cache.clone(),
+                Lookup::new(Arc::new(vec![addr])),
+            );
         }
 
         let name = match Name::from_str(host) {
@@ -358,15 +361,18 @@ mod tests {
             &io_loop.handle(),
         );
 
-        let response = io_loop.run(resolver.lookup_ip("10.1.0.2")).expect(
-            "failed to run lookup",
+        let response = io_loop
+            .run(resolver.lookup_ip("10.1.0.2"))
+            .expect("failed to run lookup");
+
+        assert_eq!(
+            Some(IpAddr::V4(Ipv4Addr::new(10, 1, 0, 2))),
+            response.iter().next()
         );
 
-        assert_eq!(Some(IpAddr::V4(Ipv4Addr::new(10, 1, 0, 2))), response.iter().next());
-
-        let response = io_loop.run(resolver.lookup_ip("2606:2800:220:1:248:1893:25c8:1946")).expect(
-            "failed to run lookup",
-        );
+        let response = io_loop
+            .run(resolver.lookup_ip("2606:2800:220:1:248:1893:25c8:1946"))
+            .expect("failed to run lookup");
 
         assert_eq!(
             Some(IpAddr::V6(Ipv6Addr::new(
@@ -378,7 +384,7 @@ mod tests {
                 0x1893,
                 0x25c8,
                 0x1946,
-            ))), 
+            ))),
             response.iter().next()
         );
     }
