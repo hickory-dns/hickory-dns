@@ -20,7 +20,6 @@ use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::sync::oneshot;
 use rand;
 use rand::Rand;
-use rand::distributions::{IndependentSample, Range};
 use tokio_core::reactor::{Handle, Timeout};
 
 use error::*;
