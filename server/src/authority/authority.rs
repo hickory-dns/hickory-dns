@@ -856,7 +856,7 @@ impl Authority {
         let rr_key = RrKey::new(record.name(), record.rr_type());
         let records: &mut RecordSet = self.records
             .entry(rr_key)
-            .or_insert(RecordSet::new(record.name(), record.rr_type(), serial));
+            .or_insert_with(|| RecordSet::new(record.name(), record.rr_type(), serial));
 
         records.insert(record, serial)
     }

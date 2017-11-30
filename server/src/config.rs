@@ -271,8 +271,8 @@ impl KeyConfig {
 
     /// Converts key into
     pub fn format(&self) -> ParseResult<KeyFormat> {
-        let extension = self.key_path().extension().ok_or(ParseErrorKind::Msg(
-            format!("file lacks extension, e.g. '.pk8': {:?}", self.key_path()).into(),
+        let extension = self.key_path().extension().ok_or_else(|| ParseErrorKind::Msg(
+            format!("file lacks extension, e.g. '.pk8': {:?}", self.key_path()),
         ))?;
 
         match extension.to_str() {
@@ -280,7 +280,7 @@ impl KeyConfig {
             Some("key") => Ok(KeyFormat::Pem), // TODO: deprecate this...
             Some("pem") => Ok(KeyFormat::Pem),
             Some("pk8") => Ok(KeyFormat::Pkcs8),
-            e @ _ => Err(
+            e => Err(
                 ParseErrorKind::Msg(format!(
                     "extension not understood, '{:?}': {:?}",
                     e,

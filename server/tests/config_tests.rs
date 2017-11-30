@@ -30,7 +30,7 @@ use trust_dns_server::config::*;
 
 #[test]
 fn test_read_config() {
-    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
     let path: PathBuf = PathBuf::from(server_path).join("tests/named_test_configs/example.toml");
 
     if !path.exists() {

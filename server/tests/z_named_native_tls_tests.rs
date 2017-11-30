@@ -37,7 +37,7 @@ use server_harness::{named_test_harness, query_a};
 fn test_example_tls_toml_startup() {
     named_test_harness("dns_over_tls.toml", move |_, tls_port| {
         let mut cert_der = vec![];
-        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
+        let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
         println!("using server src path: {}", server_path);
 
         File::open(&format!(

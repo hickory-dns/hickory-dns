@@ -388,7 +388,7 @@ pub fn main() {
     let zone_dir: &Path = args.flag_zonedir
         .as_ref()
         .map(|s| Path::new(s))
-        .unwrap_or(config.get_directory());
+        .unwrap_or_else(|| config.get_directory());
 
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
@@ -411,7 +411,7 @@ pub fn main() {
         .map(|x| IpAddr::V4(x))
         .chain(v6addr.into_iter().map(|x| IpAddr::V6(x)))
         .collect();
-    let listen_port: u16 = args.flag_port.unwrap_or(config.get_listen_port());
+    let listen_port: u16 = args.flag_port.unwrap_or_else(|| config.get_listen_port());
     let tcp_request_timeout = config.get_tcp_request_timeout();
 
     if listen_addrs.len() == 0 {
@@ -496,7 +496,7 @@ fn config_tls(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) {
-    let tls_listen_port: u16 = args.flag_tls_port.unwrap_or(config.get_tls_listen_port());
+    let tls_listen_port: u16 = args.flag_tls_port.unwrap_or_else(|| config.get_tls_listen_port());
     let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
         .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())

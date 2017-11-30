@@ -37,7 +37,7 @@ fn plain_formatter(record: &LogRecord) -> String {
 }
 
 fn get_env() -> String {
-    env::var("RUST_LOG").unwrap_or(String::new())
+    env::var("RUST_LOG").unwrap_or_default()
 }
 
 fn all_trust_dns(level: &str) -> String {
