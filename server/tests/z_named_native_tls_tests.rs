@@ -83,5 +83,5 @@ fn test_example_tls_toml_startup() {
 }
 
 fn to_trust_anchor(cert_der: &[u8]) -> Certificate {
-    Certificate::from_der(&cert_der).unwrap()
+    Certificate::from_der(cert_der).unwrap()
 }

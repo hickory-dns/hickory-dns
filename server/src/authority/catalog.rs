@@ -86,7 +86,7 @@ impl RequestHandler for Catalog {
             MessageType::Query => {
                 match request_message.op_code() {
                     OpCode::Query => {
-                        let response = self.lookup(&request_message);
+                        let response = self.lookup(request_message);
                         trace!("query response: {:?}", response);
                         response
                         // TODO, handle recursion here or in the catalog?

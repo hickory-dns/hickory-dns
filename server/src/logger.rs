@@ -81,7 +81,7 @@ fn logger(config: &str) {
     let log_formatter = plain_formatter;
 
     builder.format(log_formatter);
-    builder.parse(&config);
+    builder.parse(config);
     builder.target(LogTarget::Stdout);
     builder.init().expect("could not initialize logger");
 }
