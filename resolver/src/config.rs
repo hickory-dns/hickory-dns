@@ -12,7 +12,7 @@ use std::time::Duration;
 use trust_dns_proto::rr::Name;
 
 /// Configuration for the upstream nameservers to use for resolution
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolverConfig {
     // base search domain
     domain: Name,
@@ -37,7 +37,7 @@ impl ResolverConfig {
     ///
     /// # Arguments
     ///
-    /// * `domain` - domain of the entity querying results. If the `Name` being lookedup is not an FQDN, then this is the first part appended to attempt a lookup. `ndots` in in the `ResolverOption` does take precidence over this. Default should be `.` aka `Name::root`
+    /// * `domain` - domain of the entity querying results. If the `Name` being looked up is not an FQDN, then this is the first part appended to attempt a lookup. `ndots` in the `ResolverOption` does take precedence over this. Default should be `.` aka `Name::root`
     /// * `search` - additional search domains that are attempted if the `Name` is not found in `domain`, defaults to `vec![]`
     /// * `name_servers` - set of name servers to use for lookups, defaults are Google: `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844`
     pub fn from_parts(
@@ -59,11 +59,21 @@ impl ResolverConfig {
         &self.domain
     }
 
+    /// Set the domain of the entity querying results.
+    pub fn set_domain(&mut self, domain: Name) {
+        self.domain = domain;
+    }
+
     /// Returns the search domains
     ///
     /// These will be queried after any local domain and then in the order of the set of search domains
     pub fn search(&self) -> &[Name] {
         &self.search
+    }
+
+    /// Add a search domain
+    pub fn add_search(&mut self, search: Name) {
+        self.search.push(search)
     }
 
     // TODO: consider allowing options per NameServer... like different timeouts?
@@ -163,7 +173,7 @@ impl Protocol {
 }
 
 /// Configuration for the NameServer
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub struct NameServerConfig {
     /// The address which the DNS NameServer is registered at.
     pub socket_addr: SocketAddr,
@@ -172,7 +182,7 @@ pub struct NameServerConfig {
 }
 
 /// The lookup ip strategy
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LookupIpStrategy {
     /// Only query for A (Ipv4) records
     Ipv4Only,
@@ -194,7 +204,7 @@ impl Default for LookupIpStrategy {
 }
 
 /// Configuration for the Resolver
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy, Eq, PartialEq)]
 #[allow(dead_code)] // TODO: remove after all params are supported
 pub struct ResolverOpts {
     /// Sets the number of dots that must appear (unless it's a final dot representing the root)
