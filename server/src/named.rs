@@ -496,7 +496,8 @@ fn config_tls(
     zone_dir: &Path,
     listen_addrs: &[IpAddr],
 ) {
-    let tls_listen_port: u16 = args.flag_tls_port.unwrap_or_else(|| config.get_tls_listen_port());
+    let tls_listen_port: u16 = args.flag_tls_port
+        .unwrap_or_else(|| config.get_tls_listen_port());
     let tls_sockaddrs: Vec<SocketAddr> = listen_addrs
         .iter()
         .flat_map(|x| (*x, tls_listen_port).to_socket_addrs().unwrap())

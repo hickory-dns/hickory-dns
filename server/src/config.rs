@@ -140,8 +140,7 @@ impl FromStr for Config {
     type Err = ConfigError;
 
     fn from_str(toml: &str) -> ConfigResult<Config> {
-        let value: Value = toml.parse()
-            .map_err(ConfigErrorKind::VecParserError)?;
+        let value: Value = toml.parse().map_err(ConfigErrorKind::VecParserError)?;
         let mut decoder: Decoder = Decoder::new(value);
         Ok(Self::decode(&mut decoder)?)
     }
@@ -271,9 +270,12 @@ impl KeyConfig {
 
     /// Converts key into
     pub fn format(&self) -> ParseResult<KeyFormat> {
-        let extension = self.key_path().extension().ok_or_else(|| ParseErrorKind::Msg(
-            format!("file lacks extension, e.g. '.pk8': {:?}", self.key_path()),
-        ))?;
+        let extension = self.key_path().extension().ok_or_else(|| {
+            ParseErrorKind::Msg(format!(
+                "file lacks extension, e.g. '.pk8': {:?}",
+                self.key_path()
+            ))
+        })?;
 
         match extension.to_str() {
             Some("der") => Ok(KeyFormat::Der),
