@@ -10,6 +10,41 @@ cargo clippy --all-features -- \
     --allow module_inception
 popd
 
+pushd compatibility-tests
+cargo clippy --features "bind" --no-default-features -- \
+    --allow type_complexity \
+    --allow doc_markdown \
+    --allow module_inception
+popd
+
+pushd compatibility-tests
+cargo clippy -- \
+    --allow type_complexity \
+    --allow doc_markdown \
+    --allow module_inception
+popd
+
+pushd integration-tests
+cargo clippy --all-features -- \
+    --allow type_complexity \
+    --allow doc_markdown \
+    --allow module_inception
+popd
+
+pushd native-tls
+cargo clippy --all-features -- \
+    --allow type_complexity \
+    --allow doc_markdown \
+    --allow module_inception
+popd
+
+pushd openssl
+cargo clippy --all-features -- \
+    --allow type_complexity \
+    --allow doc_markdown \
+    --allow module_inception
+popd
+
 pushd proto
 # FIXME: we should probably not allow `block_in_if_condition_stmt
 cargo clippy --all-features -- \
@@ -21,4 +56,32 @@ cargo clippy --all-features -- \
     --allow too_many_arguments \
     --allow new_ret_no_self \
     --allow enum_variant_names
+popd
+
+pushd resolver
+cargo clippy --all-features -- \
+    --allow type_complexity \
+    --allow doc_markdown \
+    --allow module_inception
+popd
+
+pushd rustls
+cargo clippy --all-features -- \
+    --allow type_complexity \
+    --allow doc_markdown \
+    --allow module_inception
+popd
+
+pushd server
+cargo clippy --all-features -- \
+    --allow type_complexity \
+    --allow doc_markdown \
+    --allow module_inception
+popd
+
+pushd util
+cargo clippy --all-features -- \
+    --allow type_complexity \
+    --allow doc_markdown \
+    --allow module_inception
 popd
