@@ -597,8 +597,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "resolv-conf"
-version = "0.4.0"
-source = "git+https://github.com/tailhook/resolv-conf#b9c90b65784b1cf8a5baabb3bbfbc685ecc67ce3"
+version = "0.5.0"
+source = "git+https://github.com/little-dude/resolv-conf?branch=domain#a9da4627d238ed6b5713bd1ad49c2d3b0f3ca3e9"
 dependencies = [
  "quick-error 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -998,7 +998,7 @@ dependencies = [
  "ipconfig 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.3.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "lru-cache 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "resolv-conf 0.4.0 (git+https://github.com/tailhook/resolv-conf)",
+ "resolv-conf 0.5.0 (git+https://github.com/little-dude/resolv-conf?branch=domain)",
  "tokio-core 0.1.10 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns-proto 0.2.0",
 ]
@@ -1240,7 +1240,7 @@ dependencies = [
 "checksum redox_termios 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "7e891cfe48e9100a70a3b6eb652fef28920c117d366339687bd5576160db0f76"
 "checksum regex 0.2.2 (registry+https://github.com/rust-lang/crates.io-index)" = "1731164734096285ec2a5ec7fea5248ae2f5485b3feeb0115af4fda2183b2d1b"
 "checksum regex-syntax 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)" = "ad890a5eef7953f55427c50575c680c42841653abd2b028b68cd223d157f62db"
-"checksum resolv-conf 0.4.0 (git+https://github.com/tailhook/resolv-conf)" = "<none>"
+"checksum resolv-conf 0.5.0 (git+https://github.com/little-dude/resolv-conf?branch=domain)" = "<none>"
 "checksum ring 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)" = "6f7d28b30a72c01b458428e0ae988d4149c20d902346902be881e3edc4bb325c"
 "checksum rusqlite 0.9.5 (registry+https://github.com/rust-lang/crates.io-index)" = "90bff7b0113c476086ea8b3c5fc2df177fe86c0a945a0665ea704f36dc230286"
 "checksum rustc-demangle 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)" = "aee45432acc62f7b9a108cc054142dac51f979e69e71ddce7d6fc7adf29e817e"

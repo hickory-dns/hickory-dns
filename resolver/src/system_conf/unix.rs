@@ -50,8 +50,12 @@ fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig, Res
 fn into_resolver_config(
     parsed_config: resolv_conf::Config,
 ) -> io::Result<(ResolverConfig, ResolverOpts)> {
-    // domain (for now, resolv_conf does not separate domain from nameservers)
-    let domain = Name::root();
+
+    let domain = if let Some(domain) = parsed_config.domain {
+        Some(Name::from_str(domain.as_str())?)
+    } else {
+        None
+    };
 
     // nameservers
     let mut nameservers = Vec::<NameServerConfig>::with_capacity(parsed_config.nameservers.len());
@@ -102,7 +106,7 @@ mod tests {
     use super::*;
 
     fn empty_config() -> ResolverConfig {
-        ResolverConfig::from_parts(Name::root(), vec![], vec![])
+        ResolverConfig::from_parts(None, vec![], vec![])
     }
 
     fn nameserver_config(ip: &str) -> [NameServerConfig; 2] {
@@ -146,11 +150,9 @@ mod tests {
 
     #[test]
     fn test_domain() {
-        // FIXME: We're not doing the right thing here...
-        // Clearly, seach should be empty and domain should not be "."
         let parsed = parse_resolv_conf("domain example.com").expect("failed");
         let mut cfg = empty_config();
-        cfg.add_search(Name::from_str("example.com").unwrap());
+        cfg.set_domain(Name::from_str("example.com").unwrap());
         assert_eq!(cfg, parsed.0);
         assert_eq!(ResolverOpts::default(), parsed.1);
     }
