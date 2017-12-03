@@ -192,8 +192,10 @@ impl ResolverFuture {
                 Self::push_name(name_search, &mut names);
             }
 
-            let domain = name.clone().append_domain(self.config.domain());
-            Self::push_name(domain, &mut names);
+            if let Some(domain) = self.config.domain() {
+                let name_search = name.clone().append_domain(domain);
+                Self::push_name(name_search, &mut names);
+            }
 
             // this is the direct name lookup
             // number of dots will always be one less than the number of labels
@@ -522,7 +524,7 @@ mod tests {
 
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::from_parts(domain, search, name_servers),
+            ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
@@ -556,7 +558,7 @@ mod tests {
 
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::from_parts(domain, search, name_servers),
+            ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
                 ndots: 2,
@@ -594,7 +596,7 @@ mod tests {
 
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::from_parts(domain, search, name_servers),
+            ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
@@ -631,7 +633,7 @@ mod tests {
 
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::from_parts(domain, search, name_servers),
+            ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()

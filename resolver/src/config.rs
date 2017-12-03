@@ -15,7 +15,7 @@ use trust_dns_proto::rr::Name;
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ResolverConfig {
     // base search domain
-    domain: Name,
+    domain: Option<Name>,
     // search domains
     search: Vec<Name>,
     // nameservers to use for resolution.
@@ -27,7 +27,7 @@ impl ResolverConfig {
     pub fn new() -> Self {
         ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
-            domain: Name::root(),
+            domain: None,
             search: vec![],
             name_servers: vec![],
         }
@@ -37,11 +37,11 @@ impl ResolverConfig {
     ///
     /// # Arguments
     ///
-    /// * `domain` - domain of the entity querying results. If the `Name` being looked up is not an FQDN, then this is the first part appended to attempt a lookup. `ndots` in the `ResolverOption` does take precedence over this. Default should be `.` aka `Name::root`
+    /// * `domain` - domain of the entity querying results. If the `Name` being looked up is not an FQDN, then this is the first part appended to attempt a lookup. `ndots` in the `ResolverOption` does take precedence over this.
     /// * `search` - additional search domains that are attempted if the `Name` is not found in `domain`, defaults to `vec![]`
     /// * `name_servers` - set of name servers to use for lookups, defaults are Google: `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844`
     pub fn from_parts(
-        domain: Name,
+        domain: Option<Name>,
         search: Vec<Name>,
         name_servers: Vec<NameServerConfig>,
     ) -> Self {
@@ -55,13 +55,13 @@ impl ResolverConfig {
     /// Returns the local domain
     ///
     /// By default any names will be appended to all non-fully-qualified-domain names, and searched for after any ndots rules
-    pub fn domain(&self) -> &Name {
-        &self.domain
+    pub fn domain(&self) -> Option<&Name> {
+        self.domain.as_ref()
     }
 
     /// Set the domain of the entity querying results.
     pub fn set_domain(&mut self, domain: Name) {
-        self.domain = domain;
+        self.domain = Some(domain);
     }
 
     /// Returns the search domains
@@ -93,7 +93,7 @@ impl Default for ResolverConfig {
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
     fn default() -> Self {
-        let domain = Name::root();
+        let domain = None;
         let google_ns1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
             protocol: Protocol::Udp,
