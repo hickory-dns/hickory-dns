@@ -13,6 +13,7 @@
 
 use std::fs::File;
 use std::io;
+use std::env;
 use std::io::Read;
 use std::path::Path;
 use std::net::SocketAddr;
@@ -20,13 +21,22 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use resolv_conf;
+use hostname::get_hostname;
 
 use trust_dns_proto::rr::Name;
 use config::*;
 
 
 pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
-    read_resolv_conf("/etc/resolv.conf")
+    let mut config = read_resolv_conf("/etc/resolv.conf")?;
+    if let Ok(domain) = env::var("LOCALDOMAIN") {
+        // FIXME: do we really want to fail here?
+        config.0.set_domain(Name::from_str(&domain)?);
+    } else if let Some(name) = get_hostname() {
+        // FIXME: do we really want to fail here?
+        config.0.set_domain(Name::from_str(&name)?);
+    }
+    Ok(config)
 }
 
 fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {

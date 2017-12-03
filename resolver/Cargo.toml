@@ -52,5 +52,8 @@ lru-cache = "^0.1.1"
 tokio-core = "^0.1"
 trust-dns-proto = { version = "^0.2", path = "../proto" }
 
-[target.'cfg(windows)'.dependencies]
-ipconfig = { version = "^0.1.4" }
+[target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
+ipconfig = { version = "^0.1.1", optional = true }
+
+[target."cfg(unix)".dependencies]
+hostname = { version = "^0.1.3" }
