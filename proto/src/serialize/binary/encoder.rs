@@ -119,7 +119,7 @@ impl<'a> BinEncoder<'a> {
     /// The location is the current position in the buffer
     ///  implicitly, it is expected that the name will be written to the stream after the current index.
     pub fn store_label_pointer(&mut self, labels: Vec<Rc<String>>) {
-        if self.offset < 0x3FFFusize {
+        if self.offset < 0x3FFF_usize {
             self.name_pointers.insert(labels, self.offset as u16); // the next char will be at the len() location
         }
     }
