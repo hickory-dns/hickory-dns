@@ -187,13 +187,15 @@ impl From<u16> for RecordType {
     }
 }
 
-impl BinSerializable<RecordType> for RecordType {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
-        decoder.read_u16().map(Self::from)
-    }
-
+impl BinEncodable for RecordType {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_u16((*self).into())
+    }
+}
+
+impl BinSerializable for RecordType {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
+        decoder.read_u16().map(Self::from)
     }
 }
 

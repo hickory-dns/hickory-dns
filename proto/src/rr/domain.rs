@@ -619,7 +619,14 @@ enum ParseState {
     Escape3(u32, u32),
 }
 
-impl BinSerializable<Name> for Name {
+impl BinEncodable for Name {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        let is_canonical_names = encoder.is_canonical_names();
+        self.emit_as_canonical(encoder, is_canonical_names)
+    }
+}
+
+impl BinSerializable for Name {
     /// parses the chain of labels
     ///  this has a max of 255 octets, with each label being less than 63.
     ///  all names will be stored lowercase internally.
@@ -697,11 +704,6 @@ impl BinSerializable<Name> for Name {
             is_fqdn: true,
             labels: labels,
         })
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        let is_canonical_names = encoder.is_canonical_names();
-        self.emit_as_canonical(encoder, is_canonical_names)
     }
 }
 

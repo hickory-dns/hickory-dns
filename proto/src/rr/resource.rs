@@ -225,7 +225,40 @@ impl IntoRecordSet for Record {
     }
 }
 
-impl BinSerializable<Record> for Record {
+impl BinEncodable for Record {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        self.name_labels.emit(encoder)?;
+        self.rr_type.emit(encoder)?;
+        self.dns_class.emit(encoder)?;
+        encoder.emit_u32(self.ttl)?;
+
+        // gah... need to write rdata before we know the size of rdata...
+        // TODO: should we skip the fixed size header and write the rdata first? then write the header?
+        let mut tmp_buf: Vec<u8> = Vec::with_capacity(512);
+        {
+            let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(
+                &mut tmp_buf,
+                encoder.offset() + 2, /*for u16 len*/
+                EncodeMode::Normal,
+            );
+            self.rdata.emit(&mut tmp_encoder)?;
+        }
+
+        assert!(tmp_buf.len() <= u16::max_value() as usize);
+
+        encoder.emit_u16(tmp_buf.len() as u16)?;
+        encoder.reserve(tmp_buf.len());
+
+        tmp_buf.reverse();
+        while let Some(byte) = tmp_buf.pop() {
+            encoder.emit(byte)?;
+        }
+
+        Ok(())
+    }
+}
+
+impl BinSerializable for Record {
     /// parse a resource record line example:
     ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Record> {
@@ -282,37 +315,6 @@ impl BinSerializable<Record> for Record {
             ttl: ttl,
             rdata: rdata,
         })
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        self.name_labels.emit(encoder)?;
-        self.rr_type.emit(encoder)?;
-        self.dns_class.emit(encoder)?;
-        encoder.emit_u32(self.ttl)?;
-
-        // gah... need to write rdata before we know the size of rdata...
-        // TODO: should we skip the fixed size header and write the rdata first? then write the header?
-        let mut tmp_buf: Vec<u8> = Vec::with_capacity(512);
-        {
-            let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(
-                &mut tmp_buf,
-                encoder.offset() + 2, /*for u16 len*/
-                EncodeMode::Normal,
-            );
-            self.rdata.emit(&mut tmp_encoder)?;
-        }
-
-        assert!(tmp_buf.len() <= u16::max_value() as usize);
-
-        encoder.emit_u16(tmp_buf.len() as u16)?;
-        encoder.reserve(tmp_buf.len());
-
-        tmp_buf.reverse();
-        while let Some(byte) = tmp_buf.pop() {
-            encoder.emit(byte)?;
-        }
-
-        Ok(())
     }
 }
 

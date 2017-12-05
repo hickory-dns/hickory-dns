@@ -21,7 +21,7 @@ use std::mem;
 
 use error::*;
 use rr::{Record, RecordType};
-use serialize::binary::{BinDecoder, BinEncoder, BinSerializable, EncodeMode};
+use serialize::binary::{BinDecoder, BinEncodable, BinEncoder, BinSerializable, EncodeMode};
 use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
@@ -79,6 +79,10 @@ pub struct Message {
     sig0: Vec<Record>,
     edns: Option<Edns>,
 }
+
+trait DnsMessage {}
+
+impl DnsMessage for Message {}
 
 impl Message {
     /// Returns a new "empty" Message
@@ -664,7 +668,39 @@ impl MessageFinalizer for NoopMessageFinalizer {
     }
 }
 
-impl BinSerializable<Message> for Message {
+impl BinEncodable for Message {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        // clone the header to set the counts lazily
+        let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
+        self.update_header_counts(include_sig0).emit(encoder)?;
+
+        for q in &self.queries {
+            q.emit(encoder)?;
+        }
+
+        // TODO this feels like the right place to verify the max packet size of the message,
+        //  will need to update the header for trucation and the lengths if we send less than the
+        //  full response.
+        Self::emit_records(encoder, &self.answers)?;
+        Self::emit_records(encoder, &self.name_servers)?;
+        Self::emit_records(encoder, &self.additionals)?;
+
+        if let Some(edns) = self.edns() {
+            // need to commit the error code
+            Record::from(edns).emit(encoder)?;
+        }
+
+        // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
+        //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
+        //  part of the additionals section.
+        if include_sig0 {
+            Self::emit_records(encoder, &self.sig0)?;
+        }
+        Ok(())
+    }
+}
+
+impl BinSerializable for Message {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
         let header = Header::read(decoder)?;
 
@@ -696,36 +732,6 @@ impl BinSerializable<Message> for Message {
             sig0: sig0,
             edns: edns,
         })
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        // clone the header to set the counts lazily
-        let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
-        self.update_header_counts(include_sig0).emit(encoder)?;
-
-        for q in &self.queries {
-            q.emit(encoder)?;
-        }
-
-        // TODO this feels like the right place to verify the max packet size of the message,
-        //  will need to update the header for trucation and the lengths if we send less than the
-        //  full response.
-        Self::emit_records(encoder, &self.answers)?;
-        Self::emit_records(encoder, &self.name_servers)?;
-        Self::emit_records(encoder, &self.additionals)?;
-
-        if let Some(edns) = self.edns() {
-            // need to commit the error code
-            Record::from(edns).emit(encoder)?;
-        }
-
-        // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
-        //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
-        //  part of the additionals section.
-        if include_sig0 {
-            Self::emit_records(encoder, &self.sig0)?;
-        }
-        Ok(())
     }
 }
 
