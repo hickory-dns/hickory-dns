@@ -28,51 +28,62 @@ pub mod bin_tests;
 
 use error::*;
 
-/// A trait for types which are serializable
-pub trait BinSerializable<S: Sized> {
-    /// Read the type from the stream
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<S>;
-
+/// A type which can be encoded into a DNS binary format
+pub trait BinEncodable {
     /// Write the type to the stream
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
 }
 
-impl BinSerializable<u16> for u16 {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<u16> {
-        decoder.read_u16()
-    }
+/// A trait for types which are serializable to and from DNS binary formats
+pub trait BinSerializable: BinEncodable + Sized {
+    /// Read the type from the stream
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self>;
+}
 
+impl BinEncodable for u16 {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_u16(*self)
     }
 }
 
-impl BinSerializable<i32> for i32 {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<i32> {
-        decoder.read_i32()
+impl BinSerializable for u16 {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
+        decoder.read_u16()
     }
+}
 
+impl BinEncodable for i32 {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_i32(*self)
     }
 }
 
-impl BinSerializable<u32> for u32 {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<u32> {
-        decoder.read_u32()
+impl BinSerializable for i32 {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<i32> {
+        decoder.read_i32()
     }
+}
 
+impl BinEncodable for u32 {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_u32(*self)
     }
 }
 
-impl BinSerializable<Vec<u8>> for Vec<u8> {
-    fn read(_: &mut BinDecoder) -> ProtoResult<Vec<u8>> {
-        panic!("do not know amount to read in this context")
+impl BinSerializable for u32 {
+    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
+        decoder.read_u32()
     }
+}
 
+impl BinEncodable for Vec<u8> {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         encoder.emit_vec(self)
+    }
+}
+
+impl BinSerializable for Vec<u8> {
+    fn read(_: &mut BinDecoder) -> ProtoResult<Self> {
+        panic!("do not know amount to read in this context")
     }
 }
