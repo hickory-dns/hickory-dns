@@ -15,12 +15,13 @@
  */
 use std::collections::HashMap;
 use std::sync::Arc as Rc;
+use byteorder::{ByteOrder, NetworkEndian};
 
 use error::{ProtoErrorKind, ProtoResult};
 
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder<'a> {
-    offset: u32,
+    offset: usize,
     buffer: &'a mut Vec<u8>,
     // TODO, it would be cool to make this slices, but then the stored slice needs to live longer
     //  than the callee of store_pointer which isn't obvious right now.
@@ -55,7 +56,7 @@ impl<'a> BinEncoder<'a> {
     /// * `offset` - index at which to start writing into the buffer
     pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32, mode: EncodeMode) -> Self {
         BinEncoder {
-            offset: offset,
+            offset: offset as usize,
             buffer: buf,
             name_pointers: HashMap::new(),
             mode: mode,
@@ -80,7 +81,7 @@ impl<'a> BinEncoder<'a> {
 
     /// Returns the current offset into the buffer
     pub fn offset(&self) -> u32 {
-        self.offset
+        self.offset as u32
     }
 
     /// Returns the current Encoding mode
@@ -98,10 +99,13 @@ impl<'a> BinEncoder<'a> {
         self.canonical_names
     }
 
-    /// Reserve specified length in the internal buffer
-    pub fn reserve(&mut self, extra: usize) {
-        self.buffer.reserve(extra);
+    /// Reserve specified length in the internal buffer.
+    pub fn reserve(&mut self, len: usize) {
+        if self.buffer.capacity() - self.buffer.len() < len {
+            self.buffer.reserve(512.max(len));
+        }
     }
+
 
     /// Emit one byte into the buffer
     pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
@@ -115,7 +119,7 @@ impl<'a> BinEncoder<'a> {
     /// The location is the current position in the buffer
     ///  implicitly, it is expected that the name will be written to the stream after the current index.
     pub fn store_label_pointer(&mut self, labels: Vec<Rc<String>>) {
-        if self.offset < 0x3FFFu32 {
+        if self.offset < 0x3FFFusize {
             self.name_pointers.insert(labels, self.offset as u16); // the next char will be at the len() location
         }
     }
@@ -142,17 +146,9 @@ impl<'a> BinEncoder<'a> {
         if char_bytes.len() > 255 {
             return Err(ProtoErrorKind::CharacterDataTooLong(char_bytes.len()).into());
         }
-
-        self.buffer.reserve(char_bytes.len() + 1); // reserve the full space for the string and length marker
+        self.reserve(char_bytes.len() + 1); // reserve the full space for the string and length marker
         self.emit(char_bytes.len() as u8)?;
-
-        // a separate writer isn't necessary for label since it's the same first byte that's being written
-
-        // TODO use append() once it stabalizes
-        for b in char_bytes {
-            self.emit(*b)?;
-        }
-
+        self.write_slice(char_bytes);
         Ok(())
     }
 
@@ -163,59 +159,44 @@ impl<'a> BinEncoder<'a> {
 
     /// Writes a u16 in network byte order to the buffer
     pub fn emit_u16(&mut self, data: u16) -> ProtoResult<()> {
-        self.buffer.reserve(2); // two bytes coming
-
-        let b1: u8 = (data >> 8 & 0xFF) as u8;
-        let b2: u8 = (data & 0xFF) as u8;
-
-        self.emit(b1)?;
-        self.emit(b2)?;
-
+        let mut bytes = [0; 2];
+        {
+            NetworkEndian::write_u16(&mut bytes, data);
+        }
+        self.write_slice(&bytes);
         Ok(())
     }
 
     /// Writes an i32 in network byte order to the buffer
     pub fn emit_i32(&mut self, data: i32) -> ProtoResult<()> {
-        self.buffer.reserve(4); // four bytes coming...
-
-        let b1: u8 = (data >> 24 & 0xFF) as u8;
-        let b2: u8 = (data >> 16 & 0xFF) as u8;
-        let b3: u8 = (data >> 8 & 0xFF) as u8;
-        let b4: u8 = (data & 0xFF) as u8;
-
-        self.emit(b1)?;
-        self.emit(b2)?;
-        self.emit(b3)?;
-        self.emit(b4)?;
-
+        let mut bytes = [0; 4];
+        {
+            NetworkEndian::write_i32(&mut bytes, data);
+        }
+        self.write_slice(&bytes);
         Ok(())
     }
 
     /// Writes an u32 in network byte order to the buffer
     pub fn emit_u32(&mut self, data: u32) -> ProtoResult<()> {
-        self.buffer.reserve(4); // four bytes coming...
-
-        let b1: u8 = (data >> 24 & 0xFF) as u8;
-        let b2: u8 = (data >> 16 & 0xFF) as u8;
-        let b3: u8 = (data >> 8 & 0xFF) as u8;
-        let b4: u8 = (data & 0xFF) as u8;
-
-        self.emit(b1)?;
-        self.emit(b2)?;
-        self.emit(b3)?;
-        self.emit(b4)?;
-
+        let mut bytes = [0; 4];
+        {
+            NetworkEndian::write_u32(&mut bytes, data);
+        }
+        self.write_slice(&bytes);
         Ok(())
+    }
+
+    fn write_slice(&mut self, data: &[u8]) {
+        // TODO: check whether this is better that letting `Vec.extend_from_slice` do the reservation.
+        self.reserve(data.len());
+        self.buffer.extend_from_slice(data);
+        self.offset += data.len();
     }
 
     /// Writes the byte slice to the stream
     pub fn emit_vec(&mut self, data: &[u8]) -> ProtoResult<()> {
-        self.buffer.reserve(data.len());
-
-        for i in data {
-            self.emit(*i)?;
-        }
-
+        self.write_slice(data);
         Ok(())
     }
 }
