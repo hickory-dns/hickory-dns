@@ -47,6 +47,7 @@ name = "trust_dns_proto"
 path = "src/lib.rs"
 
 [dependencies]
+byteorder = "^1.2.1"
 data-encoding = { version = "2.1.0", optional = true }
 error-chain = "0.1.12"
 futures = "^0.1.17"

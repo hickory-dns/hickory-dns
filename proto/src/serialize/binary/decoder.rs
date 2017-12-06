@@ -14,6 +14,7 @@
  * limitations under the License.
  */
 use error::{ProtoErrorKind, ProtoResult};
+use byteorder::{ByteOrder, NetworkEndian};
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -142,8 +143,6 @@ impl<'a> BinDecoder<'a> {
         if end > self.buffer.len() {
             return Err(ProtoErrorKind::Message("buffer exhausted").into());
         }
-
-
         let slice: &'a [u8] = &self.buffer[self.index..end];
         self.index += len;
         Ok(slice)
@@ -163,11 +162,7 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the u16 from the buffer
     pub fn read_u16(&mut self) -> ProtoResult<u16> {
-        let b1: u8 = self.pop()?;
-        let b2: u8 = self.pop()?;
-
-        // translate from network byte order, i.e. big endian
-        Ok((u16::from(b1) << 8) + u16::from(b2))
+        Ok(NetworkEndian::read_u16(self.read_slice(2)?))
     }
 
     /// Reads the next four bytes into i32.
@@ -179,17 +174,7 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the i32 from the buffer
     pub fn read_i32(&mut self) -> ProtoResult<i32> {
-        // TODO should this use a default rather than the panic! that will happen in the None case?
-        let b1: u8 = self.pop()?;
-        let b2: u8 = self.pop()?;
-        let b3: u8 = self.pop()?;
-        let b4: u8 = self.pop()?;
-
-        // translate from network byte order, i.e. big endian
-        Ok(
-            (i32::from(b1) << 24) + (i32::from(b2) << 16) + (i32::from(b3) << 8)
-                + (i32::from(b4) as i32),
-        )
+        Ok(NetworkEndian::read_i32(self.read_slice(4)?))
     }
 
     /// Reads the next four bytes into u32.
@@ -201,14 +186,7 @@ impl<'a> BinDecoder<'a> {
     ///
     /// Return the u32 from the buffer
     pub fn read_u32(&mut self) -> ProtoResult<u32> {
-        // TODO should this use a default rather than the panic! that will happen in the None case?
-        let b1: u8 = self.pop()?;
-        let b2: u8 = self.pop()?;
-        let b3: u8 = self.pop()?;
-        let b4: u8 = self.pop()?;
-
-        // translate from network byte order, i.e. big endian
-        Ok((u32::from(b1) << 24) + (u32::from(b2) << 16) + (u32::from(b3) << 8) + u32::from(b4))
+        Ok(NetworkEndian::read_u32(self.read_slice(4)?))
     }
 }
 

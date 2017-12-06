@@ -30,6 +30,7 @@ extern crate tokio_io;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 extern crate url;
+extern crate byteorder;
 
 use std::marker::PhantomData;
 use std::net::SocketAddr;
