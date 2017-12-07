@@ -29,8 +29,6 @@ categories = ["network-programming"]
 # be separated with a `/`
 license = "MIT/Apache-2.0"
 
-build = "build.rs"
-
 [badges]
 travis-ci = { repository = "bluejekyll/trust-dns" }
 appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
@@ -46,18 +44,17 @@ dnssec = []
 name = "trust_dns_resolver"
 path = "src/lib.rs"
 
-[build-dependencies]
-lalrpop = "^0.13.1"
-
 [dependencies]
+resolv-conf = { git = "https://github.com/little-dude/resolv-conf", branch = "domain" }
 error-chain = "0.1.12"
 futures = "^0.1.17"
-lalrpop-util = "^0.13.1"
 log = "^0.3.5"
 lru-cache = "^0.1.1"
-regex = "0.2.1"
 tokio-core = "^0.1"
 trust-dns-proto = { version = "^0.2", path = "../proto" }
 
 [target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
 ipconfig = { version = "^0.1.1", optional = true }
+
+[target."cfg(unix)".dependencies]
+hostname = { version = "^0.1.3" }
