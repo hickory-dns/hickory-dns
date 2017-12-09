@@ -17,19 +17,46 @@
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::collections::HashMap;
+use std::io;
 use std::sync::RwLock;
 
-use trust_dns::op::{Edns, Message, MessageType, OpCode, Query, ResponseCode, UpdateMessage};
+use trust_dns::op::{Edns, Header, Message, MessageType, OpCode, Query, ResponseCode, UpdateMessage};
 use trust_dns::rr::{Name, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
-use server::{Request, RequestHandler};
+use server::{Request, RequestHandler, ResponseHandler};
 
-use authority::{AuthLookup, Authority, ZoneType};
+use authority::{AuthLookup, Authority, MessageResponse, ZoneType};
 
 /// Set of authorities, zones, available to this server.
 pub struct Catalog {
     authorities: HashMap<Name, RwLock<Authority>>,
+}
+
+fn send_response<R: ResponseHandler + 'static>(
+    response_edns: Option<Edns>,
+    mut response: MessageResponse,
+    response_handle: R,
+) -> io::Result<()> {
+    if let Some(mut resp_edns) = response_edns {
+        // set edns DAU and DHU
+        // send along the algorithms which are supported by this authority
+        let mut algorithms = SupportedAlgorithms::new();
+        algorithms.set(Algorithm::RSASHA256);
+        algorithms.set(Algorithm::ECDSAP256SHA256);
+        algorithms.set(Algorithm::ECDSAP384SHA384);
+        algorithms.set(Algorithm::ED25519);
+
+        let dau = EdnsOption::DAU(algorithms);
+        let dhu = EdnsOption::DHU(algorithms);
+
+        resp_edns.set_option(dau);
+        resp_edns.set_option(dhu);
+
+        response.set_edns(resp_edns);
+    }
+
+    response_handle.send(response)
 }
 
 impl RequestHandler for Catalog {
@@ -38,16 +65,22 @@ impl RequestHandler for Catalog {
     /// # Arguments
     ///
     /// * `request` - the requested action to perform.
-    fn handle_request(&self, request: &Request) -> Message {
+    /// * `response_handle` - sink for the response message to be sent
+    fn handle_request<'q, 'a, R: ResponseHandler + 'static>(
+        &'a self,
+        request: &'q Request,
+        response_handle: R,
+    ) -> io::Result<()> {
         let request_message = &request.message;
         trace!("request: {:?}", request_message);
 
-        let mut resp_edns_opt: Option<Edns> = None;
+        let response_edns: Option<Edns>;
 
         // check if it's edns
         if let Some(req_edns) = request_message.edns() {
-            let mut response = Message::new();
-            response.set_id(request_message.id());
+            let mut response = MessageResponse::new(Some(request_message.queries()));
+            let mut response_header = Header::default();
+            response_header.set_id(request_message.id());
 
             let mut resp_edns: Edns = Edns::new();
 
@@ -55,11 +88,7 @@ impl RequestHandler for Catalog {
             // TODO: what version are we?
             let our_version = 0;
             resp_edns.set_dnssec_ok(true);
-            resp_edns.set_max_payload(if req_edns.max_payload() < 512 {
-                512
-            } else {
-                req_edns.max_payload()
-            });
+            resp_edns.set_max_payload(req_edns.max_payload().max(512));
             resp_edns.set_version(our_version);
 
             if req_edns.version() > our_version {
@@ -68,80 +97,52 @@ impl RequestHandler for Catalog {
                     our_version,
                     req_edns.version()
                 );
-                response.set_response_code(ResponseCode::BADVERS);
-                response.set_edns(resp_edns);
-                return response;
+                response_header.set_response_code(ResponseCode::BADVERS);
+                response.edns(resp_edns);
+
+                // TODO: should ResponseHandle consume self?
+                return response_handle.send(response.build(response_header));
             }
 
-            // TODO: add padding for private key hashing, need better knowledge of the length of the
-            //   response.
-            // resp_edns.set_option()
-
-            resp_edns_opt = Some(resp_edns);
+            response_edns = Some(resp_edns);
+        } else {
+            response_edns = None;
         }
 
-        let mut response: Message = match request_message.message_type() {
+        match request_message.message_type() {
             // TODO think about threading query lookups for multiple lookups, this could be a huge improvement
             //  especially for recursive lookups
-            MessageType::Query => {
-                match request_message.op_code() {
-                    OpCode::Query => {
-                        let response = self.lookup(request_message);
-                        trace!("query response: {:?}", response);
-                        response
-                        // TODO, handle recursion here or in the catalog?
-                        // recursive queries should be cached.
-                    }
-                    OpCode::Update => {
-                        let response = self.update(request_message);
-                        trace!("update response: {:?}", response);
-                        response
-                    }
-                    c => {
-                        error!("unimplemented op_code: {:?}", c);
-                        Message::error_msg(
-                            request_message.id(),
-                            request_message.op_code(),
-                            ResponseCode::NotImp,
-                        )
-                    }
+            MessageType::Query => match request_message.op_code() {
+                OpCode::Query => {
+                    return self.lookup(&request_message, response_edns, response_handle)
                 }
-            }
+                OpCode::Update => {
+                    return self.update(request_message, response_edns, response_handle)
+                }
+                c @ _ => {
+                    error!("unimplemented op_code: {:?}", c);
+                    let response = MessageResponse::new(Some(request_message.queries()));
+                    return response_handle.send(response.error_msg(
+                        request_message.id(),
+                        request_message.op_code(),
+                        ResponseCode::NotImp,
+                    ));
+                }
+            },
             MessageType::Response => {
                 warn!(
                     "got a response as a request from id: {}",
                     request_message.id()
                 );
-                Message::error_msg(
+                let response = MessageResponse::new(Some(request_message.queries()));
+
+                return response_handle.send(response.error_msg(
                     request_message.id(),
                     request_message.op_code(),
-                    ResponseCode::NotImp,
-                )
+                    ResponseCode::FormErr,
+                ));
             }
         };
-
-        if let Some(mut resp_edns) = resp_edns_opt {
-            // set edns DAU and DHU
-            // send along the algorithms which are supported by this authority
-            let mut algorithms = SupportedAlgorithms::new();
-            algorithms.set(Algorithm::RSASHA256);
-            algorithms.set(Algorithm::ECDSAP256SHA256);
-            algorithms.set(Algorithm::ECDSAP384SHA384);
-            algorithms.set(Algorithm::ED25519);
-
-            let dau = EdnsOption::DAU(algorithms);
-            let dhu = EdnsOption::DHU(algorithms);
-
-            resp_edns.set_option(dau);
-            resp_edns.set_option(dhu);
-
-            response.set_edns(resp_edns);
-            // TODO: if DNSSec supported, sign the package with SIG0
-            // get this servers private key ideally use pkcs11
-            // sign response and then add SIG0 or TSIG to response
-        }
-
-        response
     }
 }
 
@@ -211,11 +212,18 @@ impl Catalog {
     /// # Arguments
     ///
     /// * `request` - an update message
-    pub fn update(&self, update: &Message) -> Message {
-        let mut response: Message = Message::new();
-        response.set_id(update.id());
-        response.set_op_code(OpCode::Update);
-        response.set_message_type(MessageType::Response);
+    /// * `response_handle` - sink for the response message to be sent
+    pub fn update<'q, R: ResponseHandler + 'static>(
+        &self,
+        update: &'q Message,
+        response_edns: Option<Edns>,
+        response_handle: R,
+    ) -> io::Result<()> {
+        let response = MessageResponse::new(None);
+        let mut response_header = Header::default();
+        response_header.set_id(update.id());
+        response_header.set_op_code(OpCode::Update);
+        response_header.set_message_type(MessageType::Response);
 
         let zones: &[Query] = update.zones();
 
@@ -226,8 +234,13 @@ impl Catalog {
         //  The ZNAME is the zone name, the ZTYPE must be SOA, and the ZCLASS is
         //  the zone's class.
         if zones.len() != 1 || zones[0].query_type() != RecordType::SOA {
-            response.set_response_code(ResponseCode::FormErr);
-            return response;
+            response_header.set_response_code(ResponseCode::FormErr);
+
+            return send_response(
+                response_edns,
+                response.build(response_header),
+                response_handle,
+            );
         }
 
         if let Some(authority) = self.find_auth_recurse(zones[0].name()) {
@@ -235,30 +248,50 @@ impl Catalog {
             match authority.zone_type() {
                 ZoneType::Slave => {
                     error!("slave forwarding for update not yet implemented");
-                    response.set_response_code(ResponseCode::NotImp);
-                    return response;
+                    response_header.set_response_code(ResponseCode::NotImp);
+
+                    return send_response(
+                        response_edns,
+                        response.build(response_header),
+                        response_handle,
+                    );
                 }
                 ZoneType::Master => {
                     let update_result = authority.update(update);
                     match update_result {
                         // successful update
                         Ok(..) => {
-                            response.set_response_code(ResponseCode::NoError);
+                            response_header.set_response_code(ResponseCode::NoError);
                         }
                         Err(response_code) => {
-                            response.set_response_code(response_code);
+                            response_header.set_response_code(response_code);
                         }
                     }
-                    return response;
+
+                    return send_response(
+                        response_edns,
+                        response.build(response_header),
+                        response_handle,
+                    );
                 }
                 _ => {
-                    response.set_response_code(ResponseCode::NotAuth);
-                    return response;
+                    response_header.set_response_code(ResponseCode::NotAuth);
+
+                    return send_response(
+                        response_edns,
+                        response.build(response_header),
+                        response_handle,
+                    );
                 }
             }
         } else {
-            response.set_response_code(ResponseCode::NXDomain);
-            response
+            response_header.set_response_code(ResponseCode::NXDomain);
+
+            return send_response(
+                response_edns,
+                response.build(response_header),
+                response_handle,
+            );
         }
     }
 
@@ -267,13 +300,13 @@ impl Catalog {
     /// # Arguments
     ///
     /// * `request` - the query message.
-    pub fn lookup(&self, request: &Message) -> Message {
-        let mut response: Message = Message::new();
-        response.set_id(request.id());
-        response.set_op_code(OpCode::Query);
-        response.set_message_type(MessageType::Response);
-        response.add_queries(request.queries().into_iter().cloned());
-
+    /// * `response_handle` - sink for the response message to be sent
+    pub fn lookup<'q, R: ResponseHandler + 'static>(
+        &self,
+        request: &'q Message,
+        response_edns: Option<Edns>,
+        response_handle: R,
+    ) -> io::Result<()> {
         // TODO: the spec is very unclear on what to do with multiple queries
         //  we will search for each, in the future, maybe make this threaded to respond even faster.
         for query in request.queries() {
@@ -284,6 +317,13 @@ impl Catalog {
                     request.id(),
                     authority.origin()
                 );
+
+                let mut response = MessageResponse::new(Some(request.queries()));
+                let mut response_header = Header::new();
+                response_header.set_id(request.id());
+                response_header.set_op_code(OpCode::Query);
+                response_header.set_message_type(MessageType::Response);
+
                 let (is_dnssec, supported_algorithms) = request.edns().map_or(
                     (false, SupportedAlgorithms::new()),
                     |edns| {
@@ -310,33 +350,41 @@ impl Catalog {
 
                 let records = authority.search(query, is_dnssec, supported_algorithms);
                 if !records.is_empty() {
-                    response.set_response_code(ResponseCode::NoError);
-                    response.set_authoritative(true);
-                    response.add_answers(records.iter().cloned());
+                    response_header.set_response_code(ResponseCode::NoError);
+                    response_header.set_authoritative(true);
+                    // TODO: this is not incorrect, but could be cleaner with a `match` on records
+                    response.answers(records.unwrap());
 
                     // get the NS records
                     let ns = authority.ns(is_dnssec, supported_algorithms);
                     if ns.is_empty() {
                         warn!("there are no NS records for: {:?}", authority.origin());
                     } else {
-                        response.add_name_servers(ns.iter().cloned());
+                        // TODO: this is not incorrect, but could be cleaner with a `match` on records
+                        response.name_servers(ns.unwrap());
                     }
                 } else {
                     // in the not found case it's standard to return the SOA in the authority section
                     //   if the name is in this zone, etc.
                     // see https://tools.ietf.org/html/rfc2308 for proper response construct
                     match records {
-                        AuthLookup::NoName => response.set_response_code(ResponseCode::NXDomain),
-                        AuthLookup::NameExists => response.set_response_code(ResponseCode::NoError),
+                        AuthLookup::NoName => {
+                            response_header.set_response_code(ResponseCode::NXDomain)
+                        }
+                        AuthLookup::NameExists => {
+                            response_header.set_response_code(ResponseCode::NoError)
+                        }
                         AuthLookup::Records(..) => panic!(
                             "programming error, should have return NoError with records above"
                         ),
                     };
 
+                    let mut ns = vec![];
+
                     // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
                     if is_dnssec {
                         // get NSEC records
-                        let nsecs = authority.get_nsec_records(
+                        let mut nsecs = authority.get_nsec_records(
                             query.name(),
                             is_dnssec,
                             supported_algorithms,
@@ -346,8 +394,9 @@ impl Catalog {
                             request.id(),
                             nsecs.len()
                         );
-                        response.add_name_servers(nsecs.into_iter().cloned());
-                        response.set_response_code(ResponseCode::NoError);
+
+                        ns.append(&mut nsecs);
+                        response_header.set_response_code(ResponseCode::NoError);
                     } else {
                         info!("request: {} non-existent", request.id());
                     }
@@ -356,19 +405,27 @@ impl Catalog {
                     if soa.is_empty() {
                         warn!("there is no SOA record for: {:?}", authority.origin());
                     } else {
-                        response.add_name_servers(soa.iter().cloned());
+                        // TODO: this is not incorrect, but could be cleaner with a `match` on records
+                        ns.append(&mut soa.unwrap());
                     }
+
+                    response.name_servers(ns);
                 }
-            } else {
-                // we found nothing.
-                // TODO: improve: see https://tools.ietf.org/html/rfc2308 for proper response construct
-                response.set_response_code(ResponseCode::NXDomain);
+
+                return send_response(
+                    response_edns,
+                    response.build(response_header),
+                    response_handle,
+                );
             }
         }
 
-        // TODO: a lot of authorities do a recursive query for non-A or AAAA records, and return those in
-        //  additional
-        response
+        let response = MessageResponse::new(Some(request.queries()));
+        return send_response(
+            response_edns,
+            response.error_msg(request.id(), request.op_code(), ResponseCode::NXDomain),
+            response_handle,
+        );
     }
 
     /// recursively searches the catalog for a matching auhtority.

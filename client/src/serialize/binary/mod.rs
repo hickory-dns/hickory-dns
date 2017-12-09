@@ -20,5 +20,6 @@ use trust_dns_proto::serialize::binary;
 
 pub use self::binary::BinSerializable;
 pub use self::binary::BinDecoder;
+pub use self::binary::BinEncodable;
 pub use self::binary::BinEncoder;
 pub use self::binary::EncodeMode;

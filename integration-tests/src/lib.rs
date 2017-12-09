@@ -8,7 +8,7 @@ extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::fmt;
 use std::io;
 
@@ -23,10 +23,11 @@ use trust_dns::client::ClientConnection;
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
 use trust_dns_proto::{DnsStreamHandle, StreamHandle};
+use trust_dns_proto::op::DnsMessage;
 use trust_dns_proto::error::FromProtoError;
 
 use trust_dns_server::authority::Catalog;
-use trust_dns_server::server::{Request, RequestHandler};
+use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
 
 pub mod authority;
 pub mod mock_client;
@@ -55,6 +56,37 @@ impl TestClientStream {
     }
 }
 
+#[derive(Clone)]
+pub struct TestResponseHandler {
+    buf: Arc<Mutex<Vec<u8>>>,
+}
+
+impl TestResponseHandler {
+    pub fn new() -> Self {
+        let buf = Arc::new(Mutex::new(Vec::with_capacity(512)));
+        TestResponseHandler { buf }
+    }
+
+    pub fn into_inner(self) -> Vec<u8> {
+        Arc::try_unwrap(self.buf).unwrap().into_inner().unwrap()
+    }
+
+    pub fn into_message(self) -> Message {
+        let bytes = self.into_inner();
+        let mut decoder = BinDecoder::new(&bytes);
+        Message::read(&mut decoder).expect("could not decode message")
+    }
+}
+
+impl ResponseHandler for TestResponseHandler {
+    fn send<M: DnsMessage>(self, response: M) -> io::Result<()> {
+        let buf = &mut self.buf.lock().unwrap();
+        let mut encoder = BinEncoder::new(buf);
+        response.emit(&mut encoder).expect("could not encode");
+        Ok(())
+    }
+}
+
 impl Stream for TestClientStream {
     type Item = Vec<u8>;
     type Error = io::Error;
@@ -77,14 +109,13 @@ impl Stream for TestClientStream {
                         .parse()
                         .expect("cannot parse host and port"),
                 };
-                let response = self.catalog.handle_request(&request);
 
-                let mut buf = Vec::with_capacity(512);
-                {
-                    let mut encoder = BinEncoder::new(&mut buf);
-                    response.emit(&mut encoder).expect("could not encode");
-                }
+                let response_handler = TestResponseHandler::new();
+                self.catalog
+                    .handle_request(&request, response_handler.clone())
+                    .unwrap();
 
+                let buf = response_handler.into_inner();
                 Ok(Async::Ready(Some(buf)))
             }
             // now we get to drop through to the receives...

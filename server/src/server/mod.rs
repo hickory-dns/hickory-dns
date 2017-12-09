@@ -20,10 +20,11 @@ mod request_stream;
 mod server_future;
 mod timeout_stream;
 mod request_handler;
+mod response_handler;
 
 pub use self::request_stream::Request;
 pub use self::request_stream::RequestStream;
-pub use self::request_stream::ResponseHandle;
+pub use self::response_handler::{ResponseHandle, ResponseHandler};
 pub use self::server_future::ServerFuture;
 pub use self::timeout_stream::TimeoutStream;
 pub use self::request_handler::RequestHandler;

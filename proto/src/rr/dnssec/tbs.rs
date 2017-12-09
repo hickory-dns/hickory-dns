@@ -5,7 +5,7 @@ use op::Message;
 use rr::{DNSClass, Name, RData, Record, RecordType};
 use rr::dnssec::Algorithm;
 use super::rdata::{sig, DNSSECRData, SIG};
-use serialize::binary::{BinEncoder, BinSerializable, EncodeMode};
+use serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 
 /// Data To Be Signed.
 pub struct TBS(Vec<u8>);

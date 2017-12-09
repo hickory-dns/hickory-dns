@@ -17,7 +17,7 @@
 
 use error::*;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use serialize::binary::{BinEncoder, BinSerializable};
+use serialize::binary::{BinEncodable, BinEncoder};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::Name;
 #[cfg(any(feature = "openssl", feature = "ring"))]
