@@ -19,6 +19,8 @@ use byteorder::{ByteOrder, NetworkEndian};
 
 use error::{ProtoErrorKind, ProtoResult};
 
+use super::BinEncodable;
+
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder<'a> {
     offset: usize,
@@ -197,6 +199,30 @@ impl<'a> BinEncoder<'a> {
     /// Writes the byte slice to the stream
     pub fn emit_vec(&mut self, data: &[u8]) -> ProtoResult<()> {
         self.write_slice(data);
+        Ok(())
+    }
+
+    /// Emits all the elements of an Iterator to the encoder
+    pub fn emit_all<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
+        &mut self,
+        iter: I,
+    ) -> ProtoResult<()> {
+        for i in iter {
+            i.emit(self)?
+        }
+        Ok(())
+    }
+
+    /// Emits all the elements of an Iterator to the encoder
+    pub fn emit_all_refs<'r, 'e, I, E>(&mut self, iter: I) -> ProtoResult<()>
+    where
+        'e: 'r,
+        I: Iterator<Item = &'r &'e E>,
+        E: 'r + 'e + BinEncodable,
+    {
+        for i in iter {
+            i.emit(self)?
+        }
         Ok(())
     }
 }

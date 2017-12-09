@@ -11,6 +11,7 @@ use trust_dns::rr::rdata::*;
 
 use trust_dns_server::authority::*;
 
+use trust_dns_integration::*;
 use trust_dns_integration::authority::create_example;
 
 pub fn create_test() -> Authority {
@@ -144,7 +145,11 @@ fn test_catalog_lookup() {
 
     question.add_query(query);
 
-    let result: Message = catalog.lookup(&question);
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(&question, None, response_handler.clone())
+        .unwrap();
+    let result = response_handler.into_message();
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -179,7 +184,11 @@ fn test_catalog_lookup() {
 
     question.add_query(query);
 
-    let result: Message = catalog.lookup(&question);
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(&question, None, response_handler.clone())
+        .unwrap();
+    let result = response_handler.into_message();
 
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -209,7 +218,11 @@ fn test_catalog_nx_soa() {
 
     question.add_query(query);
 
-    let result: Message = catalog.lookup(&question);
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(&question, None, response_handler.clone())
+        .unwrap();
+    let result = response_handler.into_message();
 
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.message_type(), MessageType::Response);
@@ -262,7 +275,12 @@ fn test_axfr() {
     let mut question: Message = Message::new();
     question.add_query(query);
 
-    let result: Message = catalog.lookup(&question);
+    let response_handler = TestResponseHandler::new();
+    catalog
+        .lookup(&question, None, response_handler.clone())
+        .unwrap();
+    let result = response_handler.into_message();
+
     let mut answers: Vec<Record> = result.answers().to_vec();
 
     assert_eq!(answers.first().unwrap(), &soa);

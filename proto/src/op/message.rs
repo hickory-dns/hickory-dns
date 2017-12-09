@@ -80,9 +80,97 @@ pub struct Message {
     edns: Option<Edns>,
 }
 
-trait DnsMessage {}
+/// A generic DnsMessage with associated information for streaming to a connection
+pub trait DnsMessage {
+    /// The Header associated with this Message
+    fn header(&self) -> &Header;
 
-impl DnsMessage for Message {}
+    /// return the length of the set of queries
+    fn queries_len(&self) -> usize;
+
+    /// Emit the queries section of the DnsMessage, if there are none, it's acceptable to return Ok(())
+    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
+
+    /// return the length of the set of queries
+    fn answers_len(&self) -> usize;
+
+    /// Emit the answers section of the DnsMessage, if there are none, it's acceptable to return Ok(())
+    fn emit_answers(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
+
+    /// return the length of the set of queries
+    fn name_servers_len(&self) -> usize;
+
+    /// Emit the name_servers section of the DnsMessage, if there are none, it's acceptable to return Ok(())
+    fn emit_name_servers(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
+
+    /// return the length of the set of queries
+    fn additionals_len(&self) -> usize;
+
+    /// Emit the additionals section of the DnsMessage, if there are none, it's acceptable to return Ok(())
+    fn emit_additionals(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
+
+    /// Extended DNS options associated with this message
+    fn edns(&self) -> Option<&Edns>;
+
+    /// Any SIG0 records for signed messages
+    fn sig0(&self) -> &[Record];
+
+    /// Returns a new Header with accurate counts for each Message section
+    fn update_header_counts(&self, include_sig0: bool) -> Header {
+        assert!(self.queries_len() <= u16::max_value() as usize);
+        assert!(self.answers_len() <= u16::max_value() as usize);
+        assert!(self.name_servers_len() <= u16::max_value() as usize);
+
+        let mut additional_count = self.additionals_len();
+
+        if self.edns().is_some() {
+            additional_count += 1
+        }
+        if include_sig0 {
+            additional_count += self.sig0().len()
+        };
+
+        assert!(additional_count <= u16::max_value() as usize);
+
+        self.header().clone(
+            self.queries_len() as u16,
+            self.answers_len() as u16,
+            self.name_servers_len() as u16,
+            additional_count as u16,
+        )
+    }
+}
+
+macro_rules! section {
+    ($s:ident, $l:ident, $e:ident) => {
+        fn $l(&self) -> usize {
+            self.$s.len()
+        }
+
+        fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+            encoder.emit_all(self.$s.iter())
+        }
+    }
+}
+
+impl DnsMessage for Message {
+    fn header(&self) -> &Header {
+        &self.header
+    }
+
+    section!(queries, queries_len, emit_queries);
+    section!(answers, answers_len, emit_answers);
+    section!(name_servers, name_servers_len, emit_name_servers);
+    section!(additionals, additionals_len, emit_additionals);
+
+    fn edns(&self) -> Option<&Edns> {
+        Message::edns(self)
+    }
+
+    fn sig0(&self) -> &[Record] {
+        Message::sig0(self)
+    }
+}
 
 impl Message {
     /// Returns a new "empty" Message
@@ -493,29 +581,6 @@ impl Message {
         self
     }
 
-    fn update_header_counts(&self, include_sig0: bool) -> Header {
-        assert!(self.queries.len() <= u16::max_value() as usize);
-        assert!(self.answers.len() <= u16::max_value() as usize);
-        assert!(self.name_servers.len() <= u16::max_value() as usize);
-        assert!(self.additionals.len() + self.sig0.len() <= u16::max_value() as usize);
-
-        let mut additional_count = self.additionals.len();
-
-        if self.edns.is_some() {
-            additional_count += 1
-        }
-        if include_sig0 {
-            additional_count += self.sig0.len()
-        };
-
-        self.header.clone(
-            self.queries.len() as u16,
-            self.answers.len() as u16,
-            self.name_servers.len() as u16,
-            additional_count as u16,
-        )
-    }
-
     #[cfg_attr(not(feature = "dnssec"), allow(unused_mut))]
     fn read_records(
         decoder: &mut BinDecoder,
@@ -668,22 +733,19 @@ impl MessageFinalizer for NoopMessageFinalizer {
     }
 }
 
-impl BinEncodable for Message {
+impl<M: DnsMessage> BinEncodable for M {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         // clone the header to set the counts lazily
         let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
         self.update_header_counts(include_sig0).emit(encoder)?;
 
-        for q in &self.queries {
-            q.emit(encoder)?;
-        }
-
-        // TODO this feels like the right place to verify the max packet size of the message,
+        // TODO: this feels like the right place to verify the max packet size of the message,
         //  will need to update the header for trucation and the lengths if we send less than the
         //  full response.
-        Self::emit_records(encoder, &self.answers)?;
-        Self::emit_records(encoder, &self.name_servers)?;
-        Self::emit_records(encoder, &self.additionals)?;
+        self.emit_queries(encoder)?;
+        self.emit_answers(encoder)?;
+        self.emit_name_servers(encoder)?;
+        self.emit_additionals(encoder)?;
 
         if let Some(edns) = self.edns() {
             // need to commit the error code
@@ -694,7 +756,7 @@ impl BinEncodable for Message {
         //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
         //  part of the additionals section.
         if include_sig0 {
-            Self::emit_records(encoder, &self.sig0)?;
+            Message::emit_records(encoder, self.sig0())?;
         }
         Ok(())
     }

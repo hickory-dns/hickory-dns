@@ -5,8 +5,10 @@ use futures::{Async, Poll, Stream};
 
 use trust_dns::BufStreamHandle;
 use trust_dns::error::ClientError;
-use trust_dns::op::Message;
-use trust_dns::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
+use trust_dns_proto::op::Message;
+use trust_dns::serialize::binary::{BinDecoder, BinSerializable};
+
+use server::ResponseHandle;
 
 /// An incoming request to the DNS catalog
 pub struct Request {
@@ -75,10 +77,8 @@ where
                                 message: message,
                                 src: addr,
                             };
-                            let response_handle = ResponseHandle {
-                                dst: addr,
-                                stream_handle: self.stream_handle.clone(),
-                            };
+                            let response_handle =
+                                ResponseHandle::new(addr, self.stream_handle.clone());
                             return Ok(Async::Ready(Some((request, response_handle))));
                         }
                         // on errors, we will loop around and see if more are ready
@@ -95,35 +95,5 @@ where
                 }
             }
         }
-    }
-}
-
-/// A handler for wraping a BufStreamHandle, which will properly serialize the message and add the
-///  associated destination.
-pub struct ResponseHandle {
-    dst: SocketAddr,
-    stream_handle: BufStreamHandle<ClientError>,
-}
-
-impl ResponseHandle {
-    /// Serializes and sends a message to to the wrapped handle
-    pub fn send(&mut self, response: Message) -> io::Result<()> {
-        debug!("sending message: {}", response.id());
-        let mut buffer = Vec::with_capacity(512);
-        let encode_result = {
-            let mut encoder: BinEncoder = BinEncoder::new(&mut buffer);
-            response.emit(&mut encoder)
-        };
-
-        encode_result.map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("error encoding message: {}", e),
-            )
-        })?;
-
-        self.stream_handle
-            .unbounded_send((buffer, self.dst))
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
     }
 }

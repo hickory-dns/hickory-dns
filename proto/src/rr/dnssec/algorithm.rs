@@ -157,15 +157,17 @@ impl Algorithm {
     }
 }
 
-impl BinSerializable<Algorithm> for Algorithm {
+impl BinEncodable for Algorithm {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        encoder.emit(u8::from(*self))
+    }
+}
+
+impl BinSerializable for Algorithm {
     // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Algorithm> {
         let algorithm_id = decoder.read_u8()?;
         Algorithm::from_u8(algorithm_id)
-    }
-
-    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        encoder.emit(u8::from(*self))
     }
 }
 

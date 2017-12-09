@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -226,7 +226,7 @@ impl<T: RequestHandler> ServerFuture<T> {
 
     fn handle_request(
         request: Request,
-        mut response_handle: ResponseHandle,
+        response_handle: ResponseHandle,
         handler: Arc<T>,
     ) -> io::Result<()> {
         info!(
@@ -245,17 +245,8 @@ impl<T: RequestHandler> ServerFuture<T> {
                 .map(|q| q.to_string())
                 .unwrap_or_else(|| "empty_queries".to_string()),
         );
-        let response = handler.handle_request(&request);
 
-        info!(
-            "request: {} response_code: {} answers: {} name_servers: {} additionals: {}",
-            request.message.id(),
-            response.response_code(),
-            response.answers().len(),
-            response.name_servers().len(),
-            response.additionals().len(),
-        );
-        response_handle.send(response)
+        handler.handle_request(&request, response_handle)
     }
 }
 
