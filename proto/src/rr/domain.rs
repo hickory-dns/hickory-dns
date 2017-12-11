@@ -242,9 +242,9 @@ impl Name {
     /// use trust_dns_proto::rr::domain::Name;
     /// use std::cmp::Ordering;
     ///
-    /// let example_com = Name::from(&["Example", "Com"]);
-    /// assert_eq!(example_com.cmp_with_case(&Name::from(&["example", "com"]), false), Ordering::Less);
-    /// assert_eq!(example_com.to_lowercase().cmp_with_case(&Name::from(&["example", "com"]), false), Ordering::Equal);
+    /// let example_com = Name::from(&["Example", "Com"] as &[_]);
+    /// assert_eq!(example_com.cmp_with_case(&Name::from(&["example", "com"] as &[_]), false), Ordering::Less);
+    /// assert_eq!(example_com.to_lowercase().cmp_with_case(&Name::from(&["example", "com"] as &[_]), false), Ordering::Equal);
     /// ```
     pub fn to_lowercase(&self) -> Self {
         let mut new_labels = Vec::with_capacity(self.labels.len());
@@ -264,9 +264,9 @@ impl Name {
     /// ```
     /// use trust_dns_proto::rr::domain::Name;
     ///
-    /// let example_com = Name::from(&["example", "com"]);
-    /// assert_eq!(example_com.base_name(), Name::from(&["com"]));
-    /// assert_eq!(Name::from(&["com"]).base_name(), Name::root());
+    /// let example_com = Name::from(&["example", "com"] as &[_]);
+    /// assert_eq!(example_com.base_name(), Name::from(&["com"] as &[_]));
+    /// assert_eq!(Name::from(&["com"] as &[_]).base_name(), Name::root());
     /// assert_eq!(Name::root().base_name(), Name::root());
     /// ```
     pub fn base_name(&self) -> Name {
@@ -284,9 +284,9 @@ impl Name {
     /// ```
     /// use trust_dns_proto::rr::domain::Name;
     ///
-    /// let example_com = Name::from(&["example", "com"]);
-    /// assert_eq!(example_com.trim_to(2), Name::from(&["example", "com"]));
-    /// assert_eq!(example_com.trim_to(1), Name::from(&["com"]));
+    /// let example_com = Name::from(&["example", "com"] as &[_]);
+    /// assert_eq!(example_com.trim_to(2), Name::from(&["example", "com"] as &[_]));
+    /// assert_eq!(example_com.trim_to(1), Name::from(&["com"] as &[_]));
     /// assert_eq!(example_com.trim_to(0), Name::root());
     /// ```
     pub fn trim_to(&self, num_labels: usize) -> Name {
@@ -308,10 +308,10 @@ impl Name {
     /// ```rust
     /// use trust_dns_proto::rr::domain::Name;
     ///
-    /// let name = Name::from(&["www", "example", "com"]);
-    /// let name = Name::from(&["www", "example", "com"]);
-    /// let zone = Name::from(&["example", "com"]);
-    /// let another = Name::from(&["example", "net"]);
+    /// let name = Name::from(&["www", "example", "com"] as &[_]);
+    /// let name = Name::from(&["www", "example", "com"] as &[_]);
+    /// let zone = Name::from(&["example", "com"] as &[_]);
+    /// let another = Name::from(&["example", "net"] as &[_]);
     /// assert!(zone.zone_of(&name));
     /// assert!(!another.zone_of(&name));
     /// ```
@@ -351,10 +351,10 @@ impl Name {
     /// let root = Name::root();
     /// assert_eq!(root.num_labels(), 0);
     ///
-    /// let example_com = Name::from(&["example", "com"]);
+    /// let example_com = Name::from(&["example", "com"] as &[_]);
     /// assert_eq!(example_com.num_labels(), 2);
     ///
-    /// let star_example_com = Name::from(&["*", "example", "com"]);
+    /// let star_example_com = Name::from(&["*", "example", "com"] as &[_]);
     /// assert_eq!(star_example_com.num_labels(), 2);
     /// ```
     pub fn num_labels(&self) -> u8 {
@@ -394,7 +394,7 @@ impl Name {
     /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let name = Name::parse("example.com.", None).unwrap();
-    /// assert_eq!(name.base_name(), Name::from(&["com"]));
+    /// assert_eq!(name.base_name(), Name::from(&["com"] as &[_]));
     /// assert_eq!(*name[0], String::from("example"));
     /// ```
     pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
@@ -866,13 +866,13 @@ mod tests {
     fn get_data() -> Vec<(Name, Vec<u8>)> {
         vec![
             (Name::new(), vec![0]),                           // base case, only the root
-            (Name::from(&["a"]), vec![1, b'a', 0]), // a single 'a' label
+            (Name::from(&["a"] as &[_]), vec![1, b'a', 0]), // a single 'a' label
             (
-                Name::from(&["a", "bc"]),
+                Name::from(&["a", "bc"] as &[_]),
                 vec![1, b'a', 2, b'b', b'c', 0],
             ), // two labels, 'a.bc'
             (
-                Name::from(&["a", "♥"]),
+                Name::from(&["a", "♥"] as &[_]),
                 vec![1, b'a', 3, 0xE2, 0x99, 0xA5, 0],
             ), // two labels utf8, 'a.♥'
         ]
@@ -880,12 +880,12 @@ mod tests {
 
     #[test]
     fn test_num_labels() {
-        assert_eq!(Name::from(&["*"]).num_labels(), 0);
-        assert_eq!(Name::from(&["a"]).num_labels(), 1);
-        assert_eq!(Name::from(&["*", "b"]).num_labels(), 1);
-        assert_eq!(Name::from(&["a", "b"]).num_labels(), 2);
-        assert_eq!(Name::from(&["*", "b", "c"]).num_labels(), 2);
-        assert_eq!(Name::from(&["a", "b", "c"]).num_labels(), 3);
+        assert_eq!(Name::from(&["*"] as &[_]).num_labels(), 0);
+        assert_eq!(Name::from(&["a"] as &[_]).num_labels(), 1);
+        assert_eq!(Name::from(&["*", "b"] as &[_]).num_labels(), 1);
+        assert_eq!(Name::from(&["a", "b"] as &[_]).num_labels(), 2);
+        assert_eq!(Name::from(&["*", "b", "c"] as &[_]).num_labels(), 2);
+        assert_eq!(Name::from(&["a", "b", "c"] as &[_]).num_labels(), 3);
     }
 
     #[test]
@@ -902,10 +902,10 @@ mod tests {
     fn test_pointer() {
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
 
-        let first = Name::from(&["ra", "rb", "rc"]);
-        let second = Name::from(&["rb", "rc"]);
-        let third = Name::from(&["rc"]);
-        let fourth = Name::from(&["z", "ra", "rb", "rc"]);
+        let first = Name::from(&["ra", "rb", "rc"] as &[_]);
+        let second = Name::from(&["rb", "rc"] as &[_]);
+        let third = Name::from(&["rc"] as &[_]);
+        let fourth = Name::from(&["z", "ra", "rb", "rc"] as &[_]);
 
         {
             let mut e = BinEncoder::new(&mut bytes);
@@ -942,18 +942,18 @@ mod tests {
 
     #[test]
     fn test_base_name() {
-        let zone = Name::from(&["example", "com"]);
+        let zone = Name::from(&["example", "com"] as &[_]);
 
-        assert_eq!(zone.base_name(), Name::from(&["com"]));
+        assert_eq!(zone.base_name(), Name::from(&["com"] as &[_]));
         assert!(zone.base_name().base_name().is_root());
         assert!(zone.base_name().base_name().base_name().is_root());
     }
 
     #[test]
     fn test_zone_of() {
-        let zone = Name::from(&["example", "com"]);
-        let www = Name::from(&["www", "example", "com"]);
-        let none = Name::from(&["none", "com"]);
+        let zone = Name::from(&["example", "com"] as &[_]);
+        let www = Name::from(&["www", "example", "com"] as &[_]);
+        let none = Name::from(&["none", "com"] as &[_]);
         let root = Name::root();
 
         assert!(zone.zone_of(&zone));
@@ -965,9 +965,9 @@ mod tests {
 
     #[test]
     fn test_zone_of_case() {
-        let zone = Name::from(&["examplE", "cOm"]);
-        let www = Name::from(&["www", "example", "com"]);
-        let none = Name::from(&["none", "com"]);
+        let zone = Name::from(&["examplE", "cOm"] as &[_]);
+        let www = Name::from(&["www", "example", "com"] as &[_]);
+        let none = Name::from(&["none", "com"] as &[_]);
 
         assert!(zone.zone_of(&zone));
         assert!(zone.zone_of(&www));
@@ -1058,7 +1058,7 @@ mod tests {
     #[test]
     fn test_from_ipv4() {
         let ip = IpAddr::V4(Ipv4Addr::new(26, 3, 0, 103));
-        let name = Name::from(&["103", "0", "3", "26", "in-addr", "arpa"]);
+        let name = Name::from(&["103", "0", "3", "26", "in-addr", "arpa"] as &[_]);
 
         assert_eq!(Into::<Name>::into(ip), name);
     }
@@ -1101,7 +1101,7 @@ mod tests {
             "2",
             "ip6",
             "arpa",
-        ]);
+        ] as &[_]);
 
         assert_eq!(Into::<Name>::into(ip), name);
     }
@@ -1110,7 +1110,7 @@ mod tests {
     fn test_from_str() {
         assert_eq!(
             Name::from_str("www.example.com.").unwrap(),
-            Name::from(&["www", "example", "com"])
+            Name::from(&["www", "example", "com"] as &[_])
         );
         assert_eq!(
             Name::from_str(".").unwrap(),
@@ -1123,7 +1123,7 @@ mod tests {
         assert!(Name::root().is_fqdn());
         assert!(Name::from_str(".").unwrap().is_fqdn());
         assert!(Name::from_str("www.example.com.").unwrap().is_fqdn());
-        assert!(Name::from(&["www", "example", "com"]).is_fqdn());
+        assert!(Name::from(&["www", "example", "com"] as &[_]).is_fqdn());
 
         assert!(!Name::new().is_fqdn());
         assert!(!Name::from_str("www.example.com").unwrap().is_fqdn());

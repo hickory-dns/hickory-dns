@@ -148,7 +148,7 @@ pub fn test() {
     use rr::dnssec::rdata::DNSSECRecordType;
 
     let rdata = NSEC::new(
-        Name::from(vec!["www", "example", "com"]),
+        Name::from(&["www", "example", "com"] as &[_]),
         vec![
             RecordType::A,
             RecordType::AAAA,

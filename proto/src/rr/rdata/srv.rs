@@ -237,7 +237,7 @@ fn test() {
         1,
         2,
         3,
-        Name::from(&["_dns_tcp", "example", "com"]),
+        Name::from(&["_dns_tcp", "example", "com"] as &[_]),
     );
 
     let mut bytes = Vec::new();

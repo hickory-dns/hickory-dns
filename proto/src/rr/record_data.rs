@@ -613,7 +613,7 @@ mod tests {
     fn get_data() -> Vec<(RData, Vec<u8>)> {
         vec![
             (
-                RData::CNAME(Name::from(&["www", "example", "com"])),
+                RData::CNAME(Name::from(&["www", "example", "com"] as &[_])),
                 vec![
                     3,
                     b'w',
@@ -635,11 +635,11 @@ mod tests {
                 ],
             ),
             (
-                RData::MX(MX::new(256, Name::from(&["n"]))),
+                RData::MX(MX::new(256, Name::from(&["n"] as &[_]))),
                 vec![1, 0, 1, b'n', 0],
             ),
             (
-                RData::NS(Name::from(&["www", "example", "com"])),
+                RData::NS(Name::from(&["www", "example", "com"] as &[_])),
                 vec![
                     3,
                     b'w',
@@ -661,7 +661,7 @@ mod tests {
                 ],
             ),
             (
-                RData::PTR(Name::from(&["www", "example", "com"])),
+                RData::PTR(Name::from(&["www", "example", "com"] as &[_])),
                 vec![
                     3,
                     b'w',
@@ -684,8 +684,8 @@ mod tests {
             ),
             (
                 RData::SOA(SOA::new(
-                    Name::from(&["www", "example", "com"]),
-                    Name::from(&["xxx", "example", "com"]),
+                    Name::from(&["www", "example", "com"] as &[_]),
+                    Name::from(&["xxx", "example", "com"] as &[_]),
                     u32::max_value(),
                     -1 as i32,
                     -1 as i32,
@@ -775,7 +775,7 @@ mod tests {
                     1,
                     2,
                     3,
-                    Name::from(&["www", "example", "com"]),
+                    Name::from(&["www", "example", "com"] as &[_]),
                 )),
                 vec![
                     0x00,
@@ -816,15 +816,15 @@ mod tests {
                 1,
                 2,
                 3,
-                Name::from(&["www", "example", "com"]),
+                Name::from(&["www", "example", "com"] as &[_]),
             )),
-            RData::MX(MX::new(256, Name::from(&["n"]))),
-            RData::CNAME(Name::from(&["www", "example", "com"])),
-            RData::PTR(Name::from(&["www", "example", "com"])),
-            RData::NS(Name::from(&["www", "example", "com"])),
+            RData::MX(MX::new(256, Name::from(&["n"] as &[_]))),
+            RData::CNAME(Name::from(&["www", "example", "com"] as &[_])),
+            RData::PTR(Name::from(&["www", "example", "com"] as &[_])),
+            RData::NS(Name::from(&["www", "example", "com"] as &[_])),
             RData::SOA(SOA::new(
-                Name::from(&["www", "example", "com"]),
-                Name::from(&["xxx", "example", "com"]),
+                Name::from(&["www", "example", "com"] as &[_]),
+                Name::from(&["xxx", "example", "com"] as &[_]),
                 u32::max_value(),
                 -1 as i32,
                 -1 as i32,
@@ -839,13 +839,13 @@ mod tests {
             ])),
         ];
         let mut unordered = vec![
-            RData::CNAME(Name::from(&["www", "example", "com"])),
-            RData::MX(MX::new(256, Name::from(&["n"]))),
-            RData::PTR(Name::from(&["www", "example", "com"])),
-            RData::NS(Name::from(&["www", "example", "com"])),
+            RData::CNAME(Name::from(&["www", "example", "com"] as &[_])),
+            RData::MX(MX::new(256, Name::from(&["n"] as &[_]))),
+            RData::PTR(Name::from(&["www", "example", "com"] as &[_])),
+            RData::NS(Name::from(&["www", "example", "com"] as &[_])),
             RData::SOA(SOA::new(
-                Name::from(&["www", "example", "com"]),
-                Name::from(&["xxx", "example", "com"]),
+                Name::from(&["www", "example", "com"] as &[_]),
+                Name::from(&["xxx", "example", "com"] as &[_]),
                 u32::max_value(),
                 -1 as i32,
                 -1 as i32,
@@ -864,7 +864,7 @@ mod tests {
                 1,
                 2,
                 3,
-                Name::from(&["www", "example", "com"]),
+                Name::from(&["www", "example", "com"] as &[_]),
             )),
         ];
 
