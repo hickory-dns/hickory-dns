@@ -195,7 +195,7 @@ fn client_thread_www<C: ClientConnection>(conn: C)
 where
     C::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
-    let name = Name::from_labels(vec!["www", "example", "com"]);
+    let name = Name::from(&["www", "example", "com"] as &[_]);
     let client = SyncClient::new(conn);
 
     let response = client

@@ -175,8 +175,8 @@ fn test_authorize() {
 
 #[test]
 fn test_prerequisites() {
-    let not_zone = Name::from_labels(vec!["not", "a", "domain", "com"]);
-    let not_in_zone = Name::from_labels(vec!["not", "example", "com"]);
+    let not_zone = Name::from(&["not", "a", "domain", "com"] as &[_]);
+    let not_in_zone = Name::from(&["not", "example", "com"] as &[_]);
 
     let mut authority: Authority = create_example();
     authority.set_allow_update(true);
@@ -372,8 +372,8 @@ fn test_prerequisites() {
 
 #[test]
 fn test_pre_scan() {
-    let up_name = Name::from_labels(vec!["www", "example", "com"]);
-    let not_zone = Name::from_labels(vec!["not", "zone", "com"]);
+    let up_name = Name::from(&["www", "example", "com"] as &[_]);
+    let not_zone = Name::from(&["not", "zone", "com"] as &[_]);
 
     let authority: Authority = create_example();
 
@@ -619,8 +619,8 @@ fn test_pre_scan() {
 
 #[test]
 fn test_update() {
-    let new_name = Name::from_labels(vec!["new", "example", "com"]);
-    let www_name = Name::from_labels(vec!["www", "example", "com"]);
+    let new_name = Name::from(&["new", "example", "com"] as &[_]);
+    let www_name = Name::from(&["www", "example", "com"] as &[_]);
     let mut authority: Authority = create_example();
     let serial = authority.serial();
 
@@ -952,7 +952,7 @@ fn test_zone_signing() {
 
 #[test]
 fn test_get_nsec() {
-    let name = Name::from_labels(vec!["zzz", "example", "com"]);
+    let name = Name::from(&["zzz", "example", "com"] as &[_]);
     let authority: Authority = create_secure_example();
 
     let results = authority.get_nsec_records(&name, true, SupportedAlgorithms::all());
@@ -973,8 +973,8 @@ fn test_journal() {
     authority.set_journal(journal);
     authority.persist_to_journal().unwrap();
 
-    let new_name = Name::from_labels(vec!["new", "example", "com"]);
-    let delete_name = Name::from_labels(vec!["www", "example", "com"]);
+    let new_name = Name::from(&["new", "example", "com"] as &[_]);
+    let delete_name = Name::from(&["www", "example", "com"] as &[_]);
     let new_record = Record::new()
         .set_name(new_name.clone())
         .set_rdata(RData::A(Ipv4Addr::new(10, 11, 12, 13)))
