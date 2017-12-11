@@ -19,6 +19,8 @@
 mod decoder;
 mod encoder;
 
+use super::Label;
+
 pub use self::decoder::BinDecoder;
 pub use self::encoder::BinEncoder;
 pub use self::encoder::EncodeMode;

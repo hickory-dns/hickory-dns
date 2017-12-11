@@ -256,8 +256,8 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> ProtoResult<()> {
 #[test]
 fn test() {
     let rdata = SOA::new(
-        Name::from_labels(vec!["m", "example", "com"]),
-        Name::from_labels(vec!["r", "example", "com"]),
+        Name::from(&["m", "example", "com"]),
+        Name::from(&["r", "example", "com"]),
         1,
         2,
         3,

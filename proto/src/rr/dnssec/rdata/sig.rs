@@ -546,7 +546,7 @@ fn test() {
         2,
         1,
         5,
-        Name::from_labels(vec!["www", "example", "com"]),
+        Name::from(vec!["www", "example", "com"]),
         vec![
             0,
             1,
