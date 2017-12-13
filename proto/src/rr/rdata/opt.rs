@@ -249,15 +249,14 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<()> {
+pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<u16> {
+    let start_idx = encoder.offset();
     for (edns_code, edns_option) in opt.options().iter() {
         encoder.emit_u16(u16::from(*edns_code))?;
         encoder.emit_u16(edns_option.len())?;
-
-        let data: Vec<u8> = Vec::from(edns_option);
-        encoder.emit_vec(&data)?
+        edns_option.emit(encoder)?
     }
-    Ok(())
+    Ok((encoder.offset() - start_idx) as u16)
 }
 
 #[derive(Debug, PartialEq, Eq)]
@@ -407,6 +406,18 @@ impl EdnsOption {
             | EdnsOption::DHU(ref algorithms)
             | EdnsOption::N3U(ref algorithms) => algorithms.is_empty(),
             EdnsOption::Unknown(_, ref data) => data.is_empty(),
+        }
+    }
+}
+
+impl BinEncodable for EdnsOption {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        match *self {
+            #[cfg(feature = "dnssec")]
+            EdnsOption::DAU(ref algorithms)
+            | EdnsOption::DHU(ref algorithms)
+            | EdnsOption::N3U(ref algorithms) => algorithms.emit(encoder),
+            EdnsOption::Unknown(_, ref data) => encoder.emit_vec(data), // gah, clone needed or make a crazy api.
         }
     }
 }

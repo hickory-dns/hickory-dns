@@ -520,7 +520,8 @@ impl RData {
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
             RData::NULL(ref null) => rdata::null::emit(encoder, null),
-            RData::OPT(ref opt) => rdata::opt::emit(encoder, opt),
+            // TODO: have all rdatas return length written
+            RData::OPT(ref opt) => rdata::opt::emit(encoder, opt).map(|_| ()),
             // to_lowercase for rfc4034 and rfc6840
             RData::SOA(ref soa) => rdata::soa::emit(encoder, soa),
             // to_lowercase for rfc4034 and rfc6840

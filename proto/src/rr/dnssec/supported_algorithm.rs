@@ -20,7 +20,9 @@ use std::convert::From;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 
+use error::*;
 use rr::dnssec::Algorithm;
+use serialize::binary::{BinEncodable, BinEncoder};
 
 /// Used to specify the set of SupportedAlgorithms between a client and server
 #[derive(Debug, PartialOrd, PartialEq, Eq, Clone, Copy, Hash)]
@@ -189,6 +191,14 @@ impl<'a> Iterator for SupportedAlgorithmsIter<'a> {
     }
 }
 
+impl BinEncodable for SupportedAlgorithms {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        for a in self.iter() {
+            encoder.emit_u8(a.into())?;
+        }
+        Ok(())
+    }
+}
 
 #[test]
 fn test_has() {

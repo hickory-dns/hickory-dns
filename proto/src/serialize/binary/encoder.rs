@@ -16,6 +16,7 @@
 use std::collections::HashMap;
 use std::sync::Arc as Rc;
 use byteorder::{ByteOrder, NetworkEndian};
+use std::marker::PhantomData;
 
 use error::{ProtoErrorKind, ProtoResult};
 
@@ -224,6 +225,75 @@ impl<'a> BinEncoder<'a> {
             i.emit(self)?
         }
         Ok(())
+    }
+
+    /// capture a location to write back to
+    pub fn place<T: EncodedSize>(&mut self) -> Place<T> {
+        let index = self.offset;
+        let len = T::size_of();
+        self.offset += len;
+        self.buffer.reserve(len);
+        for _ in 0..len {
+            self.buffer.push(0_u8);
+        }
+
+        Place {
+            start_index: index,
+            phantom: PhantomData,
+        }
+    }
+
+    /// write back to a previously captured location
+    pub fn emit_at<T: EncodedSize>(&mut self, place: Place<T>, data: T) -> ProtoResult<()> {
+        // preserve current index
+        let current_index = self.offset;
+
+        // reset the current index back to place before writing
+        //   this is an assert because it's programming error for it to be wrong.
+        assert!(place.start_index < current_index);
+        self.offset = place.start_index;
+
+        // emit the data to be written at this place
+        let emit_result = data.emit(self);
+
+        // double check that the current number of bytes were written
+        //   this is an assert because it's programming error for it to be wrong.
+        assert!((self.offset - place.start_index) == place.size_of());
+
+        // reset to original location
+        self.offset = current_index;
+
+        emit_result
+    }
+}
+
+/// A trait to return the size of a type as it will be encoded in DNS
+///
+/// it does not necessarily equal `std::mem::size_of`, though it might, especially for primitives
+pub trait EncodedSize: BinEncodable {
+    fn size_of() -> usize;
+}
+
+impl EncodedSize for u16 {
+    fn size_of() -> usize {
+        use std::mem;
+        mem::size_of::<u16>()
+    }
+}
+
+#[must_use = "data must be written back to the place"]
+pub struct Place<T: EncodedSize> {
+    start_index: usize,
+    phantom: PhantomData<T>,
+}
+
+impl<T: EncodedSize> Place<T> {
+    pub fn replace(self, encoder: &mut BinEncoder, data: T) -> ProtoResult<()> {
+        encoder.emit_at(self, data)
+    }
+
+    pub fn size_of(&self) -> usize {
+        T::size_of()
     }
 }
 
