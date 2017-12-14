@@ -37,7 +37,6 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-default = ["ipconfig"]
 dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns-proto/dnssec-ring"]
 dnssec = []
@@ -59,5 +58,5 @@ regex = "0.2.1"
 tokio-core = "^0.1"
 trust-dns-proto = { version = "^0.2", path = "../proto" }
 
-[target.'cfg(all(windows, target_arch = "x86_64"))'.dependencies]
-ipconfig = { version = "^0.1.1", optional = true }
+[target.'cfg(windows)'.dependencies]
+ipconfig = { version = "^0.1.4" }

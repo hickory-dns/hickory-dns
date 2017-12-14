@@ -128,7 +128,7 @@
 #[macro_use]
 extern crate error_chain;
 extern crate futures;
-#[cfg(all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64"))]
+#[cfg(target_os = "windows")]
 extern crate ipconfig;
 extern crate lalrpop_util;
 #[macro_use]
