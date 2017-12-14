@@ -166,8 +166,7 @@ impl ResolverFuture {
     /// Constructs a new Resolver with the system configuration.
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
-    #[cfg(any(unix,
-              all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
+    #[cfg(any(unix, target_os = "windows"))]
     pub fn from_system_conf(reactor: &Handle) -> ResolveResult<Self> {
         let (config, options) = super::system_conf::read_system_conf()?;
         Ok(Self::new(config, options, reactor))
@@ -458,8 +457,7 @@ mod tests {
 
     #[test]
     #[ignore]
-    #[cfg(any(unix,
-              all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64")))]
+    #[cfg(any(unix, target_os = "windows"))]
     fn test_system_lookup() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();

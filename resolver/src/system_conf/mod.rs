@@ -15,7 +15,7 @@
 /// resolv.conf parser
 // TODO: make crate only...
 mod resolv_conf_ast;
-#[cfg(all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64"))]
+#[cfg(target_os = "windows")]
 mod windows;
 
 use std::fs::File;
@@ -40,8 +40,7 @@ pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
     read_resolv_conf("/etc/resolv.conf")
 }
 
-/// Support only 64-bit until https://github.com/liranringel/ipconfig/issues/1 is resolved.
-#[cfg(all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64"))]
+#[cfg(target_os = "windows")]
 pub(crate) use self::windows::read_system_conf;
 
 pub fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
