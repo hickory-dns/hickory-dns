@@ -626,7 +626,7 @@ impl BinEncodable for Name {
     }
 }
 
-impl<'r> BinSerializable<'r> for Name {
+impl<'r> BinDecodable<'r> for Name {
     /// parses the chain of labels
     ///  this has a max of 255 octets, with each label being less than 63.
     ///  all names will be stored lowercase internally.

@@ -18,7 +18,9 @@
 
 use trust_dns_proto::serialize::binary;
 
-pub use self::binary::BinSerializable;
+#[deprecated(note = "use [`trust_dns::serialize::binary::StreamHandle`] instead")]
+pub use self::binary::BinDecodable as BinSerializable;
+pub use self::binary::BinDecodable;
 pub use self::binary::BinDecoder;
 pub use self::binary::BinEncodable;
 pub use self::binary::BinEncoder;

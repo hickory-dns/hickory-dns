@@ -141,7 +141,7 @@ impl BinEncodable for Query {
     }
 }
 
-impl<'r> BinSerializable<'r> for Query {
+impl<'r> BinDecodable<'r> for Query {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let name = Name::read(decoder)?;
         let query_type = RecordType::read(decoder)?;

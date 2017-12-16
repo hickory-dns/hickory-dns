@@ -193,7 +193,7 @@ impl BinEncodable for RecordType {
     }
 }
 
-impl<'r> BinSerializable<'r> for RecordType {
+impl<'r> BinDecodable<'r> for RecordType {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
         decoder.read_u16().map(Self::from)
     }

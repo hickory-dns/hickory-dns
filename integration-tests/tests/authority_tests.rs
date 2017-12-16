@@ -12,7 +12,7 @@ use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::rr::dnssec::*;
 use trust_dns::rr::rdata::*;
-use trust_dns::serialize::binary::{BinEncodable, BinSerializable};
+use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
 
 use trust_dns_server::authority::*;
 

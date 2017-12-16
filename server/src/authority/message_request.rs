@@ -7,7 +7,7 @@
 
 use trust_dns_proto::error::*;
 use trust_dns_proto::rr::Record;
-use trust_dns_proto::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
+use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
 use trust_dns_proto::op::{Edns, EncodableMessage, Header, Message, MessageType, OpCode, Query,
                           ResponseCode};
 
@@ -174,7 +174,7 @@ impl<'r> MessageRequest<'r> {
     }
 }
 
-impl<'r> BinSerializable<'r> for MessageRequest<'r> {
+impl<'r> BinDecodable<'r> for MessageRequest<'r> {
     // TODO: generify this with Message?
     /// Reads a MessageRequest from the decoder
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {

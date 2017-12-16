@@ -93,7 +93,7 @@ impl BinEncodable for DNSClass {
     }
 }
 
-impl<'r> BinSerializable<'r> for DNSClass {
+impl<'r> BinDecodable<'r> for DNSClass {
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
         Self::from_u16(decoder.read_u16()?)
     }

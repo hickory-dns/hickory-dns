@@ -15,7 +15,7 @@ use rusqlite;
 use rusqlite::Connection;
 
 use trust_dns::rr::Record;
-use trust_dns::serialize::binary::{BinDecoder, BinEncodable, BinEncoder, BinSerializable};
+use trust_dns::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 use error::{PersistenceErrorKind, PersistenceResult};
 

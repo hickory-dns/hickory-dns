@@ -21,7 +21,7 @@ use std::mem;
 
 use error::*;
 use rr::{Record, RecordType};
-use serialize::binary::{BinDecoder, BinEncodable, BinEncoder, BinSerializable, EncodeMode};
+use serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode};
 use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
@@ -776,7 +776,7 @@ impl<M: EncodableMessage> BinEncodable for M {
     }
 }
 
-impl<'r> BinSerializable<'r> for Message {
+impl<'r> BinDecodable<'r> for Message {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let header = Header::read(decoder)?;
 

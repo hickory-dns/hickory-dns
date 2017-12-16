@@ -439,7 +439,7 @@ impl BinEncodable for Header {
     }
 }
 
-impl<'r> BinSerializable<'r> for Header {
+impl<'r> BinDecodable<'r> for Header {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let id = decoder.read_u16()?;
 
