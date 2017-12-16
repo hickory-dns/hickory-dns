@@ -439,8 +439,8 @@ impl BinEncodable for Header {
     }
 }
 
-impl BinSerializable for Header {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
+impl<'r> BinSerializable<'r> for Header {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let id = decoder.read_u16()?;
 
         let q_opcd_a_t_r = decoder.pop()?;

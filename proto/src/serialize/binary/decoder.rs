@@ -148,6 +148,15 @@ impl<'a> BinDecoder<'a> {
         Ok(slice)
     }
 
+    /// Reads a slice from a previous index to the current
+    pub fn slice_from(&self, index: usize) -> ProtoResult<&'a [u8]> {
+        if index > self.index {
+            return Err(ProtoErrorKind::Message("index antecedes upper bound").into());
+        }
+
+        Ok(&self.buffer[index..self.index])
+    }
+
     /// Reads a byte from the buffer, equivalent to `Self::pop()`
     pub fn read_u8(&mut self) -> ProtoResult<u8> {
         self.pop()
@@ -210,5 +219,27 @@ mod tests {
 
         // this should fail
         assert!(decoder.read_slice(3).is_err());
+    }
+
+    #[test]
+    fn test_read_slice_from() {
+        let deadbeef = b"deadbeef";
+        let mut decoder = BinDecoder::new(deadbeef);
+
+        decoder.read_slice_from(4).expect("failed to read dead");
+        let read = decoder.slice_from(0).expect("failed to get slice");
+        assert_eq!(read, "dead");
+
+        decoder.read_slice(2).expect("failed to read be");
+        let read = decoder.slice_from(4).expect("failed to get slice");
+        assert_eq!(read, "be");
+
+        decoder.read_slice(0).expect("failed to read nothing");
+        let read = decoder.slice_from(4).expect("failed to get slice");
+        assert_eq!(read, "be");
+
+        // this should fail
+        assert!(decoder.slice_from(6).is_err());
+        assert!(decoder.slice_from(10).is_err());
     }
 }

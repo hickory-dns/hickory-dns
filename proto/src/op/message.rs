@@ -80,33 +80,33 @@ pub struct Message {
     edns: Option<Edns>,
 }
 
-/// A generic DnsMessage with associated information for streaming to a connection
-pub trait DnsMessage {
+/// A generic EncodableMessage with associated information for streaming to a connection
+pub trait EncodableMessage {
     /// The Header associated with this Message
     fn header(&self) -> &Header;
 
     /// return the length of the set of queries
     fn queries_len(&self) -> usize;
 
-    /// Emit the queries section of the DnsMessage, if there are none, it's acceptable to return Ok(())
+    /// Emit the queries section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
 
     /// return the length of the set of queries
     fn answers_len(&self) -> usize;
 
-    /// Emit the answers section of the DnsMessage, if there are none, it's acceptable to return Ok(())
+    /// Emit the answers section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     fn emit_answers(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
 
     /// return the length of the set of queries
     fn name_servers_len(&self) -> usize;
 
-    /// Emit the name_servers section of the DnsMessage, if there are none, it's acceptable to return Ok(())
+    /// Emit the name_servers section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     fn emit_name_servers(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
 
     /// return the length of the set of queries
     fn additionals_len(&self) -> usize;
 
-    /// Emit the additionals section of the DnsMessage, if there are none, it's acceptable to return Ok(())
+    /// Emit the additionals section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     fn emit_additionals(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
 
     /// Extended DNS options associated with this message
@@ -153,7 +153,7 @@ macro_rules! section {
     }
 }
 
-impl DnsMessage for Message {
+impl EncodableMessage for Message {
     fn header(&self) -> &Header {
         &self.header
     }
@@ -572,7 +572,7 @@ impl Message {
         &self.sig0
     }
 
-    // TODO only necessary in tests, should it be removed?
+    // TODO: only necessary in tests, should it be removed?
     /// this is necessary to match the counts in the header from the record sections
     ///  this happens implicitly on write_to, so no need to call before write_to
     #[cfg(test)]
@@ -581,8 +581,22 @@ impl Message {
         self
     }
 
+    /// Attempts to read the specified number of `Query`s
+    pub fn read_queries(decoder: &mut BinDecoder, count: usize) -> ProtoResult<Vec<Query>> {
+        let mut queries = Vec::with_capacity(count);
+        for _ in 0..count {
+            queries.push(Query::read(decoder)?);
+        }
+        Ok(queries)
+    }
+
+    /// Attempts to read the specified number of records
+    ///
+    /// # Returns
+    ///
+    /// This returns a tuple of first standard Records, then a possibly associated Edns, and then finally any optionally associated SIG0 records.
     #[cfg_attr(not(feature = "dnssec"), allow(unused_mut))]
-    fn read_records(
+    pub fn read_records(
         decoder: &mut BinDecoder,
         count: usize,
         is_additional: bool,
@@ -733,7 +747,7 @@ impl MessageFinalizer for NoopMessageFinalizer {
     }
 }
 
-impl<M: DnsMessage> BinEncodable for M {
+impl<M: EncodableMessage> BinEncodable for M {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         // clone the header to set the counts lazily
         let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
@@ -762,8 +776,8 @@ impl<M: DnsMessage> BinEncodable for M {
     }
 }
 
-impl BinSerializable for Message {
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<Self> {
+impl<'r> BinSerializable<'r> for Message {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
         let header = Header::read(decoder)?;
 
         // TODO/FIXME: return just header, and in the case of the rest of message getting an error.

@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 use std;
 use std::io;
+use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
@@ -14,8 +15,12 @@ use futures::{Async, Future, Poll, Stream};
 use tokio_core;
 use tokio_core::reactor::Core;
 
+use trust_dns::error::*;
+use trust_dns::BufStreamHandle;
 use trust_dns::udp::UdpStream;
 use trust_dns::tcp::TcpStream;
+use trust_dns::serialize::binary::BinDecoder;
+use trust_dns_proto::serialize::binary::BinSerializable;
 
 #[cfg(feature = "tls")]
 use trust_dns_openssl::{tls_server, TlsStream};
@@ -23,7 +28,8 @@ use trust_dns_openssl::{tls_server, TlsStream};
 #[cfg(feature = "tls")]
 use trust_dns_openssl::tls_server::*;
 
-use server::{Request, RequestHandler, RequestStream, ResponseHandle, TimeoutStream};
+use authority::MessageRequest;
+use server::{Request, RequestHandler, ResponseHandle, TimeoutStream};
 
 // TODO, would be nice to have a Slab for buffers here...
 
@@ -48,15 +54,14 @@ impl<T: RequestHandler> ServerFuture<T> {
 
         // create the new UdpStream
         let (buf_stream, stream_handle) = UdpStream::with_bound(socket, &self.io_loop.handle());
-        let request_stream = RequestStream::new(buf_stream, stream_handle);
+        //let request_stream = RequestStream::new(buf_stream, stream_handle);
         let handler = self.handler.clone();
 
         // this spawns a ForEach future which handles all the requests into a Handler.
         self.io_loop.handle().spawn(
-            // TODO dedup with below into generic func
-            request_stream
-                .for_each(move |(request, response_handle)| {
-                    Self::handle_request(request, response_handle, handler.clone())
+            buf_stream
+                .for_each(move |(buffer, src_addr)| {
+                    Self::handle_request(buffer, src_addr, stream_handle.clone(), handler.clone())
                 })
                 .map_err(|e| debug!("error in UDP request_stream handler: {}", e)),
         );
@@ -96,14 +101,19 @@ impl<T: RequestHandler> ServerFuture<T> {
                     // take the created stream...
                     let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
                     let timeout_stream = TimeoutStream::new(buf_stream, timeout, &handle)?;
-                    let request_stream = RequestStream::new(timeout_stream, stream_handle);
+                    //let request_stream = RequestStream::new(timeout_stream, stream_handle);
                     let handler = handler.clone();
 
                     // and spawn to the io_loop
                     handle.spawn(
-                        request_stream
-                            .for_each(move |(request, response_handle)| {
-                                Self::handle_request(request, response_handle, handler.clone())
+                        timeout_stream
+                            .for_each(move |(buffer, src_addr)| {
+                                Self::handle_request(
+                                    buffer,
+                                    src_addr,
+                                    stream_handle.clone(),
+                                    handler.clone(),
+                                )
                             })
                             .map_err(move |e| {
                                 debug!(
@@ -174,16 +184,17 @@ impl<T: RequestHandler> ServerFuture<T> {
                             let (buf_stream, stream_handle) =
                                 TlsStream::from_stream(tls_stream, src_addr);
                             let timeout_stream = TimeoutStream::new(buf_stream, timeout, &handle)?;
-                            let request_stream = RequestStream::new(timeout_stream, stream_handle);
+                            //let request_stream = RequestStream::new(timeout_stream, stream_handle);
                             let handler = handler.clone();
 
                             // and spawn to the io_loop
                             handle.spawn(
-                                request_stream
-                                    .for_each(move |(request, response_handle)| {
+                                timeout_stream
+                                    .for_each(move |(buffer, addr)| {
                                         Self::handle_request(
-                                            request,
-                                            response_handle,
+                                            buffer,
+                                            addr,
+                                            stream_handle.clone(),
                                             handler.clone(),
                                         )
                                     })
@@ -225,10 +236,25 @@ impl<T: RequestHandler> ServerFuture<T> {
     }
 
     fn handle_request(
-        request: Request,
-        response_handle: ResponseHandle,
+        buffer: Vec<u8>,
+        src_addr: SocketAddr,
+        stream_handle: BufStreamHandle<ClientError>,
         handler: Arc<T>,
     ) -> io::Result<()> {
+        let response_handle = ResponseHandle::new(src_addr, stream_handle);
+
+        // TODO: rather than decoding the message here, this RequestStream should instead
+        //       forward the request to another sender such that we could pull serialization off
+        //       the IO thread.
+        // decode any messages that are ready
+        let mut decoder = BinDecoder::new(&buffer);
+        let message = MessageRequest::read(&mut decoder)?;
+
+        let request = Request {
+            message: message,
+            src: src_addr,
+        };
+
         info!(
             "request: {} type: {:?} op_code: {:?} dnssec: {} {}",
             request.message.id(),

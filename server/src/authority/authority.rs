@@ -19,13 +19,14 @@ use std::collections::BTreeMap;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
-use trust_dns::op::{Message, Query, ResponseCode};
-#[cfg(feature = "dnssec")]
-use trust_dns::op::UpdateMessage;
+use trust_dns::op::{Query, ResponseCode};
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
 
-use authority::{AuthLookup, Journal, UpdateResult, ZoneType};
+use authority::{AuthLookup, Journal, MessageRequest, UpdateResult, ZoneType};
+#[cfg(feature = "dnssec")]
+use authority::UpdateRequest;
+
 use error::{PersistenceErrorKind, PersistenceResult};
 
 
@@ -256,7 +257,7 @@ impl Authority {
     fn increment_soa_serial(&mut self) -> u32 {
         let opt_soa_serial = self.soa().iter().next().map(|soa| {
             // TODO: can we get a mut reference to SOA directly?
-            let mut soa = soa.clone();
+            let mut soa: Record = soa.clone();
 
             let serial = if let RData::SOA(ref mut soa_rdata) = *soa.rdata_mut() {
                 soa_rdata.increment_serial();
@@ -476,7 +477,7 @@ impl Authority {
     /// ```
     ///
     #[cfg(feature = "dnssec")]
-    pub fn authorize(&self, update_message: &Message) -> UpdateResult<()> {
+    pub fn authorize(&self, update_message: &MessageRequest) -> UpdateResult<()> {
         use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
         use trust_dns_proto::rr::dnssec::Verifier;
 
@@ -911,7 +912,7 @@ impl Authority {
     /// true if any of additions, updates or deletes were made to the zone, false otherwise. Err is
     ///  returned in the case of bad data, etc.
     #[cfg(feature = "dnssec")]
-    pub fn update(&mut self, update: &Message) -> UpdateResult<bool> {
+    pub fn update(&mut self, update: &MessageRequest) -> UpdateResult<bool> {
         // the spec says to authorize after prereqs, seems better to auth first.
         self.authorize(update)?;
         self.verify_prerequisites(update.prerequisites())?;
@@ -922,7 +923,7 @@ impl Authority {
 
     /// Always fail when DNSSEC is disabled.
     #[cfg(not(feature = "dnssec"))]
-    pub fn update(&mut self, _update: &Message) -> UpdateResult<bool> {
+    pub fn update(&mut self, _update: &MessageRequest) -> UpdateResult<bool> {
         Err(ResponseCode::NotImp)
     }
 

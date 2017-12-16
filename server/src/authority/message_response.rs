@@ -6,16 +6,18 @@
 // copied, modified, or distributed except according to those terms.
 
 use trust_dns_proto::error::*;
-use trust_dns_proto::op::DnsMessage;
-use trust_dns::op::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
+use trust_dns_proto::op::EncodableMessage;
+use trust_dns::op::{Edns, Header, MessageType, OpCode, ResponseCode};
 use trust_dns::rr::Record;
 use trust_dns::serialize::binary::BinEncoder;
 
-/// A DnsMessage with borrowed data for Responses in the Server
+use authority::Queries;
+
+/// A EncodableMessage with borrowed data for Responses in the Server
 #[derive(Debug)]
 pub struct MessageResponse<'q, 'a> {
     header: Header,
-    queries: Option<&'q [Query]>,
+    queries: Option<&'q Queries<'q>>,
     answers: Vec<&'a Record>,
     name_servers: Vec<&'a Record>,
     additionals: Vec<&'a Record>,
@@ -29,7 +31,7 @@ impl<'q, 'a> MessageResponse<'q, 'a> {
     /// # Arguments
     ///
     /// * `queries` - any optional set of Queries to associate with the Response
-    pub fn new(queries: Option<&'q [Query]>) -> MessageResponseBuilder<'q, 'a> {
+    pub fn new(queries: Option<&'q Queries<'q>>) -> MessageResponseBuilder<'q, 'a> {
         MessageResponseBuilder {
             queries,
             answers: None,
@@ -59,7 +61,7 @@ macro_rules! section {
     }
 }
 
-impl<'q, 'a> DnsMessage for MessageResponse<'q, 'a> {
+impl<'q, 'a> EncodableMessage for MessageResponse<'q, 'a> {
     fn header(&self) -> &Header {
         &self.header
     }
@@ -70,7 +72,7 @@ impl<'q, 'a> DnsMessage for MessageResponse<'q, 'a> {
 
     fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         if let Some(queries) = self.queries {
-            encoder.emit_all(queries.iter())
+            encoder.emit_vec(queries.as_bytes())
         } else {
             Ok(())
         }
@@ -91,7 +93,7 @@ impl<'q, 'a> DnsMessage for MessageResponse<'q, 'a> {
 
 /// A builder for MessageResponses
 pub struct MessageResponseBuilder<'q, 'a> {
-    queries: Option<&'q [Query]>,
+    queries: Option<&'q Queries<'q>>,
     answers: Option<Vec<&'a Record>>,
     name_servers: Option<Vec<&'a Record>>,
     additionals: Option<Vec<&'a Record>>,

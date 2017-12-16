@@ -8,6 +8,7 @@ use std::collections::*;
 use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::rr::rdata::*;
+use trust_dns::serialize::binary::{BinEncodable, BinSerializable};
 
 use trust_dns_server::authority::*;
 
@@ -145,9 +146,13 @@ fn test_catalog_lookup() {
 
     question.add_query(query);
 
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .unwrap();
     let result = response_handler.into_message();
 
@@ -184,9 +189,13 @@ fn test_catalog_lookup() {
 
     question.add_query(query);
 
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .unwrap();
     let result = response_handler.into_message();
 
@@ -218,9 +227,13 @@ fn test_catalog_nx_soa() {
 
     question.add_query(query);
 
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question, None, response_handler.clone())
+        .lookup(&question_req, None, response_handler.clone())
         .unwrap();
     let result = response_handler.into_message();
 
@@ -275,16 +288,20 @@ fn test_axfr() {
     let mut question: Message = Message::new();
     question.add_query(query);
 
+    // temp request
+    let question_bytes = question.to_bytes().unwrap();
+    let question_req = MessageRequest::from_bytes(&question_bytes).unwrap();
+
     let response_handler = TestResponseHandler::new();
     catalog
-        .lookup(&question, None, response_handler.clone())
-        .unwrap();
+        .lookup(&question_req, None, response_handler.clone())
+        .expect("lookup failed");
     let result = response_handler.into_message();
 
     let mut answers: Vec<Record> = result.answers().to_vec();
 
-    assert_eq!(answers.first().unwrap(), &soa);
-    assert_eq!(answers.last().unwrap(), &soa);
+    assert_eq!(answers.first().expect("no records found?"), &soa);
+    assert_eq!(answers.last().expect("no records found?"), &soa);
 
     answers.sort();
 

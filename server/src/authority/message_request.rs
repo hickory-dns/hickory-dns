@@ -1,0 +1,324 @@
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
+use trust_dns_proto::error::*;
+use trust_dns_proto::rr::Record;
+use trust_dns_proto::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
+use trust_dns_proto::op::{Edns, EncodableMessage, Header, Message, MessageType, OpCode, Query,
+                          ResponseCode};
+
+/// A Message which captures the data from an inbound request
+#[derive(Debug, PartialEq)]
+pub struct MessageRequest<'r> {
+    header: Header,
+    queries: Queries<'r>,
+    answers: Vec<Record>,
+    name_servers: Vec<Record>,
+    additionals: Vec<Record>,
+    sig0: Vec<Record>,
+    edns: Option<Edns>,
+}
+
+impl<'r> MessageRequest<'r> {
+    /// see `Header::id()`
+    pub fn id(&self) -> u16 {
+        self.header.id()
+    }
+
+    /// see `Header::message_type()`
+    pub fn message_type(&self) -> MessageType {
+        self.header.message_type()
+    }
+
+    /// see `Header::op_code()`
+    pub fn op_code(&self) -> OpCode {
+        self.header.op_code()
+    }
+
+    /// see `Header::authoritative()`
+    pub fn authoritative(&self) -> bool {
+        self.header.authoritative()
+    }
+
+    /// see `Header::truncated()`
+    pub fn truncated(&self) -> bool {
+        self.header.truncated()
+    }
+
+    /// see `Header::recursion_desired()`
+    pub fn recursion_desired(&self) -> bool {
+        self.header.recursion_desired()
+    }
+
+    /// see `Header::recursion_available()`
+    pub fn recursion_available(&self) -> bool {
+        self.header.recursion_available()
+    }
+
+    /// see `Header::authentic_data()`
+    pub fn authentic_data(&self) -> bool {
+        self.header.authentic_data()
+    }
+
+    /// see `Header::checking_disabled()`
+    pub fn checking_disabled(&self) -> bool {
+        self.header.checking_disabled()
+    }
+
+    /// # Return value
+    ///
+    /// The `ResponseCode`, if this is an EDNS message then this will join the section from the OPT
+    ///  record to create the EDNS `ResponseCode`
+    pub fn response_code(&self) -> ResponseCode {
+        ResponseCode::from(
+            self.edns.as_ref().map_or(0, |e| e.rcode_high()),
+            self.header.response_code(),
+        )
+    }
+
+    /// ```text
+    /// Question        Carries the query name and other query parameters.
+    /// ```
+    pub fn queries(&self) -> &[Query] {
+        &self.queries.queries
+    }
+
+    /// ```text
+    /// Answer          Carries RRs which directly answer the query.
+    /// ```
+    pub fn answers(&self) -> &[Record] {
+        &self.answers
+    }
+
+    /// ```text
+    /// Authority       Carries RRs which describe other authoritative servers.
+    ///                 May optionally carry the SOA RR for the authoritative
+    ///                 data in the answer section.
+    /// ```
+    pub fn name_servers(&self) -> &[Record] {
+        &self.name_servers
+    }
+
+    /// ```text
+    /// Additional      Carries RRs which may be helpful in using the RRs in the
+    ///                 other sections.
+    /// ```
+    pub fn additionals(&self) -> &[Record] {
+        &self.additionals
+    }
+
+    /// [RFC 6891, EDNS(0) Extensions, April 2013](https://tools.ietf.org/html/rfc6891#section-6.1.1)
+    ///
+    /// ```text
+    /// 6.1.1.  Basic Elements
+    ///
+    ///  An OPT pseudo-RR (sometimes called a meta-RR) MAY be added to the
+    ///  additional data section of a request.
+    ///
+    ///  The OPT RR has RR type 41.
+    ///
+    ///  If an OPT record is present in a received request, compliant
+    ///  responders MUST include an OPT record in their respective responses.
+    ///
+    ///  An OPT record does not carry any DNS data.  It is used only to
+    ///  contain control information pertaining to the question-and-answer
+    ///  sequence of a specific transaction.  OPT RRs MUST NOT be cached,
+    ///  forwarded, or stored in or loaded from master files.
+    ///
+    ///  The OPT RR MAY be placed anywhere within the additional data section.
+    ///  When an OPT RR is included within any DNS message, it MUST be the
+    ///  only OPT RR in that message.  If a query message with more than one
+    ///  OPT RR is received, a FORMERR (RCODE=1) MUST be returned.  The
+    ///  placement flexibility for the OPT RR does not override the need for
+    ///  the TSIG or SIG(0) RRs to be the last in the additional section
+    ///  whenever they are present.
+    /// ```
+    /// # Return value
+    ///
+    /// Returns the EDNS record if it was found in the additional section.
+    pub fn edns(&self) -> Option<&Edns> {
+        self.edns.as_ref()
+    }
+
+    /// Any SIG0 records for signed messages
+    pub fn sig0(&self) -> &[Record] {
+        &self.sig0
+    }
+
+    /// # Return value
+    ///
+    /// the max payload value as it's defined in the EDNS section.
+    pub fn max_payload(&self) -> u16 {
+        let max_size = self.edns.as_ref().map_or(512, |e| e.max_payload());
+        if max_size < 512 {
+            512
+        } else {
+            max_size
+        }
+    }
+
+    /// # Return value
+    ///
+    /// the version as defined in the EDNS record
+    pub fn version(&self) -> u8 {
+        self.edns.as_ref().map_or(0, |e| e.version())
+    }
+
+    /// Returns the queries passed recieved from the client
+    pub fn raw_queries(&self) -> &Queries {
+        &self.queries
+    }
+}
+
+impl<'r> BinSerializable<'r> for MessageRequest<'r> {
+    // TODO: generify this with Message?
+    /// Reads a MessageRequest from the decoder
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Self> {
+        let header = Header::read(decoder)?;
+
+        // TODO/FIXME: return just header, and in the case of the rest of message getting an error.
+        //  this could improve error detection while decoding.
+
+        // get the questions
+
+        // get all counts before header moves
+        let query_count = header.query_count() as usize;
+        let answer_count = header.answer_count() as usize;
+        let name_server_count = header.name_server_count() as usize;
+        let additional_count = header.additional_count() as usize;
+
+        let queries = Queries::read(decoder, query_count)?;
+        let (answers, _, _) = Message::read_records(decoder, answer_count, false)?;
+        let (name_servers, _, _) = Message::read_records(decoder, name_server_count, false)?;
+        let (additionals, edns, sig0) = Message::read_records(decoder, additional_count, true)?;
+
+        Ok(MessageRequest {
+            header: header,
+            queries: queries,
+            answers: answers,
+            name_servers: name_servers,
+            additionals: additionals,
+            sig0: sig0,
+            edns: edns,
+        })
+    }
+}
+
+/// A set of Queries with the associated serialized data
+#[derive(Debug, PartialEq)]
+pub struct Queries<'r> {
+    queries: Vec<Query>,
+    original: &'r [u8],
+}
+
+impl<'r> Queries<'r> {
+    /// Read queries from a decoder
+    pub fn read(decoder: &mut BinDecoder<'r>, num_queries: usize) -> ProtoResult<Self> {
+        let queries_start = decoder.index();
+        let queries = Message::read_queries(decoder, num_queries)?;
+        let original = decoder.slice_from(queries_start)?;
+
+        Ok(Queries { queries, original })
+    }
+
+    /// return the number of queries in the request
+    pub fn len(&self) -> usize {
+        self.queries.len()
+    }
+
+    /// returns the bytes as they were seen from the Client
+    pub fn as_bytes(&self) -> &[u8] {
+        self.original
+    }
+}
+
+macro_rules! section {
+    ($s:ident, $l:ident, $e:ident) => {
+        fn $l(&self) -> usize {
+            self.$s.len()
+        }
+
+        fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+            encoder.emit_all(self.$s.iter())
+        }
+    }
+}
+
+impl<'r> EncodableMessage for MessageRequest<'r> {
+    fn header(&self) -> &Header {
+        &self.header
+    }
+
+    fn queries_len(&self) -> usize {
+        self.queries.len()
+    }
+
+    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        // we emit the queries, in order to guarantee canonical form
+        //   in cases where that's necessary, like SIG0 validation
+        encoder.emit_all(self.queries.queries.iter())
+    }
+
+    section!(answers, answers_len, emit_answers);
+    section!(name_servers, name_servers_len, emit_name_servers);
+    section!(additionals, additionals_len, emit_additionals);
+
+    fn edns(&self) -> Option<&Edns> {
+        MessageRequest::edns(self)
+    }
+
+    fn sig0(&self) -> &[Record] {
+        MessageRequest::sig0(self)
+    }
+}
+
+/// A type which represents an MessageRequest for dynamic Update.
+pub trait UpdateRequest {
+    /// Id of the Message
+    fn id(&self) -> u16;
+
+    /// Zones being updated, this should be the queries of a Message
+    fn zones(&self) -> &[Query];
+
+    /// Prerequisites map to the answers of a Message
+    fn prerequisites(&self) -> &[Record];
+
+    /// Records to update map to the name_servers of a Message
+    fn updates(&self) -> &[Record];
+
+    /// Additional records
+    fn additionals(&self) -> &[Record];
+
+    /// SIG0 records for verifying the Message
+    fn sig0(&self) -> &[Record];
+}
+
+impl<'r> UpdateRequest for MessageRequest<'r> {
+    fn id(&self) -> u16 {
+        MessageRequest::id(self)
+    }
+
+    fn zones(&self) -> &[Query] {
+        self.queries()
+    }
+
+    fn prerequisites(&self) -> &[Record] {
+        self.answers()
+    }
+
+    fn updates(&self) -> &[Record] {
+        self.name_servers()
+    }
+
+    fn additionals(&self) -> &[Record] {
+        self.additionals()
+    }
+
+    fn sig0(&self) -> &[Record] {
+        self.sig0()
+    }
+}

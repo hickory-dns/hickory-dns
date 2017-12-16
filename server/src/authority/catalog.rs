@@ -20,13 +20,13 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::RwLock;
 
-use trust_dns::op::{Edns, Header, Message, MessageType, OpCode, Query, ResponseCode, UpdateMessage};
+use trust_dns::op::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 use trust_dns::rr::{Name, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
 use server::{Request, RequestHandler, ResponseHandler};
 
-use authority::{AuthLookup, Authority, MessageResponse, ZoneType};
+use authority::{AuthLookup, Authority, MessageRequest, MessageResponse, ZoneType};
 
 /// Set of authorities, zones, available to this server.
 pub struct Catalog {
@@ -78,7 +78,7 @@ impl RequestHandler for Catalog {
 
         // check if it's edns
         if let Some(req_edns) = request_message.edns() {
-            let mut response = MessageResponse::new(Some(request_message.queries()));
+            let mut response = MessageResponse::new(Some(request_message.raw_queries()));
             let mut response_header = Header::default();
             response_header.set_id(request_message.id());
 
@@ -114,14 +114,14 @@ impl RequestHandler for Catalog {
             //  especially for recursive lookups
             MessageType::Query => match request_message.op_code() {
                 OpCode::Query => {
-                    return self.lookup(&request_message, response_edns, response_handle)
+                    return self.lookup(request_message, response_edns, response_handle)
                 }
                 OpCode::Update => {
                     return self.update(request_message, response_edns, response_handle)
                 }
                 c @ _ => {
                     error!("unimplemented op_code: {:?}", c);
-                    let response = MessageResponse::new(Some(request_message.queries()));
+                    let response = MessageResponse::new(Some(request_message.raw_queries()));
                     return response_handle.send(response.error_msg(
                         request_message.id(),
                         request_message.op_code(),
@@ -134,7 +134,7 @@ impl RequestHandler for Catalog {
                     "got a response as a request from id: {}",
                     request_message.id()
                 );
-                let response = MessageResponse::new(Some(request_message.queries()));
+                let response = MessageResponse::new(Some(request_message.raw_queries()));
 
                 return response_handle.send(response.error_msg(
                     request_message.id(),
@@ -215,7 +215,7 @@ impl Catalog {
     /// * `response_handle` - sink for the response message to be sent
     pub fn update<'q, R: ResponseHandler + 'static>(
         &self,
-        update: &'q Message,
+        update: &'q MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> io::Result<()> {
@@ -225,7 +225,7 @@ impl Catalog {
         response_header.set_op_code(OpCode::Update);
         response_header.set_message_type(MessageType::Response);
 
-        let zones: &[Query] = update.zones();
+        let zones: &[Query] = update.queries();
 
         // 2.3 - Zone Section
         //
@@ -303,7 +303,7 @@ impl Catalog {
     /// * `response_handle` - sink for the response message to be sent
     pub fn lookup<'q, R: ResponseHandler + 'static>(
         &self,
-        request: &'q Message,
+        request: &'q MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> io::Result<()> {
@@ -318,7 +318,7 @@ impl Catalog {
                     authority.origin()
                 );
 
-                let mut response = MessageResponse::new(Some(request.queries()));
+                let mut response = MessageResponse::new(Some(request.raw_queries()));
                 let mut response_header = Header::new();
                 response_header.set_id(request.id());
                 response_header.set_op_code(OpCode::Query);
@@ -420,7 +420,7 @@ impl Catalog {
             }
         }
 
-        let response = MessageResponse::new(Some(request.queries()));
+        let response = MessageResponse::new(Some(request.raw_queries()));
         return send_response(
             response_edns,
             response.error_msg(request.id(), request.op_code(), ResponseCode::NXDomain),

@@ -1,7 +1,7 @@
 //! Verifier is a structure for performing many of the signing processes of the DNSSec specification
 
 use error::*;
-use op::Message;
+use op::EncodableMessage;
 use rr::{DNSClass, Name, Record};
 use rr::dnssec::Algorithm;
 use rr::dnssec::{tbs, PublicKey, PublicKeyEnum};
@@ -41,7 +41,12 @@ pub trait Verifier {
     /// # Return value
     ///
     /// `true` if the message could be validated against the signature, `false` otherwise
-    fn verify_message(&self, message: &Message, signature: &[u8], sig0: &SIG) -> ProtoResult<()> {
+    fn verify_message<M: EncodableMessage>(
+        &self,
+        message: &M,
+        signature: &[u8],
+        sig0: &SIG,
+    ) -> ProtoResult<()> {
         tbs::message_tbs(message, sig0).and_then(|tbs| self.verify(tbs.as_ref(), signature))
     }
 
