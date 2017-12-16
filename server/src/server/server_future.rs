@@ -19,8 +19,7 @@ use trust_dns::error::*;
 use trust_dns::BufStreamHandle;
 use trust_dns::udp::UdpStream;
 use trust_dns::tcp::TcpStream;
-use trust_dns::serialize::binary::BinDecoder;
-use trust_dns_proto::serialize::binary::BinSerializable;
+use trust_dns::serialize::binary::{BinDecodable, BinDecoder};
 
 #[cfg(feature = "tls")]
 use trust_dns_openssl::{tls_server, TlsStream};

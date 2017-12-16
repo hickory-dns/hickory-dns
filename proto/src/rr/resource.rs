@@ -258,7 +258,7 @@ impl BinEncodable for Record {
     }
 }
 
-impl<'r> BinSerializable<'r> for Record {
+impl<'r> BinDecodable<'r> for Record {
     /// parse a resource record line example:
     ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Record> {

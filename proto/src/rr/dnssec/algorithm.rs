@@ -163,7 +163,7 @@ impl BinEncodable for Algorithm {
     }
 }
 
-impl<'r> BinSerializable<'r> for Algorithm {
+impl<'r> BinDecodable<'r> for Algorithm {
     // http://www.iana.org/assignments/dns-sec-alg-numbers/dns-sec-alg-numbers.xhtml
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Algorithm> {
         let algorithm_id = decoder.read_u8()?;
