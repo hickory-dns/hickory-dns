@@ -9,14 +9,12 @@ extern crate trust_dns_server;
 
 use std::fs::DirBuilder;
 use std::env;
-use std::io::{stdout, BufRead, BufReader, Read, Write};
 use std::mem;
 use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread;
+use std::time::Duration;
 
 use test::Bencher;
 use tokio_core::reactor::Core;
@@ -66,7 +64,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
             break;
         } else {
             // wait for the server to start
-            thread::sleep_ms(500);
+            thread::sleep(Duration::from_millis(500));
         }
     }
 
@@ -83,7 +81,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or_else(|_| ".".to_owned());
 
-    let mut named = Command::new(&format!("{}/../target/release/named", server_path))
+    let named = Command::new(&format!("{}/../target/release/named", server_path))
         .stdout(Stdio::null())
         .arg("-q") // TODO: need to rethink this one...
         .arg(&format!(
@@ -222,8 +220,7 @@ fn bind_process() -> (NamedProcess, u16) {
                       .spawn()
                       .expect("failed to start named");
 
-    //
-    let stderr = mem::replace(&mut named.stderr, None).unwrap();
+    mem::replace(&mut named.stderr, None).unwrap();
     let process = wrap_process(named, test_port);
     (process, test_port)
 }

@@ -249,14 +249,13 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<OPT> {
 }
 
 /// Write the RData from the given Decoder
-pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<u16> {
-    let start_idx = encoder.offset();
+pub fn emit(encoder: &mut BinEncoder, opt: &OPT) -> ProtoResult<()> {
     for (edns_code, edns_option) in opt.options().iter() {
         encoder.emit_u16(u16::from(*edns_code))?;
         encoder.emit_u16(edns_option.len())?;
         edns_option.emit(encoder)?
     }
-    Ok((encoder.offset() - start_idx) as u16)
+    Ok(())
 }
 
 #[derive(Debug, PartialEq, Eq)]
