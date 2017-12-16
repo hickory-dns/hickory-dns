@@ -23,10 +23,10 @@ use trust_dns::client::ClientConnection;
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
 use trust_dns_proto::{DnsStreamHandle, StreamHandle};
-use trust_dns_proto::op::DnsMessage;
+use trust_dns_proto::op::EncodableMessage;
 use trust_dns_proto::error::FromProtoError;
 
-use trust_dns_server::authority::Catalog;
+use trust_dns_server::authority::{Catalog, MessageRequest};
 use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
 
 pub mod authority;
@@ -79,7 +79,7 @@ impl TestResponseHandler {
 }
 
 impl ResponseHandler for TestResponseHandler {
-    fn send<M: DnsMessage>(self, response: M) -> io::Result<()> {
+    fn send<M: EncodableMessage>(self, response: M) -> io::Result<()> {
         let buf = &mut self.buf.lock().unwrap();
         let mut encoder = BinEncoder::new(buf);
         response.emit(&mut encoder).expect("could not encode");
@@ -102,7 +102,7 @@ impl Stream for TestClientStream {
             Async::Ready(Some(bytes)) => {
                 let mut decoder = BinDecoder::new(&bytes);
 
-                let message = Message::read(&mut decoder).expect("could not decode message");
+                let message = MessageRequest::read(&mut decoder).expect("could not decode message");
                 let request = Request {
                     message: message,
                     src: "127.0.0.1:1234"

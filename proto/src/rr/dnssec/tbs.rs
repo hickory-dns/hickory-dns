@@ -1,7 +1,7 @@
 //! hash functions for DNSSec operations
 
 use error::*;
-use op::Message;
+use op::EncodableMessage;
 use rr::{DNSClass, Name, RData, Record, RecordType};
 use rr::dnssec::Algorithm;
 use super::rdata::{sig, DNSSECRData, SIG};
@@ -23,7 +23,7 @@ impl AsRef<[u8]> for TBS {
 }
 
 /// Returns the to-be-signed serialization of the given message.
-pub fn message_tbs(message: &Message, pre_sig0: &SIG) -> ProtoResult<TBS> {
+pub fn message_tbs<M: EncodableMessage>(message: &M, pre_sig0: &SIG) -> ProtoResult<TBS> {
     // TODO: should perform the serialization and sign block by block to reduce the max memory
     //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
     //  more important

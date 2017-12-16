@@ -258,10 +258,10 @@ impl BinEncodable for Record {
     }
 }
 
-impl BinSerializable for Record {
+impl<'r> BinSerializable<'r> for Record {
     /// parse a resource record line example:
     ///  WARNING: the record_bytes is 100% consumed and destroyed in this parsing process
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<Record> {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Record> {
         // NAME            an owner name, i.e., the name of the node to which this
         //                 resource record pertains.
         let name_labels: domain::Name = domain::Name::read(decoder)?;

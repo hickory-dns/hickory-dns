@@ -8,10 +8,12 @@ use std::net::*;
 
 use rusqlite::*;
 
+use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::rr::dnssec::*;
 use trust_dns::rr::rdata::*;
-use trust_dns::op::*;
+use trust_dns::serialize::binary::{BinEncodable, BinSerializable};
+
 use trust_dns_server::authority::*;
 
 use trust_dns_integration::authority::{create_example, create_secure_example};
@@ -165,6 +167,9 @@ fn test_authorize() {
         .set_id(10)
         .set_message_type(MessageType::Query)
         .set_op_code(OpCode::Update);
+
+    let bytes = message.to_bytes().unwrap();
+    let message = MessageRequest::from_bytes(&bytes).unwrap();
 
     assert_eq!(authority.authorize(&message), Err(ResponseCode::Refused));
 

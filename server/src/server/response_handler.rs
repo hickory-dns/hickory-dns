@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 
 use trust_dns::BufStreamHandle;
 use trust_dns::error::ClientError;
-use trust_dns_proto::op::DnsMessage;
+use trust_dns_proto::op::EncodableMessage;
 use trust_dns::serialize::binary::{BinEncodable, BinEncoder};
 
 /// A handler for send a response to a client
@@ -18,7 +18,7 @@ pub trait ResponseHandler {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send<M: DnsMessage>(self, response: M) -> io::Result<()>;
+    fn send<M: EncodableMessage>(self, response: M) -> io::Result<()>;
 }
 
 /// A handler for wraping a BufStreamHandle, which will properly serialize the message and add the
@@ -39,7 +39,7 @@ impl ResponseHandler for ResponseHandle {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send<M: DnsMessage>(self, response: M) -> io::Result<()> {
+    fn send<M: EncodableMessage>(self, response: M) -> io::Result<()> {
         info!(
             "response: {} response_code: {} answers: {} name_servers: {} additionals: {}",
             response.header().id(),

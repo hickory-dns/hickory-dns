@@ -7,10 +7,8 @@
 
 use std::fmt::Debug;
 
-use trust_dns_proto::error::ProtoResult;
-
 use rr::Record;
-use super::{Message, MessageFinalizer, Query};
+use super::{Message, Query};
 
 /// To reduce errors in using the Message struct as an Update, this will do the call throughs
 ///   to properly do that.
@@ -28,10 +26,6 @@ pub trait UpdateMessage: Debug {
     /// These must exist, or not, for the Update request to go through.
     fn add_pre_requisite(&mut self, record: Record);
 
-    /// Add all pre-requisites to the UpdateMessage
-    #[deprecated(note = "will be removed post 0.9.x")]
-    fn add_all_pre_requisites(&mut self, vector: &[&Record]);
-
     /// Add all the Records from the Iterator to the pre-reqisites section
     fn add_pre_requisites<R, I>(&mut self, records: R)
     where
@@ -40,10 +34,6 @@ pub trait UpdateMessage: Debug {
 
     /// Add the Record to be updated
     fn add_update(&mut self, record: Record);
-
-    /// Add the set of Records to be updated
-    #[deprecated(note = "will be removed post 0.9.x")]
-    fn add_all_updates(&mut self, vector: &[&Record]);
 
     /// Add the Records from the Iterator to the updates section
     fn add_updates<R, I>(&mut self, records: R)
@@ -70,15 +60,6 @@ pub trait UpdateMessage: Debug {
     ///
     /// see `Message::sig0()` for more information.
     fn sig0(&self) -> &[Record];
-
-    /// Finalize the message prior to sending.
-    ///
-    /// Subsequent to calling this, the Message should not change.
-    fn finalize<MF: MessageFinalizer>(
-        &mut self,
-        finalizer: &MF,
-        inception_time: u32,
-    ) -> ProtoResult<()>;
 }
 
 /// to reduce errors in using the Message struct as an Update, this will do the call throughs
@@ -87,15 +68,15 @@ impl UpdateMessage for Message {
     fn id(&self) -> u16 {
         self.id()
     }
+
     fn add_zone(&mut self, query: Query) {
         self.add_query(query);
     }
+
     fn add_pre_requisite(&mut self, record: Record) {
         self.add_answer(record);
     }
-    fn add_all_pre_requisites(&mut self, vector: &[&Record]) {
-        self.add_answers(vector.into_iter().map(|r| (*r).clone()));
-    }
+
     fn add_pre_requisites<R, I>(&mut self, records: R)
     where
         R: IntoIterator<Item = Record, IntoIter = I>,
@@ -103,12 +84,11 @@ impl UpdateMessage for Message {
     {
         self.add_answers(records);
     }
+
     fn add_update(&mut self, record: Record) {
         self.add_name_server(record);
     }
-    fn add_all_updates(&mut self, vector: &[&Record]) {
-        self.add_name_servers(vector.into_iter().map(|r| (*r).clone()));
-    }
+
     fn add_updates<R, I>(&mut self, records: R)
     where
         R: IntoIterator<Item = Record, IntoIter = I>,
@@ -116,6 +96,7 @@ impl UpdateMessage for Message {
     {
         self.add_name_servers(records);
     }
+
     fn add_additional(&mut self, record: Record) {
         self.add_additional(record);
     }
@@ -123,25 +104,20 @@ impl UpdateMessage for Message {
     fn zones(&self) -> &[Query] {
         self.queries()
     }
+
     fn prerequisites(&self) -> &[Record] {
         self.answers()
     }
+
     fn updates(&self) -> &[Record] {
         self.name_servers()
     }
+
     fn additionals(&self) -> &[Record] {
         self.additionals()
     }
 
     fn sig0(&self) -> &[Record] {
         self.sig0()
-    }
-
-    fn finalize<MF: MessageFinalizer>(
-        &mut self,
-        finalizer: &MF,
-        inception_time: u32,
-    ) -> ProtoResult<()> {
-        self.finalize(finalizer, inception_time)
     }
 }

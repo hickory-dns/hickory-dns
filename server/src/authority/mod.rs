@@ -37,11 +37,13 @@ pub enum ZoneType {
 mod auth_lookup;
 pub mod authority;
 mod catalog;
+mod message_request;
 mod message_response;
 pub mod persistence;
 
 pub use self::auth_lookup::AuthLookup;
 pub use self::authority::Authority;
 pub use self::catalog::Catalog;
+pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
 pub use self::persistence::Journal;

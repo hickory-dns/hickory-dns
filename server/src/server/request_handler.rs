@@ -7,13 +7,23 @@
 
 //! Request Handler for incoming requests
 
+use std::net::SocketAddr;
 use std::io;
 
-use server::{Request, ResponseHandler};
+use authority::MessageRequest;
+use server::ResponseHandler;
+
+/// An incoming request to the DNS catalog
+pub struct Request<'r> {
+    /// Message with the associated query or update data
+    pub message: MessageRequest<'r>,
+    /// Source address of the Client
+    pub src: SocketAddr,
+}
 
 /// Trait for handling incoming requests, and providing a message response.
 pub trait RequestHandler {
-    // FIXME: allow associated error type
+    // TODO: allow associated error type
     // type Error;
 
     /// Determine's what needs to happen given the type of request, i.e. Query or Update.
