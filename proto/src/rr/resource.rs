@@ -230,30 +230,21 @@ impl BinEncodable for Record {
         self.name_labels.emit(encoder)?;
         self.rr_type.emit(encoder)?;
         self.dns_class.emit(encoder)?;
+
         encoder.emit_u32(self.ttl)?;
 
-        // gah... need to write rdata before we know the size of rdata...
-        // TODO: should we skip the fixed size header and write the rdata first? then write the header?
-        let mut tmp_buf: Vec<u8> = Vec::with_capacity(512);
-        {
-            let mut tmp_encoder: BinEncoder = BinEncoder::with_offset(
-                &mut tmp_buf,
-                encoder.offset() + 2, /*for u16 len*/
-                EncodeMode::Normal,
-            );
-            self.rdata.emit(&mut tmp_encoder)?;
-        }
+        // place the RData length
+        let place = encoder.place::<u16>();
 
-        assert!(tmp_buf.len() <= u16::max_value() as usize);
+        // write the RData
+        self.rdata.emit(encoder)?;
 
-        encoder.emit_u16(tmp_buf.len() as u16)?;
-        encoder.reserve(tmp_buf.len());
+        // get the length written
+        let len = encoder.len_since_place(&place);
+        assert!(len <= u16::max_value() as usize);
 
-        tmp_buf.reverse();
-        while let Some(byte) = tmp_buf.pop() {
-            encoder.emit(byte)?;
-        }
-
+        // replace the location with the length
+        place.replace(encoder, len as u16)?;
         Ok(())
     }
 }

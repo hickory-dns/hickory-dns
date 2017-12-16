@@ -112,8 +112,14 @@ impl<'a> BinEncoder<'a> {
 
     /// Emit one byte into the buffer
     pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
+        if (self.offset as usize) < self.buffer.len() {
+            *self.buffer
+                .get_mut(self.offset as usize)
+                .expect("this should always work!") = b;
+        } else {
+            self.buffer.push(b);
+        }
         self.offset += 1;
-        self.buffer.push(b);
         Ok(())
     }
 
@@ -237,10 +243,18 @@ impl<'a> BinEncoder<'a> {
             self.buffer.push(0_u8);
         }
 
+        // update the offset
+        self.offset += len;
+
         Place {
             start_index: index,
             phantom: PhantomData,
         }
+    }
+
+    /// calculates the length of data written since the place was creating
+    pub fn len_since_place<T: EncodedSize>(&self, place: &Place<T>) -> usize {
+        (self.offset - place.start_index) - place.size_of()
     }
 
     /// write back to a previously captured location
@@ -276,8 +290,7 @@ pub trait EncodedSize: BinEncodable {
 
 impl EncodedSize for u16 {
     fn size_of() -> usize {
-        use std::mem;
-        mem::size_of::<u16>()
+        2
     }
 }
 
@@ -305,4 +318,45 @@ pub enum EncodeMode {
     Signing,
     /// Write records in standard format
     Normal,
+}
+
+
+#[cfg(test)]
+mod tests {
+    use serialize::binary::BinDecoder;
+    use super::*;
+
+    #[test]
+    fn test_size_of() {
+        assert_eq!(u16::size_of(), 2);
+    }
+
+    #[test]
+    fn test_place() {
+        let mut buf = vec![];
+        {
+            let mut encoder = BinEncoder::new(&mut buf);
+            let place = encoder.place::<u16>();
+            assert_eq!(place.size_of(), 2);
+            assert_eq!(encoder.len_since_place(&place), 0);
+
+            encoder.emit(42_u8).expect("failed 0");
+            assert_eq!(encoder.len_since_place(&place), 1);
+
+            encoder.emit(48_u8).expect("failed 1");
+            assert_eq!(encoder.len_since_place(&place), 2);
+
+            place
+                .replace(&mut encoder, 4_u16)
+                .expect("failed to replace");
+            drop(encoder);
+        }
+
+        assert_eq!(buf.len(), 4);
+
+        let mut decoder = BinDecoder::new(&buf);
+        let written = decoder.read_u16().expect("cound not read u16");
+
+        assert_eq!(written, 4);
+    }
 }

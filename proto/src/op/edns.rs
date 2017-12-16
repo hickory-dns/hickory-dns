@@ -195,9 +195,11 @@ impl BinEncodable for Edns {
 
         // write the opts as rdata...
         let place = encoder.place::<u16>();
-        let len = opt::emit(encoder, &self.options)?;
+        opt::emit(encoder, &self.options)?;
+        let len = encoder.len_since_place(&place);
+        assert!(len <= u16::max_value() as usize);
 
-        place.replace(encoder, len)?;
+        place.replace(encoder, len as u16)?;
         Ok(())
     }
 }
