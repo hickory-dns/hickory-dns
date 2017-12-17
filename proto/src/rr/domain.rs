@@ -446,35 +446,50 @@ impl Name {
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
                                      // lookup the label in the BinEncoder
                                      // if it exists, write the Pointer
-        let mut labels: &[Rc<String>] = &self.labels;
+        let labels: &[Rc<String>] = &self.labels;
+
+        // start index of each label
+        let mut labels_written: Vec<usize> = Vec::with_capacity(labels.len());
 
         if canonical {
             for label in labels {
                 encoder.emit_character_data(label)?;
             }
         } else {
-            while let Some(label) = labels.first() {
+            // we're going to write out each label, tracking the indexes of the start to each label
+            //   then we'll look to see if we can remove them and recapture the capacity in the buffer...
+            for label in labels {
+                if label.len() > 63 {
+                    return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
+                }
+
+                labels_written.push(encoder.offset());
+                encoder.emit_character_data(label)?;
+            }
+
+            // we've written all the labels to the buf, the current offset is the end
+            let last_index = encoder.offset();
+
+            // now search for other labels already stored matching from the beginning label, strip then to the end
+            //   if it's not found, then store this as a new label
+            for label_idx in &labels_written {
+                let label_ptr: Option<u16> = encoder.get_label_pointer(*label_idx, last_index);
+
                 // before we write the label, let's look for the current set of labels.
-                if let Some(loc) = encoder.get_label_pointer(labels) {
+                if let Some(loc) = label_ptr {
+                    // reset back to the begining of this label, and then write the pointer...
+                    encoder.set_offset(*label_idx);
+                    encoder.trim();
+                    
                     // write out the pointer marker
-                    //  or'd with the location with shouldn't be larger than this 2^14 or 16k
+                    //  or'd with the location which shouldn't be larger than this 2^14 or 16k
                     encoder.emit_u16(0xC000u16 | (loc & 0x3FFFu16))?;
 
                     // we found a pointer don't write more, break
                     return Ok(());
                 } else {
-                    if label.len() > 63 {
-                        return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
-                    }
-
-                    // to_owned is cloning the the vector, but the Rc's at least don't clone the strings.
-                    encoder.store_label_pointer(labels.to_owned());
-                    encoder.emit_character_data(label)?;
-
-                    // return the next parts of the labels
-                    //  this should be safe, the labels.first() wouldn't have let us here if there wasn't
-                    //  at least one item.
-                    labels = &labels[1..];
+                    // no existing label exists, store this new one.
+                    encoder.store_label_pointer(*label_idx, last_index);
                 }
             }
         }

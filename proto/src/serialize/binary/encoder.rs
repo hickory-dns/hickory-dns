@@ -13,8 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::collections::HashMap;
-use std::sync::Arc as Rc;
 use byteorder::{ByteOrder, NetworkEndian};
 use std::marker::PhantomData;
 
@@ -26,9 +24,8 @@ use super::BinEncodable;
 pub struct BinEncoder<'a> {
     offset: usize,
     buffer: &'a mut Vec<u8>,
-    // TODO, it would be cool to make this slices, but then the stored slice needs to live longer
-    //  than the callee of store_pointer which isn't obvious right now.
-    name_pointers: HashMap<Vec<Rc<String>>, u16>, // array of string, label, location in stream
+    /// start and end of label pointers, smallvec here?
+    name_pointers: Vec<(usize, usize)>, 
     mode: EncodeMode,
     canonical_names: bool,
 }
@@ -61,7 +58,7 @@ impl<'a> BinEncoder<'a> {
         BinEncoder {
             offset: offset as usize,
             buffer: buf,
-            name_pointers: HashMap::new(),
+            name_pointers: Vec::new(),
             mode: mode,
             canonical_names: false,
         }
@@ -83,8 +80,13 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// Returns the current offset into the buffer
-    pub fn offset(&self) -> u32 {
-        self.offset as u32
+    pub fn offset(&self) -> usize {
+        self.offset
+    }
+
+    /// sets the current offset to the new offset
+    pub fn set_offset(&mut self, offset: usize) {
+        self.offset = offset;
     }
 
     /// Returns the current Encoding mode
@@ -109,6 +111,10 @@ impl<'a> BinEncoder<'a> {
         }
     }
 
+    /// trims to the current offset
+    pub fn trim(&mut self) {
+        self.buffer.truncate(self.offset as usize);
+    }
 
     /// Emit one byte into the buffer
     pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
@@ -123,19 +129,39 @@ impl<'a> BinEncoder<'a> {
         Ok(())
     }
 
+    /// borrow a slice from the encoder
+    pub fn slice_of(&self, start: usize, end: usize) -> &[u8] {
+        assert!(start < self.offset);
+        assert!(end <= self.buffer.len());
+        &self.buffer[start..end]
+    }
+
     /// Stores a label pointer to an already written label
     ///
     /// The location is the current position in the buffer
     ///  implicitly, it is expected that the name will be written to the stream after the current index.
-    pub fn store_label_pointer(&mut self, labels: Vec<Rc<String>>) {
+    pub fn store_label_pointer(&mut self, start: usize, end: usize) {
+        assert!(start <= (u16::max_value() as usize));
+        assert!(end <= (u16::max_value() as usize));
+        assert!(start <= end);
         if self.offset < 0x3FFF_usize {
-            self.name_pointers.insert(labels, self.offset as u16); // the next char will be at the len() location
+            self.name_pointers.push((start, end)); // the next char will be at the len() location
         }
     }
 
     /// Looks up the index of an already written label
-    pub fn get_label_pointer(&self, labels: &[Rc<String>]) -> Option<u16> {
-        self.name_pointers.get(labels).cloned()
+    pub fn get_label_pointer(&self, start: usize, end: usize) -> Option<u16> {
+        let search = self.slice_of(start, end);
+
+        for &(match_start, match_end) in &self.name_pointers {
+            let matcher = self.slice_of(match_start as usize, match_end as usize);
+            if matcher == search {
+                assert!(match_start <= (u16::max_value() as usize)); 
+                return Some(match_start as u16)
+            }
+        }
+        
+        None
     }
 
     /// matches description from above.
@@ -197,10 +223,22 @@ impl<'a> BinEncoder<'a> {
     }
 
     fn write_slice(&mut self, data: &[u8]) {
-        // TODO: check whether this is better that letting `Vec.extend_from_slice` do the reservation.
-        self.reserve(data.len());
-        self.buffer.extend_from_slice(data);
-        self.offset += data.len();
+        if self.offset == self.buffer.len() {
+            self.buffer.extend_from_slice(data);
+            self.offset += data.len();
+        } else {
+            let needed_len = self.offset + data.len();
+            if needed_len < self.buffer.len() {
+                self.buffer.resize(needed_len, 0);
+            } 
+
+            for b in data {
+                *self.buffer
+                  .get_mut(self.offset)
+                  .expect("this should always work!") = *b;
+                self.offset += 1;
+            }
+        }        
     }
 
     /// Writes the byte slice to the stream
