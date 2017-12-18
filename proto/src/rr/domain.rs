@@ -24,9 +24,68 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
 use std::str::FromStr;
 use std::sync::Arc as Rc;
+use std::borrow::Borrow;
 
 use serialize::binary::*;
 use error::*;
+
+/// Represent a label, used to build domain names.
+#[derive(Debug, PartialEq, Eq, Hash)]
+pub struct Label(Rc<String>);
+
+impl fmt::Display for Label {
+    fn fmt(&self, f: &mut fmt::Formatter) -> Result<(), fmt::Error> {
+        self.0.as_ref().fmt(f)
+    }
+}
+
+impl Borrow<str> for Label {
+    fn borrow(&self) -> &str {
+        self.0.as_str()
+    }
+}
+
+impl AsRef<str> for Label {
+    fn as_ref(&self) -> &str {
+        self.0.as_ref()
+    }
+}
+
+impl Borrow<String> for Label {
+    fn borrow(&self) -> &String {
+        self.0.as_ref()
+    }
+}
+
+impl Clone for Label {
+    fn clone(&self) -> Self {
+        Label(Rc::clone(&self.0))
+    }
+}
+
+impl<'a> From<&'a str> for Label {
+    fn from(s: &'a str) -> Self {
+        Label(Rc::new(s.into()))
+    }
+}
+
+impl<'a> From<&'a Label> for Label {
+    fn from(label: &'a Label) -> Self {
+        label.clone()
+    }
+}
+
+impl<'a> From<&'a String> for Label {
+    fn from(s: &'a String) -> Self {
+        Label(Rc::new(s.clone()))
+    }
+}
+
+impl From<String> for Label {
+    fn from(s: String) -> Self {
+        Label(Rc::new(s))
+    }
+}
 
 /// TODO: all Names should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
@@ -34,7 +93,7 @@ use error::*;
 #[derive(Default, Debug, Eq, Clone)]
 pub struct Name {
     is_fqdn: bool,
-    labels: Vec<Rc<String>>,
+    labels: Vec<Label>,
 }
 
 impl Name {
@@ -111,36 +170,10 @@ impl Name {
     /// let name = name.append_label("com");
     /// assert_eq!(name, Name::from_str("www.example.com").unwrap());
     /// ```
-    pub fn append_label<S: Into<String>>(mut self, label: S) -> Self {
-        self.labels.push(Rc::new(label.into()));
+    pub fn append_label<S: Into<Label>>(mut self, label: S) -> Self {
+        self.labels.push(label.into());
         assert!(self.labels.len() < 256); // TODO: should this be an Error?
         self
-    }
-
-    /// Creates a new Name from the specified labels
-    ///
-    /// # Arguments
-    ///
-    /// * `labels` - vector of items which will be stored as Strings.
-    ///
-    /// # Examples
-    ///
-    /// ```rust
-    /// use std::str::FromStr;
-    /// use trust_dns_proto::rr::domain::Name;
-    ///
-    /// let from_labels = Name::from_labels(vec!["www", "example", "com"]);
-    /// assert_eq!(from_labels, Name::from_str("www.example.com").unwrap());
-    ///
-    /// let root = Name::from_labels::<String>(vec![]);
-    /// assert!(root.is_root());
-    /// ```
-    pub fn from_labels<S: Into<String>>(labels: Vec<S>) -> Self {
-        assert!(labels.len() < 256); // this should be an error
-        Name {
-            is_fqdn: true,
-            labels: labels.into_iter().map(|s| Rc::new(s.into())).collect(),
-        }
     }
 
     /// Appends `other` to `self`, returning a new `Name`
@@ -171,7 +204,7 @@ impl Name {
     pub fn append_name(mut self, other: &Self) -> Self {
         self.labels.reserve_exact(other.labels.len());
         for label in &other.labels {
-            self.labels.push(Rc::clone(label));
+            self.labels.push(label.clone());
         }
 
         self.is_fqdn = other.is_fqdn;
@@ -209,17 +242,17 @@ impl Name {
     /// use trust_dns_proto::rr::domain::Name;
     /// use std::cmp::Ordering;
     ///
-    /// let example_com = Name::from_labels(vec!["Example", "Com"]);
-    /// assert_eq!(example_com.cmp_with_case(&Name::from_labels(vec!["example", "com"]), false), Ordering::Less);
-    /// assert_eq!(example_com.to_lowercase().cmp_with_case(&Name::from_labels(vec!["example", "com"]), false), Ordering::Equal);
+    /// let example_com = Name::from(&["Example", "Com"] as &[_]);
+    /// assert_eq!(example_com.cmp_with_case(&Name::from(&["example", "com"] as &[_]), false), Ordering::Less);
+    /// assert_eq!(example_com.to_lowercase().cmp_with_case(&Name::from(&["example", "com"] as &[_]), false), Ordering::Equal);
     /// ```
     pub fn to_lowercase(&self) -> Self {
         let mut new_labels = Vec::with_capacity(self.labels.len());
         for label in &self.labels {
-            new_labels.push(label.to_lowercase());
+            new_labels.push(label.as_ref().to_lowercase().to_string());
         }
 
-        let mut this = Self::from_labels(new_labels);
+        let mut this: Self = Self::from(new_labels);
         this.is_fqdn = self.is_fqdn;
         this
     }
@@ -231,9 +264,9 @@ impl Name {
     /// ```
     /// use trust_dns_proto::rr::domain::Name;
     ///
-    /// let example_com = Name::from_labels(vec!["example", "com"]);
-    /// assert_eq!(example_com.base_name(), Name::from_labels(vec!["com"]));
-    /// assert_eq!(Name::from_labels(vec!["com"]).base_name(), Name::root());
+    /// let example_com = Name::from(&["example", "com"] as &[_]);
+    /// assert_eq!(example_com.base_name(), Name::from(&["com"] as &[_]));
+    /// assert_eq!(Name::from(&["com"] as &[_]).base_name(), Name::root());
     /// assert_eq!(Name::root().base_name(), Name::root());
     /// ```
     pub fn base_name(&self) -> Name {
@@ -251,9 +284,9 @@ impl Name {
     /// ```
     /// use trust_dns_proto::rr::domain::Name;
     ///
-    /// let example_com = Name::from_labels(vec!["example", "com"]);
-    /// assert_eq!(example_com.trim_to(2), Name::from_labels(vec!["example", "com"]));
-    /// assert_eq!(example_com.trim_to(1), Name::from_labels(vec!["com"]));
+    /// let example_com = Name::from(&["example", "com"] as &[_]);
+    /// assert_eq!(example_com.trim_to(2), Name::from(&["example", "com"] as &[_]));
+    /// assert_eq!(example_com.trim_to(1), Name::from(&["com"] as &[_]));
     /// assert_eq!(example_com.trim_to(0), Name::root());
     /// ```
     pub fn trim_to(&self, num_labels: usize) -> Name {
@@ -275,10 +308,10 @@ impl Name {
     /// ```rust
     /// use trust_dns_proto::rr::domain::Name;
     ///
-    /// let name = Name::from_labels(vec!["www", "example", "com"]);
-    /// let name = Name::from_labels(vec!["www", "example", "com"]);
-    /// let zone = Name::from_labels(vec!["example", "com"]);
-    /// let another = Name::from_labels(vec!["example", "net"]);
+    /// let name = Name::from(&["www", "example", "com"] as &[_]);
+    /// let name = Name::from(&["www", "example", "com"] as &[_]);
+    /// let zone = Name::from(&["example", "com"] as &[_]);
+    /// let another = Name::from(&["example", "net"] as &[_]);
     /// assert!(zone.zone_of(&name));
     /// assert!(!another.zone_of(&name));
     /// ```
@@ -318,10 +351,10 @@ impl Name {
     /// let root = Name::root();
     /// assert_eq!(root.num_labels(), 0);
     ///
-    /// let example_com = Name::from_labels(vec!["example", "com"]);
+    /// let example_com = Name::from(&["example", "com"] as &[_]);
     /// assert_eq!(example_com.num_labels(), 2);
     ///
-    /// let star_example_com = Name::from_labels(vec!["*", "example", "com"]);
+    /// let star_example_com = Name::from(&["*", "example", "com"] as &[_]);
     /// assert_eq!(star_example_com.num_labels(), 2);
     /// ```
     pub fn num_labels(&self) -> u8 {
@@ -344,7 +377,7 @@ impl Name {
         } else {
             1
         };
-        self.labels.iter().fold(dots, |acc, item| acc + item.len())
+        self.labels.iter().fold(dots, |acc, item| acc + item.as_ref().len())
     }
 
     /// Returns whether the length of the labels, in bytes is 0. In practive, since '.' counts as
@@ -361,7 +394,7 @@ impl Name {
     /// use trust_dns_proto::rr::domain::Name;
     ///
     /// let name = Name::parse("example.com.", None).unwrap();
-    /// assert_eq!(name.base_name(), Name::from_labels(vec!["com"]));
+    /// assert_eq!(name.base_name(), Name::from(&["com"] as &[_]));
     /// assert_eq!(*name[0], String::from("example"));
     /// ```
     pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
@@ -381,7 +414,7 @@ impl Name {
             match state {
                 ParseState::Label => match ch {
                     '.' => {
-                        name.labels.push(Rc::new(label.clone()));
+                        name.labels.push(label.clone().into());
                         label.clear();
                     }
                     '\\' => state = ParseState::Escape1,
@@ -427,7 +460,7 @@ impl Name {
         }
 
         if !label.is_empty() {
-            name.labels.push(Rc::new(label));
+            name.labels.push(label.into());
         }
 
         if local.ends_with('.') {
@@ -446,11 +479,11 @@ impl Name {
         let buf_len = encoder.len(); // lazily assert the size is less than 255...
                                      // lookup the label in the BinEncoder
                                      // if it exists, write the Pointer
-        let mut labels: &[Rc<String>] = &self.labels;
+        let mut labels: &[Label] = &self.labels;
 
         if canonical {
             for label in labels {
-                encoder.emit_character_data(label)?;
+                encoder.emit_character_data(label.as_ref())?;
             }
         } else {
             while let Some(label) = labels.first() {
@@ -463,13 +496,13 @@ impl Name {
                     // we found a pointer don't write more, break
                     return Ok(());
                 } else {
-                    if label.len() > 63 {
-                        return Err(ProtoErrorKind::LabelBytesTooLong(label.len()).into());
+                    if label.as_ref().len() > 63 {
+                        return Err(ProtoErrorKind::LabelBytesTooLong(label.as_ref().len()).into());
                     }
 
                     // to_owned is cloning the the vector, but the Rc's at least don't clone the strings.
                     encoder.store_label_pointer(labels.to_owned());
-                    encoder.emit_character_data(label)?;
+                    encoder.emit_character_data(label.as_ref())?;
 
                     // return the next parts of the labels
                     //  this should be safe, the labels.first() wouldn't have let us here if there wasn't
@@ -519,12 +552,12 @@ impl Name {
 
         for (l, r) in self_labels.zip(other_labels) {
             if ignore_case {
-                match (*l).to_lowercase().cmp(&(*r).to_lowercase()) {
+                match l.as_ref().to_lowercase().cmp(&r.as_ref().to_lowercase()) {
                     o @ Ordering::Less | o @ Ordering::Greater => return o,
                     Ordering::Equal => continue,
                 }
             } else {
-                match l.cmp(r) {
+                match l.as_ref().cmp(r.as_ref()) {
                     o @ Ordering::Less | o @ Ordering::Greater => return o,
                     Ordering::Equal => continue,
                 }
@@ -541,6 +574,33 @@ impl Name {
     ///  qualified Name.
     pub fn to_string(&self) -> String {
         format!("{}", self)
+    }
+
+    /// Return the labels constituting the domain name as a slice.
+    pub fn as_slice(&self) -> &[Label] {
+        self.labels.as_slice()
+    }
+}
+
+impl<'a, L: AsRef<str>> From<&'a [L]> for Name {
+    fn from(labels: &'a [L]) -> Self {
+        assert!(labels.len() < 256); // this should be an error
+        Name {
+            is_fqdn: true,
+            labels: labels.into_iter().map(|s| s.as_ref().into()).collect(),
+        }
+    }
+}
+
+// This is a slightly more efficient implementation that From<L: AsRef<str>> because we don't need
+// to allocate for each String.
+impl From<Vec<String>> for Name {
+    fn from(vec: Vec<String>) -> Self {
+        assert!(vec.len() < 256); // this should be an error
+        Name {
+            is_fqdn: true,
+            labels: vec.into_iter().map(|s| Label::from(s)).collect(),
+        }
     }
 }
 
@@ -568,7 +628,7 @@ impl From<Ipv4Addr> for Name {
         labels.push("in-addr".to_string());
         labels.push("arpa".to_string());
 
-        Self::from_labels(labels)
+        Self::from(labels)
     }
 }
 
@@ -590,7 +650,7 @@ impl From<Ipv6Addr> for Name {
         labels.push("ip6".to_string());
         labels.push("arpa".to_string());
 
-        Self::from_labels(labels)
+        Self::from(labels)
     }
 }
 
@@ -601,7 +661,7 @@ impl Hash for Name {
         H: Hasher,
     {
         for label in &self.labels {
-            state.write(label.to_lowercase().as_bytes());
+            state.write(label.as_ref().to_lowercase().as_bytes());
         }
     }
 }
@@ -626,7 +686,7 @@ impl BinSerializable<Name> for Name {
     /// This will consume the portions of the Vec which it is reading...
     fn read(decoder: &mut BinDecoder) -> ProtoResult<Name> {
         let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
-        let mut labels: Vec<Rc<String>> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
+        let mut labels: Vec<Label> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
 
         // assume all chars are utf-8. We're doing byte-by-byte operations, no endianess issues...
         // reserved: (1000 0000 aka 0800) && (0100 0000 aka 0400)
@@ -647,7 +707,7 @@ impl BinSerializable<Name> for Name {
                     }
                 }
                 LabelParseState::Label => {
-                    labels.push(Rc::new(decoder.read_character_data()?));
+                    labels.push(decoder.read_character_data()?.into());
 
                     // reset to collect more data
                     LabelParseState::LabelLengthOrPointer
@@ -679,7 +739,7 @@ impl BinSerializable<Name> for Name {
                     let pointed = Name::read(&mut pointer)?;
 
                     for l in &*pointed.labels {
-                        labels.push(Rc::clone(l));
+                        labels.push(l.clone());
                     }
 
                     // Pointers always finish the name, break like Root.
@@ -727,8 +787,8 @@ impl fmt::Display for Name {
 impl Index<usize> for Name {
     type Output = String;
 
-    fn index(&self, _index: usize) -> &String {
-        &*(self.labels[_index])
+    fn index(&self, index: usize) -> &String {
+        self.labels[index].borrow()
     }
 }
 
@@ -806,13 +866,13 @@ mod tests {
     fn get_data() -> Vec<(Name, Vec<u8>)> {
         vec![
             (Name::new(), vec![0]),                           // base case, only the root
-            (Name::from_labels(vec!["a"]), vec![1, b'a', 0]), // a single 'a' label
+            (Name::from(&["a"] as &[_]), vec![1, b'a', 0]), // a single 'a' label
             (
-                Name::from_labels(vec!["a", "bc"]),
+                Name::from(&["a", "bc"] as &[_]),
                 vec![1, b'a', 2, b'b', b'c', 0],
             ), // two labels, 'a.bc'
             (
-                Name::from_labels(vec!["a", "♥"]),
+                Name::from(&["a", "♥"] as &[_]),
                 vec![1, b'a', 3, 0xE2, 0x99, 0xA5, 0],
             ), // two labels utf8, 'a.♥'
         ]
@@ -820,12 +880,12 @@ mod tests {
 
     #[test]
     fn test_num_labels() {
-        assert_eq!(Name::from_labels(vec!["*"]).num_labels(), 0);
-        assert_eq!(Name::from_labels(vec!["a"]).num_labels(), 1);
-        assert_eq!(Name::from_labels(vec!["*", "b"]).num_labels(), 1);
-        assert_eq!(Name::from_labels(vec!["a", "b"]).num_labels(), 2);
-        assert_eq!(Name::from_labels(vec!["*", "b", "c"]).num_labels(), 2);
-        assert_eq!(Name::from_labels(vec!["a", "b", "c"]).num_labels(), 3);
+        assert_eq!(Name::from(&["*"] as &[_]).num_labels(), 0);
+        assert_eq!(Name::from(&["a"] as &[_]).num_labels(), 1);
+        assert_eq!(Name::from(&["*", "b"] as &[_]).num_labels(), 1);
+        assert_eq!(Name::from(&["a", "b"] as &[_]).num_labels(), 2);
+        assert_eq!(Name::from(&["*", "b", "c"] as &[_]).num_labels(), 2);
+        assert_eq!(Name::from(&["a", "b", "c"] as &[_]).num_labels(), 3);
     }
 
     #[test]
@@ -842,10 +902,10 @@ mod tests {
     fn test_pointer() {
         let mut bytes: Vec<u8> = Vec::with_capacity(512);
 
-        let first = Name::from_labels(vec!["ra", "rb", "rc"]);
-        let second = Name::from_labels(vec!["rb", "rc"]);
-        let third = Name::from_labels(vec!["rc"]);
-        let fourth = Name::from_labels(vec!["z", "ra", "rb", "rc"]);
+        let first = Name::from(&["ra", "rb", "rc"] as &[_]);
+        let second = Name::from(&["rb", "rc"] as &[_]);
+        let third = Name::from(&["rc"] as &[_]);
+        let fourth = Name::from(&["z", "ra", "rb", "rc"] as &[_]);
 
         {
             let mut e = BinEncoder::new(&mut bytes);
@@ -882,18 +942,18 @@ mod tests {
 
     #[test]
     fn test_base_name() {
-        let zone = Name::from_labels(vec!["example", "com"]);
+        let zone = Name::from(&["example", "com"] as &[_]);
 
-        assert_eq!(zone.base_name(), Name::from_labels(vec!["com"]));
+        assert_eq!(zone.base_name(), Name::from(&["com"] as &[_]));
         assert!(zone.base_name().base_name().is_root());
         assert!(zone.base_name().base_name().base_name().is_root());
     }
 
     #[test]
     fn test_zone_of() {
-        let zone = Name::from_labels(vec!["example", "com"]);
-        let www = Name::from_labels(vec!["www", "example", "com"]);
-        let none = Name::from_labels(vec!["none", "com"]);
+        let zone = Name::from(&["example", "com"] as &[_]);
+        let www = Name::from(&["www", "example", "com"] as &[_]);
+        let none = Name::from(&["none", "com"] as &[_]);
         let root = Name::root();
 
         assert!(zone.zone_of(&zone));
@@ -905,9 +965,9 @@ mod tests {
 
     #[test]
     fn test_zone_of_case() {
-        let zone = Name::from_labels(vec!["examplE", "cOm"]);
-        let www = Name::from_labels(vec!["www", "example", "com"]);
-        let none = Name::from_labels(vec!["none", "com"]);
+        let zone = Name::from(&["examplE", "cOm"] as &[_]);
+        let www = Name::from(&["www", "example", "com"] as &[_]);
+        let none = Name::from(&["none", "com"] as &[_]);
 
         assert!(zone.zone_of(&zone));
         assert!(zone.zone_of(&www));
@@ -916,7 +976,7 @@ mod tests {
 
     #[test]
     fn test_partial_cmp_eq() {
-        let root = Some(Name::from_labels(Vec::<String>::new()));
+        let root = Some(Name::from(Vec::<String>::new()));
         let comparisons: Vec<(Name, Name)> = vec![
             (root.clone().unwrap(), root.clone().unwrap()),
             (
@@ -933,7 +993,7 @@ mod tests {
 
     #[test]
     fn test_partial_cmp() {
-        let root = Some(Name::from_labels(Vec::<String>::new()));
+        let root = Some(Name::from(Vec::<String>::new()));
         let comparisons: Vec<(Name, Name)> = vec![
             (
                 Name::parse("example", root.as_ref()).unwrap(),
@@ -977,7 +1037,7 @@ mod tests {
 
     #[test]
     fn test_cmp_ignore_case() {
-        let root = Some(Name::from_labels(Vec::<String>::new()));
+        let root = Some(Name::from(Vec::<String>::new()));
         let comparisons: Vec<(Name, Name)> = vec![
             (
                 Name::parse("ExAmPle", root.as_ref()).unwrap(),
@@ -998,7 +1058,7 @@ mod tests {
     #[test]
     fn test_from_ipv4() {
         let ip = IpAddr::V4(Ipv4Addr::new(26, 3, 0, 103));
-        let name = Name::from_labels(vec!["103", "0", "3", "26", "in-addr", "arpa"]);
+        let name = Name::from(&["103", "0", "3", "26", "in-addr", "arpa"] as &[_]);
 
         assert_eq!(Into::<Name>::into(ip), name);
     }
@@ -1006,7 +1066,7 @@ mod tests {
     #[test]
     fn test_from_ipv6() {
         let ip = IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0, 0x1));
-        let name = Name::from_labels(vec![
+        let name = Name::from(&[
             "1",
             "0",
             "0",
@@ -1041,7 +1101,7 @@ mod tests {
             "2",
             "ip6",
             "arpa",
-        ]);
+        ] as &[_]);
 
         assert_eq!(Into::<Name>::into(ip), name);
     }
@@ -1050,11 +1110,11 @@ mod tests {
     fn test_from_str() {
         assert_eq!(
             Name::from_str("www.example.com.").unwrap(),
-            Name::from_labels(vec!["www", "example", "com"])
+            Name::from(&["www", "example", "com"] as &[_])
         );
         assert_eq!(
             Name::from_str(".").unwrap(),
-            Name::from_labels(Vec::<String>::new())
+            Name::from(Vec::<String>::new())
         );
     }
 
@@ -1063,7 +1123,7 @@ mod tests {
         assert!(Name::root().is_fqdn());
         assert!(Name::from_str(".").unwrap().is_fqdn());
         assert!(Name::from_str("www.example.com.").unwrap().is_fqdn());
-        assert!(Name::from_labels(vec!["www", "example", "com"]).is_fqdn());
+        assert!(Name::from(&["www", "example", "com"] as &[_]).is_fqdn());
 
         assert!(!Name::new().is_fqdn());
         assert!(!Name::from_str("www.example.com").unwrap().is_fqdn());

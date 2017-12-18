@@ -34,7 +34,7 @@ fn test_init_journal() {
 }
 
 fn create_test_journal() -> (Record, Journal) {
-    let www = Name::from_labels(vec!["www", "example", "com"]);
+    let www = Name::from(&["www", "example", "com"] as &[_]);
 
     let mut record = Record::new();
     record.set_name(www);

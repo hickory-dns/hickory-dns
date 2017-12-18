@@ -83,7 +83,7 @@ where
     let signer = Signer::sig0(
         sig0key,
         key,
-        Name::from_labels(vec!["update", "example", "com"]),
+        Name::from(&["update", "example", "com"] as &[_]),
     );
 
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);
@@ -100,11 +100,11 @@ fn test_create() {
     let conn = UdpClientConnection::new(socket).unwrap();
 
     let client = create_sig0_ready_client(conn);
-    let origin = Name::from_labels(vec!["example", "com"]);
+    let origin = Name::from(&["example", "com"] as &[_]);
 
     // create a record
     let mut record = Record::with(
-        Name::from_labels(vec!["new", "example", "com"]),
+        Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );

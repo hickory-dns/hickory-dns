@@ -144,11 +144,11 @@ mod tests {
         );
         assert_eq!(
             resolv_conf::parse_basic_option(&mut errors, "search localnet.").expect("failed"),
-            BasicOption::Search(vec![Name::from_labels(vec!["localnet"])])
+            BasicOption::Search(vec![Name::from(&["localnet"] as &[_])])
         );
         assert_eq!(
             resolv_conf::parse_basic_option(&mut errors, "domain example.com.").expect("failed"),
-            BasicOption::Domain(Name::from_labels(vec!["example", "com"]))
+            BasicOption::Domain(Name::from(&["example", "com"] as &[_]))
         );
     }
 
@@ -192,12 +192,12 @@ mod tests {
 
     //     assert_eq!(
     //         resolv_conf::parse_name(&mut errors, "com.").unwrap(),
-    //         Name::from_labels(vec!["com"])
+    //         Name::from(&["com"] as &[_])
     //     );
 
     //     assert_eq!(
     //         resolv_conf::parse_name(&mut errors, "example.com.").unwrap(),
-    //         Name::from_labels(vec!["example", "com"])
+    //         Name::from(&["example", "com"] as &[_])
     //     );
     // }
 
@@ -308,11 +308,11 @@ mod tests {
                 AdvancedOption::Attempts(8),
             ]),
             ConfigOption::Basic(BasicOption::Domain(
-                Name::from_labels(vec!["example", "com"]),
+                Name::from(&["example", "com"] as &[_]),
             )),
             ConfigOption::Basic(BasicOption::Search(vec![
-                Name::from_labels(vec!["example", "com"]),
-                Name::from_labels(vec!["sub", "example", "com"]),
+                Name::from(&["example", "com"] as &[_]),
+                Name::from(&["sub", "example", "com"] as &[_]),
             ])),
             ConfigOption::Basic(BasicOption::Nameserver(
                 IpAddr::from_str("2001:4860:4860::8888").unwrap(),
@@ -348,11 +348,11 @@ mod tests {
                 AdvancedOption::Attempts(8),
             ]),
             ConfigOption::Basic(BasicOption::Domain(
-                Name::from_labels(vec!["example", "com"]),
+                Name::from(&["example", "com"] as &[_]),
             )),
             ConfigOption::Basic(BasicOption::Search(vec![
-                Name::from_labels(vec!["example", "com"]),
-                Name::from_labels(vec!["sub", "example", "com"]),
+                Name::from(&["example", "com"] as &[_]),
+                Name::from(&["sub", "example", "com"] as &[_]),
             ])),
             ConfigOption::Basic(BasicOption::Nameserver(
                 IpAddr::from_str("2001:4860:4860::8888").unwrap(),

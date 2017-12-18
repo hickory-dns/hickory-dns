@@ -117,7 +117,7 @@ fn test_query_tcp_ipv6() {
 
 #[cfg(test)]
 fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = ()>> {
-    let name = domain::Name::from_labels(vec!["WWW", "example", "com"]);
+    let name = domain::Name::from(&["WWW", "example", "com"] as &[_]);
 
     Box::new(
         client
@@ -161,7 +161,7 @@ fn test_notify() {
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
     let mut client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
 
-    let name = domain::Name::from_labels(vec!["ping", "example", "com"]);
+    let name = domain::Name::from(&["ping", "example", "com"] as &[_]);
 
     let message = io_loop.run(client.notify(
         name.clone(),
@@ -187,7 +187,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 
-    let trusted_name = domain::Name::from_labels(vec!["trusted", "example", "com"]);
+    let trusted_name = domain::Name::from(&["trusted", "example", "com"] as &[_]);
 
     let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
@@ -226,7 +226,7 @@ fn test_create() {
 
     // create a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -273,7 +273,7 @@ fn test_create_multi() {
 
     // create a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -329,7 +329,7 @@ fn test_append() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -407,7 +407,7 @@ fn test_append_multi() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -491,7 +491,7 @@ fn test_compare_and_swap() {
 
     // create a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -563,7 +563,7 @@ fn test_compare_and_swap_multi() {
 
     // create a record
     let mut current = RecordSet::with_ttl(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -645,7 +645,7 @@ fn test_delete_by_rdata() {
 
     // append a record
     let mut record1 = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -695,7 +695,7 @@ fn test_delete_by_rdata_multi() {
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -728,7 +728,7 @@ fn test_delete_by_rdata_multi() {
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -770,7 +770,7 @@ fn test_delete_rrset() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -819,7 +819,7 @@ fn test_delete_all() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -881,7 +881,7 @@ fn test_delete_all() {
 }
 
 fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = domain::Name::from(&["www", "example", "com"] as &[_]);
 
     let err = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))

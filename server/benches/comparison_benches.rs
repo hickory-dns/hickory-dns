@@ -135,7 +135,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 
 /// Runs the bench tesk using the specified client
 fn bench(b: &mut Bencher, io_loop: &mut Core, client: &mut BasicClientHandle) {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = domain::Name::from(&["www", "example", "com"] as &[_]);
 
     // validate the request
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));

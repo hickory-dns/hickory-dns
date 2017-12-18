@@ -17,3 +17,5 @@
 //! Contains serialization libraries for `binary` and text, `txt`.
 
 pub mod binary;
+
+use super::rr::domain::Label;

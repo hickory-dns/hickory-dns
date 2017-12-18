@@ -159,7 +159,7 @@ pub fn query_message<C: ClientHandle>(
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
 #[allow(dead_code)]
 pub fn query_a<C: ClientHandle>(io_loop: &mut Core, client: &mut C) {
-    let name = Name::from_labels(vec!["www", "example", "com"]);
+    let name = Name::from(&["www", "example", "com"] as &[_]);
     let response = query_message(io_loop, client, name, RecordType::A);
     let record = &response.answers()[0];
 

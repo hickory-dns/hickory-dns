@@ -102,7 +102,7 @@ where
     <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     use std::cmp::Ordering;
-    let name = domain::Name::from_labels(vec!["WWW", "example", "com"]);
+    let name = domain::Name::from(&["WWW", "example", "com"] as &[_]);
 
     let response = client.query(&name, DNSClass::IN, RecordType::A);
     assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
@@ -160,7 +160,7 @@ where
     CC: ClientConnection,
     <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = domain::Name::from(&["www", "example", "com"] as &[_]);
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
 
     assert!(
@@ -192,7 +192,7 @@ where
     CC: ClientConnection,
     <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
-    let name = domain::Name::from_labels(vec!["WWW", "example", "com"]);
+    let name = domain::Name::from(&["WWW", "example", "com"] as &[_]);
 
     let response = client.query(&name, DNSClass::IN, RecordType::A);
     assert!(response.is_err());
@@ -309,7 +309,7 @@ where
     CC: ClientConnection,
     <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
-    let name = domain::Name::from_labels(vec!["none", "example", "com"]);
+    let name = domain::Name::from(&["none", "example", "com"] as &[_]);
 
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
     assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
@@ -323,7 +323,7 @@ where
 #[ignore]
 #[allow(deprecated)]
 fn test_nsec_query_type() {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = domain::Name::from(&["www", "example", "com"] as &[_]);
 
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let conn = TcpClientConnection::new(addr).unwrap();
@@ -346,7 +346,7 @@ fn test_nsec_query_type() {
 // fn test_nsec3_sdsmt() {
 //   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
 //   let conn = TcpClientConnection::new(addr).unwrap();
-//   let name = domain::Name::from_labels(vec!["none", "sdsmt", "edu"]);
+//   let name = domain::Name::from(&["none", "sdsmt", "edu"] as &[_]);
 //   let client = Client::new(conn);
 //
 //   let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
@@ -363,7 +363,7 @@ fn test_nsec_query_type() {
 // fn test_nsec3_sdsmt_type() {
 //   let addr: SocketAddr = ("75.75.75.75",53).to_socket_addrs().unwrap().next().unwrap();
 //   let conn = TcpClientConnection::new(addr).unwrap();
-//   let name = domain::Name::from_labels(vec!["www", "sdsmt", "edu"]);
+//   let name = domain::Name::from(&["www", "sdsmt", "edu"] as &[_]);
 //   let client = Client::new(conn);
 //
 //   let response = client.secure_query(&name, DNSClass::IN, RecordType::NS);
@@ -387,7 +387,7 @@ fn create_sig0_ready_client(
     let signer = Signer::new(
         Algorithm::RSASHA256,
         key,
-        domain::Name::from_labels(vec!["trusted", "example", "com"]),
+        domain::Name::from(&["trusted", "example", "com"] as &[_]),
         Duration::max_value(),
         true,
         true,
@@ -395,7 +395,7 @@ fn create_sig0_ready_client(
 
     // insert the KEY for the trusted.example.com
     let mut auth_key = Record::with(
-        domain::Name::from_labels(vec!["trusted", "example", "com"]),
+        domain::Name::from(&["trusted", "example", "com"] as &[_]),
         RecordType::DNSSEC(DNSSECRecordType::KEY),
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -422,7 +422,7 @@ fn test_create() {
 
     // create a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -464,7 +464,7 @@ fn test_append() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -540,7 +540,7 @@ fn test_compare_and_swap() {
 
     // create a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -603,7 +603,7 @@ fn test_delete_by_rdata() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -655,7 +655,7 @@ fn test_delete_rrset() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -700,7 +700,7 @@ fn test_delete_all() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        domain::Name::from(&["new", "example", "com"] as &[_]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );

@@ -278,7 +278,7 @@ pub fn determine_name(name: &Name, num_labels: u8) -> Option<Name> {
     //                   name = "*." | the rightmost rrsig_label labels of the
     //                                 fqdn
     if num_labels < fqdn_labels {
-        let mut star_name: Name = Name::from_labels(vec!["*"]);
+        let mut star_name: Name = Name::from(&["*"] as &[_]);
         let rightmost = name.trim_to(num_labels as usize);
         if !rightmost.is_root() {
             star_name = star_name.append_name(&rightmost);

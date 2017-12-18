@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 use std::collections::HashMap;
-use std::sync::Arc as Rc;
 use byteorder::{ByteOrder, NetworkEndian};
 
+use super::Label;
 use error::{ProtoErrorKind, ProtoResult};
 
 /// Encode DNS messages and resource record types.
@@ -25,7 +25,7 @@ pub struct BinEncoder<'a> {
     buffer: &'a mut Vec<u8>,
     // TODO, it would be cool to make this slices, but then the stored slice needs to live longer
     //  than the callee of store_pointer which isn't obvious right now.
-    name_pointers: HashMap<Vec<Rc<String>>, u16>, // array of string, label, location in stream
+    name_pointers: HashMap<Vec<Label>, u16>, // array of string, label, location in stream
     mode: EncodeMode,
     canonical_names: bool,
 }
@@ -118,14 +118,14 @@ impl<'a> BinEncoder<'a> {
     ///
     /// The location is the current position in the buffer
     ///  implicitly, it is expected that the name will be written to the stream after the current index.
-    pub fn store_label_pointer(&mut self, labels: Vec<Rc<String>>) {
+    pub fn store_label_pointer(&mut self, labels: Vec<Label>) {
         if self.offset < 0x3FFFusize {
             self.name_pointers.insert(labels, self.offset as u16); // the next char will be at the len() location
         }
     }
 
     /// Looks up the index of an already written label
-    pub fn get_label_pointer(&self, labels: &[Rc<String>]) -> Option<u16> {
+    pub fn get_label_pointer(&self, labels: &[Label]) -> Option<u16> {
         self.name_pointers.get(labels).cloned()
     }
 

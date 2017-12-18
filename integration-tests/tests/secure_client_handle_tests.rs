@@ -44,7 +44,7 @@ fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: 
 where
     H: ClientHandle + 'static,
 {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = domain::Name::from(&["www", "example", "com"] as &[_]);
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
@@ -86,7 +86,7 @@ fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Co
 where
     H: ClientHandle + 'static,
 {
-    let name = domain::Name::from_labels(vec!["none", "example", "com"]);
+    let name = domain::Name::from(&["none", "example", "com"] as &[_]);
 
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
@@ -116,7 +116,7 @@ fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
 where
     H: ClientHandle + 'static,
 {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = domain::Name::from(&["www", "example", "com"] as &[_]);
 
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::NS))
