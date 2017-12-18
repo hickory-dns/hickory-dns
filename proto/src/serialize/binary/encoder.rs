@@ -118,10 +118,10 @@ impl<'a> BinEncoder<'a> {
 
     /// Emit one byte into the buffer
     pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
-        if (self.offset as usize) < self.buffer.len() {
+        if self.offset < self.buffer.len() {
             *self.buffer
-                .get_mut(self.offset as usize)
-                .expect("this should always work!") = b;
+                .get_mut(self.offset)
+                .expect("could not get index at offset") = b;
         } else {
             self.buffer.push(b);
         }
@@ -223,22 +223,18 @@ impl<'a> BinEncoder<'a> {
     }
 
     fn write_slice(&mut self, data: &[u8]) {
-        if self.offset == self.buffer.len() {
-            self.buffer.extend_from_slice(data);
-            self.offset += data.len();
-        } else {
-            let needed_len = self.offset + data.len();
-            if needed_len < self.buffer.len() {
-                self.buffer.resize(needed_len, 0);
-            } 
-
+        // replacement case, the necessary space should have been reserved already...
+        if self.offset < self.buffer.len() {
             for b in data {
                 *self.buffer
                   .get_mut(self.offset)
-                  .expect("this should always work!") = *b;
+                  .expect("could not get index at offset for slice") = *b;
                 self.offset += 1;
             }
-        }        
+        } else {
+            self.buffer.extend_from_slice(data);
+            self.offset += data.len();
+        }
     }
 
     /// Writes the byte slice to the stream
@@ -275,11 +271,9 @@ impl<'a> BinEncoder<'a> {
     pub fn place<T: EncodedSize>(&mut self) -> Place<T> {
         let index = self.offset;
         let len = T::size_of();
-        self.offset += len;
-        self.buffer.reserve(len);
-        for _ in 0..len {
-            self.buffer.push(0_u8);
-        }
+ 
+        // resize the buffer
+        self.buffer.resize(index + len, 0);
 
         // update the offset
         self.offset += len;
