@@ -214,14 +214,16 @@ impl Name {
     /// assert_eq!(example_com.to_lowercase().cmp_with_case(&Name::from_labels(vec!["example", "com"]), false), Ordering::Equal);
     /// ```
     pub fn to_lowercase(&self) -> Self {
-        let mut new_labels = Vec::with_capacity(self.labels.len());
+        let mut new_labels: Vec<Rc<String>> = Vec::with_capacity(self.labels.len());
         for label in &self.labels {
-            new_labels.push(label.to_lowercase());
+            if label.chars().any(|c| !c.is_lowercase()) {
+                new_labels.push(Rc::new(label.to_lowercase()));
+            } else {
+                new_labels.push(Rc::clone(label))
+            }
         }
 
-        let mut this = Self::from_labels(new_labels);
-        this.is_fqdn = self.is_fqdn;
-        this
+        Name{ is_fqdn: self.is_fqdn, labels: new_labels}
     }
 
     /// Trims off the first part of the name, to help with searching for the domain piece
@@ -521,7 +523,7 @@ impl Name {
             self.emit_as_canonical(encoder, is_canonical_names)
         }
     }
-
+    
     /// compares with the other label, ignoring case
     pub fn cmp_with_case(&self, other: &Self, ignore_case: bool) -> Ordering {
         if self.labels.is_empty() && other.labels.is_empty() {
@@ -548,7 +550,7 @@ impl Name {
 
         self.labels.len().cmp(&other.labels.len())
     }
-
+    
     /// Converts the Name labels to the String form.
     ///
     /// This converts the name to an unescaped format, that could be used with parse. The name is
@@ -669,7 +671,8 @@ impl<'r> BinDecodable<'r> for Name {
                     }
                 }
                 LabelParseState::Label => {
-                    labels.push(Rc::new(decoder.read_character_data()?));
+                    let label = decoder.read_character_data()?;
+                    labels.push(Rc::new(label.to_string()));
 
                     // reset to collect more data
                     LabelParseState::LabelLengthOrPointer

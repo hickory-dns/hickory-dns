@@ -13,6 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+use std::borrow::Cow;
+
 use error::{ProtoErrorKind, ProtoResult};
 use byteorder::{ByteOrder, NetworkEndian};
 
@@ -78,7 +80,7 @@ impl<'a> BinDecoder<'a> {
 
     /// This is a pretty efficient clone, as the buffer is never cloned, and only the index is set
     ///  to the value passed in
-    pub fn clone(&self, index_at: u16) -> BinDecoder {
+    pub fn clone(&self, index_at: u16) -> BinDecoder<'a> {
         BinDecoder {
             buffer: self.buffer,
             index: index_at as usize,
@@ -97,15 +99,14 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// A String version of the character data
-    pub fn read_character_data(&mut self) -> ProtoResult<String> {
+    pub fn read_character_data(&mut self) -> ProtoResult<Cow<'a, str>> {
         let length: u8 = self.pop()?;
 
         // TODO once Drain stabalizes on Vec, this should be replaced...
-        let label_vec: Vec<u8> = self.read_vec(length as usize)?;
+        let label_vec: &[u8] = self.read_slice(length as usize)?;
 
         // translate bytes to string, then lowercase...
-        let data = String::from_utf8(label_vec)?;
-
+        let data = String::from_utf8_lossy(label_vec);
         Ok(data)
     }
 
