@@ -65,7 +65,8 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TXT> {
     let mut strings = Vec::with_capacity(1);
 
     while data_len - decoder.len() < rdata_length as usize {
-        strings.push(decoder.read_character_data()?);
+        let string = decoder.read_character_data()?;
+        strings.push(string.to_string());
     }
     Ok(TXT::new(strings))
 }

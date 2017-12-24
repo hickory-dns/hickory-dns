@@ -956,9 +956,13 @@ impl Authority {
             }
         }
 
-        // it would be better to stream this back, rather than packaging everything up in an array
-        //  though for UDP it would still need to be bundled
-        let query_result = self.lookup(query.name(), record_type, is_secure, supported_algorithms);
+        // perform the actual lookup 
+        let query_result = if record_type == RecordType::SOA {
+            // on an SOA request always return the SOA, regardless of the name
+            self.lookup(&self.origin, record_type, is_secure, supported_algorithms)
+        } else {
+            self.lookup(query.name(), record_type, is_secure, supported_algorithms)
+        };
 
         if RecordType::AXFR == record_type {
             let lookup = self.soa();
@@ -1006,12 +1010,6 @@ impl Authority {
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> AuthLookup<'s> {
-        // on an SOA request always return the SOA, regardless of the name
-        let name: &Name = if rtype == RecordType::SOA {
-            &self.origin
-        } else {
-            name
-        };
         let rr_key = RrKey::new(name, rtype);
 
         // Collect the records from each rr_set

@@ -29,7 +29,7 @@ fn get_character_data() -> Vec<(String, Vec<u8>)> {
 
 #[test]
 fn read_character_data() {
-    test_read_data_set(get_character_data(), |mut d| d.read_character_data());
+    test_read_data_set(get_character_data(), |mut d| d.read_character_data().map(|s| s.to_string()));
 }
 
 #[test]

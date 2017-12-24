@@ -216,10 +216,18 @@ pub struct Queries<'r> {
 }
 
 impl<'r> Queries<'r> {
+    fn read_queries(decoder: &mut BinDecoder<'r>, count: usize) -> ProtoResult<Vec<Query>> {
+        let mut queries = Vec::with_capacity(count);
+        for _ in 0..count {
+            queries.push(Query::read(decoder)?);
+        }
+        Ok(queries)
+    }
+    
     /// Read queries from a decoder
     pub fn read(decoder: &mut BinDecoder<'r>, num_queries: usize) -> ProtoResult<Self> {
         let queries_start = decoder.index();
-        let queries = Message::read_queries(decoder, num_queries)?;
+        let queries = Self::read_queries(decoder, num_queries)?;
         let original = decoder.slice_from(queries_start)?;
 
         Ok(Queries { queries, original })

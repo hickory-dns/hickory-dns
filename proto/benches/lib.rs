@@ -5,7 +5,7 @@ extern crate test;
 
 use trust_dns_proto::op::{MessageType, Header, ResponseCode, OpCode, Message};
 use trust_dns_proto::rr::Record;
-use trust_dns_proto::serialize::binary::{BinDecoder, BinEncoder, BinSerializable};
+use trust_dns_proto::serialize::binary::{BinDecoder, BinEncodable, BinEncoder, BinDecodable};
 
 use test::Bencher;
 
