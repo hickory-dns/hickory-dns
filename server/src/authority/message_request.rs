@@ -10,6 +10,7 @@ use trust_dns_proto::rr::Record;
 use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
 use trust_dns_proto::op::{Edns, EncodableMessage, Header, Message, MessageType, OpCode, Query,
                           ResponseCode};
+use trust_dns::op::LowerQuery;
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
@@ -83,7 +84,7 @@ impl<'r> MessageRequest<'r> {
     /// ```text
     /// Question        Carries the query name and other query parameters.
     /// ```
-    pub fn queries(&self) -> &[Query] {
+    pub fn queries(&self) -> &[LowerQuery] {
         &self.queries.queries
     }
 
@@ -211,15 +212,15 @@ impl<'r> BinDecodable<'r> for MessageRequest<'r> {
 /// A set of Queries with the associated serialized data
 #[derive(Debug, PartialEq)]
 pub struct Queries<'r> {
-    queries: Vec<Query>,
+    queries: Vec<LowerQuery>,
     original: &'r [u8],
 }
 
 impl<'r> Queries<'r> {
-    fn read_queries(decoder: &mut BinDecoder<'r>, count: usize) -> ProtoResult<Vec<Query>> {
+    fn read_queries(decoder: &mut BinDecoder<'r>, count: usize) -> ProtoResult<Vec<LowerQuery>> {
         let mut queries = Vec::with_capacity(count);
         for _ in 0..count {
-            queries.push(Query::read(decoder)?);
+            queries.push(LowerQuery::read(decoder)?);
         }
         Ok(queries)
     }
@@ -290,7 +291,7 @@ pub trait UpdateRequest {
     fn id(&self) -> u16;
 
     /// Zones being updated, this should be the queries of a Message
-    fn zones(&self) -> &[Query];
+    fn zones(&self) -> &[LowerQuery];
 
     /// Prerequisites map to the answers of a Message
     fn prerequisites(&self) -> &[Record];
@@ -310,7 +311,7 @@ impl<'r> UpdateRequest for MessageRequest<'r> {
         MessageRequest::id(self)
     }
 
-    fn zones(&self) -> &[Query] {
+    fn zones(&self) -> &[LowerQuery] {
         self.queries()
     }
 

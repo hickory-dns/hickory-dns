@@ -227,7 +227,7 @@ where
     };
 
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone().into(), authority);
 
     let io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));

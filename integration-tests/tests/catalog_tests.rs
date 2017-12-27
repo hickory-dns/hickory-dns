@@ -136,13 +136,13 @@ fn test_catalog_lookup() {
     let test_origin = test.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), example);
-    catalog.upsert(test_origin.clone(), test);
+    catalog.upsert(origin.clone().into(), example);
+    catalog.upsert(test_origin.clone().into(), test);
 
     let mut question: Message = Message::new();
 
     let mut query: Query = Query::new();
-    query.set_name(origin.clone());
+    query.set_name(origin.clone().into());
 
     question.add_query(query);
 
@@ -185,7 +185,7 @@ fn test_catalog_lookup() {
 
     // other zone
     let mut query: Query = Query::new();
-    query.set_name(test_origin.clone());
+    query.set_name(test_origin.clone().into());
 
     question.add_query(query);
 
@@ -218,7 +218,7 @@ fn test_catalog_nx_soa() {
     let origin = example.origin().clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), example);
+    catalog.upsert(origin.clone().into(), example);
 
     let mut question: Message = Message::new();
 
@@ -263,7 +263,7 @@ fn test_axfr() {
     let test = create_test();
     let origin = test.origin().clone();
     let soa = Record::new()
-        .set_name(origin.clone())
+        .set_name(origin.clone().into())
         .set_ttl(3600)
         .set_rr_type(RecordType::SOA)
         .set_dns_class(DNSClass::IN)
@@ -279,10 +279,10 @@ fn test_axfr() {
         .clone();
 
     let mut catalog: Catalog = Catalog::new();
-    catalog.upsert(origin.clone(), test);
+    catalog.upsert(origin.clone().into(), test);
 
     let mut query: Query = Query::new();
-    query.set_name(origin.clone());
+    query.set_name(origin.clone().into());
     query.set_query_type(RecordType::AXFR);
 
     let mut question: Message = Message::new();
@@ -308,7 +308,7 @@ fn test_axfr() {
     let www_name: Name = Name::parse("www.test.com.", None).unwrap();
     let mut expected_set = vec![
         Record::new()
-            .set_name(origin.clone())
+            .set_name(origin.clone().into())
             .set_ttl(3600)
             .set_rr_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)
@@ -323,28 +323,28 @@ fn test_axfr() {
             )))
             .clone(),
         Record::new()
-            .set_name(origin.clone())
+            .set_name(origin.clone().into())
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::NS(Name::parse("a.iana-servers.net.", None).unwrap()))
             .clone(),
         Record::new()
-            .set_name(origin.clone())
+            .set_name(origin.clone().into())
             .set_ttl(86400)
             .set_rr_type(RecordType::NS)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::NS(Name::parse("b.iana-servers.net.", None).unwrap()))
             .clone(),
         Record::new()
-            .set_name(origin.clone())
+            .set_name(origin.clone().into())
             .set_ttl(86400)
             .set_rr_type(RecordType::A)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::A(Ipv4Addr::new(94, 184, 216, 34)))
             .clone(),
         Record::new()
-            .set_name(origin.clone())
+            .set_name(origin.clone().into())
             .set_ttl(86400)
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
@@ -383,7 +383,7 @@ fn test_axfr() {
             )))
             .clone(),
         Record::new()
-            .set_name(origin.clone())
+            .set_name(origin.clone().into())
             .set_ttl(3600)
             .set_rr_type(RecordType::SOA)
             .set_dns_class(DNSClass::IN)

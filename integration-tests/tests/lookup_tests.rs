@@ -30,7 +30,7 @@ use trust_dns_integration::mock_client::*;
 fn test_lookup() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone().into(), authority);
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
@@ -58,7 +58,7 @@ fn test_lookup() {
 fn test_lookup_hosts() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone().into(), authority);
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));

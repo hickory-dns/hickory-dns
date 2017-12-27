@@ -191,7 +191,7 @@ pub fn create_secure_example() -> Authority {
     let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
     let dnskey = key.to_dnskey(Algorithm::RSASHA256).unwrap();
-    let signer = Signer::dnssec(dnskey, key, authority.origin().clone(), Duration::weeks(1));
+    let signer = Signer::dnssec(dnskey, key, authority.origin().clone().into(), Duration::weeks(1));
 
     authority.add_secure_key(signer);
     authority.secure_zone();

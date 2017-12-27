@@ -1,12 +1,19 @@
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 use std::cmp::Ordering;
 
-use rr::{Name, RecordType};
+use rr::{LowerName, RecordType};
 
 /// Accessor key for RRSets in the Authority.
 #[derive(Eq, PartialEq, Debug, Hash, Clone)]
 pub struct RrKey {
     /// Matches the name in the Record of this key
-    pub name: Name,
+    pub name: LowerName,
     /// Matches the type of the Record of this key
     pub record_type: RecordType,
 }
@@ -23,15 +30,15 @@ impl RrKey {
     ///
     /// A new key to access the Authorities.
     /// TODO: make all cloned params pass by value.
-    pub fn new(name: &Name, record_type: RecordType) -> RrKey {
+    pub fn new(name: LowerName, record_type: RecordType) -> RrKey {
         RrKey {
-            name: name.clone(),
+            name: name,
             record_type: record_type,
         }
     }
 
     /// Returns the name of the key
-    pub fn name(&self) -> &Name {
+    pub fn name(&self) -> &LowerName {
         &self.name
     }
 }

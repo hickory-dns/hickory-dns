@@ -33,7 +33,7 @@ use trust_dns_integration::authority::create_example;
 fn test_query_nonet() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone().into(), authority);
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
@@ -155,7 +155,7 @@ fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = (
 fn test_notify() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone().into(), authority);
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
@@ -206,7 +206,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
 
     // setup the catalog
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone().into(), authority);
 
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
     let client = ClientFuture::new(
@@ -216,7 +216,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name)
         Some(Arc::new(signer)),
     );
 
-    (client, origin)
+    (client, origin.into())
 }
 
 #[test]

@@ -1,26 +1,19 @@
-/*
- * Copyright (C) 2015 Benjamin Fry <benjaminfry@me.com>
- *
- * Licensed under the Apache License, Version 2.0 (the "License");
- * you may not use this file except in compliance with the License.
- * You may obtain a copy of the License at
- *
- *     http://www.apache.org/licenses/LICENSE-2.0
- *
- * Unless required by applicable law or agreed to in writing, software
- * distributed under the License is distributed on an "AS IS" BASIS,
- * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- * See the License for the specific language governing permissions and
- * limitations under the License.
- */
+// Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
+//
+// Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
+// http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
+// http://opensource.org/licenses/MIT>, at your option. This file may not be
+// copied, modified, or distributed except according to those terms.
+
 //! All authority related types
 
+use std::borrow::Borrow;
 use std::collections::BTreeMap;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
-use trust_dns::op::{Query, ResponseCode};
-use trust_dns::rr::{DNSClass, Name, RData, Record, RecordSet, RecordType, RrKey};
+use trust_dns::op::{LowerQuery, ResponseCode};
+use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
 
 use authority::{AuthLookup, Journal, MessageRequest, UpdateResult, ZoneType};
@@ -35,7 +28,7 @@ use error::{PersistenceErrorKind, PersistenceResult};
 /// Authorities default to DNSClass IN. The ZoneType specifies if this should be treated as the
 /// start of authority for the zone, is a slave, or a cached zone.
 pub struct Authority {
-    origin: Name,
+    origin: LowerName,
     class: DNSClass,
     journal: Option<Journal>,
     records: BTreeMap<RrKey, RecordSet>,
@@ -74,7 +67,7 @@ impl Authority {
         is_dnssec_enabled: bool,
     ) -> Authority {
         Authority {
-            origin: origin,
+            origin: LowerName::new(&origin),
             class: DNSClass::IN,
             journal: None,
             records: records,
@@ -98,7 +91,7 @@ impl Authority {
         let zone_ttl = self.minimum_ttl();
         let dnskey = signer.key().to_dnskey(signer.algorithm())?;
         let dnskey = Record::from_rdata(
-            self.origin.clone(),
+            self.origin.clone().into(),
             zone_ttl,
             RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
             RData::DNSSEC(DNSSECRData::DNSKEY(dnskey)),
@@ -184,7 +177,7 @@ impl Authority {
     }
 
     /// Get the origin of this zone, i.e. example.com is the origin for www.example.com
-    pub fn origin(&self) -> &Name {
+    pub fn origin(&self) -> &LowerName {
         &self.origin
     }
 
@@ -380,7 +373,7 @@ impl Authority {
                 return Err(ResponseCode::FormErr);
             }
 
-            if !self.origin.zone_of(require.name()) {
+            if !self.origin.zone_of(&require.name().into()) {
                 warn!("{} is not a zone_of {}", require.name(), self.origin);
                 return Err(ResponseCode::NotZone);
             }
@@ -391,7 +384,7 @@ impl Authority {
             match require.rr_type() {
               // ANY      ANY      empty    Name is in use
               RecordType::ANY => {
-                if self.lookup(require.name(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
+                if self.lookup(&require.name().into(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::NXDomain);
                 } else {
                   continue;
@@ -399,7 +392,7 @@ impl Authority {
               },
               // ANY      rrset    empty    RRset exists (value independent)
               rrset => {
-                if self.lookup(require.name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
+                if self.lookup(&require.name().into(), rrset, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::NXRRSet);
                 } else {
                   continue;
@@ -415,7 +408,7 @@ impl Authority {
             match require.rr_type() {
               // NONE     ANY      empty    Name is not in use
               RecordType::ANY => {
-                if !self.lookup(require.name(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
+                if !self.lookup(&require.name().into(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::YXDomain);
                 } else {
                   continue;
@@ -423,7 +416,7 @@ impl Authority {
               },
               // NONE     rrset    empty    RRset does not exist
               rrset => {
-                if !self.lookup(require.name(), rrset, false, SupportedAlgorithms::new()).is_empty() {
+                if !self.lookup(&require.name().into(), rrset, false, SupportedAlgorithms::new()).is_empty() {
                   return Err(ResponseCode::YXRRSet);
                 } else {
                   continue;
@@ -436,7 +429,7 @@ impl Authority {
         ,
         class if class == self.class =>
           // zone     rrset    rr       RRset exists (value dependent)
-          if self.lookup(require.name(), require.rr_type(), false, SupportedAlgorithms::new())
+          if self.lookup(&require.name().into(), require.rr_type(), false, SupportedAlgorithms::new())
                  .iter()
                  .find(|rr| *rr == require)
                  .is_none() {
@@ -515,7 +508,7 @@ impl Authority {
                 .any(|sig| {
                     let name = sig.signer_name();
                     let keys = self.lookup(
-                        name,
+                        &name.into(),
                         RecordType::DNSSEC(DNSSECRecordType::KEY),
                         false,
                         SupportedAlgorithms::new(),
@@ -600,7 +593,7 @@ impl Authority {
         //           else
         //                return (FORMERR)
         for rr in records {
-            if !self.origin().zone_of(rr.name()) {
+            if !self.origin().zone_of(&rr.name().into()) {
                 return Err(ResponseCode::NotZone);
             }
 
@@ -727,7 +720,7 @@ impl Authority {
         //                zone_rr<rr.name, rr.type, rr.data> = Nil
         //      return (NOERROR)
         for rr in records {
-            let rr_key = RrKey::new(rr.name(), rr.rr_type());
+            let rr_key = RrKey::new(rr.name().into(), rr.rr_type());
 
             match rr.dns_class() {
                 class if class == self.class => {
@@ -749,7 +742,7 @@ impl Authority {
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
                     match rr.rr_type() {
-                        t @ RecordType::SOA | t @ RecordType::NS if rr.name() == &self.origin => {
+                        t @ RecordType::SOA | t @ RecordType::NS if LowerName::new(rr.name()) == self.origin => {
                             // SOA and NS records are not to be deleted if they are the origin records
                             info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", t);
                             continue;
@@ -772,7 +765,7 @@ impl Authority {
                                         || k.record_type == RecordType::NS)
                                         && k.name != self.origin)
                                 })
-                                .filter(|k| &k.name == rr.name())
+                                .filter(|k| k.name == rr.name().into())
                                 .cloned()
                                 .collect::<Vec<RrKey>>();
                             for delete in to_delete {
@@ -846,7 +839,7 @@ impl Authority {
     pub fn upsert(&mut self, record: Record, serial: u32) -> bool {
         assert_eq!(self.class, record.dns_class());
 
-        let rr_key = RrKey::new(record.name(), record.rr_type());
+        let rr_key = RrKey::new(record.name().into(), record.rr_type());
         let records: &mut RecordSet = self.records
             .entry(rr_key)
             .or_insert_with(|| RecordSet::new(record.name(), record.rr_type(), serial));
@@ -940,10 +933,11 @@ impl Authority {
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
     pub fn search<'s>(
         &'s self,
-        query: &Query,
+        query: &LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> AuthLookup<'s> {
+        let lookup_name = query.name();
         let record_type: RecordType = query.query_type();
 
         // if this is an AXFR zone transfer, verify that this is either the slave or master
@@ -961,7 +955,7 @@ impl Authority {
             // on an SOA request always return the SOA, regardless of the name
             self.lookup(&self.origin, record_type, is_secure, supported_algorithms)
         } else {
-            self.lookup(query.name(), record_type, is_secure, supported_algorithms)
+            self.lookup(lookup_name, record_type, is_secure, supported_algorithms)
         };
 
         if RecordType::AXFR == record_type {
@@ -1005,12 +999,12 @@ impl Authority {
     /// None if there are no matching records, otherwise a `Vec` containing the found records.
     pub fn lookup<'s>(
         &'s self,
-        name: &Name,
+        name: &LowerName,
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> AuthLookup<'s> {
-        let rr_key = RrKey::new(name, rtype);
+        let rr_key = RrKey::new(name.clone(), rtype);
 
         // Collect the records from each rr_set
         let result: Vec<&Record> = match rtype {
@@ -1019,7 +1013,7 @@ impl Authority {
                 .filter(|rr_set| {
                     rtype == RecordType::ANY || rr_set.record_type() != RecordType::SOA
                 })
-                .filter(|rr_set| rtype == RecordType::AXFR || rr_set.name() == name)
+                .filter(|rr_set| rtype == RecordType::AXFR || &LowerName::new(rr_set.name()) == name)
                 .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
                     vec.append(&mut rr_set.records(is_secure, supported_algorithms));
                     vec
@@ -1056,7 +1050,7 @@ impl Authority {
     /// * `is_secure` - if true then it will return RRSIG records as well
     pub fn get_nsec_records(
         &self,
-        name: &Name,
+        name: &LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
     ) -> Vec<&Record> {
@@ -1077,7 +1071,7 @@ impl Authority {
         self.records
             .values()
             .filter(|rr_set| is_nsec_rrset(rr_set))
-            .skip_while(|rr_set| name < rr_set.name())
+            .skip_while(|rr_set| name < &rr_set.name().into())
             .next()
             .map_or(vec![], |rr_set| {
                 rr_set
@@ -1141,8 +1135,8 @@ impl Authority {
             let mut nsec_info: Option<(&Name, Vec<RecordType>)> = None;
             for key in self.records.keys() {
                 match nsec_info {
-                    None => nsec_info = Some((&key.name, vec![key.record_type])),
-                    Some((name, ref mut vec)) if name == &key.name => vec.push(key.record_type),
+                    None => nsec_info = Some((key.name.borrow(), vec![key.record_type])),
+                    Some((name, ref mut vec)) if &LowerName::new(name) == &key.name => vec.push(key.record_type),
                     Some((name, vec)) => {
                         // names aren't equal, create the NSEC record
                         let mut record = Record::with(
@@ -1150,12 +1144,12 @@ impl Authority {
                             RecordType::DNSSEC(DNSSECRecordType::NSEC),
                             ttl,
                         );
-                        let rdata = NSEC::new(key.name.clone(), vec);
+                        let rdata = NSEC::new(key.name.clone().into(), vec);
                         record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                         records.push(record);
 
                         // new record...
-                        nsec_info = Some((&key.name, vec![key.record_type]))
+                        nsec_info = Some((&key.name.borrow(), vec![key.record_type]))
                     }
                 }
             }
@@ -1168,7 +1162,7 @@ impl Authority {
                     RecordType::DNSSEC(DNSSECRecordType::NSEC),
                     ttl,
                 );
-                let rdata = NSEC::new(self.origin().clone(), vec);
+                let rdata = NSEC::new(self.origin().clone().into(), vec);
                 record.set_rdata(RData::DNSSEC(DNSSECRData::NSEC(rdata)));
                 records.push(record);
             }
