@@ -20,8 +20,8 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::RwLock;
 
-use trust_dns::op::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
-use trust_dns::rr::{Name, RecordType};
+use trust_dns::op::{Edns, Header, MessageType, OpCode, LowerQuery, ResponseCode};
+use trust_dns::rr::{LowerName, Name, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
 use server::{Request, RequestHandler, ResponseHandler};
@@ -30,7 +30,7 @@ use authority::{AuthLookup, Authority, MessageRequest, MessageResponse, ZoneType
 
 /// Set of authorities, zones, available to this server.
 pub struct Catalog {
-    authorities: HashMap<Name, RwLock<Authority>>,
+    authorities: HashMap<LowerName, RwLock<Authority>>,
 }
 
 fn send_response<R: ResponseHandler + 'static>(
@@ -160,7 +160,7 @@ impl Catalog {
     ///
     /// * `name` - zone name, e.g. example.com.
     /// * `authority` - the zone data
-    pub fn upsert(&mut self, name: Name, authority: Authority) {
+    pub fn upsert(&mut self, name: LowerName, authority: Authority) {
         self.authorities.insert(name, RwLock::new(authority));
     }
 
@@ -225,7 +225,7 @@ impl Catalog {
         response_header.set_op_code(OpCode::Update);
         response_header.set_message_type(MessageType::Response);
 
-        let zones: &[Query] = update.queries();
+        let zones: &[LowerQuery] = update.queries();
 
         // 2.3 - Zone Section
         //
@@ -429,7 +429,7 @@ impl Catalog {
     }
 
     /// recursively searches the catalog for a matching auhtority.
-    fn find_auth_recurse(&self, name: &Name) -> Option<&RwLock<Authority>> {
+    fn find_auth_recurse(&self, name: &LowerName) -> Option<&RwLock<Authority>> {
         let authority = self.authorities.get(name);
         if authority.is_some() {
             return authority;

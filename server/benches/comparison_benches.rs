@@ -127,7 +127,7 @@ fn bench(b: &mut Bencher, io_loop: &mut Core, client: &mut BasicClientHandle) {
 
     b.iter(|| {
         let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
-        response.unwrap()
+        response.unwrap();
     });
 }
 

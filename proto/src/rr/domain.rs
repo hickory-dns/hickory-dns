@@ -22,6 +22,7 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
+use std::slice::Iter;
 use std::str::FromStr;
 use std::sync::Arc as Rc;
 
@@ -97,6 +98,11 @@ impl Name {
     /// *warning: this interface is unstable and may change in the future*
     pub fn set_fqdn(&mut self, val: bool) {
         self.is_fqdn = val
+    }
+
+    /// Returns an iterator over the labels
+    pub fn iter(&self) -> LabelIter {
+        LabelIter(self.labels.iter())
     }
 
     /// Appends the label to the end of this name
@@ -270,6 +276,35 @@ impl Name {
         }
     }
 
+    /// same as zone_of allows for case sensitive call
+    pub fn zone_of_case(&self, name: &Self) -> bool {
+        let self_len = self.labels.len();
+        let name_len = name.labels.len();
+        if self_len == 0 {
+            return true;
+        }
+        if name_len == 0 {
+            // self_len != 0
+            return false;
+        }
+        if self_len > name_len {
+            return false;
+        }
+
+        let self_iter = self.iter().rev();
+        let name_iter = name.iter().rev();
+
+        let zip_iter = self_iter.zip(name_iter);
+
+        for (self_label, name_label) in zip_iter {
+            if self_label != name_label {
+                return false;
+            }
+        }
+
+        return true
+    }
+
     /// returns true if the name components of self are all present at the end of name
     ///
     /// # Example
@@ -285,29 +320,10 @@ impl Name {
     /// assert!(!another.zone_of(&name));
     /// ```
     pub fn zone_of(&self, name: &Self) -> bool {
-        let self_len = self.labels.len();
-        let name_len = name.labels.len();
-        if self_len == 0 {
-            return true;
-        }
-        if name_len == 0 {
-            // self_len != 0
-            return false;
-        }
-        if self_len > name_len {
-            return false;
-        }
         let self_lower = self.to_lowercase();
         let name_lower = name.to_lowercase();
-
-        // TODO: there's probably a better way using iterators directly, but it wasn't obvious
-        for i in 1..(self_len + 1) {
-            if self_lower.labels.get(self_len - i) != name_lower.labels.get(name_len - i) {
-                return false;
-            }
-        }
-
-        true
+        
+        self_lower.zone_of_case(&name_lower)
     }
 
     /// Returns the number of labels in the name, discounting `*`.
@@ -329,7 +345,7 @@ impl Name {
     pub fn num_labels(&self) -> u8 {
         // it is illegal to have more than 256 labels.
         let num = self.labels.len() as u8;
-        if num > 0 && self[0] == "*" {
+        if num > 0 && &self[0] == "*" {
             return num - 1;
         }
 
@@ -364,7 +380,7 @@ impl Name {
     ///
     /// let name = Name::parse("example.com.", None).unwrap();
     /// assert_eq!(name.base_name(), Name::from_labels(vec!["com"]));
-    /// assert_eq!(*name[0], String::from("example"));
+    /// assert_eq!(&name[0], &String::from("example"));
     /// ```
     pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
         let mut name = Name::new();
@@ -561,6 +577,33 @@ impl Name {
     }
 }
 
+/// An iterator over labels in a name
+pub struct LabelIter<'a>(Iter<'a, Rc<String>>);
+
+impl<'a> Iterator for LabelIter<'a> {
+    type Item = &'a str;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next().map(|s| s as &str)
+    }
+}
+
+impl<'a> ExactSizeIterator for LabelIter<'a> {}
+impl<'a> DoubleEndedIterator for LabelIter<'a> {
+    fn next_back(&mut self) -> Option<Self::Item> {
+        self.0.next_back().map(|s| s as &str)
+    }
+}
+
+impl<'a> IntoIterator for &'a Name {
+    type Item = &'a str;
+    type IntoIter = LabelIter<'a>;
+
+    fn into_iter(self) -> Self::IntoIter {
+        self.iter()
+    }
+}
+
 impl From<IpAddr> for Name {
     fn from(addr: IpAddr) -> Name {
         match addr {
@@ -648,7 +691,7 @@ impl<'r> BinDecodable<'r> for Name {
     ///  this has a max of 255 octets, with each label being less than 63.
     ///  all names will be stored lowercase internally.
     /// This will consume the portions of the Vec which it is reading...
-    fn read(decoder: &mut BinDecoder) -> ProtoResult<Name> {
+    fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Name> {
         let mut state: LabelParseState = LabelParseState::LabelLengthOrPointer;
         let mut labels: Vec<Rc<String>> = Vec::with_capacity(3); // most labels will be around three, e.g. www.example.com
 
@@ -745,9 +788,9 @@ impl fmt::Display for Name {
 }
 
 impl Index<usize> for Name {
-    type Output = String;
+    type Output = str;
 
-    fn index(&self, _index: usize) -> &String {
+    fn index(&self, _index: usize) -> &str {
         &*(self.labels[_index])
     }
 }

@@ -267,7 +267,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 .message
                 .queries()
                 .first()
-                .map(|q| q.to_string())
+                .map(|q| q.original().to_string())
                 .unwrap_or_else(|| "empty_queries".to_string()),
         );
 

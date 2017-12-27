@@ -66,7 +66,7 @@ impl ClientConnection for TestClientConnection {
 fn test_query_nonet() {
     let authority = create_example();
     let mut catalog = Catalog::new();
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone().into(), authority);
 
     let client = SyncClient::new(TestClientConnection::new(catalog));
 
@@ -409,10 +409,10 @@ fn create_sig0_ready_client(
     ))));
     authority.upsert(auth_key, 0);
 
-    catalog.upsert(authority.origin().clone(), authority);
+    catalog.upsert(authority.origin().clone().into(), authority);
     let client = SyncClient::with_signer(TestClientConnection::new(catalog), signer);
 
-    (client, origin)
+    (client, origin.into())
 }
 
 #[test]

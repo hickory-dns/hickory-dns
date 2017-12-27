@@ -17,6 +17,8 @@
 //! Resource record related components, e.g. `Name` aka label, `Record`, `RData`, ...
 
 pub mod dnssec;
+mod lower_name;
+mod rr_key;
 
 use trust_dns_proto::rr;
 pub use trust_dns_proto::rr::dns_class;
@@ -27,12 +29,13 @@ pub use trust_dns_proto::rr::resource;
 
 pub use self::domain::Name;
 pub use self::dns_class::DNSClass;
+pub use self::lower_name::LowerName;
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
 pub use self::resource::Record;
-pub use self::rr::RrKey;
 pub use self::rr::IntoRecordSet;
 pub use self::rr::RecordSet;
+pub use self::rr_key::RrKey;
 
 /// All record data structures and related serialization methods
 pub mod rdata {

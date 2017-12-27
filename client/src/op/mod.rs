@@ -8,8 +8,10 @@
 //! Operations to send with a `Client` or server, e.g. `Query`, `Message`, or `UpdateMessage` can
 //! be used to gether to either query or update resource records sets.
 
+mod lower_query;
 mod update_message;
 
+pub use self::lower_query::LowerQuery;
 pub use self::update_message::UpdateMessage;
 pub use trust_dns_proto::op::{Edns, Header, Message, MessageFinalizer, MessageType, OpCode, Query,
                               ResponseCode};

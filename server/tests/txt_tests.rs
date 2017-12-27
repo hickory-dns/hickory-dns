@@ -102,7 +102,7 @@ _443._tcp.www.example.com. IN TLSA (
     // NS
     let mut ns_records: Vec<&Record> = authority
         .lookup(
-            &Name::from_labels(vec!["isi", "edu"]),
+            &Name::from_labels(vec!["isi", "edu"]).into(),
             RecordType::NS,
             false,
             SupportedAlgorithms::new(),
@@ -134,7 +134,7 @@ _443._tcp.www.example.com. IN TLSA (
     // MX
     let mut mx_records: Vec<&Record> = authority
         .lookup(
-            &Name::from_labels(vec!["isi", "edu"]),
+            &Name::from_labels(vec!["isi", "edu"]).into(),
             RecordType::MX,
             false,
             SupportedAlgorithms::new(),
@@ -166,7 +166,7 @@ _443._tcp.www.example.com. IN TLSA (
     // A
     let a_record: &Record = authority
         .lookup(
-            &Name::from_labels(vec!["a", "isi", "edu"]),
+            &Name::from_labels(vec!["a", "isi", "edu"]).into(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
@@ -188,7 +188,7 @@ _443._tcp.www.example.com. IN TLSA (
     // AAAA
     let aaaa_record: &Record = authority
         .lookup(
-            &Name::from_labels(vec!["aaaa", "isi", "edu"]),
+            &Name::from_labels(vec!["aaaa", "isi", "edu"]).into(),
             RecordType::AAAA,
             false,
             SupportedAlgorithms::new(),
@@ -213,7 +213,7 @@ _443._tcp.www.example.com. IN TLSA (
     // SHORT
     let short_record: &Record = authority
         .lookup(
-            &Name::from_labels(vec!["short", "isi", "edu"]),
+            &Name::from_labels(vec!["short", "isi", "edu"]).into(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),
@@ -236,7 +236,7 @@ _443._tcp.www.example.com. IN TLSA (
     // TXT
     let mut txt_records: Vec<&Record> = authority
         .lookup(
-            &Name::from_labels(vec!["a", "isi", "edu"]),
+            &Name::from_labels(vec!["a", "isi", "edu"]).into(),
             RecordType::TXT,
             false,
             SupportedAlgorithms::new(),
@@ -280,7 +280,7 @@ _443._tcp.www.example.com. IN TLSA (
     // PTR
     let ptr_record: &Record = authority
         .lookup(
-            &Name::from_labels(vec!["103", "0", "3", "26", "in-addr", "arpa"]),
+            &Name::from_labels(vec!["103", "0", "3", "26", "in-addr", "arpa"]).into(),
             RecordType::PTR,
             false,
             SupportedAlgorithms::new(),
@@ -298,7 +298,7 @@ _443._tcp.www.example.com. IN TLSA (
     // SRV
     let srv_record: &Record = authority
         .lookup(
-            &Name::from_labels(vec!["_ldap", "_tcp", "service", "isi", "edu"]),
+            &Name::from_labels(vec!["_ldap", "_tcp", "service", "isi", "edu"]).into(),
             RecordType::SRV,
             false,
             SupportedAlgorithms::new(),
@@ -322,7 +322,7 @@ _443._tcp.www.example.com. IN TLSA (
     // CAA
     let caa_record: &Record = authority
         .lookup(
-            &Name::parse("nocerts.isi.edu.", None).unwrap(),
+            &Name::parse("nocerts.isi.edu.", None).unwrap().into(),
             RecordType::CAA,
             false,
             SupportedAlgorithms::new(),
@@ -342,7 +342,7 @@ _443._tcp.www.example.com. IN TLSA (
     // TLSA
     let tlsa_record: &Record = authority
         .lookup(
-            &Name::parse("_443._tcp.www.example.com.", None).unwrap(),
+            &Name::parse("_443._tcp.www.example.com.", None).unwrap().into(),
             RecordType::TLSA,
             false,
             SupportedAlgorithms::new(),
