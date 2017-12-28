@@ -8,8 +8,7 @@
 use trust_dns_proto::error::*;
 use trust_dns_proto::rr::Record;
 use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
-use trust_dns_proto::op::{Edns, EncodableMessage, Header, Message, MessageType, OpCode, Query,
-                          ResponseCode};
+use trust_dns_proto::op::{Edns, EncodableMessage, Header, Message, MessageType, OpCode, ResponseCode};
 use trust_dns::op::LowerQuery;
 
 /// A Message which captures the data from an inbound request

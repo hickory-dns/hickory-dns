@@ -154,8 +154,7 @@ mod tests {
     use trust_dns_proto::rr::{Name, RecordType};
 
     use super::*;
-    use lookup_ip::tests::*;
-
+ 
     #[test]
     fn test_is_current() {
         let now = Instant::now();

@@ -526,6 +526,11 @@ impl Name {
     }
 
     /// Writes the labels, as lower case, to the encoder
+    ///
+    /// # Arguments
+    ///
+    /// * `encoder` - encoder for writing this name
+    /// * `lowercase` - if true the name will be lowercased, otherwise it will not be changed when writing
     pub fn emit_with_lowercase(
         &self,
         encoder: &mut BinEncoder,

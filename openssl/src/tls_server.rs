@@ -43,7 +43,7 @@ pub fn new_acceptor(pkcs12: &ParsedPkcs12) -> io::Result<SslAcceptor> {
 
     // mut block
     {
-        let ssl_context_bldr = builder.builder_mut();
+        let ssl_context_bldr = &mut builder;
 
         ssl_context_bldr.set_options(
             ssl::SSL_OP_NO_SSLV2 | ssl::SSL_OP_NO_SSLV3 | ssl::SSL_OP_NO_TLSV1

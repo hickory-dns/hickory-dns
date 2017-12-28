@@ -16,18 +16,27 @@ use std::env;
 use std::fs::File;
 use std::io;
 use std::io::Read;
+#[cfg(not(feature = "none"))]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
+#[cfg(not(feature = "none"))]
 use chrono::Duration;
 use futures::Stream;
 use openssl::rsa::Rsa;
 
-use trust_dns::client::{Client, ClientConnection, SyncClient};
+#[cfg(not(feature = "none"))]
+use trust_dns::client::Client;
+use trust_dns::client::{ClientConnection, SyncClient};
+#[cfg(not(feature = "none"))]
 use trust_dns::udp::UdpClientConnection;
+#[cfg(not(feature = "none"))]
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
+use trust_dns::rr::Name;
+#[cfg(not(feature = "none"))]
+use trust_dns::rr::{DNSClass, RData, Record, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::key::{KeyUsage, KEY};
+#[cfg(not(feature = "none"))]
 use trust_dns_compatibility::named_process;
 
 #[cfg(not(feature = "none"))]

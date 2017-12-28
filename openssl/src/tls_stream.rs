@@ -68,7 +68,7 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<TlsConnecto
 
     // mutable reference block
     {
-        let openssl_ctx_builder = tls.builder_mut();
+        let openssl_ctx_builder = &mut tls;
 
         // only want to support current TLS versions, 1.2 or future
         openssl_ctx_builder.set_options(
