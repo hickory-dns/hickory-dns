@@ -21,7 +21,7 @@ use std::io;
 use std::sync::RwLock;
 
 use trust_dns::op::{Edns, Header, MessageType, OpCode, LowerQuery, ResponseCode};
-use trust_dns::rr::{LowerName, Name, RecordType};
+use trust_dns::rr::{LowerName, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
 use server::{Request, RequestHandler, ResponseHandler};

@@ -322,7 +322,7 @@ impl KeyPair {
                 let digest_type = DigestType::from(algorithm).to_openssl_digest()?;
                 let mut signer = Signer::new(digest_type, pkey).unwrap();
                 signer.update(tbs.as_ref())?;
-                signer.finish().map_err(|e| e.into()).and_then(|bytes| {
+                signer.sign_to_vec().map_err(|e| e.into()).and_then(|bytes| {
                     if let KeyPair::RSA(_) = *self {
                         return Ok(bytes);
                     }

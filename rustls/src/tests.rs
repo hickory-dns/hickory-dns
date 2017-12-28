@@ -114,7 +114,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             ).expect("mozilla_modern failed");
 
             {
-                let mut openssl_ctx_builder = tls.builder_mut();
+                let mut openssl_ctx_builder = &mut tls;
 
                 let mut mode = SslVerifyMode::empty();
 

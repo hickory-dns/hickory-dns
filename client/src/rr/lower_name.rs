@@ -8,14 +8,10 @@
 //! domain name, aka labels, implementaton
 
 use std::borrow::Borrow;
-use std::char;
 use std::cmp::{Ordering, PartialEq};
 use std::fmt;
 use std::hash::{Hash, Hasher};
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
-use std::str::FromStr;
-use std::sync::Arc as Rc;
 
 use rr::Name;
 use serialize::binary::*;
@@ -136,37 +132,21 @@ impl LowerName {
         self.0.len()
     }
 
-    /// Returns whether the length of the labels, in bytes is 0. In practive, since '.' counts as
-    /// 1, this is never the case so the method returns false.
-    pub fn is_empty(&self) -> bool {
-        false
-    }
-
     /// Emits the canonical version of the name to the encoder.
     ///
     /// In canonical form, there will be no pointers written to the encoder (i.e. no compression).
     pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
         self.0.emit_as_canonical(encoder, canonical)
     }
-
-    /// Writes the labels, as lower case, to the encoder
-    pub fn emit_with_lowercase(
-        &self,
-        encoder: &mut BinEncoder,
-        lowercase: bool,
-    ) -> ProtoResult<()> {
-        // passing false, this is already in lowercase...
-        self.0.emit_with_lowercase(encoder, false)
-    }
     
-    /// Converts the LowerName labels to the String form.
-    ///
-    /// This converts the name to an unescaped format, that could be used with parse. The name is
-    ///  is followed by the final `.`, e.g. as in `www.example.com.`, which represents a fully
-    ///  qualified LowerName.
-    pub fn to_string(&self) -> String {
-        self.0.to_string()
-    }
+    // /// Converts the LowerName labels to the String form.
+    // ///
+    // /// This converts the name to an unescaped format, that could be used with parse. The name is
+    // ///  is followed by the final `.`, e.g. as in `www.example.com.`, which represents a fully
+    // ///  qualified LowerName.
+    // pub fn to_string(&self) -> String {
+    //     self.0.to_string()
+    // }
 }
 
 impl Hash for LowerName {

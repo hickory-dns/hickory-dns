@@ -74,7 +74,7 @@ fn verify_with_pkey(
     let mut verifier = Verifier::new(digest_type, &pkey).unwrap();
     verifier.update(message)?;
     verifier
-        .finish(signature)
+        .verify(signature)
         .map_err(|e| e.into())
         .and_then(|b| {
             if b {
