@@ -19,7 +19,7 @@ use trust_dns_proto::{BasicDnsHandle, DnsFuture, DnsHandle, DnsStreamHandle};
 use client::ClientStreamHandle;
 use error::*;
 use op::{Message, MessageType, OpCode, Query, UpdateMessage};
-use rr::{domain, DNSClass, IntoRecordSet, RData, Record, RecordType};
+use rr::{Name, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use rr::dnssec::Signer;
 use rr::rdata::NULL;
 
@@ -131,7 +131,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
     /// * `query_type` - record type to lookup
     fn query(
         &mut self,
-        name: domain::Name,
+        name: Name,
         query_class: DNSClass,
         query_type: RecordType,
     ) -> Box<Future<Item = Message, Error = ClientError>> {
@@ -202,7 +202,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
     /// * `rrset` - the new version of the record(s) being notified
     fn notify<R>(
         &mut self,
-        name: domain::Name,
+        name: Name,
         query_class: DNSClass,
         query_type: RecordType,
         rrset: Option<R>,
@@ -284,7 +284,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
     fn create<R>(
         &mut self,
         rrset: R,
-        zone_origin: domain::Name,
+        zone_origin: Name,
     ) -> Box<Future<Item = Message, Error = ClientError>>
     where
         R: IntoRecordSet,
@@ -360,7 +360,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
     fn append<R>(
         &mut self,
         rrset: R,
-        zone_origin: domain::Name,
+        zone_origin: Name,
         must_exist: bool,
     ) -> Box<Future<Item = Message, Error = ClientError>>
     where
@@ -447,7 +447,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         &mut self,
         current: C,
         new: N,
-        zone_origin: domain::Name,
+        zone_origin: Name,
     ) -> Box<Future<Item = Message, Error = ClientError>>
     where
         C: IntoRecordSet,
@@ -539,7 +539,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
     fn delete_by_rdata<R>(
         &mut self,
         rrset: R,
-        zone_origin: domain::Name,
+        zone_origin: Name,
     ) -> Box<Future<Item = Message, Error = ClientError>>
     where
         R: IntoRecordSet,
@@ -615,7 +615,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
     fn delete_rrset(
         &mut self,
         mut record: Record,
-        zone_origin: domain::Name,
+        zone_origin: Name,
     ) -> Box<Future<Item = Message, Error = ClientError>> {
         assert!(zone_origin.zone_of(record.name()));
 
@@ -678,8 +678,8 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
     /// the record type.
     fn delete_all(
         &mut self,
-        name_of_records: domain::Name,
-        zone_origin: domain::Name,
+        name_of_records: Name,
+        zone_origin: Name,
         dns_class: DNSClass,
     ) -> Box<Future<Item = Message, Error = ClientError>> {
         assert!(zone_origin.zone_of(&name_of_records));

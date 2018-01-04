@@ -21,7 +21,7 @@ use std::cmp::Ordering;
 use serialize::binary::*;
 use error::*;
 use rr::dns_class::DNSClass;
-use rr::domain;
+use rr::Name;
 use rr::IntoRecordSet;
 use rr::rdata::NULL;
 use rr::RData;
@@ -63,7 +63,7 @@ use rr::RecordSet;
 /// ```
 #[derive(Eq, Ord, Debug, Clone)]
 pub struct Record {
-    name_labels: domain::Name,
+    name_labels: Name,
     rr_type: RecordType,
     dns_class: DNSClass,
     ttl: u32,
@@ -74,7 +74,7 @@ impl Default for Record {
     fn default() -> Self {
         Record {
             // TODO: these really should all be Optionals, I was lazy.
-            name_labels: domain::Name::new(),
+            name_labels: Name::new(),
             rr_type: RecordType::A,
             dns_class: DNSClass::IN,
             ttl: 0,
@@ -99,7 +99,7 @@ impl Record {
     /// * `name` - name of the resource records
     /// * `rr_type` - the record type
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
-    pub fn with(name: domain::Name, rr_type: RecordType, ttl: u32) -> Record {
+    pub fn with(name: Name, rr_type: RecordType, ttl: u32) -> Record {
         Record {
             name_labels: name,
             rr_type: rr_type,
@@ -118,7 +118,7 @@ impl Record {
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
     /// * `rdata` - record data to associate with the Record
     pub fn from_rdata(
-        name: domain::Name,
+        name: Name,
         ttl: u32,
         record_type: RecordType,
         rdata: RData,
@@ -135,7 +135,7 @@ impl Record {
     /// ```text
     /// NAME            a domain name to which this resource record pertains.
     /// ```
-    pub fn set_name(&mut self, name: domain::Name) -> &mut Self {
+    pub fn set_name(&mut self, name: Name) -> &mut Self {
         self.name_labels = name;
         self
     }
@@ -184,7 +184,7 @@ impl Record {
     }
 
     /// Returns the name of the record
-    pub fn name(&self) -> &domain::Name {
+    pub fn name(&self) -> &Name {
         &self.name_labels
     }
 
@@ -255,7 +255,7 @@ impl<'r> BinDecodable<'r> for Record {
     fn read(decoder: &mut BinDecoder<'r>) -> ProtoResult<Record> {
         // NAME            an owner name, i.e., the name of the node to which this
         //                 resource record pertains.
-        let name_labels: domain::Name = domain::Name::read(decoder)?;
+        let name_labels: Name = Name::read(decoder)?;
 
         // TYPE            two octets containing one of the RR TYPE codes.
         let record_type: RecordType = RecordType::read(decoder)?;

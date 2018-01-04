@@ -34,7 +34,7 @@ use error::*;
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct TXT {
-    txt_data: Vec<String>,
+    txt_data: Box<[Box<[u8]>]>,
 }
 
 impl TXT {
@@ -48,13 +48,13 @@ impl TXT {
     ///
     /// The new TXT record data.
     pub fn new(txt_data: Vec<String>) -> TXT {
-        TXT { txt_data: txt_data }
+        TXT { txt_data: txt_data.into_iter().map(|s| s.as_bytes().to_vec().into_boxed_slice()).collect::<Vec<_>>().into_boxed_slice() }
     }
 
     /// ```text
     /// TXT-DATA        One or more <character-string>s.
     /// ```
-    pub fn txt_data(&self) -> &[String] {
+    pub fn txt_data(&self) -> &[Box<[u8]>] {
         &self.txt_data
     }
 }
@@ -66,9 +66,9 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TXT> {
 
     while data_len - decoder.len() < rdata_length as usize {
         let string = decoder.read_character_data()?;
-        strings.push(string.to_string());
+        strings.push(string.to_vec().into_boxed_slice());
     }
-    Ok(TXT::new(strings))
+    Ok(TXT{txt_data: strings.into_boxed_slice()})
 }
 
 /// Write the RData from the given Decoder

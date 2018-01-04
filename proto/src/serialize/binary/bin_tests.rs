@@ -18,18 +18,21 @@ use std::fmt::Debug;
 use error::*;
 use super::*;
 
-fn get_character_data() -> Vec<(String, Vec<u8>)> {
+fn get_character_data() -> Vec<(&'static str, Vec<u8>)> {
     vec![
-        ("".to_string(), vec![0]),                      // base case, only the root
-        ("a".to_string(), vec![1, b'a']),               // a single 'a' label
-        ("bc".to_string(), vec![2, b'b', b'c']),        // two labels, 'a.bc'
-        ("♥".to_string(), vec![3, 0xE2, 0x99, 0xA5]), // two labels utf8, 'a.♥'
+        ("", vec![0]),                      // base case, only the root
+        ("a", vec![1, b'a']),               // a single 'a' label
+        ("bc", vec![2, b'b', b'c']),        // two labels, 'a.bc'
+        ("♥", vec![3, 0xE2, 0x99, 0xA5]), // two labels utf8, 'a.♥'
     ]
 }
 
 #[test]
 fn read_character_data() {
-    test_read_data_set(get_character_data(), |mut d| d.read_character_data().map(|s| s.to_string()));
+    for (string, bytes) in get_character_data() {
+        let mut decoder = BinDecoder::new(&bytes);
+        assert_eq!(decoder.read_character_data().unwrap(), string.as_bytes());
+    }
 }
 
 #[test]

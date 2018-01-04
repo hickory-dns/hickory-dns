@@ -11,7 +11,7 @@ use tokio_core::reactor::Core;
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle,
                         SecureClientHandle};
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::domain;
+use trust_dns::rr::Name;
 use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::rr::rdata::DNSSECRecordType;
 use trust_dns::rr::dnssec::TrustAnchor;
@@ -44,7 +44,7 @@ fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: 
 where
     H: ClientHandle + 'static,
 {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = Name::from_labels(vec!["www", "example", "com"]);
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
@@ -86,7 +86,7 @@ fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Co
 where
     H: ClientHandle + 'static,
 {
-    let name = domain::Name::from_labels(vec!["none", "example", "com"]);
+    let name = Name::from_labels(vec!["none", "example", "com"]);
 
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
@@ -116,7 +116,7 @@ fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
 where
     H: ClientHandle + 'static,
 {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = Name::from_labels(vec!["www", "example", "com"]);
 
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::NS))
@@ -151,7 +151,7 @@ fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: C
 where
     H: ClientHandle + 'static,
 {
-    let name = domain::Name::parse("rollernet.us.", None).unwrap();
+    let name = Name::parse("rollernet.us.", None).unwrap();
 
     let response = io_loop
         .run(client.query(
@@ -171,7 +171,7 @@ fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut
 where
     H: ClientHandle + 'static,
 {
-    let name = domain::Name::parse("RollErnet.Us.", None).unwrap();
+    let name = Name::parse("RollErnet.Us.", None).unwrap();
 
     let response = io_loop
         .run(client.query(

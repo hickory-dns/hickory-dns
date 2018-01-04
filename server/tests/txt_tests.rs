@@ -244,21 +244,21 @@ _443._tcp.www.example.com. IN TLSA (
         .unwrap();
     let compare = vec![
         vec![
-            "I".to_string(),
-            "am".to_string(),
-            "a".to_string(),
-            "txt".to_string(),
-            "record".to_string(),
+            Box::from("I".as_bytes()),
+            Box::from("am".as_bytes()),
+            Box::from("a".as_bytes()),
+            Box::from("txt".as_bytes()),
+            Box::from("record".as_bytes()),
         ],
         vec![
-            "I".to_string(),
-            "am".to_string(),
-            "another".to_string(),
-            "txt".to_string(),
-            "record".to_string(),
+            Box::from("I".as_bytes()),
+            Box::from("am".as_bytes()),
+            Box::from("another".as_bytes()),
+            Box::from("txt".as_bytes()),
+            Box::from("record".as_bytes()),
         ],
-        vec!["key=val".to_string()],
-        vec!["I am a different".to_string(), "txt record".to_string()],
+        vec![Box::from("key=val".as_bytes())],
+        vec![Box::from("I am a different".as_bytes()),  Box::from("txt record".as_bytes())],
     ];
 
     txt_records.sort();
@@ -271,7 +271,7 @@ _443._tcp.www.example.com. IN TLSA (
 
     for (record, ref vector) in compare {
         if let RData::TXT(ref rdata) = *record.rdata() {
-            assert_eq!(vector as &[String], rdata.txt_data());
+            assert_eq!(vector as &[Box<[u8]>], rdata.txt_data());
         } else {
             panic!("Not a TXT record!!!") // valid panic, test code
         }

@@ -15,7 +15,7 @@ use futures::*;
 use DnsHandle;
 use error::*;
 use op::{Message, OpCode, Query};
-use rr::{domain, DNSClass, RData, Record, RecordType};
+use rr::{Name, DNSClass, RData, Record, RecordType};
 #[cfg(feature = "dnssec")]
 use rr::dnssec::Verifier;
 use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
@@ -24,7 +24,7 @@ use rr::rdata::opt::EdnsOption;
 
 #[derive(Debug)]
 struct Rrset {
-    pub name: domain::Name,
+    pub name: Name,
     pub record_type: RecordType,
     pub record_class: DNSClass,
     pub records: Vec<Record>,
@@ -197,7 +197,7 @@ where
 struct VerifyRrsetsFuture<E> {
     message_result: Option<Message>,
     rrsets: SelectAll<Box<Future<Item = Rrset, Error = E>>>,
-    verified_rrsets: HashSet<(domain::Name, RecordType)>,
+    verified_rrsets: HashSet<(Name, RecordType)>,
 }
 
 /// this pulls all records returned in a Message respons and returns a future which will
@@ -211,7 +211,7 @@ where
     H: DnsHandle<Error = E>,
     E: FromProtoError + Clone,
 {
-    let mut rrset_types: HashSet<(domain::Name, RecordType)> = HashSet::new();
+    let mut rrset_types: HashSet<(Name, RecordType)> = HashSet::new();
     for rrset in message_result
         .answers()
         .iter()
