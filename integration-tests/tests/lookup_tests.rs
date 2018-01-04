@@ -12,8 +12,7 @@ use tokio_core::reactor::Core;
 
 use trust_dns_proto::DnsFuture;
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
-use trust_dns_proto::rr::domain;
-use trust_dns_proto::rr::{RData, RecordType};
+use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_server::authority::Catalog;
 use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::lookup::{InnerLookupFuture, Lookup};
@@ -42,7 +41,7 @@ fn test_lookup() {
     );
 
     let lookup = InnerLookupFuture::lookup(
-        vec![domain::Name::from_str("www.example.com.").unwrap()],
+        vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         CachingClient::new(0, client),
     );
@@ -72,13 +71,13 @@ fn test_lookup_hosts() {
     let mut hosts = Hosts::default();
 
     hosts.by_name.insert(
-        domain::Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
         Lookup::new(Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))])),
     );
 
 
     let lookup = InnerLookupIpFuture::lookup(
-        vec![domain::Name::from_str("www.example.com.").unwrap()],
+        vec![Name::from_str("www.example.com.").unwrap()],
         LookupIpStrategy::default(),
         CachingClient::new(0, client),
         Some(Arc::new(hosts)),
@@ -91,18 +90,18 @@ fn test_lookup_hosts() {
 #[test]
 fn test_mock_lookup() {
     let resp_query = Query::query(
-        domain::Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
         RecordType::A,
     );
     let v4_record = v4_record(
-        domain::Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![v4_record], vec![], vec![]);
     let client = MockClientHandle::<ResolveError>::mock(vec![message]);
 
     let lookup = InnerLookupFuture::lookup(
-        vec![domain::Name::from_str("www.example.com.").unwrap()],
+        vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         CachingClient::new(0, client),
     );
@@ -119,22 +118,22 @@ fn test_mock_lookup() {
 #[test]
 fn test_cname_lookup() {
     let resp_query = Query::query(
-        domain::Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
         RecordType::A,
     );
     let cname_record = cname_record(
-        domain::Name::from_str("www.example.com.").unwrap(),
-        domain::Name::from_str("v4.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("v4.example.com.").unwrap(),
     );
     let v4_record = v4_record(
-        domain::Name::from_str("v4.example.com.").unwrap(),
+        Name::from_str("v4.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
     let client = MockClientHandle::mock(vec![message]);
 
     let lookup = InnerLookupFuture::lookup(
-        vec![domain::Name::from_str("www.example.com.").unwrap()],
+        vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         CachingClient::new(0, client),
     );
@@ -151,15 +150,15 @@ fn test_cname_lookup() {
 #[test]
 fn test_chained_cname_lookup() {
     let resp_query = Query::query(
-        domain::Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
         RecordType::A,
     );
     let cname_record = cname_record(
-        domain::Name::from_str("www.example.com.").unwrap(),
-        domain::Name::from_str("v4.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("v4.example.com.").unwrap(),
     );
     let v4_record = v4_record(
-        domain::Name::from_str("v4.example.com.").unwrap(),
+        Name::from_str("v4.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 216, 34),
     );
 
@@ -171,7 +170,7 @@ fn test_chained_cname_lookup() {
     let client = MockClientHandle::mock(vec![message2, message1]);
 
     let lookup = InnerLookupFuture::lookup(
-        vec![domain::Name::from_str("www.example.com.").unwrap()],
+        vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         CachingClient::new(0, client),
     );
@@ -188,47 +187,47 @@ fn test_chained_cname_lookup() {
 #[test]
 fn test_max_chained_lookup_depth() {
     let resp_query = Query::query(
-        domain::Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
         RecordType::A,
     );
     let cname_record1 = cname_record(
-        domain::Name::from_str("www.example.com.").unwrap(),
-        domain::Name::from_str("cname2.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("cname2.example.com.").unwrap(),
     );
     let cname_record2 = cname_record(
-        domain::Name::from_str("cname2.example.com.").unwrap(),
-        domain::Name::from_str("cname3.example.com.").unwrap(),
+        Name::from_str("cname2.example.com.").unwrap(),
+        Name::from_str("cname3.example.com.").unwrap(),
     );
     let cname_record3 = cname_record(
-        domain::Name::from_str("cname3.example.com.").unwrap(),
-        domain::Name::from_str("cname4.example.com.").unwrap(),
+        Name::from_str("cname3.example.com.").unwrap(),
+        Name::from_str("cname4.example.com.").unwrap(),
     );
     let cname_record4 = cname_record(
-        domain::Name::from_str("cname4.example.com.").unwrap(),
-        domain::Name::from_str("cname5.example.com.").unwrap(),
+        Name::from_str("cname4.example.com.").unwrap(),
+        Name::from_str("cname5.example.com.").unwrap(),
     );
     let cname_record5 = cname_record(
-        domain::Name::from_str("cname5.example.com.").unwrap(),
-        domain::Name::from_str("cname6.example.com.").unwrap(),
+        Name::from_str("cname5.example.com.").unwrap(),
+        Name::from_str("cname6.example.com.").unwrap(),
     );
     let cname_record6 = cname_record(
-        domain::Name::from_str("cname6.example.com.").unwrap(),
-        domain::Name::from_str("cname7.example.com.").unwrap(),
+        Name::from_str("cname6.example.com.").unwrap(),
+        Name::from_str("cname7.example.com.").unwrap(),
     );
     let cname_record7 = cname_record(
-        domain::Name::from_str("cname7.example.com.").unwrap(),
-        domain::Name::from_str("cname8.example.com.").unwrap(),
+        Name::from_str("cname7.example.com.").unwrap(),
+        Name::from_str("cname8.example.com.").unwrap(),
     );
     let cname_record8 = cname_record(
-        domain::Name::from_str("cname8.example.com.").unwrap(),
-        domain::Name::from_str("cname9.example.com.").unwrap(),
+        Name::from_str("cname8.example.com.").unwrap(),
+        Name::from_str("cname9.example.com.").unwrap(),
     );
     let cname_record9 = cname_record(
-        domain::Name::from_str("cname9.example.com.").unwrap(),
-        domain::Name::from_str("v4.example.com.").unwrap(),
+        Name::from_str("cname9.example.com.").unwrap(),
+        Name::from_str("v4.example.com.").unwrap(),
     );
     let v4_record = v4_record(
-        domain::Name::from_str("v4.example.com.").unwrap(),
+        Name::from_str("v4.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 216, 34),
     );
 
@@ -260,7 +259,7 @@ fn test_max_chained_lookup_depth() {
 
     let client = CachingClient::new(0, client);
     let lookup = InnerLookupFuture::lookup(
-        vec![domain::Name::from_str("www.example.com.").unwrap()],
+        vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         client.clone(),
     );
@@ -273,7 +272,7 @@ fn test_max_chained_lookup_depth() {
 
     // This query should succeed, as the queue depth should reset to 0 on a failed request
     let lookup = InnerLookupFuture::lookup(
-        vec![domain::Name::from_str("cname9.example.com.").unwrap()],
+        vec![Name::from_str("cname9.example.com.").unwrap()],
         RecordType::A,
         client,
     );

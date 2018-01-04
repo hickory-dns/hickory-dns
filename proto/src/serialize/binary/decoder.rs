@@ -13,7 +13,6 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::borrow::Cow;
 
 use error::{ProtoErrorKind, ProtoResult};
 use byteorder::{ByteOrder, NetworkEndian};
@@ -99,15 +98,9 @@ impl<'a> BinDecoder<'a> {
     /// # Returns
     ///
     /// A String version of the character data
-    pub fn read_character_data(&mut self) -> ProtoResult<Cow<'a, str>> {
+    pub fn read_character_data(&mut self) -> ProtoResult<&[u8]> {
         let length: u8 = self.pop()?;
-
-        // TODO once Drain stabalizes on Vec, this should be replaced...
-        let label_vec: &[u8] = self.read_slice(length as usize)?;
-
-        // translate bytes to string, then lowercase...
-        let data = String::from_utf8_lossy(label_vec);
-        Ok(data)
+        self.read_slice(length as usize)
     }
 
     // TODO: deprecate in favor of read_slice

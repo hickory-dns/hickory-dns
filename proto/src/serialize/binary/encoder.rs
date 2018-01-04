@@ -176,8 +176,8 @@ impl<'a> BinEncoder<'a> {
     /// }
     /// assert_eq!(bytes, vec![3,b'a',b'b',b'c']);
     /// ```
-    pub fn emit_character_data(&mut self, char_data: &str) -> ProtoResult<()> {
-        let char_bytes = char_data.as_bytes();
+    pub fn emit_character_data<S: AsRef<[u8]>>(&mut self, char_data: S) -> ProtoResult<()> {
+        let char_bytes = char_data.as_ref();
         if char_bytes.len() > 255 {
             return Err(ProtoErrorKind::CharacterDataTooLong(char_bytes.len()).into());
         }

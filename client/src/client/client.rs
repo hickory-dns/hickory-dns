@@ -22,7 +22,7 @@ use client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use client::SecureClientHandle;
 use error::*;
-use rr::{domain, DNSClass, IntoRecordSet, Record, RecordType};
+use rr::{Name, DNSClass, IntoRecordSet, Record, RecordType};
 use rr::dnssec::Signer;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::TrustAnchor;
@@ -59,7 +59,7 @@ pub trait Client<C: ClientHandle> {
     /// * `query_type` - record type to lookup
     fn query(
         &self,
-        name: &domain::Name,
+        name: &Name,
         query_class: DNSClass,
         query_type: RecordType,
     ) -> ClientResult<Message> {
@@ -79,7 +79,7 @@ pub trait Client<C: ClientHandle> {
     /// * `rrset` - the new version of the record(s) being notified
     fn notify<R>(
         &mut self,
-        name: domain::Name,
+        name: Name,
         query_class: DNSClass,
         query_type: RecordType,
         rrset: Option<R>,
@@ -126,7 +126,7 @@ pub trait Client<C: ClientHandle> {
     /// * `zone_origin` - the zone name to update, i.e. SOA name
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
-    fn create<R>(&self, rrset: R, zone_origin: domain::Name) -> ClientResult<Message>
+    fn create<R>(&self, rrset: R, zone_origin: Name) -> ClientResult<Message>
     where
         R: IntoRecordSet,
     {
@@ -173,7 +173,7 @@ pub trait Client<C: ClientHandle> {
     fn append<R>(
         &self,
         rrset: R,
-        zone_origin: domain::Name,
+        zone_origin: Name,
         must_exist: bool,
     ) -> ClientResult<Message>
     where
@@ -230,7 +230,7 @@ pub trait Client<C: ClientHandle> {
         &self,
         current: CR,
         new: NR,
-        zone_origin: domain::Name,
+        zone_origin: Name,
     ) -> ClientResult<Message>
     where
         CR: IntoRecordSet,
@@ -277,7 +277,7 @@ pub trait Client<C: ClientHandle> {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-    fn delete_by_rdata<R>(&self, record: R, zone_origin: domain::Name) -> ClientResult<Message>
+    fn delete_by_rdata<R>(&self, record: R, zone_origin: Name) -> ClientResult<Message>
     where
         R: IntoRecordSet,
     {
@@ -322,7 +322,7 @@ pub trait Client<C: ClientHandle> {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-    fn delete_rrset(&self, record: Record, zone_origin: domain::Name) -> ClientResult<Message> {
+    fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<Message> {
         let mut reactor = Core::new()?;
         let mut client = self.new_future(&reactor.handle())?;
         let future = client.delete_rrset(record, zone_origin);
@@ -355,8 +355,8 @@ pub trait Client<C: ClientHandle> {
     /// the record type.
     fn delete_all(
         &self,
-        name_of_records: domain::Name,
-        zone_origin: domain::Name,
+        name_of_records: Name,
+        zone_origin: Name,
         dns_class: DNSClass,
     ) -> ClientResult<Message> {
         let mut reactor = Core::new()?;
@@ -470,7 +470,7 @@ where
     #[deprecated(note = "use `Client::query` instead")]
     pub fn secure_query(
         &self,
-        query_name: &domain::Name,
+        query_name: &Name,
         query_class: DNSClass,
         query_type: RecordType,
     ) -> ClientResult<Message> {

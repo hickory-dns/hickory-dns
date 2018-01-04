@@ -18,9 +18,9 @@ use tokio_core::reactor::Core;
 
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::domain;
-use trust_dns::rr::{DNSClass, IntoRecordSet, RData, Record, RecordSet, RecordType};
+use trust_dns::rr::{DNSClass, IntoRecordSet, Name, RData, Record, RecordSet, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
+use trust_dns::rr::name::label::CaseSensitive;
 use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
@@ -117,7 +117,7 @@ fn test_query_tcp_ipv6() {
 
 #[cfg(test)]
 fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = ()>> {
-    let name = domain::Name::from_labels(vec!["WWW", "example", "com"]);
+    let name = Name::from_labels(vec!["WWW", "example", "com"]);
 
     Box::new(
         client
@@ -130,7 +130,7 @@ fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = (
                         .first()
                         .expect("expected query")
                         .name()
-                        .cmp_with_case(&name, false),
+                        .cmp_with_f::<CaseSensitive>(&name),
                     Ordering::Equal
                 );
 
@@ -161,7 +161,7 @@ fn test_notify() {
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
     let mut client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
 
-    let name = domain::Name::from_labels(vec!["ping", "example", "com"]);
+    let name = Name::from_labels(vec!["ping", "example", "com"]);
 
     let message = io_loop.run(client.notify(
         name.clone(),
@@ -182,12 +182,12 @@ fn test_notify() {
 //
 
 /// create a client with a sig0 section
-fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, domain::Name) {
+fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, Name) {
     let mut authority = create_example();
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
 
-    let trusted_name = domain::Name::from_labels(vec!["trusted", "example", "com"]);
+    let trusted_name = Name::from_labels(vec!["trusted", "example", "com"]);
 
     let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
@@ -226,7 +226,7 @@ fn test_create() {
 
     // create a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -273,7 +273,7 @@ fn test_create_multi() {
 
     // create a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -329,7 +329,7 @@ fn test_append() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -407,7 +407,7 @@ fn test_append_multi() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -491,7 +491,7 @@ fn test_compare_and_swap() {
 
     // create a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -563,7 +563,7 @@ fn test_compare_and_swap_multi() {
 
     // create a record
     let mut current = RecordSet::with_ttl(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -645,7 +645,7 @@ fn test_delete_by_rdata() {
 
     // append a record
     let mut record1 = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -695,7 +695,7 @@ fn test_delete_by_rdata_multi() {
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -728,7 +728,7 @@ fn test_delete_by_rdata_multi() {
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -770,7 +770,7 @@ fn test_delete_rrset() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -819,7 +819,7 @@ fn test_delete_all() {
 
     // append a record
     let mut record = Record::with(
-        domain::Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_labels(vec!["new", "example", "com"]),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
@@ -881,7 +881,7 @@ fn test_delete_all() {
 }
 
 fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = Name::from_labels(vec!["www", "example", "com"]);
 
     let err = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))

@@ -10,8 +10,7 @@ use std::str::FromStr;
 use tokio_core::reactor::{Core, Handle};
 
 use trust_dns::op::{Message, Query};
-use trust_dns::rr::domain;
-use trust_dns::rr::RecordType;
+use trust_dns::rr::{Name, RecordType};
 use trust_dns_proto::DnsHandle;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::error::*;
@@ -58,7 +57,7 @@ fn mock_nameserver_pool(
 #[test]
 fn test_datagram() {
     let query = Query::query(
-        domain::Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
         RecordType::A,
     );
 
@@ -89,7 +88,7 @@ fn test_datagram_stream_upgrade() {
     // then lookup on TCP
 
     let query = Query::query(
-        domain::Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
         RecordType::A,
     );
 
@@ -122,7 +121,7 @@ fn test_datagram_fails_to_stream() {
     // then lookup on TCP
 
     let query = Query::query(
-        domain::Name::from_str("www.example.com.").unwrap(),
+        Name::from_str("www.example.com.").unwrap(),
         RecordType::A,
     );
 

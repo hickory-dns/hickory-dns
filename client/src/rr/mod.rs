@@ -27,7 +27,7 @@ pub use trust_dns_proto::rr::record_data;
 pub use trust_dns_proto::rr::record_type;
 pub use trust_dns_proto::rr::resource;
 
-pub use self::domain::Name;
+pub use self::rr::domain::{Name, Label};
 pub use self::dns_class::DNSClass;
 pub use self::lower_name::LowerName;
 pub use self::record_data::RData;
@@ -41,4 +41,9 @@ pub use self::rr_key::RrKey;
 pub mod rdata {
     pub use trust_dns_proto::rr::rdata::*;
     pub use trust_dns_proto::rr::dnssec::rdata::*;
+}
+
+/// Reexport of Name information
+pub mod name {
+    pub use trust_dns_proto::rr::domain::label;
 }

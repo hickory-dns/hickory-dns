@@ -17,6 +17,7 @@ extern crate data_encoding;
 extern crate error_chain;
 #[macro_use]
 extern crate futures;
+extern crate idna;
 #[macro_use]
 extern crate log;
 #[cfg(feature = "openssl")]

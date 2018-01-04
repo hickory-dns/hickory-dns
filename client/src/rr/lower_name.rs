@@ -13,7 +13,8 @@ use std::fmt;
 use std::hash::{Hash, Hasher};
 use std::ops::Index;
 
-use rr::Name;
+use rr::{Name, Label};
+use rr::name::label::CaseSensitive;
 use serialize::binary::*;
 use trust_dns_proto::error::*;
 
@@ -155,14 +156,14 @@ impl Hash for LowerName {
         H: Hasher,
     {
         for label in &self.0 {
-            state.write(label.as_bytes());
+            state.write(label);
         }
     }
 }
 
 impl PartialEq<LowerName> for LowerName {
     fn eq(&self, other: &Self) -> bool {
-        self.0.cmp_with_case(&other.0, false) == Ordering::Equal
+        self.0.cmp_with_f::<CaseSensitive>(&other.0) == Ordering::Equal
     }
 }
 
@@ -175,27 +176,14 @@ impl BinEncodable for LowerName {
 
 impl fmt::Display for LowerName {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut iter = self.0.iter();
-        if let Some(label) = iter.next() {
-            write!(f, "{}", label)?;
-        }
-
-        for label in iter {
-            write!(f, ".{}", label)?;
-        }
-
-        // if it was the root name
-        if self.is_root() || self.is_fqdn() {
-            write!(f, ".")?;
-        }
-        Ok(())
+        self.0.fmt(f)
     }
 }
 
 impl Index<usize> for LowerName {
-    type Output = str;
+    type Output = Label;
 
-    fn index(&self, _index: usize) -> &str {
+    fn index(&self, _index: usize) -> &Label {
         &(self.0[_index])
     }
 }
@@ -241,7 +229,7 @@ impl Ord for LowerName {
     ///            \200.z.example
     /// ```
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0.cmp_with_case(&other.0, false)
+        self.0.cmp_with_f::<CaseSensitive>(&other.0)
     }
 }
 
