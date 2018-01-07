@@ -16,7 +16,7 @@ use std::ops::Index;
 use std::slice::Iter;
 use std::str::FromStr;
 
-use rr::domain::label::{CaseInsensitive, IntoLabel, Label, LabelCmp};
+use rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use serialize::binary::*;
 use error::*;
 
@@ -384,6 +384,50 @@ impl Name {
     /// assert_eq!(name[0].to_string(), "example");
     /// ```
     pub fn parse(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
+       Self::from_encoded_str::<LabelEncUtf8>(local, origin)
+    }
+
+    /// Will convert the string to a name only allowing ascii as valid input 
+    ///
+    /// This method will also preserve the case of the name where that's desirable
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trust_dns_proto::rr::Name;
+    ///
+    /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
+    /// let ascii_name = Name::from_ascii("WWW.example.COM.").unwrap();
+    /// let lower_name = Name::from_ascii("www.example.com.").unwrap();
+    ///
+    /// assert!(bytes_name.eq_case(&ascii_name));
+    /// assert!(!lower_name.eq_case(&ascii_name));
+    /// ```
+    pub fn from_ascii<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
+        Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None)
+    }
+
+    /// Will convert the string to a name using IDNA, punycode, to encode the UTF8 as necessary
+    ///
+    /// When making names IDNA compatible, there is a side-effect of lowercasing the name.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trust_dns_proto::rr::Name;
+    ///
+    /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
+    /// let utf8_name = Name::from_utf8("WWW.example.COM.").unwrap();
+    /// let lower_name = Name::from_utf8("www.example.com.").unwrap();
+///
+    /// assert!(!bytes_name.eq_case(&utf8_name));
+    /// assert!(lower_name.eq_case(&utf8_name));
+    /// ```
+    pub fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
+        Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
+    }
+
+    fn from_encoded_str<E: LabelEnc>(local: &str, origin: Option<&Self>) -> ProtoResult<Self> {
         let mut name = Name::new();
         let mut label = String::new();
 
@@ -400,7 +444,7 @@ impl Name {
             match state {
                 ParseState::Label => match ch {
                     '.' => {
-                        name.labels.push(Label::from_utf8(&label)?);
+                        name.labels.push(E::to_label(&label)?);
                         label.clear();
                     }
                     '\\' => state = ParseState::Escape1,
@@ -446,7 +490,7 @@ impl Name {
         }
 
         if !label.is_empty() {
-            name.labels.push(Label::from_utf8(&label)?);
+            name.labels.push(E::to_label(&label)?);
         }
 
         if local.ends_with('.') {
@@ -566,6 +610,11 @@ impl Name {
         self.labels.len().cmp(&other.labels.len())
     }
     
+    /// Compares the Names, in a case sensitive manner
+    pub fn eq_case(&self, other: &Self) -> bool {
+        self.cmp_with_f::<CaseSensitive>(other) == Ordering::Equal
+    }
+
     /// Converts the Name labels to the String form.
     ///
     /// This converts the name to an unescaped format, that could be used with parse. The name is
@@ -574,7 +623,27 @@ impl Name {
     pub fn to_string(&self) -> String {
         format!("{}", self)
     }
+
 }
+
+trait LabelEnc {
+    fn to_label(name: &str) -> ProtoResult<Label>;
+}
+
+struct LabelEncAscii;
+impl LabelEnc for LabelEncAscii {
+    fn to_label(name: &str) -> ProtoResult<Label> {
+        Label::from_ascii(name)
+    }
+}
+
+struct LabelEncUtf8;
+impl LabelEnc for LabelEncUtf8 {
+    fn to_label(name: &str) -> ProtoResult<Label> {
+        Label::from_utf8(name)
+    }
+}
+
 
 /// An iterator over labels in a name
 pub struct LabelIter<'a>(Iter<'a, Label>);
@@ -838,8 +907,10 @@ enum LabelParseState {
 
 impl FromStr for Name {
     type Err = ProtoError;
+
+    /// Uses the Name::from_utf8 conversion on this string, see [`from_ascii`] for ascii only, or for preserving case
     fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Name::parse(s, None)
+        Name::from_utf8(s)
     }
 }
 
@@ -1097,5 +1168,25 @@ mod tests {
             Name::from_str("www.example.com").unwrap().to_string(),
             "www.example.com"
         );
+    }
+
+    #[test]
+    fn test_from_ascii() {
+        let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
+        let ascii_name = Name::from_ascii("WWW.example.COM.").unwrap();
+        let lower_name = Name::from_ascii("www.example.com.").unwrap();
+
+        assert!(bytes_name.eq_case(&ascii_name));
+        assert!(!lower_name.eq_case(&ascii_name));
+       }
+
+    #[test]
+    fn test_from_utf8() {
+        let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
+        let utf8_name = Name::from_utf8("WWW.example.COM.").unwrap();
+        let lower_name = Name::from_utf8("www.example.com.").unwrap();
+
+        assert!(!bytes_name.eq_case(&utf8_name));
+        assert!(lower_name.eq_case(&utf8_name));
     }
 }

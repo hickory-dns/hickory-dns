@@ -11,7 +11,6 @@ extern crate test;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 
-use std::cmp::Ordering;
 use std::str::FromStr;
 
 use test::Bencher;
