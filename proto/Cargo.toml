@@ -59,7 +59,7 @@ lazy_static = "^1.0"
 log = "^0.4.1"
 openssl = { version = "^0.10", features = ["v102", "v110"], optional = true }
 rand = "^0.5"
-ring = { version = "^0.12", optional = true }
+ring = { version = "^0.13.0-alpha", optional = true }
 smallvec = "^0.6"
 socket2 = { version = "^0.3.4", features = ["reuseport"] }
 tokio-executor = "^0.1"
