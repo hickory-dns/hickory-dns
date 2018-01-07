@@ -50,6 +50,8 @@ b.a.9.8.7.6.5.0.4.0.0.0.3.0.0.0.2.0.0.0.1.0.0.0.0.0.0.0.1.2.3.\
 
 _ldap._tcp.service SRV 1 2 3 short
 
+rust-❤️-🦀    A  192.0.2.1
+
 short 70 A      \
                             26.3.0.104
 venera  A       10.1.0.52
@@ -317,6 +319,25 @@ _443._tcp.www.example.com. IN TLSA (
         );
     } else {
         panic!("Not an SRV record!!!") // valid panic, test code
+    }
+
+    // IDNA name: rust-❤️-🦀    A  192.0.2.1
+    let idna_record: &Record = authority
+        .lookup(
+            &Name::from_utf8("rust-❤️-🦀.isi.edu").unwrap().into(),
+            RecordType::A,
+            false,
+            SupportedAlgorithms::new(),
+        )
+        .unwrap()
+        .first()
+        .cloned()
+        .unwrap();
+    assert_eq!(&Name::from_str("rust-❤️-🦀.isi.edu").unwrap(), idna_record.name());
+    if let RData::A(ref address) = *idna_record.rdata() {
+        assert_eq!(&Ipv4Addr::new(192u8, 0u8, 2u8, 1u8), address);
+    } else {
+        panic!("Not an A record!!!") // valid panic, test code
     }
 
     // CAA

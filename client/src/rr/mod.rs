@@ -27,7 +27,7 @@ pub use trust_dns_proto::rr::record_data;
 pub use trust_dns_proto::rr::record_type;
 pub use trust_dns_proto::rr::resource;
 
-pub use self::rr::domain::{Name, Label};
+pub use self::rr::domain::{IntoName, Name, Label};
 pub use self::dns_class::DNSClass;
 pub use self::lower_name::LowerName;
 pub use self::record_data::RData;
