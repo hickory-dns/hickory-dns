@@ -114,7 +114,9 @@ pub fn emit(encoder: &mut BinEncoder, mx: &MX) -> ProtoResult<()> {
 
 #[test]
 pub fn test() {
-    let rdata = MX::new(16, Name::from_labels(vec!["mail", "example", "com"]));
+    use std::str::FromStr;
+
+    let rdata = MX::new(16, Name::from_str("mail.example.com").unwrap());
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

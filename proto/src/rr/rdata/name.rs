@@ -74,7 +74,7 @@ pub fn emit(encoder: &mut BinEncoder, name_data: &Name) -> ProtoResult<()> {
 
 #[test]
 pub fn test() {
-    let rdata = Name::from_labels(vec!["WWW", "example", "com"]);
+    let rdata = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
 
     let mut bytes = Vec::new();
     let mut encoder: BinEncoder = BinEncoder::new(&mut bytes);

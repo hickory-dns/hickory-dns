@@ -4,6 +4,7 @@ extern crate trust_dns_integration;
 extern crate trust_dns_server;
 
 use std::net::*;
+use std::str::FromStr;
 use std::sync::Arc;
 
 use tokio_core::reactor::Core;
@@ -44,7 +45,7 @@ fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: 
 where
     H: ClientHandle + 'static,
 {
-    let name = Name::from_labels(vec!["www", "example", "com"]);
+    let name = Name::from_str("www.example.com").unwrap();
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
@@ -86,7 +87,7 @@ fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Co
 where
     H: ClientHandle + 'static,
 {
-    let name = Name::from_labels(vec!["none", "example", "com"]);
+    let name = Name::from_str("none.example.com").unwrap();
 
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
@@ -116,7 +117,7 @@ fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
 where
     H: ClientHandle + 'static,
 {
-    let name = Name::from_labels(vec!["www", "example", "com"]);
+    let name = Name::from_str("www.example.com").unwrap();
 
     let response = io_loop
         .run(client.query(name.clone(), DNSClass::IN, RecordType::NS))
