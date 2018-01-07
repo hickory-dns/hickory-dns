@@ -49,7 +49,7 @@ fn test_get() {
     let conn = UdpClientConnection::new(socket).unwrap();
     let client = SyncClient::new(conn);
 
-    let name = Name::parse("www.example.com.", None).unwrap();
+    let name = Name::from_utf8("www.example.com.").unwrap();
     let result = client
         .query(&name, DNSClass::IN, RecordType::A)
         .expect("query failed");
@@ -110,11 +110,11 @@ fn test_create() {
     let conn = UdpClientConnection::new(socket).unwrap();
 
     let client = create_sig0_ready_client(conn);
-    let origin = Name::from_labels(vec!["example", "com"]);
+    let origin = Name::from_utf8("example.com.").unwrap();
 
     // create a record
     let mut record = Record::with(
-        Name::from_labels(vec!["new", "example", "com"]),
+        Name::from_utf8("new.example.com.").unwrap(),
         RecordType::A,
         Duration::minutes(5).num_seconds() as u32,
     );
