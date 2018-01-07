@@ -653,4 +653,22 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_idna() {
+        let mut io_loop = Core::new().unwrap();
+        let resolver = ResolverFuture::new(
+            ResolverConfig::default(),
+            ResolverOpts::default(),
+            &io_loop.handle(),
+        );
+
+        let response = io_loop
+            .run(resolver.lookup_ip("中国.icom.museum."))
+            .expect("failed to run lookup");
+
+        // we just care that the request succeeded, not about the actual content
+        //   it's not certain that the ip won't change.
+        assert!(response.iter().next().is_some());
+    }
 }

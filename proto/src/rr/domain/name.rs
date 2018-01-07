@@ -914,6 +914,39 @@ impl FromStr for Name {
     }
 }
 
+/// Conversion into a Name
+pub trait IntoName: Sized {
+    /// Convert this into Name
+    fn into_name(self: Self) -> ProtoResult<Name>;
+}
+
+impl<'a> IntoName for &'a Name {
+    /// Clones this into a new `Name`
+    fn into_name(self: Self) -> ProtoResult<Name> {
+        Ok(self.clone())
+    }
+}
+
+impl IntoName for Name {
+    fn into_name(self: Self) -> ProtoResult<Name> {
+        Ok(self)
+    }
+}
+
+impl<'a> IntoName for &'a str {
+    /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
+    fn into_name(self: Self) -> ProtoResult<Name> {
+        Name::from_utf8(self)
+    }
+}
+
+impl IntoName for String {
+    /// Performs a utf8, IDNA or punycode, translation of the `String` into `Name`
+    fn into_name(self: Self) -> ProtoResult<Name> {
+        Name::from_utf8(&self)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
@@ -1188,5 +1221,14 @@ mod tests {
 
         assert!(!bytes_name.eq_case(&utf8_name));
         assert!(lower_name.eq_case(&utf8_name));
+    }
+
+    #[test]
+    fn test_into_name() {
+        let name = Name::from_utf8("www.example.com").unwrap();
+        assert_eq!(Name::from_utf8("www.example.com").unwrap(), (&name).into_name().unwrap());
+        assert_eq!(Name::from_utf8("www.example.com").unwrap(), Name::from_utf8("www.example.com").unwrap().into_name().unwrap());
+        assert_eq!(Name::from_utf8("www.example.com").unwrap(), "www.example.com".into_name().unwrap());
+        assert_eq!(Name::from_utf8("www.example.com").unwrap(), "www.example.com".to_string().into_name().unwrap());
     }
 }

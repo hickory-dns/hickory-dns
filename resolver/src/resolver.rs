@@ -116,7 +116,7 @@ impl Resolver {
 
     /// Generic lookup for any RecordType
     ///
-    /// *WARNING* This interface may change in the future, please use [`Self::lookkup_ip`] or another variant for more stable interfaces.
+    /// *WARNING* This interface may change in the future, please use [`Self::lookup_ip`] or another variant for more stable interfaces.
     ///
     /// # Arguments
     ///

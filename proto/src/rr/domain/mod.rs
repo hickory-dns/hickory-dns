@@ -12,5 +12,5 @@
 pub mod label;
 mod name;
 
-pub use self::name::Name;
-pub use self::label::Label;
+pub use self::name::{IntoName, Name};
+pub use self::label::{IntoLabel, Label};

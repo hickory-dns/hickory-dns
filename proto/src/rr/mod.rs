@@ -27,7 +27,7 @@ pub mod record_type;
 pub mod resource;
 mod rr_set;
 
-pub use self::domain::Name;
+pub use self::domain::{IntoName, Name};
 pub use self::dns_class::DNSClass;
 pub use self::record_data::RData;
 pub use self::record_type::RecordType;
