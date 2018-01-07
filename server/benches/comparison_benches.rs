@@ -13,6 +13,7 @@ use std::mem;
 use std::net::{Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::Path;
 use std::process::{Child, Command, Stdio};
+use std::str::FromStr;
 use std::thread;
 use std::time::Duration;
 
@@ -56,7 +57,7 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
         let (stream, sender) = UdpClientStream::new(addr, &handle);
         let mut client = ClientFuture::new(stream, sender, &handle, None);
 
-        let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+        let name = domain::Name::from_str("www.example.com.").unwrap();
         let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
 
         if response.is_ok() {
@@ -105,7 +106,7 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 
 /// Runs the bench tesk using the specified client
 fn bench(b: &mut Bencher, io_loop: &mut Core, client: &mut BasicClientHandle) {
-    let name = domain::Name::from_labels(vec!["www", "example", "com"]);
+    let name = domain::Name::from_str("www.example.com.").unwrap();
 
     // validate the request
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
