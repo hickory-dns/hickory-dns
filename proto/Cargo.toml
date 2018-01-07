@@ -51,7 +51,8 @@ byteorder = "^1.2.1"
 data-encoding = { version = "2.1.0", optional = true }
 error-chain = "0.1.12"
 futures = "^0.1.17"
-idna = "^0.1.4" 
+idna = "^0.1.4"
+lazy_static = "^1.0"
 log = "^0.3.5"
 openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
 rand = "^0.3"

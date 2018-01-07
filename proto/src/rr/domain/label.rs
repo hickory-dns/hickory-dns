@@ -8,7 +8,6 @@ use std::cmp::{Ordering, PartialEq};
 use std::borrow::Borrow;
 use std::fmt::{self, Debug, Display, Formatter, Write};
 use std::hash::{Hash, Hasher};
-use std::str::FromStr;
 use std::sync::Arc as Rc;
 
 use idna::uts46;
@@ -23,11 +22,57 @@ const IDNA_PREFIX: &[u8] = b"xn--";
 pub struct Label(Rc<[u8]>);
 
 impl Label {
-    /// These must only be ASCII, with unicode encoded to PunyCode
+    /// These must only be ASCII, with unicode encoded to PunyCode, or other such transformation.
     ///
-    /// This uses the bytes as raw ascii values.
-    pub fn from_bytes(bytes: &[u8]) -> Result<Self, ProtoError> {
+    /// This uses the bytes as raw ascii values, with nothing escaped on the wire.
+    /// Generally users should use `from_utf8` or `from_ascii`
+    pub fn from_raw_bytes(bytes: &[u8]) -> ProtoResult<Self> {
+        if bytes.len() > 63 { return Err(ProtoErrorKind::Msg(format!("Label exceeds maximum length 63: {}", bytes.len())).into()) };
         Ok(Label(Rc::from(bytes)))
+    }
+
+    /// Translates this string into IDNA safe name, encoding to punycode as necessary.
+    pub fn from_utf8(s: &str) -> ProtoResult<Self> {
+        if s.as_bytes() == WILDCARD {
+            return Ok(Label(Rc::from(WILDCARD.to_vec())))
+        }
+
+        // special case for SRV type records
+        if s.starts_with("_") {
+            return Self::from_ascii(s)
+        }
+
+        match uts46::to_ascii(s, uts46::Flags{
+            use_std3_ascii_rules: true, 
+            transitional_processing: true, 
+            verify_dns_length: true}) {
+            Ok(puny) => {
+                Self::from_ascii(&puny)
+            }
+            Err(e) => {
+                Err(ProtoErrorKind::Msg(format!("Label contains invalid characters: {:?}", e)).into())
+            }
+        }
+
+
+    }
+
+    /// Takes the ascii string and returns a new label.
+    ///
+    /// This will return an Error if the label is not an ascii string
+    pub fn from_ascii(s: &str) -> ProtoResult<Self> {
+        if s.as_bytes() == WILDCARD {
+            return Ok(Label(Rc::from(WILDCARD.to_vec())))
+        }
+
+        if !s.is_empty() &&
+            s.is_ascii() &&
+            s.chars().take(1).all(|c| is_safe_ascii(c, true)) &&
+            s.chars().skip(1).all(|c| is_safe_ascii(c, false)) {
+            Label::from_raw_bytes(s.as_bytes())
+        } else {
+            Err(ProtoErrorKind::Msg(format!("Malformed label: {}", s)).into())
+        }
     }
 
     /// Converts this label to lowercase
@@ -92,47 +137,15 @@ impl Borrow<[u8]> for Label {
     }
 }
 
-impl FromStr for Label {
-    type Err = ProtoError;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        if s.as_bytes() == WILDCARD {
-            return Ok(Label(Rc::from(WILDCARD.to_vec())))
-        }
-
-        // if it's all ascii, don't perform the unicode conversion
-        if s.is_ascii() {
-            return Label::from_bytes(s.as_bytes())
-        }
-
-        match uts46::to_ascii(s, uts46::Flags{
-            use_std3_ascii_rules: true, 
-            transitional_processing: true, 
-            verify_dns_length: true}) {
-            Ok(puny) => {
-                Ok(Label(Rc::from(puny.as_bytes())))
-            }
-            Err(e) => {
-                debug!("Label contains invalid characters, treating as binary: {:?}", e);
-                Ok(Label(Rc::from(s.as_bytes())))
-            }
-        }
+fn is_safe_ascii(c: char, is_first: bool) -> bool {
+    match c {
+        c if !c.is_ascii() => false,
+        c if c.is_alphanumeric() => true,
+        '-' if !is_first => true, // dash is allowed
+        '_' | '*' if is_first => true, // SRV like labels and wildcard
+        '.' => true, // needed to allow dots, for things like email addresses
+        _ => false,
     }
-}
-
-fn escape_non_ascii(byte: u8, f: &mut Formatter, first: bool) -> Result<(), fmt::Error> {
-    let to_escape = |ch: u8| format!("\\{:03}", ch); 
-
-    match char::from(byte) {
-        ch if !ch.is_ascii() => f.write_str(&to_escape(byte))?,
-        ch if ch.is_alphabetic() => f.write_char(ch)?,
-        ch if !first && ch.is_numeric() => f.write_char(ch)?,
-        ch @ '-' if !first => f.write_char(ch)?,
-        ch @ '_' if first => f.write_char(ch)?,
-        _ => f.write_str(&to_escape(byte))?,
-    }
-
-    Ok(())
 }
 
 impl Display for Label {
@@ -145,7 +158,6 @@ impl Display for Label {
                 transitional_processing: false, 
                 verify_dns_length: false});
 
-            
             if e.is_ok() {
                 return f.write_str(&label)
             } else {
@@ -153,6 +165,17 @@ impl Display for Label {
             }
         } 
         
+        fn escape_non_ascii(byte: u8, f: &mut Formatter, is_first: bool) -> Result<(), fmt::Error> {
+            let to_triple_escape = |ch: u8| format!("\\{:03}", ch); 
+
+            match char::from(byte) {
+                c if is_safe_ascii(c, is_first) => f.write_char(c)?,
+                _ => f.write_str(&to_triple_escape(byte))?,
+            }
+
+            Ok(())
+        }
+
         // traditional ascii case...
         let mut chars = self.as_bytes().iter();
         if let Some(ch) = chars.next() {
@@ -227,6 +250,47 @@ impl LabelCmp for CaseInsensitive {
     }
 }
 
+/// Conversion into a Label
+pub trait IntoLabel: Sized {
+    /// Convert this into Label
+    fn into_label(self: Self) -> ProtoResult<Label>;
+}
+
+impl<'a> IntoLabel for &'a Label {
+    fn into_label(self: Self) -> ProtoResult<Label> {
+        Ok(self.clone())
+    }
+}
+
+impl IntoLabel for Label {
+    fn into_label(self: Self) -> ProtoResult<Label> {
+        Ok(self)
+    }
+}
+
+impl<'a> IntoLabel for &'a str {
+    fn into_label(self: Self) -> ProtoResult<Label> {
+        Label::from_utf8(self)
+    }
+}
+
+impl IntoLabel for String {
+    fn into_label(self: Self) -> ProtoResult<Label> {
+        Label::from_utf8(&self)
+    }
+}
+
+impl<'a> IntoLabel for &'a[u8] {
+    fn into_label(self: Self) -> ProtoResult<Label> {
+        Label::from_raw_bytes(self)
+    }
+}
+
+impl IntoLabel for Vec<u8> {
+    fn into_label(self: Self) -> ProtoResult<Label> {
+        Label::from_raw_bytes(&self)
+    }
+} 
 
 #[cfg(test)]
 mod tests {
@@ -234,53 +298,53 @@ mod tests {
 
     #[test]
     fn test_encoding() {
-        assert_eq!(Label::from_str("abc").unwrap(), Label::from_bytes(b"abc").unwrap());
-        assert_eq!(Label::from_str("ABC").unwrap(), Label::from_bytes(b"ABC").unwrap());
-        assert_eq!(Label::from_str("🦀").unwrap(), Label::from_bytes(b"xn--zs9h").unwrap());
-        assert_eq!(Label::from_str("rust-🦀-icon").unwrap(), Label::from_bytes(b"xn--rust--icon-9447i").unwrap());
+        assert_eq!(Label::from_utf8("abc").unwrap(), Label::from_raw_bytes(b"abc").unwrap());
+        assert_eq!(Label::from_utf8("ABC").unwrap(), Label::from_raw_bytes(b"ABC").unwrap());
+        assert_eq!(Label::from_utf8("🦀").unwrap(), Label::from_raw_bytes(b"xn--zs9h").unwrap());
+        assert_eq!(Label::from_utf8("rust-🦀-icon").unwrap(), Label::from_raw_bytes(b"xn--rust--icon-9447i").unwrap());
     }
 
     #[test]
     fn test_decoding() {
-        assert_eq!(Label::from_bytes(b"abc").unwrap().to_string(), "abc");
-        assert_eq!(Label::from_bytes(b"xn--zs9h").unwrap().to_string(), "🦀");
-        assert_eq!(Label::from_bytes(b"xn--rust--icon-9447i").unwrap().to_string(), "rust-🦀-icon");
+        assert_eq!(Label::from_raw_bytes(b"abc").unwrap().to_string(), "abc");
+        assert_eq!(Label::from_raw_bytes(b"xn--zs9h").unwrap().to_string(), "🦀");
+        assert_eq!(Label::from_raw_bytes(b"xn--rust--icon-9447i").unwrap().to_string(), "rust-🦀-icon");
     }
 
     #[test]
     fn test_to_lowercase() {
-        assert_ne!(Label::from_str("ABC").unwrap().to_string(), "abc");
-        assert_ne!(Label::from_str("abcDEF").unwrap().to_string(), "abcdef");
-        assert_eq!(Label::from_str("ABC").unwrap().to_lowercase().to_string(), "abc");
-        assert_eq!(Label::from_str("abcDEF").unwrap().to_lowercase().to_string(), "abcdef");
+        assert_ne!(Label::from_ascii("ABC").unwrap().to_string(), "abc");
+        assert_ne!(Label::from_ascii("abcDEF").unwrap().to_string(), "abcdef");
+        assert_eq!(Label::from_ascii("ABC").unwrap().to_lowercase().to_string(), "abc");
+        assert_eq!(Label::from_ascii("abcDEF").unwrap().to_lowercase().to_string(), "abcdef");
     }
 
     #[test]
     fn test_to_cmp_f() {
-        assert_eq!(Label::from_str("ABC").unwrap().cmp_with_f::<CaseInsensitive>(&Label::from_str("abc").unwrap()), Ordering::Equal);
-        assert_eq!(Label::from_str("abcDEF").unwrap().cmp_with_f::<CaseInsensitive>(&Label::from_str("abcdef").unwrap()), Ordering::Equal);
-        assert_eq!(Label::from_str("ABC").unwrap().cmp_with_f::<CaseSensitive>(&Label::from_str("abc").unwrap()), Ordering::Less);
-        assert_eq!(Label::from_str("abcDEF").unwrap().cmp_with_f::<CaseSensitive>(&Label::from_str("abcdef").unwrap()), Ordering::Less);
+        assert_eq!(Label::from_ascii("ABC").unwrap().cmp_with_f::<CaseInsensitive>(&Label::from_ascii("abc").unwrap()), Ordering::Equal);
+        assert_eq!(Label::from_ascii("abcDEF").unwrap().cmp_with_f::<CaseInsensitive>(&Label::from_ascii("abcdef").unwrap()), Ordering::Equal);
+        assert_eq!(Label::from_ascii("ABC").unwrap().cmp_with_f::<CaseSensitive>(&Label::from_ascii("abc").unwrap()), Ordering::Less);
+        assert_eq!(Label::from_ascii("abcDEF").unwrap().cmp_with_f::<CaseSensitive>(&Label::from_ascii("abcdef").unwrap()), Ordering::Less);
     }
 
     #[test]
     fn test_partial_cmp() {
         let comparisons: Vec<(Label, Label)> = vec![
             (
-                Label::from_bytes(b"yljkjljk").unwrap(),
-                Label::from_bytes(b"Z").unwrap(),
+                Label::from_raw_bytes(b"yljkjljk").unwrap(),
+                Label::from_raw_bytes(b"Z").unwrap(),
             ),
             (
-                Label::from_bytes(b"Z").unwrap(),
-                Label::from_bytes(b"zABC").unwrap(),
+                Label::from_raw_bytes(b"Z").unwrap(),
+                Label::from_raw_bytes(b"zABC").unwrap(),
             ),
             (
-                Label::from_bytes(&[001]).unwrap(),
-                Label::from_bytes(b"*").unwrap(),
+                Label::from_raw_bytes(&[001]).unwrap(),
+                Label::from_raw_bytes(b"*").unwrap(),
             ),
             (
-                Label::from_bytes(b"*").unwrap(),
-                Label::from_bytes(&[200]).unwrap(),
+                Label::from_raw_bytes(b"*").unwrap(),
+                Label::from_raw_bytes(&[200]).unwrap(),
             ),
         ];
 
@@ -292,16 +356,15 @@ mod tests {
 
     #[test]
     fn test_is_wildcard() {
-        assert!(Label::from_bytes(b"*").unwrap().is_wildcard());
-        assert!(Label::from_str("*").unwrap().is_wildcard());
-        assert!(!Label::from_str("abc").unwrap().is_wildcard());
+        assert!(Label::from_raw_bytes(b"*").unwrap().is_wildcard());
+        assert!(Label::from_ascii("*").unwrap().is_wildcard());
+        assert!(Label::from_utf8("*").unwrap().is_wildcard());
+        assert!(!Label::from_raw_bytes(b"abc").unwrap().is_wildcard());
     }
 
     #[test]
     fn test_ascii_escape() {
-        assert_eq!(Label::from_bytes(&[200]).unwrap().to_string(), "\\200");
-        assert_eq!(Label::from_bytes(&[001]).unwrap().to_string(), "\\001");
-        assert_eq!(Label::from_bytes(&[200]).unwrap().to_string(), "\\200");
-        assert_eq!(Label::from_bytes(&[001]).unwrap().to_string(), "\\001");
+        assert_eq!(Label::from_raw_bytes(&[200]).unwrap().to_string(), "\\200");
+        assert_eq!(Label::from_raw_bytes(&[001]).unwrap().to_string(), "\\001");
     }
 }

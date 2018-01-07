@@ -538,6 +538,8 @@ pub fn emit_pre_sig(
 
 #[test]
 fn test() {
+    use std::str::FromStr;
+
     let rdata = SIG::new(
         RecordType::NULL,
         Algorithm::RSASHA256,
@@ -546,7 +548,7 @@ fn test() {
         2,
         1,
         5,
-        Name::from_labels(vec!["www", "example", "com"]),
+        Name::from_str("www.example.com").unwrap(),
         vec![
             0,
             1,

@@ -185,7 +185,9 @@ impl From<Nsec3HashAlgorithm> for u8 {
 #[test]
 #[cfg(any(feature = "openssl", feature = "ring"))]
 fn test_hash() {
-    let name = Name::from_labels(vec!["www", "example", "com"]);
+    use std::str::FromStr;
+
+    let name = Name::from_str("www.example.com").unwrap();
     let salt: Vec<u8> = vec![1, 2, 3, 4];
 
     assert_eq!(

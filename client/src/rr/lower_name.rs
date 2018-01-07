@@ -77,11 +77,12 @@ impl LowerName {
     /// # Examples
     ///
     /// ```
+    /// use std::str::FromStr;
     /// use trust_dns::rr::{LowerName, Name};
     ///
-    /// let example_com = LowerName::from(Name::from_labels(vec!["example", "com"]));
-    /// assert_eq!(example_com.base_name(), LowerName::from(Name::from_labels(vec!["com"])));
-    /// assert_eq!(LowerName::from(Name::from_labels(vec!["com"]).base_name()), LowerName::from(Name::root()));
+    /// let example_com = LowerName::from(Name::from_str("example.com").unwrap());
+    /// assert_eq!(example_com.base_name(), LowerName::from(Name::from_str("com.").unwrap()));
+    /// assert_eq!(LowerName::from(Name::from_str("com.").unwrap().base_name()), LowerName::from(Name::root()));
     /// assert_eq!(LowerName::from(Name::root().base_name()), LowerName::from(Name::root()));
     /// ```
     pub fn base_name(&self) -> LowerName {
@@ -93,11 +94,12 @@ impl LowerName {
     /// # Example
     ///
     /// ```rust
+    /// use std::str::FromStr;
     /// use trust_dns::rr::{LowerName, Name};
     ///
-    /// let name = LowerName::from(Name::from_labels(vec!["www", "example", "com"]));
-    /// let zone = LowerName::from(Name::from_labels(vec!["example", "com"]));
-    /// let another = LowerName::from(Name::from_labels(vec!["example", "net"]));
+    /// let name = LowerName::from(Name::from_str("www.example.com").unwrap());
+    /// let zone = LowerName::from(Name::from_str("example.com").unwrap());
+    /// let another = LowerName::from(Name::from_str("example.net").unwrap());
     /// assert!(zone.zone_of(&name));
     /// assert!(!another.zone_of(&name));
     /// ```
@@ -110,15 +112,16 @@ impl LowerName {
     /// # Examples
     ///
     /// ```
+    /// use std::str::FromStr;
     /// use trust_dns::rr::{LowerName, Name};
     ///
     /// let root = LowerName::from(Name::root());
     /// assert_eq!(root.num_labels(), 0);
     ///
-    /// let example_com = LowerName::from(Name::from_labels(vec!["example", "com"]));
+    /// let example_com = LowerName::from(Name::from_str("example.com").unwrap());
     /// assert_eq!(example_com.num_labels(), 2);
     ///
-    /// let star_example_com = LowerName::from(Name::from_labels(vec!["*", "example", "com"]));
+    /// let star_example_com = LowerName::from(Name::from_str("*.example.com").unwrap());
     /// assert_eq!(star_example_com.num_labels(), 2);
     /// ```
     pub fn num_labels(&self) -> u8 {
@@ -139,15 +142,6 @@ impl LowerName {
     pub fn emit_as_canonical(&self, encoder: &mut BinEncoder, canonical: bool) -> ProtoResult<()> {
         self.0.emit_as_canonical(encoder, canonical)
     }
-    
-    // /// Converts the LowerName labels to the String form.
-    // ///
-    // /// This converts the name to an unescaped format, that could be used with parse. The name is
-    // ///  is followed by the final `.`, e.g. as in `www.example.com.`, which represents a fully
-    // ///  qualified LowerName.
-    // pub fn to_string(&self) -> String {
-    //     self.0.to_string()
-    // }
 }
 
 impl Hash for LowerName {

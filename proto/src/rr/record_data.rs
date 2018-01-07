@@ -613,7 +613,7 @@ mod tests {
     fn get_data() -> Vec<(RData, Vec<u8>)> {
         vec![
             (
-                RData::CNAME(Name::from_labels(vec!["www", "example", "com"])),
+                RData::CNAME(Name::from_str("www.example.com").unwrap()),
                 vec![
                     3,
                     b'w',
@@ -635,11 +635,11 @@ mod tests {
                 ],
             ),
             (
-                RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
+                RData::MX(MX::new(256, Name::from_str("n").unwrap())),
                 vec![1, 0, 1, b'n', 0],
             ),
             (
-                RData::NS(Name::from_labels(vec!["www", "example", "com"])),
+                RData::NS(Name::from_str("www.example.com").unwrap()),
                 vec![
                     3,
                     b'w',
@@ -661,7 +661,7 @@ mod tests {
                 ],
             ),
             (
-                RData::PTR(Name::from_labels(vec!["www", "example", "com"])),
+                RData::PTR(Name::from_str("www.example.com").unwrap()),
                 vec![
                     3,
                     b'w',
@@ -684,8 +684,8 @@ mod tests {
             ),
             (
                 RData::SOA(SOA::new(
-                    Name::from_labels(vec!["www", "example", "com"]),
-                    Name::from_labels(vec!["xxx", "example", "com"]),
+                    Name::from_str("www.example.com").unwrap(),
+                    Name::from_str("xxx.example.com").unwrap(),
                     u32::max_value(),
                     -1 as i32,
                     -1 as i32,
@@ -775,7 +775,7 @@ mod tests {
                     1,
                     2,
                     3,
-                    Name::from_labels(vec!["www", "example", "com"]),
+                    Name::from_str("www.example.com").unwrap(),
                 )),
                 vec![
                     0x00,
@@ -816,15 +816,15 @@ mod tests {
                 1,
                 2,
                 3,
-                Name::from_labels(vec!["www", "example", "com"]),
+                Name::from_str("www.example.com").unwrap(),
             )),
-            RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
-            RData::CNAME(Name::from_labels(vec!["www", "example", "com"])),
-            RData::PTR(Name::from_labels(vec!["www", "example", "com"])),
-            RData::NS(Name::from_labels(vec!["www", "example", "com"])),
+            RData::MX(MX::new(256, Name::from_str("n").unwrap())),
+            RData::CNAME(Name::from_str("www.example.com").unwrap()),
+            RData::PTR(Name::from_str("www.example.com").unwrap()),
+            RData::NS(Name::from_str("www.example.com").unwrap()),
             RData::SOA(SOA::new(
-                Name::from_labels(vec!["www", "example", "com"]),
-                Name::from_labels(vec!["xxx", "example", "com"]),
+                Name::from_str("www.example.com").unwrap(),
+                Name::from_str("xxx.example.com").unwrap(),
                 u32::max_value(),
                 -1 as i32,
                 -1 as i32,
@@ -839,13 +839,13 @@ mod tests {
             ])),
         ];
         let mut unordered = vec![
-            RData::CNAME(Name::from_labels(vec!["www", "example", "com"])),
-            RData::MX(MX::new(256, Name::from_labels(vec!["n"]))),
-            RData::PTR(Name::from_labels(vec!["www", "example", "com"])),
-            RData::NS(Name::from_labels(vec!["www", "example", "com"])),
+            RData::CNAME(Name::from_str("www.example.com").unwrap()),
+            RData::MX(MX::new(256, Name::from_str("n").unwrap())),
+            RData::PTR(Name::from_str("www.example.com").unwrap()),
+            RData::NS(Name::from_str("www.example.com").unwrap()),
             RData::SOA(SOA::new(
-                Name::from_labels(vec!["www", "example", "com"]),
-                Name::from_labels(vec!["xxx", "example", "com"]),
+                Name::from_str("www.example.com").unwrap(),
+                Name::from_str("xxx.example.com").unwrap(),
                 u32::max_value(),
                 -1 as i32,
                 -1 as i32,
@@ -864,7 +864,7 @@ mod tests {
                 1,
                 2,
                 3,
-                Name::from_labels(vec!["www", "example", "com"]),
+                Name::from_str("www.example.com").unwrap(),
             )),
         ];
 

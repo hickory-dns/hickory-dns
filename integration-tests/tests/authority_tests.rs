@@ -5,6 +5,7 @@ extern crate trust_dns_server;
 
 use std::collections::BTreeMap;
 use std::net::*;
+use std::str::FromStr;
 
 use rusqlite::*;
 
@@ -180,8 +181,8 @@ fn test_authorize() {
 
 #[test]
 fn test_prerequisites() {
-    let not_zone = Name::from_labels(vec!["not", "a", "domain", "com"]);
-    let not_in_zone = Name::from_labels(vec!["not", "example", "com"]);
+    let not_zone = Name::from_str("not.a.domain.com").unwrap();
+    let not_in_zone = Name::from_str("not.example.com").unwrap();
 
     let mut authority: Authority = create_example();
     authority.set_allow_update(true);
@@ -377,8 +378,8 @@ fn test_prerequisites() {
 
 #[test]
 fn test_pre_scan() {
-    let up_name = Name::from_labels(vec!["www", "example", "com"]);
-    let not_zone = Name::from_labels(vec!["not", "zone", "com"]);
+    let up_name = Name::from_str("www.example.com").unwrap();
+    let not_zone = Name::from_str("not.zone.com").unwrap();
 
     let authority: Authority = create_example();
 
@@ -624,8 +625,8 @@ fn test_pre_scan() {
 
 #[test]
 fn test_update() {
-    let new_name = Name::from_labels(vec!["new", "example", "com"]);
-    let www_name = Name::from_labels(vec!["www", "example", "com"]);
+    let new_name = Name::from_str("new.example.com").unwrap();
+    let www_name = Name::from_str("www.example.com").unwrap();
     let mut authority: Authority = create_example();
     let serial = authority.serial();
 
@@ -957,7 +958,7 @@ fn test_zone_signing() {
 
 #[test]
 fn test_get_nsec() {
-    let name = Name::from_labels(vec!["zzz", "example", "com"]);
+    let name = Name::from_str("zzz.example.com").unwrap();
     let authority: Authority = create_secure_example();
 
     let results = authority.get_nsec_records(&name.clone().into(), true, SupportedAlgorithms::all());
@@ -978,8 +979,8 @@ fn test_journal() {
     authority.set_journal(journal);
     authority.persist_to_journal().unwrap();
 
-    let new_name = Name::from_labels(vec!["new", "example", "com"]);
-    let delete_name = Name::from_labels(vec!["www", "example", "com"]);
+    let new_name = Name::from_str("new.example.com").unwrap();
+    let delete_name = Name::from_str("www.example.com").unwrap();
     let new_record = Record::new()
         .set_name(new_name.clone())
         .set_rdata(RData::A(Ipv4Addr::new(10, 11, 12, 13)))

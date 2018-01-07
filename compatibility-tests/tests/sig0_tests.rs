@@ -18,6 +18,7 @@ use std::io;
 use std::io::Read;
 #[cfg(not(feature = "none"))]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::str::FromStr;
 
 #[cfg(not(feature = "none"))]
 use chrono::Duration;
@@ -92,7 +93,7 @@ where
     let signer = Signer::sig0(
         sig0key,
         key,
-        Name::from_labels(vec!["update", "example", "com"]),
+        Name::from_str("update.example.com").unwrap(),
     );
 
     assert_eq!(signer.calculate_key_tag().unwrap(), 56935_u16);

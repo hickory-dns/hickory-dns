@@ -233,11 +233,13 @@ pub fn emit(encoder: &mut BinEncoder, srv: &SRV) -> ProtoResult<()> {
 
 #[test]
 fn test() {
+    use std::str::FromStr;
+
     let rdata = SRV::new(
         1,
         2,
         3,
-        Name::from_labels(vec!["_dns_tcp", "example", "com"]),
+        Name::from_str("_dns._tcp.example.com").unwrap(),
     );
 
     let mut bytes = Vec::new();

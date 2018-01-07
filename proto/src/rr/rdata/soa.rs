@@ -255,9 +255,11 @@ pub fn emit(encoder: &mut BinEncoder, soa: &SOA) -> ProtoResult<()> {
 
 #[test]
 fn test() {
+    use std::str::FromStr;
+
     let rdata = SOA::new(
-        Name::from_labels(vec!["m", "example", "com"]),
-        Name::from_labels(vec!["r", "example", "com"]),
+        Name::from_str("m.example.com").unwrap(),
+        Name::from_str("r.example.com").unwrap(),
         1,
         2,
         3,
