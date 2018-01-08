@@ -67,8 +67,8 @@ impl Label {
 
         if !s.is_empty() &&
             s.is_ascii() &&
-            s.chars().take(1).all(|c| is_safe_ascii(c, true)) &&
-            s.chars().skip(1).all(|c| is_safe_ascii(c, false)) {
+            s.chars().take(1).all(|c| is_safe_ascii(c, true, false)) &&
+            s.chars().skip(1).all(|c| is_safe_ascii(c, false, false)) {
             Label::from_raw_bytes(s.as_bytes())
         } else {
             Err(ProtoErrorKind::Msg(format!("Malformed label: {}", s)).into())
@@ -137,18 +137,22 @@ impl Borrow<[u8]> for Label {
     }
 }
 
-fn is_safe_ascii(c: char, is_first: bool) -> bool {
+fn is_safe_ascii(c: char, is_first: bool, for_encoding: bool) -> bool {
     match c {
         c if !c.is_ascii() => false,
         c if c.is_alphanumeric() => true,
         '-' if !is_first => true, // dash is allowed
         '_' | '*' if is_first => true, // SRV like labels and wildcard
-        '.' => true, // needed to allow dots, for things like email addresses
+        '.' if !for_encoding => true, // needed to allow dots, for things like email addresses
         _ => false,
     }
 }
 
 impl Display for Label {
+    /// outputs characters in a safe string manner.
+    ///
+    /// if the string is punycode, i.e. starts with `xn--`, otherwise it translates to a safe ascii string
+    ///   escaping characters as necessary. 
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         if self.as_bytes().starts_with(IDNA_PREFIX) {
             // this should never be outside the ascii codes...
@@ -165,11 +169,15 @@ impl Display for Label {
             }
         } 
         
+        // We can't guarantee that the same input will always translate to the same output
         fn escape_non_ascii(byte: u8, f: &mut Formatter, is_first: bool) -> Result<(), fmt::Error> {
-            let to_triple_escape = |ch: u8| format!("\\{:03}", ch); 
+            let to_triple_escape = |ch: u8| format!("\\{:03}", ch);
+            let to_single_escape = |ch: char| format!("\\{}", ch);
 
             match char::from(byte) {
-                c if is_safe_ascii(c, is_first) => f.write_char(c)?,
+                c if is_safe_ascii(c, is_first, true) => f.write_char(c)?,
+                // it's not a control and is printable as well as inside the standard ascii range
+                c if byte > b'\x20' && byte < b'\x7f' => f.write_str(&to_single_escape(c))?,
                 _ => f.write_str(&to_triple_escape(byte))?,
             }
 
@@ -299,9 +307,11 @@ mod tests {
     #[test]
     fn test_encoding() {
         assert_eq!(Label::from_utf8("abc").unwrap(), Label::from_raw_bytes(b"abc").unwrap());
+        // case insensitive, this works...
         assert_eq!(Label::from_utf8("ABC").unwrap(), Label::from_raw_bytes(b"ABC").unwrap());
         assert_eq!(Label::from_utf8("🦀").unwrap(), Label::from_raw_bytes(b"xn--zs9h").unwrap());
         assert_eq!(Label::from_utf8("rust-🦀-icon").unwrap(), Label::from_raw_bytes(b"xn--rust--icon-9447i").unwrap());
+        assert_eq!(Label::from_ascii("ben.fry").unwrap(), Label::from_raw_bytes(b"ben.fry").unwrap());
     }
 
     #[test]
@@ -366,5 +376,6 @@ mod tests {
     fn test_ascii_escape() {
         assert_eq!(Label::from_raw_bytes(&[200]).unwrap().to_string(), "\\200");
         assert_eq!(Label::from_raw_bytes(&[001]).unwrap().to_string(), "\\001");
+        assert_eq!(Label::from_ascii("ben.fry").unwrap().to_string(), "ben\\.fry");
     }
 }
