@@ -439,6 +439,7 @@ impl Name {
             return Ok(name);
         }
 
+        // TODO: it would be nice to relocate this to Label, but that is hard because the label boundary can only be detected after processing escapes...
         // evaluate all characters
         for ch in local.chars() {
             match state {
