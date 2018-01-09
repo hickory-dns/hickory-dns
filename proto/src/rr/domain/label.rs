@@ -241,7 +241,7 @@ pub trait LabelCmp {
 }
 
 /// For case sensitive comparisons
-pub struct CaseSensitive;
+pub(super) struct CaseSensitive;
 
 impl LabelCmp for CaseSensitive {
     fn cmp_u8(l: u8, r: u8) -> Ordering {
@@ -250,7 +250,7 @@ impl LabelCmp for CaseSensitive {
 }
 
 /// For case insensitive comparisons
-pub struct CaseInsensitive;
+pub(super) struct CaseInsensitive;
 
 impl LabelCmp for CaseInsensitive {
     fn cmp_u8(l: u8, r: u8) -> Ordering {

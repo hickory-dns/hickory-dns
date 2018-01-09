@@ -170,7 +170,7 @@ impl Display for Query {
 #[test]
 fn test_read_and_emit() {
     let expect = Query {
-        name: Name::from_labels(vec![b"WWW" as &[u8], b"example" as &[u8], b"com" as &[u8]]).unwrap(),
+        name: Name::from_ascii("WWW.example.com").unwrap(),
         query_type: RecordType::AAAA,
         query_class: DNSClass::IN,
     };

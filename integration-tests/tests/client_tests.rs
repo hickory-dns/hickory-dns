@@ -25,7 +25,6 @@ use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
 use trust_dns::rr::{Name, DNSClass, RData, Record, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
-use trust_dns::rr::name::label::CaseSensitive;
 use trust_dns::rr::rdata::*;
 use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
@@ -103,8 +102,7 @@ where
     CC: ClientConnection,
     <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
-    use std::cmp::Ordering;
-    let name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
+    let name = Name::from_ascii("WWW.example.com").unwrap();
 
     let response = client.query(&name, DNSClass::IN, RecordType::A);
     assert!(response.is_ok(), "query failed: {}", response.unwrap_err());
@@ -112,14 +110,13 @@ where
     let response = response.unwrap();
 
     println!("response records: {:?}", response);
-    assert_eq!(
+    assert!(
         response
             .queries()
             .first()
             .expect("expected query")
             .name()
-            .cmp_with_f::<CaseSensitive>(&name),
-        Ordering::Equal
+            .eq_case(&name)
     );
 
     let record = &response.answers()[0];
@@ -194,7 +191,7 @@ where
     CC: ClientConnection,
     <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
-    let name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
+    let name = Name::from_ascii("WWW.example.com").unwrap();
 
     let response = client.query(&name, DNSClass::IN, RecordType::A);
     assert!(response.is_err());
