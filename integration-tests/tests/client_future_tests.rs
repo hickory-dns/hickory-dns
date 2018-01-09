@@ -8,7 +8,6 @@ extern crate trust_dns_integration;
 extern crate trust_dns_server;
 
 use std::net::*;
-use std::cmp::Ordering;
 use std::str::FromStr;
 use std::sync::Arc;
 
@@ -22,7 +21,6 @@ use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::{DNSClass, IntoRecordSet, Name, RData, Record, RecordSet, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
-use trust_dns::rr::name::label::CaseSensitive;
 use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns::udp::UdpClientStream;
 use trust_dns::tcp::TcpClientStream;
@@ -119,21 +117,20 @@ fn test_query_tcp_ipv6() {
 
 #[cfg(test)]
 fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = ()>> {
-    let name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
+    let name = Name::from_ascii("WWW.example.com").unwrap();
 
     Box::new(
         client
             .query(name.clone(), DNSClass::IN, RecordType::A)
             .map(move |response| {
                 println!("response records: {:?}", response);
-                assert_eq!(
+                assert!(
                     response
                         .queries()
                         .first()
                         .expect("expected query")
                         .name()
-                        .cmp_with_f::<CaseSensitive>(&name),
-                    Ordering::Equal
+                        .eq_case(&name)
                 );
 
                 let record = &response.answers()[0];

@@ -124,8 +124,13 @@ impl Name {
     /// use std::str::FromStr;
     /// use trust_dns_proto::rr::domain::Name;
     ///
+    /// // From strings, uses utf8 conversion
     /// let from_labels = Name::from_labels(vec!["www", "example", "com"]).unwrap();
     /// assert_eq!(from_labels, Name::from_str("www.example.com").unwrap());
+    ///
+    /// // Force a set of bytes into labels (this is none-standard and potentially dangerous)
+    /// let from_labels = Name::from_labels(vec!["bad chars".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
+    /// assert_eq!(from_labels[0].as_bytes(), "bad chars".as_bytes());
     ///
     /// let root = Name::from_labels(Vec::<&str>::new()).unwrap();
     /// assert!(root.is_root());
@@ -214,12 +219,11 @@ impl Name {
     /// use std::cmp::Ordering;
     /// use std::str::FromStr;
     ///
-    /// use trust_dns_proto::rr::domain::label::CaseSensitive;
     /// use trust_dns_proto::rr::domain::{Label, Name};
     ///
-    /// let example_com = Name::from_labels(vec![Label::from_ascii("Example").unwrap(), Label::from_ascii("Com").unwrap()]).unwrap();
-    /// assert_eq!(example_com.cmp_with_f::<CaseSensitive>(&Name::from_str("example.com").unwrap()), Ordering::Less);
-    /// assert_eq!(example_com.to_lowercase().cmp_with_f::<CaseSensitive>(&Name::from_str("example.com").unwrap()), Ordering::Equal);
+    /// let example_com = Name::from_ascii("Example.Com").unwrap();
+    /// assert_eq!(example_com.cmp_case(&Name::from_str("example.com").unwrap()), Ordering::Less);
+    /// assert!(example_com.to_lowercase().eq_case(&Name::from_str("example.com").unwrap()));
     /// ```
     pub fn to_lowercase(&self) -> Self {
         let mut new_labels: Vec<Label> = Vec::with_capacity(self.labels.len());
@@ -419,7 +423,7 @@ impl Name {
     /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
     /// let utf8_name = Name::from_utf8("WWW.example.COM.").unwrap();
     /// let lower_name = Name::from_utf8("www.example.com.").unwrap();
-///
+    ///
     /// assert!(!bytes_name.eq_case(&utf8_name));
     /// assert!(lower_name.eq_case(&utf8_name));
     /// ```
@@ -592,7 +596,7 @@ impl Name {
     }
     
     /// compares with the other label, ignoring case
-    pub fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
+    fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
         if self.labels.is_empty() && other.labels.is_empty() {
             return Ordering::Equal;
         }
@@ -609,6 +613,11 @@ impl Name {
         }
 
         self.labels.len().cmp(&other.labels.len())
+    }
+
+    /// Case sensitive comparison
+    pub fn cmp_case(&self, other: &Self) -> Ordering {
+        self.cmp_with_f::<CaseSensitive>(other)
     }
     
     /// Compares the Names, in a case sensitive manner
@@ -860,6 +869,8 @@ impl PartialOrd<Name> for Name {
 }
 
 impl Ord for Name {
+    /// Case insensitive comparison, see [`Name::cmp_case`] for case sensitive comparisons
+    ///
     /// RFC 4034                DNSSEC Resource Records               March 2005
     ///
     /// ```text
@@ -1061,7 +1072,7 @@ mod tests {
 
     #[test]
     fn test_zone_of_case() {
-        let zone = Name::from_labels(vec![b"examplE" as &[u8], b"cOm" as &[u8]]).unwrap();
+        let zone = Name::from_ascii("examplE.cOm").unwrap();
         let www = Name::from_str("www.example.com").unwrap();
         let none = Name::from_str("none.com").unwrap();
 
@@ -1100,15 +1111,15 @@ mod tests {
             ),
             (
                 Name::from_str("yljkjljk.a.example.").unwrap(),
-                Name::from_labels(vec!["Z".as_bytes(), "a".as_bytes(), "example".as_bytes()]).unwrap(),
+                Name::from_ascii("Z.a.example.").unwrap(),
             ),
             (
-                Name::from_labels(vec!["Z".as_bytes(), "a".as_bytes(), "example".as_bytes()]).unwrap(),
-                Name::from_labels(vec!["zABC".as_bytes(), "a".as_bytes(), "EXAMPLE".as_bytes()]).unwrap(),
+                Name::from_ascii("Z.a.example.").unwrap(),
+                Name::from_ascii("zABC.a.EXAMPLE").unwrap(),
                 
             ),
             (
-                Name::from_labels(vec!["zABC".as_bytes(), "a".as_bytes(), "EXAMPLE".as_bytes()]).unwrap(),
+                Name::from_ascii("zABC.a.EXAMPLE.").unwrap(),
                 Name::from_str("z.example.").unwrap(),
             ),
             (
@@ -1136,12 +1147,12 @@ mod tests {
         let root = Some(Name::from_labels(Vec::<&str>::new()).unwrap());
         let comparisons: Vec<(Name, Name)> = vec![
             (
-                Name::parse("ExAmPle", root.as_ref()).unwrap(),
-                Name::parse("example", root.as_ref()).unwrap(),
+                Name::from_ascii("ExAmPle.").unwrap(),
+                Name::from_ascii("example.").unwrap(),
             ),
             (
-                Name::parse("A.example", root.as_ref()).unwrap(),
-                Name::parse("a.example", root.as_ref()).unwrap(),
+                Name::from_ascii("A.example.").unwrap(),
+                Name::from_ascii("a.example.").unwrap(),
             ),
         ];
 

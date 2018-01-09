@@ -14,13 +14,10 @@ use std::hash::{Hash, Hasher};
 use std::ops::Index;
 
 use rr::{Name, Label};
-use rr::name::label::CaseSensitive;
 use serialize::binary::*;
 use trust_dns_proto::error::*;
 
-/// TODO: all LowerNames should be stored in a global "intern" space, and then everything that uses
 ///  them should be through references. As a workaround the Strings are all Rc as well as the array
-/// TODO: Currently this probably doesn't support binary names, it would be nice to do that.
 #[derive(Default, Debug, Eq, Clone)]
 pub struct LowerName(Name);
 
@@ -157,7 +154,7 @@ impl Hash for LowerName {
 
 impl PartialEq<LowerName> for LowerName {
     fn eq(&self, other: &Self) -> bool {
-        self.0.cmp_with_f::<CaseSensitive>(&other.0) == Ordering::Equal
+        self.0.eq_case(&other.0)
     }
 }
 
@@ -189,9 +186,11 @@ impl PartialOrd<LowerName> for LowerName {
 }
 
 impl Ord for LowerName {
-    /// RFC 4034                DNSSEC Resource Records               March 2005
+    /// Given two lower cased names, this performs a case sensitive comparison.
     ///
     /// ```text
+    /// RFC 4034                DNSSEC Resource Records               March 2005
+    ///
     /// 6.1.  Canonical DNS LowerName Order
     ///
     ///  For the purposes of DNS security, owner names are ordered by treating
@@ -223,7 +222,7 @@ impl Ord for LowerName {
     ///            \200.z.example
     /// ```
     fn cmp(&self, other: &Self) -> Ordering {
-        self.0.cmp_with_f::<CaseSensitive>(&other.0)
+        self.0.cmp_case(&other.0)
     }
 }
 
