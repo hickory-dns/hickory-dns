@@ -8,7 +8,6 @@ use std::cmp::Ordering;
 use test::Bencher;
 
 use trust_dns_proto::rr::*;
-use trust_dns_proto::rr::domain::label::{CaseSensitive, CaseInsensitive};
 
 #[bench]
 fn name_cmp_short(b: &mut Bencher) {
@@ -16,7 +15,7 @@ fn name_cmp_short(b: &mut Bencher) {
     let name2 = Name::from_ascii("COM").unwrap();
 
     b.iter(|| {
-        assert_eq!(name1.cmp_with_f::<CaseInsensitive>(&name2), Ordering::Equal);
+        assert_eq!(name1.cmp(&name2), Ordering::Equal);
     });
 }
 
@@ -26,7 +25,7 @@ fn name_cmp_short_not_eq(b: &mut Bencher) {
     let name2 = Name::from_ascii("COM").unwrap();
 
     b.iter(|| {
-        assert_ne!(name1.eq_case(cmp_with_f::<CaseSensitive>(&name2), Ordering::Equal);
+        assert_ne!(name1.cmp_case(&name2), Ordering::Equal);
     });
 }
 
@@ -36,7 +35,7 @@ fn name_cmp_short_case(b: &mut Bencher) {
     let name2 = Name::from_ascii("com").unwrap();
 
     b.iter(|| {
-        assert_eq!(name1.cmp_with_f::<CaseSensitive>(&name2), Ordering::Equal);
+        assert_eq!(name1.cmp_case(&name2), Ordering::Equal);
     });
 }
 
@@ -46,7 +45,7 @@ fn name_cmp_medium(b: &mut Bencher) {
     let name2 = Name::from_ascii("www.EXAMPLE.com").unwrap();
 
     b.iter(|| {
-        assert_eq!(name1.cmp_with_f::<CaseInsensitive>(&name2), Ordering::Equal);
+        assert_eq!(name1.cmp(&name2), Ordering::Equal);
     });
 }
 
@@ -56,7 +55,7 @@ fn name_cmp_medium_not_eq(b: &mut Bencher) {
     let name2 = Name::from_ascii("www.EXAMPLE.com").unwrap();
 
     b.iter(|| {
-        assert_ne!(name1.cmp_with_f::<CaseSensitive>(&name2), Ordering::Equal);
+        assert_ne!(name1.cmp_case(&name2), Ordering::Equal);
     });
 }
 
@@ -66,7 +65,7 @@ fn name_cmp_medium_case(b: &mut Bencher) {
     let name2 = Name::from_ascii("www.example.com").unwrap();
 
     b.iter(|| {
-        assert_eq!(name1.cmp_with_f::<CaseSensitive>(&name2), Ordering::Equal);
+        assert_eq!(name1.cmp_case(&name2), Ordering::Equal);
     });
 }
 
@@ -76,7 +75,7 @@ fn name_cmp_long(b: &mut Bencher) {
     let name2 = Name::from_ascii("a.crazy.really.long.EXAMPLE.com").unwrap();
 
     b.iter(|| {
-        assert_eq!(name1.cmp_with_f::<CaseInsensitive>(&name2), Ordering::Equal);
+        assert_eq!(name1.cmp(&name2), Ordering::Equal);
     });
 }
 
@@ -86,7 +85,7 @@ fn name_cmp_long_not_eq(b: &mut Bencher) {
     let name2 = Name::from_ascii("a.crazy.really.long.EXAMPLE.com").unwrap();
 
     b.iter(|| {
-        assert_ne!(name1.cmp_with_f::<CaseSensitive>(&name2), Ordering::Equal);
+        assert_ne!(name1.cmp_case(&name2), Ordering::Equal);
     });
 }
 
@@ -96,7 +95,7 @@ fn name_cmp_long_case(b: &mut Bencher) {
     let name2 = Name::from_ascii("a.crazy.really.long.example.com").unwrap();
 
     b.iter(|| {
-        assert_eq!(name1.cmp_with_f::<CaseSensitive>(&name2), Ordering::Equal);
+        assert_eq!(name1.cmp_case(&name2), Ordering::Equal);
     });
 }
 

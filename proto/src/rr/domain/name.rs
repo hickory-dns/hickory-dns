@@ -1144,7 +1144,6 @@ mod tests {
 
     #[test]
     fn test_cmp_ignore_case() {
-        let root = Some(Name::from_labels(Vec::<&str>::new()).unwrap());
         let comparisons: Vec<(Name, Name)> = vec![
             (
                 Name::from_ascii("ExAmPle.").unwrap(),
