@@ -42,8 +42,3 @@ pub mod rdata {
     pub use trust_dns_proto::rr::rdata::*;
     pub use trust_dns_proto::rr::dnssec::rdata::*;
 }
-
-/// Reexport of Name information
-pub mod name {
-    pub use trust_dns_proto::rr::domain::label;
-}
