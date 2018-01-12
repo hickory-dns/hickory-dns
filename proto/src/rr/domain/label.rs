@@ -123,6 +123,51 @@ impl Label {
 
         self.0.len().cmp(&other.0.len())
     }
+
+    /// Performs the conversion to utf8 from IDNA as necessary, see `fmt` for more details
+    pub fn to_utf8(&self) -> String {
+        format!("{}", self)
+    }
+
+    /// Converts this label to safe ascii, escaping characters as necessary
+    ///
+    /// If this is an IDNA, punycode, label, then the xn-- prefix will be maintained as ascii
+    pub fn to_ascii(&self) -> String {
+        let mut ascii = String::with_capacity(self.as_bytes().len());
+
+        self.write_ascii(&mut ascii).expect("should never fail to write a new string");
+        ascii
+    }
+
+    /// Writes this label to safe ascii, escaping characters as necessary
+    pub fn write_ascii<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error> {
+        // We can't guarantee that the same input will always translate to the same output
+        fn escape_non_ascii<W: Write>(byte: u8, f: &mut W, is_first: bool) -> Result<(), fmt::Error> {
+            let to_triple_escape = |ch: u8| format!("\\{:03}", ch);
+            let to_single_escape = |ch: char| format!("\\{}", ch);
+
+            match char::from(byte) {
+                c if is_safe_ascii(c, is_first, true) => f.write_char(c)?,
+                // it's not a control and is printable as well as inside the standard ascii range
+                c if byte > b'\x20' && byte < b'\x7f' => f.write_str(&to_single_escape(c))?,
+                _ => f.write_str(&to_triple_escape(byte))?,
+            }
+
+            Ok(())
+        }
+
+        // traditional ascii case...
+        let mut chars = self.as_bytes().iter();
+        if let Some(ch) = chars.next() {
+            escape_non_ascii(*ch, f, true)?;
+        }
+
+        for ch in chars {
+            escape_non_ascii(*ch, f, false)?;
+        }
+
+        Ok(())
+    }
 }
 
 impl AsRef<[u8]> for Label {
@@ -169,32 +214,8 @@ impl Display for Label {
             }
         } 
         
-        // We can't guarantee that the same input will always translate to the same output
-        fn escape_non_ascii(byte: u8, f: &mut Formatter, is_first: bool) -> Result<(), fmt::Error> {
-            let to_triple_escape = |ch: u8| format!("\\{:03}", ch);
-            let to_single_escape = |ch: char| format!("\\{}", ch);
-
-            match char::from(byte) {
-                c if is_safe_ascii(c, is_first, true) => f.write_char(c)?,
-                // it's not a control and is printable as well as inside the standard ascii range
-                c if byte > b'\x20' && byte < b'\x7f' => f.write_str(&to_single_escape(c))?,
-                _ => f.write_str(&to_triple_escape(byte))?,
-            }
-
-            Ok(())
-        }
-
-        // traditional ascii case...
-        let mut chars = self.as_bytes().iter();
-        if let Some(ch) = chars.next() {
-            escape_non_ascii(*ch, f, true)?;
-        }
-
-        for ch in chars {
-            escape_non_ascii(*ch, f, false)?;
-        }
-
-        Ok(())
+        // it wasn't known to be utf8
+        self.write_ascii(f)
     }
 }
 
@@ -312,6 +333,8 @@ mod tests {
         assert_eq!(Label::from_utf8("🦀").unwrap(), Label::from_raw_bytes(b"xn--zs9h").unwrap());
         assert_eq!(Label::from_utf8("rust-🦀-icon").unwrap(), Label::from_raw_bytes(b"xn--rust--icon-9447i").unwrap());
         assert_eq!(Label::from_ascii("ben.fry").unwrap(), Label::from_raw_bytes(b"ben.fry").unwrap());
+        assert_eq!(Label::from_utf8("🦀").unwrap().to_utf8(), "🦀");
+        assert_eq!(Label::from_utf8("🦀").unwrap().to_ascii(), "xn--zs9h");
     }
 
     #[test]
@@ -376,6 +399,8 @@ mod tests {
     fn test_ascii_escape() {
         assert_eq!(Label::from_raw_bytes(&[200]).unwrap().to_string(), "\\200");
         assert_eq!(Label::from_raw_bytes(&[001]).unwrap().to_string(), "\\001");
+        assert_eq!(Label::from_ascii(".").unwrap().to_ascii(), "\\.");
         assert_eq!(Label::from_ascii("ben.fry").unwrap().to_string(), "ben\\.fry");
+        assert_eq!(Label::from_raw_bytes(&[200]).unwrap().to_ascii(), "\\200");
     }
 }

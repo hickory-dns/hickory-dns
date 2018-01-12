@@ -10,7 +10,7 @@
 use std::borrow::Borrow;
 use std::char;
 use std::cmp::{Ordering, PartialEq};
-use std::fmt;
+use std::fmt::{self, Write};
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 use std::ops::Index;
 use std::slice::Iter;
@@ -625,19 +625,47 @@ impl Name {
         self.cmp_with_f::<CaseSensitive>(other) == Ordering::Equal
     }
 
-    /// Converts the Name labels to the String form.
+    /// Converts this name into an ascii safe string.
     ///
-    /// This converts the name to an unescaped format, that could be used with parse. The name is
+    /// If the name is an IDNA name, then the name labels will be returned with the `xn--` prefix.
+    ///  see `to_utf8` or the `Display` impl for methods which convert labels to utf8.
+    pub fn to_ascii(&self) -> String {
+        let mut s = String::with_capacity(self.len());
+        self.write_labels::<String, LabelEncAscii>(&mut s).expect("string conversion of name should not fail");
+        s
+    }
+
+    /// Converts the Name labels to the utf8 String form.
+    ///
+    /// This converts the name to an unescaped format, that could be used with parse. If, the name is
     ///  is followed by the final `.`, e.g. as in `www.example.com.`, which represents a fully
     ///  qualified Name.
-    pub fn to_string(&self) -> String {
+    pub fn to_utf8(&self) -> String {
         format!("{}", self)
     }
 
+    fn write_labels<W: Write, E: LabelEnc>(&self, f: &mut W) -> Result<(), fmt::Error> {
+        let mut iter = self.labels.iter();
+        if let Some(label) = iter.next() {
+            E::write_label(f, label)?;
+        }
+
+        for label in iter {
+            write!(f, ".")?;
+            E::write_label(f, label)?;
+        }
+
+        // if it was the root name
+        if self.is_root() || self.is_fqdn() {
+            write!(f, ".")?;
+        }
+        Ok(())
+    }
 }
 
 trait LabelEnc {
     fn to_label(name: &str) -> ProtoResult<Label>;
+    fn write_label<W: Write>(f: &mut W, label: &Label) -> Result<(), fmt::Error>;
 }
 
 struct LabelEncAscii;
@@ -645,12 +673,20 @@ impl LabelEnc for LabelEncAscii {
     fn to_label(name: &str) -> ProtoResult<Label> {
         Label::from_ascii(name)
     }
+
+    fn write_label<W: Write>(f: &mut W, label: &Label) -> Result<(), fmt::Error> {
+        label.write_ascii(f)
+    }
 }
 
 struct LabelEncUtf8;
 impl LabelEnc for LabelEncUtf8 {
     fn to_label(name: &str) -> ProtoResult<Label> {
         Label::from_utf8(name)
+    }
+
+    fn write_label<W: Write>(f: &mut W, label: &Label) -> Result<(), fmt::Error> {
+        write!(f, "{}", label)
     }
 }
 
@@ -837,20 +873,7 @@ impl<'r> BinDecodable<'r> for Name {
 
 impl fmt::Display for Name {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let mut iter = self.labels.iter();
-        if let Some(label) = iter.next() {
-            write!(f, "{}", label)?;
-        }
-
-        for label in iter {
-            write!(f, ".{}", label)?;
-        }
-
-        // if it was the root name
-        if self.is_root() || self.is_fqdn() {
-            write!(f, ".")?;
-        }
-        Ok(())
+        self.write_labels::<fmt::Formatter, LabelEncUtf8>(f)
     }
 }
 
@@ -1241,5 +1264,12 @@ mod tests {
         assert_eq!(Name::from_utf8("www.example.com").unwrap(), Name::from_utf8("www.example.com").unwrap().into_name().unwrap());
         assert_eq!(Name::from_utf8("www.example.com").unwrap(), "www.example.com".into_name().unwrap());
         assert_eq!(Name::from_utf8("www.example.com").unwrap(), "www.example.com".to_string().into_name().unwrap());
+    }
+
+    #[test]
+    fn test_encoding() {
+        assert_eq!(Name::from_ascii("WWW.example.COM.").unwrap().to_ascii(), "WWW.example.COM.");
+        assert_eq!(Name::from_utf8("WWW.example.COM.").unwrap().to_ascii(), "www.example.com.");
+        assert_eq!(Name::from_ascii("WWW.example.COM.").unwrap().to_utf8(), "WWW.example.COM.");
     }
 }
