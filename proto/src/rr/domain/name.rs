@@ -16,6 +16,8 @@ use std::ops::Index;
 use std::slice::Iter;
 use std::str::FromStr;
 
+use radix_trie::TrieKey;
+
 use rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use serialize::binary::*;
 use error::*;
@@ -1003,6 +1005,19 @@ impl IntoName for String {
     /// Performs a utf8, IDNA or punycode, translation of the `String` into `Name`
     fn into_name(self: Self) -> ProtoResult<Name> {
         Name::from_utf8(&self)
+    }
+}
+
+impl TrieKey for Name {
+    /// Returns this name in byte form, reversed for searching from zone to local label
+    ///
+    /// # Panics
+    /// 
+    /// This will panic on bad names
+    fn encode_bytes(&self) -> Vec<u8> { 
+        let mut bytes = self.to_bytes().expect("bad name for trie");
+        bytes.reverse();
+        bytes
     }
 }
 
