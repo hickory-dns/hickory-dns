@@ -11,6 +11,7 @@
 
 //! TRust-DNS Protocol library
 
+extern crate byteorder;
 #[cfg(feature = "dnssec")]
 extern crate data_encoding;
 #[macro_use]
@@ -19,9 +20,12 @@ extern crate error_chain;
 extern crate futures;
 extern crate idna;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate log;
 #[cfg(feature = "openssl")]
 extern crate openssl;
+extern crate radix_trie;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
@@ -31,7 +35,6 @@ extern crate tokio_io;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 extern crate url;
-extern crate byteorder;
 
 use std::marker::PhantomData;
 use std::net::SocketAddr;

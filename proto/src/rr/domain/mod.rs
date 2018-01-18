@@ -9,8 +9,9 @@
 
 //! Domain name associated types, suchas Name and Label.
 
-pub mod label;
+mod label;
 mod name;
+pub mod usage;
 
 pub use self::name::{IntoName, Name};
 pub use self::label::{IntoLabel, Label};

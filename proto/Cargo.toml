@@ -55,6 +55,7 @@ idna = "^0.1.4"
 lazy_static = "^1.0"
 log = "^0.3.5"
 openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
+radix_trie = "0.1.2"
 rand = "^0.3"
 ring = { version = "^0.12", optional = true }
 tokio-core = "^0.1"
