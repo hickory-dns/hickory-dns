@@ -18,7 +18,7 @@ use rr::domain::{Label, Name};
 
 lazy_static!{
     /// Default Name usage, everything is normal...
-    pub static ref DEFAULT: NameUsage = NameUsage::default();
+    pub static ref DEFAULT: ZoneUsage = ZoneUsage::default();
 }
 
 /// Reserved reverse IPs
@@ -42,48 +42,48 @@ lazy_static!{
 lazy_static! {
     static ref ARPA: Name = Name::from_ascii("arpa.").unwrap();
     static ref IN_ADDR_ARPA: Name = Name::from_ascii("in-addr").unwrap().append_domain(&*ARPA);
-    // static ref IP6_ARPA: Name = Name::from_ascii("ip6").unwrap().append_domain(&*ARPA);
+    static ref IP6_ARPA: Name = Name::from_ascii("ip6").unwrap().append_domain(&*ARPA);
     
     /// 10.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_10: NameUsage = NameUsage::reverse(Name::from_ascii("10").unwrap().append_domain(&*IN_ADDR_ARPA));
+    pub static ref IN_ADDR_ARPA_10: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("10").unwrap().append_domain(&*IN_ADDR_ARPA));
 
     static ref IN_ADDR_ARPA_172: Name = Name::from_ascii("172").unwrap().append_domain(&*IN_ADDR_ARPA);
     
     /// 16.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_16: NameUsage = NameUsage::reverse(Name::from_ascii("16").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_16: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("16").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 17.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_17: NameUsage = NameUsage::reverse(Name::from_ascii("17").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_17: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("17").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 18.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_18: NameUsage = NameUsage::reverse(Name::from_ascii("18").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_18: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("18").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 19.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_19: NameUsage = NameUsage::reverse(Name::from_ascii("19").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_19: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("19").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 20.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_20: NameUsage = NameUsage::reverse(Name::from_ascii("20").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_20: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("20").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 21.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_21: NameUsage = NameUsage::reverse(Name::from_ascii("21").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_21: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("21").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 22.172.in-addr.arpa. usage    
-    pub static ref IN_ADDR_ARPA_172_22: NameUsage = NameUsage::reverse(Name::from_ascii("22").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_22: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("22").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 23.172.in-addr.arpa. usage    
-    pub static ref IN_ADDR_ARPA_172_23: NameUsage = NameUsage::reverse(Name::from_ascii("23").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_23: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("23").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 24.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_24: NameUsage = NameUsage::reverse(Name::from_ascii("24").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_24: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("24").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 25.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_25: NameUsage = NameUsage::reverse(Name::from_ascii("25").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_25: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("25").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 26.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_26: NameUsage = NameUsage::reverse(Name::from_ascii("26").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_26: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("26").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 27.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_27: NameUsage = NameUsage::reverse(Name::from_ascii("27").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_27: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("27").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 28.172.in-addr.arpa. usage    
-    pub static ref IN_ADDR_ARPA_172_28: NameUsage = NameUsage::reverse(Name::from_ascii("28").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_28: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("28").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 29.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_29: NameUsage = NameUsage::reverse(Name::from_ascii("29").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_29: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("29").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 30.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_30: NameUsage = NameUsage::reverse(Name::from_ascii("30").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_30: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("30").unwrap().append_domain(&*IN_ADDR_ARPA_172));
     /// 31.172.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_172_31: NameUsage = NameUsage::reverse(Name::from_ascii("31").unwrap().append_domain(&*IN_ADDR_ARPA_172));
+    pub static ref IN_ADDR_ARPA_172_31: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("31").unwrap().append_domain(&*IN_ADDR_ARPA_172));
 
     /// 168.192.in-addr.arpa. usage
-    pub static ref IN_ADDR_ARPA_192_168: NameUsage = NameUsage::reverse(Name::from_ascii("168.192").unwrap().append_domain(&*IN_ADDR_ARPA));
+    pub static ref IN_ADDR_ARPA_192_168: ZoneUsage = ZoneUsage::reverse(Name::from_ascii("168.192").unwrap().append_domain(&*IN_ADDR_ARPA));
 }
 
 /// test.
@@ -98,7 +98,7 @@ lazy_static! {
 /// ```
 lazy_static! {
     /// test. usage
-    pub static ref TEST: NameUsage = NameUsage::test(Name::from_ascii("test.").unwrap());
+    pub static ref TEST: ZoneUsage = ZoneUsage::test(Name::from_ascii("test.").unwrap());
 }
 
 /// localhost.
@@ -113,7 +113,13 @@ lazy_static! {
 /// ```
 lazy_static! {
     /// localhost. usage
-    pub static ref LOCALHOST: NameUsage = NameUsage::localhost(Name::from_ascii("localhost.").unwrap());
+    pub static ref LOCALHOST: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("localhost.").unwrap());
+
+    /// 127.in-addr.arpa. usage; 127/8 is reserved for loopback
+    pub static ref IN_ADDR_ARPA_127: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("127").unwrap().append_domain(&*IN_ADDR_ARPA));
+
+    /// 1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.ip6.arpa. usage; 1/128 is the only address in ipv6 loopback
+    pub static ref IP6_ARPA_1: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0").unwrap().append_domain(&*IP6_ARPA));
 }
 
 /// invalid.
@@ -130,7 +136,7 @@ lazy_static! {
 /// ```
 lazy_static! {
     /// invalid. name usage
-    pub static ref INVALID: NameUsage = NameUsage::invalid(Name::from_ascii("invalid.").unwrap());
+    pub static ref INVALID: ZoneUsage = ZoneUsage::invalid(Name::from_ascii("invalid.").unwrap());
 }
 
 
@@ -152,13 +158,13 @@ lazy_static! {
     static ref EXAMPLE_L: Label = Label::from_ascii("example").unwrap();
     
     /// example. usage
-    pub static ref EXAMPLE: NameUsage = NameUsage::example(Name::from_labels(vec![EXAMPLE_L.clone()]).unwrap());
+    pub static ref EXAMPLE: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone()]).unwrap());
     /// example.com. usage
-    pub static ref EXAMPLE_COM: NameUsage = NameUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), COM.clone()]).unwrap());
+    pub static ref EXAMPLE_COM: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), COM.clone()]).unwrap());
     /// example.com. usage
-    pub static ref EXAMPLE_NET: NameUsage = NameUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), NET.clone()]).unwrap());
+    pub static ref EXAMPLE_NET: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), NET.clone()]).unwrap());
     /// example.com. usage
-    pub static ref EXAMPLE_ORG: NameUsage = NameUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), ORG.clone()]).unwrap());
+    pub static ref EXAMPLE_ORG: ZoneUsage = ZoneUsage::example(Name::from_labels(vec![EXAMPLE_L.clone(), ORG.clone()]).unwrap());
 }
 
 /// Users:
@@ -223,7 +229,7 @@ pub enum AppUsage {
 ///   make their software recognize these names as special and treat
 ///   them differently?  If so, how?
 #[derive(Clone, Copy, PartialEq, Eq)]
-pub enum ResolveUsage {
+pub enum ResolverUsage {
     /// Name resolution APIs and libraries SHOULD NOT recognize these
     /// names as special and SHOULD NOT treat them differently.  Name
     /// resolution APIs SHOULD send queries for these names to their
@@ -310,7 +316,7 @@ pub enum AuthUsage{
     /// all such queries, unless explicitly configured by the
     /// administrator to give positive answers for private-address
     /// reverse-mapping names.
-    NxOrLocal,
+    Local,
 
     /// Authoritative DNS servers SHOULD recognize these names as special
     /// and SHOULD, by default, generate immediate negative responses for
@@ -407,49 +413,84 @@ pub enum RegistryUsage{
     Reserved,
 }
 
-/// NameUsage represents information about how a name falling in a given zone should be treated
-pub struct NameUsage {
+/// ZoneUsage represents information about how a name falling in a given zone should be treated
+pub struct ZoneUsage {
     name: Name,
     user: UserUsage,
     app: AppUsage,
-    resolve: ResolveUsage,
+    resolver: ResolverUsage,
     cache: CacheUsage,
     auth: AuthUsage,
     op: OpUsage,
     registry: RegistryUsage,
 }
 
-impl NameUsage {
-    fn new(name: Name, user: UserUsage, app: AppUsage, resolve: ResolveUsage, cache: CacheUsage, auth: AuthUsage, op: OpUsage, registry: RegistryUsage) -> Self {
-        NameUsage {name, user, app, resolve, cache, auth, op, registry}
+impl ZoneUsage {
+    fn new(name: Name, user: UserUsage, app: AppUsage, resolver: ResolverUsage, cache: CacheUsage, auth: AuthUsage, op: OpUsage, registry: RegistryUsage) -> Self {
+        ZoneUsage {name, user, app, resolver, cache, auth, op, registry}
     }
 
     fn default() -> Self {
-        Self::new(Name::root(), UserUsage::Normal, AppUsage::Normal, ResolveUsage::Normal, CacheUsage::Normal, AuthUsage::Normal, OpUsage::Normal, RegistryUsage::Normal)
+        Self::new(Name::root(), UserUsage::Normal, AppUsage::Normal, ResolverUsage::Normal, CacheUsage::Normal, AuthUsage::Normal, OpUsage::Normal, RegistryUsage::Normal)
     }
 
     fn reverse(name: Name) -> Self {
-        Self::new(name, UserUsage::Normal, AppUsage::Normal, ResolveUsage::Normal, CacheUsage::NonRecursive, AuthUsage::NxOrLocal, OpUsage::Normal, RegistryUsage::Reserved)
+        Self::new(name, UserUsage::Normal, AppUsage::Normal, ResolverUsage::Normal, CacheUsage::NonRecursive, AuthUsage::Local, OpUsage::Normal, RegistryUsage::Reserved)
     }
 
     fn test(name: Name) -> Self {
-        Self::new(name, UserUsage::Normal, AppUsage::Normal, ResolveUsage::Normal, CacheUsage::NonRecursive, AuthUsage::NxOrLocal, OpUsage::Normal, RegistryUsage::Reserved)
+        Self::new(name, UserUsage::Normal, AppUsage::Normal, ResolverUsage::Normal, CacheUsage::NonRecursive, AuthUsage::Local, OpUsage::Normal, RegistryUsage::Reserved)
     }
 
     fn localhost(name: Name) -> Self {
-        Self::new(name, UserUsage::Loopback, AppUsage::Loopback, ResolveUsage::Loopback, CacheUsage::Loopback, AuthUsage::Loopback, OpUsage::Loopback, RegistryUsage::Reserved)
+        Self::new(name, UserUsage::Loopback, AppUsage::Loopback, ResolverUsage::Loopback, CacheUsage::Loopback, AuthUsage::Loopback, OpUsage::Loopback, RegistryUsage::Reserved)
     }
 
     fn invalid(name: Name) -> Self {
-        Self::new(name, UserUsage::NxDomain, AppUsage::NxDomain, ResolveUsage::NxDomain, CacheUsage::NxDomain, AuthUsage::NxDomain, OpUsage::NxDomain, RegistryUsage::Reserved)
+        Self::new(name, UserUsage::NxDomain, AppUsage::NxDomain, ResolverUsage::NxDomain, CacheUsage::NxDomain, AuthUsage::NxDomain, OpUsage::NxDomain, RegistryUsage::Reserved)
     }
 
     fn example(name: Name) -> Self {
-        Self::new(name, UserUsage::Normal, AppUsage::Normal, ResolveUsage::Normal, CacheUsage::Normal, AuthUsage::Normal, OpUsage::Normal, RegistryUsage::Reserved)
+        Self::new(name, UserUsage::Normal, AppUsage::Normal, ResolverUsage::Normal, CacheUsage::Normal, AuthUsage::Normal, OpUsage::Normal, RegistryUsage::Reserved)
+    }
+
+    /// Returnes the UserUsage of this zone
+    pub fn user(&self) -> UserUsage {
+        self.user
+    }
+
+    /// Returnes the AppUsage of this zone
+    pub fn app(&self) -> AppUsage {
+        self.app
+    }
+
+    /// Returnes the ResolverUsage of this zone
+    pub fn resolver(&self) -> ResolverUsage {
+        self.resolver
+    }
+
+    /// Returnes the CacheUsage of this zone
+    pub fn cache(&self) -> CacheUsage {
+        self.cache
+    }
+
+    /// Returnes the AuthUsage of this zone
+    pub fn auth(&self) -> AuthUsage {
+        self.auth
+    }
+
+    /// Returnes the OpUsage of this zone
+    pub fn op(&self) -> OpUsage {
+        self.op
+    }
+
+    /// Returnes the RegistryUsage of this zone
+    pub fn registry(&self) -> RegistryUsage {
+        self.registry
     }
 }
 
-impl Deref for NameUsage {
+impl Deref for ZoneUsage {
     type Target = Name;
 
     fn deref(&self) -> &Self::Target {
@@ -457,11 +498,12 @@ impl Deref for NameUsage {
     }
 }
 
-pub struct UsageTrie(Trie<Name, &'static NameUsage>);
+/// A Trie of all reserved Zones
+pub struct UsageTrie(Trie<Name, &'static ZoneUsage>);
 
 impl UsageTrie {
     fn default() -> Self {
-        let mut trie: Trie<Name, &'static NameUsage> = Trie::new();
+        let mut trie: Trie<Name, &'static ZoneUsage> = Trie::new();
 
         assert!(trie.insert(DEFAULT.clone(), &DEFAULT).is_none());
         
@@ -485,7 +527,11 @@ impl UsageTrie {
         assert!(trie.insert(IN_ADDR_ARPA_192_168.clone(), &IN_ADDR_ARPA_192_168).is_none());
 
         assert!(trie.insert(TEST.clone(), &TEST).is_none());
+        
         assert!(trie.insert(LOCALHOST.clone(), &LOCALHOST).is_none());
+        assert!(trie.insert(IN_ADDR_ARPA_127.clone(), &IN_ADDR_ARPA_127).is_none());
+        assert!(trie.insert(IP6_ARPA_1.clone(), &IP6_ARPA_1).is_none());
+        
         assert!(trie.insert(INVALID.clone(), &INVALID).is_none());
 
         assert!(trie.insert(EXAMPLE.clone(), &EXAMPLE).is_none());
@@ -496,13 +542,13 @@ impl UsageTrie {
         UsageTrie(trie)
     }
 
-    /// Fetches the NameUsage
+    /// Fetches the ZoneUsage
     ///
     /// # Returns
     ///
     /// Matches the closest zone encapsulating `name`, at a minimum the default root zone usage will be returned
-    pub fn get(&self, name: &Name) -> &'static NameUsage {
-        self.0.get_ancestor_value(name).expect("DEFAULT root NameUsage should have been returned")
+    pub fn get(&self, name: &Name) -> &'static ZoneUsage {
+        self.0.get_ancestor_value(name).expect("DEFAULT root ZoneUsage should have been returned")
     }
 }
 
@@ -513,6 +559,8 @@ lazy_static!{
 
 #[cfg(test)]
 mod tests {
+    use std::net::{Ipv4Addr, Ipv6Addr};
+
     use super::*;
 
     #[test]
@@ -521,6 +569,37 @@ mod tests {
 
         let usage = USAGE.get(&name);
         assert!(usage.is_root());
+    }
+
+    #[test]
+    fn test_local_networks() {
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(9,0,0,1))).name, DEFAULT.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(10,0,0,1))).name, IN_ADDR_ARPA_10.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(11,0,0,1))).name, DEFAULT.name);
+
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,16,0,0))).name, IN_ADDR_ARPA_172_16.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,17,0,0))).name, IN_ADDR_ARPA_172_17.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,18,0,0))).name, IN_ADDR_ARPA_172_18.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,19,0,0))).name, IN_ADDR_ARPA_172_19.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,20,0,0))).name, IN_ADDR_ARPA_172_20.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,21,0,0))).name, IN_ADDR_ARPA_172_21.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,22,0,0))).name, IN_ADDR_ARPA_172_22.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,23,0,0))).name, IN_ADDR_ARPA_172_23.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,24,0,0))).name, IN_ADDR_ARPA_172_24.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,25,0,0))).name, IN_ADDR_ARPA_172_25.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,26,0,0))).name, IN_ADDR_ARPA_172_26.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,27,0,0))).name, IN_ADDR_ARPA_172_27.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,28,0,0))).name, IN_ADDR_ARPA_172_28.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,29,0,0))).name, IN_ADDR_ARPA_172_29.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,30,0,0))).name, IN_ADDR_ARPA_172_30.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,31,0,0))).name, IN_ADDR_ARPA_172_31.name);
+
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,15,0,0))).name, DEFAULT.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(172,32,0,0))).name, DEFAULT.name);
+        
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(192,167,255,255))).name, DEFAULT.name); 
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(192,168,2,3))).name, IN_ADDR_ARPA_192_168.name); 
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(192,169,0,0))).name, DEFAULT.name); 
     }
 
     #[test]
@@ -562,6 +641,11 @@ mod tests {
 
         let usage = USAGE.get(&name);
         assert_eq!(usage.name, LOCALHOST.name);
+    
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(127,0,0,1))).name, IN_ADDR_ARPA_127.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(127,0,0,2))).name, IN_ADDR_ARPA_127.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv4Addr::new(127,255,0,0))).name, IN_ADDR_ARPA_127.name);
+        assert_eq!(USAGE.get(&Name::from(Ipv6Addr::new(0,0,0,0,0,0,0,1))).name, IP6_ARPA_1.name);
     }
 
     #[test]
