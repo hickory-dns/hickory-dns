@@ -64,6 +64,12 @@ impl Lookup {
     }
 }
 
+impl From<RData> for Lookup {
+    fn from(data: RData) -> Self {
+        Lookup::new(Arc::new(vec![data]))
+    }
+}
+
 /// Borrowed view of set of RDatas returned from a Lookup
 pub struct LookupIter<'a>(Iter<'a, RData>);
 
