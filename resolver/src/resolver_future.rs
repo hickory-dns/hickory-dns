@@ -7,7 +7,6 @@
 
 //! Structs for creating and using a ResolverFuture
 use std::net::IpAddr;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use futures::Future;
@@ -16,7 +15,7 @@ use trust_dns_proto::op::Message;
 use trust_dns_proto::{BasicDnsHandle, DnsHandle, RetryDnsHandle};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
-use trust_dns_proto::rr::{Name, RecordType};
+use trust_dns_proto::rr::{IntoName, Name, RecordType};
 
 use config::{ResolverConfig, ResolverOpts};
 use error::*;
@@ -74,8 +73,8 @@ macro_rules! lookup_fn {
 /// # Arguments
 ///
 /// * `query` - a string which parses to a domain name, failure to parse will return an error
-pub fn $p(&self, query: &str) -> $f {
-    let name = match Name::from_str(query) {
+pub fn $p<N: IntoName>(&self, query: N) -> $f {
+    let name = match query.into_name() {
         Ok(name) => name,
         Err(err) => {
             return InnerLookupFuture::error(self.client_cache.clone(), err).into();
@@ -219,8 +218,8 @@ impl ResolverFuture {
     /// # Returns
     ///
     //  A future for the returned Lookup RData
-    pub fn lookup(&self, name: &str, record_type: RecordType) -> LookupFuture {
-        let name = match Name::from_str(name) {
+    pub fn lookup<N: IntoName>(&self, name: N, record_type: RecordType) -> LookupFuture {
+        let name = match name.into_name() {
             Ok(name) => name,
             Err(err) => {
                 return InnerLookupFuture::error(self.client_cache.clone(), err);
@@ -250,7 +249,7 @@ impl ResolverFuture {
             );
         }
 
-        let name = match Name::from_str(host) {
+        let name = match Name::from_utf8(host) {
             Ok(name) => name,
             Err(err) => {
                 return InnerLookupIpFuture::error(self.client_cache.clone(), err);
@@ -287,7 +286,7 @@ impl ResolverFuture {
         name: &str,
     ) -> lookup::SrvLookupFuture {
         let name = format!("_{}._{}.{}", service, protocol, name);
-        self.srv_lookup(&name)
+        self.srv_lookup(name)
     }
 
     lookup_fn!(
@@ -308,6 +307,7 @@ mod tests {
     extern crate tokio_core;
 
     use std::net::*;
+    use std::str::FromStr;
 
     use self::tokio_core::reactor::Core;
     use trust_dns_proto::error::ProtoErrorKind;

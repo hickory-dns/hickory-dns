@@ -10,14 +10,16 @@
 use std::borrow::Cow;
 use std::cell::RefCell;
 use std::mem;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::Instant;
 
-use futures::{task, Async, Future, Poll};
+use futures::{task, future, Async, Future, Poll};
 
 use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::{Message, Query, ResponseCode};
-use trust_dns_proto::rr::{RData, RecordType};
+use trust_dns_proto::rr::{DNSClass, Name, RData, RecordType};
+use trust_dns_proto::rr::domain::usage::{USAGE, AppUsage};
 
 use dns_lru;
 use dns_lru::DnsLru;
@@ -28,6 +30,12 @@ const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 
 thread_local! {
     static QUERY_DEPTH: RefCell<u8> = RefCell::new(0);
+}
+
+lazy_static! {
+    static ref LOCALHOST: Lookup = Lookup::from(RData::PTR(Name::from_ascii("localhost.").unwrap()));
+    static ref LOCALHOST_V4: Lookup = Lookup::from(RData::A(Ipv4Addr::new(127,0,0,1)));
+    static ref LOCALHOST_V6: Lookup = Lookup::from(RData::AAAA(Ipv6Addr::new(0,0,0,0,0,0,0,1)));
 }
 
 // TODO: need to consider this storage type as it compares to Authority in server...
@@ -53,6 +61,23 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
     /// Perform a lookup against this caching client, looking first in the cache for a result
     pub fn lookup(&mut self, query: Query) -> Box<Future<Item = Lookup, Error = ResolveError>> {
         QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
+
+        // see https://tools.ietf.org/html/rfc6761
+        //
+        // special use rules only apply to the IN Class
+        if query.query_class() == DNSClass::IN {
+            match USAGE.get(query.name()).app() {
+               AppUsage::Loopback => match query.query_type() {
+                   // FIXME: look in hosts for these ips/names first...
+                   RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
+                   RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
+                   RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
+                   _ => (), // Are there any other types we can use?
+               },
+               AppUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
+               AppUsage::Normal => (),
+            }
+        }
 
         Box::new(
             QueryState::lookup(query, &mut self.client, self.lru.clone()).then(|f| {

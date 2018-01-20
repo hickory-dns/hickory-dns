@@ -132,6 +132,8 @@ extern crate futures;
 extern crate ipconfig;
 extern crate lalrpop_util;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate log;
 extern crate lru_cache;
 extern crate tokio_core;
