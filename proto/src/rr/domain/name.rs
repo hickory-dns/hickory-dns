@@ -978,32 +978,32 @@ impl FromStr for Name {
 /// Conversion into a Name
 pub trait IntoName: Sized {
     /// Convert this into Name
-    fn into_name(&self) -> ProtoResult<Name>;
+    fn into_name(self) -> ProtoResult<Name>;
 }
 
 impl<'a> IntoName for &'a Name {
     /// Clones this into a new `Name`
-    fn into_name(&self) -> ProtoResult<Name> {
-        Ok((*self).clone())
+    fn into_name(self) -> ProtoResult<Name> {
+        Ok(self.clone())
     }
 }
 
 impl IntoName for Name {
-    fn into_name(&self) -> ProtoResult<Name> {
+    fn into_name(self) -> ProtoResult<Name> {
         Ok(self.clone())
     }
 }
 
 impl<'a> IntoName for &'a str {
     /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
-    fn into_name(&self) -> ProtoResult<Name> {
-        Name::from_utf8(*self)
+    fn into_name(self) -> ProtoResult<Name> {
+        Name::from_utf8(self)
     }
 }
 
 impl IntoName for String {
     /// Performs a utf8, IDNA or punycode, translation of the `String` into `Name`
-    fn into_name(&self) -> ProtoResult<Name> {
+    fn into_name(self) -> ProtoResult<Name> {
         Name::from_utf8(self)
     }
 }
