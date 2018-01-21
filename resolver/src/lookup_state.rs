@@ -19,7 +19,7 @@ use futures::{task, future, Async, Future, Poll};
 use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::{Message, Query, ResponseCode};
 use trust_dns_proto::rr::{DNSClass, Name, RData, RecordType};
-use trust_dns_proto::rr::domain::usage::{USAGE, AppUsage};
+use trust_dns_proto::rr::domain::usage::{USAGE, ResolverUsage};
 
 use dns_lru;
 use dns_lru::DnsLru;
@@ -64,18 +64,26 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
 
         // see https://tools.ietf.org/html/rfc6761
         //
+        // ```text
+        // Name resolution APIs and libraries SHOULD recognize localhost
+        // names as special and SHOULD always return the IP loopback address
+        // for address queries and negative responses for all other query
+        // types.  Name resolution APIs SHOULD NOT send queries for
+        // localhost names to their configured caching DNS server(s).
+        // ```
+        //
         // special use rules only apply to the IN Class
         if query.query_class() == DNSClass::IN {
-            match USAGE.get(query.name()).app() {
-               AppUsage::Loopback => match query.query_type() {
+            match USAGE.get(query.name()).resolver() {
+               ResolverUsage::Loopback => match query.query_type() {
                    // FIXME: look in hosts for these ips/names first...
                    RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
                    RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
                    RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
-                   _ => (), // Are there any other types we can use?
+                   _ => return Box::new(future::err(DnsLru::nx_error(query))), // Are there any other types we can use?
                },
-               AppUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
-               AppUsage::Normal => (),
+               ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
+               ResolverUsage::Normal => (),
             }
         }
 
@@ -766,4 +774,56 @@ mod tests {
         cname_ttl_test(2, 1);
     }
 
+    #[test]
+    fn test_early_return_localhost() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(0)));
+        let client = mock(vec![empty()]);
+        let mut client = CachingClient{lru: cache, client: client};
+        
+        assert_eq!(
+            client.lookup(Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::A))
+                .wait()
+                .expect("should have returned localhost"),
+            *LOCALHOST_V4
+        );
+
+        assert_eq!(
+            client.lookup(Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::AAAA))
+                .wait()
+                .expect("should have returned localhost"),
+            *LOCALHOST_V6
+        );
+
+        assert_eq!(
+            client.lookup(Query::query(Name::from(Ipv4Addr::new(127,0,0,1)), RecordType::PTR))
+                .wait()
+                .expect("should have returned localhost"),
+            *LOCALHOST
+        );
+
+        assert_eq!(
+            client.lookup(Query::query(Name::from(Ipv6Addr::new(0,0,0,0,0,0,0,1)), RecordType::PTR))
+                .wait()
+                .expect("should have returned localhost"),
+            *LOCALHOST
+        );
+
+        assert!(
+            client.lookup(Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::MX))
+                .wait()
+                .is_err()
+        );
+
+        assert!(
+            client.lookup(Query::query(Name::from(Ipv4Addr::new(127,0,0,1)), RecordType::MX))
+                .wait()
+                .is_err()
+        );
+
+        assert!(
+            client.lookup(Query::query(Name::from(Ipv6Addr::new(0,0,0,0,0,0,0,1)), RecordType::MX))
+                .wait()
+                .is_err()
+        );
+    }
 }
