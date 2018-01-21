@@ -30,7 +30,7 @@ use resolver_future::BasicResolverHandle;
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Proto library.
 ///
 /// For IP resolution see LookupIp, as it has more features for A and AAAA lookups.
-#[derive(Debug, Clone)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
     rdatas: Arc<Vec<RData>>,
 }
