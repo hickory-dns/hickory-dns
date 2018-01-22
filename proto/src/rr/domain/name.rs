@@ -267,6 +267,7 @@ impl Name {
     /// assert_eq!(example_com.trim_to(2), Name::from_str("example.com.").unwrap());
     /// assert_eq!(example_com.trim_to(1), Name::from_str("com.").unwrap());
     /// assert_eq!(example_com.trim_to(0), Name::root());
+    /// assert_eq!(example_com.trim_to(3), Name::from_str("example.com.").unwrap());
     /// ```
     pub fn trim_to(&self, num_labels: usize) -> Name {
         if self.labels.len() >= num_labels {
@@ -276,7 +277,7 @@ impl Name {
                 labels: self.labels[trim..].to_vec(),
             }
         } else {
-            Self::root()
+            self.clone()
         }
     }
 
@@ -322,6 +323,7 @@ impl Name {
     /// let zone = Name::from_str("example.com").unwrap();
     /// let another = Name::from_str("example.net").unwrap();
     /// assert!(zone.zone_of(&name));
+    /// assert!(!name.zone_of(&zone));
     /// assert!(!another.zone_of(&name));
     /// ```
     pub fn zone_of(&self, name: &Self) -> bool {
@@ -360,6 +362,16 @@ impl Name {
     ///
     /// This can be used as an estimate, when serializing labels, they will often be compressed
     /// and/or escaped causing the exact length to be different.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use trust_dns_proto::rr::domain::Name;
+    ///
+    /// assert_eq!(Name::from_utf8("www.example.com.").unwrap().len(), 16);
+    /// assert_eq!(Name::from_utf8(".").unwrap().len(), 1);
+    /// assert_eq!(Name::root().len(), 1);
+    /// ```
     pub fn len(&self) -> usize {
         let dots = if !self.labels.is_empty() {
             self.labels.len()
@@ -406,6 +418,17 @@ impl Name {
     ///
     /// assert!(bytes_name.eq_case(&ascii_name));
     /// assert!(!lower_name.eq_case(&ascii_name));
+    ///
+    /// // escaped values
+    /// let bytes_name = Name::from_labels(vec!["email.name".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
+    /// let name = Name::from_ascii("email\\.name.example.com.").unwrap();
+    ///
+    /// assert_eq!(bytes_name, name);
+    ///
+    /// let bytes_name = Name::from_labels(vec!["bad.char".as_bytes(), "example".as_bytes(), "com".as_bytes()]).unwrap();
+    /// let name = Name::from_ascii("bad\\056char.example.com.").unwrap();
+    ///
+    /// assert_eq!(bytes_name, name);
     /// ```
     pub fn from_ascii<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
         Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None)
@@ -460,7 +483,7 @@ impl Name {
                 },
                 ParseState::Escape1 => {
                     if ch.is_numeric() {
-                        state = ParseState::Escape2(ch.to_digit(10).ok_or_else(|| {
+                        state = ParseState::Escape2(ch.to_digit(8).ok_or_else(|| {
                             ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
                         })?);
                     } else {
@@ -472,7 +495,7 @@ impl Name {
                 ParseState::Escape2(i) => if ch.is_numeric() {
                     state = ParseState::Escape3(
                         i,
-                        ch.to_digit(10).ok_or_else(|| {
+                        ch.to_digit(8).ok_or_else(|| {
                             ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
                         })?,
                     );
@@ -480,7 +503,8 @@ impl Name {
                     return Err(ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)))?;
                 },
                 ParseState::Escape3(i, ii) => if ch.is_numeric() {
-                    let val: u32 = (i << 16) + (ii << 8) + ch.to_digit(10).ok_or_else(|| {
+                    // octal conversion
+                    let val: u32 = (i * 8 * 8) + (ii * 8) + ch.to_digit(8).ok_or_else(|| {
                         ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
                     })?;
                     let new: char = char::from_u32(val).ok_or_else(|| {
