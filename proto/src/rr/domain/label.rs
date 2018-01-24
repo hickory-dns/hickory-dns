@@ -143,7 +143,7 @@ impl Label {
     pub fn write_ascii<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error> {
         // We can't guarantee that the same input will always translate to the same output
         fn escape_non_ascii<W: Write>(byte: u8, f: &mut W, is_first: bool) -> Result<(), fmt::Error> {
-            let to_triple_escape = |ch: u8| format!("\\{:03}", ch);
+            let to_triple_escape = |ch: u8| format!("\\{:03o}", ch);
             let to_single_escape = |ch: char| format!("\\{}", ch);
 
             match char::from(byte) {
@@ -397,10 +397,10 @@ mod tests {
 
     #[test]
     fn test_ascii_escape() {
-        assert_eq!(Label::from_raw_bytes(&[200]).unwrap().to_string(), "\\200");
-        assert_eq!(Label::from_raw_bytes(&[001]).unwrap().to_string(), "\\001");
+        assert_eq!(Label::from_raw_bytes(&[0o200]).unwrap().to_string(), "\\200");
+        assert_eq!(Label::from_raw_bytes(&[0o001]).unwrap().to_string(), "\\001");
         assert_eq!(Label::from_ascii(".").unwrap().to_ascii(), "\\.");
         assert_eq!(Label::from_ascii("ben.fry").unwrap().to_string(), "ben\\.fry");
-        assert_eq!(Label::from_raw_bytes(&[200]).unwrap().to_ascii(), "\\200");
+        assert_eq!(Label::from_raw_bytes(&[0o200]).unwrap().to_ascii(), "\\200");
     }
 }
