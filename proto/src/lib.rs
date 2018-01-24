@@ -25,7 +25,6 @@ extern crate lazy_static;
 extern crate log;
 #[cfg(feature = "openssl")]
 extern crate openssl;
-extern crate radix_trie;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;

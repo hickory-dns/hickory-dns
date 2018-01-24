@@ -212,11 +212,14 @@ extern crate data_encoding_macro;
 extern crate error_chain;
 extern crate futures;
 #[macro_use]
+extern crate lazy_static;
+#[macro_use]
 extern crate log;
 #[cfg(feature = "native-tls")]
 extern crate native_tls;
 #[cfg(feature = "openssl")]
 extern crate openssl;
+extern crate radix_trie;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
