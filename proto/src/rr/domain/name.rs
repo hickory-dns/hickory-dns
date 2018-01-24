@@ -16,8 +16,6 @@ use std::ops::Index;
 use std::slice::Iter;
 use std::str::FromStr;
 
-use radix_trie::TrieKey;
-
 use rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
 use serialize::binary::*;
 use error::*;
@@ -954,46 +952,33 @@ impl FromStr for Name {
 /// Conversion into a Name
 pub trait IntoName: Sized {
     /// Convert this into Name
-    fn into_name(&self) -> ProtoResult<Name>;
+    fn into_name(self) -> ProtoResult<Name>;
 }
 
 impl<'a> IntoName for &'a Name {
     /// Clones this into a new `Name`
-    fn into_name(&self) -> ProtoResult<Name> {
-        Ok((*self).clone())
+    fn into_name(self) -> ProtoResult<Name> {
+        Ok(self.clone())
     }
 }
 
 impl IntoName for Name {
-    fn into_name(&self) -> ProtoResult<Name> {
+    fn into_name(self) -> ProtoResult<Name> {
         Ok(self.clone())
     }
 }
 
 impl<'a> IntoName for &'a str {
     /// Performs a utf8, IDNA or punycode, translation of the `str` into `Name`
-    fn into_name(&self) -> ProtoResult<Name> {
-        Name::from_utf8(*self)
+    fn into_name(self) -> ProtoResult<Name> {
+        Name::from_utf8(self)
     }
 }
 
 impl IntoName for String {
     /// Performs a utf8, IDNA or punycode, translation of the `String` into `Name`
-    fn into_name(&self) -> ProtoResult<Name> {
+    fn into_name(self) -> ProtoResult<Name> {
         Name::from_utf8(self)
-    }
-}
-
-impl TrieKey for Name {
-    /// Returns this name in byte form, reversed for searching from zone to local label
-    ///
-    /// # Panics
-    /// 
-    /// This will panic on bad names
-    fn encode_bytes(&self) -> Vec<u8> { 
-        let mut bytes = self.to_bytes().expect("bad name for trie");
-        bytes.reverse();
-        bytes
     }
 }
 

@@ -19,7 +19,7 @@ use futures::{task, future, Async, Future, Poll};
 use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::{Message, Query, ResponseCode};
 use trust_dns_proto::rr::{DNSClass, Name, RData, RecordType};
-use trust_dns_proto::rr::domain::usage::{USAGE, ResolverUsage};
+use trust_dns_proto::rr::domain::usage::{ResolverUsage, DEFAULT, LOCALHOST as LOCALHOST_usage, IN_ADDR_ARPA_127, IP6_ARPA_1, INVALID};
 
 use dns_lru;
 use dns_lru::DnsLru;
@@ -74,7 +74,15 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
         //
         // special use rules only apply to the IN Class
         if query.query_class() == DNSClass::IN {
-            match USAGE.get(query.name()).resolver() {
+            let usage = match query.name() {
+                n @ _ if LOCALHOST_usage.zone_of(n) => &*LOCALHOST_usage,
+                n @ _ if IN_ADDR_ARPA_127.zone_of(n) => &*LOCALHOST_usage,
+                n @ _ if IP6_ARPA_1.zone_of(n) => &*LOCALHOST_usage,
+                n @ _ if INVALID.zone_of(n) => &*INVALID,
+                _ => &*DEFAULT,
+            };
+
+            match usage.resolver() {
                ResolverUsage::Loopback => match query.query_type() {
                    // FIXME: look in hosts for these ips/names first...
                    RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
