@@ -8,13 +8,15 @@
 //! Default logger configuration for the project
 
 use std::env;
+use std::io::{self, Write};
 use std::fmt::Display;
 
 use chrono::Utc;
-use env_logger::{LogBuilder, LogTarget};
-use log::LogRecord;
+use env_logger;
+use env_logger::fmt::Formatter;
+use log;
 
-fn format<L, M, LN, A>(level: L, module: M, line: LN, args: A) -> String
+fn format<L, M, LN, A>(fmt: &mut Formatter, level: L, module: M, line: LN, args: A) -> io::Result<()>
 where
     L: Display,
     M: Display,
@@ -23,15 +25,15 @@ where
 {
     let now = Utc::now();
     let now_secs = now.format("%s%.6f");
-    // TODO: replace with String concatination...
-    format!("{}:{}:{}:{}:{}", now_secs, level, module, line, args,)
+    writeln!(fmt, "{}:{}:{}:{}:{}", now_secs, level, module, line, args)
 }
 
-fn plain_formatter(record: &LogRecord) -> String {
+fn plain_formatter(fmt: &mut Formatter, record: &log::Record) -> io::Result<()> {
     format(
+        fmt,
         record.level(),
-        record.location().module_path(),
-        record.location().line(),
+        record.module_path().unwrap_or("None"),
+        record.line().unwrap_or(0),
         record.args(),
     )
 }
@@ -76,12 +78,12 @@ pub fn env() {
 
 /// see env_logger docs
 fn logger(config: &str) {
-    let mut builder = LogBuilder::new();
+    let mut builder = env_logger::Builder::new();
 
     let log_formatter = plain_formatter;
 
     builder.format(log_formatter);
     builder.parse(config);
-    builder.target(LogTarget::Stdout);
-    builder.init().expect("could not initialize logger");
+    builder.target(env_logger::Target::Stdout);
+    builder.init();
 }

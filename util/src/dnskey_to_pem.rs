@@ -49,7 +49,7 @@ fn args<'a>() -> ArgMatches<'a> {
 }
 
 pub fn main() {
-    env_logger::init().unwrap();
+    env_logger::init();
     let matches = args();
 
     let key_path = matches.value_of("key").unwrap();
