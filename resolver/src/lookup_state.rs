@@ -834,4 +834,17 @@ mod tests {
                 .is_err()
         );
     }
+
+    #[test]
+    fn test_early_return_invalid() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(0)));
+        let client = mock(vec![empty()]);
+        let mut client = CachingClient{lru: cache, client: client};
+        
+        assert!(
+            client.lookup(Query::query(Name::from_ascii("horrible.invalid.").unwrap(), RecordType::A))
+                .wait()
+                .is_err()
+        );
+    }
 }

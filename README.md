@@ -113,6 +113,7 @@ Zones will be automatically resigned on any record updates via dynamic DNS.
 - [RFC 2782](https://tools.ietf.org/html/rfc2782): Service location
 - [RFC 3596](https://tools.ietf.org/html/rfc3596): IPv6
 - [RFC 6891](https://tools.ietf.org/html/rfc6891): Extension Mechanisms for DNS
+- [RFC 6761](https://tools.ietf.org/html/rfc6761): Special-Use Domain Names (resolver)
 
 ### Update operations
 - [RFC 2136](https://tools.ietf.org/html/rfc2136): Dynamic Update
