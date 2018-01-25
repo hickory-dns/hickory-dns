@@ -23,7 +23,7 @@ use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::time::Duration;
 
-use log::LogLevel;
+use log;
 use rustc_serialize::Decodable;
 use toml::{Decoder, Value};
 
@@ -106,18 +106,18 @@ impl Config {
 
     // TODO: also support env_logger
     /// specify the log level which should be used, ["Trace", "Debug", "Info", "Warn", "Error"]
-    pub fn get_log_level(&self) -> LogLevel {
+    pub fn get_log_level(&self) -> log::Level {
         if let Some(ref level_str) = self.log_level {
             match level_str as &str {
-                "Trace" => LogLevel::Trace,
-                "Debug" => LogLevel::Debug,
-                "Info" => LogLevel::Info,
-                "Warn" => LogLevel::Warn,
-                "Error" => LogLevel::Error,
-                _ => LogLevel::Info,
+                "Trace" => log::Level::Trace,
+                "Debug" => log::Level::Debug,
+                "Info" => log::Level::Info,
+                "Warn" => log::Level::Warn,
+                "Error" => log::Level::Error,
+                _ => log::Level::Info,
             }
         } else {
-            LogLevel::Info
+            log::Level::Info
         }
     }
     /// the path for all zone configurations, defaults to `/var/named`

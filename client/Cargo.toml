@@ -55,7 +55,7 @@ data-encoding-macro = "0.1.1"
 error-chain = "0.1.12"
 futures = "^0.1.17"
 lazy_static = "^1.0"
-log = "^0.3.5"
+log = "^0.4.1"
 openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
 radix_trie = "0.1.2"
 rand = "^0.4"
