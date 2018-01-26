@@ -541,7 +541,7 @@ impl MessageFinalizer for Signer {
         sig0.set_rr_type(RecordType::DNSSEC(DNSSECRecordType::SIG));
         let pre_sig0 = SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-            RecordType::NULL,
+            RecordType::ZERO,
             self.algorithm(),
             num_labels,
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero
@@ -598,7 +598,7 @@ mod tests {
     fn pre_sig0(signer: &Signer, inception_time: u32, expiration_time: u32) -> SIG {
         SIG::new(
             // type covered in SIG(0) is 0 which is what makes this SIG0 vs a standard SIG
-            RecordType::NULL,
+            RecordType::ZERO,
             signer.algorithm(),
             0,
             // see above, original_ttl is meaningless, The TTL fields SHOULD be zero

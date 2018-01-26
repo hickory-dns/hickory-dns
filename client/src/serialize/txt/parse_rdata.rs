@@ -82,6 +82,7 @@ impl RDataParser for RData {
                 // TODO: add a way to associate generic record types to the zone
                 panic!("Unknown record type, if you want to support this type, please file an issue against TRust-DNS: {}", code)
             }
+            RecordType::ZERO => RData::ZERO,
         };
 
         Ok(rdata)

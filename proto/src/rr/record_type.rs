@@ -91,6 +91,9 @@ pub enum RecordType {
 
     /// Unknown Record type, or unsupported
     Unknown(u16),
+
+    /// This corresponds to a record type of 0, unspecified
+    ZERO,
 }
 
 impl RecordType {
@@ -163,6 +166,7 @@ impl From<u16> for RecordType {
             252 => RecordType::AXFR,
             257 => RecordType::CAA,
             5 => RecordType::CNAME,
+            0 => RecordType::ZERO,
             15 => RecordType::MX,
             2 => RecordType::NS,
             10 => RecordType::NULL,
@@ -224,6 +228,7 @@ impl From<RecordType> for &'static str {
             RecordType::AXFR => "AXFR",
             RecordType::CAA => "CAA",
             RecordType::CNAME => "CNAME",
+            RecordType::ZERO => "",
             RecordType::IXFR => "IXFR",
             RecordType::MX => "MX",
             RecordType::NULL => "NULL",
@@ -259,6 +264,7 @@ impl From<RecordType> for u16 {
             RecordType::AXFR => 252,
             RecordType::CAA => 257,
             RecordType::CNAME => 5,
+            RecordType::ZERO => 0,
             RecordType::IXFR => 251,
             RecordType::MX => 15,
             RecordType::NS => 2,

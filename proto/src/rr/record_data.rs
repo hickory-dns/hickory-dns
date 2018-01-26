@@ -392,6 +392,9 @@ pub enum RData {
         /// RData associated to the record
         rdata: NULL,
     },
+
+    /// This corresponds to a record type of 0, unspecified
+    ZERO,
 }
 
 impl RData {
@@ -434,6 +437,10 @@ impl RData {
             RecordType::CNAME => {
                 debug!("reading CNAME");
                 rdata::name::read(decoder).map(RData::CNAME)
+            }
+            RecordType::ZERO => {
+                debug!("reading EMPTY");
+                return Ok(RData::ZERO)
             }
             RecordType::MX => {
                 debug!("reading MX");
@@ -517,6 +524,7 @@ impl RData {
             RData::CNAME(ref name) | RData::NS(ref name) | RData::PTR(ref name) => {
                 rdata::name::emit(encoder, name)
             }
+            RData::ZERO => Ok(()),
             // to_lowercase for rfc4034 and rfc6840
             RData::MX(ref mx) => rdata::mx::emit(encoder, mx),
             RData::NULL(ref null) => rdata::null::emit(encoder, null),
@@ -552,6 +560,7 @@ impl RData {
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(DNSSECRData::to_record_type(rdata)),
             RData::Unknown { code, .. } => RecordType::Unknown(code),
+            RData::ZERO => RecordType::ZERO,
         }
     }
 
@@ -907,6 +916,7 @@ mod tests {
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(rdata.to_record_type()),
             RData::Unknown { code, .. } => RecordType::Unknown(code),
+            RData::ZERO => RecordType::ZERO,        
         }
     }
 
