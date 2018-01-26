@@ -165,7 +165,7 @@ impl From<u16> for RecordType {
             5 => RecordType::CNAME,
             15 => RecordType::MX,
             2 => RecordType::NS,
-            0 => RecordType::NULL,
+            10 => RecordType::NULL,
             41 => RecordType::OPT,
             12 => RecordType::PTR,
             6 => RecordType::SOA,
@@ -262,7 +262,7 @@ impl From<RecordType> for u16 {
             RecordType::IXFR => 251,
             RecordType::MX => 15,
             RecordType::NS => 2,
-            RecordType::NULL => 0,
+            RecordType::NULL => 10,
             RecordType::OPT => 41,
             RecordType::PTR => 12,
             RecordType::SOA => 6,
@@ -297,11 +297,11 @@ impl Display for RecordType {
 #[test]
 fn test_order() {
     let ordered = vec![
-        RecordType::NULL,
         RecordType::A,
         RecordType::NS,
         RecordType::CNAME,
         RecordType::SOA,
+        RecordType::NULL,
         RecordType::PTR,
         RecordType::MX,
         RecordType::TXT,
