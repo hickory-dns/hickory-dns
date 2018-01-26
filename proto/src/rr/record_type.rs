@@ -297,11 +297,11 @@ impl Display for RecordType {
 #[test]
 fn test_order() {
     let ordered = vec![
-        RecordType::NULL,
         RecordType::A,
         RecordType::NS,
         RecordType::CNAME,
         RecordType::SOA,
+        RecordType::NULL,
         RecordType::PTR,
         RecordType::MX,
         RecordType::TXT,
