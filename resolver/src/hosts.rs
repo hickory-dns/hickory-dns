@@ -81,6 +81,7 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
                     .or_insert_with(|| Lookup::new(Arc::new(vec![])))
                     .append(Lookup::new(Arc::new(vec![addr.clone()])));
 
+                // TODO: insert reverse lookup as well.
                 hosts.by_name.insert(name, lookup);
             };
         }

@@ -19,6 +19,7 @@
 pub mod dnssec;
 mod lower_name;
 mod rr_key;
+pub mod zone;
 
 use trust_dns_proto::rr;
 pub use trust_dns_proto::rr::dns_class;
