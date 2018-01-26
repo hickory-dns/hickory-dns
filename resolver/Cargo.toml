@@ -46,14 +46,14 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [build-dependencies]
-lalrpop = "^0.13.1"
+lalrpop = "^0.14.0"
 
 [dependencies]
 error-chain = "0.1.12"
 futures = "^0.1.17"
-lalrpop-util = "^0.13.1"
+lalrpop-util = "^0.14.0"
 lazy_static = "^1.0"
-log = "^0.3.5"
+log = "^0.4.1"
 lru-cache = "^0.1.1"
 regex = "0.2.1"
 tokio-core = "^0.1"
