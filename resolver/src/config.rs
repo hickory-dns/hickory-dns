@@ -61,7 +61,8 @@ impl ResolverConfig {
 
     /// Set the domain of the entity querying results.
     pub fn set_domain(&mut self, domain: Name) {
-        self.domain = Some(domain);
+        self.domain = Some(domain.clone());
+        self.search = vec![domain];
     }
 
     /// Returns the search domains
