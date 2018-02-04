@@ -44,7 +44,8 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-resolv-conf = { git = "https://github.com/little-dude/resolv-conf", branch = "domain" }
+resolv-conf = "0.6.0"
+lazy_static = "1.0"
 error-chain = "0.1.12"
 futures = "^0.1.17"
 log = "^0.3.5"
