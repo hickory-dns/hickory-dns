@@ -130,8 +130,6 @@ extern crate error_chain;
 extern crate futures;
 #[cfg(target_os = "windows")]
 extern crate ipconfig;
-#[cfg(unix)]
-extern crate hostname;
 #[macro_use]
 extern crate lazy_static;
 #[macro_use]
