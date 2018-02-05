@@ -13,7 +13,6 @@
 
 use std::fs::File;
 use std::io;
-use std::env;
 use std::io::Read;
 use std::path::Path;
 use std::net::SocketAddr;
@@ -21,22 +20,14 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use resolv_conf;
-use hostname::get_hostname;
 
 use trust_dns_proto::rr::Name;
 use config::*;
 
+const DEFAULT_PORT: u16 = 53;
 
 pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
-    let mut config = read_resolv_conf("/etc/resolv.conf")?;
-    if let Ok(domain) = env::var("LOCALDOMAIN") {
-        // FIXME: do we really want to fail here?
-        config.0.set_domain(Name::from_str(&domain)?);
-    } else if let Some(name) = get_hostname() {
-        // FIXME: do we really want to fail here?
-        config.0.set_domain(Name::from_str(&name)?);
-    }
-    Ok(config)
+    Ok(read_resolv_conf("/etc/resolv.conf")?)
 }
 
 fn read_resolv_conf<P: AsRef<Path>>(path: P) -> io::Result<(ResolverConfig, ResolverOpts)> {
@@ -61,7 +52,7 @@ fn into_resolver_config(
     parsed_config: resolv_conf::Config,
 ) -> io::Result<(ResolverConfig, ResolverOpts)> {
 
-    let domain = if let Some(domain) = parsed_config.get_domain() {
+    let domain = if let Some(domain) = parsed_config.get_system_domain() {
         Some(Name::from_str(domain.as_str())?)
     } else {
         None
@@ -71,11 +62,11 @@ fn into_resolver_config(
     let mut nameservers = Vec::<NameServerConfig>::with_capacity(parsed_config.nameservers.len());
     for ip in &parsed_config.nameservers {
         nameservers.push(NameServerConfig {
-            socket_addr: SocketAddr::new(ip.into(), 53),
+            socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
             protocol: Protocol::Udp,
         });
         nameservers.push(NameServerConfig {
-            socket_addr: SocketAddr::new(ip.into(), 53),
+            socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
             protocol: Protocol::Tcp,
         });
     }
@@ -142,7 +133,7 @@ mod tests {
         let nameservers = nameserver_config("127.0.0.1");
         cfg.add_name_server(nameservers[0]);
         cfg.add_name_server(nameservers[1]);
-        assert_eq!(cfg, parsed.0);
+        assert_eq!(cfg.name_servers(), parsed.0.name_servers());
         assert_eq!(ResolverOpts::default(), parsed.1);
     }
 
@@ -151,7 +142,7 @@ mod tests {
         let parsed = parse_resolv_conf("search localnet.").expect("failed");
         let mut cfg = empty_config();
         cfg.add_search(Name::from_str("localnet.").unwrap());
-        assert_eq!(cfg, parsed.0);
+        assert_eq!(cfg.search(), parsed.0.search());
         assert_eq!(ResolverOpts::default(), parsed.1);
     }
 
