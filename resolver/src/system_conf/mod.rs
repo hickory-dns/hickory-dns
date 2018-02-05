@@ -18,7 +18,7 @@ mod unix;
 #[cfg(unix)]
 pub(crate) use self::unix::read_system_conf;
 
-#[cfg(all(feature = "ipconfig", target_os = "windows", target_pointer_width = "64"))]
+#[cfg(windows)]
 mod windows;
 
 #[cfg(target_os = "windows")]
