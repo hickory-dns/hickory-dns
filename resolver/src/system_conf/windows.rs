@@ -61,7 +61,7 @@ pub(crate) fn read_system_conf() -> ResolveResult<(ResolverConfig, ResolverOpts)
         None => Name::root(),
     };
 
-    let config = ResolverConfig::from_parts(domain, search_list, name_servers);
+    let config = ResolverConfig::from_parts(Some(domain), search_list, name_servers);
 
     let rotate = map_ipconfig_error!(is_round_robin_enabled())?;
 
