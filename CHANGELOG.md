@@ -3,6 +3,24 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.14.0 (unreleased)
+
+### Changed
+
+- Updated `trust-dns-proto` to `0.3`, which brings in better `Name` and `Label` impls
+- rusqlite updated to 0.13 #331 (@oherrala)
+- Many serialization improvements #317
+
+### Added
+
+- `Name` and `Label` now support idna, punycode, see `Name::from_str`
+- `trust_dns::rr::ZoneUsage` for detecting restrictions on `Name`s and their associated zones
+
+### Fixed
+
+- octal escapes fixed in `Name` parsing #330
+- `NULL` record type incorrectly valued at `0` to proper `10` #329 (@jannic)
+
 ## 0.13.0
 
 ### Added

@@ -3,6 +3,26 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.8.0
+
+### Changed
+
+- Updated `trust-dns-proto` to `0.3`, which brings in better `Name` and `Label` impls
+- Dropped LALRPOP `resolv.conf` parser in favor of the `resolv-conf` #335 (@cssivision & @little-dude)
+- Improved message serialization #311 (@little-dude)
+- Many serialization improvements #317
+- Dependencies updated #334 (@oherrala)
+### Added
+
+- `Name` and `Label` now support idna, punycode, see `Name::from_str`
+- Clippy added to build #304! (@neosilky)
+- `from_system_conf` on now supported on Windows 32bit targets (previously just 64bit) #313 (@liranringel)
+
+### Fixed
+
+- octal escapes fixed in `Name` parsing #330
+- `NULL` record type incorrectly valued at `0` to proper `10` #329 (@jannic)
+
 ## 0.7.0
 
 ### Changed

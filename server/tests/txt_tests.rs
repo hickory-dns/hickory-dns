@@ -324,7 +324,7 @@ _443._tcp.www.example.com. IN TLSA (
     // IDNA name: rust-❤️-🦀    A  192.0.2.1
     let idna_record: &Record = authority
         .lookup(
-            &Name::from_utf8("rust-❤️-🦀.isi.edu").unwrap().into(),
+            &Name::from_str("rust-❤️-🦀.isi.edu").unwrap().into(),
             RecordType::A,
             false,
             SupportedAlgorithms::new(),

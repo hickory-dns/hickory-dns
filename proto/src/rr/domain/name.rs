@@ -366,10 +366,11 @@ impl Name {
     /// # Examples
     ///
     /// ```
+    /// use std::str::FromStr;
     /// use trust_dns_proto::rr::domain::Name;
     ///
-    /// assert_eq!(Name::from_utf8("www.example.com.").unwrap().len(), 16);
-    /// assert_eq!(Name::from_utf8(".").unwrap().len(), 1);
+    /// assert_eq!(Name::from_str("www.example.com.").unwrap().len(), 16);
+    /// assert_eq!(Name::from_str(".").unwrap().len(), 1);
     /// assert_eq!(Name::root().len(), 1);
     /// ```
     pub fn len(&self) -> usize {
@@ -434,6 +435,7 @@ impl Name {
         Self::from_encoded_str::<LabelEncAscii>(name.as_ref(), None)
     }
 
+    // TODO: currently reserved to be private to the crate, due to confusion of IDNA vs. utf8 in https://tools.ietf.org/html/rfc6762#appendix-F
     /// Will convert the string to a name using IDNA, punycode, to encode the UTF8 as necessary
     ///
     /// When making names IDNA compatible, there is a side-effect of lowercasing the name.
@@ -441,16 +443,19 @@ impl Name {
     /// # Examples
     ///
     /// ```
+    /// use std::str::FromStr;
     /// use trust_dns_proto::rr::Name;
     ///
     /// let bytes_name = Name::from_labels(vec!["WWW".as_bytes(), "example".as_bytes(), "COM".as_bytes()]).unwrap();
-    /// let utf8_name = Name::from_utf8("WWW.example.COM.").unwrap();
-    /// let lower_name = Name::from_utf8("www.example.com.").unwrap();
+    ///
+    /// // from_str calls through to from_utf8
+    /// let utf8_name = Name::from_str("WWW.example.COM.").unwrap();
+    /// let lower_name = Name::from_str("www.example.com.").unwrap();
     ///
     /// assert!(!bytes_name.eq_case(&utf8_name));
     /// assert!(lower_name.eq_case(&utf8_name));
     /// ```
-    pub fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
+    pub(crate) fn from_utf8<S: AsRef<str>>(name: S) -> ProtoResult<Self> {
         Self::from_encoded_str::<LabelEncUtf8>(name.as_ref(), None)
     }
 

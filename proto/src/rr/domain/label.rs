@@ -25,7 +25,7 @@ impl Label {
     /// These must only be ASCII, with unicode encoded to PunyCode, or other such transformation.
     ///
     /// This uses the bytes as raw ascii values, with nothing escaped on the wire.
-    /// Generally users should use `from_utf8` or `from_ascii`
+    /// Generally users should use `from_str` or `from_ascii`
     pub fn from_raw_bytes(bytes: &[u8]) -> ProtoResult<Self> {
         if bytes.len() > 63 { return Err(ProtoErrorKind::Msg(format!("Label exceeds maximum length 63: {}", bytes.len())).into()) };
         Ok(Label(Rc::from(bytes)))
