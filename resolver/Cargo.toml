@@ -1,6 +1,6 @@
 [package]
 name = "trust-dns-resolver"
-version = "0.7.0"
+version = "0.8.0"
 authors = ["Benjamin Fry <benjaminfry@me.com>"]
 
 # A short blurb about the package. This is not rendered in any format when
@@ -44,14 +44,14 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
-resolv-conf = { version = "0.6.0", features = ["system"] } 
 error-chain = "0.1.12"
 futures = "^0.1.17"
 lazy_static = "^1.0"
 log = "^0.4.1"
 lru-cache = "^0.1.1"
+resolv-conf = { version = "0.6.0", features = ["system"] } 
 tokio-core = "^0.1"
-trust-dns-proto = { version = "^0.2", path = "../proto" }
+trust-dns-proto = { version = "^0.3", path = "../proto" }
 
 [target.'cfg(windows)'.dependencies]
 ipconfig = { version = "^0.1.4" }

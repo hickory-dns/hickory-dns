@@ -7,6 +7,7 @@
 
 //! Structs for creating and using a ResolverFuture
 use std::net::IpAddr;
+use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use futures::Future;
@@ -251,7 +252,7 @@ impl ResolverFuture {
             );
         }
 
-        let name = match Name::from_utf8(host) {
+        let name = match Name::from_str(host) {
             Ok(name) => name,
             Err(err) => {
                 return InnerLookupIpFuture::error(self.client_cache.clone(), err);

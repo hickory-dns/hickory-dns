@@ -77,7 +77,7 @@ time = "^0.1"
 tokio-core = "^0.1"
 toml = "^0.1"
 trust-dns = { version = "^0.13", path = "../client" }
-trust-dns-proto = { version = "^0.2", path = "../proto" }
+trust-dns-proto = { version = "^0.3", path = "../proto" }
 trust-dns-openssl = { version = "^0.2.0", path = "../openssl", optional = true }
 
 [dev-dependencies]
