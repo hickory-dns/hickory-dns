@@ -48,7 +48,7 @@ fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
     Ok(name_servers)
 }
 
-pub(crate) fn read_system_conf() -> ResolveResult<(ResolverConfig, ResolverOpts)> {
+pub fn read_system_conf() -> ResolveResult<(ResolverConfig, ResolverOpts)> {
     let name_servers = get_name_servers()?;
 
     let search_list: Vec<Name> = map_ipconfig_error!(get_search_list())?
