@@ -16,10 +16,10 @@
 mod unix;
 
 #[cfg(unix)]
-pub(crate) use self::unix::read_system_conf;
+pub use self::unix::read_system_conf;
 
 #[cfg(windows)]
 mod windows;
 
 #[cfg(target_os = "windows")]
-pub(crate) use self::windows::read_system_conf;
+pub use self::windows::read_system_conf;

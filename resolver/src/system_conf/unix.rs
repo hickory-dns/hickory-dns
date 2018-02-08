@@ -26,7 +26,7 @@ use config::*;
 
 const DEFAULT_PORT: u16 = 53;
 
-pub(crate) fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
+pub fn read_system_conf() -> io::Result<(ResolverConfig, ResolverOpts)> {
     Ok(read_resolv_conf("/etc/resolv.conf")?)
 }
 
