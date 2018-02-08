@@ -48,6 +48,49 @@ lazy_static! {
     pub static ref IP6_ARPA_1: ZoneUsage = ZoneUsage::localhost(Name::from_ascii("1.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0.0").unwrap().append_domain(&*IP6_ARPA));
 }
 
+/// .local.
+///
+/// [Multicast DNS](https://tools.ietf.org/html/rfc6762), RFC 6762  February 2013
+///
+/// ```text
+/// This document specifies that the DNS top-level domain ".local." is a
+///   special domain with special semantics, namely that any fully
+///   qualified name ending in ".local." is link-local, and names within
+///   this domain are meaningful only on the link where they originate.
+///   This is analogous to IPv4 addresses in the 169.254/16 prefix or IPv6
+///   addresses in the FE80::/10 prefix, which are link-local and
+///   meaningful only on the link where they originate.
+/// ```
+lazy_static! {
+    /// localhost. usage
+    pub static ref LOCAL: ZoneUsage = ZoneUsage::local(Name::from_ascii(".local.").unwrap());
+
+    // RFC 6762                      Multicast DNS                February 2013
+ 
+    // Any DNS query for a name ending with "254.169.in-addr.arpa." MUST
+    //  be sent to the mDNS IPv4 link-local multicast address 224.0.0.251
+    //  or the mDNS IPv6 multicast address FF02::FB.  Since names under
+    //  this domain correspond to IPv4 link-local addresses, it is logical
+    //  that the local link is the best place to find information
+    //  pertaining to those names.
+    //
+    //  Likewise, any DNS query for a name within the reverse mapping
+    //  domains for IPv6 link-local addresses ("8.e.f.ip6.arpa.",
+    //  "9.e.f.ip6.arpa.", "a.e.f.ip6.arpa.", and "b.e.f.ip6.arpa.") MUST
+    //  be sent to the mDNS IPv6 link-local multicast address FF02::FB or
+    //  the mDNS IPv4 link-local multicast address 224.0.0.251.
+
+    /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
+    pub static ref IN_ADDR_ARPA_169_254: ZoneUsage = ZoneUsage::local(Name::from_ascii("254.169").unwrap().append_domain(&*IN_ADDR_ARPA));
+
+    /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
+    pub static ref IP6_ARPA_FE_8: ZoneUsage = ZoneUsage::local(Name::from_ascii("8.e.f").unwrap().append_domain(&*IP6_ARPA));
+    /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
+    pub static ref IP6_ARPA_FE_9: ZoneUsage = ZoneUsage::local(Name::from_ascii("9.e.f").unwrap().append_domain(&*IP6_ARPA));
+    /// 254.169.in-addr.arpa. usage link-local, i.e. mDNS
+    pub static ref IP6_ARPA_FE_B: ZoneUsage = ZoneUsage::local(Name::from_ascii("b.e.f").unwrap().append_domain(&*IP6_ARPA));
+}
+
 /// invalid.
 ///
 /// [Special-Use Domain Names](https://tools.ietf.org/html/rfc6761), RFC 6761 February, 2013
@@ -80,11 +123,16 @@ pub enum UserUsage {
     /// be aware that these names are likely to yield different results
     /// on different networks.
     Normal,
+    
     /// Users are free to use localhost names as they would any other
     /// domain names.  Users may assume that IPv4 and IPv6 address
     /// queries for localhost names will always resolve to the respective
     /// IP loopback address.
     Loopback,
+
+    /// Multi-cast link-local usage
+    LinkLocal, 
+
     /// Users are free to use "invalid" names as they would any other
     /// domain names.  Users MAY assume that queries for "invalid" names
     /// will always return NXDOMAIN responses.
@@ -117,6 +165,8 @@ pub enum AppUsage {
     /// domain names.
     Loopback,
 
+    /// Link local, generally for mDNS
+    LinkLocal,
 
     /// Application software MAY recognize "invalid" names as special or
     /// MAY pass them to name resolution APIs as they would for other
@@ -153,6 +203,21 @@ pub enum ResolverUsage {
     /// types.  Name resolution APIs SHOULD NOT send queries for
     /// localhost names to their configured caching DNS server(s).
     Loopback,
+
+    /// Link local, generally for mDNS
+    /// 
+    /// Any DNS query for a name ending with ".local." MUST be sent to the
+    /// mDNS IPv4 link-local multicast address 224.0.0.251 (or its IPv6
+    /// equivalent FF02::FB).  The design rationale for using a fixed
+    /// multicast address instead of selecting from a range of multicast
+    /// addresses using a hash function is discussed in Appendix B.
+    /// Implementers MAY choose to look up such names concurrently via other
+    /// mechanisms (e.g., Unicast DNS) and coalesce the results in some
+    /// fashion.  Implementers choosing to do this should be aware of the
+    /// potential for user confusion when a given name can produce different
+    /// results depending on external network conditions (such as, but not
+    /// limited to, which name lookup mechanism responds faster).
+    LinkLocal,
 
     /// Name resolution APIs and libraries SHOULD recognize "invalid"
     /// names as special and SHOULD always return immediate negative
@@ -350,6 +415,11 @@ impl ZoneUsage {
     /// Restrictions for the .localhost. zone
     pub fn localhost(name: Name) -> Self {
         Self::new(name, UserUsage::Loopback, AppUsage::Loopback, ResolverUsage::Loopback, CacheUsage::Loopback, AuthUsage::Loopback, OpUsage::Loopback, RegistryUsage::Reserved)
+    }
+
+    /// Restrictions for the .local. zone
+    pub fn local(name: Name) -> Self {
+        Self::new(name, UserUsage::LinkLocal, AppUsage::LinkLocal, ResolverUsage::LinkLocal, CacheUsage::Normal, AuthUsage::Local, OpUsage::Normal, RegistryUsage::Reserved)
     }
 
     /// Restrictions for the .invalid. zone

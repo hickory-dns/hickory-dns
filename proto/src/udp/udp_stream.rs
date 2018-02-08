@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -38,7 +38,7 @@ impl UdpStream {
     ///
     /// # Arguments
     ///
-    /// * `name_server`: socket address for the remote server (used to determine IPv4 or IPv6)
+    /// * `name_server` - socket address for the remote server (used to determine IPv4 or IPv6)
     /// * `loop_handle` - handle to the IO loop
     ///
     /// # Return
@@ -125,6 +125,15 @@ impl UdpStream {
 
         (stream, message_sender)
     }
+
+    pub(crate) fn from_parts(
+        socket: tokio_core::net::UdpSocket,
+        outbound_messages: UnboundedReceiver<(Vec<u8>, SocketAddr)>) -> Self {
+            UdpStream {
+            socket: socket,
+            outbound_messages: outbound_messages.fuse().peekable(),
+        }
+        }
 
     /// Creates a future for randomly binding to a local socket address for client connections.
     fn next_bound_local_address(name_server: &SocketAddr) -> NextRandomUdpSocket {

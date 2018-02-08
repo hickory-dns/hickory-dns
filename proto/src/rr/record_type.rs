@@ -28,6 +28,10 @@ use error::*;
 #[cfg(feature = "dnssec")]
 use rr::dnssec::rdata::DNSSECRecordType;
 
+// TODO: adopt proper restrictions on usage: https://tools.ietf.org/html/rfc6895 section 3.1
+//  add the data TYPEs, QTYPEs, and Meta-TYPEs
+//  
+
 /// The type of the resource record.
 ///
 /// This specifies the type of data in the RData field of the Resource Record
