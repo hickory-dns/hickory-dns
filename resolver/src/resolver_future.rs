@@ -62,7 +62,7 @@ pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
     client_cache: CachingClient<LookupEither<BasicResolverHandle, StandardConnection>>,
-    hosts: Option<Hosts>,
+    hosts: Option<Arc<Hosts>>,
 }
 
 macro_rules! lookup_fn {
@@ -150,7 +150,7 @@ impl ResolverFuture {
         }
 
         let hosts = if options.use_hosts_file {
-            Some(Hosts::new())
+            Some(Arc::new(Hosts::new()))
         } else {
             None
         };
@@ -261,7 +261,7 @@ impl ResolverFuture {
 
         let names = self.build_names(name);
         let hosts = if let Some(ref hosts) = self.hosts {
-            Some(Arc::new(hosts.clone()))
+            Some(Arc::clone(hosts))
         } else {
             None
         };
