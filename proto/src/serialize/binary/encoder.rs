@@ -113,7 +113,9 @@ impl<'a> BinEncoder<'a> {
 
     /// trims to the current offset
     pub fn trim(&mut self) {
-        self.buffer.truncate(self.offset as usize);
+        let offset = self.offset;
+        self.buffer.truncate(offset as usize);
+        self.name_pointers.retain(|&(start, end)| start < offset && end <= offset);
     }
 
     /// Emit one byte into the buffer
@@ -355,8 +357,25 @@ pub enum EncodeMode {
 
 #[cfg(test)]
 mod tests {
+    use op::Message;
     use serialize::binary::BinDecoder;
     use super::*;
+
+    #[test]
+    fn test_label_compression_regression() {
+        // https://github.com/bluejekyll/trust-dns/issues/339
+        /*
+        ;; QUESTION SECTION:
+        ;bluedot.is.autonavi.com.gds.alibabadns.com. IN AAAA
+
+        ;; AUTHORITY SECTION:
+        gds.alibabadns.com.     1799    IN      SOA     gdsns1.alibabadns.com. none. 2015080610 1800 600 3600 360
+        */
+        let data: Vec<u8> = vec![154, 50, 129, 128, 0, 1, 0, 0, 0, 1, 0, 1, 7, 98, 108, 117, 101, 100, 111, 116, 2, 105, 115, 8, 97, 117, 116, 111, 110, 97, 118, 105, 3, 99, 111, 109, 3, 103, 100, 115, 10, 97, 108, 105, 98, 97, 98, 97, 100, 110, 115, 3, 99, 111, 109, 0, 0, 28, 0, 1, 192, 36, 0, 6, 0, 1, 0, 0, 7, 7, 0, 35, 6, 103, 100, 115, 110, 115, 49, 192, 40, 4, 110, 111, 110, 101, 0, 120, 27, 176, 162, 0, 0, 7, 8, 0, 0, 2, 88, 0, 0, 14, 16, 0, 0, 1, 104, 0, 0, 41, 2, 0, 0, 0, 0, 0, 0, 0];
+
+        let msg = Message::from_vec(&data).unwrap();
+        msg.to_bytes().unwrap();
+    }
 
     #[test]
     fn test_size_of() {

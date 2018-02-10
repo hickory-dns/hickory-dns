@@ -62,7 +62,7 @@ pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
     client_cache: CachingClient<LookupEither<BasicResolverHandle, StandardConnection>>,
-    hosts: Option<Hosts>,
+    hosts: Option<Arc<Hosts>>,
 }
 
 macro_rules! lookup_fn {
@@ -150,7 +150,7 @@ impl ResolverFuture {
         }
 
         let hosts = if options.use_hosts_file {
-            Some(Hosts::new())
+            Some(Arc::new(Hosts::new()))
         } else {
             None
         };
@@ -200,7 +200,7 @@ impl ResolverFuture {
 
             // this is the direct name lookup
             // number of dots will always be one less than the number of labels
-            if name.num_labels() as usize > self.options.ndots {
+            if name.num_labels() as usize > self.options.ndots || name.is_localhost() {
                 // adding the name as though it's an FQDN for lookup
                 names.push(name.clone());
             }
@@ -261,7 +261,7 @@ impl ResolverFuture {
 
         let names = self.build_names(name);
         let hosts = if let Some(ref hosts) = self.hosts {
-            Some(Arc::new(hosts.clone()))
+            Some(Arc::clone(hosts))
         } else {
             None
         };
@@ -673,5 +673,51 @@ mod tests {
         // we just care that the request succeeded, not about the actual content
         //   it's not certain that the ip won't change.
         assert!(response.iter().next().is_some());
+    }
+
+    #[test]
+    fn test_localhost_ipv4() {
+        let mut io_loop = Core::new().unwrap();
+        let resolver = ResolverFuture::new(
+            ResolverConfig::default(),
+            ResolverOpts{ip_strategy: LookupIpStrategy::Ipv4thenIpv6,.. ResolverOpts::default()},
+            &io_loop.handle(),
+        );
+
+        let response = io_loop
+            .run(resolver.lookup_ip("localhost"))
+            .expect("failed to run lookup");
+
+        let mut iter = response.iter();
+        assert_eq!(iter.next().expect("no A"), IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+    }
+
+    #[test]
+    fn test_localhost_ipv6() {
+        let mut io_loop = Core::new().unwrap();
+        let resolver = ResolverFuture::new(
+            ResolverConfig::default(),
+            ResolverOpts{ip_strategy: LookupIpStrategy::Ipv6thenIpv4,.. ResolverOpts::default()},
+            &io_loop.handle(),
+        );
+
+        let response = io_loop
+            .run(resolver.lookup_ip("localhost"))
+            .expect("failed to run lookup");
+
+        let mut iter = response.iter();
+        assert_eq!(
+            iter.next().expect("no AAAA"),
+            IpAddr::V6(Ipv6Addr::new(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+            ))
+        );
     }
 }
