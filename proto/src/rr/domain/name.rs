@@ -17,6 +17,7 @@ use std::slice::Iter;
 use std::str::FromStr;
 
 use rr::domain::label::{CaseInsensitive, CaseSensitive, IntoLabel, Label, LabelCmp};
+use rr::domain::usage::{LOCALHOST as LOCALHOST_usage};
 use serialize::binary::*;
 use error::*;
 
@@ -689,6 +690,27 @@ impl Name {
             write!(f, ".")?;
         }
         Ok(())
+    }
+
+    /// Returns true if the `Name` is either localhost or in the localhost zone.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use std::str::FromStr;
+    /// use trust_dns_proto::rr::Name;
+    ///
+    /// let name = Name::from_str("localhost").unwrap();
+    /// assert!(name.is_localhost());
+    ///
+    /// let name = Name::from_str("localhost.").unwrap();
+    /// assert!(name.is_localhost());
+    ///
+    /// let name = Name::from_str("my.localhost.").unwrap();
+    /// assert!(name.is_localhost());
+    /// ```
+    pub fn is_localhost(&self) -> bool {
+        LOCALHOST_usage.zone_of(self)
     }
 }
 

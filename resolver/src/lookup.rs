@@ -139,11 +139,13 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
         record_type: RecordType,
         mut client_cache: CachingClient<C>,
     ) -> Self {
-        let name = names.pop().expect("can not lookup IPs for no names");
+        let name = names.pop().ok_or_else(|| ResolveError::from(ResolveErrorKind::Message("can not lookup for no names")));
 
-        let query = client_cache.lookup(Query::query(name, record_type));
+        let query: Box<Future<Item = Lookup, Error = ResolveError>> = match name {
+            Ok(name) => client_cache.lookup(Query::query(name, record_type)),
+            Err(err) => Box::new(future::err(err)),
+        };
 
-        //        let query = lookup(name, record_type, client_cache.clone());
         InnerLookupFuture {
             client_cache: client_cache,
             names,

@@ -93,14 +93,18 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
         client_cache: CachingClient<C>,
         hosts: Option<Arc<Hosts>>,
     ) -> Self {
-        let name = names.pop().expect("can not lookup IPs for no names");
+        let name = names.pop().ok_or_else(|| ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names")));
 
-        let query = strategic_lookup(name, strategy, client_cache.clone(), hosts.clone());
+        let query: Box<Future<Item = Lookup, Error = ResolveError>> = match name {
+            Ok(name) => strategic_lookup(name, strategy, client_cache.clone(), hosts.clone()),
+            Err(err) => Box::new(future::err(err)),
+        };
+
         InnerLookupIpFuture {
             client_cache: client_cache,
             names,
             strategy,
-            future: Box::new(query),
+            future: query,
             hosts: hosts,
         }
     }
