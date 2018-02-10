@@ -688,25 +688,20 @@ mod tests {
             .run(resolver.lookup_ip("localhost"))
             .expect("failed to run lookup");
 
-        assert_eq!(response.iter().count(), 2);
-        for address in response.iter() {
-            if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
-            } else {
-                assert_eq!(
-                    address,
-                    IpAddr::V6(Ipv6Addr::new(
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        0,
-                        1,
-                    ))
-                );
-            }
-        }
+        let mut iter = response.iter();
+        assert_eq!(iter.next().unwrap(), IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+        assert_eq!(
+            iter.next().unwrap(),
+            IpAddr::V6(Ipv6Addr::new(
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                0,
+                1,
+            ))
+        );
     }
 }
