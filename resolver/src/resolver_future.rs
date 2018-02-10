@@ -676,11 +676,11 @@ mod tests {
     }
 
     #[test]
-    fn test_localhost() {
+    fn test_localhost_ipv4() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
             ResolverConfig::default(),
-            ResolverOpts::default(),
+            ResolverOpts{ip_strategy: LookupIpStrategy::Ipv4thenIpv6,.. ResolverOpts::default()},
             &io_loop.handle(),
         );
 
@@ -689,9 +689,25 @@ mod tests {
             .expect("failed to run lookup");
 
         let mut iter = response.iter();
-        assert_eq!(iter.next().unwrap(), IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+        assert_eq!(iter.next().expect("no A"), IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+    }
+
+    #[test]
+    fn test_localhost_ipv6() {
+        let mut io_loop = Core::new().unwrap();
+        let resolver = ResolverFuture::new(
+            ResolverConfig::default(),
+            ResolverOpts{ip_strategy: LookupIpStrategy::Ipv6thenIpv4,.. ResolverOpts::default()},
+            &io_loop.handle(),
+        );
+
+        let response = io_loop
+            .run(resolver.lookup_ip("localhost"))
+            .expect("failed to run lookup");
+
+        let mut iter = response.iter();
         assert_eq!(
-            iter.next().unwrap(),
+            iter.next().expect("no AAAA"),
             IpAddr::V6(Ipv6Addr::new(
                 0,
                 0,
