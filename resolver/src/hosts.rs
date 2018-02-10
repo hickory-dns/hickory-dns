@@ -49,6 +49,33 @@ impl Hosts {
         }
         None
     }
+
+    /// Insert a new Lookup for the associated `Name` and `RecordType`
+    pub fn insert(&mut self, name: Name, record_type: RecordType, lookup: Lookup) {
+        assert!(record_type == RecordType::A || record_type == RecordType::AAAA);
+
+        let lookup_type = self
+            .by_name
+            .entry(name.clone())
+            .or_insert_with(|| LookupType::default());
+
+        let new_lookup = {
+            let mut old_lookup = match &record_type {
+                &RecordType::A => lookup_type.a.get_or_insert_with(|| Lookup::new(Arc::new(vec![]))),
+                &RecordType::AAAA => lookup_type.aaaa.get_or_insert_with(|| Lookup::new(Arc::new(vec![]))),
+                _ => { warn!("unsupported IP type from Hosts file: {:#?}", record_type); return },
+            };
+
+            old_lookup.append(lookup)
+        };
+                
+        // replace the appended version
+        match &record_type {
+            &RecordType::A => lookup_type.a = Some(new_lookup),
+            &RecordType::AAAA => lookup_type.aaaa = Some(new_lookup),
+            _ => warn!("unsupported IP type from Hosts file"),
+        }
+    }
 }
 
 /// parse configuration from `/etc/hosts`
@@ -90,28 +117,12 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
 
         for domain in fields.iter().skip(1).map(|domain| domain.to_lowercase()) {
             if let Ok(name) = Name::from_str(&domain) {
-                let mut lookup_type = hosts
-                    .by_name
-                    .entry(name.clone())
-                    .or_insert_with(|| LookupType::default());
-
-                // append the IP to the Lookup
-                let lookup = {
-                    let mut lookup = match &addr {
-                       &RData::A(..) => lookup_type.a.get_or_insert_with(|| Lookup::new(Arc::new(vec![]))),
-                       &RData::AAAA(..) => lookup_type.aaaa.get_or_insert_with(|| Lookup::new(Arc::new(vec![]))),
-                       _ => { warn!("unsupported IP type from Hosts file: {:#?}", addr); continue },
-                    };
-
-                    lookup.append(Lookup::new(Arc::new(vec![addr.clone()])))
-                };
-                
-                // replace the appended version
+                let lookup = Lookup::new(Arc::new(vec![addr.clone()]));
                 match &addr {
-                   &RData::A(..) => lookup_type.a = Some(lookup),
-                   &RData::AAAA(..) => lookup_type.aaaa = Some(lookup),
-                   _ => warn!("unsupported IP type from Hosts file"),
-                }
+                       &RData::A(..) => hosts.insert(name.clone(), RecordType::A, lookup),
+                       &RData::AAAA(..) =>  hosts.insert(name.clone(), RecordType::AAAA, lookup),
+                       _ => { warn!("unsupported IP type from Hosts file: {:#?}", addr); continue },
+                };
 
                 // TODO: insert reverse lookup as well.
             };
