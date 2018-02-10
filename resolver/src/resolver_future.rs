@@ -200,7 +200,7 @@ impl ResolverFuture {
 
             // this is the direct name lookup
             // number of dots will always be one less than the number of labels
-            if name.num_labels() as usize > self.options.ndots {
+            if name.num_labels() as usize > self.options.ndots || name.is_localhost() {
                 // adding the name as though it's an FQDN for lookup
                 names.push(name.clone());
             }
@@ -673,5 +673,40 @@ mod tests {
         // we just care that the request succeeded, not about the actual content
         //   it's not certain that the ip won't change.
         assert!(response.iter().next().is_some());
+    }
+
+    #[test]
+    fn test_localhost() {
+        let mut io_loop = Core::new().unwrap();
+        let resolver = ResolverFuture::new(
+            ResolverConfig::default(),
+            ResolverOpts::default(),
+            &io_loop.handle(),
+        );
+
+        let response = io_loop
+            .run(resolver.lookup_ip("localhost"))
+            .expect("failed to run lookup");
+
+        assert_eq!(response.iter().count(), 2);
+        for address in response.iter() {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+            } else {
+                assert_eq!(
+                    address,
+                    IpAddr::V6(Ipv6Addr::new(
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        0,
+                        1,
+                    ))
+                );
+            }
+        }
     }
 }
