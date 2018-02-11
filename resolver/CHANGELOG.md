@@ -3,6 +3,18 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## 0.8.1
+
+### Changed
+
+- Make read_system_conf() function public #338 (@oherrala)
+- Hosts map was not properly reference counted #342
+
+### Fixed
+
+- Panic in edge case of label compression #341 (@SAPikachu)
+- Fix `localhost` lookup and no longer panic on no names #343
+
 ## 0.8.0
 
 ### Changed
