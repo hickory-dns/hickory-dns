@@ -217,6 +217,7 @@ impl Future for NextRandomUdpSocket {
             let port = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
             let zero_addr = SocketAddr::new(self.bind_address, port);
 
+            // TODO: allow TTL to be adjusted...
             match std::net::UdpSocket::bind(&zero_addr) {
                 Ok(socket) => return Ok(Async::Ready(socket)),
                 Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),

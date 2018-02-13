@@ -14,7 +14,7 @@ use tokio_core::reactor::Handle;
 use BufDnsStreamHandle;
 use DnsStreamHandle;
 use error::*;
-use multicast::MdnsStream;
+use multicast::{MdnsQueryType, MdnsStream};
 use multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6, MDNS_PORT};
 
 /// A UDP client stream of DNS binary packets
@@ -27,7 +27,8 @@ pub struct MdnsClientStream {
 impl MdnsClientStream {
 /// associates the socket to the well-known ipv4 multicast addess
     pub fn new_ipv4<E>(
-        one_shot: bool,
+        mdns_query_type: MdnsQueryType,
+        packet_ttl: Option<u32>,
         loop_handle: &Handle,
     ) -> (
         Box<Future<Item = MdnsClientStream, Error = io::Error>>,
@@ -38,14 +39,16 @@ impl MdnsClientStream {
     {
         Self::new::<E>(
             SocketAddr::new(*MDNS_IPV4, MDNS_PORT),
-            one_shot,
+            mdns_query_type,
+            packet_ttl,
             loop_handle,
         )
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
     pub fn new_ipv6<E>(
-        one_shot: bool,
+        mdns_query_type: MdnsQueryType,
+        packet_ttl: Option<u32>,
         loop_handle: &Handle,
     ) -> (
         Box<Future<Item = MdnsClientStream, Error = io::Error>>,
@@ -56,7 +59,8 @@ impl MdnsClientStream {
     {
         Self::new::<E>(
             SocketAddr::new(*MDNS_IPV6, MDNS_PORT),
-            one_shot,
+            mdns_query_type,
+            packet_ttl,
             loop_handle,
         )
     }
@@ -71,7 +75,8 @@ impl MdnsClientStream {
     ///  handle which can be used to send messages into the stream.
     fn new<E>(
         mdns_addr: SocketAddr,
-        one_shot: bool,
+        mdns_query_type: MdnsQueryType,
+        packet_ttl: Option<u32>,
         loop_handle: &Handle,
     ) -> (
         Box<Future<Item = MdnsClientStream, Error = io::Error>>,
@@ -80,8 +85,7 @@ impl MdnsClientStream {
     where
         E: FromProtoError + 'static,
     {
-        let (stream_future, sender) = MdnsStream::new(mdns_addr
-, one_shot, loop_handle);
+        let (stream_future, sender) = MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, loop_handle);
 
         let new_future: Box<Future<Item = MdnsClientStream, Error = io::Error>> =
             Box::new(stream_future.map(move |udp_stream| {
@@ -206,7 +210,7 @@ mod tests {
         // the tests should run within 5 seconds... right?
         // TODO: add timeout here, so that test never hangs...
         // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-        let (stream, mut sender) = MdnsClientStream::new::<ProtoError>(server_addr, true, &io_loop.handle());
+        let (stream, mut sender) = MdnsClientStream::new::<ProtoError>(server_addr, MdnsQueryType::OneShot, None, &io_loop.handle());
         let mut stream: MdnsClientStream = io_loop.run(stream).ok().unwrap();
 
         for _ in 0..send_recv_times {

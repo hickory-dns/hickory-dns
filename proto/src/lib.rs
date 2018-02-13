@@ -23,6 +23,7 @@ extern crate idna;
 extern crate lazy_static;
 #[macro_use]
 extern crate log;
+extern crate net2;
 #[cfg(feature = "openssl")]
 extern crate openssl;
 extern crate rand;
