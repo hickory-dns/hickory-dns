@@ -19,7 +19,7 @@ use futures::{task, future, Async, Future, Poll};
 use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::{Message, Query, ResponseCode};
 use trust_dns_proto::rr::{DNSClass, Name, RData, RecordType};
-use trust_dns_proto::rr::domain::usage::{ResolverUsage, DEFAULT, LOCALHOST as LOCALHOST_usage, IN_ADDR_ARPA_127, IP6_ARPA_1, INVALID};
+use trust_dns_proto::rr::domain::usage::{ResolverUsage, DEFAULT, LOCAL, LOCALHOST as LOCALHOST_usage, IN_ADDR_ARPA_127, IP6_ARPA_1, INVALID};
 
 use dns_lru;
 use dns_lru::DnsLru;
@@ -79,17 +79,19 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
                 n @ _ if IN_ADDR_ARPA_127.zone_of(n) => &*LOCALHOST_usage,
                 n @ _ if IP6_ARPA_1.zone_of(n) => &*LOCALHOST_usage,
                 n @ _ if INVALID.zone_of(n) => &*INVALID,
+                n @ _ if LOCAL.zone_of(n) => &*LOCAL,
                 _ => &*DEFAULT,
             };
 
             match usage.resolver() {
-               ResolverUsage::Loopback => match query.query_type() {
+                ResolverUsage::Loopback => match query.query_type() {
                    // FIXME: look in hosts for these ips/names first...
                    RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
                    RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
                    RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
                    _ => return Box::new(future::err(DnsLru::nx_error(query))), // Are there any other types we can use?
                },
+                ResolverUsage::LinkLocal => unimplemented!("need to force only mDNS lookup"),
                ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
                ResolverUsage::Normal => (),
             }

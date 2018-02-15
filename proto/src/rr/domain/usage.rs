@@ -63,7 +63,7 @@ lazy_static! {
 /// ```
 lazy_static! {
     /// localhost. usage
-    pub static ref LOCAL: ZoneUsage = ZoneUsage::local(Name::from_ascii(".local.").unwrap());
+    pub static ref LOCAL: ZoneUsage = ZoneUsage::local(Name::from_ascii("local.").unwrap());
 
     // RFC 6762                      Multicast DNS                February 2013
  
