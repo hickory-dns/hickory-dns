@@ -273,49 +273,50 @@ impl Future for NextRandomUdpSocket {
                 },
             };
 
-            
+            Ok(Async::Ready(socket))
+        } else {
 
-            return Ok(Async::Ready(socket));
-        }
+            // TODO: this is basically identical to UdpStream from here... share some code? (except for the port restriction)
+            // one-shot queries look very similar to UDP socket, but can't listen on 5353
+            let between = Range::new(1025_u32, u32::from(u16::max_value()) + 1);
+            let mut rand = rand::thread_rng();
 
-        // TODO: this is basically identical to UdpStream from here... share some code? (except for the port restriction)
-        // one-shot queries look very similar to UDP socket, but can't listen on 5353
-        let between = Range::new(1025_u32, u32::from(u16::max_value()) + 1);
-        let mut rand = rand::thread_rng();
+            for attempt in 0..10 {
+                let port = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
 
-        for attempt in 0..10 {
-            let port = between.ind_sample(&mut rand) as u16; // the range is [0 ... u16::max] aka [0 .. u16::max + 1)
+                // see one_shot usage info: https://tools.ietf.org/html/rfc6762#section-5
+                //  the MDNS_PORT is used to signal to remote processes that this is capable of recieving multicast packets
+                //  i.e. is joined to the multicast address.
+                if port == MDNS_PORT {
+                    trace!("unlucky, got MDNS_PORT");
+                    continue;
+                }
 
-            // see one_shot usage info: https://tools.ietf.org/html/rfc6762#section-5
-            //  the MDNS_PORT is used to signal to remote processes that this is capable of recieving multicast packets
-            //  i.e. is joined to the multicast address.
-            if port == MDNS_PORT {
-                trace!("unlucky, got MDNS_PORT");
-                continue;
+                let addr = SocketAddr::new(self.bind_address, port);
+                match std::net::UdpSocket::bind(&addr) {
+                    Ok(socket) => {
+                        if let Some(ttl) = self.packet_ttl {
+                            socket.set_ttl(ttl)?;
+                        }
+                        return Ok(Async::Ready(socket))
+                    },
+                    Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
+                }
             }
 
-            let addr = SocketAddr::new(self.bind_address, port);
-            match std::net::UdpSocket::bind(&addr) {
-                Ok(socket) => {
-                    if let Some(ttl) = self.packet_ttl {
-                        socket.set_ttl(ttl)?;
-                    }
-                    return Ok(Async::Ready(socket))
-                },
-                Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
-            }
+            warn!("could not get next random port, delaying");
+
+            task::current().notify();
+            // returning NotReady here, perhaps the next poll there will be some more socket available.
+            Ok(Async::NotReady)
         }
-
-        warn!("could not get next random port, delaying");
-
-        task::current().notify();
-        // returning NotReady here, perhaps the next poll there will be some more socket available.
-        Ok(Async::NotReady)
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use std::process;
+    use futures::future::{self, ok, loop_fn, Either, Future, FutureResult, Loop};
     use tokio_core;
     use super::*;
 
@@ -360,53 +361,81 @@ mod tests {
     //     )))
     // }
 
-    #[cfg(test)]
+    // FIXME: this test is quite flaky... consider using a different multicast address for testing
+    //   as there are probably unexpected responses coming on the standard addresses
+    #[test]
     fn test_one_shot_mdns() {
         use tokio_core::reactor::Core;
-
         use std;
+        use std::time::Duration;
+
         let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let succeeded_clone = succeeded.clone();
-        std::thread::Builder::new()
-            .name("thread_killer".to_string())
-            .spawn(move || {
-                let succeeded = succeeded_clone.clone();
-                for _ in 0..15 {
-                    std::thread::sleep(std::time::Duration::from_secs(1));
-                    if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
-                        return;
-                    }
-                }
-
-                panic!("timeout");
-            })
-            .unwrap();
-
+        
         let test_bytes: &'static [u8; 8] = b"DEADBEEF";
         let send_recv_times = 4;
+        let server_succeeded = succeeded.clone();
 
         // an in and out server
         let server_handle = std::thread::Builder::new()
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut server_loop = Core::new().unwrap();
+                // FIXME: this timetout is unfortunate...
+                let mut timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(5), &server_loop.handle()).expect("failed to register timeout");
+
                 // TTLs are 0 so that multicast test packets never leave the test host...
-                let (server_stream_future, server_sender) = MdnsStream::new_ipv4::<ProtoError>(MdnsQueryType::Continuous, Some(0), &server_loop.handle());
+                let (server_stream_future, _server_sender) = MdnsStream::new_ipv4::<ProtoError>(MdnsQueryType::Continuous, Some(0), &server_loop.handle());
+
+                // because we might be competing with a system mDNS responder, we will respond from a different port...
+                let (stream, server_sender) = UdpStream::new::<ProtoError>(SocketAddr::new(Ipv4Addr::new(0,0,0,0).into(), 0), &server_loop.handle());
                 
+                let sender_stream = server_loop.run(stream).expect("could not create mDNS listener");
+                server_loop.handle().spawn(sender_stream.into_future().map(|_|()).map_err(|_|()));
                 let mut server_stream = server_loop.run(server_stream_future).expect("could not create mDNS listener");
 
-                for _ in 0..send_recv_times {
+                // let mut looper = future::loop_fn((server_stream, server_sender), move |(server_stream, server_sender)| {
+                //     server_stream.into_future().and_then(move |(buffer_addr, server_stream)| {
+                //         let (buffer, addr) = buffer_addr;
+                //         server_sender
+                //             .unbounded_send((test_bytes.to_vec(), addr))
+                //             .expect("could not send to client");
+                        
+                //         server_stream//, server_sender)
+                //     }).and_then(move |server_stream_and_sender| {
+                //         if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
+                //             Ok(Loop::Break(server_stream_and_sender))
+                //         } else {
+                //             Ok(Loop::Continue(server_stream_and_sender))
+                //         }
+                //     })
+                // });
+
+                // server_loop.run(looper).expect("failed to run server");
+
+                for _ in 0..(send_recv_times + 1) {
+                    if server_succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
                     // wait for some bytes...
-                    let (buffer_and_addr, stream_tmp) = server_loop.run(server_stream.into_future()).ok().unwrap();
-                    server_stream = stream_tmp;
-                    let (buffer, addr) = buffer_and_addr.expect("no buffer received");
+                    match server_loop.run(server_stream.into_future().select2(timeout)).ok().expect("server stream closed") {
+                        Either::A((buffer_and_addr_stream_tmp, timeout_tmp)) => {
+                            let (buffer_and_addr, stream_tmp) = buffer_and_addr_stream_tmp;
 
-                    assert_eq!(&buffer, test_bytes);
+                            server_stream = stream_tmp;
+                            timeout = timeout_tmp;
+                            let (buffer, addr) = buffer_and_addr.expect("no buffer received");
+                        
+                            assert_eq!(&buffer, test_bytes);
+                            println!("server got data! {}", addr);
 
-                    // bounce them right back...
-                    server_sender
-                        .unbounded_send((test_bytes.to_vec(), addr))
-                        .expect("could not send to client");
+                            // bounce them right back...
+                            server_sender
+                                .unbounded_send((test_bytes.to_vec(), addr))
+                                .expect("could not send to client");
+                        }
+                        _ => {
+                            println!("server stream timedout");
+                            return
+                        }
+                    }
                 }
             })
             .unwrap();
@@ -415,6 +444,7 @@ mod tests {
         let mut io_loop = Core::new().unwrap();
         let (stream, sender) = MdnsStream::new_ipv4::<ProtoError>(MdnsQueryType::OneShot, Some(0), &io_loop.handle());
         let mut stream: MdnsStream = io_loop.run(stream).ok().unwrap();
+        let mut timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(5), &io_loop.handle()).expect("failed to register timeout");
 
         for _ in 0..send_recv_times {
             // test once
@@ -422,12 +452,23 @@ mod tests {
                 .unbounded_send((test_bytes.to_vec(), SocketAddr::new(*MDNS_IPV4, MDNS_PORT)))
                 .unwrap();
 
-            let (buffer_and_addr, stream_tmp) = io_loop.run(stream.into_future()).ok().expect("client got no return");
-            stream = stream_tmp;
-            let (buffer, addr) = buffer_and_addr.expect("no buffer received");
+            println!("client sending data!");
+            
+            match io_loop.run(stream.into_future().select2(timeout)).ok().expect("client got no return") {
+               Either::A((buffer_and_addr_stream_tmp, timeout_tmp)) => {
+                   let (buffer_and_addr, stream_tmp) = buffer_and_addr_stream_tmp;
+                   stream = stream_tmp;
+                   timeout = timeout_tmp;
 
-            assert_eq!(&buffer, test_bytes);
-            // assert_eq!(addr, server_addr);
+                   let (buffer, _addr) = buffer_and_addr.expect("no buffer received");
+                   println!("client got data!");
+
+                   assert_eq!(&buffer, test_bytes);
+               }
+               _ => {
+                   panic!("client timedout");
+               }
+            }
         }
 
         succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
