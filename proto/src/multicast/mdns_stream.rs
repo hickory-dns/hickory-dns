@@ -320,6 +320,13 @@ mod tests {
     use tokio_core;
     use super::*;
 
+    lazy_static! {
+        /// 250 appears to be unused/unregistered
+        pub static ref TEST_MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,250).into(), MDNS_PORT);
+        /// FA appears to be unused/unregistered
+        pub static ref TEST_MDNS_IPV6: SocketAddr = SocketAddr::new(Ipv6Addr::new(0xFF, 0x02, 0, 0, 0, 0, 0, 0xFA).into(), MDNS_PORT);
+    }
+
     // one_shot tests are basically clones from the udp tests
     #[test]
     fn test_next_random_socket() {
@@ -361,7 +368,6 @@ mod tests {
     //     )))
     // }
 
-    // FIXME: this test is quite flaky... consider using a different multicast address for testing
     //   as there are probably unexpected responses coming on the standard addresses
     #[test]
     fn test_one_shot_mdns() {
@@ -384,33 +390,14 @@ mod tests {
                 let mut timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(5), &server_loop.handle()).expect("failed to register timeout");
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
-                let (server_stream_future, _server_sender) = MdnsStream::new_ipv4::<ProtoError>(MdnsQueryType::Continuous, Some(0), &server_loop.handle());
+                let (server_stream_future, server_sender) = MdnsStream::new::<ProtoError>(*TEST_MDNS_IPV4, MdnsQueryType::Continuous, Some(0), &server_loop.handle());
 
-                // because we might be competing with a system mDNS responder, we will respond from a different port...
+                // For one-shot responses we are competing with a system mDNS responder, we will respond from a different port...
                 let (stream, server_sender) = UdpStream::new::<ProtoError>(SocketAddr::new(Ipv4Addr::new(0,0,0,0).into(), 0), &server_loop.handle());
                 
                 let sender_stream = server_loop.run(stream).expect("could not create mDNS listener");
                 server_loop.handle().spawn(sender_stream.into_future().map(|_|()).map_err(|_|()));
                 let mut server_stream = server_loop.run(server_stream_future).expect("could not create mDNS listener");
-
-                // let mut looper = future::loop_fn((server_stream, server_sender), move |(server_stream, server_sender)| {
-                //     server_stream.into_future().and_then(move |(buffer_addr, server_stream)| {
-                //         let (buffer, addr) = buffer_addr;
-                //         server_sender
-                //             .unbounded_send((test_bytes.to_vec(), addr))
-                //             .expect("could not send to client");
-                        
-                //         server_stream//, server_sender)
-                //     }).and_then(move |server_stream_and_sender| {
-                //         if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
-                //             Ok(Loop::Break(server_stream_and_sender))
-                //         } else {
-                //             Ok(Loop::Continue(server_stream_and_sender))
-                //         }
-                //     })
-                // });
-
-                // server_loop.run(looper).expect("failed to run server");
 
                 for _ in 0..(send_recv_times + 1) {
                     if server_succeeded.load(std::sync::atomic::Ordering::Relaxed) { return }
@@ -442,14 +429,14 @@ mod tests {
 
         // setup the client, which is going to run on the testing thread...
         let mut io_loop = Core::new().unwrap();
-        let (stream, sender) = MdnsStream::new_ipv4::<ProtoError>(MdnsQueryType::OneShot, Some(0), &io_loop.handle());
+        let (stream, sender) = MdnsStream::new::<ProtoError>(*TEST_MDNS_IPV4, MdnsQueryType::OneShot, Some(0), &io_loop.handle());
         let mut stream: MdnsStream = io_loop.run(stream).ok().unwrap();
         let mut timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(5), &io_loop.handle()).expect("failed to register timeout");
 
         for _ in 0..send_recv_times {
             // test once
             sender
-                .unbounded_send((test_bytes.to_vec(), SocketAddr::new(*MDNS_IPV4, MDNS_PORT)))
+                .unbounded_send((test_bytes.to_vec(), *TEST_MDNS_IPV4))
                 .unwrap();
 
             println!("client sending data!");
