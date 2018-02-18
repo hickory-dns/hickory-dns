@@ -85,15 +85,15 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
 
             match usage.resolver() {
                 ResolverUsage::Loopback => match query.query_type() {
-                   // FIXME: look in hosts for these ips/names first...
-                   RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
-                   RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
-                   RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
-                   _ => return Box::new(future::err(DnsLru::nx_error(query))), // Are there any other types we can use?
-               },
+                    // FIXME: look in hosts for these ips/names first...
+                    RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
+                    RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
+                    RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
+                    _ => return Box::new(future::err(DnsLru::nx_error(query))), // Are there any other types we can use?
+                },
                 ResolverUsage::LinkLocal => unimplemented!("need to force only mDNS lookup"),
-               ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
-               ResolverUsage::Normal => (),
+                ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
+                ResolverUsage::Normal => (),
             }
         }
 

@@ -46,9 +46,6 @@ fn test_query_nonet() {
 #[test]
 #[ignore]
 fn test_query_udp_ipv4() {
-    use std::net::{SocketAddr, ToSocketAddrs};
-    use tokio_core::reactor::Core;
-
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
@@ -62,9 +59,6 @@ fn test_query_udp_ipv4() {
 #[test]
 #[ignore]
 fn test_query_udp_ipv6() {
-    use std::net::{SocketAddr, ToSocketAddrs};
-    use tokio_core::reactor::Core;
-
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("2001:4860:4860::8888", 53)
         .to_socket_addrs()
@@ -82,9 +76,6 @@ fn test_query_udp_ipv6() {
 #[test]
 #[ignore]
 fn test_query_tcp_ipv4() {
-    use std::net::{SocketAddr, ToSocketAddrs};
-    use tokio_core::reactor::Core;
-
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
@@ -98,9 +89,6 @@ fn test_query_tcp_ipv4() {
 #[test]
 #[ignore]
 fn test_query_tcp_ipv6() {
-    use std::net::{SocketAddr, ToSocketAddrs};
-    use tokio_core::reactor::Core;
-
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("2001:4860:4860::8888", 53)
         .to_socket_addrs()
@@ -113,6 +101,24 @@ fn test_query_tcp_ipv6() {
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
     io_loop.run(test_query(&mut client)).unwrap();
+}
+
+#[test]
+fn test_query_mdns_ipv4() {
+    use trust_dns::multicast::MdnsClientStream;
+    use trust_dns::multicast::MdnsQueryType;
+
+    let mut io_loop = Core::new().unwrap();
+    //let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
+    let (stream, sender) = MdnsClientStream::new_ipv4(MdnsQueryType::OneShot, None, &io_loop.handle());
+    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+
+    // A PTR request is the DNS-SD method for doing a directory listing...
+    let name = Name::from_ascii("_http._tcp.local.").unwrap();
+    let future = client.query(name.clone(), DNSClass::IN, RecordType::PTR);
+
+    let message = io_loop.run(future).expect("mdns query failed");
+    println!("message: {:#?}", message);
 }
 
 #[cfg(test)]

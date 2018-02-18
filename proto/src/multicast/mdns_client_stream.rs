@@ -20,8 +20,7 @@ use multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6, MDNS_PORT};
 /// A UDP client stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct MdnsClientStream {
-    mdns_addr: SocketAddr,
-    udp_stream: MdnsStream,
+    mdns_stream: MdnsStream,
 }
 
 impl MdnsClientStream {
@@ -38,7 +37,7 @@ impl MdnsClientStream {
         E: FromProtoError + 'static,
     {
         Self::new::<E>(
-            SocketAddr::new(*MDNS_IPV4, MDNS_PORT),
+            *MDNS_IPV4,
             mdns_query_type,
             packet_ttl,
             loop_handle,
@@ -58,7 +57,7 @@ impl MdnsClientStream {
         E: FromProtoError + 'static,
     {
         Self::new::<E>(
-            SocketAddr::new(*MDNS_IPV6, MDNS_PORT),
+            *MDNS_IPV6,
             mdns_query_type,
             packet_ttl,
             loop_handle,
@@ -73,7 +72,7 @@ impl MdnsClientStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    fn new<E>(
+    pub fn new<E>(
         mdns_addr: SocketAddr,
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
@@ -88,10 +87,9 @@ impl MdnsClientStream {
         let (stream_future, sender) = MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, loop_handle);
 
         let new_future: Box<Future<Item = MdnsClientStream, Error = io::Error>> =
-            Box::new(stream_future.map(move |udp_stream| {
+            Box::new(stream_future.map(move |mdns_stream| {
                 MdnsClientStream {
-                    mdns_addr: mdns_addr,
-                    udp_stream: udp_stream,
+                    mdns_stream: mdns_stream,
                 }
             }));
 
@@ -109,19 +107,10 @@ impl Stream for MdnsClientStream {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        match try_ready!(self.udp_stream.poll()) {
-            Some((buffer, src_addr)) => {
-                if src_addr != self.mdns_addr
-         {
-                    debug!(
-                        "{} does not match mdns_addr
-                : {}",
-                        src_addr,
-                        self.mdns_addr
-                
-                    )
-                }
-
+        match try_ready!(self.mdns_stream.poll()) {
+            Some((buffer, _src_addr)) => {
+                // TODO: for mDNS queries could come from anywhere. It's not clear that there is anything
+                //       we can validate in this case.
                 Ok(Async::Ready(Some(buffer)))
             }
             None => Ok(Async::Ready(None)),
@@ -132,79 +121,26 @@ impl Stream for MdnsClientStream {
 
 #[cfg(test)]
 mod tests {
-    use std::net::{IpAddr, Ipv4Addr};
+    use std::net::{IpAddr, Ipv4Addr, SocketAddr};
     #[cfg(not(target_os = "linux"))]
     use std::net::Ipv6Addr;
 
     use super::*;
+    use super::mdns_stream::tests::*;
 
     #[test]
     fn test_mdns_client_stream_ipv4() {
-        mdns_client_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
+        mdns_client_stream_test(TEST_MDNS_IPV4)
     }
 
     #[test]
     #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
     fn test_mdns_client_stream_ipv6() {
-        mdns_client_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
+        mdns_client_stream_test(TEST_MDNS_IPV6)
     }
 
     #[cfg(test)]
-    fn mdns_client_stream_test(server_addr: IpAddr) {
-        use tokio_core::reactor::Core;
-        use std;
-  
-        let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-        let succeeded_clone = succeeded.clone();
-        std::thread::Builder::new()
-            .name("thread_killer".to_string())
-            .spawn(move || {
-                let succeeded = succeeded_clone.clone();
-                for _ in 0..15 {
-                    std::thread::sleep(std::time::Duration::from_secs(1));
-                    if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
-                        return;
-                    }
-                }
-
-                panic!("timeout");
-            })
-            .unwrap();
-
-        let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
-        server
-            .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-            .unwrap(); // should recieve something within 5 seconds...
-        server
-            .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-            .unwrap(); // should recieve something within 5 seconds...
-        let server_addr = server.local_addr().unwrap();
-
-        let test_bytes: &'static [u8; 8] = b"DEADBEEF";
-        let send_recv_times = 4;
-
-        // an in and out server
-        let server_handle = std::thread::Builder::new()
-            .name("test_mdns_client_stream_ipv4:server".to_string())
-            .spawn(move || {
-                let mut buffer = [0_u8; 512];
-
-                for _ in 0..send_recv_times {
-                    // wait for some bytes...
-                    let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
-
-                    assert_eq!(&buffer[0..len], test_bytes);
-
-                    // bounce them right back...
-                    assert_eq!(
-                        server.send_to(&buffer[0..len], addr).expect("send failed"),
-                        len
-                    );
-                }
-            })
-            .unwrap();
-
-        // setup the client, which is going to run on the testing thread...
+    fn mdns_client_stream_test(mdns_addr: SocketAddr) {
         let mut io_loop = Core::new().unwrap();
 
         // the tests should run within 5 seconds... right?
