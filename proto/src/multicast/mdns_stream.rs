@@ -28,9 +28,9 @@ use error::*;
 pub const MDNS_PORT: u16 = 5353;
 lazy_static! {
     /// mDNS ipv4 address https://www.iana.org/assignments/multicast-addresses/multicast-addresses.xhtml
-    pub static ref MDNS_IPV4: IpAddr = Ipv4Addr::new(224,0,0,251).into();
+    pub static ref MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,251).into(), MDNS_PORT);
     /// link-local mDNS ipv6 address https://www.iana.org/assignments/ipv6-multicast-addresses/ipv6-multicast-addresses.xhtml
-    pub static ref MDNS_IPV6: IpAddr = Ipv6Addr::new(0xFF, 0x02, 0, 0, 0, 0, 0, 0xFB).into();
+    pub static ref MDNS_IPV6: SocketAddr = SocketAddr::new(Ipv6Addr::new(0xFF, 0x02, 0, 0, 0, 0, 0, 0xFB).into(), MDNS_PORT);
 }
 
 /// A UDP stream of DNS binary packets
@@ -51,7 +51,7 @@ impl MdnsStream {
         E: FromProtoError,
     {
         Self::new::<E>(
-            SocketAddr::new(*MDNS_IPV4, MDNS_PORT),
+            *MDNS_IPV4,
             mdns_query_type,
             packet_ttl,
             loop_handle,
@@ -71,17 +71,14 @@ impl MdnsStream {
         E: FromProtoError,
     {
         Self::new::<E>(
-            SocketAddr::new(*MDNS_IPV6, MDNS_PORT),
+            *MDNS_IPV6,
             mdns_query_type,
             packet_ttl,
             loop_handle,
         )
     }
 
-    /// This method is intended for client connections, see `with_bound` for a method better for
-    ///  straight listening. It is expected that the resolver wrapper will be responsible for
-    ///  creating and managing new UdpStreams such that each new client would have a random port
-    ///  (reduce chance of cache poisoning). This will return a randomly assigned local port.
+    /// This method is available for specifying a custom Multicast address to use.
     ///
     /// In general this operates nearly identically to UDP, except that it automatically joins
     ///  the default multicast DNS addresses. See https://tools.ietf.org/html/rfc6762#section-5
@@ -97,7 +94,7 @@ impl MdnsStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub(crate) fn new<E>(
+    pub fn new<E>(
         multicast_addr: SocketAddr,
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
@@ -241,6 +238,8 @@ impl Future for NextRandomUdpSocket {
                     
                     let socket = builder.bind(SocketAddr::new(self.bind_address, MDNS_PORT))?;
                     socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
+                    
+                    // if the TTL is unset, the OS default will be used.
                     if let Some(ttl) = self.packet_ttl {
                         socket.set_ttl(ttl)?;
                         if ttl == 0 {
@@ -261,6 +260,8 @@ impl Future for NextRandomUdpSocket {
              
                     let socket = builder.bind(SocketAddr::new(self.bind_address, MDNS_PORT))?;
                     socket.join_multicast_v6(mdns_v6, 0)?;
+                    
+                    // if the TTL is unset, the OS default will be used.                    
                     if let Some(ttl) = self.packet_ttl {
                         socket.set_ttl(ttl)?;
                         if ttl == 0 {
@@ -314,7 +315,7 @@ impl Future for NextRandomUdpSocket {
 }
 
 #[cfg(test)]
-mod tests {
+pub mod tests {
     use std::process;
     use futures::future::{self, ok, loop_fn, Either, Future, FutureResult, Loop};
     use tokio_core;

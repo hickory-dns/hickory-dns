@@ -234,11 +234,12 @@ extern crate untrusted;
 
 pub mod client;
 pub mod error;
+pub mod multicast;
 pub mod op;
 pub mod rr;
+pub mod serialize;
 pub mod tcp;
 pub mod udp;
-pub mod serialize;
 
 /// A sender to which serialized DNS Messages can be sent
 #[deprecated(note = "use [`trust_dns_proto::BufDnsStreamHandle`] instead")]
