@@ -13,9 +13,7 @@
 // limitations under the License.
 
 use std::sync::Arc;
-use std::io;
 
-use futures::Stream;
 use tokio_core::reactor::{Core, Handle};
 
 use client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
@@ -379,7 +377,6 @@ pub struct SyncClient<CC> {
 impl<CC> SyncClient<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     /// Creates a new DNS client with the specified connection type
     ///
@@ -409,7 +406,6 @@ where
 impl<CC> Client<BasicClientHandle> for SyncClient<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     fn new_future(&self, handle: &Handle) -> ClientResult<BasicClientHandle> {
         let (stream, stream_handle) = self.conn.new_stream(handle)?;
@@ -430,7 +426,6 @@ pub struct SecureSyncClient<CC> {
 impl<CC> SecureSyncClient<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     /// Creates a new DNS client with the specified connection type
     ///
@@ -485,7 +480,6 @@ where
 impl<CC> Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     fn new_future(&self, handle: &Handle) -> ClientResult<SecureClientHandle<BasicClientHandle>> {
         let (stream, stream_handle) = self.conn.new_stream(handle)?;
@@ -499,7 +493,6 @@ where
 pub struct SecureSyncClientBuilder<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     conn: CC,
     trust_anchor: Option<TrustAnchor>,
@@ -510,7 +503,6 @@ where
 impl<CC> SecureSyncClientBuilder<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     /// This variant allows for the trust_anchor to be replaced
     ///

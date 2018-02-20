@@ -15,7 +15,7 @@ use std::sync::Arc;
 use std::time;
 
 use chrono::Duration;
-use futures::{Future, Stream};
+use futures::Future;
 use openssl::rsa::Rsa;
 use tokio_core::reactor::Handle;
 
@@ -100,7 +100,6 @@ fn test_query_tcp() {
 fn test_query<CC>(client: SyncClient<CC>)
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
@@ -157,7 +156,6 @@ fn test_secure_query_example_tcp() {
 fn test_secure_query_example<CC>(client: SecureSyncClient<CC>)
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     let name = Name::from_str("www.example.com").unwrap();
     let response = client.secure_query(&name, DNSClass::IN, RecordType::A);
@@ -189,7 +187,6 @@ where
 fn test_timeout_query<CC>(client: SyncClient<CC>)
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     let name = Name::from_ascii("WWW.example.com").unwrap();
 
@@ -306,7 +303,6 @@ fn test_nsec_query_example_tcp() {
 fn test_nsec_query_example<CC>(client: SecureSyncClient<CC>)
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     let name = Name::from_str("none.example.com").unwrap();
 
