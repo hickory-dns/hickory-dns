@@ -16,7 +16,7 @@
 
 use std::io;
 
-use futures::Future;
+use futures::{Future, Stream};
 use tokio_core::reactor::Handle;
 
 use trust_dns_proto::DnsStreamHandle;
@@ -26,7 +26,7 @@ use error::*;
 /// Trait for client connections
 pub trait ClientConnection: Sized {
     /// The associated DNS Message stream type.
-    type MessageStream;
+    type MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static;
 
     /// Return the inner Futures items
     ///

@@ -69,7 +69,6 @@ fn test_get() {
 fn create_sig0_ready_client<CC>(conn: CC) -> SyncClient<CC>
 where
     CC: ClientConnection,
-    <CC as ClientConnection>::MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
 {
     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
     let mut pem = File::open(format!(
