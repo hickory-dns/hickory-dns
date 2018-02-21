@@ -11,6 +11,7 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::io;
 
 use futures::{Async, Future, Poll};
+use futures::future;
 use futures::stream::Stream;
 use futures::sync::mpsc::unbounded;
 use futures::task;
@@ -35,7 +36,12 @@ lazy_static! {
 
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
-pub struct MdnsStream(UdpStream);
+pub struct MdnsStream{
+    /// This is used for sending and (directly) receiving messages 
+    datagram: Option<UdpStream>,
+    /// In one-shot multicast, this will not join the multicast group
+    multicast: Option<tokio_core::net::UdpSocket>,
+}
 
 impl MdnsStream {
     /// associates the socket to the well-known ipv4 multicast addess
@@ -112,22 +118,31 @@ impl MdnsStream {
             phantom: PhantomData::<E>,
         };
 
+        let multicast_socket = match Self::join_multicast(&multicast_addr, mdns_query_type) {
+            Ok(socket) => socket,
+            Err(err) => return (Box::new(future::err(err)), message_sender),
+        };
+
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
         let next_socket = Self::next_bound_local_address(&multicast_addr, mdns_query_type, packet_ttl);
-
+        
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
         let stream: Box<Future<Item = MdnsStream, Error = io::Error>> = {
             let handle = loop_handle.clone();
+            let handle_clone = loop_handle.clone();
+            
             Box::new(
                 next_socket
-                    .map(move |socket| {
-                        tokio_core::net::UdpSocket::from_socket(socket, &handle)
-                            .expect("something wrong with the handle?")
+                    .map(move |socket: Option<_>| {
+                        socket.map(|socket| tokio_core::net::UdpSocket::from_socket(socket, &handle).expect("bad handle?"))
                     })
-                    .map(move |socket| {
-                        MdnsStream(UdpStream::from_parts(socket, outbound_messages))
+                    .map(move |socket: Option<_>| {
+                        let datagram = socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
+                        let multicast: Option<tokio_core::net::UdpSocket> = multicast_socket.map(|multicast_socket| tokio_core::net::UdpSocket::from_socket(multicast_socket, &handle_clone).expect("bad handle?"));
+
+                        MdnsStream{datagram, multicast}
                     }),
             )
         };
@@ -135,40 +150,47 @@ impl MdnsStream {
         (stream, message_sender)
     }
 
-    /// Initialize the Stream with an already bound socket. Generally this should be only used for
-    ///  server listening sockets. See `new` for a client oriented socket. Specifically, this there
-    ///  is already a bound socket in this context, whereas `new` makes sure to randomize ports
-    ///  for additional cache poison prevention.
-    ///
-    /// # Arguments
-    ///
-    /// * `socket` - an already bound UDP socket
-    /// * `loop_handle` - handle to the IO loop
-    ///
-    /// # Return
-    ///
-    /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
-    ///  handle which can be used to send messages into the stream.
-    pub fn with_bound<E>(
-        socket: std::net::UdpSocket,
-        loop_handle: &Handle,
-    ) -> (Self, BufStreamHandle<E>)
-    where
-        E: FromProtoError + 'static,
-    {
-        let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E> {
-            sender: message_sender,
-            phantom: PhantomData::<E>,
+    /// Returns a socket joined to the multicast address
+    fn join_multicast(
+        multicast_addr: &SocketAddr,
+        mdns_query_type: MdnsQueryType,
+    ) -> Result<Option<std::net::UdpSocket>, io::Error> {
+        if !mdns_query_type.join_multicast() {
+            return Ok(None);
+        }
+
+        let ip_addr = multicast_addr.ip();
+        // it's an error to not use a proper mDNS address
+        if !ip_addr.is_multicast() {
+            return Err(io::Error::new(io::ErrorKind::Other, "expected multicast address for binding"))
+        }
+
+        // binding the UdpSocket to the multicast address tells the OS to filter all packets on thsi socket to just this
+        //   multicast address
+        // TODO: allow the binding interface to be specified
+        let socket = match ip_addr {
+            IpAddr::V4(ref mdns_v4) => {
+                let builder = net2::UdpBuilder::new_v4()?;
+                builder.reuse_address(true)?;
+                
+                let socket = builder.bind(multicast_addr)?;
+                socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
+                
+                socket
+            },
+            IpAddr::V6(ref mdns_v6) => {
+                let builder = net2::UdpBuilder::new_v6()?;
+                builder.reuse_address(true)?;
+                builder.only_v6(true)?;
+             
+                let socket = builder.bind(multicast_addr)?;
+                socket.join_multicast_v6(mdns_v6, 0)?;
+             
+                socket
+            },
         };
 
-        // TODO: consider making this return a Result...
-        let socket = tokio_core::net::UdpSocket::from_socket(socket, loop_handle)
-            .expect("could not register socket to loop");
-
-        let stream = MdnsStream(UdpStream::from_parts(socket, outbound_messages));
-
-        (stream, message_sender)
+        Ok(Some(socket))
     }
 
     /// Creates a future for randomly binding to a local socket address for client connections.
@@ -177,13 +199,9 @@ impl MdnsStream {
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
     ) -> NextRandomUdpSocket {
-        let bind_address: IpAddr = if mdns_query_type.is_one_shot() {
-            match *multicast_addr {
-                SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
-                SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
-            }
-        } else {
-            multicast_addr.ip()
+        let bind_address: IpAddr = match *multicast_addr {
+            SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
+            SocketAddr::V6(..) => IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0)),
         };
 
         NextRandomUdpSocket {
@@ -199,7 +217,29 @@ impl Stream for MdnsStream {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        self.0.poll()
+        assert!(self.datagram.is_some() || self.multicast.is_some());
+        
+        // we poll the datagram socket first, if available, since it's a direct response or direct request
+        if let Some(ref mut datagram) = self.datagram {
+            match datagram.poll() {
+                Ok(Async::Ready(data)) => return Ok(Async::Ready(data)),
+                Err(err) => return Err(err),
+                Ok(Async::NotReady) => (), // drop through
+            }
+        }
+
+        if let Some(ref mut multicast) = self.multicast {
+            let mut buf = [0u8; 2048];
+
+            // TODO: should we drop this packet if it's not from the same src as dest?
+            let (len, src) = try_nb!(multicast.recv_from(&mut buf));
+            // now return the multicast 
+            return Ok(Async::Ready(
+                Some((buf.iter().take(len).cloned().collect(), src)),
+            ));
+        }
+
+        Ok(Async::NotReady)
     }
 }
 
@@ -211,7 +251,7 @@ struct NextRandomUdpSocket {
 }
 
 impl Future for NextRandomUdpSocket {
-    type Item = std::net::UdpSocket;
+    type Item = Option<std::net::UdpSocket>;
     type Error = io::Error;
 
     /// polls until there is an available next random UDP port.
@@ -219,64 +259,14 @@ impl Future for NextRandomUdpSocket {
     /// if there is no port available after 10 attempts, returns NotReady
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // non-one-shot, i.e. continuous, always use one of the well-known mdns ports and bind to the multicast addr
-        if !self.mdns_query_type.is_one_shot() {
-            // it's an error to not use a proper mDNS address
-            if !self.bind_address.is_multicast() {
-                return Err(io::Error::new(io::ErrorKind::Other, "expected multicast address for binding"))
-            }
+        if !self.mdns_query_type.sender() {
+            Ok(Async::Ready(None))
+        } else if self.mdns_query_type.send_on_5353() {
+            let addr = SocketAddr::new(self.bind_address, MDNS_PORT);
+            let socket = std::net::UdpSocket::bind(&addr)?;
 
-            // binding the UdpSocket to the multicast address tells the OS to filter all packets on thsi socket to just this
-            //   multicast address
-            // TODO: allow the binding interface to be specified
-            let socket = match self.bind_address {
-                IpAddr::V4(ref mdns_v4) => {
-                    let builder = net2::UdpBuilder::new_v4()?;
-                    
-                    // because other processes on the machine might be using the same multicast address
-                    //  we need to set
-                    builder.reuse_address(true)?;
-                    
-                    let socket = builder.bind(SocketAddr::new(self.bind_address, MDNS_PORT))?;
-                    socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
-                    
-                    // if the TTL is unset, the OS default will be used.
-                    if let Some(ttl) = self.packet_ttl {
-                        socket.set_ttl(ttl)?;
-                        if ttl == 0 {
-                            // this is probably a test sending to loopback...
-                            socket.set_multicast_loop_v4(true)?;
-                        }
-                    }
-                    
-                    socket
-                },
-                IpAddr::V6(ref mdns_v6) => {
-                    let builder = net2::UdpBuilder::new_v6()?;
-                    
-                    // because other processes on the machine might be using the same multicast address
-                    //  we need to set
-                    builder.reuse_address(true)?;
-                    builder.only_v6(true)?;
-             
-                    let socket = builder.bind(SocketAddr::new(self.bind_address, MDNS_PORT))?;
-                    socket.join_multicast_v6(mdns_v6, 0)?;
-                    
-                    // if the TTL is unset, the OS default will be used.                    
-                    if let Some(ttl) = self.packet_ttl {
-                        socket.set_ttl(ttl)?;
-                        if ttl == 0 {
-                            // this is probably a test sending to loopback...
-                            socket.set_multicast_loop_v6(true)?;
-                        }
-                    }
-             
-                    socket
-                },
-            };
-
-            Ok(Async::Ready(socket))
+            Ok(Async::Ready(Some(socket)))
         } else {
-
             // TODO: this is basically identical to UdpStream from here... share some code? (except for the port restriction)
             // one-shot queries look very similar to UDP socket, but can't listen on 5353
             let between = Range::new(1025_u32, u32::from(u16::max_value()) + 1);
@@ -299,7 +289,7 @@ impl Future for NextRandomUdpSocket {
                         if let Some(ttl) = self.packet_ttl {
                             socket.set_ttl(ttl)?;
                         }
-                        return Ok(Async::Ready(socket))
+                        return Ok(Async::Ready(Some(socket)))
                     },
                     Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
                 }
@@ -316,16 +306,15 @@ impl Future for NextRandomUdpSocket {
 
 #[cfg(test)]
 pub mod tests {
-    use std::process;
-    use futures::future::{self, ok, loop_fn, Either, Future, FutureResult, Loop};
+    use futures::future::{Either, Future};
     use tokio_core;
     use super::*;
 
     lazy_static! {
         /// 250 appears to be unused/unregistered
-        pub static ref TEST_MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,250).into(), MDNS_PORT);
+        static ref TEST_MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,250).into(), MDNS_PORT);
         /// FA appears to be unused/unregistered
-        pub static ref TEST_MDNS_IPV6: SocketAddr = SocketAddr::new(Ipv6Addr::new(0xFF, 0x02, 0, 0, 0, 0, 0, 0xFA).into(), MDNS_PORT);
+        static ref TEST_MDNS_IPV6: SocketAddr = SocketAddr::new(Ipv6Addr::new(0xFF, 0x02, 0, 0, 0, 0, 0, 0xFA).into(), MDNS_PORT);
     }
 
     // one_shot tests are basically clones from the udp tests
@@ -391,13 +380,13 @@ pub mod tests {
                 let mut timeout = tokio_core::reactor::Timeout::new(Duration::from_secs(5), &server_loop.handle()).expect("failed to register timeout");
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
-                let (server_stream_future, server_sender) = MdnsStream::new::<ProtoError>(*TEST_MDNS_IPV4, MdnsQueryType::Continuous, Some(0), &server_loop.handle());
+                let (server_stream_future, server_sender) = MdnsStream::new::<ProtoError>(*TEST_MDNS_IPV4, MdnsQueryType::OneShotJoin, Some(0), &server_loop.handle());
 
-                // For one-shot responses we are competing with a system mDNS responder, we will respond from a different port...
-                let (stream, server_sender) = UdpStream::new::<ProtoError>(SocketAddr::new(Ipv4Addr::new(0,0,0,0).into(), 0), &server_loop.handle());
+                // // For one-shot responses we are competing with a system mDNS responder, we will respond from a different port...
+                // let (stream, server_sender) = UdpStream::new::<ProtoError>(SocketAddr::new(Ipv4Addr::new(0,0,0,0).into(), 0), &server_loop.handle());
                 
-                let sender_stream = server_loop.run(stream).expect("could not create mDNS listener");
-                server_loop.handle().spawn(sender_stream.into_future().map(|_|()).map_err(|_|()));
+                // let sender_stream = server_loop.run(stream).expect("could not create mDNS listener");
+                // server_loop.handle().spawn(sender_stream.into_future().map(|_|()).map_err(|_|()));
                 let mut server_stream = server_loop.run(server_stream_future).expect("could not create mDNS listener");
 
                 for _ in 0..(send_recv_times + 1) {
