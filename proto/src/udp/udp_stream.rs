@@ -128,12 +128,13 @@ impl UdpStream {
 
     pub(crate) fn from_parts(
         socket: tokio_core::net::UdpSocket,
-        outbound_messages: UnboundedReceiver<(Vec<u8>, SocketAddr)>) -> Self {
-            UdpStream {
+        outbound_messages: UnboundedReceiver<(Vec<u8>, SocketAddr)>) -> Self
+    {
+        UdpStream {
             socket: socket,
             outbound_messages: outbound_messages.fuse().peekable(),
         }
-        }
+    }
 
     /// Creates a future for randomly binding to a local socket address for client connections.
     fn next_bound_local_address(name_server: &SocketAddr) -> NextRandomUdpSocket {

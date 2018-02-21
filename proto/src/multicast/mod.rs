@@ -19,16 +19,50 @@ pub enum MdnsQueryType {
     /// The querier using this socket will only perform standard DNS queries over multicast. (clients only)
     ///
     /// Effectively treats mDNS as essentially no different than any other DNS query; one request followed by one response.
+    ///   Only one UDP socket will be created.
     OneShot,
-    /// The querier is fully compliant with [rfc6762](https://tools.ietf.org/html/rfc6762#section-5). (servers, clients optional)
+    /// The querier is fully compliant with [rfc6762](https://tools.ietf.org/html/rfc6762#section-5). (servers, clients)
     ///
-    /// mDNS capable clients will sent messages with many queries, and they will expect many responses.
+    /// mDNS capable clients will sent messages with many queries, and they will expect many responses. Two UDP sockets will be
+    ///   created, one for recieving multicast traffic, the other used for sending queries and direct responses. This requires
+    ///   port 5353 to be available on the system (many modern OSes already have mDNSResponders running taking this port).
     Continuous,
+    /// The querier operates under the OneShot semantics, but also joins the multicast group. (non-compliant servers, clients)
+    /// 
+    /// This is not defined in the mDNS RFC, but allows for a multicast client to join the group, receiving all multicast network
+    ///   traffic. This is useful where listening for all mDNS traffic is of interest, but because another mDNS process may have
+    ///   already taken the known port, 5353. Query responses will come from and to the standard UDP socket with a random port, 
+    ///   multicast traffic will come from the multicast socket. This will create two sockets.
+    OneShotJoin,
+    /// The querier operates under the OneShot semantics, but also joins the multicast group. (servers)
+    ///
+    /// Not defined in the RFC, allows for a passive listener to receive all mDNS traffic.
+    Passive,
 }
 
 impl MdnsQueryType {
+    /// This will be sending packets, i.e. a standard UDP socket will be created
+    pub fn sender(&self) -> bool {
+        match *self {
+            MdnsQueryType::Passive => false,
+            MdnsQueryType::OneShot | MdnsQueryType::OneShotJoin => true,
+            MdnsQueryType::Continuous => true,
+        }
+    }
+
     /// Returns true if the MdnsQueryType is OneShot, false otherwise
-    pub fn is_one_shot(&self) -> bool {
-        *self == MdnsQueryType::OneShot
+    pub fn send_on_5353(&self) -> bool {
+        match *self {
+            MdnsQueryType::OneShot | MdnsQueryType::OneShotJoin | MdnsQueryType::Passive => false,
+            MdnsQueryType::Continuous => true,
+        }
+    }
+    
+    /// Returns true if this mDNS client should join, listen, on the multicast address
+    pub fn join_multicast(&self) -> bool {
+        match *self {
+            MdnsQueryType::OneShot  => false,
+            MdnsQueryType::Continuous | MdnsQueryType::OneShotJoin | MdnsQueryType::Passive => true,
+        }
     }
 }
