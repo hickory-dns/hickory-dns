@@ -103,24 +103,6 @@ fn test_query_tcp_ipv6() {
     io_loop.run(test_query(&mut client)).unwrap();
 }
 
-#[test]
-fn test_query_mdns_ipv4() {
-    use trust_dns::multicast::MdnsClientStream;
-    use trust_dns::multicast::MdnsQueryType;
-
-    let mut io_loop = Core::new().unwrap();
-    //let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = MdnsClientStream::new_ipv4(MdnsQueryType::OneShot, None, &io_loop.handle());
-    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
-
-    // A PTR request is the DNS-SD method for doing a directory listing...
-    let name = Name::from_ascii("_http._tcp.local.").unwrap();
-    let future = client.query(name.clone(), DNSClass::IN, RecordType::PTR);
-
-    let message = io_loop.run(future).expect("mdns query failed");
-    println!("message: {:#?}", message);
-}
-
 #[cfg(test)]
 fn test_query(client: &mut BasicClientHandle) -> Box<Future<Item = (), Error = ()>> {
     let name = Name::from_ascii("WWW.example.com").unwrap();
