@@ -407,12 +407,16 @@ pub mod tests {
                             server_sender
                                 .unbounded_send((test_bytes.to_vec(), addr))
                                 .expect("could not send to client");
+
                         }
                         _ => {
                             println!("server stream timedout");
                             return
                         }
                     }
+
+                    // let the server turn for a bit... send the message
+                    server_loop.turn(Some(Duration::from_millis(100)));
                 }
             })
             .unwrap();
