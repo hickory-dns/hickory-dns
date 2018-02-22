@@ -22,6 +22,7 @@ use rr::domain::Name;
 
 /// [RFC 2782, DNS SRV RR, February 2000](https://tools.ietf.org/html/rfc2782)
 ///
+/// ```text
 /// Introductory example
 ///
 ///  If a SRV-cognizant LDAP client wants to discover a LDAP server that
