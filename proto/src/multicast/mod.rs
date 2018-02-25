@@ -50,8 +50,8 @@ impl MdnsQueryType {
         }
     }
 
-    /// Returns true if the MdnsQueryType is OneShot, false otherwise
-    pub fn send_on_5353(&self) -> bool {
+    /// Returns true if this process can bind to *:5353
+    pub fn bind_on_5353(&self) -> bool {
         match *self {
             MdnsQueryType::OneShot | MdnsQueryType::OneShotJoin | MdnsQueryType::Passive => false,
             MdnsQueryType::Continuous => true,
