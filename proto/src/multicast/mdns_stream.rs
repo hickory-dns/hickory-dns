@@ -15,7 +15,7 @@ use futures::future;
 use futures::stream::Stream;
 use futures::sync::mpsc::unbounded;
 use futures::task;
-use net2;
+use net2::{self, UdpSocketExt};
 use rand;
 use rand::distributions::{IndependentSample, Range};
 use tokio_core;
@@ -191,7 +191,8 @@ impl MdnsStream {
                 socket
             },
         };
-
+        
+        debug!("joined {}", multicast_addr);
         Ok(Some(socket))
     }
 
@@ -262,9 +263,11 @@ impl Future for NextRandomUdpSocket {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         // non-one-shot, i.e. continuous, always use one of the well-known mdns ports and bind to the multicast addr
         if !self.mdns_query_type.sender() {
+            debug!("skipping sending stream");
             Ok(Async::Ready(None))
         } else if self.mdns_query_type.bind_on_5353() {
             let addr = SocketAddr::new(self.bind_address, MDNS_PORT);
+            debug!("binding sending stream to {}", addr);
             let socket = std::net::UdpSocket::bind(&addr)?;
 
             Ok(Async::Ready(Some(socket)))
@@ -293,6 +296,7 @@ impl Future for NextRandomUdpSocket {
                         match addr {
                             SocketAddr::V4(..) => {
                                 socket.set_multicast_loop_v4(true)?;
+                                socket.set_multicast_if_v4(&Ipv4Addr::new(0, 0, 0, 0))?;
                                 if let Some(ttl) = self.packet_ttl {
                                     socket.set_ttl(ttl)?;
                                     socket.set_multicast_ttl_v4(ttl)?;
@@ -300,14 +304,17 @@ impl Future for NextRandomUdpSocket {
                             },
                             SocketAddr::V6(..) => {
                                 socket.set_multicast_loop_v6(true)?;
-                                // TODO: setting TTL fails on macOS in ipv6
-                                // if let Some(ttl) = self.packet_ttl {
-                                //     socket.set_ttl(ttl)?;                                
-                                // } 
+                                socket.set_multicast_if_v6(5)?;
+                                if let Some(ttl) = self.packet_ttl {
+                                    socket.set_unicast_hops_v6(ttl)?;
+                                    socket.set_multicast_hops_v6(ttl)?;
+                                } 
 
                             },
                         
                         }
+
+                        debug!("binding sending stream to {}", addr);
                         return Ok(Async::Ready(Some(socket)))
                     },
                     Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
@@ -369,9 +376,14 @@ pub mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn one_shot_mdns_test(mdns_addr: SocketAddr) {
+        extern crate env_logger;
+        
         use tokio_core::reactor::{Core, Timeout};
         use std;
         use std::time::Duration;
+        
+        
+        env_logger::init();
 
         let client_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         

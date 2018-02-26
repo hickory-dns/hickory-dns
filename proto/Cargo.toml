@@ -54,7 +54,7 @@ futures = "^0.1.17"
 idna = "^0.1.4"
 lazy_static = "^1.0"
 log = "^0.4.1"
-net2 = "^0.2.31"
+net2 = { version = "^0.2.31", path = "../../net2-rs" }
 openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
 rand = "^0.4"
 ring = { version = "^0.12", optional = true }
@@ -62,3 +62,6 @@ tokio-core = "^0.1"
 tokio-io = "^0.1"
 untrusted = { version = "^0.5", optional = true }
 url = "1.6.0"
+
+[dev-dependencies]
+env_logger = "^0.5"
