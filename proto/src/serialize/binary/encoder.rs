@@ -40,7 +40,7 @@ impl<'a> BinEncoder<'a> {
     ///
     /// # Arguments
     ///
-    /// * `mode` - In Signing mode, it canonical forms of all data are encoded, otherwise format matches the source form
+    /// * `mode` - In Signing mode, canonical forms of all data are encoded, otherwise format matches the source form
     pub fn with_mode(buf: &'a mut Vec<u8>, mode: EncodeMode) -> Self {
         Self::with_offset(buf, 0, mode)
     }

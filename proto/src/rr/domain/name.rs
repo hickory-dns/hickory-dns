@@ -1323,4 +1323,16 @@ mod tests {
         assert_eq!(Name::from_utf8("WWW.example.COM.").unwrap().to_ascii(), "www.example.com.");
         assert_eq!(Name::from_ascii("WWW.example.COM.").unwrap().to_utf8(), "WWW.example.COM.");
     }
+
+    #[test]
+    fn test_excessive_encoding_len() {
+        // u16 max value is where issues start being tickled...
+        let mut buf = Vec::with_capacity(u16::max_value() as usize);
+        let mut encoder = BinEncoder::new(&mut buf);
+
+        for i in 0..10000 {
+           let name = Name::from_ascii(format!("name{}.example.com.", i)).unwrap();
+           name.emit(&mut encoder).expect("failed to encode name");
+        } 
+    }
 }
