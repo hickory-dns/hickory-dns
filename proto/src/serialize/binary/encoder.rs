@@ -13,8 +13,9 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use byteorder::{ByteOrder, NetworkEndian};
 use std::marker::PhantomData;
+
+use byteorder::{ByteOrder, NetworkEndian};
 
 use error::{ProtoErrorKind, ProtoResult};
 
@@ -23,6 +24,7 @@ use super::BinEncodable;
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder<'a> {
     offset: usize,
+    max_size: usize,
     buffer: &'a mut Vec<u8>,
     /// start and end of label pointers, smallvec here?
     name_pointers: Vec<(usize, usize)>, 
@@ -55,13 +57,27 @@ impl<'a> BinEncoder<'a> {
     ///
     /// * `offset` - index at which to start writing into the buffer
     pub fn with_offset(buf: &'a mut Vec<u8>, offset: u32, mode: EncodeMode) -> Self {
+        if buf.capacity() < 512 {
+            let reserve = 512 - buf.capacity();
+            buf.reserve(reserve);
+        }
+
         BinEncoder {
             offset: offset as usize,
+            // FIXME: add max_size to signature
+            max_size: u16::max_value() as usize,
             buffer: buf,
             name_pointers: Vec::new(),
             mode: mode,
             canonical_names: false,
         }
+    }
+
+    /// Sets the maximum size of the buffer
+    ///
+    /// DNS message lens must be smaller than u16::max_value due to hard limits in the protocol
+    pub fn set_max_size(&mut self, max: u16) {
+        self.max_size = max as usize;
     }
 
     /// Returns a reference to the internal buffer
@@ -104,11 +120,9 @@ impl<'a> BinEncoder<'a> {
         self.canonical_names
     }
 
-    /// Reserve specified length in the internal buffer.
-    pub fn reserve(&mut self, len: usize) {
-        if self.buffer.capacity() - self.buffer.len() < len {
-            self.buffer.reserve(512.max(len));
-        }
+    /// Reserve specified additional length in the internal buffer.
+    pub fn reserve(&mut self, additional: usize) {
+        self.buffer.reserve(additional);
     }
 
     /// trims to the current offset
@@ -118,6 +132,18 @@ impl<'a> BinEncoder<'a> {
         self.name_pointers.retain(|&(start, end)| start < offset && end <= offset);
     }
 
+    /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
+    ///
+    /// and reserves the additional space in the buffer
+    fn enforce_size(&mut self, additional: usize) -> ProtoResult<()> {
+        if (self.buffer.len() + additional) > self.max_size {
+            Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into())
+        } else {
+            self.reserve(additional);
+            Ok(())
+        }
+    }
+
     /// Emit one byte into the buffer
     pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
         if self.offset < self.buffer.len() {
@@ -125,6 +151,7 @@ impl<'a> BinEncoder<'a> {
                 .get_mut(self.offset)
                 .expect("could not get index at offset") = b;
         } else {
+            self.enforce_size(1)?;
             self.buffer.push(b);
         }
         self.offset += 1;
@@ -183,10 +210,10 @@ impl<'a> BinEncoder<'a> {
         if char_bytes.len() > 255 {
             return Err(ProtoErrorKind::CharacterDataTooLong(char_bytes.len()).into());
         }
-        self.reserve(char_bytes.len() + 1); // reserve the full space for the string and length marker
+
+        // first the length is written
         self.emit(char_bytes.len() as u8)?;
-        self.write_slice(char_bytes);
-        Ok(())
+        self.write_slice(char_bytes)
     }
 
     /// Emit one byte into the buffer
@@ -200,8 +227,7 @@ impl<'a> BinEncoder<'a> {
         {
             NetworkEndian::write_u16(&mut bytes, data);
         }
-        self.write_slice(&bytes);
-        Ok(())
+        self.write_slice(&bytes)
     }
 
     /// Writes an i32 in network byte order to the buffer
@@ -210,8 +236,7 @@ impl<'a> BinEncoder<'a> {
         {
             NetworkEndian::write_i32(&mut bytes, data);
         }
-        self.write_slice(&bytes);
-        Ok(())
+        self.write_slice(&bytes)
     }
 
     /// Writes an u32 in network byte order to the buffer
@@ -220,11 +245,10 @@ impl<'a> BinEncoder<'a> {
         {
             NetworkEndian::write_u32(&mut bytes, data);
         }
-        self.write_slice(&bytes);
-        Ok(())
+        self.write_slice(&bytes)
     }
 
-    fn write_slice(&mut self, data: &[u8]) {
+    fn write_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
         // replacement case, the necessary space should have been reserved already...
         if self.offset < self.buffer.len() {
             for b in data {
@@ -234,15 +258,17 @@ impl<'a> BinEncoder<'a> {
                 self.offset += 1;
             }
         } else {
+            self.enforce_size(data.len())?;
             self.buffer.extend_from_slice(data);
             self.offset += data.len();
         }
+
+        Ok(())
     }
 
     /// Writes the byte slice to the stream
     pub fn emit_vec(&mut self, data: &[u8]) -> ProtoResult<()> {
-        self.write_slice(data);
-        Ok(())
+        self.write_slice(data)
     }
 
     /// Emits all the elements of an Iterator to the encoder
@@ -270,20 +296,22 @@ impl<'a> BinEncoder<'a> {
     }
 
     /// capture a location to write back to
-    pub fn place<T: EncodedSize>(&mut self) -> Place<T> {
+    pub fn place<T: EncodedSize>(&mut self) -> ProtoResult<Place<T>> {
         let index = self.offset;
         let len = T::size_of();
  
+        self.enforce_size(len)?;
+
         // resize the buffer
         self.buffer.resize(index + len, 0);
 
         // update the offset
         self.offset += len;
 
-        Place {
+        Ok(Place {
             start_index: index,
             phantom: PhantomData,
-        }
+        })
     }
 
     /// calculates the length of data written since the place was creating
@@ -387,7 +415,7 @@ mod tests {
         let mut buf = vec![];
         {
             let mut encoder = BinEncoder::new(&mut buf);
-            let place = encoder.place::<u16>();
+            let place = encoder.place::<u16>().unwrap();
             assert_eq!(place.size_of(), 2);
             assert_eq!(encoder.len_since_place(&place), 0);
 

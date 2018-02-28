@@ -234,7 +234,7 @@ impl BinEncodable for Record {
         encoder.emit_u32(self.ttl)?;
 
         // place the RData length
-        let place = encoder.place::<u16>();
+        let place = encoder.place::<u16>()?;
 
         // write the RData
         self.rdata.emit(encoder)?;

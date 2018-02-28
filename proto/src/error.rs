@@ -151,6 +151,11 @@ error_chain! {
         description("rrsigs are not present for record set")
         display("rrsigs are not present for record set name: {} record_type: {}", name, record_type)
       }
+
+      MaxBufferSizeExceeded(size: usize) {
+        description("maximum buffer size exceeded")
+        display("maximum buffer size exceeded: {}", size)
+      }
     }
 }
 
@@ -256,6 +261,9 @@ impl Clone for ProtoErrorKind {
             ProtoErrorKind::SSL => ProtoErrorKind::SSL,
             ProtoErrorKind::RrsigsNotPresent(ref name, ref record_type) => {
                 ProtoErrorKind::RrsigsNotPresent(name.clone(), *record_type)
+            }
+            ProtoErrorKind::MaxBufferSizeExceeded(ref max) => {
+                ProtoErrorKind::MaxBufferSizeExceeded(*max)
             }
         }
     }
