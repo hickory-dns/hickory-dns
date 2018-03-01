@@ -21,11 +21,74 @@ use error::{ProtoErrorKind, ProtoResult};
 
 use super::BinEncodable;
 
+// this is private to make sure there is no accidental access to the inner buffer.
+mod private {
+    use error::{ProtoErrorKind, ProtoResult};
+
+    /// A wrapper for a buffer that guarantees writes never exceed a defined set of bytes
+    pub struct MaximalBuf<'a> {
+        max_size: usize,
+        buffer: &'a mut Vec<u8>
+    }
+
+    impl<'a> MaximalBuf<'a> {
+        pub fn new(max_size: u16, buffer: &'a mut Vec<u8>) -> Self {
+           MaximalBuf {
+               max_size: max_size as usize,
+               buffer,
+           }
+        }
+
+        /// Sets the maximum size to enforce
+        pub fn set_max_size(&mut self, max: u16) {
+            self.max_size = max as usize;
+        }
+
+        /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
+        ///
+        /// and reserves the additional space in the buffer
+        pub fn enforced_write<F>(&mut self, additional: usize, writer: F) -> ProtoResult<()>
+        where F: FnOnce(&mut Vec<u8>) -> ()
+        {
+            let expected_len = self.buffer.len() + additional;
+
+            if expected_len > self.max_size {
+                Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into())
+            } else {
+                self.buffer.reserve(additional);
+                writer(self.buffer);
+
+                debug_assert_eq!(self.buffer.len(), expected_len);
+                Ok(())
+            }
+        }
+
+        /// truncates are always safe
+        pub fn truncate(&mut self, len: usize) {
+            self.buffer.truncate(len)
+        }
+ 
+        /// returns the length of the underlying buffer
+        pub fn len(&self) -> usize {
+            self.buffer.len()
+        }
+
+        /// Immutable reads are always safe
+        pub fn buffer(&'a self) -> &'a [u8] {
+            self.buffer as &'a [u8]
+        }
+
+        /// Returns a reference to the internal buffer
+        pub fn into_bytes(self) -> &'a Vec<u8> {
+            self.buffer
+        }
+    }
+}
+
 /// Encode DNS messages and resource record types.
 pub struct BinEncoder<'a> {
     offset: usize,
-    max_size: usize,
-    buffer: &'a mut Vec<u8>,
+    buffer: private::MaximalBuf<'a>,
     /// start and end of label pointers, smallvec here?
     name_pointers: Vec<(usize, usize)>, 
     mode: EncodeMode,
@@ -65,24 +128,26 @@ impl<'a> BinEncoder<'a> {
         BinEncoder {
             offset: offset as usize,
             // FIXME: add max_size to signature
-            max_size: u16::max_value() as usize,
-            buffer: buf,
+            buffer: private::MaximalBuf::new(u16::max_value(), buf),
             name_pointers: Vec::new(),
             mode: mode,
             canonical_names: false,
         }
     }
 
+    // TODO: move to constructor (kept for backward compatibility)
     /// Sets the maximum size of the buffer
     ///
     /// DNS message lens must be smaller than u16::max_value due to hard limits in the protocol
+    ///
+    /// *this method will move to the constructor in a future release*
     pub fn set_max_size(&mut self, max: u16) {
-        self.max_size = max as usize;
+        self.buffer.set_max_size(max);
     }
 
     /// Returns a reference to the internal buffer
     pub fn into_bytes(self) -> &'a Vec<u8> {
-        self.buffer
+        self.buffer.into_bytes()
     }
 
     /// Returns the length of the buffer
@@ -92,7 +157,7 @@ impl<'a> BinEncoder<'a> {
 
     /// Returns `true` if the buffer is empty
     pub fn is_empty(&self) -> bool {
-        self.buffer.is_empty()
+        self.buffer.buffer().is_empty()
     }
 
     /// Returns the current offset into the buffer
@@ -120,49 +185,36 @@ impl<'a> BinEncoder<'a> {
         self.canonical_names
     }
 
+    // TODO: deprecate this...
     /// Reserve specified additional length in the internal buffer.
-    pub fn reserve(&mut self, additional: usize) {
-        self.buffer.reserve(additional);
+    pub fn reserve(&mut self, _additional: usize) -> ProtoResult<()> {
+        Ok(())
     }
 
     /// trims to the current offset
     pub fn trim(&mut self) {
         let offset = self.offset;
-        self.buffer.truncate(offset as usize);
+        self.buffer.truncate(offset);
         self.name_pointers.retain(|&(start, end)| start < offset && end <= offset);
     }
 
-    /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
-    ///
-    /// and reserves the additional space in the buffer
-    fn enforce_size(&mut self, additional: usize) -> ProtoResult<()> {
-        if (self.buffer.len() + additional) > self.max_size {
-            Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into())
-        } else {
-            self.reserve(additional);
-            Ok(())
-        }
-    }
-
-    /// Emit one byte into the buffer
-    pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
-        if self.offset < self.buffer.len() {
-            *self.buffer
-                .get_mut(self.offset)
-                .expect("could not get index at offset") = b;
-        } else {
-            self.enforce_size(1)?;
-            self.buffer.push(b);
-        }
-        self.offset += 1;
-        Ok(())
-    }
+    // /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
+    // ///
+    // /// and reserves the additional space in the buffer
+    // fn enforce_size(&mut self, additional: usize) -> ProtoResult<()> {
+    //     if (self.buffer.len() + additional) > self.max_size {
+    //         Err(ProtoErrorKind::MaxBufferSizeExceeded(self.max_size).into())
+    //     } else {
+    //         self.reserve(additional);
+    //         Ok(())
+    //     }
+    // }
 
     /// borrow a slice from the encoder
     pub fn slice_of(&self, start: usize, end: usize) -> &[u8] {
         assert!(start < self.offset);
         assert!(end <= self.buffer.len());
-        &self.buffer[start..end]
+        &self.buffer.buffer()[start..end]
     }
 
     /// Stores a label pointer to an already written label
@@ -191,6 +243,21 @@ impl<'a> BinEncoder<'a> {
         }
         
         None
+    }
+
+    /// Emit one byte into the buffer
+    pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
+        if self.offset < self.buffer.len() {
+            let offset = self.offset;
+            self.buffer.enforced_write(0, |buffer|
+            *buffer
+                .get_mut(offset)
+                .expect("could not get index at offset") = b)?;
+        } else {
+            self.buffer.enforced_write(1, |buffer| buffer.push(b))?;
+        }
+        self.offset += 1;
+        Ok(())
     }
 
     /// matches description from above.
@@ -251,15 +318,21 @@ impl<'a> BinEncoder<'a> {
     fn write_slice(&mut self, data: &[u8]) -> ProtoResult<()> {
         // replacement case, the necessary space should have been reserved already...
         if self.offset < self.buffer.len() {
+            let offset = self.offset;
+        
+            self.buffer.enforced_write(0, |buffer| {
+                let mut offset = offset;
             for b in data {
-                *self.buffer
-                  .get_mut(self.offset)
+                    *buffer
+                        .get_mut(offset)
                   .expect("could not get index at offset for slice") = *b;
-                self.offset += 1;
+                    offset += 1;
             }
+            })?;
+
+            self.offset += data.len();
         } else {
-            self.enforce_size(data.len())?;
-            self.buffer.extend_from_slice(data);
+            self.buffer.enforced_write(data.len(), |buffer| buffer.extend_from_slice(data))?;
             self.offset += data.len();
         }
 
@@ -300,10 +373,8 @@ impl<'a> BinEncoder<'a> {
         let index = self.offset;
         let len = T::size_of();
  
-        self.enforce_size(len)?;
-
         // resize the buffer
-        self.buffer.resize(index + len, 0);
+        self.buffer.enforced_write(len, |buffer| buffer.resize(index + len, 0))?;
 
         // update the offset
         self.offset += len;
@@ -356,6 +427,7 @@ impl EncodedSize for u16 {
     }
 }
 
+#[derive(Debug)]
 #[must_use = "data must be written back to the place"]
 pub struct Place<T: EncodedSize> {
     start_index: usize,
@@ -437,5 +509,55 @@ mod tests {
         let written = decoder.read_u16().expect("cound not read u16");
 
         assert_eq!(written, 4);
+    }
+
+    #[test]
+    fn test_max_size() {
+        let mut buf = vec![];
+        let mut encoder = BinEncoder::new(&mut buf);
+
+        encoder.set_max_size(5);
+        encoder.emit(0).expect("failed to write");
+        encoder.emit(1).expect("failed to write");
+        encoder.emit(2).expect("failed to write");
+        encoder.emit(3).expect("failed to write");
+        encoder.emit(4).expect("failed to write");
+        let error = encoder.emit(5).unwrap_err();
+
+        match error.into_kind() {
+            ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
+            _ => assert!(false),
+        }
+    }
+
+    #[test]
+    fn test_max_size_0() {
+        let mut buf = vec![];
+        let mut encoder = BinEncoder::new(&mut buf);
+
+        encoder.set_max_size(0);
+        let error = encoder.emit(0).unwrap_err();
+
+        match error.into_kind() {
+            ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
+            _ => assert!(false),
+        }
+    }
+
+    #[test]
+    fn test_max_size_place() {
+        let mut buf = vec![];
+        let mut encoder = BinEncoder::new(&mut buf);
+
+        encoder.set_max_size(2);
+        let place = encoder.place::<u16>().expect("place failed");
+        place.replace(&mut encoder, 16).expect("placeback failed");
+
+        let error = encoder.place::<u16>().unwrap_err();
+
+        match error.into_kind() {
+            ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
+            _ => assert!(false),
+        }
     }
 }

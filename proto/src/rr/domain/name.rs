@@ -1326,13 +1326,25 @@ mod tests {
 
     #[test]
     fn test_excessive_encoding_len() {
+        use error::ProtoErrorKind;
+
         // u16 max value is where issues start being tickled...
         let mut buf = Vec::with_capacity(u16::max_value() as usize);
         let mut encoder = BinEncoder::new(&mut buf);
 
+        let mut result = Ok(());
         for i in 0..10000 {
            let name = Name::from_ascii(format!("name{}.example.com.", i)).unwrap();
-           name.emit(&mut encoder).expect("failed to encode name");
-        } 
+           result = name.emit(&mut encoder);
+           if let Err(..) = result {
+               break
+           }
+        }
+
+        assert!(result.is_err());
+        match result.unwrap_err().into_kind() {
+            ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
+            _ => assert!(false),
+        }
     }
 }
