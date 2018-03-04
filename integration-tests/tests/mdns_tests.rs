@@ -1,3 +1,5 @@
+#![cfg(feature = "mdns")]
+
 extern crate chrono;
 extern crate futures;
 #[macro_use]
@@ -37,7 +39,7 @@ lazy_static! {
 }
 
 
-fn mdns_responsder(test_name: &'static str, client_done: Arc<AtomicBool>) -> JoinHandle<()> {
+fn mdns_responsder(test_name: &'static str, client_done: Arc<AtomicBool>, mdns_addr: SocketAddr) -> JoinHandle<()> {
     std::thread::Builder::new()
         .name(format!("{}:server", test_name))
         .spawn(move || {
@@ -47,10 +49,13 @@ fn mdns_responsder(test_name: &'static str, client_done: Arc<AtomicBool>) -> Joi
             // a max time for the test to run
             let mut timeout = Timeout::new(Duration::from_millis(100), &io_loop.handle()).expect("failed to register timeout");
             
+            // FIXME: ipv6 if is hardcoded, need a different strategy
             let (mdns_stream, mdns_handle) = MdnsStream::new::<ClientError>(
-                *TEST_MDNS_IPV4,
+                mdns_addr,
                 MdnsQueryType::OneShotJoin,
                 Some(0),
+                None,
+                Some(5),
                 &io_loop.handle(),
             );
 
@@ -86,10 +91,31 @@ fn mdns_responsder(test_name: &'static str, client_done: Arc<AtomicBool>) -> Joi
 #[test]
 fn test_query_mdns_ipv4() {
     let client_done = Arc::new(AtomicBool::new(false));
-    let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone());
+    let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), *TEST_MDNS_IPV4);
     let mut io_loop = Core::new().unwrap();
     //let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = MdnsClientStream::new(*TEST_MDNS_IPV4, MdnsQueryType::OneShot, None, &io_loop.handle());
+    let (stream, sender) = MdnsClientStream::new(*TEST_MDNS_IPV4, MdnsQueryType::OneShot, None, None, None, &io_loop.handle());
+    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+
+    // A PTR request is the DNS-SD method for doing a directory listing...
+    let name = Name::from_ascii("_dns._udp.local.").unwrap();
+    let future = client.query(name.clone(), DNSClass::IN, RecordType::PTR);
+
+    let message = io_loop.run(future).expect("mdns query failed");
+    
+    client_done.store(true, Ordering::Relaxed);
+    
+    println!("message: {:#?}", message);
+}
+
+#[test]
+fn test_query_mdns_ipv6() {
+    let client_done = Arc::new(AtomicBool::new(false));
+    let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), *TEST_MDNS_IPV6);
+    let mut io_loop = Core::new().unwrap();
+    
+    // FIXME: ipv6 if is hardcoded...
+    let (stream, sender) = MdnsClientStream::new(*TEST_MDNS_IPV6, MdnsQueryType::OneShot, None, None, Some(5), &io_loop.handle());
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     // A PTR request is the DNS-SD method for doing a directory listing...

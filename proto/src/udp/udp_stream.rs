@@ -126,6 +126,7 @@ impl UdpStream {
         (stream, message_sender)
     }
 
+    #[allow(unused)]
     pub(crate) fn from_parts(
         socket: tokio_core::net::UdpSocket,
         outbound_messages: UnboundedReceiver<(Vec<u8>, SocketAddr)>) -> Self

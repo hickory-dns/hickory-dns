@@ -39,6 +39,9 @@ dnssec-openssl = ["dnssec", "openssl"]
 dnssec-ring = ["dnssec", "ring", "untrusted"]
 dnssec = ["data-encoding"]
 
+# enables experimental the mDNS (multicast) feature
+mdns = []
+
 # WARNING: there is a bug in the mutual tls auth code at the moment see issue #100
 # mtls = ["tls"]
 
@@ -54,7 +57,7 @@ futures = "^0.1.17"
 idna = "^0.1.4"
 lazy_static = "^1.0"
 log = "^0.4.1"
-net2 = { version = "^0.2.31", path = "../../net2-rs" }
+net2 = "^0.2.32"
 openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
 rand = "^0.4"
 ring = { version = "^0.12", optional = true }

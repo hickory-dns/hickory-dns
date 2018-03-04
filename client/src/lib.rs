@@ -234,6 +234,7 @@ extern crate untrusted;
 
 pub mod client;
 pub mod error;
+#[cfg(feature = "mdns")]
 pub mod multicast;
 pub mod op;
 pub mod rr;
