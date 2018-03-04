@@ -43,6 +43,7 @@ use futures::sync::mpsc::{SendError, UnboundedSender};
 
 mod dns_handle;
 pub mod error;
+#[cfg(feature = "mdns")]
 pub mod multicast;
 pub mod op;
 pub mod rr;

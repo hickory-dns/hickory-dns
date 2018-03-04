@@ -44,6 +44,9 @@ dnssec-openssl = ["dnssec", "openssl", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "ring", "trust-dns-proto/dnssec-ring", "untrusted"]
 dnssec = []
 
+# enables experimental the mDNS (multicast) feature
+mdns = ["trust-dns-proto/mdns"]
+
 [lib]
 name = "trust_dns"
 path = "src/lib.rs"

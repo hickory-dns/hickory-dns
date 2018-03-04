@@ -8,7 +8,7 @@
 //! MDNS based DNS client connection for Client impls
 
 use std::io;
-use std::net::SocketAddr;
+use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::Future;
 use tokio_core::reactor::Handle;
@@ -26,26 +26,34 @@ use multicast::{MdnsClientStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6};
 pub struct MdnsClientConnection {
     multicast_addr: SocketAddr,
     packet_ttl: Option<u32>,
+    ipv4_if: Option<Ipv4Addr>,
+    ipv6_if: Option<u32>,
 }
 
 impl MdnsClientConnection {
     /// associates the socket to the well-known ipv4 multicast addess
     pub fn new_ipv4(
         packet_ttl: Option<u32>,
+        ipv4_if: Option<Ipv4Addr>,
     ) -> Self {
         MdnsClientConnection { 
             multicast_addr: *MDNS_IPV4,
             packet_ttl,
+            ipv4_if,
+            ipv6_if: None,
         }
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
     pub fn new_ipv6(
         packet_ttl: Option<u32>,
+        ipv6_if: Option<u32>,
     ) -> Self {
         MdnsClientConnection { 
             multicast_addr: *MDNS_IPV6,
             packet_ttl,
+            ipv4_if: None,
+            ipv6_if,
         }
     }
 }
@@ -62,7 +70,7 @@ impl ClientConnection for MdnsClientConnection {
             Box<DnsStreamHandle<Error = ClientError>>,
         ),
     > {
-        let (mdns_client_stream, handle) = MdnsClientStream::new(self.multicast_addr, MdnsQueryType::OneShot, self.packet_ttl, handle);
+        let (mdns_client_stream, handle) = MdnsClientStream::new(self.multicast_addr, MdnsQueryType::OneShot, self.packet_ttl,self.ipv4_if, self.ipv6_if, handle);
 
         Ok((mdns_client_stream, handle))
     }

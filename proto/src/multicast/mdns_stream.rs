@@ -48,6 +48,7 @@ impl MdnsStream {
     pub fn new_ipv4<E>(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
+        ipv4_if: Option<Ipv4Addr>,
         loop_handle: &Handle,
     ) -> (
         Box<Future<Item = MdnsStream, Error = io::Error>>,
@@ -60,6 +61,8 @@ impl MdnsStream {
             *MDNS_IPV4,
             mdns_query_type,
             packet_ttl,
+            ipv4_if,
+            None,
             loop_handle,
         )
     }
@@ -68,6 +71,7 @@ impl MdnsStream {
     pub fn new_ipv6<E>(
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
+        ipv6_if: Option<u32>,
         loop_handle: &Handle,
     ) -> (
         Box<Future<Item = MdnsStream, Error = io::Error>>,
@@ -80,6 +84,8 @@ impl MdnsStream {
             *MDNS_IPV6,
             mdns_query_type,
             packet_ttl,
+            None,
+            ipv6_if,
             loop_handle,
         )
     }
@@ -90,11 +96,17 @@ impl MdnsStream {
     ///  the default multicast DNS addresses. See https://tools.ietf.org/html/rfc6762#section-5
     ///  for details.
     ///
+    /// When sending ipv6 multicast packets, the interface being used is required,
+    ///  this will panic if the interface is not specified for all MdnsQueryType except Passive
+    ///  (which does not allow sending data)
+    ///
     /// # Arguments
     ///
     /// * `multicast_addr` - address to use for multicast requests
     /// * `mdns_query_type` - true if the querier using this socket will only perform standard DNS queries over multicast.
     /// * `loop_handle` - handle to the IO loop
+    /// * `ipv4_if` - Address to bind to for sending multicast packets, defaults to `0.0.0.0` if not specified (not relevant for ipv6)
+    /// * `ipv6_if` - Interface index for the interface to be used when sending ipv6 packets.
     ///
     /// # Return
     ///
@@ -104,6 +116,8 @@ impl MdnsStream {
         multicast_addr: SocketAddr,
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
+        ipv4_if: Option<Ipv4Addr>,
+        ipv6_if: Option<u32>,
         loop_handle: &Handle,
     ) -> (
         Box<Future<Item = MdnsStream, Error = io::Error>>,
@@ -125,7 +139,7 @@ impl MdnsStream {
 
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
-        let next_socket = Self::next_bound_local_address(&multicast_addr, mdns_query_type, packet_ttl);
+        let next_socket = Self::next_bound_local_address(&multicast_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if);
         
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
@@ -201,6 +215,8 @@ impl MdnsStream {
         multicast_addr: &SocketAddr,
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
+        ipv4_if: Option<Ipv4Addr>,
+        ipv6_if: Option<u32>,
     ) -> NextRandomUdpSocket {
         let bind_address: IpAddr = match *multicast_addr {
             SocketAddr::V4(..) => IpAddr::V4(Ipv4Addr::new(0, 0, 0, 0)),
@@ -211,6 +227,8 @@ impl MdnsStream {
             bind_address,
             mdns_query_type,
             packet_ttl,
+            ipv4_if,
+            ipv6_if,
         }
     }
 }
@@ -251,6 +269,8 @@ struct NextRandomUdpSocket {
     bind_address: IpAddr,
     mdns_query_type: MdnsQueryType,
     packet_ttl: Option<u32>,
+    ipv4_if: Option<Ipv4Addr>,
+    ipv6_if: Option<u32>,
 }
 
 impl Future for NextRandomUdpSocket {
@@ -296,15 +316,17 @@ impl Future for NextRandomUdpSocket {
                         match addr {
                             SocketAddr::V4(..) => {
                                 socket.set_multicast_loop_v4(true)?;
-                                socket.set_multicast_if_v4(&Ipv4Addr::new(0, 0, 0, 0))?;
+                                socket.set_multicast_if_v4(&self.ipv4_if.unwrap_or(Ipv4Addr::new(0, 0, 0, 0)))?;
                                 if let Some(ttl) = self.packet_ttl {
                                     socket.set_ttl(ttl)?;
                                     socket.set_multicast_ttl_v4(ttl)?;
                                 }
                             },
                             SocketAddr::V6(..) => {
+                                let ipv6_if = self.ipv6_if.unwrap_or_else(|| panic!("for ipv6 multicasting the interface must be specified"));
+
                                 socket.set_multicast_loop_v6(true)?;
-                                socket.set_multicast_if_v6(5)?;
+                                socket.set_multicast_if_v6(ipv6_if)?;
                                 if let Some(ttl) = self.packet_ttl {
                                     socket.set_unicast_hops_v6(ttl)?;
                                     socket.set_multicast_hops_v6(ttl)?;
@@ -354,6 +376,8 @@ pub mod tests {
             ),
             MdnsQueryType::OneShot,
             Some(0),
+            None,
+            None,
             &io_loop.handle(),
         );
         drop(
@@ -376,14 +400,9 @@ pub mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn one_shot_mdns_test(mdns_addr: SocketAddr) {
-        extern crate env_logger;
-        
         use tokio_core::reactor::{Core, Timeout};
         use std;
-        use std::time::Duration;
-        
-        
-        env_logger::init();
+        use std::time::Duration;        
 
         let client_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
         
@@ -400,7 +419,8 @@ pub mod tests {
                 let mut timeout = Timeout::new(Duration::from_millis(100), &loop_handle).expect("failed to register timeout");
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
-                let (server_stream_future, server_sender) = MdnsStream::new::<ProtoError>(mdns_addr, MdnsQueryType::OneShotJoin, Some(1), &server_loop.handle());
+                // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
+                let (server_stream_future, server_sender) = MdnsStream::new::<ProtoError>(mdns_addr, MdnsQueryType::OneShotJoin, Some(1), None, Some(5), &server_loop.handle());
 
                 // For one-shot responses we are competing with a system mDNS responder, we will respond from a different port...
                 let mut server_stream = server_loop.run(server_stream_future).expect("could not create mDNS listener").into_future();
@@ -440,7 +460,8 @@ pub mod tests {
         // setup the client, which is going to run on the testing thread...
         let mut io_loop = Core::new().unwrap();
         let loop_handle = io_loop.handle();
-        let (stream, sender) = MdnsStream::new::<ProtoError>(mdns_addr, MdnsQueryType::OneShot, Some(1), &loop_handle);
+        // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...        
+        let (stream, sender) = MdnsStream::new::<ProtoError>(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5), &loop_handle);
         let mut stream = io_loop.run(stream).ok().unwrap().into_future();
         let mut timeout = Timeout::new(Duration::from_secs(100), &io_loop.handle()).expect("failed to register timeout");
         let mut successes = 0;

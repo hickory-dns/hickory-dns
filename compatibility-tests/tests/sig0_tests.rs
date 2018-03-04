@@ -14,7 +14,6 @@ extern crate trust_dns_compatibility;
 
 use std::env;
 use std::fs::File;
-use std::io;
 use std::io::Read;
 #[cfg(not(feature = "none"))]
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
@@ -22,7 +21,6 @@ use std::str::FromStr;
 
 #[cfg(not(feature = "none"))]
 use chrono::Duration;
-use futures::Stream;
 use openssl::rsa::Rsa;
 
 #[cfg(not(feature = "none"))]
