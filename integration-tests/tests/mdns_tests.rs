@@ -109,6 +109,7 @@ fn test_query_mdns_ipv4() {
 }
 
 #[test]
+#[ignore]
 fn test_query_mdns_ipv6() {
     let client_done = Arc::new(AtomicBool::new(false));
     let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), *TEST_MDNS_IPV6);

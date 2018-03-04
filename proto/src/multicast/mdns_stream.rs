@@ -273,6 +273,36 @@ struct NextRandomUdpSocket {
     ipv6_if: Option<u32>,
 }
 
+impl NextRandomUdpSocket {
+    fn prepare_sender(&self, socket: &std::net::UdpSocket) -> io::Result<()> {
+        let addr = socket.local_addr()?;
+    
+        // TODO: TTL doesn't work on ipv6
+        match addr {
+            SocketAddr::V4(..) => {
+                socket.set_multicast_loop_v4(true)?;
+                socket.set_multicast_if_v4(&self.ipv4_if.unwrap_or(Ipv4Addr::new(0, 0, 0, 0)))?;
+                if let Some(ttl) = self.packet_ttl {
+                    socket.set_ttl(ttl)?;
+                    socket.set_multicast_ttl_v4(ttl)?;
+                }
+            },
+            SocketAddr::V6(..) => {
+                let ipv6_if = self.ipv6_if.unwrap_or_else(|| panic!("for ipv6 multicasting the interface must be specified"));
+
+                socket.set_multicast_loop_v6(true)?;
+                socket.set_multicast_if_v6(ipv6_if)?;
+                if let Some(ttl) = self.packet_ttl {
+                    socket.set_unicast_hops_v6(ttl)?;
+                    socket.set_multicast_hops_v6(ttl)?;
+                }
+            },
+        }
+    
+        Ok(())
+    }
+}
+
 impl Future for NextRandomUdpSocket {
     type Item = Option<std::net::UdpSocket>;
     type Error = io::Error;
@@ -312,29 +342,7 @@ impl Future for NextRandomUdpSocket {
 
                 match std::net::UdpSocket::bind(&addr) {
                     Ok(socket) => {
-                        // TODO: TTL doesn't work on ipv6
-                        match addr {
-                            SocketAddr::V4(..) => {
-                                socket.set_multicast_loop_v4(true)?;
-                                socket.set_multicast_if_v4(&self.ipv4_if.unwrap_or(Ipv4Addr::new(0, 0, 0, 0)))?;
-                                if let Some(ttl) = self.packet_ttl {
-                                    socket.set_ttl(ttl)?;
-                                    socket.set_multicast_ttl_v4(ttl)?;
-                                }
-                            },
-                            SocketAddr::V6(..) => {
-                                let ipv6_if = self.ipv6_if.unwrap_or_else(|| panic!("for ipv6 multicasting the interface must be specified"));
-
-                                socket.set_multicast_loop_v6(true)?;
-                                socket.set_multicast_if_v6(ipv6_if)?;
-                                if let Some(ttl) = self.packet_ttl {
-                                    socket.set_unicast_hops_v6(ttl)?;
-                                    socket.set_multicast_hops_v6(ttl)?;
-                                } 
-
-                            },
-                        
-                        }
+                        self.prepare_sender(&socket)?;
 
                         debug!("binding sending stream to {}", addr);
                         return Ok(Async::Ready(Some(socket)))
@@ -394,6 +402,7 @@ pub mod tests {
     }
 
     #[test]
+    #[ignore]
     fn test_one_shot_mdns_ipv6() {
        one_shot_mdns_test(*TEST_MDNS_IPV6);
     }
@@ -437,7 +446,7 @@ pub mod tests {
                             let (buffer, addr) = buffer_and_addr.expect("no buffer received");
                         
                             assert_eq!(&buffer, test_bytes);
-                            println!("server got data! {}", addr);
+                            //println!("server got data! {}", addr);
 
                             // bounce them right back...
                             server_sender
@@ -463,7 +472,7 @@ pub mod tests {
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...        
         let (stream, sender) = MdnsStream::new::<ProtoError>(mdns_addr, MdnsQueryType::OneShot, Some(1), None, Some(5), &loop_handle);
         let mut stream = io_loop.run(stream).ok().unwrap().into_future();
-        let mut timeout = Timeout::new(Duration::from_secs(100), &io_loop.handle()).expect("failed to register timeout");
+        let mut timeout = Timeout::new(Duration::from_millis(100), &io_loop.handle()).expect("failed to register timeout");
         let mut successes = 0;
 
         for _ in 0..send_recv_times {
@@ -507,89 +516,112 @@ pub mod tests {
         server_handle.join().expect("server thread failed");
     }
 
-    // #[cfg(test)]
-    // fn mdns_continuous_test(server_addr: std::net::IpAddr) {
-    //     use tokio_core::reactor::Core;
+    #[test]
+    fn test_passive_mdns() {
+        passive_mdns_test(MdnsQueryType::Passive)
+    }
 
-    //     use std;
-    //     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
-    //     let succeeded_clone = succeeded.clone();
-    //     std::thread::Builder::new()
-    //         .name("thread_killer".to_string())
-    //         .spawn(move || {
-    //             let succeeded = succeeded_clone.clone();
-    //             for _ in 0..15 {
-    //                 std::thread::sleep(std::time::Duration::from_secs(1));
-    //                 if succeeded.load(std::sync::atomic::Ordering::Relaxed) {
-    //                     return;
-    //                 }
-    //             }
+    #[test]
+    fn test_oneshot_join_mdns() {
+        passive_mdns_test(MdnsQueryType::OneShotJoin)
+    }
 
-    //             panic!("timeout");
-    //         })
-    //         .unwrap();
+    //   as there are probably unexpected responses coming on the standard addresses
+    fn passive_mdns_test(mdns_query_type: MdnsQueryType) {
+        use tokio_core::reactor::{Core, Timeout};
+        use std;
+        use std::time::Duration;
 
-    //     let server = std::net::UdpSocket::bind(SocketAddr::new(server_addr, 0)).unwrap();
-    //     server
-    //         .set_read_timeout(Some(std::time::Duration::from_secs(5)))
-    //         .unwrap(); // should recieve something within 5 seconds...
-    //     server
-    //         .set_write_timeout(Some(std::time::Duration::from_secs(5)))
-    //         .unwrap(); // should recieve something within 5 seconds...
-    //     let server_addr = server.local_addr().unwrap();
+        let server_got_packet = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
+        
+        let test_bytes: &'static [u8; 8] = b"DEADBEEF";
+        let send_recv_times = 10;
+        let server_got_packet_clone = server_got_packet.clone();
 
-    //     let test_bytes: &'static [u8; 8] = b"DEADBEEF";
-    //     let send_recv_times = 4;
+        // an in and out server
+        let _server_handle = std::thread::Builder::new()
+            .name("test_one_shot_mdns:server".to_string())
+            .spawn(move || {
+                let mut server_loop = Core::new().unwrap();
+                let loop_handle = server_loop.handle();
+                let mut timeout = Timeout::new(Duration::from_millis(100), &loop_handle).expect("failed to register timeout");
 
-    //     // an in and out server
-    //     let server_handle = std::thread::Builder::new()
-    //         .name("test_mdns_stream_ipv4:server".to_string())
-    //         .spawn(move || {
-    //             let mut buffer = [0_u8; 512];
+                // TTLs are 0 so that multicast test packets never leave the test host...
+                // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
+                let (server_stream_future, _server_sender) = MdnsStream::new::<ProtoError>(*TEST_MDNS_IPV4, mdns_query_type, Some(1), None, Some(5), &server_loop.handle());
 
-    //             for _ in 0..send_recv_times {
-    //                 // wait for some bytes...
-    //                 let (len, addr) = server.recv_from(&mut buffer).expect("receive failed");
+                // For one-shot responses we are competing with a system mDNS responder, we will respond from a different port...
+                let mut server_stream = server_loop.run(server_stream_future).expect("could not create mDNS listener").into_future();
 
-    //                 assert_eq!(&buffer[0..len], test_bytes);
+                for _ in 0..(send_recv_times + 1) {
+                    // wait for some bytes...
+                    match server_loop.run(server_stream.select2(timeout)).ok().expect("server stream closed") {
+                        Either::A((_buffer_and_addr_stream_tmp, _timeout_tmp)) => {
+                            // let (buffer_and_addr, stream_tmp) = buffer_and_addr_stream_tmp;
 
-    //                 // bounce them right back...
-    //                 assert_eq!(
-    //                     server.send_to(&buffer[0..len], addr).expect("send failed"),
-    //                     len
-    //                 );
-    //             }
-    //         })
-    //         .unwrap();
+                            // server_stream = stream_tmp.into_future();
+                            // timeout = timeout_tmp;
+                            // let (buffer, addr) = buffer_and_addr.expect("no buffer received");
+                        
+                            // assert_eq!(&buffer, test_bytes);
+                            // println!("server got data! {}", addr);
 
-    //     // setup the client, which is going to run on the testing thread...
-    //     let mut io_loop = Core::new().unwrap();
+                            server_got_packet_clone.store(true, std::sync::atomic::Ordering::Relaxed);
+                            return;
+                        }
+                        Either::B(((), buffer_and_addr_stream_tmp)) => {
+                            server_stream = buffer_and_addr_stream_tmp;
+                            timeout = Timeout::new(Duration::from_millis(100), &loop_handle).expect("failed to register timeout");
+                        }
+                    }
 
-    //     // the tests should run within 5 seconds... right?
-    //     // TODO: add timeout here, so that test never hangs...
-    //     let client_addr = match server_addr {
-    //         std::net::SocketAddr::V4(_) => "127.0.0.1:0",
-    //         std::net::SocketAddr::V6(_) => "[::1]:0",
-    //     };
+                    // let the server turn for a bit... send the message
+                    server_loop.turn(Some(Duration::from_millis(100)));
+                }
+            })
+            .unwrap();
 
-    //     let socket = std::net::UdpSocket::bind(client_addr).expect("could not create socket"); // some random address...
-    //     let (mut stream, sender) = MdnsStream::with_bound::<ProtoError>(socket, &io_loop.handle());
-    //     //let mut stream: MdnsStream = io_loop.run(stream).ok().unwrap();
+        // setup the client, which is going to run on the testing thread...
+        let mut io_loop = Core::new().unwrap();
+        let loop_handle = io_loop.handle();
+        // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...        
+        let (stream, sender) = MdnsStream::new::<ProtoError>(*TEST_MDNS_IPV4, MdnsQueryType::OneShot, Some(1), None, Some(5), &loop_handle);
+        let mut stream = io_loop.run(stream).ok().unwrap().into_future();
+        let mut timeout = Timeout::new(Duration::from_millis(100), &io_loop.handle()).expect("failed to register timeout");
+        
+        for _ in 0..send_recv_times {
+            // test once
+            sender
+                .unbounded_send((test_bytes.to_vec(), *TEST_MDNS_IPV4))
+                .unwrap();
 
-    //     for _ in 0..send_recv_times {
-    //         // test once
-    //         sender
-    //             .sender
-    //             .unbounded_send((test_bytes.to_vec(), server_addr))
-    //             .unwrap();
-    //         let (buffer_and_addr, stream_tmp) = io_loop.run(stream.into_future()).ok().unwrap();
-    //         stream = stream_tmp;
-    //         let (buffer, addr) = buffer_and_addr.expect("no buffer received");
-    //         assert_eq!(&buffer, test_bytes);
-    //         assert_eq!(addr, server_addr);
-    //     }
+            println!("client sending data!");
+            
+            let run_result = match io_loop.run(stream.select2(timeout)) {
+                Ok(run_result) => run_result,
+                Err(err) => match err {
+                    Either::A(((stream_err, _stream), _timeout)) => panic!("client stream errored: {}", stream_err),
+                    Either::B((timeout_err, _stream)) => panic!("client timeout errored: {}", timeout_err),
+                }
+            };
 
-    //     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);
-    //     server_handle.join().expect("server thread failed");
-    // }
+            if server_got_packet.load(std::sync::atomic::Ordering::Relaxed) == true {
+                return
+            }
+
+            match run_result {
+                Either::A((buffer_and_addr_stream_tmp, timeout_tmp)) => {
+                    let (_buffer_and_addr, stream_tmp) = buffer_and_addr_stream_tmp;
+                    stream = stream_tmp.into_future();
+                    timeout = timeout_tmp;
+                }
+                Either::B(((), buffer_and_addr_stream_tmp)) => {
+                    stream = buffer_and_addr_stream_tmp;
+                    timeout = Timeout::new(Duration::from_millis(100), &loop_handle).expect("failed to register timeout");
+                }
+            }
+        }
+
+        assert!(false, "server never got packet.");
+    }
 }
