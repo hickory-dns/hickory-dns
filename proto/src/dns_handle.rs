@@ -6,10 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::borrow::Borrow;
-use std::sync::Arc;
 use std::collections::{HashMap, HashSet};
+use std::fmt::Debug;
 use std::io;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 
@@ -70,6 +71,13 @@ where
         UnboundedSender::unbounded_send(&self.sender, buffer).map_err(|e| {
             E::from(ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into())
         })
+    }
+}
+
+/// Ignores the result of a send operation and logs and ignores errors
+fn ignore_send<M, E: Debug>(result: Result<M, E>) {
+    if let Err(error) = result {
+        warn!("error notifying wait, possible future leak: {:?}", error);
     }
 }
 
@@ -211,8 +219,7 @@ where
                 //  then the otherside isn't really paying attention anyway)
 
                 // complete the request, it's failed...
-                req.send(Err(E::from(ProtoErrorKind::Timeout.into())))
-                    .expect("error notifying wait, possible future leak");
+                ignore_send(req.send(Err(E::from(ProtoErrorKind::Timeout.into()))));
             }
         }
     }
@@ -287,9 +294,7 @@ where
                         if let Some(ref signer) = self.signer {
                             if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
                                 warn!("could not sign message: {}", e);
-                                complete
-                                    .send(Err(e.into()))
-                                    .expect("error notifying wait, possible future leak");
+                                ignore_send(complete.send(Err(e.into())));
                                 continue; // to the next message...
                             }
                         }
@@ -300,9 +305,7 @@ where
                         Ok(timeout) => timeout,
                         Err(e) => {
                             warn!("could not create timer: {}", e);
-                            complete
-                                .send(Err(E::from(e.into())))
-                                .expect("error notifying wait, possible future leak");
+                            ignore_send(complete.send(Err(E::from(e.into()))));
                             continue; // to the next message...
                         }
                     };
@@ -320,9 +323,7 @@ where
                         Err(e) => {
                             debug!("error message id: {} error: {}", query_id, e);
                             // complete with the error, don't add to the map of active requests
-                            complete
-                                .send(Err(e.into()))
-                                .expect("error notifying wait, possible future leak");
+                            ignore_send(complete.send(Err(e.into())));
                         }
                     }
                 }
@@ -346,9 +347,7 @@ where
                     //   deserialize or log decode_error
                     match Message::from_vec(&buffer) {
                         Ok(message) => match self.active_requests.remove(&message.id()) {
-                            Some((complete, _)) => complete
-                                .send(Ok(message))
-                                .expect("error notifying wait, possible future leak"),
+                            Some((complete, _)) => ignore_send(complete.send(Ok(message))),
                             None => debug!("unexpected request_id: {}", message.id()),
                         },
                         // TODO: return src address for diagnostics
@@ -404,11 +403,9 @@ where
     fn poll(&mut self) -> Poll<(), Self::Error> {
         match self.new_receiver.poll() {
             Ok(Async::Ready(Some((_, complete)))) => {
-                complete
-                    .send(Err(
-                        E::from(ProtoErrorKind::Msg(self.error_msg.clone()).into()),
-                    ))
-                    .expect("error notifying wait, possible future leak");
+                ignore_send(complete.send(Err(
+                    E::from(ProtoErrorKind::Msg(self.error_msg.clone()).into()),
+                )));
 
                 task::current().notify();
                 Ok(Async::NotReady)
@@ -470,11 +467,9 @@ where
             Ok(()) => receiver,
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();
-                complete
-                    .send(Err(E::from(
-                        ProtoErrorKind::Msg(format!("error sending to channel: {}", e)).into(),
-                    )))
-                    .expect("error notifying wait, possible future leak");
+                ignore_send(complete.send(Err(E::from(
+                    ProtoErrorKind::Msg(format!("error sending to channel: {}", e)).into(),
+                ))));
                 receiver
             }
         };
