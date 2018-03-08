@@ -107,16 +107,7 @@ impl Default for ResolverConfig {
 
         let google_v6_ns1 = NameServerConfig {
             socket_addr: SocketAddr::new(
-                IpAddr::V6(Ipv6Addr::new(
-                    0x20,
-                    0x01,
-                    0x48,
-                    0x60,
-                    0x48,
-                    0x60,
-                    0x88,
-                    0x88,
-                )),
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
                 53,
             ),
             protocol: Protocol::Udp,
@@ -124,16 +115,7 @@ impl Default for ResolverConfig {
 
         let google_v6_ns2 = NameServerConfig {
             socket_addr: SocketAddr::new(
-                IpAddr::V6(Ipv6Addr::new(
-                    0x20,
-                    0x01,
-                    0x48,
-                    0x60,
-                    0x48,
-                    0x60,
-                    0x88,
-                    0x44,
-                )),
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
                 53,
             ),
             protocol: Protocol::Udp,
