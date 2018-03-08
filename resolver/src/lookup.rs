@@ -335,7 +335,7 @@ pub mod tests {
                 Name::root(),
                 86400,
                 RecordType::A,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                RData::A(Ipv4Addr::new(198,51,100,1)),
             ),
         ]);
         Ok(message)
@@ -367,7 +367,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::new(198,51,100,1)]
         );
     }
 

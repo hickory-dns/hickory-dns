@@ -37,8 +37,24 @@ pub struct LookupIp(Lookup);
 
 impl LookupIp {
     /// Returns a borrowed iterator of the returned IPs
+    ///
+    /// This performs no IP domain filtering, meaning loopback, private and/or global address may be returned
     pub fn iter(&self) -> LookupIpIter {
         LookupIpIter(self.0.iter())
+    }
+
+    /// Only returns addresses which are globally routable
+    ///
+    /// If there are results that map to private ip addresses or any loopback addresses, they will be filtered from the results
+    pub fn global_iter(&self) -> GlobalLookupIpIter {
+        GlobalLookupIpIter(self.iter())
+    }
+
+    /// Only returns addresses which are globally routable
+    ///
+    /// If there are results that map to private ip addresses or any loopback addresses, they will be filtered from the results
+    pub fn private_iter(&self) -> PrivateLookupIpIter {
+        PrivateLookupIpIter(self.iter())
     }
 }
 
@@ -60,7 +76,43 @@ impl<'i> Iterator for LookupIpIter<'i> {
             RData::A(ip) => Some(IpAddr::from(ip)),
             RData::AAAA(ip) => Some(IpAddr::from(ip)),
             _ => None,
-        }).next()
+        })
+        .next()
+    }
+}
+
+/// A variant of LookupIpIter which only yeilds global (public), non-private, IpAddrs
+pub struct GlobalLookupIpIter<'i>(LookupIpIter<'i>);
+
+impl<'i> Iterator for GlobalLookupIpIter<'i> {
+    type Item = IpAddr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let iter: &mut _ = &mut self.0;
+        iter.filter(|addr| match *addr {
+            // TODO: replace with is_global when that stabalizes
+            IpAddr::V4(ref addr) => !addr.is_loopback() && !addr.is_private() && !addr.is_link_local() && !addr.is_broadcast() && !addr.is_multicast(),
+            // TODO: replace with is_global when that stabalizes            
+            IpAddr::V6(ref addr) => !addr.is_loopback() && !addr.is_multicast(),
+        })
+        .next()
+    }
+}
+
+/// A variant of LookupIpIter which only yeilds private, non-global (non-public), IpAddrs
+pub struct PrivateLookupIpIter<'i>(LookupIpIter<'i>);
+
+impl<'i> Iterator for PrivateLookupIpIter<'i> {
+    type Item = IpAddr;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let iter: &mut _ = &mut self.0;
+        iter.filter(|addr| match *addr {
+            IpAddr::V4(ref addr) => addr.is_loopback() || addr.is_private() || addr.is_link_local(),
+            // FIXME: need private addresses
+            IpAddr::V6(ref addr) => addr.is_loopback(),
+        })
+        .next()
     }
 }
 
@@ -69,7 +121,6 @@ pub type LookupIpFuture = InnerLookupIpFuture<
     LookupEither<BasicResolverHandle, StandardConnection>,
 >;
 
-#[doc(hidden)]
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
 pub struct InnerLookupIpFuture<C: DnsHandle<Error = ResolveError> + 'static> {
     client_cache: CachingClient<C>,
@@ -339,7 +390,7 @@ pub mod tests {
                 Name::root(),
                 86400,
                 RecordType::A,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                RData::A(Ipv4Addr::new(198,51,100,1)),
             ),
         ]);
         Ok(message)
@@ -352,7 +403,7 @@ pub mod tests {
                 Name::root(),
                 86400,
                 RecordType::AAAA,
-                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                RData::AAAA(Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1)),
             ),
         ]);
         Ok(message)
@@ -384,7 +435,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::new(198,51,100,1)]
         );
     }
 
@@ -400,7 +451,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+            vec![Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1)]
         );
     }
 
@@ -419,8 +470,8 @@ pub mod tests {
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![
-                IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-                IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                IpAddr::V4(Ipv4Addr::new(198,51,100,1)),
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1)),
             ]
         );
 
@@ -435,7 +486,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![IpAddr::V4(Ipv4Addr::new(198,51,100,1))]
         );
 
         // error then ipv4
@@ -449,7 +500,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![IpAddr::V4(Ipv4Addr::new(198,51,100,1))]
         );
 
 
@@ -464,7 +515,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+            vec![IpAddr::V6(Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1))]
         );
 
         // error, then only ipv6 available
@@ -478,7 +529,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
+            vec![IpAddr::V6(Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1))]
         );
     }
 
@@ -495,7 +546,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+            vec![Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1)]
         );
 
         // nothing then ipv4
@@ -509,7 +560,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::new(198,51,100,1)]
         );
 
         // ipv4 and error
@@ -523,7 +574,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::new(198,51,100,1)]
         );
     }
 
@@ -540,7 +591,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv4Addr::new(127, 0, 0, 1)]
+            vec![Ipv4Addr::new(198,51,100,1)]
         );
 
         // nothing then ipv6
@@ -554,7 +605,7 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+            vec![Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1)]
         );
 
         // error then ipv6
@@ -568,7 +619,39 @@ pub mod tests {
                 .iter()
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
-            vec![Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)]
+            vec![Ipv6Addr::new(0x2001, 0x0db8, 0, 0, 0, 0, 0, 1)]
         );
+    }
+
+    #[test]
+    fn test_filter_records() {
+        fn lookup(addr: IpAddr) -> LookupIp {
+            let rdata = match addr {
+                IpAddr::V4(addr) => RData::A(addr),
+                IpAddr::V6(addr) => RData::AAAA(addr), 
+            };
+
+            LookupIp(Lookup::new(Arc::new(vec![rdata])))
+        };
+
+        assert!(lookup(Ipv4Addr::new(127,0,0,1).into()).iter().next().is_some());
+        assert!(lookup(Ipv4Addr::new(127,0,0,1).into()).global_iter().next().is_none());
+        assert!(lookup(Ipv4Addr::new(127,0,0,1).into()).private_iter().next().is_some());
+
+        assert!(lookup(Ipv4Addr::new(10,0,0,1).into()).iter().next().is_some());
+        assert!(lookup(Ipv4Addr::new(10,0,0,1).into()).global_iter().next().is_none());
+        assert!(lookup(Ipv4Addr::new(10,0,0,1).into()).private_iter().next().is_some());
+
+        assert!(lookup(Ipv4Addr::new(8,8,8,8).into()).iter().next().is_some());
+        assert!(lookup(Ipv4Addr::new(8,8,8,8).into()).global_iter().next().is_some());
+        assert!(lookup(Ipv4Addr::new(8,8,8,8).into()).private_iter().next().is_none());
+
+        assert!(lookup(Ipv6Addr::new(0,0,0,0,0,0,0,1).into()).iter().next().is_some());
+        assert!(lookup(Ipv6Addr::new(0,0,0,0,0,0,0,1).into()).global_iter().next().is_none());
+        assert!(lookup(Ipv6Addr::new(0,0,0,0,0,0,0,1).into()).private_iter().next().is_some());
+
+        assert!(lookup(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888).into()).iter().next().is_some());
+        assert!(lookup(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888).into()).global_iter().next().is_some());
+        assert!(lookup(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888).into()).private_iter().next().is_none());
     }
 }

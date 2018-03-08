@@ -84,7 +84,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
 
             match usage.resolver() {
                ResolverUsage::Loopback => match query.query_type() {
-                   // FIXME: look in hosts for these ips/names first...
+                   // TODO: look in hosts for these ips/names first...
                    RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
                    RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
                    RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
@@ -208,7 +208,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                 // Chained records will generally exist in the additionals section
                 .chain(message.take_additionals().into_iter())
                 .filter_map(|r| {
-                    // because this resobled potentially recursively, we want the min TTL from the chain
+                    // because this resolved potentially recursively, we want the min TTL from the chain
                     let ttl = cname_ttl.min(r.ttl());
                     // TODO: disable name validation with ResolverOpts?
                     // restrict to the RData type requested
@@ -593,7 +593,7 @@ mod tests {
         let cache = Arc::new(Mutex::new(DnsLru::new(1)));
         cache.lock().unwrap().insert(
             Query::new(),
-            vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), u32::max_value())],
+            vec![(RData::A(Ipv4Addr::new(198,51,100,1)), u32::max_value())],
             Instant::now(),
         );
 
@@ -605,7 +605,7 @@ mod tests {
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![RData::A(Ipv4Addr::new(198,51,100,1))]
         );
     }
 
@@ -621,7 +621,7 @@ mod tests {
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![RData::A(Ipv4Addr::new(198,51,100,1))]
         );
 
         // next should come from cache...
@@ -633,7 +633,7 @@ mod tests {
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
-            vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]
+            vec![RData::A(Ipv4Addr::new(198,51,100,1))]
         );
     }
 
@@ -756,7 +756,7 @@ mod tests {
                 Name::from_str("actual.example.com.").unwrap(),
                 second,
                 RecordType::A,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                RData::A(Ipv4Addr::new(198,51,100,1)),
             ),
         ]);
 
