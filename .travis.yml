@@ -45,6 +45,7 @@ matrix:
 
     - os: osx
       rust: stable
+      env: OPTIONS="--all-features"
 
     - rust: nightly
 
