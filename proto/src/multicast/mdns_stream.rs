@@ -325,6 +325,7 @@ struct NextRandomUdpSocket {
 impl NextRandomUdpSocket {
     fn prepare_sender(&self, socket: &std::net::UdpSocket) -> io::Result<()> {
         let addr = socket.local_addr()?;
+        debug!("preparing sender on: {}", addr);
 
         // TODO: TTL doesn't work on ipv6
         match addr {
@@ -390,12 +391,11 @@ impl Future for NextRandomUdpSocket {
                 }
 
                 let addr = SocketAddr::new(self.bind_address, port);
+                debug!("binding sending stream to {}", addr);
 
                 match std::net::UdpSocket::bind(&addr) {
                     Ok(socket) => {
                         self.prepare_sender(&socket)?;
-
-                        debug!("binding sending stream to {}", addr);
                         return Ok(Async::Ready(Some(socket)));
                     }
                     Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
@@ -427,24 +427,24 @@ pub mod tests {
     // one_shot tests are basically clones from the udp tests
     #[test]
     fn test_next_random_socket() {
+        use env_logger;
+        env_logger::init();
+
         let mut io_loop = tokio_core::reactor::Core::new().unwrap();
         let (stream, _) = MdnsStream::new::<ProtoError>(
-            SocketAddr::new(
-                std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
-                52,
-            ),
+            *TEST_MDNS_IPV4,
             MdnsQueryType::OneShot,
-            Some(0),
+            Some(1),
             None,
             None,
             &io_loop.handle(),
         );
-        drop(
-            io_loop
-                .run(stream)
-                .ok()
-                .expect("failed to get next socket address"),
-        );
+        let result = io_loop.run(stream);
+
+        if let Err(error) = result {
+            println!("Random address error: {:#?}", error);
+            assert!(false, "failed to get next random address");
+        }
     }
 
     #[test]
