@@ -147,6 +147,10 @@ impl MdnsStream {
             ipv6_if,
         );
 
+        if let Some(ttl) = packet_ttl {
+            assert!(ttl > 0, "TTL must be greater than 0");
+        }
+
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
         let stream: Box<Future<Item = MdnsStream, Error = io::Error>> = {
@@ -427,8 +431,8 @@ pub mod tests {
     // one_shot tests are basically clones from the udp tests
     #[test]
     fn test_next_random_socket() {
-        use env_logger;
-        env_logger::init();
+        // use env_logger;
+        // env_logger::init();
 
         let mut io_loop = tokio_core::reactor::Core::new().unwrap();
         let (stream, _) = MdnsStream::new::<ProtoError>(
