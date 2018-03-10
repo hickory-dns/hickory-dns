@@ -9,56 +9,68 @@ matrix:
     - rust: stable
       env: OPTIONS="--all-features"
            RUN_KCOV=1
+           RUST_BACKTRACE=full
 
     # no features
     - rust: stable
       env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features"
            RUN_KCOV=1
+           RUST_BACKTRACE=full
 
     # default features...
     - rust: stable
       env: MODULES="client integration-tests proto resolver server"
            RUN_KCOV=1
+           RUST_BACKTRACE=full
 
     # just openssl
     - rust: stable
       env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features --features=dnssec-openssl"
            RUN_KCOV=1
+           RUST_BACKTRACE=full
 
     # just ring
     - rust: stable
       env: MODULES="client integration-tests proto resolver server"
            OPTIONS="--no-default-features --features=dnssec-ring"
            RUN_KCOV=1
+           RUST_BACKTRACE=full
 
     # just tls using openssl
     - rust: stable
       env: MODULES="integration-tests server"
            OPTIONS="--no-default-features --features=tls-openssl"
            RUN_KCOV=1
+           RUST_BACKTRACE=full
 
     # min rust version
     # - rust: 1.14.0
     - rust: beta
+      env: RUST_BACKTRACE=full
 
     - os: osx
       rust: stable
       env: OPTIONS="--all-features"
+           RUST_BACKTRACE=full
 
     - rust: nightly
+      env: RUST_BACKTRACE=full
 
     - rust: nightly
       env: CLIPPY=true
+           RUST_BACKTRACE=full
 
     - rust: nightly
       env: RUSTFMT=true
+           RUST_BACKTRACE=full
 
     - rust: stable
       env: MODULES="compatibility-tests"
            TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
            OPTIONS="--no-default-features --features=bind"
+           RUST_BACKTRACE=full
 
   allow_failures:
     - rust: nightly
