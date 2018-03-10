@@ -14,6 +14,8 @@
 extern crate byteorder;
 #[cfg(feature = "dnssec")]
 extern crate data_encoding;
+#[cfg(test)]
+extern crate env_logger;
 #[macro_use]
 extern crate error_chain;
 #[macro_use]
@@ -136,8 +138,6 @@ where
         sender
             .sender
             .unbounded_send((buffer, name_server))
-            .map_err(|e| {
-                E::from(ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into())
-            })
+            .map_err(|e| E::from(ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()))
     }
 }
