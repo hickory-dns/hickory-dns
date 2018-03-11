@@ -1,5 +1,4 @@
 #![cfg(feature = "mdns")]
-#![cfg(not(windows))]
 
 extern crate chrono;
 extern crate futures;
