@@ -197,10 +197,11 @@ impl MdnsStream {
         udp_builder: net2::UdpBuilder,
         multicast_addr: &SocketAddr,
     ) -> io::Result<UdpSocket> {
-        // TODO: allow bind address to be specified, match the one for the sending stream...
         let bind_address = match *multicast_addr {
-            SocketAddr::V4(..) => SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0),
-            SocketAddr::V6(..) => SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0).into(), 0),
+            SocketAddr::V4(addr) => SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port()),
+            SocketAddr::V6(addr) => {
+                SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0).into(), addr.port())
+            }
         };
 
         udp_builder.bind(bind_address)
@@ -425,9 +426,9 @@ pub mod tests {
 
     lazy_static! {
         /// 250 appears to be unused/unregistered
-        static ref TEST_MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,250).into(), MDNS_PORT);
+        static ref TEST_MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,250).into(), 5379);
         /// FA appears to be unused/unregistered
-        static ref TEST_MDNS_IPV6: SocketAddr = SocketAddr::new(Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FA).into(), MDNS_PORT);
+        static ref TEST_MDNS_IPV6: SocketAddr = SocketAddr::new(Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FA).into(), 5379);
     }
 
     // one_shot tests are basically clones from the udp tests
@@ -454,14 +455,12 @@ pub mod tests {
     }
 
     #[test]
-    #[cfg(not(windows))]
     fn test_one_shot_mdns_ipv4() {
         one_shot_mdns_test(*TEST_MDNS_IPV4);
     }
 
     #[test]
     #[ignore]
-    #[cfg(not(windows))]
     fn test_one_shot_mdns_ipv6() {
         one_shot_mdns_test(*TEST_MDNS_IPV6);
     }
@@ -606,13 +605,11 @@ pub mod tests {
     }
 
     #[test]
-    #[cfg(not(windows))]
     fn test_passive_mdns() {
         passive_mdns_test(MdnsQueryType::Passive)
     }
 
     #[test]
-    #[cfg(not(windows))]
     fn test_oneshot_join_mdns() {
         passive_mdns_test(MdnsQueryType::OneShotJoin)
     }
