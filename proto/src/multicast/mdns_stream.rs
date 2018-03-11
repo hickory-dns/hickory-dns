@@ -147,6 +147,8 @@ impl MdnsStream {
             ipv6_if,
         );
 
+        // while 0 is meant to keep the packet on localhost, linux regards this as an error,
+        //   while macOS (BSD?) and Windows allow it.
         if let Some(ttl) = packet_ttl {
             assert!(ttl > 0, "TTL must be greater than 0");
         }
@@ -452,12 +454,14 @@ pub mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn test_one_shot_mdns_ipv4() {
         one_shot_mdns_test(*TEST_MDNS_IPV4);
     }
 
     #[test]
     #[ignore]
+    #[cfg(not(windows))]
     fn test_one_shot_mdns_ipv6() {
         one_shot_mdns_test(*TEST_MDNS_IPV6);
     }
@@ -602,11 +606,13 @@ pub mod tests {
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn test_passive_mdns() {
         passive_mdns_test(MdnsQueryType::Passive)
     }
 
     #[test]
+    #[cfg(not(windows))]
     fn test_oneshot_join_mdns() {
         passive_mdns_test(MdnsQueryType::OneShotJoin)
     }
