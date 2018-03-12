@@ -15,9 +15,9 @@ use futures::future;
 use futures::stream::Stream;
 use futures::sync::mpsc::unbounded;
 use futures::task;
-use net2::{self, UdpSocketExt};
 use rand;
 use rand::distributions::{IndependentSample, Range};
+use socket2::{self, Socket};
 use tokio_core;
 use tokio_core::reactor::Handle;
 
@@ -193,27 +193,20 @@ impl MdnsStream {
     ///
     /// see https://msdn.microsoft.com/en-us/library/windows/desktop/ms737550(v=vs.85).aspx
     #[cfg(windows)]
-    fn bind_multicast(
-        udp_builder: net2::UdpBuilder,
-        multicast_addr: &SocketAddr,
-    ) -> io::Result<UdpSocket> {
+    fn bind_multicast(socket: &Socket, multicast_addr: &SocketAddr) -> io::Result<()> {
         let bind_address = match *multicast_addr {
             SocketAddr::V4(addr) => SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port()),
             SocketAddr::V6(addr) => {
                 SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0).into(), addr.port())
             }
         };
-
-        udp_builder.bind(bind_address)
+        socket.bind(&socket2::SockAddr::from(*multicast_addr))
     }
 
     /// On unixes we bind to the multicast address, which causes multicst packets to be filtered
     #[cfg(unix)]
-    fn bind_multicast(
-        udp_builder: net2::UdpBuilder,
-        multicast_addr: &SocketAddr,
-    ) -> io::Result<UdpSocket> {
-        udp_builder.bind(multicast_addr)
+    fn bind_multicast(socket: &Socket, multicast_addr: &SocketAddr) -> io::Result<()> {
+        socket.bind(&socket2::SockAddr::from(*multicast_addr))
     }
 
     /// Returns a socket joined to the multicast address
@@ -239,30 +232,34 @@ impl MdnsStream {
         // TODO: allow the binding interface to be specified
         let socket = match ip_addr {
             IpAddr::V4(ref mdns_v4) => {
-                let builder = net2::UdpBuilder::new_v4()?;
-                builder.reuse_address(true)?;
-
-                let socket = Self::bind_multicast(builder, multicast_addr)?;
+                let socket = Socket::new(
+                    socket2::Domain::ipv4(),
+                    socket2::Type::dgram(),
+                    Some(socket2::Protocol::udp()),
+                )?;
                 socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
                 socket.set_multicast_loop_v4(true)?;
-
                 socket
             }
             IpAddr::V6(ref mdns_v6) => {
-                let builder = net2::UdpBuilder::new_v6()?;
-                builder.reuse_address(true)?;
-                builder.only_v6(true)?;
-
-                let socket = Self::bind_multicast(builder, multicast_addr)?;
+                let socket = Socket::new(
+                    socket2::Domain::ipv6(),
+                    socket2::Type::dgram(),
+                    Some(socket2::Protocol::udp()),
+                )?;
+                socket.set_only_v6(true)?;
                 socket.join_multicast_v6(mdns_v6, 0)?;
                 socket.set_multicast_loop_v6(true)?;
-
                 socket
             }
         };
 
+        socket.set_nonblocking(true)?;
+        socket.set_reuse_address(true)?;
+        Self::bind_multicast(&socket, multicast_addr)?;
+
         debug!("joined {}", multicast_addr);
-        Ok(Some(socket))
+        Ok(Some(socket.into_udp_socket()))
     }
 
     /// Creates a future for randomly binding to a local socket address for client connections.
@@ -330,9 +327,11 @@ struct NextRandomUdpSocket {
 }
 
 impl NextRandomUdpSocket {
-    fn prepare_sender(&self, socket: &std::net::UdpSocket) -> io::Result<()> {
+    fn prepare_sender(&self, socket: UdpSocket) -> io::Result<UdpSocket> {
         let addr = socket.local_addr()?;
         debug!("preparing sender on: {}", addr);
+
+        let socket = Socket::from(socket);
 
         // TODO: TTL doesn't work on ipv6
         match addr {
@@ -358,12 +357,12 @@ impl NextRandomUdpSocket {
             }
         }
 
-        Ok(())
+        Ok(socket.into_udp_socket())
     }
 }
 
 impl Future for NextRandomUdpSocket {
-    type Item = Option<std::net::UdpSocket>;
+    type Item = Option<UdpSocket>;
     type Error = io::Error;
 
     /// polls until there is an available next random UDP port.
@@ -377,7 +376,8 @@ impl Future for NextRandomUdpSocket {
         } else if self.mdns_query_type.bind_on_5353() {
             let addr = SocketAddr::new(self.bind_address, MDNS_PORT);
             debug!("binding sending stream to {}", addr);
-            let socket = std::net::UdpSocket::bind(&addr)?;
+            let socket = UdpSocket::bind(&addr)?;
+            let socket = self.prepare_sender(socket)?;
 
             Ok(Async::Ready(Some(socket)))
         } else {
@@ -400,9 +400,9 @@ impl Future for NextRandomUdpSocket {
                 let addr = SocketAddr::new(self.bind_address, port);
                 debug!("binding sending stream to {}", addr);
 
-                match std::net::UdpSocket::bind(&addr) {
+                match UdpSocket::bind(&addr) {
                     Ok(socket) => {
-                        self.prepare_sender(&socket)?;
+                        let socket = self.prepare_sender(socket)?;
                         return Ok(Async::Ready(Some(socket)));
                     }
                     Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
