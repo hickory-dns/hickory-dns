@@ -57,7 +57,27 @@ where
         match self.stream.poll() {
             r @ Ok(Async::Ready(_)) | r @ Err(_) => {
                 // reset the timeout to wait for the next request...
-                let timeout = Self::timeout(self.timeout_duration, &self.reactor_handle)?;
+                let mut timeout = Self::timeout(self.timeout_duration, &self.reactor_handle)?;
+
+                // ensure that interest in the Timeout is registered
+                match timeout.poll() {
+                    Ok(Async::Ready(_)) => {
+                        warn!("timeout fired immediately!");
+                        return Err(io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            format!("timeout fired immediately!"),
+                        ));
+                    }
+                    Err(e) => {
+                        error!("could not register interest in Timeout: {}", e);
+                        return Err(io::Error::new(
+                            io::ErrorKind::TimedOut,
+                            format!("could not register interest in Timeout: {}", e),
+                        ));
+                    }
+                    Ok(Async::NotReady) => (), // this is the exepcted state...
+                }
+
                 drop(mem::replace(&mut self.timeout, timeout));
 
                 r
