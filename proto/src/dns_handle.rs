@@ -13,7 +13,6 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-
 use futures::{task, Async, Complete, Future, Poll};
 use futures::IntoFuture;
 use futures::stream::{Fuse as StreamFuse, Peekable, Stream};
@@ -68,9 +67,8 @@ where
     type Error = E;
 
     fn send(&mut self, buffer: Vec<u8>) -> Result<(), Self::Error> {
-        UnboundedSender::unbounded_send(&self.sender, buffer).map_err(|e| {
-            E::from(ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into())
-        })
+        UnboundedSender::unbounded_send(&self.sender, buffer)
+            .map_err(|e| E::from(ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()))
     }
 }
 
@@ -301,14 +299,33 @@ where
                     }
 
                     // store a Timeout for this message before sending
-                    let timeout = match Timeout::new(self.timeout_duration, &self.reactor_handle) {
-                        Ok(timeout) => timeout,
-                        Err(e) => {
-                            warn!("could not create timer: {}", e);
-                            ignore_send(complete.send(Err(E::from(e.into()))));
-                            continue; // to the next message...
+                    let mut timeout =
+                        match Timeout::new(self.timeout_duration, &self.reactor_handle) {
+                            Ok(timeout) => timeout,
+                            Err(e) => {
+                                warn!("could not create timer: {}", e);
+                                ignore_send(complete.send(Err(E::from(e.into()))));
+                                continue; // to the next message...
+                            }
+                        };
+
+                    // make sure to register insterest in the Timeout
+                    match timeout.poll() {
+                        Ok(Async::Ready(_)) => {
+                            warn!("timeout fired before sending message!: {}", query_id);
+                            ignore_send(
+                                complete
+                                    .send(Err(E::from(ProtoError::from(ProtoErrorKind::Timeout)))),
+                            );
+                            continue; // to the next message
                         }
-                    };
+                        Ok(Async::NotReady) => (), // this is the exepcted state...
+                        Err(e) => {
+                            error!("could not register interest in Timeout: {}", e);
+                            ignore_send(complete.send(Err(E::from(e.into()))));
+                            continue; // to the next message
+                        }
+                    }
 
                     // send the message
                     match message.to_vec() {
@@ -403,9 +420,9 @@ where
     fn poll(&mut self) -> Poll<(), Self::Error> {
         match self.new_receiver.poll() {
             Ok(Async::Ready(Some((_, complete)))) => {
-                ignore_send(complete.send(Err(
-                    E::from(ProtoErrorKind::Msg(self.error_msg.clone()).into()),
-                )));
+                ignore_send(complete.send(Err(E::from(
+                    ProtoErrorKind::Msg(self.error_msg.clone()).into(),
+                ))));
 
                 task::current().notify();
                 Ok(Async::NotReady)
