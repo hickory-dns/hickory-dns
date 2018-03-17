@@ -249,7 +249,7 @@ impl MdnsStream {
                 )?;
 
                 socket.set_only_v6(true)?;
-                socket.join_multicast_v6(mdns_v6, 5)?;
+                socket.join_multicast_v6(mdns_v6, 0)?;
                 socket.set_multicast_loop_v6(true)?;
                 socket
             }
