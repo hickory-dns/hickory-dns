@@ -11,7 +11,7 @@ extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_server;
 
-use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
@@ -29,13 +29,13 @@ use trust_dns::op::Message;
 use trust_dns::rr::{DNSClass, Name, RecordType};
 use trust_dns::serialize::binary::BinDecodable;
 
-const MDNS_PORT: u16 = 5353;
+const MDNS_PORT: u16 = 5363;
 
 lazy_static! {
     /// 250 appears to be unused/unregistered
-    static ref TEST_MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,249).into(), MDNS_PORT);
+    static ref TEST_MDNS_IPV4: IpAddr = Ipv4Addr::new(224,0,0,249).into();
     /// FA appears to be unused/unregistered
-    static ref TEST_MDNS_IPV6: SocketAddr = SocketAddr::new(Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00F9).into(), MDNS_PORT);
+    static ref TEST_MDNS_IPV6: IpAddr = Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00F9).into();
 }
 
 fn mdns_responsder(
@@ -43,7 +43,12 @@ fn mdns_responsder(
     client_done: Arc<AtomicBool>,
     mdns_addr: SocketAddr,
 ) -> JoinHandle<()> {
-    std::thread::Builder::new()
+    use std::sync::{Arc, Barrier};
+
+    let server = Arc::new(Barrier::new(2));
+    let client = Arc::clone(&server);
+
+    let join_handle = std::thread::Builder::new()
         .name(format!("{}:server", test_name))
         .spawn(move || {
             let mut io_loop = Core::new().unwrap();
@@ -68,6 +73,8 @@ fn mdns_responsder(
                 .ok()
                 .expect("failed to create server stream")
                 .into_future();
+
+            server.wait();
 
             while !client_done.load(std::sync::atomic::Ordering::Relaxed) {
                 match io_loop
@@ -98,18 +105,25 @@ fn mdns_responsder(
                 }
             }
         })
-        .unwrap()
+        .unwrap();
+
+    client.wait();
+    println!("server started");
+
+    join_handle
 }
 
 #[test]
 fn test_query_mdns_ipv4() {
+    let addr = SocketAddr::new(*TEST_MDNS_IPV4, MDNS_PORT + 1);
     let client_done = Arc::new(AtomicBool::new(false));
-    let _server_thread =
-        mdns_responsder("test_query_mdns_ipv4", client_done.clone(), *TEST_MDNS_IPV4);
+    let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), addr);
+
+    // Check that the server is ready before sending...
     let mut io_loop = Core::new().unwrap();
     //let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = MdnsClientStream::new(
-        *TEST_MDNS_IPV4,
+        addr,
         MdnsQueryType::OneShot,
         None,
         None,
@@ -126,20 +140,20 @@ fn test_query_mdns_ipv4() {
 
     client_done.store(true, Ordering::Relaxed);
 
-    println!("message: {:#?}", message);
+    println!("client message: {:#?}", message);
 }
 
 #[test]
 #[ignore]
 fn test_query_mdns_ipv6() {
+    let addr = SocketAddr::new(*TEST_MDNS_IPV6, MDNS_PORT + 2);
     let client_done = Arc::new(AtomicBool::new(false));
-    let _server_thread =
-        mdns_responsder("test_query_mdns_ipv4", client_done.clone(), *TEST_MDNS_IPV6);
+    let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), addr);
     let mut io_loop = Core::new().unwrap();
 
     // FIXME: ipv6 if is hardcoded...
     let (stream, sender) = MdnsClientStream::new(
-        *TEST_MDNS_IPV6,
+        addr,
         MdnsQueryType::OneShot,
         None,
         None,
@@ -156,5 +170,5 @@ fn test_query_mdns_ipv6() {
 
     client_done.store(true, Ordering::Relaxed);
 
-    println!("message: {:#?}", message);
+    println!("client message: {:#?}", message);
 }

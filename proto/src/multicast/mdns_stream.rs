@@ -194,13 +194,13 @@ impl MdnsStream {
     /// see https://msdn.microsoft.com/en-us/library/windows/desktop/ms737550(v=vs.85).aspx
     #[cfg(windows)]
     fn bind_multicast(socket: &Socket, multicast_addr: &SocketAddr) -> io::Result<()> {
-        let bind_address = match *multicast_addr {
+        let multicast_addr = match *multicast_addr {
             SocketAddr::V4(addr) => SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), addr.port()),
             SocketAddr::V6(addr) => {
                 SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 0).into(), addr.port())
             }
         };
-        socket.bind(&socket2::SockAddr::from(*multicast_addr))
+        socket.bind(&socket2::SockAddr::from(multicast_addr))
     }
 
     /// On unixes we bind to the multicast address, which causes multicst packets to be filtered
@@ -247,8 +247,9 @@ impl MdnsStream {
                     socket2::Type::dgram(),
                     Some(socket2::Protocol::udp()),
                 )?;
+
                 socket.set_only_v6(true)?;
-                socket.join_multicast_v6(mdns_v6, 0)?;
+                socket.join_multicast_v6(mdns_v6, 5)?;
                 socket.set_multicast_loop_v6(true)?;
                 socket
             }
@@ -424,11 +425,14 @@ pub mod tests {
     use tokio_core;
     use super::*;
 
+    // TODO: is there a better way?
+    const BASE_TEST_PORT: u16 = 5379;
+
     lazy_static! {
         /// 250 appears to be unused/unregistered
-        static ref TEST_MDNS_IPV4: SocketAddr = SocketAddr::new(Ipv4Addr::new(224,0,0,250).into(), 5379);
+        static ref TEST_MDNS_IPV4: IpAddr = Ipv4Addr::new(224,0,0,250).into();
         /// FA appears to be unused/unregistered
-        static ref TEST_MDNS_IPV6: SocketAddr = SocketAddr::new(Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FA).into(), 5379);
+        static ref TEST_MDNS_IPV6: IpAddr = Ipv6Addr::new(0xFF02, 0, 0, 0, 0, 0, 0, 0x00FA).into();
     }
 
     // one_shot tests are basically clones from the udp tests
@@ -439,7 +443,7 @@ pub mod tests {
 
         let mut io_loop = tokio_core::reactor::Core::new().unwrap();
         let (stream, _) = MdnsStream::new::<ProtoError>(
-            *TEST_MDNS_IPV4,
+            SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT),
             MdnsQueryType::OneShot,
             Some(1),
             None,
@@ -456,13 +460,13 @@ pub mod tests {
 
     #[test]
     fn test_one_shot_mdns_ipv4() {
-        one_shot_mdns_test(*TEST_MDNS_IPV4);
+        one_shot_mdns_test(SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT + 1));
     }
 
     #[test]
     #[ignore]
     fn test_one_shot_mdns_ipv6() {
-        one_shot_mdns_test(*TEST_MDNS_IPV6);
+        one_shot_mdns_test(SocketAddr::new(*TEST_MDNS_IPV6, BASE_TEST_PORT + 2));
     }
 
     //   as there are probably unexpected responses coming on the standard addresses
@@ -606,16 +610,22 @@ pub mod tests {
 
     #[test]
     fn test_passive_mdns() {
-        passive_mdns_test(MdnsQueryType::Passive)
+        passive_mdns_test(
+            MdnsQueryType::Passive,
+            SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT + 3),
+        )
     }
 
     #[test]
     fn test_oneshot_join_mdns() {
-        passive_mdns_test(MdnsQueryType::OneShotJoin)
+        passive_mdns_test(
+            MdnsQueryType::OneShotJoin,
+            SocketAddr::new(*TEST_MDNS_IPV4, BASE_TEST_PORT + 4),
+        )
     }
 
     //   as there are probably unexpected responses coming on the standard addresses
-    fn passive_mdns_test(mdns_query_type: MdnsQueryType) {
+    fn passive_mdns_test(mdns_query_type: MdnsQueryType, mdns_addr: SocketAddr) {
         use tokio_core::reactor::{Core, Timeout};
         use std;
         use std::time::Duration;
@@ -638,7 +648,7 @@ pub mod tests {
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
                 let (server_stream_future, _server_sender) = MdnsStream::new::<ProtoError>(
-                    *TEST_MDNS_IPV4,
+                    mdns_addr,
                     mdns_query_type,
                     Some(1),
                     None,
@@ -691,7 +701,7 @@ pub mod tests {
         let loop_handle = io_loop.handle();
         // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
         let (stream, sender) = MdnsStream::new::<ProtoError>(
-            *TEST_MDNS_IPV4,
+            mdns_addr,
             MdnsQueryType::OneShot,
             Some(1),
             None,
@@ -705,7 +715,7 @@ pub mod tests {
         for _ in 0..send_recv_times {
             // test once
             sender
-                .unbounded_send((test_bytes.to_vec(), *TEST_MDNS_IPV4))
+                .unbounded_send((test_bytes.to_vec(), mdns_addr))
                 .unwrap();
 
             println!("client sending data!");
