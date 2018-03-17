@@ -257,6 +257,8 @@ impl MdnsStream {
 
         socket.set_nonblocking(true)?;
         socket.set_reuse_address(true)?;
+        #[cfg(unix)] // this is currently restricted to Unix's in socket2
+        socket.set_reuse_port(true)?;
         Self::bind_multicast(&socket, multicast_addr)?;
 
         debug!("joined {}", multicast_addr);

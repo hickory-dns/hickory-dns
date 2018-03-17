@@ -60,7 +60,7 @@ log = "^0.4.1"
 openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
 rand = "^0.4"
 ring = { version = "^0.12", optional = true }
-socket2 = "^0.3.4"
+socket2 = { version = "^0.3.4", features = ["reuseport"] }
 tokio-core = "^0.1"
 tokio-io = "^0.1"
 untrusted = { version = "^0.5", optional = true }
