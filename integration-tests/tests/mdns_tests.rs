@@ -12,7 +12,7 @@ extern crate trust_dns_integration;
 extern crate trust_dns_server;
 
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::sync::Arc;
+use std::sync::{Arc, Barrier};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
 use std::time::Duration;
@@ -43,8 +43,6 @@ fn mdns_responsder(
     client_done: Arc<AtomicBool>,
     mdns_addr: SocketAddr,
 ) -> JoinHandle<()> {
-    use std::sync::{Arc, Barrier};
-
     let server = Arc::new(Barrier::new(2));
     let client = Arc::clone(&server);
 
