@@ -238,7 +238,6 @@ impl MdnsStream {
                     Some(socket2::Protocol::udp()),
                 )?;
                 socket.join_multicast_v4(mdns_v4, &Ipv4Addr::new(0, 0, 0, 0))?;
-                socket.set_multicast_loop_v4(true)?;
                 socket
             }
             IpAddr::V6(ref mdns_v6) => {
@@ -250,7 +249,6 @@ impl MdnsStream {
 
                 socket.set_only_v6(true)?;
                 socket.join_multicast_v6(mdns_v6, 0)?;
-                socket.set_multicast_loop_v6(true)?;
                 socket
             }
         };
