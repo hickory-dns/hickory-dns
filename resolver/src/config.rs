@@ -138,6 +138,9 @@ pub enum Protocol {
     Tcp,
     // TODO: add client certificate for mTLS?
     // Tls,
+    /// mDNS protocol for performing multicast lookups
+    #[cfg(feature = "mdns")]
+    Mdns,
 }
 
 impl Protocol {
@@ -146,6 +149,8 @@ impl Protocol {
         match *self {
             Protocol::Udp => true,
             Protocol::Tcp => false,
+            #[cfg(feature = "mdns")]
+            Protocol::Mdns => true,
         }
     }
 

@@ -14,6 +14,7 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - DNSSec validation
 - Generic Record Type Lookup
 - CNAME chain resolution
+- mDNS support (enable with `mdns` feature)
 - *TBD* TLS integration
 
 ## Example

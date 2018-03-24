@@ -122,6 +122,10 @@
 //! ```
 //!
 //! It's beyond the scope of these examples to show how to deal with connection failures and looping etc. But if you wanted to say try a different address from the result set after a connection failure, it will be necessary to create a type that implements the `Future` trait. Inside the `Future::poll` method would be the place to implement a loop over the different IP addresses.
+//!
+//! ## mDNS (multicast DNS)
+//!
+//! Multicast DNS is an experimental feature in TRust-DNS at the moment. It's support on different platforms is not yet ideal. Initial support is only for IPv4 mDNS, as there are some complexities to figure out with IPv6. Once enabled, an mDNS `NameServer` will automatically be added to the `Resolver` and used for any lookups performed in the `.local.` zone.
 
 #![deny(missing_docs)]
 

@@ -305,6 +305,22 @@ impl ResolverFuture {
     lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
 }
 
+#[cfg(feature = "mdns")]
+mod mdns {
+    use super::*;
+
+    pub trait MdnsResolverFuture {
+        /// See ResolverFuture::inner_lookup
+        fn inner_lookup(&self, name: Name, record_type: RecordType) -> LookupFuture;
+    }
+
+    impl MdnsResolverFuture for ResolverFuture {
+        fn inner_lookup(&self, name: Name, record_type: RecordType) -> LookupFuture {
+            ResolverFuture::inner_lookup(self, name, record_type)
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     extern crate tokio_core;
@@ -680,7 +696,10 @@ mod tests {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
             ResolverConfig::default(),
-            ResolverOpts{ip_strategy: LookupIpStrategy::Ipv4thenIpv6,.. ResolverOpts::default()},
+            ResolverOpts {
+                ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
+                ..ResolverOpts::default()
+            },
             &io_loop.handle(),
         );
 
@@ -689,7 +708,10 @@ mod tests {
             .expect("failed to run lookup");
 
         let mut iter = response.iter();
-        assert_eq!(iter.next().expect("no A"), IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)));
+        assert_eq!(
+            iter.next().expect("no A"),
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))
+        );
     }
 
     #[test]
@@ -697,7 +719,10 @@ mod tests {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
             ResolverConfig::default(),
-            ResolverOpts{ip_strategy: LookupIpStrategy::Ipv6thenIpv4,.. ResolverOpts::default()},
+            ResolverOpts {
+                ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
+                ..ResolverOpts::default()
+            },
             &io_loop.handle(),
         );
 
@@ -708,16 +733,7 @@ mod tests {
         let mut iter = response.iter();
         assert_eq!(
             iter.next().expect("no AAAA"),
-            IpAddr::V6(Ipv6Addr::new(
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                0,
-                1,
-            ))
+            IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1,))
         );
     }
 }

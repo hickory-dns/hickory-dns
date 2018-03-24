@@ -51,7 +51,7 @@ dnssec-ring = ["dnssec",
 dnssec = []
 
 # enables experimental the mDNS (multicast) feature
-mdns = ["trust-dns/mdns", "trust-dns-proto/mdns"]
+mdns = ["trust-dns/mdns", "trust-dns-proto/mdns", "trust-dns-resolver/mdns"]
 
 tls-openssl = ["tls", "trust-dns-server/trust-dns-openssl"]
 # TODO: not yet supported on the server side

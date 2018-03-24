@@ -17,6 +17,8 @@ use tokio_core::reactor::Handle;
 
 use trust_dns_proto::{DnsFuture, DnsHandle};
 use trust_dns_proto::op::{Edns, Message, NoopMessageFinalizer, ResponseCode};
+#[cfg(feature = "mdns")]
+use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
 use trust_dns_proto::udp::UdpClientStream;
 use trust_dns_proto::tcp::TcpClientStream;
 
@@ -190,15 +192,46 @@ impl ConnectionProvider for StandardConnection {
             Protocol::Udp => {
                 let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor);
                 // TODO: need config for Signer...
-                DnsFuture::with_timeout(stream, handle, reactor, options.timeout, NoopMessageFinalizer::new())
+                DnsFuture::with_timeout(
+                    stream,
+                    handle,
+                    reactor,
+                    options.timeout,
+                    NoopMessageFinalizer::new(),
+                )
             }
             Protocol::Tcp => {
                 let (stream, handle) =
                     TcpClientStream::with_timeout(config.socket_addr, reactor, options.timeout);
                 // TODO: need config for Signer...
-                DnsFuture::with_timeout(stream, handle, reactor, options.timeout, NoopMessageFinalizer::new())
+                DnsFuture::with_timeout(
+                    stream,
+                    handle,
+                    reactor,
+                    options.timeout,
+                    NoopMessageFinalizer::new(),
+                )
             }
             // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr, reactor),
+            #[cfg(feature = "mdns")]
+            Protocol::Mdns => {
+                let (stream, handle) = MdnsClientStream::new(
+                    config.socket_addr,
+                    MdnsQueryType::OneShot,
+                    None,
+                    None,
+                    None,
+                    reactor,
+                );
+                // TODO: need config for Signer...
+                DnsFuture::with_timeout(
+                    stream,
+                    handle,
+                    reactor,
+                    options.timeout,
+                    NoopMessageFinalizer::new(),
+                )
+            }
         };
 
         BasicResolverHandle::new(dns_handle)
@@ -347,9 +380,7 @@ where
                             stats.next_success(remote_edns);
                             Ok(response)
                         })
-                        .map_err(|e| {
-                            format!("Error acquiring NameServerStats lock: {}", e).into()
-                        });
+                        .map_err(|e| format!("Error acquiring NameServerStats lock: {}", e).into());
 
                     future::result(response)
                 })
@@ -407,6 +438,19 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> PartialEq for NameServ
 
 impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P> {}
 
+// TODO: once IPv6 is better understood, also make this a binary keep.
+#[cfg(feature = "mdns")]
+fn mdns_nameserver(
+    options: ResolverOpts,
+    reactor: &Handle,
+) -> NameServer<BasicResolverHandle, StandardConnection> {
+    let config = NameServerConfig {
+        socket_addr: *MDNS_IPV4,
+        protocol: Protocol::Mdns,
+    };
+    NameServer::<_, StandardConnection>::new(config, options, reactor)
+}
+
 /// A pool of NameServers
 ///
 /// This is not expected to be used directly, see `ResolverFuture`.
@@ -415,6 +459,8 @@ pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHand
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
     datagram_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
     stream_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
+    #[cfg(feature = "mdns")]
+    mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
     phantom: PhantomData<P>,
 }
@@ -455,12 +501,15 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns)),
             stream_conns: Arc::new(Mutex::new(stream_conns)),
+            #[cfg(feature = "mdns")]
+            mdns_conns: mdns_nameserver(options.clone(), reactor),
             options: options.clone(),
             phantom: PhantomData,
         }
     }
 
     #[doc(hidden)]
+    #[cfg(not(feature = "mdns"))]
     pub fn from_nameservers(
         options: &ResolverOpts,
         datagram_conns: Vec<NameServer<C, P>>,
@@ -469,6 +518,23 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         NameServerPool {
             datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
             stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
+            options: options.clone(),
+            phantom: PhantomData,
+        }
+    }
+
+    #[doc(hidden)]
+    #[cfg(feature = "mdns")]
+    pub fn from_nameservers(
+        options: &ResolverOpts,
+        datagram_conns: Vec<NameServer<C, P>>,
+        stream_conns: Vec<NameServer<C, P>>,
+        mdns_conns: NameServer<C, P>,
+    ) -> Self {
+        NameServerPool {
+            datagram_conns: Arc::new(Mutex::new(datagram_conns.into_iter().collect())),
+            stream_conns: Arc::new(Mutex::new(stream_conns.into_iter().collect())),
+            mdns_conns: mdns_conns,
             options: options.clone(),
             phantom: PhantomData,
         }
@@ -500,16 +566,37 @@ where
         let tcp_message1 = message.clone();
         let tcp_message2 = message.clone();
 
+        // if it's a .local. query, then we *only* query mDNS, these should never be sent on to upstream resolvers
+        #[cfg(feature = "mdns")]
+        let mdns = mdns::maybe_local(&mut self.mdns_conns, message);
+
+        // TODO: limited to only when mDNS is enabled, but this should probably always be enforced?
+        #[cfg(not(feature = "mdns"))]
+        let mdns = Local::NotMdns(message);
+
+        // local queries are queried through mDNS
+        if mdns.is_local() {
+            return mdns.take_future();
+        }
+
+        // TODO: should we allow mDNS to be used for standard lookups as well?
+
+        // it wasn't a local query, continue with standard looup path
+        let message = mdns.take_message();
         Box::new(
+            // First try the UDP connections
             Self::try_send(datagram_conns, message)
                 .and_then(move |response| {
                     // handling promotion from datagram to stream base on truncation in message
                     if ResponseCode::NoError == response.response_code() && response.truncated() {
+                        // TCP connections should not truncate
                         future::Either::A(Self::try_send(stream_conns1, tcp_message1))
                     } else {
+                        // Return the result from the UDP connection
                         future::Either::B(future::ok(response))
                     }
                 })
+                // if UDP fails, try TCP
                 .or_else(move |_| Self::try_send(stream_conns2, tcp_message2)),
         )
     }
@@ -552,9 +639,7 @@ where
                         let conn = conns.peek_mut();
 
                         if conn.is_none() {
-                            return Err(
-                                ResolveErrorKind::Message("No connections available").into(),
-                            );
+                            return Err(ResolveErrorKind::Message("No connections available").into());
                         }
 
                         let message = mem::replace(message, None);
@@ -571,6 +656,86 @@ where
 
         task::current().notify();
         Ok(Async::NotReady)
+    }
+}
+
+#[cfg(feature = "mdns")]
+mod mdns {
+    use super::*;
+
+    use trust_dns_proto::DnsHandle;
+    use trust_dns_proto::rr::domain::usage;
+
+    /// Returns true
+    pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, message: Message) -> Local
+    where
+        C: DnsHandle<Error = ResolveError> + 'static,
+        P: ConnectionProvider<ConnHandle = C> + 'static,
+    {
+        if message
+            .queries()
+            .iter()
+            .any(|query| usage::LOCAL.name().zone_of(query.name()))
+        {
+            Local::ResolveFuture(name_server.send(message))
+        } else {
+            Local::NotMdns(message)
+        }
+    }
+}
+
+pub enum Local {
+    ResolveFuture(Box<Future<Item = Message, Error = ResolveError>>),
+    NotMdns(Message),
+}
+
+impl Local {
+    fn is_local(&self) -> bool {
+        if let Local::ResolveFuture(..) = *self {
+            true
+        } else {
+            false
+        }
+    }
+
+    /// Takes the future
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is in fact a Local::NotMdns
+    fn take_future(self) -> Box<Future<Item = Message, Error = ResolveError>> {
+        match self {
+            Local::ResolveFuture(future) => future,
+            _ => panic!("non Local queries have no future, see take_message()"),
+        }
+    }
+
+    /// Takes the message
+    ///
+    /// # Panics
+    ///
+    /// Panics if this is in fact a Local::ResolveFuture
+    fn take_message(self) -> Message {
+        match self {
+            Local::NotMdns(message) => message,
+            _ => panic!("Local queries must be polled, see take_future()"),
+        }
+    }
+}
+
+impl Future for Local {
+    type Item = Message;
+    type Error = ResolveError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match *self {
+                Local::ResolveFuture(ref mut ns) => ns.poll(),
+                // TODO: making this a panic for now
+                Local::NotMdns(..) => {
+                    panic!("Local queries that are not mDNS should not be polled")
+                }
+                //Local::NotMdns(message) => return Err(ResolveErrorKind::Message("not mDNS")),
+            }
     }
 }
 
@@ -621,7 +786,6 @@ mod tests {
             successes: 0,
             failures: 1,
         };
-
 
         assert_eq!(init.cmp(&init), Ordering::Equal);
         assert_eq!(init.cmp(&established), Ordering::Greater);

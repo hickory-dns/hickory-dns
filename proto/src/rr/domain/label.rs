@@ -3,6 +3,7 @@
 //! A label is stored internally as ascii, where all unicode characters are converted to punycode interenally.
 
 #[allow(unused)]
+#[allow(deprecated)]
 use std::ascii::AsciiExt;
 use std::cmp::{Ordering, PartialEq};
 use std::borrow::Borrow;
@@ -27,34 +28,40 @@ impl Label {
     /// This uses the bytes as raw ascii values, with nothing escaped on the wire.
     /// Generally users should use `from_str` or `from_ascii`
     pub fn from_raw_bytes(bytes: &[u8]) -> ProtoResult<Self> {
-        if bytes.len() > 63 { return Err(ProtoErrorKind::Msg(format!("Label exceeds maximum length 63: {}", bytes.len())).into()) };
+        if bytes.len() > 63 {
+            return Err(ProtoErrorKind::Msg(format!(
+                "Label exceeds maximum length 63: {}",
+                bytes.len()
+            )).into());
+        };
         Ok(Label(Rc::from(bytes)))
     }
 
     /// Translates this string into IDNA safe name, encoding to punycode as necessary.
     pub fn from_utf8(s: &str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
-            return Ok(Label(Rc::from(WILDCARD.to_vec())))
+            return Ok(Label(Rc::from(WILDCARD.to_vec())));
         }
 
         // special case for SRV type records
         if s.starts_with("_") {
-            return Self::from_ascii(s)
+            return Self::from_ascii(s);
         }
 
-        match uts46::to_ascii(s, uts46::Flags{
-            use_std3_ascii_rules: true, 
-            transitional_processing: true, 
-            verify_dns_length: true}) {
-            Ok(puny) => {
-                Self::from_ascii(&puny)
-            }
-            Err(e) => {
-                Err(ProtoErrorKind::Msg(format!("Label contains invalid characters: {:?}", e)).into())
-            }
+        match uts46::to_ascii(
+            s,
+            uts46::Flags {
+                use_std3_ascii_rules: true,
+                transitional_processing: true,
+                verify_dns_length: true,
+            },
+        ) {
+            Ok(puny) => Self::from_ascii(&puny),
+            Err(e) => Err(ProtoErrorKind::Msg(format!(
+                "Label contains invalid characters: {:?}",
+                e
+            )).into()),
         }
-
-
     }
 
     /// Takes the ascii string and returns a new label.
@@ -62,13 +69,12 @@ impl Label {
     /// This will return an Error if the label is not an ascii string
     pub fn from_ascii(s: &str) -> ProtoResult<Self> {
         if s.as_bytes() == WILDCARD {
-            return Ok(Label(Rc::from(WILDCARD.to_vec())))
+            return Ok(Label(Rc::from(WILDCARD.to_vec())));
         }
 
-        if !s.is_empty() &&
-            s.is_ascii() &&
-            s.chars().take(1).all(|c| is_safe_ascii(c, true, false)) &&
-            s.chars().skip(1).all(|c| is_safe_ascii(c, false, false)) {
+        if !s.is_empty() && s.is_ascii() && s.chars().take(1).all(|c| is_safe_ascii(c, true, false))
+            && s.chars().skip(1).all(|c| is_safe_ascii(c, false, false))
+        {
             Label::from_raw_bytes(s.as_bytes())
         } else {
             Err(ProtoErrorKind::Msg(format!("Malformed label: {}", s)).into())
@@ -78,7 +84,11 @@ impl Label {
     /// Converts this label to lowercase
     pub fn to_lowercase(&self) -> Self {
         // TODO: replace case conversion when (ascii_ctype #39658) stabilizes
-        if let Some((idx, _)) = self.0.iter().enumerate().find(|&(_, c)| *c != c.to_ascii_lowercase()) {
+        if let Some((idx, _)) = self.0
+            .iter()
+            .enumerate()
+            .find(|&(_, c)| *c != c.to_ascii_lowercase())
+        {
             let mut lower_label: Vec<u8> = self.0.to_vec();
             lower_label[idx..].make_ascii_lowercase();
             Label(Rc::from(lower_label))
@@ -113,7 +123,7 @@ impl Label {
     pub fn cmp_with_f<F: LabelCmp>(&self, other: &Self) -> Ordering {
         let s = self.0.iter();
         let o = other.0.iter();
-        
+
         for (s, o) in s.zip(o) {
             match F::cmp_u8(*s, *o) {
                 Ordering::Equal => continue,
@@ -135,14 +145,19 @@ impl Label {
     pub fn to_ascii(&self) -> String {
         let mut ascii = String::with_capacity(self.as_bytes().len());
 
-        self.write_ascii(&mut ascii).expect("should never fail to write a new string");
+        self.write_ascii(&mut ascii)
+            .expect("should never fail to write a new string");
         ascii
     }
 
     /// Writes this label to safe ascii, escaping characters as necessary
     pub fn write_ascii<W: Write>(&self, f: &mut W) -> Result<(), fmt::Error> {
         // We can't guarantee that the same input will always translate to the same output
-        fn escape_non_ascii<W: Write>(byte: u8, f: &mut W, is_first: bool) -> Result<(), fmt::Error> {
+        fn escape_non_ascii<W: Write>(
+            byte: u8,
+            f: &mut W,
+            is_first: bool,
+        ) -> Result<(), fmt::Error> {
             let to_triple_escape = |ch: u8| format!("\\{:03o}", ch);
             let to_single_escape = |ch: char| format!("\\{}", ch);
 
@@ -186,9 +201,9 @@ fn is_safe_ascii(c: char, is_first: bool, for_encoding: bool) -> bool {
     match c {
         c if !c.is_ascii() => false,
         c if c.is_alphanumeric() => true,
-        '-' if !is_first => true, // dash is allowed
+        '-' if !is_first => true,      // dash is allowed
         '_' | '*' if is_first => true, // SRV like labels and wildcard
-        '.' if !for_encoding => true, // needed to allow dots, for things like email addresses
+        '.' if !for_encoding => true,  // needed to allow dots, for things like email addresses
         _ => false,
     }
 }
@@ -197,23 +212,30 @@ impl Display for Label {
     /// outputs characters in a safe string manner.
     ///
     /// if the string is punycode, i.e. starts with `xn--`, otherwise it translates to a safe ascii string
-    ///   escaping characters as necessary. 
+    ///   escaping characters as necessary.
     fn fmt(&self, f: &mut Formatter) -> Result<(), fmt::Error> {
         if self.as_bytes().starts_with(IDNA_PREFIX) {
             // this should never be outside the ascii codes...
             let label = String::from_utf8_lossy(self.borrow());
-            let (label, e) = uts46::to_unicode(&label, uts46::Flags{
-                use_std3_ascii_rules: false, 
-                transitional_processing: false, 
-                verify_dns_length: false});
+            let (label, e) = uts46::to_unicode(
+                &label,
+                uts46::Flags {
+                    use_std3_ascii_rules: false,
+                    transitional_processing: false,
+                    verify_dns_length: false,
+                },
+            );
 
             if e.is_ok() {
-                return f.write_str(&label)
+                return f.write_str(&label);
             } else {
-                debug!("xn-- prefixed string did not translate via IDNA properly: {:?}", e)
+                debug!(
+                    "xn-- prefixed string did not translate via IDNA properly: {:?}",
+                    e
+                )
             }
-        } 
-        
+        }
+
         // it wasn't known to be utf8
         self.write_ascii(f)
     }
@@ -309,7 +331,7 @@ impl IntoLabel for String {
     }
 }
 
-impl<'a> IntoLabel for &'a[u8] {
+impl<'a> IntoLabel for &'a [u8] {
     fn into_label(self: Self) -> ProtoResult<Label> {
         Label::from_raw_bytes(self)
     }
@@ -319,7 +341,7 @@ impl IntoLabel for Vec<u8> {
     fn into_label(self: Self) -> ProtoResult<Label> {
         Label::from_raw_bytes(&self)
     }
-} 
+}
 
 #[cfg(test)]
 mod tests {
@@ -327,12 +349,27 @@ mod tests {
 
     #[test]
     fn test_encoding() {
-        assert_eq!(Label::from_utf8("abc").unwrap(), Label::from_raw_bytes(b"abc").unwrap());
+        assert_eq!(
+            Label::from_utf8("abc").unwrap(),
+            Label::from_raw_bytes(b"abc").unwrap()
+        );
         // case insensitive, this works...
-        assert_eq!(Label::from_utf8("ABC").unwrap(), Label::from_raw_bytes(b"ABC").unwrap());
-        assert_eq!(Label::from_utf8("🦀").unwrap(), Label::from_raw_bytes(b"xn--zs9h").unwrap());
-        assert_eq!(Label::from_utf8("rust-🦀-icon").unwrap(), Label::from_raw_bytes(b"xn--rust--icon-9447i").unwrap());
-        assert_eq!(Label::from_ascii("ben.fry").unwrap(), Label::from_raw_bytes(b"ben.fry").unwrap());
+        assert_eq!(
+            Label::from_utf8("ABC").unwrap(),
+            Label::from_raw_bytes(b"ABC").unwrap()
+        );
+        assert_eq!(
+            Label::from_utf8("🦀").unwrap(),
+            Label::from_raw_bytes(b"xn--zs9h").unwrap()
+        );
+        assert_eq!(
+            Label::from_utf8("rust-🦀-icon").unwrap(),
+            Label::from_raw_bytes(b"xn--rust--icon-9447i").unwrap()
+        );
+        assert_eq!(
+            Label::from_ascii("ben.fry").unwrap(),
+            Label::from_raw_bytes(b"ben.fry").unwrap()
+        );
         assert_eq!(Label::from_utf8("🦀").unwrap().to_utf8(), "🦀");
         assert_eq!(Label::from_utf8("🦀").unwrap().to_ascii(), "xn--zs9h");
     }
@@ -340,24 +377,61 @@ mod tests {
     #[test]
     fn test_decoding() {
         assert_eq!(Label::from_raw_bytes(b"abc").unwrap().to_string(), "abc");
-        assert_eq!(Label::from_raw_bytes(b"xn--zs9h").unwrap().to_string(), "🦀");
-        assert_eq!(Label::from_raw_bytes(b"xn--rust--icon-9447i").unwrap().to_string(), "rust-🦀-icon");
+        assert_eq!(
+            Label::from_raw_bytes(b"xn--zs9h").unwrap().to_string(),
+            "🦀"
+        );
+        assert_eq!(
+            Label::from_raw_bytes(b"xn--rust--icon-9447i")
+                .unwrap()
+                .to_string(),
+            "rust-🦀-icon"
+        );
     }
 
     #[test]
     fn test_to_lowercase() {
         assert_ne!(Label::from_ascii("ABC").unwrap().to_string(), "abc");
         assert_ne!(Label::from_ascii("abcDEF").unwrap().to_string(), "abcdef");
-        assert_eq!(Label::from_ascii("ABC").unwrap().to_lowercase().to_string(), "abc");
-        assert_eq!(Label::from_ascii("abcDEF").unwrap().to_lowercase().to_string(), "abcdef");
+        assert_eq!(
+            Label::from_ascii("ABC").unwrap().to_lowercase().to_string(),
+            "abc"
+        );
+        assert_eq!(
+            Label::from_ascii("abcDEF")
+                .unwrap()
+                .to_lowercase()
+                .to_string(),
+            "abcdef"
+        );
     }
 
     #[test]
     fn test_to_cmp_f() {
-        assert_eq!(Label::from_ascii("ABC").unwrap().cmp_with_f::<CaseInsensitive>(&Label::from_ascii("abc").unwrap()), Ordering::Equal);
-        assert_eq!(Label::from_ascii("abcDEF").unwrap().cmp_with_f::<CaseInsensitive>(&Label::from_ascii("abcdef").unwrap()), Ordering::Equal);
-        assert_eq!(Label::from_ascii("ABC").unwrap().cmp_with_f::<CaseSensitive>(&Label::from_ascii("abc").unwrap()), Ordering::Less);
-        assert_eq!(Label::from_ascii("abcDEF").unwrap().cmp_with_f::<CaseSensitive>(&Label::from_ascii("abcdef").unwrap()), Ordering::Less);
+        assert_eq!(
+            Label::from_ascii("ABC")
+                .unwrap()
+                .cmp_with_f::<CaseInsensitive>(&Label::from_ascii("abc").unwrap()),
+            Ordering::Equal
+        );
+        assert_eq!(
+            Label::from_ascii("abcDEF")
+                .unwrap()
+                .cmp_with_f::<CaseInsensitive>(&Label::from_ascii("abcdef").unwrap()),
+            Ordering::Equal
+        );
+        assert_eq!(
+            Label::from_ascii("ABC")
+                .unwrap()
+                .cmp_with_f::<CaseSensitive>(&Label::from_ascii("abc").unwrap()),
+            Ordering::Less
+        );
+        assert_eq!(
+            Label::from_ascii("abcDEF")
+                .unwrap()
+                .cmp_with_f::<CaseSensitive>(&Label::from_ascii("abcdef").unwrap()),
+            Ordering::Less
+        );
     }
 
     #[test]
@@ -397,10 +471,19 @@ mod tests {
 
     #[test]
     fn test_ascii_escape() {
-        assert_eq!(Label::from_raw_bytes(&[0o200]).unwrap().to_string(), "\\200");
-        assert_eq!(Label::from_raw_bytes(&[0o001]).unwrap().to_string(), "\\001");
+        assert_eq!(
+            Label::from_raw_bytes(&[0o200]).unwrap().to_string(),
+            "\\200"
+        );
+        assert_eq!(
+            Label::from_raw_bytes(&[0o001]).unwrap().to_string(),
+            "\\001"
+        );
         assert_eq!(Label::from_ascii(".").unwrap().to_ascii(), "\\.");
-        assert_eq!(Label::from_ascii("ben.fry").unwrap().to_string(), "ben\\.fry");
+        assert_eq!(
+            Label::from_ascii("ben.fry").unwrap().to_string(),
+            "ben\\.fry"
+        );
         assert_eq!(Label::from_raw_bytes(&[0o200]).unwrap().to_ascii(), "\\200");
     }
 }
