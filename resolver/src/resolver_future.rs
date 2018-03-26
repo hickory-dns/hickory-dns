@@ -305,22 +305,6 @@ impl ResolverFuture {
     lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
 }
 
-#[cfg(feature = "mdns")]
-mod mdns {
-    use super::*;
-
-    pub trait MdnsResolverFuture {
-        /// See ResolverFuture::inner_lookup
-        fn inner_lookup(&self, name: Name, record_type: RecordType) -> LookupFuture;
-    }
-
-    impl MdnsResolverFuture for ResolverFuture {
-        fn inner_lookup(&self, name: Name, record_type: RecordType) -> LookupFuture {
-            ResolverFuture::inner_lookup(self, name, record_type)
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     extern crate tokio_core;
