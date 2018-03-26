@@ -1,4 +1,4 @@
-// Copyright 2015-2016 Benjamin Fry <benjaminfry@me.com>
+// Copyright 2015-2018 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
@@ -7,77 +7,23 @@
 
 use std::borrow::Borrow;
 use std::collections::{HashMap, HashSet};
-use std::fmt::Debug;
 use std::io;
-use std::marker::PhantomData;
-use std::sync::Arc;
+use std::sync::Arc; 
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use futures::{task, Async, Complete, Future, Poll};
-use futures::IntoFuture;
 use futures::stream::{Fuse as StreamFuse, Peekable, Stream};
-use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
-use futures::sync::oneshot;
+use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use rand;
 use rand::Rand;
 use tokio_core::reactor::{Handle, Timeout};
 
+use {BasicDnsHandle, DnsStreamHandle};
 use error::*;
-use op::{Message, MessageFinalizer, MessageType, OpCode, Query};
+use op::{Message, MessageFinalizer, OpCode};
+use super::ignore_send;
 
-// TODO: this should be configurable
-const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
-
-/// The StreamHandle is the general interface for communicating with the DnsFuture
-pub struct StreamHandle<E>
-where
-    E: FromProtoError,
-{
-    sender: UnboundedSender<Vec<u8>>,
-    phantom: PhantomData<E>,
-}
-
-impl<E> StreamHandle<E>
-where
-    E: FromProtoError,
-{
-    /// Constructs a new StreamHandle for wrapping the sender
-    pub fn new(sender: UnboundedSender<Vec<u8>>) -> Self {
-        StreamHandle {
-            sender,
-            phantom: PhantomData::<E>,
-        }
-    }
-}
-
-/// Implementations of Sinks for sending DNS messages
-pub trait DnsStreamHandle {
-    /// The Error type to be returned if there is an error
-    type Error: FromProtoError;
-
-    /// Sends a message to the Handle for delivery to the server.
-    fn send(&mut self, buffer: Vec<u8>) -> Result<(), Self::Error>;
-}
-
-impl<E> DnsStreamHandle for StreamHandle<E>
-where
-    E: FromProtoError,
-{
-    type Error = E;
-
-    fn send(&mut self, buffer: Vec<u8>) -> Result<(), Self::Error> {
-        UnboundedSender::unbounded_send(&self.sender, buffer)
-            .map_err(|e| E::from(ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()))
-    }
-}
-
-/// Ignores the result of a send operation and logs and ignores errors
-fn ignore_send<M, E: Debug>(result: Result<M, E>) {
-    if let Err(error) = result {
-        warn!("error notifying wait, possible future leak: {:?}", error);
-    }
-}
 
 /// A DNS Client implemented over futures-rs.
 ///
@@ -180,9 +126,7 @@ where
                 }),
         );
 
-        BasicDnsHandle {
-            message_sender: sender,
-        }
+        BasicDnsHandle::new(sender)
     }
 
     /// loop over active_requests and remove cancelled requests
@@ -363,6 +307,7 @@ where
 
                     //   deserialize or log decode_error
                     match Message::from_vec(&buffer) {
+                        // FIXME: if multicast, ie, multiple responses are expected...
                         Ok(message) => match self.active_requests.remove(&message.id()) {
                             Some((complete, _)) => ignore_send(complete.send(Ok(message))),
                             None => debug!("unexpected request_id: {}", message.id()),
@@ -457,103 +402,5 @@ where
             ClientStreamOrError::Future(ref mut f) => f.poll(),
             ClientStreamOrError::Errored(ref mut e) => e.poll(),
         }
-    }
-}
-
-/// Root DnsHandle implementaton returned by DnsFuture
-///
-/// This can be used directly to perform queries. See `trust_dns::client::SecureDnsHandle` for
-///  a DNSSEc chain validator.
-#[derive(Clone)]
-pub struct BasicDnsHandle<E: FromProtoError> {
-    message_sender: UnboundedSender<(Message, Complete<Result<Message, E>>)>,
-}
-
-impl<E> DnsHandle for BasicDnsHandle<E>
-where
-    E: FromProtoError + 'static,
-{
-    type Error = E;
-
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
-        let (complete, receiver) = oneshot::channel();
-        let message_sender: &mut _ = &mut self.message_sender;
-
-        // TODO: update to use Sink::send
-        let receiver = match UnboundedSender::unbounded_send(message_sender, (message, complete)) {
-            Ok(()) => receiver,
-            Err(e) => {
-                let (complete, receiver) = oneshot::channel();
-                ignore_send(complete.send(Err(E::from(
-                    ProtoErrorKind::Msg(format!("error sending to channel: {}", e)).into(),
-                ))));
-                receiver
-            }
-        };
-
-        // conver the oneshot into a Box of a Future message and error.
-        Box::new(
-            receiver
-                .map_err(|c| ProtoError::from(ProtoErrorKind::Canceled(c)))
-                .map(|result| result.into_future())
-                .flatten(),
-        )
-    }
-}
-
-/// A trait for implementing high level functions of DNS.
-pub trait DnsHandle: Clone {
-    /// The associated error type returned by future send operations
-    type Error: FromProtoError;
-
-    /// Ony returns true if and only if this DNS handle is validating DNSSec.
-    ///
-    /// If the DnsHandle impl is wrapping other clients, then the correct option is to delegate the question to the wrapped client.
-    fn is_verifying_dnssec(&self) -> bool {
-        false
-    }
-
-    /// Send a message via the channel in the client
-    ///
-    /// # Arguments
-    ///
-    /// * `message` - the fully constructed Message to send, note that most implementations of
-    ///               will most likely be required to rewrite the QueryId, do no rely on that as
-    ///               being stable.
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>>;
-
-    /// A *classic* DNS query
-    ///
-    /// This is identical to `query`, but instead takes a `Query` object.
-    ///
-    /// # Arguments
-    ///
-    /// * `query` - the query to lookup
-    fn lookup(&mut self, query: Query) -> Box<Future<Item = Message, Error = Self::Error>> {
-        debug!("querying: {} {:?}", query.name(), query.query_type());
-
-        // build the message
-        let mut message: Message = Message::new();
-
-        // TODO: This is not the final ID, it's actually set in the poll method of DNS future
-        //  should we just remove this?
-        let id: u16 = rand::random();
-
-        message.add_query(query);
-        message
-            .set_id(id)
-            .set_message_type(MessageType::Query)
-            .set_op_code(OpCode::Query)
-            .set_recursion_desired(true);
-
-        // Extended dns
-        {
-            // TODO: this should really be configurable...
-            let edns = message.edns_mut();
-            edns.set_max_payload(MAX_PAYLOAD_LEN);
-            edns.set_version(0);
-        }
-
-        self.send(message)
     }
 }
