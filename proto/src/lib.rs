@@ -43,23 +43,21 @@ use std::net::SocketAddr;
 
 use futures::sync::mpsc::{SendError, UnboundedSender};
 
-mod dns_handle;
 pub mod error;
 #[cfg(feature = "mdns")]
 pub mod multicast;
 pub mod op;
 pub mod rr;
-mod retry_dns_handle;
-#[cfg(feature = "dnssec")]
-mod secure_dns_handle;
 pub mod serialize;
 pub mod tcp;
 pub mod udp;
+mod xfer;
 
-pub use dns_handle::{BasicDnsHandle, DnsFuture, DnsHandle, DnsStreamHandle, StreamHandle};
-pub use retry_dns_handle::RetryDnsHandle;
+pub use xfer::dns_future::DnsFuture;
+pub use xfer::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
+pub use xfer::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
-pub use secure_dns_handle::SecureDnsHandle;
+pub use xfer::secure_dns_handle::SecureDnsHandle;
 use op::Message;
 use error::*;
 

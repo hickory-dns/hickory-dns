@@ -17,7 +17,7 @@ use tokio_core::reactor::Handle;
 use BufDnsStreamHandle;
 use error::*;
 use tcp::TcpStream;
-use dns_handle::DnsStreamHandle;
+use DnsStreamHandle;
 
 /// Tcp client stream
 ///
