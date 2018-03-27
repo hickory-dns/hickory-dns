@@ -6,24 +6,82 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::borrow::Borrow;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::io;
-use std::sync::Arc; 
+use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
-use futures::{task, Async, Complete, Future, Poll};
 use futures::stream::{Fuse as StreamFuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
+use futures::{task, Async, Complete, Future, Poll};
 use rand;
 use rand::Rand;
+use smallvec::SmallVec;
 use tokio_core::reactor::{Handle, Timeout};
 
-use {BasicDnsHandle, DnsStreamHandle};
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
-use super::ignore_send;
+use xfer::{ignore_send, DnsRequest};
+use {BasicDnsHandle, DnsStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
+
+struct ActiveRequest<E: FromProtoError> {
+    // the completion is the channel for a response to the original request
+    completion: Complete<Result<Message, E>>,
+    // FIXME: add the DnsRequest
+    // request: DnsRequest,
+    // most requests pass a single Message response directly through to the completion
+    //  this small vec will have no allocations, unless the requests is a DNS-SD request
+    //  expecting more than one response
+    responses: SmallVec<[Message; 1]>,
+    timeout: Timeout,
+}
+
+impl<E: FromProtoError> ActiveRequest<E> {
+    fn new(completion: Complete<Result<Message, E>>, timeout: Timeout) -> Self {
+        ActiveRequest {
+            completion,
+            responses: SmallVec::new(),
+            timeout,
+        }
+    }
+
+    /// polls the timeout and converts the error
+    fn poll_timeout(&mut self) -> Poll<(), ProtoError> {
+        self.timeout.poll().map_err(ProtoError::from)
+    }
+
+    /// Returns true of the other side canceled the request
+    fn is_canceled(&self) -> bool {
+        self.completion.is_canceled()
+    }
+
+    /// Adds the response to the request such that it can be later sent to the client
+    fn add_response(&mut self, message: Message) {
+        self.responses.push(message);
+    }
+
+    /// Sends an error
+    fn send_error(self, error: ProtoError) {
+        ignore_send(self.completion.send(Err(E::from(error))));
+    }
+
+    /// sends any registered responses to thethe requestor
+    ///
+    /// Any error sending will be logged and ignored. This must only be called after associating a response,
+    ///   otherwise an error will alway be returned.
+    fn send(mut self) {
+        if self.responses.is_empty() {
+            self.send_error(
+                ProtoErrorKind::Message("no responses received, should have timedout").into(),
+            );
+        } else {
+            // FIXME: send entire set of messages
+            ignore_send(self.completion.send(Ok(self.responses.pop().unwrap())));
+        }
+    }
+}
 
 /// A DNS Client implemented over futures-rs.
 ///
@@ -42,7 +100,7 @@ where
     // TODO: genericize and remove this Box
     stream_handle: Box<DnsStreamHandle<Error = E>>,
     new_receiver: Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<Result<Message, E>>)>>>,
-    active_requests: HashMap<u16, (Complete<Result<Message, E>>, Timeout)>,
+    active_requests: HashMap<u16, ActiveRequest<E>>,
     signer: Option<Arc<MF>>,
 }
 
@@ -132,36 +190,42 @@ where
     /// loop over active_requests and remove cancelled requests
     ///  this should free up space if we already had 4096 active requests
     fn drop_cancelled(&mut self) {
-        // TODO: should we have a timeout here? or always expect the caller to do this?
-        let mut canceled = HashSet::new();
-        for (&id, &mut (ref mut req, ref mut timeout)) in &mut self.active_requests {
-            if let Ok(Async::Ready(())) = req.poll_cancel() {
-                canceled.insert(id);
+        let mut canceled = HashMap::<u16, ProtoError>::new();
+        for (&id, ref mut active_req /*(ref mut req, ref mut timeout)*/) in
+            &mut self.active_requests
+        {
+            if active_req.is_canceled() {
+                canceled.insert(
+                    id,
+                    ProtoError::from(ProtoErrorKind::Message("requestor canceled")),
+                );
             }
 
             // check for timeouts...
-            match timeout.poll() {
+            match active_req.poll_timeout() {
                 Ok(Async::Ready(_)) => {
                     warn!("request timeout: {}", id);
-                    canceled.insert(id);
+                    canceled.insert(
+                        id,
+                        ProtoError::from(ProtoErrorKind::Message("request timeout")),
+                    );
                 }
                 Ok(Async::NotReady) => (),
                 Err(e) => {
                     error!("unexpected error from timeout: {}", e);
-                    canceled.insert(id);
+                    canceled.insert(
+                        id,
+                        ProtoError::from(ProtoErrorKind::Message("error registering timeout")),
+                    );
                 }
             }
         }
 
         // drop all the canceled requests
-        for id in canceled {
-            if let Some((req, _)) = self.active_requests.remove(&id) {
-                // TODO, perhaps there is a different reason timeout? but there shouldn't be...
-                //  being lazy and always returning timeout in this case (if it was canceled then the
-                //  then the otherside isn't really paying attention anyway)
-
+        for (id, error) in canceled {
+            if let Some(active_request) = self.active_requests.remove(&id) {
                 // complete the request, it's failed...
-                ignore_send(req.send(Err(E::from(ProtoErrorKind::Timeout.into()))));
+                active_request.send_error(error);
             }
         }
     }
@@ -271,20 +335,22 @@ where
                         }
                     }
 
+                    let active_request = ActiveRequest::new(complete, timeout);
+
                     // send the message
                     match message.to_vec() {
                         Ok(buffer) => {
                             debug!("sending message id: {}", query_id);
                             self.stream_handle.send(buffer)?;
+
                             // add to the map -after- the client send b/c we don't want to put it in the map if
                             //  we ended up returning from the send.
-                            self.active_requests
-                                .insert(message.id(), (complete, timeout));
+                            self.active_requests.insert(message.id(), active_request);
                         }
                         Err(e) => {
                             debug!("error message id: {} error: {}", query_id, e);
                             // complete with the error, don't add to the map of active requests
-                            ignore_send(complete.send(Err(e.into())));
+                            active_request.send_error(e);
                         }
                     }
                 }
@@ -309,7 +375,12 @@ where
                     match Message::from_vec(&buffer) {
                         // FIXME: if multicast, ie, multiple responses are expected...
                         Ok(message) => match self.active_requests.remove(&message.id()) {
-                            Some((complete, _)) => ignore_send(complete.send(Ok(message))),
+                            Some(mut active_request) => {
+                                active_request.add_response(message);
+
+                                // FIXME: if multicast, only send after timeout
+                                active_request.send();
+                            }
                             None => debug!("unexpected request_id: {}", message.id()),
                         },
                         // TODO: return src address for diagnostics

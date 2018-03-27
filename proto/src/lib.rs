@@ -30,6 +30,7 @@ extern crate openssl;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
+extern crate smallvec;
 extern crate socket2;
 #[macro_use]
 extern crate tokio_core;
@@ -53,13 +54,13 @@ pub mod tcp;
 pub mod udp;
 mod xfer;
 
+use error::*;
+use op::Message;
 pub use xfer::dns_future::DnsFuture;
 pub use xfer::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
 pub use xfer::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use xfer::secure_dns_handle::SecureDnsHandle;
-use op::Message;
-use error::*;
 
 // TODO: change to Sink
 /// A sender to which serialized DNS Messages can be sent
