@@ -7,7 +7,7 @@ environment:
     RUST_BACKTRACE: 1
   - TARGET: i686-pc-windows-msvc
     BITS: 32
-    OPENSSL_VERSION: 1_1_0g
+    OPENSSL_VERSION: 1_1_0h
     OPENSSL_DIR: C:\OpenSSL
     RUST_BACKTRACE: 1
 
