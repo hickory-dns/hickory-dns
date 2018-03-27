@@ -7,15 +7,15 @@
 
 use std::marker::PhantomData;
 
-use futures::{Complete, Future};
 use futures::IntoFuture;
 use futures::sync::mpsc::UnboundedSender;
 use futures::sync::oneshot;
+use futures::{Complete, Future};
 use rand;
 
+use super::ignore_send;
 use error::*;
 use op::{Message, MessageType, OpCode, Query};
-use super::ignore_send;
 
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -73,6 +73,7 @@ pub struct BasicDnsHandle<E: FromProtoError> {
 }
 
 impl<E: FromProtoError> BasicDnsHandle<E> {
+    /// Returns a new BasicDnsHandle wrapping the `message_sender`
     pub fn new(message_sender: UnboundedSender<(Message, Complete<Result<Message, E>>)>) -> Self {
         BasicDnsHandle { message_sender }
     }
