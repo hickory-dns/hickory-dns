@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use std::ops::Deref;
+
 use smallvec::SmallVec;
 
 use op::Message;
@@ -31,11 +33,14 @@ impl DnsRequest {
         DnsRequest { message, options }
     }
 
-    pub fn message(&self) -> &Message {
-        &self.message
-    }
-
     pub fn options(&self) -> &DnsRequestOptions {
         &self.options
+    }
+}
+
+impl Deref for DnsRequest {
+    type Target = Message;
+    fn deref(&self) -> &Self::Target {
+        &self.message
     }
 }
