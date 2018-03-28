@@ -23,15 +23,15 @@ use tokio_core::reactor::Handle;
 use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
 use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
-use trust_dns::rr::{Name, DNSClass, RData, Record, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::*;
+use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
 use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
+use trust_dns_integration::authority::create_example;
+use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
 use trust_dns_proto::DnsStreamHandle;
 use trust_dns_server::authority::Catalog;
-use trust_dns_integration::{NeverReturnsClientConnection, TestClientStream};
-use trust_dns_integration::authority::create_example;
 
 pub struct TestClientConnection {
     catalog: Arc<Catalog>,
@@ -51,12 +51,10 @@ impl ClientConnection for TestClientConnection {
     fn new_stream(
         &self,
         _: &Handle,
-    ) -> ClientResult<
-        (
-            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-            Box<DnsStreamHandle<Error = ClientError>>,
-        ),
-    > {
+    ) -> ClientResult<(
+        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = ClientError>>,
+    )> {
         let (stream, handle) = TestClientStream::new(self.catalog.clone());
         Ok((stream, Box::new(handle)))
     }
@@ -237,47 +235,47 @@ fn test_timeout_query_tcp() {
     test_timeout_query(client);
 }
 
-// TODO: this test is flaky
-#[test]
-#[ignore]
-#[allow(deprecated)]
-fn test_dnssec_rollernet_td_udp() {
-    let c = SecureSyncClient::new(UdpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
-        .build();
-    c.secure_query(
-        &Name::parse("rollernet.us.", None).unwrap(),
-        DNSClass::IN,
-        RecordType::DNSSEC(DNSSECRecordType::DS),
-    ).unwrap();
-}
+// // TODO: this test is flaky
+// #[test]
+// #[ignore]
+// #[allow(deprecated)]
+// fn test_dnssec_rollernet_td_udp() {
+//     let c = SecureSyncClient::new(UdpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
+//         .build();
+//     c.secure_query(
+//         &Name::parse("rollernet.us.", None).unwrap(),
+//         DNSClass::IN,
+//         RecordType::DNSSEC(DNSSECRecordType::DS),
+//     ).unwrap();
+// }
 
-// TODO: this test is flaky
-#[test]
-#[ignore]
-#[allow(deprecated)]
-fn test_dnssec_rollernet_td_tcp() {
-    let c = SecureSyncClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
-        .build();
-    c.secure_query(
-        &Name::parse("rollernet.us.", None).unwrap(),
-        DNSClass::IN,
-        RecordType::DNSSEC(DNSSECRecordType::DS),
-    ).unwrap();
-}
+// // TODO: this test is flaky
+// #[test]
+// #[ignore]
+// #[allow(deprecated)]
+// fn test_dnssec_rollernet_td_tcp() {
+//     let c = SecureSyncClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
+//         .build();
+//     c.secure_query(
+//         &Name::parse("rollernet.us.", None).unwrap(),
+//         DNSClass::IN,
+//         RecordType::DNSSEC(DNSSECRecordType::DS),
+//     ).unwrap();
+// }
 
-// TODO: this test is flaky
-#[test]
-#[ignore]
-#[allow(deprecated)]
-fn test_dnssec_rollernet_td_tcp_mixed_case() {
-    let c = SecureSyncClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
-        .build();
-    c.secure_query(
-        &Name::parse("RollErnet.Us.", None).unwrap(),
-        DNSClass::IN,
-        RecordType::DNSSEC(DNSSECRecordType::DS),
-    ).unwrap();
-}
+// // TODO: this test is flaky
+// #[test]
+// #[ignore]
+// #[allow(deprecated)]
+// fn test_dnssec_rollernet_td_tcp_mixed_case() {
+//     let c = SecureSyncClient::new(TcpClientConnection::new("8.8.8.8:53".parse().unwrap()).unwrap())
+//         .build();
+//     c.secure_query(
+//         &Name::parse("RollErnet.Us.", None).unwrap(),
+//         DNSClass::IN,
+//         RecordType::DNSSEC(DNSSECRecordType::DS),
+//     ).unwrap();
+// }
 
 #[test]
 #[ignore]
@@ -312,7 +310,6 @@ where
     let response = response.unwrap();
     assert_eq!(response.response_code(), ResponseCode::NXDomain);
 }
-
 
 #[test]
 #[ignore]
@@ -369,9 +366,7 @@ fn test_nsec_query_type() {
 // }
 
 #[allow(deprecated)]
-fn create_sig0_ready_client(
-    mut catalog: Catalog,
-) -> (SyncClient<TestClientConnection>, Name) {
+fn create_sig0_ready_client(mut catalog: Catalog) -> (SyncClient<TestClientConnection>, Name) {
     let mut authority = create_example();
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
@@ -422,7 +417,6 @@ fn test_create() {
         Duration::minutes(5).num_seconds() as u32,
     );
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
-
 
     let result = client
         .create(record.clone(), origin.clone())
@@ -500,20 +494,26 @@ fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
 
-    assert!(result.answers().iter().any(
-        |rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(100, 10, 100, 10)
-        } else {
-            false
-        }
-    ));
-    assert!(result.answers().iter().any(
-        |rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(101, 11, 101, 11)
-        } else {
-            false
-        }
-    ));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(100, 10, 100, 10)
+            } else {
+                false
+            })
+    );
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(101, 11, 101, 11)
+            } else {
+                false
+            })
+    );
 
     // show that appending the same thing again is ok, but doesn't add any records
     let result = client
@@ -560,13 +560,16 @@ fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result.answers().iter().any(
-        |rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(101, 11, 101, 11)
-        } else {
-            false
-        }
-    ));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(101, 11, 101, 11)
+            } else {
+                false
+            })
+    );
 
     // check the it fails if tried again.
     let mut new = new;
@@ -582,13 +585,16 @@ fn test_compare_and_swap() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result.answers().iter().any(
-        |rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(101, 11, 101, 11)
-        } else {
-            false
-        }
-    ));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(101, 11, 101, 11)
+            } else {
+                false
+            })
+    );
 }
 
 #[test]
@@ -634,13 +640,16 @@ fn test_delete_by_rdata() {
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
-    assert!(result.answers().iter().any(
-        |rr| if let &RData::A(ref ip) = rr.rdata() {
-            *ip == Ipv4Addr::new(100, 10, 100, 10)
-        } else {
-            false
-        }
-    ));
+    assert!(
+        result
+            .answers()
+            .iter()
+            .any(|rr| if let &RData::A(ref ip) = rr.rdata() {
+                *ip == Ipv4Addr::new(100, 10, 100, 10)
+            } else {
+                false
+            })
+    );
 }
 
 #[test]

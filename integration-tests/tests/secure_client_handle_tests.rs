@@ -13,9 +13,8 @@ use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle, MemoizeCl
                         SecureClientHandle};
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::Name;
-use trust_dns::rr::{DNSClass, RData, RecordType};
-use trust_dns::rr::rdata::DNSSECRecordType;
 use trust_dns::rr::dnssec::TrustAnchor;
+use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 
@@ -127,66 +126,66 @@ where
     assert!(response.answers().is_empty());
 }
 
-// TODO: this test is flaky
-#[test]
-#[ignore]
-fn test_dnssec_rollernet_td_udp() {
-    with_udp(dnssec_rollernet_td_test);
-}
+// // TODO: this test is flaky
+// #[test]
+// #[ignore]
+// fn test_dnssec_rollernet_td_udp() {
+//     with_udp(dnssec_rollernet_td_test);
+// }
 
-// TODO: this test is flaky
-#[test]
-#[ignore]
-fn test_dnssec_rollernet_td_tcp() {
-    with_udp(dnssec_rollernet_td_test);
-}
+// // TODO: this test is flaky
+// #[test]
+// #[ignore]
+// fn test_dnssec_rollernet_td_tcp() {
+//     with_udp(dnssec_rollernet_td_test);
+// }
 
-// TODO: this test is flaky
-#[test]
-#[ignore]
-fn test_dnssec_rollernet_td_tcp_mixed_case() {
-    with_tcp(dnssec_rollernet_td_mixed_case_test);
-}
+// // TODO: this test is flaky
+// #[test]
+// #[ignore]
+// fn test_dnssec_rollernet_td_tcp_mixed_case() {
+//     with_tcp(dnssec_rollernet_td_mixed_case_test);
+// }
 
-fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
-where
-    H: ClientHandle + 'static,
-{
-    let name = Name::parse("rollernet.us.", None).unwrap();
+// fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
+// where
+//     H: ClientHandle + 'static,
+// {
+//     let name = Name::parse("rollernet.us.", None).unwrap();
 
-    let response = io_loop
-        .run(client.query(
-            name.clone(),
-            DNSClass::IN,
-            RecordType::DNSSEC(DNSSECRecordType::DS),
-        ))
-        .expect("query failed");
+//     let response = io_loop
+//         .run(client.query(
+//             name.clone(),
+//             DNSClass::IN,
+//             RecordType::DNSSEC(DNSSECRecordType::DS),
+//         ))
+//         .expect("query failed");
 
-    assert_eq!(response.response_code(), ResponseCode::NoError);
-    // rollernet doesn't have any DS records...
-    //  would have failed validation
-    assert!(response.answers().is_empty());
-}
+//     assert_eq!(response.response_code(), ResponseCode::NoError);
+//     // rollernet doesn't have any DS records...
+//     //  would have failed validation
+//     assert!(response.answers().is_empty());
+// }
 
-fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
-where
-    H: ClientHandle + 'static,
-{
-    let name = Name::parse("RollErnet.Us.", None).unwrap();
+// fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
+// where
+//     H: ClientHandle + 'static,
+// {
+//     let name = Name::parse("RollErnet.Us.", None).unwrap();
 
-    let response = io_loop
-        .run(client.query(
-            name.clone(),
-            DNSClass::IN,
-            RecordType::DNSSEC(DNSSECRecordType::DS),
-        ))
-        .expect("query failed");
+//     let response = io_loop
+//         .run(client.query(
+//             name.clone(),
+//             DNSClass::IN,
+//             RecordType::DNSSEC(DNSSECRecordType::DS),
+//         ))
+//         .expect("query failed");
 
-    assert_eq!(response.response_code(), ResponseCode::NoError);
-    // rollernet doesn't have any DS records...
-    //  would have failed validation
-    assert!(response.answers().is_empty());
-}
+//     assert_eq!(response.response_code(), ResponseCode::NoError);
+//     // rollernet doesn't have any DS records...
+//     //  would have failed validation
+//     assert!(response.answers().is_empty());
+// }
 
 fn with_nonet<F>(test: F)
 where
@@ -219,7 +218,6 @@ where
             .key()
             .to_public_key()
             .expect("could not convert keypair to public_key");
-
 
         let mut trust_anchor = TrustAnchor::new();
         trust_anchor.insert_trust_anchor(&public_key);

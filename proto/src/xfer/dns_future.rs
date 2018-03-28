@@ -7,6 +7,7 @@
 
 use std::borrow::Borrow;
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::io;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -21,7 +22,7 @@ use tokio_core::reactor::{Handle, Timeout};
 
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
-use xfer::{ignore_send, DnsRequest};
+use xfer::{ignore_send, DnsRequest, DnsRequestOptions};
 use {BasicDnsHandle, DnsStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -29,8 +30,8 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 struct ActiveRequest<E: FromProtoError> {
     // the completion is the channel for a response to the original request
     completion: Complete<Result<Message, E>>,
-    // FIXME: add the DnsRequest
-    // request: DnsRequest,
+    // the original request and associated options
+    request: DnsRequest,
     // most requests pass a single Message response directly through to the completion
     //  this small vec will have no allocations, unless the requests is a DNS-SD request
     //  expecting more than one response
@@ -39,9 +40,14 @@ struct ActiveRequest<E: FromProtoError> {
 }
 
 impl<E: FromProtoError> ActiveRequest<E> {
-    fn new(completion: Complete<Result<Message, E>>, timeout: Timeout) -> Self {
+    fn new(
+        completion: Complete<Result<Message, E>>,
+        request: DnsRequest,
+        timeout: Timeout,
+    ) -> Self {
         ActiveRequest {
             completion,
+            request,
             responses: SmallVec::new(),
             timeout,
         }
@@ -62,8 +68,12 @@ impl<E: FromProtoError> ActiveRequest<E> {
         self.responses.push(message);
     }
 
+    fn request(&self) -> &DnsRequest {
+        &self.request
+    }
+
     /// Sends an error
-    fn send_error(self, error: ProtoError) {
+    fn complete_with_error(self, error: ProtoError) {
         ignore_send(self.completion.send(Err(E::from(error))));
     }
 
@@ -71,9 +81,9 @@ impl<E: FromProtoError> ActiveRequest<E> {
     ///
     /// Any error sending will be logged and ignored. This must only be called after associating a response,
     ///   otherwise an error will alway be returned.
-    fn send(mut self) {
+    fn complete(mut self) {
         if self.responses.is_empty() {
-            self.send_error(
+            self.complete_with_error(
                 ProtoErrorKind::Message("no responses received, should have timedout").into(),
             );
         } else {
@@ -207,7 +217,7 @@ where
                     warn!("request timeout: {}", id);
                     canceled.insert(
                         id,
-                        ProtoError::from(ProtoErrorKind::Message("request timeout")),
+                        ProtoError::from(ProtoErrorKind::Message("request timed out")),
                     );
                 }
                 Ok(Async::NotReady) => (),
@@ -225,7 +235,7 @@ where
         for (id, error) in canceled {
             if let Some(active_request) = self.active_requests.remove(&id) {
                 // complete the request, it's failed...
-                active_request.send_error(error);
+                active_request.complete_with_error(error);
             }
         }
     }
@@ -335,22 +345,24 @@ where
                         }
                     }
 
-                    let active_request = ActiveRequest::new(complete, timeout);
+                    let request = DnsRequest::new(message, DnsRequestOptions::default());
+                    let active_request = ActiveRequest::new(complete, request, timeout);
 
                     // send the message
-                    match message.to_vec() {
+                    match active_request.request().to_vec() {
                         Ok(buffer) => {
                             debug!("sending message id: {}", query_id);
                             self.stream_handle.send(buffer)?;
 
                             // add to the map -after- the client send b/c we don't want to put it in the map if
                             //  we ended up returning from the send.
-                            self.active_requests.insert(message.id(), active_request);
+                            self.active_requests
+                                .insert(active_request.request().id(), active_request);
                         }
                         Err(e) => {
                             debug!("error message id: {} error: {}", query_id, e);
                             // complete with the error, don't add to the map of active requests
-                            active_request.send_error(e);
+                            active_request.complete_with_error(e);
                         }
                     }
                 }
@@ -374,14 +386,27 @@ where
                     //   deserialize or log decode_error
                     match Message::from_vec(&buffer) {
                         // FIXME: if multicast, ie, multiple responses are expected...
-                        Ok(message) => match self.active_requests.remove(&message.id()) {
-                            Some(mut active_request) => {
-                                active_request.add_response(message);
+                        Ok(message) => match self.active_requests.entry(message.id()) {
+                            Entry::Occupied(mut request_entry) => {
+                                // first add the response to the active_requests responses
+                                let complete = {
+                                    let mut active_request = request_entry.get_mut();
+                                    active_request.add_response(message);
 
-                                // FIXME: if multicast, only send after timeout
-                                active_request.send();
+                                    // determine if this is complete
+                                    !active_request
+                                        .request()
+                                        .options()
+                                        .expects_multiple_responses
+                                };
+
+                                // now check if the request is complete
+                                if complete {
+                                    let mut active_request = request_entry.remove();
+                                    active_request.complete();
+                                }
                             }
-                            None => debug!("unexpected request_id: {}", message.id()),
+                            Entry::Vacant(..) => debug!("unexpected request_id: {}", message.id()),
                         },
                         // TODO: return src address for diagnostics
                         Err(e) => debug!("error decoding message: {}", e),

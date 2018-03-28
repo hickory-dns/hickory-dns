@@ -12,21 +12,21 @@ use std::sync::{Arc, Mutex};
 
 use futures::Future;
 use tokio_core::reactor::Handle;
-use trust_dns_proto::op::Message;
-use trust_dns_proto::{BasicDnsHandle, DnsHandle, RetryDnsHandle};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
+use trust_dns_proto::op::Message;
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
+use trust_dns_proto::{BasicDnsHandle, DnsHandle, RetryDnsHandle};
 
 use config::{ResolverConfig, ResolverOpts};
-use error::*;
-use lookup_state::CachingClient;
-use name_server_pool::{NameServerPool, StandardConnection};
-use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use dns_lru::DnsLru;
+use error::*;
+use hosts::{parse_literal_ip, Hosts};
 use lookup::{self, Lookup};
 use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
-use hosts::{parse_literal_ip, Hosts};
+use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
+use lookup_state::CachingClient;
+use name_server_pool::{NameServerPool, StandardConnection};
 
 /// Root Handle to communicate with the ResolverFuture
 ///
@@ -313,7 +313,6 @@ mod tests {
     use std::str::FromStr;
 
     use self::tokio_core::reactor::Core;
-    use trust_dns_proto::error::ProtoErrorKind;
 
     use config::{LookupIpStrategy, NameServerConfig};
 
@@ -432,8 +431,11 @@ mod tests {
     }
 
     #[test]
+    #[cfg(feature = "dnssec")]
     #[ignore] // these appear to not work on travis
     fn test_sec_lookup_fails() {
+        use trust_dns_proto::error::ProtoErrorKind;
+
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
             ResolverConfig::default(),
@@ -458,60 +460,64 @@ mod tests {
         );
     }
 
-    #[test]
-    #[ignore]
-    #[cfg(any(unix, target_os = "windows"))]
-    fn test_system_lookup() {
-        let mut io_loop = Core::new().unwrap();
-        let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
+    // FIXME: this test is highly dependent on system configuration...
+    //
+    // #[test]
+    // #[ignore]
+    // #[cfg(any(unix, target_os = "windows"))]
+    // fn test_system_lookup() {
+    //     let mut io_loop = Core::new().unwrap();
+    //     let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
 
-        let response = io_loop
-            .run(resolver.lookup_ip("www.example.com."))
-            .expect("failed to run lookup");
+    //     let response = io_loop
+    //         .run(resolver.lookup_ip("www.example.com."))
+    //         .expect("failed to run lookup");
 
-        assert_eq!(response.iter().count(), 2);
-        for address in response.iter() {
-            if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
-            } else {
-                assert_eq!(
-                    address,
-                    IpAddr::V6(Ipv6Addr::new(
-                        0x2606,
-                        0x2800,
-                        0x220,
-                        0x1,
-                        0x248,
-                        0x1893,
-                        0x25c8,
-                        0x1946,
-                    ))
-                );
-            }
-        }
-    }
+    //     assert_eq!(response.iter().count(), 2);
+    //     for address in response.iter() {
+    //         if address.is_ipv4() {
+    //             assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+    //         } else {
+    //             assert_eq!(
+    //                 address,
+    //                 IpAddr::V6(Ipv6Addr::new(
+    //                     0x2606,
+    //                     0x2800,
+    //                     0x220,
+    //                     0x1,
+    //                     0x248,
+    //                     0x1893,
+    //                     0x25c8,
+    //                     0x1946,
+    //                 ))
+    //             );
+    //         }
+    //     }
+    // }
 
-    #[test]
-    #[ignore]
-    // these appear to not work on travis, test on macos with `10.1.0.104  a.com`
-    #[cfg(unix)]
-    fn test_hosts_lookup() {
-        let mut io_loop = Core::new().unwrap();
-        let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
+    // // FIXME: this test needs additional configuration options to specify the hosts file.
 
-        let response = io_loop
-            .run(resolver.lookup_ip("a.com"))
-            .expect("failed to run lookup");
+    // #[test]
+    // #[ignore]
+    // // these appear to not work on travis, test on macos with `10.1.0.104  a.com`
+    // #[cfg(unix)]
+    // fn test_hosts_lookup() {
+    //     let mut io_loop = Core::new().unwrap();
+    //     let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
 
-        assert_eq!(response.iter().count(), 1);
-        for address in response.iter() {
-            if address.is_ipv4() {
-                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(10, 1, 0, 104)));
-            } else {
-                assert!(false, "failed to run lookup");
-            }
-        }
-    }
+    //     let response = io_loop
+    //         .run(resolver.lookup_ip("a.com"))
+    //         .expect("failed to run lookup");
+
+    //     assert_eq!(response.iter().count(), 1);
+    //     for address in response.iter() {
+    //         if address.is_ipv4() {
+    //             assert_eq!(address, IpAddr::V4(Ipv4Addr::new(10, 1, 0, 104)));
+    //         } else {
+    //             assert!(false, "failed to run lookup");
+    //         }
+    //     }
+    // }
 
     #[test]
     fn test_fqdn() {
