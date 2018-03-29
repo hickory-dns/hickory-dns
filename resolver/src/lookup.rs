@@ -21,6 +21,7 @@ use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::op::{Message, Query};
 use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_proto::rr::rdata;
+use trust_dns_proto::xfer::DnsRequest;
 
 use error::*;
 use lookup_state::CachingClient;
@@ -104,11 +105,11 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
         }
     }
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
         match *self {
-            LookupEither::Retry(ref mut c) => c.send(message),
+            LookupEither::Retry(ref mut c) => c.send(request),
             #[cfg(feature = "dnssec")]
-            LookupEither::Secure(ref mut c) => c.send(message),
+            LookupEither::Secure(ref mut c) => c.send(request),
         }
     }
 }
@@ -310,6 +311,7 @@ pub mod tests {
 
     use trust_dns_proto::op::Message;
     use trust_dns_proto::rr::{Name, RData, Record, RecordType};
+    use trust_dns_proto::xfer::DnsRequest;
 
     use super::*;
 
@@ -321,7 +323,7 @@ pub mod tests {
     impl DnsHandle for MockDnsHandle {
         type Error = ResolveError;
 
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Box<Future<Item = Message, Error = Self::Error>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))

@@ -14,7 +14,7 @@ use futures::Future;
 use futures::stream::Stream;
 use rand;
 use tokio_core::reactor::Handle;
-use trust_dns_proto::{BasicDnsHandle, DnsFuture, DnsHandle, DnsStreamHandle};
+use trust_dns_proto::xfer::{BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsStreamHandle};
 
 use client::ClientStreamHandle;
 use error::*;
@@ -106,8 +106,8 @@ pub struct BasicClientHandle {
 impl DnsHandle for BasicClientHandle {
     type Error = ClientError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
-        Box::new(self.message_sender.send(message).map_err(ClientError::from))
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+        Box::new(self.message_sender.send(request).map_err(ClientError::from))
     }
 }
 

@@ -16,7 +16,7 @@ use tokio_core::reactor::Handle;
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::op::Message;
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
-use trust_dns_proto::{BasicDnsHandle, DnsHandle, RetryDnsHandle};
+use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, RetryDnsHandle};
 
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::DnsLru;
@@ -48,10 +48,10 @@ impl BasicResolverHandle {
 impl DnsHandle for BasicResolverHandle {
     type Error = ResolveError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
         Box::new(
             self.message_sender
-                .send(message)
+                .send(request)
                 .map_err(ResolveError::from),
         )
     }

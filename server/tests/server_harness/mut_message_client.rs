@@ -1,11 +1,11 @@
 use futures::future::*;
 
 use trust_dns::client::*;
-use trust_dns::rr::dnssec::*;
-use trust_dns::rr::rdata::opt::EdnsOption;
 use trust_dns::error::*;
 use trust_dns::op::*;
-use trust_dns_proto::DnsHandle;
+use trust_dns::rr::dnssec::*;
+use trust_dns::rr::rdata::opt::EdnsOption;
+use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
 
 #[derive(Clone)]
 pub struct MutMessageHandle<C: ClientHandle> {
@@ -31,10 +31,14 @@ impl<C: ClientHandle> DnsHandle for MutMessageHandle<C> {
         true
     }
 
-    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+        let mut request = request.into();
         {
             // mutable block
-            let edns = message.edns_mut();
+            let edns = request.edns_mut();
             edns.set_dnssec_ok(true);
 
             if let Some(supported_algs) = self.support_algorithms {
@@ -43,6 +47,6 @@ impl<C: ClientHandle> DnsHandle for MutMessageHandle<C> {
         }
 
         println!("sending message");
-        self.client.send(message)
+        self.client.send(request)
     }
 }

@@ -5,11 +5,14 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! `RetryDnsHandle` allows for DnsQueries to be reattempted on failure
+
 use futures::{Future, Poll};
 
 use error::FromProtoError;
 use DnsHandle;
 use op::Message;
+use xfer::DnsRequest;
 
 /// Can be used to reattempt a queries if they fail
 ///
@@ -47,13 +50,15 @@ where
 {
     type Error = <H as DnsHandle>::Error;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+        let request = request.into();
+
         // need to clone here so that the retry can resend if necessary...
         //  obviously it would be nice to be lazy about this...
-        let future = self.handle.send(message.clone());
+        let future = self.handle.send(request.clone());
 
         Box::new(RetrySendFuture {
-            message: message,
+            request: request,
             handle: self.handle.clone(),
             future: future,
             remaining_attempts: self.attempts,
@@ -63,7 +68,7 @@ where
 
 /// A future for retrying (on failure, for the remaining number of times specified)
 struct RetrySendFuture<H: DnsHandle, E> {
-    message: Message,
+    request: DnsRequest,
     handle: H,
     future: Box<Future<Item = Message, Error = E>>,
     remaining_attempts: usize,
@@ -89,9 +94,9 @@ where
                     }
 
                     self.remaining_attempts -= 1;
-                    // TODO: if the "sent" Message is part of the error result,
+                    // FIXME: if the "sent" Message is part of the error result,
                     //  then we can just reuse it... and no clone necessary
-                    self.future = self.handle.send(self.message.clone());
+                    self.future = self.handle.send(self.request.clone());
                 }
             }
         }
@@ -117,7 +122,7 @@ mod test {
     impl DnsHandle for TestClient {
         type Error = ProtoError;
 
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Box<Future<Item = Message, Error = Self::Error>> {
             let i = self.attempts.get();
 
             if i > self.retries || self.retries - i == 0 {

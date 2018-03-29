@@ -313,7 +313,7 @@ pub mod tests {
     //use trust_dns_proto::error::*;
     use trust_dns_proto::op::Message;
     use trust_dns_proto::rr::{Name, RData, Record, RecordType};
-    use trust_dns_proto::DnsHandle;
+    use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
 
     use super::*;
 
@@ -325,7 +325,7 @@ pub mod tests {
     impl DnsHandle for MockDnsHandle {
         type Error = ResolveError;
 
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Box<Future<Item = Message, Error = Self::Error>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))

@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! The `SecureDnsHandle` is used to validate all DNS responses for correct DNSSec signatures.
+
 use std::clone::Clone;
 use std::collections::HashSet;
 use std::mem;
@@ -21,6 +23,7 @@ use rr::dnssec::Verifier;
 use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
 use rr::rdata::opt::EdnsOption;
+use xfer::DnsRequest;
 
 #[derive(Debug)]
 struct Rrset {
@@ -107,7 +110,9 @@ where
         true
     }
 
-    fn send(&mut self, mut message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+        let mut request = request.into();
+
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
             return Box::new(failed(E::from(
@@ -116,16 +121,16 @@ where
         }
 
         // dnssec only matters on queries.
-        if let OpCode::Query = message.op_code() {
+        if let OpCode::Query = request.op_code() {
             // This will panic on no queries, that is a very odd type of request, isn't it?
-            // TODO: there should only be one
-            let query = message.queries().first().cloned().unwrap();
+            // TODO: with mDNS there can be multiple queries
+            let query = request.queries().first().cloned().expect("no queries in request");
             let handle: SecureDnsHandle<H> = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
             #[cfg(feature = "dnssec")]
             {
-                let edns = message.edns_mut();
+                let edns = request.edns_mut();
 
                 edns.set_dnssec_ok(true);
 
@@ -146,16 +151,16 @@ where
                 edns.set_option(dhu);
             }
 
-            message.set_authentic_data(true);
-            message.set_checking_disabled(false);
-            let dns_class = message
+            request.set_authentic_data(true);
+            request.set_checking_disabled(false);
+            let dns_class = request
                 .queries()
                 .first()
                 .map_or(DNSClass::IN, |q| q.query_class());
 
             return Box::new(
                 self.handle
-                    .send(message)
+                    .send(request)
                     .and_then(move |message_response| {
                         // group the record sets by name and type
                         //  each rrset type needs to validated independently
@@ -189,7 +194,7 @@ where
             );
         }
 
-        self.handle.send(message)
+        self.handle.send(request)
     }
 }
 

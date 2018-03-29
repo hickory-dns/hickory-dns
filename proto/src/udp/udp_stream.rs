@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std;
-use std::marker::PhantomData;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::io;
 
@@ -56,10 +55,7 @@ impl UdpStream {
         E: FromProtoError,
     {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E> {
-            sender: message_sender,
-            phantom: PhantomData::<E>,
-        };
+        let message_sender = BufStreamHandle::<E>::new(message_sender);
 
         // TODO: allow the bind address to be specified...
         // constructs a future for getting the next randomly bound port to a UdpSocket
@@ -109,10 +105,7 @@ impl UdpStream {
         E: FromProtoError + 'static,
     {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E> {
-            sender: message_sender,
-            phantom: PhantomData::<E>,
-        };
+        let message_sender = BufStreamHandle::<E>::new(message_sender);
 
         // TODO: consider making this return a Result...
         let socket = tokio_core::net::UdpSocket::from_socket(socket, loop_handle)
@@ -337,7 +330,6 @@ fn udp_stream_test(server_addr: std::net::IpAddr) {
     for _ in 0..send_recv_times {
         // test once
         sender
-            .sender
             .unbounded_send((test_bytes.to_vec(), server_addr))
             .unwrap();
         let (buffer_and_addr, stream_tmp) = io_loop.run(stream.into_future()).ok().unwrap();

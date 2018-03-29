@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
+
 use std::marker::PhantomData;
 
 use futures::IntoFuture;
@@ -13,9 +15,9 @@ use futures::sync::oneshot;
 use futures::{Complete, Future};
 use rand;
 
-use super::ignore_send;
 use error::*;
 use op::{Message, MessageType, OpCode, Query};
+use xfer::{ignore_send, DnsRequest, DnsRequestOptions};
 
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -69,12 +71,14 @@ where
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicDnsHandle<E: FromProtoError> {
-    message_sender: UnboundedSender<(Message, Complete<Result<Message, E>>)>,
+    message_sender: UnboundedSender<(DnsRequest, Complete<Result<Message, E>>)>,
 }
 
 impl<E: FromProtoError> BasicDnsHandle<E> {
     /// Returns a new BasicDnsHandle wrapping the `message_sender`
-    pub fn new(message_sender: UnboundedSender<(Message, Complete<Result<Message, E>>)>) -> Self {
+    pub fn new(
+        message_sender: UnboundedSender<(DnsRequest, Complete<Result<Message, E>>)>,
+    ) -> Self {
         BasicDnsHandle { message_sender }
     }
 }
@@ -85,12 +89,16 @@ where
 {
     type Error = E;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+        let request = request.into();
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
 
         // TODO: update to use Sink::send
-        let receiver = match UnboundedSender::unbounded_send(message_sender, (message, complete)) {
+        let receiver = match UnboundedSender::unbounded_send(message_sender, (request, complete)) {
             Ok(()) => receiver,
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();
@@ -127,10 +135,13 @@ pub trait DnsHandle: Clone {
     ///
     /// # Arguments
     ///
-    /// * `message` - the fully constructed Message to send, note that most implementations of
+    /// * `request` - the fully constructed Message to send, note that most implementations of
     ///               will most likely be required to rewrite the QueryId, do no rely on that as
     ///               being stable.
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>>;
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>>;
 
     /// A *classic* DNS query
     ///
@@ -164,6 +175,6 @@ pub trait DnsHandle: Clone {
             edns.set_version(0);
         }
 
-        self.send(message)
+        self.send(DnsRequest::new(message, DnsRequestOptions::default()))
     }
 }
