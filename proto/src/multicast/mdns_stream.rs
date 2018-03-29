@@ -6,25 +6,24 @@
 // copied, modified, or distributed except according to those terms.
 
 use std;
-use std::marker::PhantomData;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 use std::io;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
 
-use futures::{Async, Future, Poll};
 use futures::future;
 use futures::stream::Stream;
 use futures::sync::mpsc::unbounded;
 use futures::task;
+use futures::{Async, Future, Poll};
 use rand;
 use rand::distributions::{IndependentSample, Range};
 use socket2::{self, Socket};
 use tokio_core;
 use tokio_core::reactor::Handle;
 
-use multicast::MdnsQueryType;
-use udp::UdpStream;
 use BufStreamHandle;
 use error::*;
+use multicast::MdnsQueryType;
+use udp::UdpStream;
 
 pub const MDNS_PORT: u16 = 5353;
 lazy_static! {
@@ -127,10 +126,7 @@ impl MdnsStream {
         E: FromProtoError,
     {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E> {
-            sender: message_sender,
-            phantom: PhantomData::<E>,
-        };
+        let message_sender = BufStreamHandle::<E>::new(message_sender);
 
         let multicast_socket = match Self::join_multicast(&multicast_addr, mdns_query_type) {
             Ok(socket) => socket,
@@ -421,9 +417,9 @@ impl Future for NextRandomUdpSocket {
 
 #[cfg(test)]
 pub mod tests {
+    use super::*;
     use futures::future::{Either, Future};
     use tokio_core;
-    use super::*;
 
     // TODO: is there a better way?
     const BASE_TEST_PORT: u16 = 5379;
@@ -471,9 +467,9 @@ pub mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn one_shot_mdns_test(mdns_addr: SocketAddr) {
-        use tokio_core::reactor::{Core, Timeout};
         use std;
         use std::time::Duration;
+        use tokio_core::reactor::{Core, Timeout};
 
         let client_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -626,9 +622,9 @@ pub mod tests {
 
     //   as there are probably unexpected responses coming on the standard addresses
     fn passive_mdns_test(mdns_query_type: MdnsQueryType, mdns_addr: SocketAddr) {
-        use tokio_core::reactor::{Core, Timeout};
         use std;
         use std::time::Duration;
+        use tokio_core::reactor::{Core, Timeout};
 
         let server_got_packet = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
