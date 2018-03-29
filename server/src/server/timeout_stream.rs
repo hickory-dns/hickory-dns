@@ -1,5 +1,4 @@
 use std::io;
-use std::mem;
 use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
@@ -59,8 +58,13 @@ where
                 // reset the timeout to wait for the next request...
                 let mut timeout = Self::timeout(self.timeout_duration, &self.reactor_handle)?;
 
+                if timeout.is_none() {
+                    self.timeout = None;
+                    return r;
+                }
+
                 // ensure that interest in the Timeout is registered
-                match timeout.poll() {
+                match timeout.as_mut().expect("timeout to be Some(t)").poll() {
                     Ok(Async::Ready(_)) => {
                         warn!("timeout fired immediately!");
                         return Err(io::Error::new(
@@ -78,8 +82,7 @@ where
                     Ok(Async::NotReady) => (), // this is the exepcted state...
                 }
 
-                drop(mem::replace(&mut self.timeout, timeout));
-
+                self.timeout = timeout;
                 r
             }
             Ok(Async::NotReady) => {
