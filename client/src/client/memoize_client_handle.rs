@@ -9,7 +9,7 @@ use std::rc::Rc;
 use std::collections::HashMap;
 
 use futures::Future;
-use trust_dns_proto::DnsHandle;
+use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
 
 use client::ClientHandle;
 use client::rc_future::{rc_future, RcFuture};
@@ -49,8 +49,9 @@ where
 {
     type Error = ClientError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
-        let query = message.queries().first().expect("no query!").clone();
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+        let request = request.into();
+        let query = request.queries().first().expect("no query!").clone();
 
         if let Some(rc_future) = self.active_queries.borrow().get(&query) {
             // FIXME check TTLs?
@@ -66,7 +67,7 @@ where
             }
         }
 
-        let request = rc_future(self.client.send(message));
+        let request = rc_future(self.client.send(request));
         let mut map = self.active_queries.borrow_mut();
         map.insert(query, request.clone());
 
@@ -82,7 +83,7 @@ mod test {
     use op::*;
     use rr::*;
     use futures::*;
-    use trust_dns_proto::DnsHandle;
+    use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
 
     #[derive(Clone)]
     struct TestClient {
@@ -92,7 +93,7 @@ mod test {
     impl DnsHandle for TestClient {
         type Error = ClientError;
 
-        fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Box<Future<Item = Message, Error = Self::Error>> {
             let mut message = Message::new();
             let i = self.i.get();
 

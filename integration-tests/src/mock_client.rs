@@ -5,8 +5,8 @@ use futures::{future, Future};
 
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RData, Record, RecordType};
-use trust_dns_proto::DnsHandle;
 use trust_dns_proto::error::FromProtoError;
+use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
 
 #[derive(Clone)]
 pub struct MockClientHandle<E: FromProtoError> {
@@ -25,7 +25,10 @@ impl<E: FromProtoError> MockClientHandle<E> {
 impl<E: FromProtoError + 'static> DnsHandle for MockClientHandle<E> {
     type Error = E;
 
-    fn send(&mut self, _: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        _: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
         Box::new(future::result(
             self.messages.lock().unwrap().pop().unwrap_or(empty::<E>()),
         ))

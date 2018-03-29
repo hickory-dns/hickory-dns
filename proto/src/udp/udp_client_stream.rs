@@ -52,10 +52,7 @@ impl UdpClientStream {
                 }
             }));
 
-        let sender = Box::new(BufDnsStreamHandle {
-            name_server: name_server,
-            sender: sender,
-        });
+        let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
 
         (new_future, sender)
     }

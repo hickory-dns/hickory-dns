@@ -8,7 +8,6 @@
 //! This module contains all the TCP structures for demuxing TCP into streams of DNS packets.
 
 use std::io;
-use std::marker::PhantomData;
 use std::mem;
 use std::net::SocketAddr;
 use std::time::Duration;
@@ -179,10 +178,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
         E: FromProtoError,
     {
         let (message_sender, outbound_messages) = unbounded();
-        let message_sender = BufStreamHandle::<E> {
-            sender: message_sender,
-            phantom: PhantomData::<E>,
-        };
+        let message_sender = BufStreamHandle::<E>::new(message_sender);
 
         let stream = Self::from_stream_with_receiver(stream, peer_addr, outbound_messages);
 
@@ -549,7 +545,6 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     for _ in 0..send_recv_times {
         // test once
         sender
-            .sender
             .unbounded_send((TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
         let (buffer, stream_tmp) = io_loop

@@ -15,12 +15,12 @@ use std::time::{Duration, Instant};
 use futures::{future, task, Async, Future, Poll};
 use tokio_core::reactor::Handle;
 
-use trust_dns_proto::{DnsFuture, DnsHandle};
-use trust_dns_proto::op::{Edns, Message, NoopMessageFinalizer, ResponseCode};
 #[cfg(feature = "mdns")]
 use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
-use trust_dns_proto::udp::UdpClientStream;
+use trust_dns_proto::op::{Edns, Message, NoopMessageFinalizer, ResponseCode};
 use trust_dns_proto::tcp::TcpClientStream;
+use trust_dns_proto::udp::UdpClientStream;
+use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest};
 
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
@@ -355,7 +355,10 @@ where
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
         // if state is failed, return future::err(), unless retry delay expired...
         if let Err(error) = self.try_reconnect() {
             return Box::new(future::err(error));
@@ -368,7 +371,7 @@ where
         let mutex2 = self.stats.clone();
         Box::new(
             self.client
-                .send(message)
+                .send(request)
                 .and_then(move |response| {
                     // TODO: consider making message::take_edns...
                     let remote_edns = response.edns().cloned();
@@ -542,11 +545,11 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
 
     fn try_send(
         conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
-        message: Message,
+        request: DnsRequest,
     ) -> TrySend<C, P> {
         TrySend::Lock {
             conns,
-            message: Some(message),
+            request: Some(request),
         }
     }
 }
@@ -558,21 +561,25 @@ where
 {
     type Error = ResolveError;
 
-    fn send(&mut self, message: Message) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+        let request = request.into();
         let datagram_conns = self.datagram_conns.clone();
         let stream_conns1 = self.stream_conns.clone();
         let stream_conns2 = self.stream_conns.clone();
         // TODO: remove this clone, return the Message in the error?
-        let tcp_message1 = message.clone();
-        let tcp_message2 = message.clone();
+        let tcp_message1 = request.clone();
+        let tcp_message2 = request.clone();
 
         // if it's a .local. query, then we *only* query mDNS, these should never be sent on to upstream resolvers
         #[cfg(feature = "mdns")]
-        let mdns = mdns::maybe_local(&mut self.mdns_conns, message);
+        let mdns = mdns::maybe_local(&mut self.mdns_conns, request);
 
         // TODO: limited to only when mDNS is enabled, but this should probably always be enforced?
         #[cfg(not(feature = "mdns"))]
-        let mdns = Local::NotMdns(message);
+        let mdns = Local::NotMdns(request);
 
         // local queries are queried through mDNS
         if mdns.is_local() {
@@ -582,10 +589,10 @@ where
         // TODO: should we allow mDNS to be used for standard lookups as well?
 
         // it wasn't a local query, continue with standard looup path
-        let message = mdns.take_message();
+        let request = mdns.take_request();
         Box::new(
             // First try the UDP connections
-            Self::try_send(datagram_conns, message)
+            Self::try_send(datagram_conns, request)
                 .and_then(move |response| {
                     // handling promotion from datagram to stream base on truncation in message
                     if ResponseCode::NoError == response.response_code() && response.truncated() {
@@ -605,7 +612,7 @@ where
 enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     Lock {
         conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
-        message: Option<Message>,
+        request: Option<DnsRequest>,
     },
     DoSend(Box<Future<Item = Message, Error = ResolveError>>),
 }
@@ -624,7 +631,7 @@ where
         match *self {
             TrySend::Lock {
                 ref conns,
-                ref mut message,
+                ref mut request,
             } => {
                 // pull a lock on the shared connections, lock releases at the end of the method
                 let conns = conns.try_lock();
@@ -646,7 +653,7 @@ where
                             return Err(ResolveErrorKind::Message("No connections available").into());
                         }
 
-                        let message = mem::replace(message, None);
+                        let message = mem::replace(request, None);
                         future = conn.unwrap()
                             .send(message.expect("bad state, mesage should never be None"));
                     }
@@ -690,7 +697,7 @@ mod mdns {
 
 pub enum Local {
     ResolveFuture(Box<Future<Item = Message, Error = ResolveError>>),
-    NotMdns(Message),
+    NotMdns(DnsRequest),
 }
 
 impl Local {
@@ -719,9 +726,9 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::ResolveFuture
-    fn take_message(self) -> Message {
+    fn take_request(self) -> DnsRequest {
         match self {
-            Local::NotMdns(message) => message,
+            Local::NotMdns(request) => request,
             _ => panic!("Local queries must be polled, see take_future()"),
         }
     }
@@ -753,8 +760,8 @@ mod tests {
     use trust_dns_proto::op::{Query, ResponseCode};
     use trust_dns_proto::rr::{Name, RecordType};
 
-    use config::Protocol;
     use super::*;
+    use config::Protocol;
 
     #[test]
     fn test_state_cmp() {

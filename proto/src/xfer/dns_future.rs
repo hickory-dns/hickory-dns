@@ -5,6 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+//! `DnsFuture` and associated types implement the state machines for sending DNS messages while using the underlying streams.
+
 use std::borrow::Borrow;
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -22,7 +24,7 @@ use tokio_core::reactor::{Handle, Timeout};
 
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
-use xfer::{ignore_send, DnsRequest, DnsRequestOptions};
+use xfer::{ignore_send, DnsRequest};
 use {BasicDnsHandle, DnsStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -109,7 +111,8 @@ where
     timeout_duration: Duration,
     // TODO: genericize and remove this Box
     stream_handle: Box<DnsStreamHandle<Error = E>>,
-    new_receiver: Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<Result<Message, E>>)>>>,
+    new_receiver:
+        Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<Message, E>>)>>>,
     active_requests: HashMap<u16, ActiveRequest<E>>,
     signer: Option<Arc<MF>>,
 }
@@ -214,7 +217,6 @@ where
             // check for timeouts...
             match active_req.poll_timeout() {
                 Ok(Async::Ready(_)) => {
-                    warn!("request timeout: {}", id);
                     canceled.insert(
                         id,
                         ProtoError::from(ProtoErrorKind::Message("request timed out")),
@@ -234,8 +236,13 @@ where
         // drop all the canceled requests
         for (id, error) in canceled {
             if let Some(active_request) = self.active_requests.remove(&id) {
-                // complete the request, it's failed...
-                active_request.complete_with_error(error);
+                if active_request.responses.is_empty() {
+                    // complete the request, it's failed...
+                    active_request.complete_with_error(error);
+                } else {
+                    // this is a timeout waiting for multiple responses...
+                    active_request.complete();
+                }
             }
         }
     }
@@ -292,12 +299,12 @@ where
 
             // finally pop the reciever
             match self.new_receiver.poll() {
-                Ok(Async::Ready(Some((mut message, complete)))) => {
+                Ok(Async::Ready(Some((mut request, complete)))) => {
                     // if there was a message, and the above succesion was succesful,
                     //  register the new message, if not do not register, and set the complete to error.
                     // getting a random query id, this mitigates potential cache poisoning.
                     let query_id = query_id.expect("query_id should have been set above");
-                    message.set_id(query_id);
+                    request.set_id(query_id);
 
                     let now = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
@@ -306,9 +313,9 @@ where
                     let now = now as u32; // XXX: truncates u64 to u32.
 
                     // update messages need to be signed.
-                    if let OpCode::Update = message.op_code() {
+                    if let OpCode::Update = request.op_code() {
                         if let Some(ref signer) = self.signer {
-                            if let Err(e) = message.finalize::<MF>(signer.borrow(), now) {
+                            if let Err(e) = request.finalize::<MF>(signer.borrow(), now) {
                                 warn!("could not sign message: {}", e);
                                 ignore_send(complete.send(Err(e.into())));
                                 continue; // to the next message...
@@ -345,10 +352,8 @@ where
                         }
                     }
 
-                    let request = DnsRequest::new(message, DnsRequestOptions::default());
-                    let active_request = ActiveRequest::new(complete, request, timeout);
-
                     // send the message
+                    let active_request = ActiveRequest::new(complete, request, timeout);
                     match active_request.request().to_vec() {
                         Ok(buffer) => {
                             debug!("sending message id: {}", query_id);
@@ -448,7 +453,7 @@ where
 {
     // TODO: is there a better thing to grab here?
     error_msg: String,
-    new_receiver: Peekable<StreamFuse<UnboundedReceiver<(Message, Complete<Result<Message, E>>)>>>,
+    new_receiver: Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<Message, E>>)>>>,
 }
 
 impl<E> Future for ClientStreamErrored<E>
