@@ -11,11 +11,11 @@ use tokio_core::reactor::{Core, Handle};
 
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RecordType};
+use trust_dns_integration::mock_client::*;
 use trust_dns_proto::DnsHandle;
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::error::*;
 use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
-use trust_dns_integration::mock_client::*;
 
 #[derive(Clone)]
 struct MockConnProvider {}
@@ -50,22 +50,24 @@ fn mock_nameserver(messages: Vec<ResolveResult<Message>>, reactor: &Handle) -> M
 fn mock_nameserver_pool(
     udp: Vec<MockedNameServer>,
     tcp: Vec<MockedNameServer>,
-    mdns: Option<MockedNameServer>,
-    reactor: &Handle
+    _mdns: Option<MockedNameServer>,
+    _reactor: &Handle,
 ) -> MockedNameServerPool {
     #[cfg(not(feature = "mdns"))]
     return NameServerPool::from_nameservers(&ResolverOpts::default(), udp, tcp);
 
     #[cfg(feature = "mdns")]
-    return NameServerPool::from_nameservers(&ResolverOpts::default(), udp, tcp, mdns.unwrap_or_else(|| mock_nameserver(vec![], reactor)));
+    return NameServerPool::from_nameservers(
+        &ResolverOpts::default(),
+        udp,
+        tcp,
+        _mdns.unwrap_or_else(|| mock_nameserver(vec![], _reactor)),
+    );
 }
 
 #[test]
 fn test_datagram() {
-    let query = Query::query(
-        Name::from_str("www.example.com.").unwrap(),
-        RecordType::A,
-    );
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
@@ -78,7 +80,12 @@ fn test_datagram() {
     let udp_nameserver = mock_nameserver(vec![udp_message], &reactor.handle());
     let tcp_nameserver = mock_nameserver(vec![tcp_message], &reactor.handle());
 
-    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, &reactor.handle());
+    let mut pool = mock_nameserver_pool(
+        vec![udp_nameserver],
+        vec![tcp_nameserver],
+        None,
+        &reactor.handle(),
+    );
 
     // lookup on UDP succeeds, any other would fail
     let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
@@ -93,10 +100,7 @@ fn test_datagram_stream_upgrade() {
     // lookup to UDP should return truncated message
     // then lookup on TCP
 
-    let query = Query::query(
-        Name::from_str("www.example.com.").unwrap(),
-        RecordType::A,
-    );
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let udp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 1));
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
@@ -111,7 +115,12 @@ fn test_datagram_stream_upgrade() {
     let udp_nameserver = mock_nameserver(vec![udp_message], &reactor.handle());
     let tcp_nameserver = mock_nameserver(vec![tcp_message], &reactor.handle());
 
-    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, &reactor.handle());
+    let mut pool = mock_nameserver_pool(
+        vec![udp_nameserver],
+        vec![tcp_nameserver],
+        None,
+        &reactor.handle(),
+    );
 
     // lookup on UDP succeeds, any other would fail
     let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
@@ -126,10 +135,7 @@ fn test_datagram_fails_to_stream() {
     // lookup to UDP should fail
     // then lookup on TCP
 
-    let query = Query::query(
-        Name::from_str("www.example.com.").unwrap(),
-        RecordType::A,
-    );
+    let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
     let udp_message = Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
@@ -141,7 +147,12 @@ fn test_datagram_fails_to_stream() {
     let udp_nameserver = mock_nameserver(vec![udp_message], &reactor.handle());
     let tcp_nameserver = mock_nameserver(vec![tcp_message], &reactor.handle());
 
-    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], None, &reactor.handle());
+    let mut pool = mock_nameserver_pool(
+        vec![udp_nameserver],
+        vec![tcp_nameserver],
+        None,
+        &reactor.handle(),
+    );
 
     // lookup on UDP succeeds, any other would fail
     let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
@@ -157,10 +168,7 @@ fn test_local_mdns() {
     // lookup to UDP should fail
     // then lookup on TCP
 
-    let query = Query::query(
-        Name::from_str("www.example.local.").unwrap(),
-        RecordType::A,
-    );
+    let query = Query::query(Name::from_str("www.example.local.").unwrap(), RecordType::A);
 
     let tcp_message = Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
     let udp_message = Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
@@ -174,7 +182,12 @@ fn test_local_mdns() {
     let tcp_nameserver = mock_nameserver(vec![tcp_message], &reactor.handle());
     let mdns_nameserver = mock_nameserver(vec![mdns_message], &reactor.handle());
 
-    let mut pool = mock_nameserver_pool(vec![udp_nameserver], vec![tcp_nameserver], Some(mdns_nameserver), &reactor.handle());
+    let mut pool = mock_nameserver_pool(
+        vec![udp_nameserver],
+        vec![tcp_nameserver],
+        Some(mdns_nameserver),
+        &reactor.handle(),
+    );
 
     // lookup on UDP succeeds, any other would fail
     let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
