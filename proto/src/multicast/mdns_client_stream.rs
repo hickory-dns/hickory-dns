@@ -5,8 +5,8 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::net::{SocketAddr, Ipv4Addr};
 use std::io;
+use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Async, Future, Poll, Stream};
 use tokio_core::reactor::Handle;
@@ -14,8 +14,8 @@ use tokio_core::reactor::Handle;
 use BufDnsStreamHandle;
 use DnsStreamHandle;
 use error::*;
-use multicast::{MdnsQueryType, MdnsStream};
 use multicast::mdns_stream::{MDNS_IPV4, MDNS_IPV6};
+use multicast::{MdnsQueryType, MdnsStream};
 
 /// A UDP client stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
@@ -92,19 +92,21 @@ impl MdnsClientStream {
     where
         E: FromProtoError + 'static,
     {
-        let (stream_future, sender) = MdnsStream::new(mdns_addr, mdns_query_type, packet_ttl, ipv4_if, ipv6_if, loop_handle);
+        let (stream_future, sender) = MdnsStream::new(
+            mdns_addr,
+            mdns_query_type,
+            packet_ttl,
+            ipv4_if,
+            ipv6_if,
+            loop_handle,
+        );
 
         let new_future: Box<Future<Item = MdnsClientStream, Error = io::Error>> =
-            Box::new(stream_future.map(move |mdns_stream| {
-                MdnsClientStream {
-                    mdns_stream: mdns_stream,
-                }
+            Box::new(stream_future.map(move |mdns_stream| MdnsClientStream {
+                mdns_stream: mdns_stream,
             }));
 
-        let sender = Box::new(BufDnsStreamHandle {
-            name_server: mdns_addr,
-            sender: sender,
-        });
+        let sender = Box::new(BufDnsStreamHandle::new(mdns_addr, sender));
 
         (new_future, sender)
     }

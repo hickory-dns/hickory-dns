@@ -678,19 +678,19 @@ mod mdns {
     use trust_dns_proto::rr::domain::usage;
 
     /// Returns true
-    pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, message: Message) -> Local
+    pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, request: DnsRequest) -> Local
     where
         C: DnsHandle<Error = ResolveError> + 'static,
         P: ConnectionProvider<ConnHandle = C> + 'static,
     {
-        if message
+        if request
             .queries()
             .iter()
             .any(|query| usage::LOCAL.name().zone_of(query.name()))
         {
-            Local::ResolveFuture(name_server.send(message))
+            Local::ResolveFuture(name_server.send(request))
         } else {
-            Local::NotMdns(message)
+            Local::NotMdns(request)
         }
     }
 }
