@@ -8,20 +8,20 @@
 //! Lookup result from a resolution of ipv4 and ipv6 records with a Resolver.
 
 use std::error::Error as StdError;
-use std::net::{Ipv4Addr, Ipv6Addr};
 use std::mem;
+use std::net::{Ipv4Addr, Ipv6Addr};
 use std::slice::Iter;
 use std::sync::Arc;
 
 use futures::{future, task, Async, Future, Poll};
 
-use trust_dns_proto::{DnsHandle, RetryDnsHandle};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::op::{Message, Query};
-use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_proto::rr::rdata;
-use trust_dns_proto::xfer::DnsRequest;
+use trust_dns_proto::rr::{Name, RData, RecordType};
+use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions};
+use trust_dns_proto::{DnsHandle, RetryDnsHandle};
 
 use error::*;
 use lookup_state::CachingClient;
@@ -90,11 +90,13 @@ pub enum LookupEither<
     P: ConnectionProvider<ConnHandle = C> + 'static,
 > {
     Retry(RetryDnsHandle<NameServerPool<C, P>>),
-    #[cfg(feature = "dnssec")] Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
+    #[cfg(feature = "dnssec")]
+    Secure(SecureDnsHandle<RetryDnsHandle<NameServerPool<C, P>>>),
 }
 
 impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> DnsHandle
-    for LookupEither<C, P> {
+    for LookupEither<C, P>
+{
     type Error = ResolveError;
 
     fn is_verifying_dnssec(&self) -> bool {
@@ -105,7 +107,10 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
         }
     }
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
         match *self {
             LookupEither::Retry(ref mut c) => c.send(request),
             #[cfg(feature = "dnssec")]
@@ -123,6 +128,7 @@ pub struct InnerLookupFuture<C: DnsHandle<Error = ResolveError> + 'static> {
     client_cache: CachingClient<C>,
     names: Vec<Name>,
     record_type: RecordType,
+    options: DnsRequestOptions,
     future: Box<Future<Item = Lookup, Error = ResolveError>>,
 }
 
@@ -138,12 +144,17 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
     pub fn lookup(
         mut names: Vec<Name>,
         record_type: RecordType,
+        options: DnsRequestOptions,
         mut client_cache: CachingClient<C>,
     ) -> Self {
-        let name = names.pop().ok_or_else(|| ResolveError::from(ResolveErrorKind::Message("can not lookup for no names")));
+        let name = names.pop().ok_or_else(|| {
+            ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
+        });
 
         let query: Box<Future<Item = Lookup, Error = ResolveError>> = match name {
-            Ok(name) => client_cache.lookup(Query::query(name, record_type)),
+            Ok(name) => {
+                Box::new(client_cache.lookup(Query::query(name, record_type), options.clone()))
+            }
             Err(err) => Box::new(future::err(err)),
         };
 
@@ -151,7 +162,8 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
             client_cache: client_cache,
             names,
             record_type,
-            future: Box::new(query),
+            options,
+            future: query,
         }
     }
 
@@ -162,7 +174,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
         let name = self.names.pop();
         if let Some(name) = name {
             let query = self.client_cache
-                .lookup(Query::query(name, self.record_type));
+                .lookup(Query::query(name, self.record_type), self.options.clone());
 
             mem::replace(&mut self.future, Box::new(query));
             // guarantee that we get scheduled for the next turn...
@@ -179,6 +191,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
             client_cache,
             names: vec![],
             record_type: RecordType::NULL,
+            options: DnsRequestOptions::default(),
             future: Box::new(future::err(
                 ResolveErrorKind::Msg(format!("{}", error)).into(),
             )),
@@ -208,60 +221,60 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for InnerLookupFuture<
 /// Creates a Lookup result type from the specified components
 macro_rules! lookup_type {
     ($l:ident, $i:ident, $f:ident, $r:path, $t:path) => {
-/// Contains the results of a lookup for the associated RecordType
-#[derive(Debug, Clone)]
-pub struct $l(Lookup);
+        /// Contains the results of a lookup for the associated RecordType
+        #[derive(Debug, Clone)]
+        pub struct $l(Lookup);
 
-impl $l {
-    /// Returns an iterator over the RData
-    pub fn iter(&self) -> $i {
-        $i(self.0.iter())
-    }
-}
-
-impl From<Lookup> for $l {
-    fn from(lookup: Lookup) -> Self {
-        $l(lookup)
-    }
-}
-
-/// An iterator over the Lookup type
-pub struct $i<'i>(LookupIter<'i>);
-
-impl<'i> Iterator for $i<'i> {
-    type Item = &'i $t;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let iter: &mut _ = &mut self.0;
-        iter.filter_map(|rdata| match *rdata {
-            $r(ref data) => Some(data),
-            _ => None,
-        }).next()
-    }
-}
-
-/// A Future while resolves to the Lookup type
-pub struct $f(LookupFuture);
-
-impl From<LookupFuture> for $f {
-    fn from(lookup_future: LookupFuture) -> Self {
-        $f(lookup_future)
-    }
-}
-
-impl Future for $f {
-    type Item = $l;
-    type Error = ResolveError;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        match self.0.poll() {
-            Ok(Async::Ready(lookup)) => Ok(Async::Ready($l(lookup))),
-            Ok(Async::NotReady) => Ok(Async::NotReady),
-            Err(e) => Err(e),
+        impl $l {
+            /// Returns an iterator over the RData
+            pub fn iter(&self) -> $i {
+                $i(self.0.iter())
+            }
         }
-    }
-}
-    }
+
+        impl From<Lookup> for $l {
+            fn from(lookup: Lookup) -> Self {
+                $l(lookup)
+            }
+        }
+
+        /// An iterator over the Lookup type
+        pub struct $i<'i>(LookupIter<'i>);
+
+        impl<'i> Iterator for $i<'i> {
+            type Item = &'i $t;
+
+            fn next(&mut self) -> Option<Self::Item> {
+                let iter: &mut _ = &mut self.0;
+                iter.filter_map(|rdata| match *rdata {
+                    $r(ref data) => Some(data),
+                    _ => None,
+                }).next()
+            }
+        }
+
+        /// A Future while resolves to the Lookup type
+        pub struct $f(LookupFuture);
+
+        impl From<LookupFuture> for $f {
+            fn from(lookup_future: LookupFuture) -> Self {
+                $f(lookup_future)
+            }
+        }
+
+        impl Future for $f {
+            type Item = $l;
+            type Error = ResolveError;
+
+            fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+                match self.0.poll() {
+                    Ok(Async::Ready(lookup)) => Ok(Async::Ready($l(lookup))),
+                    Ok(Async::NotReady) => Ok(Async::NotReady),
+                    Err(e) => Err(e),
+                }
+            }
+        }
+    };
 }
 
 // Generate all Lookup record types
@@ -311,7 +324,7 @@ pub mod tests {
 
     use trust_dns_proto::op::Message;
     use trust_dns_proto::rr::{Name, RData, Record, RecordType};
-    use trust_dns_proto::xfer::DnsRequest;
+    use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions};
 
     use super::*;
 
@@ -323,7 +336,10 @@ pub mod tests {
     impl DnsHandle for MockDnsHandle {
         type Error = ResolveError;
 
-        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+        fn send<R: Into<DnsRequest>>(
+            &mut self,
+            _: R,
+        ) -> Box<Future<Item = Message, Error = Self::Error>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
@@ -363,6 +379,7 @@ pub mod tests {
             InnerLookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
+                DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![v4_message()])),
             ).wait()
                 .unwrap()
@@ -379,6 +396,7 @@ pub mod tests {
             InnerLookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
+                DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![error()])),
             ).wait()
                 .is_err()
@@ -391,6 +409,7 @@ pub mod tests {
             InnerLookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
+                DnsRequestOptions::default(),
                 CachingClient::new(0, mock(vec![empty()])),
             ).wait()
                 .unwrap_err()

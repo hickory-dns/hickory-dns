@@ -145,20 +145,21 @@ extern crate trust_dns_proto;
 
 pub mod config;
 mod dns_lru;
+pub mod dns_sd;
 pub mod error;
-pub mod lookup_ip;
+mod hosts;
 pub mod lookup;
+pub mod lookup_ip;
 pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server_pool;
 mod resolver;
-pub mod system_conf;
 mod resolver_future;
-mod hosts;
+pub mod system_conf;
 
+pub use hosts::Hosts;
 pub use resolver::Resolver;
 pub use resolver_future::ResolverFuture;
-pub use hosts::Hosts;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {

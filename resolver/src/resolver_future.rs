@@ -16,14 +16,14 @@ use tokio_core::reactor::Handle;
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::op::Message;
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
-use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, RetryDnsHandle};
+use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOptions,
+                            RetryDnsHandle};
 
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::DnsLru;
 use error::*;
 use hosts::{parse_literal_ip, Hosts};
-use lookup::{self, Lookup};
-use lookup::{InnerLookupFuture, LookupEither, LookupFuture};
+use lookup::{self, InnerLookupFuture, Lookup, LookupEither, LookupFuture};
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use lookup_state::CachingClient;
 use name_server_pool::{NameServerPool, StandardConnection};
@@ -48,7 +48,10 @@ impl BasicResolverHandle {
 impl DnsHandle for BasicResolverHandle {
     type Error = ResolveError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
         Box::new(
             self.message_sender
                 .send(request)
@@ -61,7 +64,7 @@ impl DnsHandle for BasicResolverHandle {
 pub struct ResolverFuture {
     config: ResolverConfig,
     options: ResolverOpts,
-    client_cache: CachingClient<LookupEither<BasicResolverHandle, StandardConnection>>,
+    pub(crate) client_cache: CachingClient<LookupEither<BasicResolverHandle, StandardConnection>>,
     hosts: Option<Arc<Hosts>>,
 }
 
@@ -82,7 +85,7 @@ pub fn $p<N: IntoName>(&self, query: N) -> $f {
         }
     };
 
-    self.inner_lookup(name, $r).into()
+    self.inner_lookup(name, $r, DnsRequestOptions::default()).into()
 }
     };
     ($p:ident, $f:ty, $r:path, $t:ty) => {
@@ -93,7 +96,7 @@ pub fn $p<N: IntoName>(&self, query: N) -> $f {
 /// * `query` - a type which can be converted to `Name` via `From`.
 pub fn $p(&self, query: $t) -> $f {
     let name = Name::from(query);
-    self.inner_lookup(name, $r).into()
+    self.inner_lookup(name, $r, DnsRequestOptions::default()).into()
 }
     };
 }
@@ -229,12 +232,17 @@ impl ResolverFuture {
             }
         };
 
-        self.inner_lookup(name, record_type)
+        self.inner_lookup(name, record_type, DnsRequestOptions::default())
     }
 
-    fn inner_lookup(&self, name: Name, record_type: RecordType) -> LookupFuture {
+    pub(crate) fn inner_lookup(
+        &self,
+        name: Name,
+        record_type: RecordType,
+        options: DnsRequestOptions,
+    ) -> LookupFuture {
         let names = self.build_names(name);
-        LookupFuture::lookup(names, record_type, self.client_cache.clone())
+        LookupFuture::lookup(names, record_type, options, self.client_cache.clone())
     }
 
     /// Performs a dual-stack DNS lookup for the IP for the given hostname.
@@ -269,6 +277,7 @@ impl ResolverFuture {
             names,
             self.options.ip_strategy,
             self.client_cache.clone(),
+            DnsRequestOptions::default(),
             hosts,
         )
     }
@@ -313,6 +322,8 @@ mod tests {
     use std::str::FromStr;
 
     use self::tokio_core::reactor::Core;
+
+    use trust_dns_proto::error::ProtoErrorKind;
 
     use config::{LookupIpStrategy, NameServerConfig};
 
@@ -431,11 +442,8 @@ mod tests {
     }
 
     #[test]
-    #[cfg(feature = "dnssec")]
     #[ignore] // these appear to not work on travis
     fn test_sec_lookup_fails() {
-        use trust_dns_proto::error::ProtoErrorKind;
-
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
             ResolverConfig::default(),
@@ -460,64 +468,60 @@ mod tests {
         );
     }
 
-    // FIXME: this test is highly dependent on system configuration...
-    //
-    // #[test]
-    // #[ignore]
-    // #[cfg(any(unix, target_os = "windows"))]
-    // fn test_system_lookup() {
-    //     let mut io_loop = Core::new().unwrap();
-    //     let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
+    #[test]
+    #[ignore]
+    #[cfg(any(unix, target_os = "windows"))]
+    fn test_system_lookup() {
+        let mut io_loop = Core::new().unwrap();
+        let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
 
-    //     let response = io_loop
-    //         .run(resolver.lookup_ip("www.example.com."))
-    //         .expect("failed to run lookup");
+        let response = io_loop
+            .run(resolver.lookup_ip("www.example.com."))
+            .expect("failed to run lookup");
 
-    //     assert_eq!(response.iter().count(), 2);
-    //     for address in response.iter() {
-    //         if address.is_ipv4() {
-    //             assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
-    //         } else {
-    //             assert_eq!(
-    //                 address,
-    //                 IpAddr::V6(Ipv6Addr::new(
-    //                     0x2606,
-    //                     0x2800,
-    //                     0x220,
-    //                     0x1,
-    //                     0x248,
-    //                     0x1893,
-    //                     0x25c8,
-    //                     0x1946,
-    //                 ))
-    //             );
-    //         }
-    //     }
-    // }
+        assert_eq!(response.iter().count(), 2);
+        for address in response.iter() {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert_eq!(
+                    address,
+                    IpAddr::V6(Ipv6Addr::new(
+                        0x2606,
+                        0x2800,
+                        0x220,
+                        0x1,
+                        0x248,
+                        0x1893,
+                        0x25c8,
+                        0x1946,
+                    ))
+                );
+            }
+        }
+    }
 
-    // // FIXME: this test needs additional configuration options to specify the hosts file.
+    #[test]
+    #[ignore]
+    // these appear to not work on travis, test on macos with `10.1.0.104  a.com`
+    #[cfg(unix)]
+    fn test_hosts_lookup() {
+        let mut io_loop = Core::new().unwrap();
+        let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
 
-    // #[test]
-    // #[ignore]
-    // // these appear to not work on travis, test on macos with `10.1.0.104  a.com`
-    // #[cfg(unix)]
-    // fn test_hosts_lookup() {
-    //     let mut io_loop = Core::new().unwrap();
-    //     let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
+        let response = io_loop
+            .run(resolver.lookup_ip("a.com"))
+            .expect("failed to run lookup");
 
-    //     let response = io_loop
-    //         .run(resolver.lookup_ip("a.com"))
-    //         .expect("failed to run lookup");
-
-    //     assert_eq!(response.iter().count(), 1);
-    //     for address in response.iter() {
-    //         if address.is_ipv4() {
-    //             assert_eq!(address, IpAddr::V4(Ipv4Addr::new(10, 1, 0, 104)));
-    //         } else {
-    //             assert!(false, "failed to run lookup");
-    //         }
-    //     }
-    // }
+        assert_eq!(response.iter().count(), 1);
+        for address in response.iter() {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(10, 1, 0, 104)));
+            } else {
+                assert!(false, "failed to run lookup");
+            }
+        }
+    }
 
     #[test]
     fn test_fqdn() {

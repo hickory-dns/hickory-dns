@@ -5,23 +5,24 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::sync::Arc;
-use std::marker::PhantomData;
 use std::io;
+use std::marker::PhantomData;
+use std::sync::Arc;
 use std::time::Duration;
 
 use futures::Future;
 use futures::stream::Stream;
 use rand;
 use tokio_core::reactor::Handle;
-use trust_dns_proto::xfer::{BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsStreamHandle};
+use trust_dns_proto::xfer::{BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsRequestOptions,
+                            DnsStreamHandle};
 
 use client::ClientStreamHandle;
 use error::*;
 use op::{Message, MessageType, OpCode, Query, UpdateMessage};
-use rr::{Name, DNSClass, IntoRecordSet, RData, Record, RecordType};
 use rr::dnssec::Signer;
 use rr::rdata::NULL;
+use rr::{DNSClass, IntoRecordSet, Name, RData, Record, RecordType};
 
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -106,7 +107,10 @@ pub struct BasicClientHandle {
 impl DnsHandle for BasicClientHandle {
     type Error = ClientError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
         Box::new(self.message_sender.send(request).map_err(ClientError::from))
     }
 }
@@ -137,7 +141,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
     ) -> Box<Future<Item = Message, Error = ClientError>> {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
-        self.lookup(query)
+        self.lookup(query, DnsRequestOptions::default())
     }
 
     /// Sends a NOTIFY message to the remote system

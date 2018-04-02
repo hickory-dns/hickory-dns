@@ -13,13 +13,13 @@ use tokio_core::reactor::Core;
 use trust_dns_proto::DnsFuture;
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::{Name, RData, RecordType};
-use trust_dns_server::authority::Catalog;
+use trust_dns_resolver::Hosts;
+use trust_dns_resolver::config::LookupIpStrategy;
 use trust_dns_resolver::error::ResolveError;
 use trust_dns_resolver::lookup::{InnerLookupFuture, Lookup};
 use trust_dns_resolver::lookup_ip::InnerLookupIpFuture;
 use trust_dns_resolver::lookup_state::CachingClient;
-use trust_dns_resolver::config::LookupIpStrategy;
-use trust_dns_resolver::Hosts;
+use trust_dns_server::authority::Catalog;
 
 use trust_dns_integration::TestClientStream;
 use trust_dns_integration::authority::create_example;
@@ -43,6 +43,7 @@ fn test_lookup() {
     let lookup = InnerLookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
+        Default::default(),
         CachingClient::new(0, client),
     );
     let lookup = io_loop.run(lookup).unwrap();
@@ -76,11 +77,11 @@ fn test_lookup_hosts() {
         Lookup::new(Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))])),
     );
 
-
     let lookup = InnerLookupIpFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         LookupIpStrategy::default(),
         CachingClient::new(0, client),
+        Default::default(),
         Some(Arc::new(hosts)),
     );
     let lookup = io_loop.run(lookup).unwrap();
@@ -90,10 +91,7 @@ fn test_lookup_hosts() {
 
 #[test]
 fn test_mock_lookup() {
-    let resp_query = Query::query(
-        Name::from_str("www.example.com.").unwrap(),
-        RecordType::A,
-    );
+    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let v4_record = v4_record(
         Name::from_str("www.example.com.").unwrap(),
         Ipv4Addr::new(93, 184, 216, 34),
@@ -104,6 +102,7 @@ fn test_mock_lookup() {
     let lookup = InnerLookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
+        Default::default(),
         CachingClient::new(0, client),
     );
 
@@ -118,10 +117,7 @@ fn test_mock_lookup() {
 
 #[test]
 fn test_cname_lookup() {
-    let resp_query = Query::query(
-        Name::from_str("www.example.com.").unwrap(),
-        RecordType::A,
-    );
+    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("v4.example.com.").unwrap(),
@@ -136,6 +132,7 @@ fn test_cname_lookup() {
     let lookup = InnerLookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
+        Default::default(),
         CachingClient::new(0, client),
     );
 
@@ -150,10 +147,7 @@ fn test_cname_lookup() {
 
 #[test]
 fn test_chained_cname_lookup() {
-    let resp_query = Query::query(
-        Name::from_str("www.example.com.").unwrap(),
-        RecordType::A,
-    );
+    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("v4.example.com.").unwrap(),
@@ -173,6 +167,7 @@ fn test_chained_cname_lookup() {
     let lookup = InnerLookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
+        Default::default(),
         CachingClient::new(0, client),
     );
 
@@ -187,10 +182,7 @@ fn test_chained_cname_lookup() {
 
 #[test]
 fn test_max_chained_lookup_depth() {
-    let resp_query = Query::query(
-        Name::from_str("www.example.com.").unwrap(),
-        RecordType::A,
-    );
+    let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let cname_record1 = cname_record(
         Name::from_str("www.example.com.").unwrap(),
         Name::from_str("cname2.example.com.").unwrap(),
@@ -246,15 +238,7 @@ fn test_max_chained_lookup_depth() {
 
     // the mock pops messages...
     let client = MockClientHandle::mock(vec![
-        message10,
-        message9,
-        message8,
-        message7,
-        message6,
-        message5,
-        message4,
-        message3,
-        message2,
+        message10, message9, message8, message7, message6, message5, message4, message3, message2,
         message1,
     ]);
 
@@ -262,6 +246,7 @@ fn test_max_chained_lookup_depth() {
     let lookup = InnerLookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
+        Default::default(),
         client.clone(),
     );
 
@@ -275,6 +260,7 @@ fn test_max_chained_lookup_depth() {
     let lookup = InnerLookupFuture::lookup(
         vec![Name::from_str("cname9.example.com.").unwrap()],
         RecordType::A,
+        Default::default(),
         client,
     );
 

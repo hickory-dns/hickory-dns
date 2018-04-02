@@ -756,9 +756,9 @@ mod tests {
 
     use tokio_core::reactor::Core;
 
-    use trust_dns_proto::DnsHandle;
     use trust_dns_proto::op::{Query, ResponseCode};
     use trust_dns_proto::rr::{Name, RecordType};
+    use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions};
 
     use super::*;
     use config::Protocol;
@@ -820,7 +820,10 @@ mod tests {
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = io_loop
-            .run(name_server.lookup(Query::query(name.clone(), RecordType::A)))
+            .run(name_server.lookup(
+                Query::query(name.clone(), RecordType::A),
+                DnsRequestOptions::default(),
+            ))
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
     }
@@ -840,7 +843,10 @@ mod tests {
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             io_loop
-                .run(name_server.lookup(Query::query(name.clone(), RecordType::A)))
+                .run(name_server.lookup(
+                    Query::query(name.clone(), RecordType::A),
+                    DnsRequestOptions::default()
+                ))
                 .is_err()
         );
     }
@@ -876,7 +882,10 @@ mod tests {
         for i in 0..2 {
             assert!(
                 io_loop
-                    .run(pool.lookup(Query::query(name.clone(), RecordType::A)))
+                    .run(pool.lookup(
+                        Query::query(name.clone(), RecordType::A),
+                        DnsRequestOptions::default()
+                    ))
                     .is_err(),
                 "iter: {}",
                 i
@@ -886,7 +895,10 @@ mod tests {
         for i in 0..10 {
             assert!(
                 io_loop
-                    .run(pool.lookup(Query::query(name.clone(), RecordType::A)))
+                    .run(pool.lookup(
+                        Query::query(name.clone(), RecordType::A),
+                        DnsRequestOptions::default()
+                    ))
                     .is_ok(),
                 "iter: {}",
                 i
