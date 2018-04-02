@@ -150,7 +150,11 @@ pub trait DnsHandle: Clone {
     /// # Arguments
     ///
     /// * `query` - the query to lookup
-    fn lookup(&mut self, query: Query) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn lookup(
+        &mut self,
+        query: Query,
+        options: DnsRequestOptions,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
         debug!("querying: {} {:?}", query.name(), query.query_type());
 
         // build the message
@@ -175,6 +179,6 @@ pub trait DnsHandle: Clone {
             edns.set_version(0);
         }
 
-        self.send(DnsRequest::new(message, DnsRequestOptions::default()))
+        self.send(DnsRequest::new(message, options))
     }
 }

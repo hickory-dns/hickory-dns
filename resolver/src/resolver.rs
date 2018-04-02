@@ -6,20 +6,20 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Structs for creating and using a Resolver
-use std::net::IpAddr;
 use std::io;
+use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
 use tokio_core::reactor::{Core, Handle};
 use trust_dns_proto::rr::RecordType;
 
+use ResolverFuture;
 use config::{ResolverConfig, ResolverOpts};
+use dns_lru::DnsLru;
 use error::*;
 use lookup;
 use lookup::Lookup;
 use lookup_ip::LookupIp;
-use dns_lru::DnsLru;
-use ResolverFuture;
 
 /// The Resolver is used for performing DNS queries.
 ///

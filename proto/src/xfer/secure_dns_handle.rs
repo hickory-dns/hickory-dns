@@ -17,13 +17,13 @@ use futures::*;
 use DnsHandle;
 use error::*;
 use op::{Message, OpCode, Query};
-use rr::{Name, DNSClass, RData, Record, RecordType};
 #[cfg(feature = "dnssec")]
 use rr::dnssec::Verifier;
-use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
+use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use rr::rdata::opt::EdnsOption;
-use xfer::DnsRequest;
+use rr::{DNSClass, Name, RData, Record, RecordType};
+use xfer::{DnsRequest, DnsRequestOptions};
 
 #[derive(Debug)]
 struct Rrset {
@@ -110,7 +110,10 @@ where
         true
     }
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = Message, Error = Self::Error>> {
         let mut request = request.into();
 
         // backstop, this might need to be configurable at some point
@@ -124,7 +127,11 @@ where
         if let OpCode::Query = request.op_code() {
             // This will panic on no queries, that is a very odd type of request, isn't it?
             // TODO: with mDNS there can be multiple queries
-            let query = request.queries().first().cloned().expect("no queries in request");
+            let query = request
+                .queries()
+                .first()
+                .cloned()
+                .expect("no queries in request");
             let handle: SecureDnsHandle<H> = self.clone_with_context();
 
             // TODO: cache response of the server about understood algorithms
@@ -337,8 +344,7 @@ where
                 Ok(Async::Ready((rrset, _, remaining))) => {
                     debug!(
                         "an rrset was verified: {}, {:?}",
-                        rrset.name,
-                        rrset.record_type
+                        rrset.name, rrset.record_type
                     );
                     self.verified_rrsets.insert((rrset.name, rrset.record_type));
                     remaining
@@ -468,8 +474,7 @@ where
 {
     debug!(
         "dnskey validation {}, record_type: {:?}",
-        rrset.name,
-        rrset.record_type
+        rrset.name, rrset.record_type
     );
 
     // check the DNSKEYS against the trust_anchor, if it's approved allow it.
@@ -514,10 +519,10 @@ where
 
     // need to get DS records for each DNSKEY
     let valid_dnskey = handle
-        .lookup(Query::query(
-            rrset.name.clone(),
-            RecordType::DNSSEC(DNSSECRecordType::DS),
-        ))
+        .lookup(
+            Query::query(rrset.name.clone(), RecordType::DNSSEC(DNSSECRecordType::DS)),
+            DnsRequestOptions::default(),
+        )
         .and_then(move |ds_message| {
             let valid_keys = rrset
                 .records
@@ -640,8 +645,7 @@ where
     let rrset = Rc::new(rrset);
     debug!(
         "default validation {}, record_type: {:?}",
-        rrset.name,
-        rrset.record_type
+        rrset.name, rrset.record_type
     );
 
     // Special case for self-signed DNSKEYS, validate with itself...
@@ -691,9 +695,7 @@ where
                             })
                             .next()
                             .ok_or_else(|| E::from(ProtoErrorKind::Message("self-signed dnskey is invalid").into())),
-            ).map(move |rrset| {
-                Rc::try_unwrap(rrset).expect("unable to unwrap Rc")
-            }),
+            ).map(move |rrset| Rc::try_unwrap(rrset).expect("unable to unwrap Rc")),
         );
     }
 
@@ -721,7 +723,8 @@ where
                               let rrset = Rc::clone(&rrset);
                               let mut handle = handle.clone_with_context();
 
-                              handle.lookup(Query::query(sig.signer_name().clone(), RecordType::DNSSEC(DNSSECRecordType::DNSKEY)))
+                              handle.lookup(Query::query(sig.signer_name().clone(), RecordType::DNSSEC(DNSSECRecordType::DNSKEY)),
+                              DnsRequestOptions::default())
                                     .and_then(move |message|
                                       // DNSKEYs are validated by the inner query
                                       message.answers()
@@ -782,7 +785,6 @@ fn verify_rrset_with_dnskey(dnskey: &DNSKEY, sig: &SIG, rrset: &Rrset) -> ProtoR
 fn verify_rrset_with_dnskey(_: &DNSKEY, _: &SIG, _: &Rrset) -> ProtoResult<()> {
     Err(ProtoErrorKind::Message("openssl or ring feature(s) not enabled").into())
 }
-
 
 /// Verifies NSEC records
 ///

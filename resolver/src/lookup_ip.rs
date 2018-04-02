@@ -16,9 +16,9 @@ use std::sync::Arc;
 
 use futures::{future, task, Async, Future, Poll};
 
-use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::Query;
 use trust_dns_proto::rr::{Name, RData, RecordType};
+use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions};
 
 use config::LookupIpStrategy;
 use error::*;
@@ -27,7 +27,6 @@ use lookup::{Lookup, LookupEither, LookupIter};
 use lookup_state::CachingClient;
 use name_server_pool::StandardConnection;
 use resolver_future::BasicResolverHandle;
-
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -65,9 +64,8 @@ impl<'i> Iterator for LookupIpIter<'i> {
 }
 
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
-pub type LookupIpFuture = InnerLookupIpFuture<
-    LookupEither<BasicResolverHandle, StandardConnection>,
->;
+pub type LookupIpFuture =
+    InnerLookupIpFuture<LookupEither<BasicResolverHandle, StandardConnection>>;
 
 #[doc(hidden)]
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
@@ -75,6 +73,7 @@ pub struct InnerLookupIpFuture<C: DnsHandle<Error = ResolveError> + 'static> {
     client_cache: CachingClient<C>,
     names: Vec<Name>,
     strategy: LookupIpStrategy,
+    options: DnsRequestOptions,
     future: Box<Future<Item = Lookup, Error = ResolveError>>,
     hosts: Option<Arc<Hosts>>,
 }
@@ -91,12 +90,21 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
         mut names: Vec<Name>,
         strategy: LookupIpStrategy,
         client_cache: CachingClient<C>,
+        options: DnsRequestOptions,
         hosts: Option<Arc<Hosts>>,
     ) -> Self {
-        let name = names.pop().ok_or_else(|| ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names")));
+        let name = names.pop().ok_or_else(|| {
+            ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names"))
+        });
 
         let query: Box<Future<Item = Lookup, Error = ResolveError>> = match name {
-            Ok(name) => strategic_lookup(name, strategy, client_cache.clone(), hosts.clone()),
+            Ok(name) => strategic_lookup(
+                name,
+                strategy,
+                client_cache.clone(),
+                options.clone(),
+                hosts.clone(),
+            ),
             Err(err) => Box::new(future::err(err)),
         };
 
@@ -104,6 +112,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
             client_cache: client_cache,
             names,
             strategy,
+            options,
             future: query,
             hosts: hosts,
         }
@@ -119,6 +128,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
                 name,
                 self.strategy,
                 self.client_cache.clone(),
+                self.options.clone(),
                 self.hosts.clone(),
             );
 
@@ -137,6 +147,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
             client_cache,
             names: vec![],
             strategy: LookupIpStrategy::default(),
+            options: DnsRequestOptions::default(),
             future: Box::new(future::err(
                 ResolveErrorKind::Msg(format!("{}", error)).into(),
             )),
@@ -149,6 +160,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
             client_cache,
             names: vec![],
             strategy: LookupIpStrategy::default(),
+            options: DnsRequestOptions::default(),
             future: Box::new(future::ok(lp)),
             hosts: None,
         };
@@ -179,14 +191,15 @@ fn strategic_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     strategy: LookupIpStrategy,
     client: CachingClient<C>,
+    options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
     match strategy {
-        LookupIpStrategy::Ipv4Only => ipv4_only(name, client, hosts),
-        LookupIpStrategy::Ipv6Only => ipv6_only(name, client, hosts),
-        LookupIpStrategy::Ipv4AndIpv6 => ipv4_and_ipv6(name, client, hosts),
-        LookupIpStrategy::Ipv6thenIpv4 => ipv6_then_ipv4(name, client, hosts),
-        LookupIpStrategy::Ipv4thenIpv6 => ipv4_then_ipv6(name, client, hosts),
+        LookupIpStrategy::Ipv4Only => ipv4_only(name, client, options, hosts),
+        LookupIpStrategy::Ipv6Only => ipv6_only(name, client, options, hosts),
+        LookupIpStrategy::Ipv4AndIpv6 => ipv4_and_ipv6(name, client, options, hosts),
+        LookupIpStrategy::Ipv6thenIpv4 => ipv6_then_ipv4(name, client, options, hosts),
+        LookupIpStrategy::Ipv4thenIpv6 => ipv4_then_ipv6(name, client, options, hosts),
     }
 }
 
@@ -194,6 +207,7 @@ fn strategic_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
 fn hosts_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
     query: Query,
     mut client: CachingClient<C>,
+    options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
     if let Some(hosts) = hosts {
@@ -201,37 +215,50 @@ fn hosts_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
             return Box::new(future::ok(lookup));
         };
     }
- 
-    client.lookup(query)
+
+    // TODO: consider making the client.lookup lazily evaluated
+    client.lookup(query, options)
 }
 
 /// queries only for A records
 fn ipv4_only<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     client: CachingClient<C>,
+    options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
-    hosts_lookup(Query::query(name, RecordType::A), client, hosts)
+    hosts_lookup(Query::query(name, RecordType::A), client, options, hosts)
 }
 
 /// queries only for AAAA records
 fn ipv6_only<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     client: CachingClient<C>,
+    options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
-    hosts_lookup(Query::query(name, RecordType::AAAA), client, hosts)
+    hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts)
 }
 
 /// queries only for A and AAAA in parallel
 fn ipv4_and_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     client: CachingClient<C>,
+    options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
     Box::new(
-        hosts_lookup(Query::query(name.clone(), RecordType::A), client.clone(), hosts.clone())
-            .select(hosts_lookup(Query::query(name, RecordType::AAAA), client, hosts))
+        hosts_lookup(
+            Query::query(name.clone(), RecordType::A),
+            client.clone(),
+            options.clone(),
+            hosts.clone(),
+        ).select(hosts_lookup(
+            Query::query(name, RecordType::AAAA),
+            client,
+            options,
+            hosts,
+        ))
             .then(|sel_res| {
                 match sel_res {
                     // Some ips returned, get the other record result, or else just return record
@@ -261,18 +288,34 @@ fn ipv4_and_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
 fn ipv6_then_ipv4<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     client: CachingClient<C>,
+    options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
-    rt_then_swap(name, client, RecordType::AAAA, RecordType::A, hosts)
+    rt_then_swap(
+        name,
+        client,
+        RecordType::AAAA,
+        RecordType::A,
+        options,
+        hosts,
+    )
 }
 
 /// queries only for A and on no results queries for AAAA
 fn ipv4_then_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
     name: Name,
     client: CachingClient<C>,
+    options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
-    rt_then_swap(name, client, RecordType::A, RecordType::AAAA, hosts)
+    rt_then_swap(
+        name,
+        client,
+        RecordType::A,
+        RecordType::AAAA,
+        options,
+        hosts,
+    )
 }
 
 /// queries only for first_type and on no results queries for second_type
@@ -281,26 +324,42 @@ fn rt_then_swap<C: DnsHandle<Error = ResolveError> + 'static>(
     client: CachingClient<C>,
     first_type: RecordType,
     second_type: RecordType,
+    options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
 ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
     let or_client = client.clone();
-    Box::new(hosts_lookup(Query::query(name.clone(), first_type), client, hosts.clone()).then(
-        move |res| {
+    Box::new(
+        hosts_lookup(
+            Query::query(name.clone(), first_type),
+            client,
+            options.clone(),
+            hosts.clone(),
+        ).then(move |res| {
             match res {
                 Ok(ips) => {
                     if ips.is_empty() {
                         // no ips returns, NXDomain or Otherwise, doesn't matter
-                        Box::new(hosts_lookup(Query::query(name.clone(), second_type), or_client, hosts))
+                        Box::new(hosts_lookup(
+                            Query::query(name.clone(), second_type),
+                            or_client,
+                            options,
+                            hosts,
+                        ))
                             as Box<Future<Item = Lookup, Error = ResolveError>>
                     } else {
                         Box::new(future::ok(ips))
                             as Box<Future<Item = Lookup, Error = ResolveError>>
                     }
                 }
-                Err(_) => Box::new(hosts_lookup(Query::query(name.clone(), second_type), or_client, hosts)),
+                Err(_) => Box::new(hosts_lookup(
+                    Query::query(name.clone(), second_type),
+                    or_client,
+                    options,
+                    hosts,
+                )),
             }
-        },
-    ))
+        }),
+    )
 }
 
 #[cfg(test)]
@@ -325,7 +384,10 @@ pub mod tests {
     impl DnsHandle for MockDnsHandle {
         type Error = ResolveError;
 
-        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+        fn send<R: Into<DnsRequest>>(
+            &mut self,
+            _: R,
+        ) -> Box<Future<Item = Message, Error = Self::Error>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
@@ -378,6 +440,7 @@ pub mod tests {
             ipv4_only(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -394,6 +457,7 @@ pub mod tests {
             ipv6_only(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -412,6 +476,7 @@ pub mod tests {
             ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), v4_message()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -429,6 +494,7 @@ pub mod tests {
             ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![empty(), v4_message()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -443,6 +509,7 @@ pub mod tests {
             ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![error(), v4_message()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -452,12 +519,12 @@ pub mod tests {
             vec![IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1))]
         );
 
-
         // only ipv6 available
         assert_eq!(
             ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), empty()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -472,6 +539,7 @@ pub mod tests {
             ipv4_and_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), error()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -489,6 +557,7 @@ pub mod tests {
             ipv6_then_ipv4(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -503,6 +572,7 @@ pub mod tests {
             ipv6_then_ipv4(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message(), empty()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -517,6 +587,7 @@ pub mod tests {
             ipv6_then_ipv4(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message(), error()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -534,6 +605,7 @@ pub mod tests {
             ipv4_then_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v4_message()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -548,6 +620,7 @@ pub mod tests {
             ipv4_then_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), empty()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
@@ -562,6 +635,7 @@ pub mod tests {
             ipv4_then_ipv6(
                 Name::root(),
                 CachingClient::new(0, mock(vec![v6_message(), error()])),
+                Default::default(),
                 None,
             ).wait()
                 .unwrap()
