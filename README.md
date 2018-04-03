@@ -208,7 +208,7 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Building
 
--   Production build, first change directories into either the crate directory, `client` or `server`
+-   Production build, from the `trust-dns` base dir
 
 ```
   $ cargo build --release
@@ -223,13 +223,26 @@ so this should allow it to work with most internal loads.
 -   Verify the version
 
 ```
-  $ server/target/release/named --version
+  $ ./target/release/named --version
 ```
 
 -   Get help
 
 ```
-  $ server/target/release/named --help
+  $ ./target/release/named --help
+```
+
+-   Launch `named` server with test config
+
+```
+  $ cd server
+  $ ../target/release/named -c ./tests/named_test_configs/example.toml -z ./tests/named_test_configs/ -p 24141
+```
+
+-   Query the just launched server with `dig`
+
+```
+  $ dig @127.0.0.1 -p 24141 www.example.com
 ```
 
 ## Using as a dependency
