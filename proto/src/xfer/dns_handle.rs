@@ -17,7 +17,7 @@ use rand;
 
 use error::*;
 use op::{Message, MessageType, OpCode, Query};
-use xfer::{ignore_send, DnsRequest, DnsRequestOptions};
+use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse};
 
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -71,13 +71,13 @@ where
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicDnsHandle<E: FromProtoError> {
-    message_sender: UnboundedSender<(DnsRequest, Complete<Result<Message, E>>)>,
+    message_sender: UnboundedSender<(DnsRequest, Complete<Result<DnsResponse, E>>)>,
 }
 
 impl<E: FromProtoError> BasicDnsHandle<E> {
     /// Returns a new BasicDnsHandle wrapping the `message_sender`
     pub fn new(
-        message_sender: UnboundedSender<(DnsRequest, Complete<Result<Message, E>>)>,
+        message_sender: UnboundedSender<(DnsRequest, Complete<Result<DnsResponse, E>>)>,
     ) -> Self {
         BasicDnsHandle { message_sender }
     }
@@ -92,7 +92,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         let request = request.into();
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
@@ -141,7 +141,7 @@ pub trait DnsHandle: Clone {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = Message, Error = Self::Error>>;
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>>;
 
     /// A *classic* DNS query
     ///
@@ -154,7 +154,7 @@ pub trait DnsHandle: Clone {
         &mut self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         debug!("querying: {} {:?}", query.name(), query.query_type());
 
         // build the message

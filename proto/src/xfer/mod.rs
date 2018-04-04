@@ -1,6 +1,6 @@
 //! DNS high level tranisit implimentations.
-//! 
-//! Primarily there are two types in this module of interest, the `DnsFuture` type and the `DnsHandle` type. `DnsFuture` can be thought of as the state machine responsible for sending and receiving DNS messages. `DnsHandle` is the type given to API users of the `trust-dns-proto` library to send messages into the `DnsFuture` for delivery. Finally there is the `DnsRequest` type. This allows for customizations, through `DnsReqeustOptions`, to the delivery of messages via a `DnsFuture`. 
+//!
+//! Primarily there are two types in this module of interest, the `DnsFuture` type and the `DnsHandle` type. `DnsFuture` can be thought of as the state machine responsible for sending and receiving DNS messages. `DnsHandle` is the type given to API users of the `trust-dns-proto` library to send messages into the `DnsFuture` for delivery. Finally there is the `DnsRequest` type. This allows for customizations, through `DnsReqeustOptions`, to the delivery of messages via a `DnsFuture`.
 
 use std::fmt::Debug;
 use std::marker::PhantomData;
@@ -13,6 +13,7 @@ use op::Message;
 pub mod dns_future;
 pub mod dns_handle;
 pub mod dns_request;
+pub mod dns_response;
 pub mod retry_dns_handle;
 #[cfg(feature = "dnssec")]
 pub mod secure_dns_handle;
@@ -20,6 +21,7 @@ pub mod secure_dns_handle;
 pub use self::dns_future::DnsFuture;
 pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
+pub use self::dns_response::DnsResponse;
 pub use self::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use self::secure_dns_handle::SecureDnsHandle;

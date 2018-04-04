@@ -17,10 +17,10 @@ use tokio_core::reactor::Handle;
 
 #[cfg(feature = "mdns")]
 use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
-use trust_dns_proto::op::{Edns, Message, NoopMessageFinalizer, ResponseCode};
+use trust_dns_proto::op::{Edns, NoopMessageFinalizer, ResponseCode};
 use trust_dns_proto::tcp::TcpClientStream;
 use trust_dns_proto::udp::UdpClientStream;
-use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest};
+use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest, DnsResponse};
 
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
@@ -358,7 +358,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         // if state is failed, return future::err(), unless retry delay expired...
         if let Err(error) = self.try_reconnect() {
             return Box::new(future::err(error));
@@ -564,7 +564,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         let request = request.into();
         let datagram_conns = self.datagram_conns.clone();
         let stream_conns1 = self.stream_conns.clone();
@@ -614,7 +614,7 @@ enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'st
         conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
         request: Option<DnsRequest>,
     },
-    DoSend(Box<Future<Item = Message, Error = ResolveError>>),
+    DoSend(Box<Future<Item = DnsResponse, Error = ResolveError>>),
 }
 
 impl<C, P> Future for TrySend<C, P>
@@ -622,7 +622,7 @@ where
     C: DnsHandle<Error = ResolveError> + 'static,
     P: ConnectionProvider<ConnHandle = C> + 'static,
 {
-    type Item = Message;
+    type Item = DnsResponse;
     type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -696,7 +696,7 @@ mod mdns {
 }
 
 pub enum Local {
-    ResolveFuture(Box<Future<Item = Message, Error = ResolveError>>),
+    ResolveFuture(Box<Future<Item = DnsResponse, Error = ResolveError>>),
     NotMdns(DnsRequest),
 }
 
@@ -714,7 +714,7 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_future(self) -> Box<Future<Item = Message, Error = ResolveError>> {
+    fn take_future(self) -> Box<Future<Item = DnsResponse, Error = ResolveError>> {
         match self {
             Local::ResolveFuture(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),
@@ -735,7 +735,7 @@ impl Local {
 }
 
 impl Future for Local {
-    type Item = Message;
+    type Item = DnsResponse;
     type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {

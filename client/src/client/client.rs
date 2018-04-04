@@ -16,15 +16,16 @@ use std::sync::Arc;
 
 use tokio_core::reactor::{Core, Handle};
 
-use client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
+use trust_dns_proto::xfer::DnsResponse;
+
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use client::SecureClientHandle;
+use client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
 use error::*;
-use rr::{Name, DNSClass, IntoRecordSet, Record, RecordType};
 use rr::dnssec::Signer;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::TrustAnchor;
-use op::Message;
+use rr::{DNSClass, IntoRecordSet, Name, Record, RecordType};
 
 /// Client trait which implements basic DNS Client operations.
 ///
@@ -60,7 +61,7 @@ pub trait Client<C: ClientHandle> {
         name: &Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> ClientResult<Message> {
+    ) -> ClientResult<DnsResponse> {
         let mut reactor = Core::new()?;
         let mut client = self.new_future(&reactor.handle())?;
         let future = client.query(name.clone(), query_class, query_type);
@@ -81,7 +82,7 @@ pub trait Client<C: ClientHandle> {
         query_class: DNSClass,
         query_type: RecordType,
         rrset: Option<R>,
-    ) -> ClientResult<Message>
+    ) -> ClientResult<DnsResponse>
     where
         R: IntoRecordSet,
     {
@@ -124,7 +125,7 @@ pub trait Client<C: ClientHandle> {
     /// * `zone_origin` - the zone name to update, i.e. SOA name
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
-    fn create<R>(&self, rrset: R, zone_origin: Name) -> ClientResult<Message>
+    fn create<R>(&self, rrset: R, zone_origin: Name) -> ClientResult<DnsResponse>
     where
         R: IntoRecordSet,
     {
@@ -168,12 +169,7 @@ pub trait Client<C: ClientHandle> {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be created.
-    fn append<R>(
-        &self,
-        rrset: R,
-        zone_origin: Name,
-        must_exist: bool,
-    ) -> ClientResult<Message>
+    fn append<R>(&self, rrset: R, zone_origin: Name, must_exist: bool) -> ClientResult<DnsResponse>
     where
         R: IntoRecordSet,
     {
@@ -229,7 +225,7 @@ pub trait Client<C: ClientHandle> {
         current: CR,
         new: NR,
         zone_origin: Name,
-    ) -> ClientResult<Message>
+    ) -> ClientResult<DnsResponse>
     where
         CR: IntoRecordSet,
         NR: IntoRecordSet,
@@ -275,7 +271,7 @@ pub trait Client<C: ClientHandle> {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-    fn delete_by_rdata<R>(&self, record: R, zone_origin: Name) -> ClientResult<Message>
+    fn delete_by_rdata<R>(&self, record: R, zone_origin: Name) -> ClientResult<DnsResponse>
     where
         R: IntoRecordSet,
     {
@@ -320,7 +316,7 @@ pub trait Client<C: ClientHandle> {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-    fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<Message> {
+    fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
         let mut reactor = Core::new()?;
         let mut client = self.new_future(&reactor.handle())?;
         let future = client.delete_rrset(record, zone_origin);
@@ -356,7 +352,7 @@ pub trait Client<C: ClientHandle> {
         name_of_records: Name,
         zone_origin: Name,
         dns_class: DNSClass,
-    ) -> ClientResult<Message> {
+    ) -> ClientResult<DnsResponse> {
         let mut reactor = Core::new()?;
         let mut client = self.new_future(&reactor.handle())?;
         let future = client.delete_all(name_of_records, zone_origin, dns_class);
@@ -468,7 +464,7 @@ where
         query_name: &Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> ClientResult<Message> {
+    ) -> ClientResult<DnsResponse> {
         let mut reactor = Core::new()?;
         let mut client = self.new_future(&reactor.handle())?;
         let future = client.query(query_name.clone(), query_class, query_type);
@@ -542,8 +538,8 @@ fn assert_send_and_sync<T: Send + Sync>() {
 
 #[test]
 fn test_sync_client_send_and_sync() {
-    use udp::UdpClientConnection;
     use tcp::TcpClientConnection;
+    use udp::UdpClientConnection;
     assert_send_and_sync::<SyncClient<UdpClientConnection>>();
     assert_send_and_sync::<SyncClient<TcpClientConnection>>();
 }
@@ -551,8 +547,8 @@ fn test_sync_client_send_and_sync() {
 #[test]
 #[cfg(feature = "dnssec")]
 fn test_secure_client_send_and_sync() {
-    use udp::UdpClientConnection;
     use tcp::TcpClientConnection;
+    use udp::UdpClientConnection;
     assert_send_and_sync::<SecureSyncClient<UdpClientConnection>>();
     assert_send_and_sync::<SecureSyncClient<TcpClientConnection>>();
 }

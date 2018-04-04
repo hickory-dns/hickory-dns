@@ -9,10 +9,10 @@ use std::str::FromStr;
 
 use tokio_core::reactor::{Core, Handle};
 
-use trust_dns::op::{Message, Query};
+use trust_dns::op::Query;
 use trust_dns::rr::{Name, RecordType};
 use trust_dns_integration::mock_client::*;
-use trust_dns_proto::DnsHandle;
+use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 use trust_dns_resolver::config::*;
 use trust_dns_resolver::error::*;
 use trust_dns_resolver::name_server_pool::{ConnectionProvider, NameServer, NameServerPool};
@@ -32,7 +32,10 @@ type MockedNameServer = NameServer<MockClientHandle<ResolveError>, MockConnProvi
 type MockedNameServerPool = NameServerPool<MockClientHandle<ResolveError>, MockConnProvider>;
 
 #[cfg(test)]
-fn mock_nameserver(messages: Vec<ResolveResult<Message>>, reactor: &Handle) -> MockedNameServer {
+fn mock_nameserver(
+    messages: Vec<ResolveResult<DnsResponse>>,
+    reactor: &Handle,
+) -> MockedNameServer {
     let client = MockClientHandle::mock(messages);
 
     NameServer::from_conn(
@@ -77,8 +80,8 @@ fn test_datagram() {
 
     let mut reactor = Core::new().unwrap();
 
-    let udp_nameserver = mock_nameserver(vec![udp_message], &reactor.handle());
-    let tcp_nameserver = mock_nameserver(vec![tcp_message], &reactor.handle());
+    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], &reactor.handle());
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], &reactor.handle());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
@@ -89,7 +92,7 @@ fn test_datagram() {
 
     // lookup on UDP succeeds, any other would fail
     let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
-    let future = pool.send(request);
+    let future = pool.send(DnsRequest::from(request.into()));
 
     let response = reactor.run(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
@@ -112,8 +115,8 @@ fn test_datagram_stream_upgrade() {
 
     let mut reactor = Core::new().unwrap();
 
-    let udp_nameserver = mock_nameserver(vec![udp_message], &reactor.handle());
-    let tcp_nameserver = mock_nameserver(vec![tcp_message], &reactor.handle());
+    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], &reactor.handle());
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], &reactor.handle());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
@@ -138,14 +141,15 @@ fn test_datagram_fails_to_stream() {
     let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
 
     let tcp_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
-    let udp_message = Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
+    let udp_message: Result<DnsResponse, _> =
+        Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
     let mut reactor = Core::new().unwrap();
 
-    let udp_nameserver = mock_nameserver(vec![udp_message], &reactor.handle());
-    let tcp_nameserver = mock_nameserver(vec![tcp_message], &reactor.handle());
+    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], &reactor.handle());
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], &reactor.handle());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],
@@ -170,17 +174,19 @@ fn test_local_mdns() {
 
     let query = Query::query(Name::from_str("www.example.local.").unwrap(), RecordType::A);
 
-    let tcp_message = Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
-    let udp_message = Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
+    let tcp_message: Result<DnsResponse, _> =
+        Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
+    let udp_message: Result<DnsResponse, _> =
+        Err(ResolveErrorKind::Msg(format!("Forced Testing Error")).into());
     let mdns_record = v4_record(query.name().clone(), Ipv4Addr::new(127, 0, 0, 2));
 
     let mdns_message = message(query.clone(), vec![mdns_record.clone()], vec![], vec![]);
 
     let mut reactor = Core::new().unwrap();
 
-    let udp_nameserver = mock_nameserver(vec![udp_message], &reactor.handle());
-    let tcp_nameserver = mock_nameserver(vec![tcp_message], &reactor.handle());
-    let mdns_nameserver = mock_nameserver(vec![mdns_message], &reactor.handle());
+    let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)], &reactor.handle());
+    let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)], &reactor.handle());
+    let mdns_nameserver = mock_nameserver(vec![mdns_message.map(Into::into)], &reactor.handle());
 
     let mut pool = mock_nameserver_pool(
         vec![udp_nameserver],

@@ -8,16 +8,17 @@ use std::panic::{catch_unwind, UnwindSafe};
 use std::process::{Command, Stdio};
 use std::str::FromStr;
 use std::sync::*;
-use std::time::*;
 use std::thread;
+use std::time::*;
 
 use tokio_core::reactor::Core;
 
+use trust_dns_proto::xfer::DnsResponse;
+
 use trust_dns::client::*;
-use trust_dns::op::Message;
-use trust_dns::rr::*;
-use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
 use trust_dns::rr::dnssec::*;
+use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
+use trust_dns::rr::*;
 
 use self::mut_message_client::MutMessageHandle;
 
@@ -49,8 +50,7 @@ where
         .arg("-d")
         .arg(&format!(
             "--config={}/tests/named_test_configs/{}",
-            server_path,
-            toml
+            server_path, toml
         ))
         .arg(&format!(
             "--zonedir={}/tests/named_test_configs",
@@ -148,7 +148,7 @@ pub fn query_message<C: ClientHandle>(
     client: &mut C,
     name: Name,
     record_type: RecordType,
-) -> Message {
+) -> DnsResponse {
     println!("sending request");
     let response = io_loop.run(client.query(name.clone(), DNSClass::IN, record_type));
     println!("got response: {:#?}", response);
@@ -196,9 +196,7 @@ pub fn query_all_dnssec(
     let dnskey = response
         .answers()
         .iter()
-        .filter(|r| {
-            r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY)
-        })
+        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY))
         .map(|r| {
             if let RData::DNSSEC(DNSSECRData::DNSKEY(ref dnskey)) = *r.rdata() {
                 dnskey.clone()
@@ -212,9 +210,7 @@ pub fn query_all_dnssec(
     let rrsig = response
         .answers()
         .iter()
-        .filter(|r| {
-            r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG)
-        })
+        .filter(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::RRSIG))
         .map(|r| {
             if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *r.rdata() {
                 rrsig.clone()
@@ -223,9 +219,7 @@ pub fn query_all_dnssec(
             }
         })
         .filter(|rrsig| rrsig.algorithm() == algorithm)
-        .find(|rrsig| {
-            rrsig.type_covered() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY)
-        });
+        .find(|rrsig| rrsig.type_covered() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY));
     assert!(rrsig.is_some(), "Associated RRSIG not found");
 }
 

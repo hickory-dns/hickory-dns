@@ -6,16 +6,16 @@ use futures::{future, Future};
 use trust_dns::op::{Message, Query};
 use trust_dns::rr::{Name, RData, Record, RecordType};
 use trust_dns_proto::error::FromProtoError;
-use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
+use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 #[derive(Clone)]
 pub struct MockClientHandle<E: FromProtoError> {
-    messages: Arc<Mutex<Vec<Result<Message, E>>>>,
+    messages: Arc<Mutex<Vec<Result<DnsResponse, E>>>>,
 }
 
 impl<E: FromProtoError> MockClientHandle<E> {
     /// constructs a new MockClient which returns each Message one after the other
-    pub fn mock(messages: Vec<Result<Message, E>>) -> Self {
+    pub fn mock(messages: Vec<Result<DnsResponse, E>>) -> Self {
         MockClientHandle {
             messages: Arc::new(Mutex::new(messages)),
         }
@@ -28,7 +28,7 @@ impl<E: FromProtoError + 'static> DnsHandle for MockClientHandle<E> {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         _: R,
-    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         Box::new(future::result(
             self.messages.lock().unwrap().pop().unwrap_or(empty::<E>()),
         ))
@@ -57,10 +57,10 @@ pub fn message<E: FromProtoError>(
     Ok(message)
 }
 
-pub fn empty<E: FromProtoError>() -> Result<Message, E> {
-    Ok(Message::new())
+pub fn empty<E: FromProtoError>() -> Result<DnsResponse, E> {
+    Ok(Message::new().into())
 }
 
-pub fn error<E: FromProtoError>(error: E) -> Result<Message, E> {
+pub fn error<E: FromProtoError>(error: E) -> Result<DnsResponse, E> {
     Err(error)
 }
