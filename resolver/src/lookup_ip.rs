@@ -372,13 +372,13 @@ pub mod tests {
     //use trust_dns_proto::error::*;
     use trust_dns_proto::op::Message;
     use trust_dns_proto::rr::{Name, RData, Record, RecordType};
-    use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
+    use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     use super::*;
 
     #[derive(Clone)]
     pub struct MockDnsHandle {
-        messages: Arc<Mutex<Vec<ResolveResult<Message>>>>,
+        messages: Arc<Mutex<Vec<ResolveResult<DnsResponse>>>>,
     }
 
     impl DnsHandle for MockDnsHandle {
@@ -387,14 +387,14 @@ pub mod tests {
         fn send<R: Into<DnsRequest>>(
             &mut self,
             _: R,
-        ) -> Box<Future<Item = Message, Error = Self::Error>> {
+        ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
         }
     }
 
-    pub fn v4_message() -> ResolveResult<Message> {
+    pub fn v4_message() -> ResolveResult<DnsResponse> {
         let mut message = Message::new();
         message.insert_answers(vec![
             Record::from_rdata(
@@ -404,10 +404,10 @@ pub mod tests {
                 RData::A(Ipv4Addr::new(127, 0, 0, 1)),
             ),
         ]);
-        Ok(message)
+        Ok(message.into())
     }
 
-    pub fn v6_message() -> ResolveResult<Message> {
+    pub fn v6_message() -> ResolveResult<DnsResponse> {
         let mut message = Message::new();
         message.insert_answers(vec![
             Record::from_rdata(
@@ -417,18 +417,18 @@ pub mod tests {
                 RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
             ),
         ]);
-        Ok(message)
+        Ok(message.into())
     }
 
-    pub fn empty() -> ResolveResult<Message> {
-        Ok(Message::new())
+    pub fn empty() -> ResolveResult<DnsResponse> {
+        Ok(Message::new().into())
     }
 
-    pub fn error() -> ResolveResult<Message> {
+    pub fn error() -> ResolveResult<DnsResponse> {
         Err(ResolveErrorKind::Message("forced test failure").into())
     }
 
-    pub fn mock(messages: Vec<ResolveResult<Message>>) -> MockDnsHandle {
+    pub fn mock(messages: Vec<ResolveResult<DnsResponse>>) -> MockDnsHandle {
         MockDnsHandle {
             messages: Arc::new(Mutex::new(messages)),
         }

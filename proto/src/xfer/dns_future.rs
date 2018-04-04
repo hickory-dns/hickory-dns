@@ -24,14 +24,14 @@ use tokio_core::reactor::{Handle, Timeout};
 
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
-use xfer::{ignore_send, DnsRequest};
+use xfer::{ignore_send, DnsRequest, DnsResponse};
 use {BasicDnsHandle, DnsStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
 
 struct ActiveRequest<E: FromProtoError> {
     // the completion is the channel for a response to the original request
-    completion: Complete<Result<Message, E>>,
+    completion: Complete<Result<DnsResponse, E>>,
     // the original request and associated options
     request: DnsRequest,
     // most requests pass a single Message response directly through to the completion
@@ -43,7 +43,7 @@ struct ActiveRequest<E: FromProtoError> {
 
 impl<E: FromProtoError> ActiveRequest<E> {
     fn new(
-        completion: Complete<Result<Message, E>>,
+        completion: Complete<Result<DnsResponse, E>>,
         request: DnsRequest,
         timeout: Timeout,
     ) -> Self {
@@ -90,7 +90,10 @@ impl<E: FromProtoError> ActiveRequest<E> {
             );
         } else {
             // FIXME: send entire set of messages
-            ignore_send(self.completion.send(Ok(self.responses.pop().unwrap())));
+            ignore_send(
+                self.completion
+                    .send(Ok(self.responses.pop().unwrap().into())),
+            );
         }
     }
 }
@@ -112,7 +115,7 @@ where
     // TODO: genericize and remove this Box
     stream_handle: Box<DnsStreamHandle<Error = E>>,
     new_receiver:
-        Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<Message, E>>)>>>,
+        Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<DnsResponse, E>>)>>>,
     active_requests: HashMap<u16, ActiveRequest<E>>,
     signer: Option<Arc<MF>>,
 }
@@ -453,7 +456,8 @@ where
 {
     // TODO: is there a better thing to grab here?
     error_msg: String,
-    new_receiver: Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<Message, E>>)>>>,
+    new_receiver:
+        Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<DnsResponse, E>>)>>>,
 }
 
 impl<E> Future for ClientStreamErrored<E>

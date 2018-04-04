@@ -16,7 +16,7 @@ use trust_dns_proto::rr::{IntoName, Name, RecordType};
 use trust_dns_proto::xfer::DnsRequestOptions;
 
 use error::*;
-use lookup::{InnerLookupFuture, Lookup, LookupFuture, ReverseLookup, ReverseLookupFuture,
+use lookup::{InnerLookupFuture, LookupFuture, ReverseLookup, ReverseLookupFuture,
              ReverseLookupIter, TxtLookup, TxtLookupFuture, TxtLookupIter};
 use resolver_future::ResolverFuture;
 
@@ -155,8 +155,6 @@ impl<'i> Iterator for ServiceInfoIter<'i> {
 #[cfg(test)]
 mod tests {
     use config::*;
-    use std::net::*;
-    use std::str::FromStr;
 
     use super::*;
 

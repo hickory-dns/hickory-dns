@@ -15,7 +15,7 @@ use futures::stream::Stream;
 use rand;
 use tokio_core::reactor::Handle;
 use trust_dns_proto::xfer::{BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsRequestOptions,
-                            DnsStreamHandle};
+                            DnsResponse, DnsStreamHandle};
 
 use client::ClientStreamHandle;
 use error::*;
@@ -110,7 +110,7 @@ impl DnsHandle for BasicClientHandle {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         Box::new(self.message_sender.send(request).map_err(ClientError::from))
     }
 }
@@ -138,7 +138,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         name: Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> Box<Future<Item = Message, Error = ClientError>> {
+    ) -> Box<Future<Item = DnsResponse, Error = ClientError>> {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
         self.lookup(query, DnsRequestOptions::default())
@@ -210,7 +210,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         query_class: DNSClass,
         query_type: RecordType,
         rrset: Option<R>,
-    ) -> Box<Future<Item = Message, Error = ClientError>>
+    ) -> Box<Future<Item = DnsResponse, Error = ClientError>>
     where
         R: IntoRecordSet,
     {
@@ -289,7 +289,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         &mut self,
         rrset: R,
         zone_origin: Name,
-    ) -> Box<Future<Item = Message, Error = ClientError>>
+    ) -> Box<Future<Item = DnsResponse, Error = ClientError>>
     where
         R: IntoRecordSet,
     {
@@ -366,7 +366,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         rrset: R,
         zone_origin: Name,
         must_exist: bool,
-    ) -> Box<Future<Item = Message, Error = ClientError>>
+    ) -> Box<Future<Item = DnsResponse, Error = ClientError>>
     where
         R: IntoRecordSet,
     {
@@ -452,7 +452,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         current: C,
         new: N,
         zone_origin: Name,
-    ) -> Box<Future<Item = Message, Error = ClientError>>
+    ) -> Box<Future<Item = DnsResponse, Error = ClientError>>
     where
         C: IntoRecordSet,
         N: IntoRecordSet,
@@ -544,7 +544,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         &mut self,
         rrset: R,
         zone_origin: Name,
-    ) -> Box<Future<Item = Message, Error = ClientError>>
+    ) -> Box<Future<Item = DnsResponse, Error = ClientError>>
     where
         R: IntoRecordSet,
     {
@@ -620,7 +620,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         &mut self,
         mut record: Record,
         zone_origin: Name,
-    ) -> Box<Future<Item = Message, Error = ClientError>> {
+    ) -> Box<Future<Item = DnsResponse, Error = ClientError>> {
         assert!(zone_origin.zone_of(record.name()));
 
         // for updates, the query section is used for the zone
@@ -685,7 +685,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
         name_of_records: Name,
         zone_origin: Name,
         dns_class: DNSClass,
-    ) -> Box<Future<Item = Message, Error = ClientError>> {
+    ) -> Box<Future<Item = DnsResponse, Error = ClientError>> {
         assert!(zone_origin.zone_of(&name_of_records));
 
         // for updates, the query section is used for the zone

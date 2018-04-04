@@ -16,12 +16,12 @@ use std::time::Instant;
 
 use futures::{future, task, Async, Future, Poll};
 
-use trust_dns_proto::op::{Message, Query, ResponseCode};
+use trust_dns_proto::op::{Query, ResponseCode};
 use trust_dns_proto::rr::domain::usage::{IN_ADDR_ARPA_127, IP6_ARPA_1,
                                          LOCALHOST as LOCALHOST_usage, ResolverUsage, DEFAULT,
                                          INVALID, LOCAL};
 use trust_dns_proto::rr::{DNSClass, Name, RData, RecordType};
-use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions};
+use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
 
 use dns_lru;
 use dns_lru::DnsLru;
@@ -148,7 +148,7 @@ impl Future for FromCache {
 
 /// This is the Future responsible for performing an actual query.
 struct QueryFuture<C: DnsHandle<Error = ResolveError> + 'static> {
-    message_future: Box<Future<Item = Message, Error = ResolveError>>,
+    message_future: Box<Future<Item = DnsResponse, Error = ResolveError>>,
     query: Query,
     cache: Arc<Mutex<DnsLru>>,
     /// is this a DNSSec validating client?
@@ -172,7 +172,7 @@ enum Records {
 }
 
 impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
-    fn next_query(&mut self, query: Query, cname_ttl: u32, message: Message) -> Records {
+    fn next_query(&mut self, query: Query, cname_ttl: u32, message: DnsResponse) -> Records {
         if QUERY_DEPTH.with(|c| *c.borrow() >= MAX_QUERY_DEPTH) {
             // TODO: This should return an error
             self.handle_nxdomain(message, true)
@@ -184,7 +184,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
         }
     }
 
-    fn handle_noerror(&mut self, mut message: Message) -> Poll<Records, ResolveError> {
+    fn handle_noerror(&mut self, mut message: DnsResponse) -> Poll<Records, ResolveError> {
         // initial ttl is what CNAMES for min usage
         const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
 
@@ -273,7 +273,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
     ///
     /// * `message` - message to extract SOA, etc, from for caching failed requests
     /// * `valid_nsec` - species that in DNSSec mode, this request is safe to cache
-    fn handle_nxdomain(&self, mut message: Message, valid_nsec: bool) -> Records {
+    fn handle_nxdomain(&self, mut message: DnsResponse, valid_nsec: bool) -> Records {
         if valid_nsec || !self.dnssec {
             //  if there were validated NSEC records
             let soa = message
@@ -673,7 +673,7 @@ mod tests {
         );
     }
 
-    pub fn cname_message() -> ResolveResult<Message> {
+    pub fn cname_message() -> ResolveResult<DnsResponse> {
         let mut message = Message::new();
         message.insert_answers(vec![
             Record::from_rdata(
@@ -683,10 +683,10 @@ mod tests {
                 RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
             ),
         ]);
-        Ok(message)
+        Ok(message.into())
     }
 
-    pub fn srv_message() -> ResolveResult<Message> {
+    pub fn srv_message() -> ResolveResult<DnsResponse> {
         let mut message = Message::new();
         message.insert_answers(vec![
             Record::from_rdata(
@@ -701,7 +701,7 @@ mod tests {
                 )),
             ),
         ]);
-        Ok(message)
+        Ok(message.into())
     }
 
     fn no_recursion_on_query_test(query_type: RecordType) {
@@ -800,7 +800,7 @@ mod tests {
         ]);
 
         let poll: Async<Records> = query_future
-            .handle_noerror(message)
+            .handle_noerror(message.into())
             .expect("handle_noerror failed");
 
         assert!(poll.is_ready());

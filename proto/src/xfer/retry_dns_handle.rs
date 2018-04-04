@@ -9,10 +9,9 @@
 
 use futures::{Future, Poll};
 
-use error::FromProtoError;
 use DnsHandle;
-use op::Message;
-use xfer::DnsRequest;
+use error::FromProtoError;
+use xfer::{DnsRequest, DnsResponse};
 
 /// Can be used to reattempt a queries if they fail
 ///
@@ -50,7 +49,10 @@ where
 {
     type Error = <H as DnsHandle>::Error;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         let request = request.into();
 
         // need to clone here so that the retry can resend if necessary...
@@ -70,7 +72,7 @@ where
 struct RetrySendFuture<H: DnsHandle, E> {
     request: DnsRequest,
     handle: H,
-    future: Box<Future<Item = Message, Error = E>>,
+    future: Box<Future<Item = DnsResponse, Error = E>>,
     remaining_attempts: usize,
 }
 
@@ -79,7 +81,7 @@ where
     H: DnsHandle<Error = E>,
     E: FromProtoError,
 {
-    type Item = Message;
+    type Item = DnsResponse;
     type Error = <H as DnsHandle>::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
@@ -105,12 +107,12 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::cell::Cell;
-    use error::*;
-    use op::*;
-    use futures::*;
-    use DnsHandle;
     use super::*;
+    use DnsHandle;
+    use error::*;
+    use futures::*;
+    use op::*;
+    use std::cell::Cell;
 
     #[derive(Clone)]
     struct TestClient {
@@ -122,14 +124,17 @@ mod test {
     impl DnsHandle for TestClient {
         type Error = ProtoError;
 
-        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+        fn send<R: Into<DnsRequest>>(
+            &mut self,
+            _: R,
+        ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
             let i = self.attempts.get();
 
             if i > self.retries || self.retries - i == 0 {
                 if self.last_succeed {
                     let mut message = Message::new();
                     message.set_id(i);
-                    return Box::new(finished(message));
+                    return Box::new(finished(message.into()));
                 }
             }
 

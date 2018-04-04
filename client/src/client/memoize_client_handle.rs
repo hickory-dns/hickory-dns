@@ -5,16 +5,16 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 use std::cell::RefCell;
-use std::rc::Rc;
 use std::collections::HashMap;
+use std::rc::Rc;
 
 use futures::Future;
-use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
+use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
 use client::ClientHandle;
 use client::rc_future::{rc_future, RcFuture};
 use error::*;
-use op::{Message, Query};
+use op::Query;
 
 // TODO: move to proto
 /// A ClienHandle for memoized (cached) responses to queries.
@@ -27,7 +27,7 @@ use op::{Message, Query};
 pub struct MemoizeClientHandle<H: ClientHandle> {
     client: H,
     active_queries:
-        Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item = Message, Error = ClientError>>>>>>,
+        Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item = DnsResponse, Error = ClientError>>>>>>,
 }
 
 impl<H> MemoizeClientHandle<H>
@@ -49,7 +49,10 @@ where
 {
     type Error = ClientError;
 
-    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+    fn send<R: Into<DnsRequest>>(
+        &mut self,
+        request: R,
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         let request = request.into();
         let query = request.queries().first().expect("no query!").clone();
 
@@ -77,13 +80,13 @@ where
 
 #[cfg(test)]
 mod test {
-    use std::cell::Cell;
     use client::*;
     use error::*;
+    use futures::*;
     use op::*;
     use rr::*;
-    use futures::*;
-    use trust_dns_proto::xfer::{DnsHandle, DnsRequest};
+    use std::cell::Cell;
+    use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
     #[derive(Clone)]
     struct TestClient {
@@ -93,14 +96,17 @@ mod test {
     impl DnsHandle for TestClient {
         type Error = ClientError;
 
-        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Box<Future<Item = Message, Error = Self::Error>> {
+        fn send<R: Into<DnsRequest>>(
+            &mut self,
+            _: R,
+        ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
             let mut message = Message::new();
             let i = self.i.get();
 
             message.set_id(i);
             self.i.set(i + 1);
 
-            Box::new(finished(message))
+            Box::new(finished(message.into()))
         }
     }
 

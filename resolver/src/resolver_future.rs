@@ -14,9 +14,8 @@ use futures::Future;
 use tokio_core::reactor::Handle;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
-use trust_dns_proto::op::Message;
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
-use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOptions,
+use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse,
                             RetryDnsHandle};
 
 use config::{ResolverConfig, ResolverOpts};
@@ -51,7 +50,7 @@ impl DnsHandle for BasicResolverHandle {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         Box::new(
             self.message_sender
                 .send(request)

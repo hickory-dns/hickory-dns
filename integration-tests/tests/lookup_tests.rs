@@ -97,7 +97,7 @@ fn test_mock_lookup() {
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![v4_record], vec![], vec![]);
-    let client = MockClientHandle::<ResolveError>::mock(vec![message]);
+    let client = MockClientHandle::<ResolveError>::mock(vec![message.map(Into::into)]);
 
     let lookup = InnerLookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -127,7 +127,7 @@ fn test_cname_lookup() {
         Ipv4Addr::new(93, 184, 216, 34),
     );
     let message = message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
-    let client = MockClientHandle::mock(vec![message]);
+    let client = MockClientHandle::mock(vec![message.map(Into::into)]);
 
     let lookup = InnerLookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -162,7 +162,7 @@ fn test_chained_cname_lookup() {
     let message2 = message(resp_query, vec![v4_record], vec![], vec![]);
 
     // the mock pops messages...
-    let client = MockClientHandle::mock(vec![message2, message1]);
+    let client = MockClientHandle::mock(vec![message2.map(Into::into), message1.map(Into::into)]);
 
     let lookup = InnerLookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
@@ -238,8 +238,16 @@ fn test_max_chained_lookup_depth() {
 
     // the mock pops messages...
     let client = MockClientHandle::mock(vec![
-        message10, message9, message8, message7, message6, message5, message4, message3, message2,
-        message1,
+        message10.map(Into::into),
+        message9.map(Into::into),
+        message8.map(Into::into),
+        message7.map(Into::into),
+        message6.map(Into::into),
+        message5.map(Into::into),
+        message4.map(Into::into),
+        message3.map(Into::into),
+        message2.map(Into::into),
+        message1.map(Into::into),
     ]);
 
     let client = CachingClient::new(0, client);

@@ -16,14 +16,14 @@ use futures::*;
 
 use DnsHandle;
 use error::*;
-use op::{Message, OpCode, Query};
+use op::{OpCode, Query};
 #[cfg(feature = "dnssec")]
 use rr::dnssec::Verifier;
 use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
 use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use rr::rdata::opt::EdnsOption;
 use rr::{DNSClass, Name, RData, Record, RecordType};
-use xfer::{DnsRequest, DnsRequestOptions};
+use xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 
 #[derive(Debug)]
 struct Rrset {
@@ -113,7 +113,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = Message, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
         let mut request = request.into();
 
         // backstop, this might need to be configurable at some point
@@ -207,7 +207,7 @@ where
 
 /// A future to verify all RRSets in a returned Message.
 struct VerifyRrsetsFuture<E> {
-    message_result: Option<Message>,
+    message_result: Option<DnsResponse>,
     rrsets: SelectAll<Box<Future<Item = Rrset, Error = E>>>,
     verified_rrsets: HashSet<(Name, RecordType)>,
 }
@@ -216,9 +216,9 @@ struct VerifyRrsetsFuture<E> {
 ///  validate all of them.
 fn verify_rrsets<H, E>(
     handle: &SecureDnsHandle<H>,
-    message_result: Message,
+    message_result: DnsResponse,
     dns_class: DNSClass,
-) -> Box<Future<Item = Message, Error = E>>
+) -> Box<Future<Item = DnsResponse, Error = E>>
 where
     H: DnsHandle<Error = E>,
     E: FromProtoError + Clone,
@@ -326,7 +326,7 @@ impl<E> Future for VerifyRrsetsFuture<E>
 where
     E: FromProtoError,
 {
-    type Item = Message;
+    type Item = DnsResponse;
     type Error = E;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
