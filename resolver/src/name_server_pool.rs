@@ -633,7 +633,11 @@ where
                         // TODO: what to do on poisoned errors? this is non-recoverable, right?
                         return Err(ResolveErrorKind::Msg("Lock Poisoned".to_string()).into());
                     }
-                    Err(TryLockError::WouldBlock) => return Ok(Async::NotReady),
+                    Err(TryLockError::WouldBlock) => {
+                        // since there is nothing registered with Tokio, we need to yield...
+                        task::current().notify();
+                        return Ok(Async::NotReady)
+                    },
                     Ok(mut conns) => {
                         // select the highest priority connection
                         let conn = conns.peek_mut();
