@@ -49,9 +49,14 @@ pub mod tcp;
 pub mod udp;
 pub mod xfer;
 
+#[doc(hidden)]
 pub use xfer::dns_future::DnsFuture;
+#[doc(hidden)]
 pub use xfer::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
+#[doc(hidden)]
 pub use xfer::retry_dns_handle::RetryDnsHandle;
+#[doc(hidden)]
 #[cfg(feature = "dnssec")]
 pub use xfer::secure_dns_handle::SecureDnsHandle;
+#[doc(hidden)]
 pub use xfer::{BufDnsStreamHandle, BufStreamHandle, MessageStreamHandle};

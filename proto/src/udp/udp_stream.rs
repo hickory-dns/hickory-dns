@@ -6,13 +6,13 @@
 // copied, modified, or distributed except according to those terms.
 
 use std;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::io;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
-use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
+use futures::{Async, Future, Poll};
 use rand;
 use rand::distributions::{IndependentSample, Range};
 use tokio_core;
@@ -71,11 +71,9 @@ impl UdpStream {
                         tokio_core::net::UdpSocket::from_socket(socket, &handle)
                             .expect("something wrong with the handle?")
                     })
-                    .map(move |socket| {
-                        UdpStream {
-                            socket: socket,
-                            outbound_messages: outbound_messages.fuse().peekable(),
-                        }
+                    .map(move |socket| UdpStream {
+                        socket: socket,
+                        outbound_messages: outbound_messages.fuse().peekable(),
                     }),
             )
         };
@@ -122,8 +120,8 @@ impl UdpStream {
     #[allow(unused)]
     pub(crate) fn from_parts(
         socket: tokio_core::net::UdpSocket,
-        outbound_messages: UnboundedReceiver<(Vec<u8>, SocketAddr)>) -> Self
-    {
+        outbound_messages: UnboundedReceiver<(Vec<u8>, SocketAddr)>,
+    ) -> Self {
         UdpStream {
             socket: socket,
             outbound_messages: outbound_messages.fuse().peekable(),
@@ -186,9 +184,10 @@ impl Stream for UdpStream {
 
         // TODO: should we drop this packet if it's not from the same src as dest?
         let (len, src) = try_nb!(self.socket.recv_from(&mut buf));
-        Ok(Async::Ready(
-            Some((buf.iter().take(len).cloned().collect(), src)),
-        ))
+        Ok(Async::Ready(Some((
+            buf.iter().take(len).cloned().collect(),
+            src,
+        ))))
     }
 }
 
@@ -253,9 +252,16 @@ fn test_udp_stream_ipv4() {
 #[test]
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_udp_stream_ipv6() {
-    udp_stream_test(std::net::IpAddr::V6(
-        std::net::Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1),
-    ))
+    udp_stream_test(std::net::IpAddr::V6(std::net::Ipv6Addr::new(
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        1,
+    )))
 }
 
 #[cfg(test)]

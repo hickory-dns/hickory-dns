@@ -1,16 +1,16 @@
 //! Hosts result from a configuration of `/etc/hosts`
 
 use std::collections::HashMap;
-use std::io::{self, BufRead, BufReader};
 use std::fs::File;
-use std::net::IpAddr;
-use std::str::FromStr;
+use std::io::{self, BufRead, BufReader};
 use std::path::Path;
+use std::str::FromStr;
 use std::sync::Arc;
 
-use trust_dns_proto::rr::{Name, RData, RecordType};
-use trust_dns_proto::op::Query;
 use lookup::Lookup;
+use trust_dns_proto::op::Query;
+use trust_dns_proto::rr::domain::TryParseIp;
+use trust_dns_proto::rr::{Name, RData, RecordType};
 
 #[derive(Debug, Default)]
 struct LookupType {
@@ -54,21 +54,27 @@ impl Hosts {
     pub fn insert(&mut self, name: Name, record_type: RecordType, lookup: Lookup) {
         assert!(record_type == RecordType::A || record_type == RecordType::AAAA);
 
-        let lookup_type = self
-            .by_name
+        let lookup_type = self.by_name
             .entry(name.clone())
             .or_insert_with(|| LookupType::default());
 
         let new_lookup = {
             let mut old_lookup = match &record_type {
-                &RecordType::A => lookup_type.a.get_or_insert_with(|| Lookup::new(Arc::new(vec![]))),
-                &RecordType::AAAA => lookup_type.aaaa.get_or_insert_with(|| Lookup::new(Arc::new(vec![]))),
-                _ => { warn!("unsupported IP type from Hosts file: {:#?}", record_type); return },
+                &RecordType::A => lookup_type
+                    .a
+                    .get_or_insert_with(|| Lookup::new(Arc::new(vec![]))),
+                &RecordType::AAAA => lookup_type
+                    .aaaa
+                    .get_or_insert_with(|| Lookup::new(Arc::new(vec![]))),
+                _ => {
+                    warn!("unsupported IP type from Hosts file: {:#?}", record_type);
+                    return;
+                }
             };
 
             old_lookup.append(lookup)
         };
-                
+
         // replace the appended version
         match &record_type {
             &RecordType::A => lookup_type.a = Some(new_lookup),
@@ -108,7 +114,7 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
         if fields.len() < 2 {
             continue;
         }
-        let addr = if let Some(a) = parse_literal_ip(&fields[0]) {
+        let addr = if let Some(a) = fields[0].try_parse_ip() {
             a
         } else {
             warn!("could not parse an IP from hosts file");
@@ -119,9 +125,12 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
             if let Ok(name) = Name::from_str(&domain) {
                 let lookup = Lookup::new(Arc::new(vec![addr.clone()]));
                 match &addr {
-                       &RData::A(..) => hosts.insert(name.clone(), RecordType::A, lookup),
-                       &RData::AAAA(..) =>  hosts.insert(name.clone(), RecordType::AAAA, lookup),
-                       _ => { warn!("unsupported IP type from Hosts file: {:#?}", addr); continue },
+                    &RData::A(..) => hosts.insert(name.clone(), RecordType::A, lookup),
+                    &RData::AAAA(..) => hosts.insert(name.clone(), RecordType::AAAA, lookup),
+                    _ => {
+                        warn!("unsupported IP type from Hosts file: {:#?}", addr);
+                        continue;
+                    }
                 };
 
                 // TODO: insert reverse lookup as well.
@@ -140,15 +149,6 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
     ))
 }
 
-/// parse &str to RData::A or RData::AAAA
-pub fn parse_literal_ip(addr: &str) -> Option<RData> {
-    match IpAddr::from_str(addr) {
-        Ok(IpAddr::V4(ip4)) => Some(RData::A(ip4)),
-        Ok(IpAddr::V6(ip6)) => Some(RData::AAAA(ip6)),
-        Err(_) => None,
-    }
-}
-
 #[cfg(unix)]
 #[cfg(test)]
 mod tests {
@@ -159,21 +159,6 @@ mod tests {
     fn tests_dir() -> String {
         let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or(".".to_owned());
         format!{"{}/../resolver/tests", server_path}
-    }
-
-    #[test]
-    fn test_parse_literal_ip() {
-        assert_eq!(
-            parse_literal_ip("127.0.0.1").expect("failed"),
-            RData::A(Ipv4Addr::new(127, 0, 0, 1))
-        );
-
-        assert_eq!(
-            parse_literal_ip("::1").expect("failed"),
-            RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))
-        );
-
-        assert!(parse_literal_ip("example.com").is_none());
     }
 
     #[test]
@@ -189,12 +174,7 @@ mod tests {
             .map(|r| r.to_owned())
             .collect::<Vec<RData>>();
 
-        assert_eq!(
-            rdatas,
-            vec![
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
-            ]
-        );
+        assert_eq!(rdatas, vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))]);
 
         let rdatas = hosts
             .lookup_static_host(&Query::query(name.clone(), RecordType::AAAA))
@@ -205,9 +185,7 @@ mod tests {
 
         assert_eq!(
             rdatas,
-            vec![
-                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            ]
+            vec![RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1))]
         );
 
         let name = Name::from_str("broadcasthost").unwrap();

@@ -1,5 +1,3 @@
-
-
 // Copyright 2015-2017 Benjamin Fry <benjaminfry@me.com>
 //
 // Licensed under the Apache License, Version 2.0, <LICENSE-APACHE or
@@ -11,7 +9,9 @@
 
 mod label;
 mod name;
+mod try_parse_ip;
 pub mod usage;
 
-pub use self::name::{IntoName, Name};
 pub use self::label::{IntoLabel, Label};
+pub use self::name::{IntoName, Name};
+pub use self::try_parse_ip::TryParseIp;

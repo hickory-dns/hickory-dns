@@ -7,13 +7,13 @@
 
 //! Structs for creating and using a ResolverFuture
 use std::net::IpAddr;
-use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use futures::Future;
 use tokio_core::reactor::Handle;
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
+use trust_dns_proto::rr::domain::TryParseIp;
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
 use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse,
                             RetryDnsHandle};
@@ -21,7 +21,7 @@ use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOpt
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::DnsLru;
 use error::*;
-use hosts::{parse_literal_ip, Hosts};
+use hosts::Hosts;
 use lookup::{self, InnerLookupFuture, Lookup, LookupEither, LookupFuture};
 use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
 use lookup_state::CachingClient;
@@ -250,16 +250,16 @@ impl ResolverFuture {
     ///
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip(&self, host: &str) -> LookupIpFuture {
+    pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> LookupIpFuture {
         // if host is a ip address, return directly.
-        if let Some(addr) = parse_literal_ip(host) {
+        if let Some(addr) = host.try_parse_ip() {
             return InnerLookupIpFuture::ok(
                 self.client_cache.clone(),
                 Lookup::new(Arc::new(vec![addr])),
             );
         }
 
-        let name = match Name::from_str(host) {
+        let name = match host.into_name() {
             Ok(name) => name,
             Err(err) => {
                 return InnerLookupIpFuture::error(self.client_cache.clone(), err);
