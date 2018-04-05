@@ -20,7 +20,7 @@ use trust_dns_proto::op::{Query, ResponseCode};
 use trust_dns_proto::rr::domain::usage::{IN_ADDR_ARPA_127, IP6_ARPA_1,
                                          LOCALHOST as LOCALHOST_usage, ResolverUsage, DEFAULT,
                                          INVALID, LOCAL};
-use trust_dns_proto::rr::{DNSClass, Name, RData, RecordType};
+use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
 
 use dns_lru;
@@ -184,7 +184,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
         }
     }
 
-    fn handle_noerror(&mut self, mut message: DnsResponse) -> Poll<Records, ResolveError> {
+    fn handle_noerror(&mut self, mut response: DnsResponse) -> Poll<Records, ResolveError> {
         // initial ttl is what CNAMES for min usage
         const INITIAL_TTL: u32 = dns_lru::MAX_TTL;
 
@@ -200,7 +200,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                 (Cow::Borrowed(self.query.name()), INITIAL_TTL, false)
             } else {
                 // Folds any cnames from the answers section, into the final cname in the answers section
-                message.answers().iter().fold(
+                response.answers().iter().fold(
                     (Cow::Borrowed(self.query.name()), INITIAL_TTL, false),
                     |(search_name, cname_ttl, was_cname), r| {
                         if let &RData::CNAME(ref cname) = r.rdata() {
@@ -216,14 +216,17 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                 )
             };
 
+            // take all answers. // TODO: following CNAMES?
+            let answers: Vec<Record> = response.messages_mut().iter_mut().flat_map(|message| message.take_answers()).collect();
+            let additionals: Vec<Record> = response.messages_mut().iter_mut().flat_map(|message| message.take_additionals()).collect();
+
             // After following all the CNAMES to the last one, try and lookup the final name
-            let records = message
-                .take_answers()
+            let records = answers
                 .into_iter()
                 // Chained records will generally exist in the additionals section
-                .chain(message.take_additionals().into_iter())
+                .chain(additionals.into_iter())
                 .filter_map(|r| {
-                    // because this resobled potentially recursively, we want the min TTL from the chain
+                    // because this resolved potentially recursively, we want the min TTL from the chain
                     let ttl = cname_ttl.min(r.ttl());
                     // TODO: disable name validation with ResolverOpts?
                     // restrict to the RData type requested
@@ -250,13 +253,13 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
             Ok(Async::Ready(self.next_query(
                 next_query,
                 cname_ttl,
-                message,
+                response,
             )))
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
-            // Note on DNSSec, in secure_client_hanle, if verify_nsec fails then the request fails.
+            // Note on DNSSec, in secure_client_handle, if verify_nsec fails then the request fails.
             //   this will mean that no unverified negative caches will make it to this point and be stored
-            Ok(Async::Ready(self.handle_nxdomain(message, true)))
+            Ok(Async::Ready(self.handle_nxdomain(response, true)))
         }
     }
 

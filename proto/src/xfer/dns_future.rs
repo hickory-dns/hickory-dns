@@ -83,17 +83,13 @@ impl<E: FromProtoError> ActiveRequest<E> {
     ///
     /// Any error sending will be logged and ignored. This must only be called after associating a response,
     ///   otherwise an error will alway be returned.
-    fn complete(mut self) {
+    fn complete(self) {
         if self.responses.is_empty() {
             self.complete_with_error(
                 ProtoErrorKind::Message("no responses received, should have timedout").into(),
             );
         } else {
-            // FIXME: send entire set of messages
-            ignore_send(
-                self.completion
-                    .send(Ok(self.responses.pop().unwrap().into())),
-            );
+            ignore_send(self.completion.send(Ok(self.responses.into())));
         }
     }
 }
@@ -393,7 +389,6 @@ where
 
                     //   deserialize or log decode_error
                     match Message::from_vec(&buffer) {
-                        // FIXME: if multicast, ie, multiple responses are expected...
                         Ok(message) => match self.active_requests.entry(message.id()) {
                             Entry::Occupied(mut request_entry) => {
                                 // first add the response to the active_requests responses
