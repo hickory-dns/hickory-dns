@@ -203,22 +203,34 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                 response.answers().iter().fold(
                     (Cow::Borrowed(self.query.name()), INITIAL_TTL, false),
                     |(search_name, cname_ttl, was_cname), r| {
-                        if let &RData::CNAME(ref cname) = r.rdata() {
-                            // take the minimum TTL of the cname_ttl and the next record in the chain
-                            let ttl = cname_ttl.min(r.ttl());
-                            debug_assert_eq!(r.rr_type(), RecordType::CNAME);
-                            if search_name.as_ref() == r.name() {
-                                return (Cow::Owned(cname.clone()), ttl, true);
+                        match *r.rdata() {
+                            RData::CNAME(ref cname) => {
+                                // take the minimum TTL of the cname_ttl and the next record in the chain
+                                let ttl = cname_ttl.min(r.ttl());
+                                debug_assert_eq!(r.rr_type(), RecordType::CNAME);
+                                if search_name.as_ref() == r.name() {
+                                    return (Cow::Owned(cname.clone()), ttl, true);
+                                }
                             }
+                            _ => (),
                         }
+
                         (search_name, cname_ttl, was_cname)
                     },
                 )
             };
 
             // take all answers. // TODO: following CNAMES?
-            let answers: Vec<Record> = response.messages_mut().iter_mut().flat_map(|message| message.take_answers()).collect();
-            let additionals: Vec<Record> = response.messages_mut().iter_mut().flat_map(|message| message.take_additionals()).collect();
+            let answers: Vec<Record> = response
+                .messages_mut()
+                .iter_mut()
+                .flat_map(|message| message.take_answers())
+                .collect();
+            let additionals: Vec<Record> = response
+                .messages_mut()
+                .iter_mut()
+                .flat_map(|message| message.take_additionals())
+                .collect();
 
             // After following all the CNAMES to the last one, try and lookup the final name
             let records = answers
