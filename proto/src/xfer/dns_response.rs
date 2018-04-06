@@ -36,6 +36,7 @@ impl DnsResponse {
     }
 }
 
+// FIXME: see LookupIp iter for how to clean this up with iterators over the common sets of answers, etc.
 impl Deref for DnsResponse {
     type Target = Message;
 
@@ -68,7 +69,10 @@ impl From<Message> for DnsResponse {
 
 impl From<SmallVec<[Message; 1]>> for DnsResponse {
     fn from(messages: SmallVec<[Message; 1]>) -> DnsResponse {
-        debug_assert!(!messages.is_empty(), "There should be at least one message in any DnsResponse");
+        debug_assert!(
+            !messages.is_empty(),
+            "There should be at least one message in any DnsResponse"
+        );
         DnsResponse(messages)
     }
 }

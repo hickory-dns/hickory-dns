@@ -218,6 +218,60 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for InnerLookupFuture<
     }
 }
 
+/// The result of an SRV lookup
+#[derive(Debug, Clone)]
+pub struct SrvLookup(Lookup);
+
+impl SrvLookup {
+    /// Returns an iterator over the SRV RData
+    pub fn iter(&self) -> SrvLookupIter {
+        SrvLookupIter(self.0.iter())
+    }
+}
+
+impl From<Lookup> for SrvLookup {
+    fn from(lookup: Lookup) -> Self {
+        SrvLookup(lookup)
+    }
+}
+
+/// An iterator over the Lookup type
+pub struct SrvLookupIter<'i>(LookupIter<'i>);
+
+impl<'i> Iterator for SrvLookupIter<'i> {
+    type Item = &'i rdata::SRV;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let iter: &mut _ = &mut self.0;
+        iter.filter_map(|rdata| match *rdata {
+            RData::SRV(ref data) => Some(data),
+            _ => None,
+        }).next()
+    }
+}
+
+/// A Future while resolves to the Lookup type
+pub struct SrvLookupFuture(LookupFuture);
+
+impl From<LookupFuture> for SrvLookupFuture {
+    fn from(lookup_future: LookupFuture) -> Self {
+        SrvLookupFuture(lookup_future)
+    }
+}
+
+impl Future for SrvLookupFuture {
+    type Item = SrvLookup;
+    type Error = ResolveError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        match self.0.poll() {
+            Ok(Async::Ready(lookup)) => Ok(Async::Ready(SrvLookup(lookup))),
+            Ok(Async::NotReady) => Ok(Async::NotReady),
+            Err(e) => Err(e),
+        }
+    }
+}
+
 /// Creates a Lookup result type from the specified components
 macro_rules! lookup_type {
     ($l:ident, $i:ident, $f:ident, $r:path, $t:path) => {
@@ -300,13 +354,6 @@ lookup_type!(
     Ipv6Addr
 );
 lookup_type!(MxLookup, MxLookupIter, MxLookupFuture, RData::MX, rdata::MX);
-lookup_type!(
-    SrvLookup,
-    SrvLookupIter,
-    SrvLookupFuture,
-    RData::SRV,
-    rdata::SRV
-);
 lookup_type!(
     TxtLookup,
     TxtLookupIter,

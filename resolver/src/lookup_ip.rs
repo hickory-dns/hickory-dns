@@ -67,8 +67,9 @@ impl<'i> Iterator for LookupIpIter<'i> {
 pub type LookupIpFuture =
     InnerLookupIpFuture<LookupEither<BasicResolverHandle, StandardConnection>>;
 
-#[doc(hidden)]
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
+///
+/// This type isn't necessarily something that should be used by users, see `LookupIpFuture`
 pub struct InnerLookupIpFuture<C: DnsHandle<Error = ResolveError> + 'static> {
     client_cache: CachingClient<C>,
     names: Vec<Name>,

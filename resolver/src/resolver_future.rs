@@ -290,6 +290,7 @@ impl ResolverFuture {
     /// * `service` - service to lookup, e.g. ldap or http
     /// * `protocol` - wire protocol, e.g. udp or tcp
     /// * `name` - zone or other name at which the service is located.
+    #[deprecated(note = "use lookup_srv instead, this interface is none ideal")]
     pub fn lookup_service(
         &self,
         service: &str,
@@ -298,6 +299,19 @@ impl ResolverFuture {
     ) -> lookup::SrvLookupFuture {
         let name = format!("_{}._{}.{}", service, protocol, name);
         self.srv_lookup(name)
+    }
+
+    /// Lookup an SRV record.
+    pub fn lookup_srv<N: IntoName>(&self, name: N) -> lookup::SrvLookupFuture {
+        let name = match name.into_name() {
+            Ok(name) => name,
+            Err(err) => {
+                return InnerLookupFuture::error(self.client_cache.clone(), err).into();
+            }
+        };
+
+        self.inner_lookup(name, RecordType::SRV, DnsRequestOptions::default())
+            .into()
     }
 
     lookup_fn!(
@@ -309,6 +323,7 @@ impl ResolverFuture {
     lookup_fn!(ipv4_lookup, lookup::Ipv4LookupFuture, RecordType::A);
     lookup_fn!(ipv6_lookup, lookup::Ipv6LookupFuture, RecordType::AAAA);
     lookup_fn!(mx_lookup, lookup::MxLookupFuture, RecordType::MX);
+    #[deprecated(note = "use lookup_srv instead, this interface is none ideal")]
     lookup_fn!(srv_lookup, lookup::SrvLookupFuture, RecordType::SRV);
     lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
 }
