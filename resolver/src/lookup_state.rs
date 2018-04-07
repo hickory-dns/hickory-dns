@@ -16,7 +16,7 @@ use std::time::Instant;
 
 use futures::{future, task, Async, Future, Poll};
 
-use trust_dns_proto::op::{Query, ResponseCode};
+use trust_dns_proto::op::{Message, Query, ResponseCode};
 use trust_dns_proto::rr::domain::usage::{IN_ADDR_ARPA_127, IP6_ARPA_1,
                                          LOCALHOST as LOCALHOST_usage, ResolverUsage, DEFAULT,
                                          INVALID, LOCAL};
@@ -30,6 +30,7 @@ use lookup::Lookup;
 
 const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 
+// FIXME: this is wrong, it must be restricted to the Tokio Task,
 thread_local! {
     static QUERY_DEPTH: RefCell<u8> = RefCell::new(0);
 }
@@ -190,27 +191,37 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
 
         // seek out CNAMES, this is only performed if the query is not a CNAME, ANY, or SRV
         let (search_name, cname_ttl, was_cname) = {
-            // TODO: look and see if there is SRV as the first response, then evaluate the chain to CNAME
-
             // this will only search for CNAMEs if the request was not meant to be for one of the triggers for recursion
             let (search_name, cname_ttl, was_cname) = if self.query.query_type().is_any()
                 || self.query.query_type().is_cname()
-                || self.query.query_type().is_srv()
             {
                 (Cow::Borrowed(self.query.name()), INITIAL_TTL, false)
             } else {
                 // Folds any cnames from the answers section, into the final cname in the answers section
-                response.answers().iter().fold(
+                //   this works by folding the last CNAME found into the final folded result.
+                //   it assumes that the CNAMEs are in chained order in the DnsResponse Message...
+                // For SRV, the name added for the search becomes the target name.
+                //
+                // TODO: should this include the additionals?
+                response.messages().flat_map(Message::answers).fold(
                     (Cow::Borrowed(self.query.name()), INITIAL_TTL, false),
                     |(search_name, cname_ttl, was_cname), r| {
-                        match *r.rdata() {
-                            RData::CNAME(ref cname) => {
+                        match r.rdata() {
+                            &RData::CNAME(ref cname) => {
                                 // take the minimum TTL of the cname_ttl and the next record in the chain
                                 let ttl = cname_ttl.min(r.ttl());
                                 debug_assert_eq!(r.rr_type(), RecordType::CNAME);
                                 if search_name.as_ref() == r.name() {
                                     return (Cow::Owned(cname.clone()), ttl, true);
                                 }
+                            }
+                            &RData::SRV(ref srv) => {
+                                // take the minimum TTL of the cname_ttl and the next record in the chain
+                                let ttl = cname_ttl.min(r.ttl());
+                                debug_assert_eq!(r.rr_type(), RecordType::SRV);
+
+                                // the search name becomes the srv.target
+                                return (Cow::Owned(srv.target().clone()), ttl, true);
                             }
                             _ => (),
                         }
@@ -223,13 +234,11 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
             // take all answers. // TODO: following CNAMES?
             let answers: Vec<Record> = response
                 .messages_mut()
-                .iter_mut()
-                .flat_map(|message| message.take_answers())
+                .flat_map(Message::take_answers)
                 .collect();
             let additionals: Vec<Record> = response
                 .messages_mut()
-                .iter_mut()
-                .flat_map(|message| message.take_additionals())
+                .flat_map(Message::take_additionals)
                 .collect();
 
             // After following all the CNAMES to the last one, try and lookup the final name
@@ -240,12 +249,22 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                 .filter_map(|r| {
                     // because this resolved potentially recursively, we want the min TTL from the chain
                     let ttl = cname_ttl.min(r.ttl());
-                    // TODO: disable name validation with ResolverOpts?
+
+                    // TODO: disable name validation with ResolverOpts? glibc feature...
                     // restrict to the RData type requested
+                    if self.query.query_class() == r.dns_class() {
+                        // standard evaluation, it's an any type or it's the requested type and the search_name matches
                     if (self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
-                        self.query.query_class() == r.dns_class() &&
-                        search_name.as_ref() == r.name() {
+                            (search_name.as_ref() == r.name() || self.query.name() == r.name()) {
+                            Some((r.unwrap_rdata(), ttl))
+                        } else 
+                        // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
+                        //   and it's an IP
+                        if self.query.query_type().is_srv() && r.rr_type().is_ip_addr() && search_name.as_ref() == r.name() {
                         Some((r.unwrap_rdata(), ttl))
+                    } else {
+                        None
+                    }
                     } else {
                         None
                     }
@@ -259,6 +278,8 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
             (search_name.into_owned(), cname_ttl, was_cname)
         };
 
+        // TODO: for SRV records we *could* do an implicit lookup, but, this requires knowing the type of IP desired
+        //    for now, we'll make the API require the user to perform a follow up to the lookups.
         // It was a CNAME, but not included in the request...
         if was_cname {
             let next_query = Query::query(search_name, self.query.query_type());
@@ -712,7 +733,7 @@ mod tests {
                     1,
                     2,
                     443,
-                    Name::from_str("actual.example.com.").unwrap(),
+                    Name::from_str("www.example.com.").unwrap(),
                 )),
             ),
         ]);
@@ -750,7 +771,7 @@ mod tests {
     }
 
     #[test]
-    fn test_no_recursion_on_srv_query() {
+    fn test_non_recursive_srv_query() {
         let cache = Arc::new(Mutex::new(DnsLru::new(1)));
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
@@ -774,11 +795,114 @@ mod tests {
                     1,
                     2,
                     443,
-                    Name::from_str("actual.example.com.").unwrap(),
+                    Name::from_str("www.example.com.").unwrap(),
                 )),
             ]
         );
     }
+
+    #[test]
+    fn test_single_srv_query_response() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+
+        let mut message = srv_message().unwrap();
+        message.add_answer(Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            86400,
+            RecordType::CNAME,
+            RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+        ));
+        message.insert_additionals(vec![
+            Record::from_rdata(
+                Name::from_str("actual.example.com.").unwrap(),
+                86400,
+                RecordType::A,
+                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            ),
+            Record::from_rdata(
+                Name::from_str("actual.example.com.").unwrap(),
+                86400,
+                RecordType::AAAA,
+                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            ),
+        ]);
+
+        let mut client = mock(vec![error(), Ok(message)]);
+
+        let ips = QueryState::lookup(
+            Query::query(
+                Name::from_str("_443._tcp.www.example.com.").unwrap(),
+                RecordType::SRV,
+            ),
+            Default::default(),
+            &mut client,
+            cache.clone(),
+        ).wait()
+            .expect("lookup failed");
+
+        assert_eq!(
+            ips.iter().cloned().collect::<Vec<_>>(),
+            vec![
+                RData::SRV(SRV::new(
+                    1,
+                    2,
+                    443,
+                    Name::from_str("www.example.com.").unwrap(),
+                )),
+                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+            ]
+        );
+    }
+
+    // TODO: if we ever enable recursive lookups for SRV, here are the tests...
+    // #[test]
+    // fn test_recursive_srv_query() {
+    //     let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+
+    //     let mut message = Message::new();
+    //     message.add_answer(Record::from_rdata(
+    //         Name::from_str("www.example.com.").unwrap(),
+    //         86400,
+    //         RecordType::CNAME,
+    //         RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+    //     ));
+    //     message.insert_additionals(vec![
+    //         Record::from_rdata(
+    //             Name::from_str("actual.example.com.").unwrap(),
+    //             86400,
+    //             RecordType::A,
+    //             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+    //         ),
+    //     ]);
+
+    //     let mut client = mock(vec![error(), Ok(message.into()), srv_message()]);
+
+    //     let ips = QueryState::lookup(
+    //         Query::query(
+    //             Name::from_str("_443._tcp.www.example.com.").unwrap(),
+    //             RecordType::SRV,
+    //         ),
+    //         Default::default(),
+    //         &mut client,
+    //         cache.clone(),
+    //     ).wait()
+    //         .expect("lookup failed");
+
+    //     assert_eq!(
+    //         ips.iter().cloned().collect::<Vec<_>>(),
+    //         vec![
+    //             RData::SRV(SRV::new(
+    //                 1,
+    //                 2,
+    //                 443,
+    //                 Name::from_str("www.example.com.").unwrap(),
+    //             )),
+    //             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+    //             //RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+    //         ]
+    //     );
+    // }
 
     fn cname_ttl_test(first: u32, second: u32) {
         let lru = Arc::new(Mutex::new(DnsLru::new(1)));

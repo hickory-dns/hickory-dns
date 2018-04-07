@@ -24,6 +24,7 @@ use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 use trust_dns_proto::{DnsHandle, RetryDnsHandle};
 
 use error::*;
+use lookup_ip::LookupIpIter;
 use lookup_state::CachingClient;
 use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
 use resolver_future::BasicResolverHandle;
@@ -226,6 +227,14 @@ impl SrvLookup {
     /// Returns an iterator over the SRV RData
     pub fn iter(&self) -> SrvLookupIter {
         SrvLookupIter(self.0.iter())
+    }
+
+    /// Returns the list of IPs associated with the SRV record.
+    ///
+    /// *Note*: the lack of any IPs does not necessarily meant that there are no IPs available for the service, only that they were not included in the original request. A subsequent query for the IPs via the `srv.target()` should resolve to the IPs.
+    pub fn ip_iter(&self) -> LookupIpIter {
+        // FIXME: these need to be restricted to the SRV name, which will make this object more complex.
+        LookupIpIter(self.0.iter())
     }
 }
 

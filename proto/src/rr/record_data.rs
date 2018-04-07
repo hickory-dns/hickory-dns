@@ -16,17 +16,17 @@
 
 //! record data enum variants
 
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::cmp::Ordering;
 #[cfg(test)]
 use std::convert::From;
-use std::cmp::Ordering;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-use error::*;
-use serialize::binary::*;
 use super::domain::Name;
-use super::record_type::RecordType;
 use super::rdata;
 use super::rdata::{CAA, MX, NULL, OPT, SOA, SRV, TLSA, TXT};
+use super::record_type::RecordType;
+use error::*;
+use serialize::binary::*;
 
 #[cfg(feature = "dnssec")]
 use super::dnssec::rdata::DNSSECRData;
@@ -440,7 +440,7 @@ impl RData {
             }
             RecordType::ZERO => {
                 debug!("reading EMPTY");
-                return Ok(RData::ZERO)
+                return Ok(RData::ZERO);
             }
             RecordType::MX => {
                 debug!("reading MX");
@@ -608,39 +608,24 @@ impl Ord for RData {
 
 #[cfg(test)]
 mod tests {
-    use std::net::Ipv6Addr;
     use std::net::Ipv4Addr;
+    use std::net::Ipv6Addr;
     use std::str::FromStr;
 
     use super::*;
-    #[allow(unused)]
-    use serialize::binary::*;
-    use serialize::binary::bin_tests::test_emit_data_set;
     use rr::domain::Name;
     use rr::rdata::{MX, SOA, SRV, TXT};
+    use serialize::binary::bin_tests::test_emit_data_set;
+    #[allow(unused)]
+    use serialize::binary::*;
 
     fn get_data() -> Vec<(RData, Vec<u8>)> {
         vec![
             (
                 RData::CNAME(Name::from_str("www.example.com").unwrap()),
                 vec![
-                    3,
-                    b'w',
-                    b'w',
-                    b'w',
-                    7,
-                    b'e',
-                    b'x',
-                    b'a',
-                    b'm',
-                    b'p',
-                    b'l',
-                    b'e',
-                    3,
-                    b'c',
-                    b'o',
-                    b'm',
-                    0,
+                    3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
+                    b'o', b'm', 0,
                 ],
             ),
             (
@@ -650,45 +635,15 @@ mod tests {
             (
                 RData::NS(Name::from_str("www.example.com").unwrap()),
                 vec![
-                    3,
-                    b'w',
-                    b'w',
-                    b'w',
-                    7,
-                    b'e',
-                    b'x',
-                    b'a',
-                    b'm',
-                    b'p',
-                    b'l',
-                    b'e',
-                    3,
-                    b'c',
-                    b'o',
-                    b'm',
-                    0,
+                    3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
+                    b'o', b'm', 0,
                 ],
             ),
             (
                 RData::PTR(Name::from_str("www.example.com").unwrap()),
                 vec![
-                    3,
-                    b'w',
-                    b'w',
-                    b'w',
-                    7,
-                    b'e',
-                    b'x',
-                    b'a',
-                    b'm',
-                    b'p',
-                    b'l',
-                    b'e',
-                    3,
-                    b'c',
-                    b'o',
-                    b'm',
-                    0,
+                    3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
+                    b'o', b'm', 0,
                 ],
             ),
             (
@@ -702,49 +657,10 @@ mod tests {
                     u32::max_value(),
                 )),
                 vec![
-                    3,
-                    b'w',
-                    b'w',
-                    b'w',
-                    7,
-                    b'e',
-                    b'x',
-                    b'a',
-                    b'm',
-                    b'p',
-                    b'l',
-                    b'e',
-                    3,
-                    b'c',
-                    b'o',
-                    b'm',
-                    0,
-                    3,
-                    b'x',
-                    b'x',
-                    b'x',
-                    0xC0,
-                    0x04,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
-                    0xFF,
+                    3, b'w', b'w', b'w', 7, b'e', b'x', b'a', b'm', b'p', b'l', b'e', 3, b'c',
+                    b'o', b'm', 0, 3, b'x', b'x', b'x', 0xC0, 0x04, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                    0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF,
+                    0xFF, 0xFF,
                 ],
             ),
             (
@@ -755,20 +671,7 @@ mod tests {
                     "j".to_string(),
                 ])),
                 vec![
-                    6,
-                    b'a',
-                    b'b',
-                    b'c',
-                    b'd',
-                    b'e',
-                    b'f',
-                    3,
-                    b'g',
-                    b'h',
-                    b'i',
-                    0,
-                    1,
-                    b'j',
+                    6, b'a', b'b', b'c', b'd', b'e', b'f', 3, b'g', b'h', b'i', 0, 1, b'j'
                 ],
             ),
             (
@@ -787,29 +690,8 @@ mod tests {
                     Name::from_str("www.example.com").unwrap(),
                 )),
                 vec![
-                    0x00,
-                    0x01,
-                    0x00,
-                    0x02,
-                    0x00,
-                    0x03,
-                    3,
-                    b'w',
-                    b'w',
-                    b'w',
-                    7,
-                    b'e',
-                    b'x',
-                    b'a',
-                    b'm',
-                    b'p',
-                    b'l',
-                    b'e',
-                    3,
-                    b'c',
-                    b'o',
-                    b'm',
-                    0,
+                    0x00, 0x01, 0x00, 0x02, 0x00, 0x03, 3, b'w', b'w', b'w', 7, b'e', b'x', b'a',
+                    b'm', b'p', b'l', b'e', 3, b'c', b'o', b'm', 0,
                 ],
             ),
         ]
@@ -916,7 +798,7 @@ mod tests {
             #[cfg(feature = "dnssec")]
             RData::DNSSEC(ref rdata) => RecordType::DNSSEC(rdata.to_record_type()),
             RData::Unknown { code, .. } => RecordType::Unknown(code),
-            RData::ZERO => RecordType::ZERO,        
+            RData::ZERO => RecordType::ZERO,
         }
     }
 

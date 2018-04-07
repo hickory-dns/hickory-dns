@@ -48,7 +48,7 @@ impl From<Lookup> for LookupIp {
 }
 
 /// Borrowed view of set of IPs returned from a LookupIp
-pub struct LookupIpIter<'i>(LookupIter<'i>);
+pub struct LookupIpIter<'i>(pub(crate) LookupIter<'i>);
 
 impl<'i> Iterator for LookupIpIter<'i> {
     type Item = IpAddr;

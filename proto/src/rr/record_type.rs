@@ -16,21 +16,21 @@
 
 //! record type definitions
 
-use std::convert::From;
 use std::cmp::Ordering;
+use std::convert::From;
 use std::fmt;
 use std::fmt::{Display, Formatter};
 use std::str::FromStr;
 
-use serialize::binary::*;
 use error::*;
+use serialize::binary::*;
 
 #[cfg(feature = "dnssec")]
 use rr::dnssec::rdata::DNSSECRecordType;
 
 // TODO: adopt proper restrictions on usage: https://tools.ietf.org/html/rfc6895 section 3.1
 //  add the data TYPEs, QTYPEs, and Meta-TYPEs
-//  
+//
 
 /// The type of the resource record.
 ///
@@ -117,6 +117,15 @@ impl RecordType {
     #[inline]
     pub fn is_srv(&self) -> bool {
         *self == RecordType::SRV
+    }
+
+    /// Returns true if this is an A or an AAAA record
+    #[inline]
+    pub fn is_ip_addr(&self) -> bool {
+        match *self {
+            RecordType::A | RecordType::AAAA => true,
+            _ => false,
+        }
     }
 }
 
@@ -207,9 +216,7 @@ impl<'r> BinDecodable<'r> for RecordType {
     }
 }
 
-
 // TODO make these a macro...
-
 
 /// Convert from RecordType to &str
 ///
