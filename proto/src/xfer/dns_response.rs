@@ -8,6 +8,7 @@
 //! `DnsResponse` wraps a `Message` and any associated connection details
 
 use std::ops::{Deref, DerefMut};
+use std::slice::{Iter, IterMut};
 
 use smallvec::SmallVec;
 
@@ -21,13 +22,13 @@ pub struct DnsResponse(SmallVec<[Message; 1]>);
 
 impl DnsResponse {
     /// Get all the messages in the Response
-    pub fn messages(&self) -> &[Message] {
-        self.0.as_slice()
+    pub fn messages(&self) -> Iter<Message> {
+        self.0.as_slice().iter()
     }
 
     /// Get all the messages in the Response
-    pub fn messages_mut(&mut self) -> &mut [Message] {
-        self.0.as_mut_slice()
+    pub fn messages_mut(&mut self) -> IterMut<Message> {
+        self.0.as_mut_slice().iter_mut()
     }
 
     /// returns the number of messages in the response
@@ -36,7 +37,7 @@ impl DnsResponse {
     }
 }
 
-// FIXME: see LookupIp iter for how to clean this up with iterators over the common sets of answers, etc.
+// TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl Deref for DnsResponse {
     type Target = Message;
 

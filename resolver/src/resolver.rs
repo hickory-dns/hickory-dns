@@ -150,6 +150,7 @@ impl Resolver {
     /// * `service` - service to lookup, e.g. ldap or http
     /// * `protocol` - wire protocol, e.g. udp or tcp
     /// * `name` - zone or other name at which the service is located.
+    #[deprecated(note = "use lookup_srv instead, this interface is none ideal")]
     pub fn lookup_service(
         &self,
         service: &str,
@@ -158,7 +159,15 @@ impl Resolver {
     ) -> ResolveResult<lookup::SrvLookup> {
         let mut reactor = Core::new()?;
         let future = self.construct_and_run(&reactor.handle())?;
+        #[allow(deprecated)]
         reactor.run(future.lookup_service(service, protocol, name))
+    }
+
+    /// Lookup an SRV record.
+    pub fn lookup_srv(&self, name: &str) -> ResolveResult<lookup::SrvLookup> {
+        let mut reactor = Core::new()?;
+        let future = self.construct_and_run(&reactor.handle())?;
+        reactor.run(future.lookup_srv(name))
     }
 
     lookup_fn!(reverse_lookup, lookup::ReverseLookup, IpAddr);
