@@ -92,7 +92,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
 
             match usage.resolver() {
                 ResolverUsage::Loopback => match query.query_type() {
-                    // FIXME: look in hosts for these ips/names first...
+                    // TODO: look in hosts for these ips/names first...
                     RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
                     RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
                     RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
@@ -254,17 +254,17 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                     // restrict to the RData type requested
                     if self.query.query_class() == r.dns_class() {
                         // standard evaluation, it's an any type or it's the requested type and the search_name matches
-                    if (self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
+                        if (self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
                             (search_name.as_ref() == r.name() || self.query.name() == r.name()) {
                             Some((r.unwrap_rdata(), ttl))
                         } else 
                         // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
                         //   and it's an IP
                         if self.query.query_type().is_srv() && r.rr_type().is_ip_addr() && search_name.as_ref() == r.name() {
-                        Some((r.unwrap_rdata(), ttl))
-                    } else {
-                        None
-                    }
+                            Some((r.unwrap_rdata(), ttl))
+                        } else {
+                            None
+                        }
                     } else {
                         None
                     }

@@ -233,7 +233,6 @@ impl SrvLookup {
     ///
     /// *Note*: the lack of any IPs does not necessarily meant that there are no IPs available for the service, only that they were not included in the original request. A subsequent query for the IPs via the `srv.target()` should resolve to the IPs.
     pub fn ip_iter(&self) -> LookupIpIter {
-        // FIXME: these need to be restricted to the SRV name, which will make this object more complex.
         LookupIpIter(self.0.iter())
     }
 }

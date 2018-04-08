@@ -16,8 +16,10 @@
 
 //! text records for storing arbitrary data
 
-use serialize::binary::*;
+use std::slice::Iter;
+
 use error::*;
+use serialize::binary::*;
 
 /// [RFC 1035, DOMAIN NAMES - IMPLEMENTATION AND SPECIFICATION, November 1987](https://tools.ietf.org/html/rfc1035)
 ///
@@ -48,7 +50,13 @@ impl TXT {
     ///
     /// The new TXT record data.
     pub fn new(txt_data: Vec<String>) -> TXT {
-        TXT { txt_data: txt_data.into_iter().map(|s| s.as_bytes().to_vec().into_boxed_slice()).collect::<Vec<_>>().into_boxed_slice() }
+        TXT {
+            txt_data: txt_data
+                .into_iter()
+                .map(|s| s.as_bytes().to_vec().into_boxed_slice())
+                .collect::<Vec<_>>()
+                .into_boxed_slice(),
+        }
     }
 
     /// ```text
@@ -56,6 +64,11 @@ impl TXT {
     /// ```
     pub fn txt_data(&self) -> &[Box<[u8]>] {
         &self.txt_data
+    }
+
+    /// Returns an iterator over the arrays in the txt data
+    pub fn iter(&self) -> Iter<Box<[u8]>> {
+        self.txt_data.iter()
     }
 }
 
@@ -68,7 +81,9 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<TXT> {
         let string = decoder.read_character_data()?;
         strings.push(string.to_vec().into_boxed_slice());
     }
-    Ok(TXT{txt_data: strings.into_boxed_slice()})
+    Ok(TXT {
+        txt_data: strings.into_boxed_slice(),
+    })
 }
 
 /// Write the RData from the given Decoder
