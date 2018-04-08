@@ -33,7 +33,7 @@ pub trait DnsSdFuture {
     /// * `service` - the type of service to be looked up, eg `http`
     /// * `protocol` - the protocol used for these services, eg `tcp`
     /// * `domain` - the domain in which the search will be done, eg `local.`
-    fn list_services(&self, service: &str, protocol: &str, domain: &str) -> ListServicesFuture;
+    fn list_services<N: IntoName>(&self, name: N) -> ListServicesFuture;
 
     /// Retrieve service information
     ///
@@ -42,8 +42,7 @@ pub trait DnsSdFuture {
 }
 
 impl DnsSdFuture for ResolverFuture {
-    fn list_services(&self, service: &str, protocol: &str, domain: &str) -> ListServicesFuture {
-        let name = format!("_{}._{}.{}", service, protocol, domain);
+    fn list_services<N: IntoName>(&self, name: N) -> ListServicesFuture {
         let options = DnsRequestOptions {
             expects_multiple_responses: true,
             ..Default::default()
@@ -66,7 +65,7 @@ impl DnsSdFuture for ResolverFuture {
 
     fn service_info<N: IntoName>(&self, name: N) -> ServiceInfoFuture {
         let txt_future: TxtLookupFuture = self.txt_lookup(name);
-        panic!();
+        unimplemented!("this feature not yet implemented");
     }
 }
 
@@ -172,12 +171,31 @@ mod tests {
         );
 
         let response = io_loop
-            .run(resolver.list_services("http", "tcp", "local"))
+            .run(resolver.list_services("_http._tcp.local."))
             .expect("failed to run lookup");
 
         let mut iter = response.iter();
-        for i in iter {
-            println!("service: {}", i);
+        for name in iter {
+            println!("service: {}", name);
+            let srvs = io_loop
+                .run(resolver.lookup_srv(name))
+                .expect("failed to lookup name");
+
+            for srv in srvs.iter() {
+                println!("service: {:#?}", srv);
+
+                let txts = io_loop
+                    .run(resolver.txt_lookup(name /*srv.target()*/))
+                    .expect("txt lookup failed");
+
+                for txt in txts.iter() {
+                    println!("txt: {:#?}", txt);
+                }
+            }
+
+            for ip in srvs.ip_iter() {
+                println!("ip: {}", ip);
+            }
         }
     }
 }
