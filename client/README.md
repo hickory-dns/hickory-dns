@@ -24,7 +24,7 @@ use std::net::Ipv4Addr;
 use std::str::FromStr;
 use trust_dns::client::{Client, SyncClient};
 use trust_dns::udp::UdpClientConnection;
-use trust_dns::op::Message;
+use trust_dns::op::DnsResponse;
 use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
 
 let address = "8.8.8.8:53".parse().unwrap();
@@ -36,12 +36,12 @@ let name = Name::from_str("www.example.com.").unwrap();
 
 // NOTE: see 'Setup a connection' example above
 // Send the query and get a message response, see RecordType for all supported options
-let response: Message = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
+let response: DnsResponse = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
 
-// Messages are the packets sent between client and server in DNS.
-//  there are many fields to a Message. It's beyond the scope of these examples
-//  to explain them. See trust_dns::op::message::Message for more details.
-//  generally we will be insterested in the Message::answers
+// Messages are the packets sent between client and server in DNS, DnsResonse's can be
+//  dereferenced to a Message. There are many fields to a Message, It's beyond the scope
+//  of these examples to explain them. See trust_dns::op::message::Message for more details.
+//  generally we will be interested in the Message::answers
 let answers: &[Record] = response.answers();
 
 // Records are generic objects which can contain any data.

@@ -87,7 +87,7 @@
 //! use std::str::FromStr;
 //! # use trust_dns::client::{Client, SyncClient};
 //! # use trust_dns::udp::UdpClientConnection;
-//! use trust_dns::op::Message;
+//! use trust_dns::op::DnsResponse;
 //! use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
 //! #
 //! # let address = "8.8.8.8:53".parse().unwrap();
@@ -99,11 +99,12 @@
 //!
 //! // NOTE: see 'Setup a connection' example above
 //! // Send the query and get a message response, see RecordType for all supported options
-//! let response: Message = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
+//! let response: DnsResponse = client.query(&name, DNSClass::IN, RecordType::A).unwrap();
 //!
 //! // Messages are the packets sent between client and server in DNS.
-//! //  there are many fields to a Message. It's beyond the scope of these examples
-//! //  to explain them. See trust_dns::op::message::Message for more details.
+//! //  there are many fields to a Message, DnsResponse can be dereferenced into
+//! //  a Message. It's beyond the scope of these examples
+//! //  to explain all the details of a Message. See trust_dns::op::message::Message for more details.
 //! //  generally we will be insterested in the Message::answers
 //! let answers: &[Record] = response.answers();
 //!
@@ -202,7 +203,6 @@
 //! ```
 //!
 //! *Note*: The dynamic DNS functions defined by TRust-DNS are expressed as atomic operations, but this depends on support of the remote server. For example, the `create` operation shown above, should only succeed if there is no `RecordSet` of the specified type at the specified label. The other update operations are `append`, `compare_and_swap`, `delete_by_rdata`, `delete_rrset`, and `delete_all`. See the documentation for each of these methods on the `Client` trait.
-
 
 extern crate chrono;
 extern crate data_encoding;

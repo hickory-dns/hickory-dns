@@ -9,22 +9,23 @@
 
 use std::ops::{Deref, DerefMut};
 
-use smallvec::SmallVec;
-
 use op::Message;
-use rr::RecordType;
 
 /// A set of options for expressing options to how requests should be treated
 #[derive(Clone, Default)]
 pub struct DnsRequestOptions {
-    /// If true, then the request will block until all reqeusts have been received
+    /// When true, the underlying DNS protocols will not return on the first response recieved.
+    ///
+    /// Setting this option will cause the underlying protocol to await the timeout, and then return all Responses.
     pub expects_multiple_responses: bool,
-    /// If set, then the request will terminate early if all types have been received
-    pub expected_record_types: Option<SmallVec<[RecordType; 2]>>,
+    // /// If set, then the request will terminate early if all types have been received
+    // pub expected_record_types: Option<SmallVec<[RecordType; 2]>>,
     // TODO: add EDNS options here?
 }
 
 /// A DNS reqeust object
+///
+/// This wraps a DNS Message for requests. It also has request options associated for contolling certain features of the DNS protocol handlers.
 #[derive(Clone)]
 pub struct DnsRequest {
     message: Message,

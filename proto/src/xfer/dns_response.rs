@@ -14,12 +14,13 @@ use smallvec::SmallVec;
 
 use op::Message;
 
-/// A DNS reqeust object
+/// A DNS response object
 ///
-/// Most DnsRequests only ever expect one response, the exception is a multicast request.
+/// For Most DNS requests, only one response is expected, the exception is a multicast request.
 #[derive(Clone, Debug)]
 pub struct DnsResponse(SmallVec<[Message; 1]>);
 
+// TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl DnsResponse {
     /// Get all the messages in the Response
     pub fn messages(&self) -> Iter<Message> {
@@ -37,7 +38,6 @@ impl DnsResponse {
     }
 }
 
-// TODO: when `impl Trait` lands in stable, remove this, and expose FlatMap over answers, et al.
 impl Deref for DnsResponse {
     type Target = Message;
 
