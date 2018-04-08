@@ -6,18 +6,19 @@
 // copied, modified, or distributed except according to those terms.
 
 //! DNS Service Discovery
-
 #![cfg(feature = "mdns")]
 
+use std::borrow::Cow;
+use std::collections::HashMap;
+
 use futures::{Async, Future, Poll};
-use tokio_core::reactor::Core;
 
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
 use trust_dns_proto::xfer::DnsRequestOptions;
 
 use error::*;
 use lookup::{InnerLookupFuture, LookupFuture, ReverseLookup, ReverseLookupFuture,
-             ReverseLookupIter, TxtLookup, TxtLookupFuture, TxtLookupIter};
+             ReverseLookupIter, TxtLookup, TxtLookupFuture};
 use resolver_future::ResolverFuture;
 
 /// An extension for the Resolver to perform DNS Service Discovery
@@ -27,12 +28,6 @@ pub trait DnsSdFuture {
     /// https://tools.ietf.org/html/rfc6763#section-4.1
     ///
     /// For registered service types, see: https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml
-    ///
-    /// # Arguments
-    ///
-    /// * `service` - the type of service to be looked up, eg `http`
-    /// * `protocol` - the protocol used for these services, eg `tcp`
-    /// * `domain` - the domain in which the search will be done, eg `local.`
     fn list_services<N: IntoName>(&self, name: N) -> ListServicesFuture;
 
     /// Retrieve service information
@@ -65,7 +60,7 @@ impl DnsSdFuture for ResolverFuture {
 
     fn service_info<N: IntoName>(&self, name: N) -> ServiceInfoFuture {
         let txt_future: TxtLookupFuture = self.txt_lookup(name);
-        unimplemented!("this feature not yet implemented");
+        ServiceInfoFuture(txt_future)
     }
 }
 
@@ -117,11 +112,7 @@ impl Future for ServiceInfoFuture {
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         match self.0.poll() {
-            Ok(Async::Ready(lookup)) => {
-                panic!();
-
-                //Ok(Async::Ready(ServiceInfo(lookup)))
-            }
+            Ok(Async::Ready(lookup)) => Ok(Async::Ready(ServiceInfo(lookup))),
             Ok(Async::NotReady) => Ok(Async::NotReady),
             Err(e) => Err(e),
         }
@@ -132,27 +123,33 @@ impl Future for ServiceInfoFuture {
 pub struct ServiceInfo(TxtLookup);
 
 impl ServiceInfo {
-    /// Returns an iterator over the list of returned names of services.
+    /// Returns this as a map, this allocates a new hashmap
     ///
-    /// Each name can be queried for additional information. To lookup service entries see `ResolverFuture::srv_lookup`. To get parameters associated with the service, see `DnsSdFuture::service_info`.
-    pub fn iter(&self) -> ServiceInfoIter {
-        ServiceInfoIter(self.0.iter())
-    }
-}
+    /// This converts the DNS-SD TXT record into a map following the rules specified in https://tools.ietf.org/html/rfc6763#section-6.4
+    pub fn to_map<'s>(&'s self) -> HashMap<Cow<'s, str>, Option<Cow<'s, str>>> {
+        self.0
+            .iter()
+            .flat_map(|txt| txt.iter())
+            .filter_map(|bytes| {
+                let mut split = bytes.split(|byte| *byte == b'=');
 
-/// An iterator over the Lookup type
-pub struct ServiceInfoIter<'i>(TxtLookupIter<'i>);
+                let key = split.next().map(String::from_utf8_lossy);
+                let value = split.next().map(String::from_utf8_lossy);
 
-impl<'i> Iterator for ServiceInfoIter<'i> {
-    type Item = &'i [u8];
-
-    fn next(&mut self) -> Option<Self::Item> {
-        panic!()
+                if let Some(key) = key {
+                    Some((key, value))
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 
 #[cfg(test)]
 mod tests {
+    use tokio_core::reactor::Core;
+
     use config::*;
 
     use super::*;
@@ -174,8 +171,7 @@ mod tests {
             .run(resolver.list_services("_http._tcp.local."))
             .expect("failed to run lookup");
 
-        let mut iter = response.iter();
-        for name in iter {
+        for name in response.iter() {
             println!("service: {}", name);
             let srvs = io_loop
                 .run(resolver.lookup_srv(name))
@@ -184,13 +180,11 @@ mod tests {
             for srv in srvs.iter() {
                 println!("service: {:#?}", srv);
 
-                let txts = io_loop
-                    .run(resolver.txt_lookup(name /*srv.target()*/))
-                    .expect("txt lookup failed");
-
-                for txt in txts.iter() {
-                    println!("txt: {:#?}", txt);
-                }
+                let info = io_loop
+                    .run(resolver.service_info(name))
+                    .expect("info failed");
+                let info = info.to_map();
+                println!("info: {:#?}", info);
             }
 
             for ip in srvs.ip_iter() {
