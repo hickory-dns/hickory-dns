@@ -10,13 +10,13 @@ use openssl::rsa::Rsa as OpenSslRsa;
 #[cfg(feature = "openssl")]
 use openssl::sign::Signer;
 #[cfg(feature = "openssl")]
-use openssl::pkey::PKey;
+use openssl::pkey::{PKey, Private};
 #[cfg(feature = "openssl")]
 use openssl::bn::BigNumContext;
 #[cfg(feature = "openssl")]
-use openssl::ec::{EcGroup, EcKey, POINT_CONVERSION_UNCOMPRESSED};
+use openssl::ec::{EcGroup, EcKey, PointConversionForm};
 #[cfg(feature = "openssl")]
-use openssl::nid;
+use openssl::nid::Nid;
 
 #[cfg(feature = "ring")]
 use ring::rand;
@@ -43,10 +43,10 @@ use rr::dnssec::TBS;
 pub enum KeyPair {
     /// RSA keypair, supported by OpenSSL
     #[cfg(feature = "openssl")]
-    RSA(PKey),
+    RSA(PKey<Private>),
     /// Ellyptic curve keypair, supported by OpenSSL
     #[cfg(feature = "openssl")]
-    EC(PKey),
+    EC(PKey<Private>),
     /// ED25519 ecryption and hash defined keypair
     #[cfg(feature = "ring")]
     ED25519(Ed25519KeyPair),
@@ -55,19 +55,19 @@ pub enum KeyPair {
 impl KeyPair {
     /// Creates an RSA type keypair.
     #[cfg(feature = "openssl")]
-    pub fn from_rsa(rsa: OpenSslRsa) -> DnsSecResult<Self> {
+    pub fn from_rsa(rsa: OpenSslRsa<Private>) -> DnsSecResult<Self> {
         PKey::from_rsa(rsa).map(KeyPair::RSA).map_err(|e| e.into())
     }
 
     /// Given a know pkey of an RSA key, return the wrapped keypair
     #[cfg(feature = "openssl")]
-    pub fn from_rsa_pkey(pkey: PKey) -> Self {
+    pub fn from_rsa_pkey(pkey: PKey<Private>) -> Self {
         KeyPair::RSA(pkey)
     }
 
     /// Creates an EC, elliptic curve, type keypair, only P256 or P384 are supported.
     #[cfg(feature = "openssl")]
-    pub fn from_ec_key(ec_key: EcKey) -> DnsSecResult<Self> {
+    pub fn from_ec_key(ec_key: EcKey<Private>) -> DnsSecResult<Self> {
         PKey::from_ec_key(ec_key)
             .map(KeyPair::EC)
             .map_err(|e| e.into())
@@ -75,7 +75,7 @@ impl KeyPair {
 
     /// Given a know pkey of an EC key, return the wrapped keypair
     #[cfg(feature = "openssl")]
-    pub fn from_ec_pkey(pkey: PKey) -> Self {
+    pub fn from_ec_pkey(pkey: PKey<Private>) -> Self {
         KeyPair::EC(pkey)
     }
 
@@ -96,14 +96,12 @@ impl KeyPair {
             KeyPair::RSA(ref pkey) => {
                 let mut bytes: Vec<u8> = Vec::new();
                 // TODO: make these expects a try! and Err()
-                let rsa: OpenSslRsa = pkey.rsa()
+                let rsa: OpenSslRsa<Private> = pkey.rsa()
                     .expect("pkey should have been initialized with RSA");
 
                 // this is to get us access to the exponent and the modulus
-                // TODO: make these expects a try! and Err()
-                let e: Vec<u8> = rsa.e().expect("RSA should have been initialized").to_vec();
-                // TODO: make these expects a try! and Err()
-                let n: Vec<u8> = rsa.n().expect("RSA should have been initialized").to_vec();
+                let e: Vec<u8> = rsa.e().to_vec();
+                let n: Vec<u8> = rsa.n().to_vec();
 
                 if e.len() > 255 {
                     bytes.push(0);
@@ -122,23 +120,22 @@ impl KeyPair {
             #[cfg(feature = "openssl")]
             KeyPair::EC(ref pkey) => {
                 // TODO: make these expects a try! and Err()
-                let ec_key: EcKey = pkey.ec_key()
+                let ec_key: EcKey<Private> = pkey.ec_key()
                     .expect("pkey should have been initialized with EC");
-                ec_key
-                    .group()
-                    .and_then(|group| ec_key.public_key().map(|point| (group, point)))
-                    .ok_or_else(|| DnsSecErrorKind::Message("missing group or point on ec_key").into())
-                    .and_then(|(group, point)| {
-                        BigNumContext::new()
+                let group = ec_key.group();
+                let point = ec_key.public_key();
+
+                let mut bytes = BigNumContext::new()
                             .and_then(|mut ctx| {
                                           point.to_bytes(group,
-                                                         POINT_CONVERSION_UNCOMPRESSED,
+                                                         PointConversionForm::UNCOMPRESSED,
                                                          &mut ctx)
                                       })
-                            .map_err(|e| e.into())
-                    })
-                    // Remove OpenSSL header byte
-                    .map(|mut bytes| { bytes.remove(0); bytes })
+                            .map_err(DnsSecError::from)?;
+                    
+                // Remove OpenSSL header byte
+                bytes.remove(0);
+                Ok(bytes)
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(ref ed_key) => Ok(ed_key.public_key_bytes().to_vec()),
@@ -413,12 +410,12 @@ impl KeyPair {
                     .and_then(|rsa| KeyPair::from_rsa(rsa))
             }
             #[cfg(feature = "openssl")]
-            Algorithm::ECDSAP256SHA256 => EcGroup::from_curve_name(nid::X9_62_PRIME256V1)
+            Algorithm::ECDSAP256SHA256 => EcGroup::from_curve_name(Nid::X9_62_PRIME256V1)
                 .and_then(|group| EcKey::generate(&group))
                 .map_err(|e| e.into())
                 .and_then(KeyPair::from_ec_key),
             #[cfg(feature = "openssl")]
-            Algorithm::ECDSAP384SHA384 => EcGroup::from_curve_name(nid::SECP384R1)
+            Algorithm::ECDSAP384SHA384 => EcGroup::from_curve_name(Nid::SECP384R1)
                 .and_then(|group| EcKey::generate(&group))
                 .map_err(|e| e.into())
                 .and_then(KeyPair::from_ec_key),
