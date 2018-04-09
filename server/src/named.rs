@@ -36,7 +36,6 @@ extern crate chrono;
 extern crate clap;
 #[macro_use]
 extern crate log;
-extern crate rustc_serialize;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
@@ -51,25 +50,20 @@ use std::io::Read;
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
-
 use clap::{Arg, ArgMatches};
 
 use trust_dns::error::ParseResult;
 use trust_dns::serialize::txt::{Lexer, Parser};
 use trust_dns::rr::Name;
-
 #[cfg(feature = "dnssec")]
 use trust_dns::rr::dnssec::{KeyPair, Signer};
 
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 use trust_dns_server::config::{Config, TlsCertConfig, ZoneConfig};
 use trust_dns_server::logger;
-
 #[cfg(feature = "dnssec")]
 use trust_dns_server::config::KeyConfig;
-
 use trust_dns_server::server::ServerFuture;
-
 #[cfg(feature = "tls")]
 use trust_dns_openssl::tls_server::*;
 

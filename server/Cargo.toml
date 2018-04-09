@@ -71,11 +71,12 @@ futures = "^0.1.17"
 lazy_static = "^1.0"
 log = "^0.4.1"
 rand = "^0.4"
-rustc-serialize = "^0.3.18"
 rusqlite = { version = "^0.13.0", features = ["bundled"] }
+serde = "^1.0"
+serde_derive = "^1.0"
 time = "^0.1"
 tokio-core = "^0.1"
-toml = "^0.1"
+toml = "^0.4"
 trust-dns = { version = "^0.13", path = "../client" }
 trust-dns-proto = { version = "^0.3", path = "../proto" }
 trust-dns-openssl = { version = "^0.2.0", path = "../openssl", optional = true }
