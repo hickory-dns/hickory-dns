@@ -46,7 +46,7 @@ path = "src/lib.rs"
 
 [dependencies]
 error-chain = "0.1.12"
-futures = "^0.1.17"
+futures = "^0.2.0"
 lazy_static = "^1.0"
 log = "^0.4.1"
 lru-cache = "^0.1.1"

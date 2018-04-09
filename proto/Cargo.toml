@@ -53,7 +53,7 @@ path = "src/lib.rs"
 byteorder = "^1.2"
 data-encoding = { version = "2.1.0", optional = true }
 error-chain = "0.1.12"
-futures = "^0.1.17"
+futures = "^0.2.0"
 idna = "^0.1.4"
 lazy_static = "^1.0"
 log = "^0.4.1"
