@@ -24,8 +24,7 @@ use std::str::FromStr;
 use std::time::Duration;
 
 use log;
-use rustc_serialize::Decodable;
-use toml::{Decoder, Value};
+use toml;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
@@ -35,7 +34,7 @@ use trust_dns::rr::dnssec::{Algorithm, KeyFormat};
 use trust_dns_proto::error::ProtoResult;
 
 use authority::ZoneType;
-use error::{ConfigError, ConfigErrorKind, ConfigResult};
+use error::{ConfigError, ConfigResult};
 
 static DEFAULT_PATH: &'static str = "/var/named"; // TODO what about windows (do I care? ;)
 static DEFAULT_PORT: u16 = 53;
@@ -43,11 +42,13 @@ static DEFAULT_TLS_PORT: u16 = 853;
 static DEFAULT_TCP_REQUEST_TIMEOUT: u64 = 5;
 
 /// Server configuration
-#[derive(RustcDecodable, Debug)]
+#[derive(Deserialize, Debug)]
 pub struct Config {
     /// The list of IPv4 addresses to listen on
+    #[serde(default)]
     listen_addrs_ipv4: Vec<String>,
     /// This list of IPv6 addresses to listen on
+    #[serde(default)]
     listen_addrs_ipv6: Vec<String>,
     /// Port on which to listen (associated to all IPs)
     listen_port: Option<u16>,
@@ -60,6 +61,7 @@ pub struct Config {
     /// Base configuration directory, i.e. root path for zones
     directory: Option<String>,
     /// List of configurations for zones
+    #[serde(default)]
     zones: Vec<ZoneConfig>,
     /// Certificate to associate to TLS connections
     tls_cert: Option<TlsCertConfig>,
@@ -140,20 +142,19 @@ impl FromStr for Config {
     type Err = ConfigError;
 
     fn from_str(toml: &str) -> ConfigResult<Config> {
-        let value: Value = toml.parse().map_err(ConfigErrorKind::VecParserError)?;
-        let mut decoder: Decoder = Decoder::new(value);
-        Ok(Self::decode(&mut decoder)?)
+        toml::de::from_str(toml).map_err(Into::into)
     }
 }
 
 /// Configuration for a zone
-#[derive(RustcDecodable, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Debug)]
 pub struct ZoneConfig {
     zone: String, // TODO: make Domain::Name decodable
     zone_type: ZoneType,
     file: String,
     allow_update: Option<bool>,
     enable_dnssec: Option<bool>,
+    #[serde(default)]
     keys: Vec<KeyConfig>,
 }
 
@@ -223,7 +224,7 @@ impl ZoneConfig {
 
 /// Key pair configuration for DNSSec keys for signing a zone
 #[cfg(feature = "dnssec")]
-#[derive(RustcDecodable, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Debug)]
 pub struct KeyConfig {
     key_path: String,
     password: Option<String>,
@@ -282,13 +283,11 @@ impl KeyConfig {
             Some("key") => Ok(KeyFormat::Pem), // TODO: deprecate this...
             Some("pem") => Ok(KeyFormat::Pem),
             Some("pk8") => Ok(KeyFormat::Pkcs8),
-            e => Err(
-                ParseErrorKind::Msg(format!(
-                    "extension not understood, '{:?}': {:?}",
-                    e,
-                    self.key_path()
-                )).into(),
-            ),
+            e => Err(ParseErrorKind::Msg(format!(
+                "extension not understood, '{:?}': {:?}",
+                e,
+                self.key_path()
+            )).into()),
         }
     }
 
@@ -339,11 +338,11 @@ impl KeyConfig {
 
 #[cfg(not(feature = "dnssec"))]
 #[allow(missing_docs)]
-#[derive(RustcDecodable, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Debug)]
 pub struct KeyConfig {}
 
 /// Configuration for a TLS certificate
-#[derive(RustcDecodable, PartialEq, Debug)]
+#[derive(Deserialize, PartialEq, Debug)]
 pub struct TlsCertConfig {
     path: String,
     password: Option<String>,
