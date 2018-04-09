@@ -53,4 +53,4 @@ trust-dns = { version = "^0.13", path = "../client", default-features = false }
 trust-dns-proto = { version = "^0.3", path = "../proto", default-features = false }
 
 [dev-dependencies]
-openssl = { version = "^0.9.8", features = ["v102", "v110"] }
+openssl = { version = "^0.10.6", features = ["v102", "v110"] }

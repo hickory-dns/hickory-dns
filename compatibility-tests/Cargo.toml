@@ -48,6 +48,6 @@ chrono = "^0.4"
 data-encoding = "2.1.0"
 env_logger = "0.5.3"
 futures = "^0.1.17"
-openssl = { version = "^0.9.8", features = ["v102", "v110"] }
+openssl = { version = "^0.10.6", features = ["v102", "v110"] }
 rand = "^0.4"
 trust-dns = { version = "*", path="../client", features = ["dnssec-openssl"] }
