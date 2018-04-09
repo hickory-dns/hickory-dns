@@ -57,7 +57,7 @@ futures = "^0.1.17"
 idna = "^0.1.4"
 lazy_static = "^1.0"
 log = "^0.4.1"
-openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
+openssl = { version = "^0.10.6", features = ["v102", "v110"], optional = true }
 rand = "^0.4"
 ring = { version = "^0.12", optional = true }
 smallvec = "^0.6"

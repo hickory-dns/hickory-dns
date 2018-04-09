@@ -59,7 +59,7 @@ error-chain = "0.1.12"
 futures = "^0.1.17"
 lazy_static = "^1.0"
 log = "^0.4.1"
-openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = true }
+openssl = { version = "^0.10.6", features = ["v102", "v110"], optional = true }
 radix_trie = "0.1.2"
 rand = "^0.4"
 ring = { version = "^0.12", optional = true }
@@ -68,4 +68,4 @@ trust-dns-proto = {version = "^0.3", path = "../proto", features = ["dnssec"] }
 untrusted = { version = "^0.5", optional = true }
 
 [dev-dependencies]
-openssl = { version = "^0.9.8", features = ["v102", "v110"], optional = false }
+openssl = { version = "^0.10.6", features = ["v102", "v110"], optional = false }
