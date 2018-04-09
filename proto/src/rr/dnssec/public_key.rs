@@ -14,7 +14,7 @@ use openssl::rsa::Rsa as OpenSslRsa;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::sign::Verifier;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-use openssl::pkey::PKey;
+use openssl::pkey::{PKey, Public};
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::bn::BigNum;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
@@ -22,7 +22,7 @@ use openssl::bn::BigNumContext;
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 use openssl::ec::{EcGroup, EcKey, EcPoint};
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-use openssl::nid;
+use openssl::nid::Nid;
 #[cfg(feature = "ring")]
 use ring::signature;
 #[cfg(feature = "ring")]
@@ -65,7 +65,7 @@ pub trait PublicKey {
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 fn verify_with_pkey(
-    pkey: &PKey,
+    pkey: &PKey<Public>,
     algorithm: Algorithm,
     message: &[u8],
     signature: &[u8],
@@ -89,7 +89,7 @@ fn verify_with_pkey(
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
 pub struct Ec<'k> {
     raw: &'k [u8],
-    pkey: PKey,
+    pkey: PKey<Public>,
 }
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
@@ -128,8 +128,8 @@ impl<'k> Ec<'k> {
     /// ```
     pub fn from_public_bytes(public_key: &'k [u8], algorithm: Algorithm) -> ProtoResult<Self> {
         let curve = match algorithm {
-            Algorithm::ECDSAP256SHA256 => nid::X9_62_PRIME256V1,
-            Algorithm::ECDSAP384SHA384 => nid::SECP384R1,
+            Algorithm::ECDSAP256SHA256 => Nid::X9_62_PRIME256V1,
+            Algorithm::ECDSAP384SHA384 => Nid::SECP384R1,
             _ => return Err("only ECDSAP256SHA256 and ECDSAP384SHA384 are supported by Ec".into()),
         };
         // Key needs to be converted to OpenSSL format
@@ -320,7 +320,7 @@ impl<'k> PublicKey for Ed25519<'k> {
 pub struct Rsa<'k> {
     raw: &'k [u8],
 
-    #[cfg(all(not(feature = "ring"), feature = "openssl"))] pkey: PKey,
+    #[cfg(all(not(feature = "ring"), feature = "openssl"))] pkey: PKey<Public>,
 
     #[cfg(feature = "ring")] pkey: RSAPublicKey<'k>,
 }
@@ -367,7 +367,7 @@ impl<'k> Rsa<'k> {
 }
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]
-fn into_pkey(parsed: RSAPublicKey) -> ProtoResult<PKey> {
+fn into_pkey(parsed: RSAPublicKey) -> ProtoResult<PKey<Public>> {
     // FYI: BigNum slices treat all slices as BigEndian, i.e NetworkByteOrder
     let e = BigNum::from_slice(parsed.e())?;
     let n = BigNum::from_slice(parsed.n())?;

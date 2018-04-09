@@ -54,4 +54,4 @@ trust-dns-proto = { version = "^0.3", path = "../proto", default-features = fals
 
 ## Commented out until MTLS support is complete
 # [target.'cfg(target_os = "linux")'.dependencies]
-# openssl = { version = "^0.9.8", features = ["v102", "v110"] }
+# openssl = { version = "^0.10", features = ["v102", "v110"] }
