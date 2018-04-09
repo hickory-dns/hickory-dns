@@ -22,7 +22,7 @@ use trust_dns::op::ResponseCode;
 pub type UpdateResult<T> = Result<T, ResponseCode>;
 
 /// The type of zone stored in a Catalog
-#[derive(RustcDecodable, PartialEq, Eq, Debug, Clone, Copy)]
+#[derive(Deserialize, PartialEq, Eq, Debug, Clone, Copy)]
 pub enum ZoneType {
     /// This authority for a zone, i.e. the Primary
     Master,

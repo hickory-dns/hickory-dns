@@ -36,7 +36,9 @@ extern crate futures;
 #[macro_use]
 extern crate log;
 extern crate rusqlite;
-extern crate rustc_serialize;
+extern crate serde;
+#[macro_use]
+extern crate serde_derive;
 extern crate time;
 extern crate tokio_core;
 extern crate toml;
