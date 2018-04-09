@@ -577,6 +577,7 @@ mod tests {
     extern crate openssl;
     use self::openssl::bn::BigNum;
     use self::openssl::rsa::Rsa;
+    use self::openssl::pkey::Private;
 
     use rr::{DNSClass, Name, Record, RecordType};
     use rr::rdata::{DNSSECRData, SIG};
@@ -725,7 +726,7 @@ mod tests {
         }
     }
 
-    fn get_rsa_from_vec(params: &Vec<u32>) -> Result<Rsa, openssl::error::ErrorStack> {
+    fn get_rsa_from_vec(params: &Vec<u32>) -> Result<Rsa<Private>, openssl::error::ErrorStack> {
         Rsa::from_private_components(
             BigNum::from_u32(params[0]).unwrap(), // modulus: n
             BigNum::from_u32(params[1]).unwrap(), // public exponent: e,

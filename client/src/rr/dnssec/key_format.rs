@@ -177,9 +177,9 @@ impl KeyFormat {
                     }
                     KeyFormat::Pem => {
                         let key = if let Some(password) = password {
-                            pkey.private_key_to_pem_passphrase(Cipher::aes_256_cbc(), password)
+                            pkey.private_key_to_pem_pkcs8_passphrase(Cipher::aes_256_cbc(), password)
                         } else {
-                            pkey.private_key_to_pem()
+                            pkey.private_key_to_pem_pkcs8()
                         };
 
                         key.map_err(|e| format!("error writing key as PEM: {}", e).into())
@@ -227,9 +227,9 @@ impl KeyFormat {
                     }
                     KeyFormat::Pem => {
                         let key = if let Some(password) = password {
-                            pkey.private_key_to_pem_passphrase(Cipher::aes_256_cbc(), password)
+                            pkey.private_key_to_pem_pkcs8_passphrase(Cipher::aes_256_cbc(), password)
                         } else {
-                            pkey.private_key_to_pem()
+                            pkey.private_key_to_pem_pkcs8()
                         };
 
                         key.map_err(|e| format!("error writing key as PEM: {}", e).into())
