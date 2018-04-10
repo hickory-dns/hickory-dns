@@ -17,14 +17,14 @@ use std::io::{BufReader, Read, Write};
 use clap::{App, Arg, ArgMatches};
 use openssl::pkey::PKey;
 
-use trust_dns::rr::dnssec::KeyPair;
+use trust_dns::rr::dnssec::{KeyPair, Public};
 
 fn args<'a>() -> ArgMatches<'a> {
     App::new("TRust-DNS pem-to-public-dnskey")
         .version(trust_dns::version())
         .author("Benjamin Fry <benjaminfry@me.com>")
         .about(
-            "Converts a PEM formatted pubblic key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in TRust-DNS.",
+            "Converts a PEM formatted public key into a raw public dnskey (not the inverse of dnskey-to-pem). This can be used to create a dnskey in the TrustAnchor internal format in TRust-DNS.",
         )
         .arg(
             Arg::with_name("key")
@@ -74,7 +74,7 @@ pub fn main() {
         .expect("failed to write public_key to file");
 }
 
-fn into_key_pair(pkey: PKey) -> KeyPair {
+fn into_key_pair(pkey: PKey<Public>) -> KeyPair<Public> {
     let rsa = pkey.rsa();
     if let Ok(rsa) = rsa {
         return KeyPair::from_rsa(rsa).expect("failed to convert to rsa");
@@ -88,7 +88,7 @@ fn into_key_pair(pkey: PKey) -> KeyPair {
     panic!("unsupported pkey");
 }
 
-fn read_pem<R: Read>(reader: &mut R) -> PKey {
+fn read_pem<R: Read>(reader: &mut R) -> PKey<Public> {
     let mut reader = BufReader::new(reader);
     let mut buf = Vec::<u8>::new();
 
