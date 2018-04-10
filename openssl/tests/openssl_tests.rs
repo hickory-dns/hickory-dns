@@ -32,7 +32,7 @@ use tokio_core::reactor::Core;
 use openssl::asn1::*;
 use openssl::bn::*;
 use openssl::hash::MessageDigest;
-use openssl::nid;
+use openssl::nid::Nid;
 use openssl::pkcs12::*;
 use openssl::rsa::*;
 use openssl::x509::extension::*;
@@ -109,12 +109,18 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             let pkcs12 = Pkcs12::from_der(&server_pkcs12_der)
                 .and_then(|p| p.parse("mypass"))
                 .expect("Pkcs12::from_der");
-            let mut tls = SslAcceptorBuilder::mozilla_modern(
+            let mut tls = SslAcceptor::mozilla_modern(
                 SslMethod::tls(),
-                &pkcs12.pkey,
-                &pkcs12.cert,
-                &pkcs12.chain,
             ).expect("mozilla_modern failed");
+
+            tls.set_private_key(&pkcs12.pkey).expect("failed to associated key");
+            tls.set_certificate(&pkcs12.cert).expect("failed to associated cert");
+
+            if let Some(ref chain) = pkcs12.chain {
+                for cert in chain {
+                    tls.add_extra_chain_cert(cert.to_owned()).expect("failed to add chain");
+                }
+            }
 
             {
                 
@@ -124,7 +130,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
                 // FIXME: mtls tests hang on Linux...
                 if mtls {
-                    mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+                    mode = SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT;
 
                     let mut store = X509StoreBuilder::new().unwrap();
                     let root_ca = X509::from_der(&root_cert_der_copy).unwrap();
@@ -133,7 +139,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                         .set_verify_cert_store(store.build())
                         .unwrap();
                 } else {
-                    mode.insert(SSL_VERIFY_NONE);
+                    mode.insert(SslVerifyMode::NONE);
                 }
 
                 openssl_ctx_builder.set_verify(mode);
@@ -228,7 +234,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
 #[allow(unused_variables)]
 fn config_mtls(
-    root_pkey: &PKey,
+    root_pkey: &PKey<Private>,
     root_name: &X509Name,
     root_cert: &X509,
     builder: &mut TlsStreamBuilder,
@@ -251,19 +257,19 @@ fn config_mtls(
 }
 
 /// Generates a root certificate
-fn root_ca() -> (PKey, X509Name, X509) {
+fn root_ca() -> (PKey<Private>, X509Name, X509) {
     let subject_name = "root.example.com";
     let rsa = Rsa::generate(2048).unwrap();
     let pkey = PKey::from_rsa(rsa).unwrap();
 
     let mut x509_name = X509NameBuilder::new().unwrap();
     x509_name
-        .append_entry_by_nid(nid::COMMONNAME, subject_name)
+        .append_entry_by_nid(Nid::COMMONNAME, subject_name)
         .unwrap();
     let x509_name = x509_name.build();
 
     let mut serial: BigNum = BigNum::new().unwrap();
-    serial.pseudo_rand(32, MSB_MAYBE_ZERO, false).unwrap();
+    serial.pseudo_rand(32, MsbOption::MAYBE_ZERO, false).unwrap();
     let serial = serial.to_asn1_integer().unwrap();
 
     let mut x509_build = X509::builder().unwrap();
@@ -296,18 +302,18 @@ fn root_ca() -> (PKey, X509Name, X509) {
 }
 
 /// Generates a certificate, see root_ca() for getting a root cert
-fn cert(subject_name: &str, ca_pkey: &PKey, ca_name: &X509Name, _: &X509) -> (PKey, X509, Pkcs12) {
+fn cert(subject_name: &str, ca_pkey: &PKey<Private>, ca_name: &X509Name, _: &X509) -> (PKey<Private>, X509, Pkcs12) {
     let rsa = Rsa::generate(2048).unwrap();
     let pkey = PKey::from_rsa(rsa).unwrap();
 
     let mut x509_name = X509NameBuilder::new().unwrap();
     x509_name
-        .append_entry_by_nid(nid::COMMONNAME, subject_name)
+        .append_entry_by_nid(Nid::COMMONNAME, subject_name)
         .unwrap();
     let x509_name = x509_name.build();
 
     let mut serial: BigNum = BigNum::new().unwrap();
-    serial.pseudo_rand(32, MSB_MAYBE_ZERO, false).unwrap();
+    serial.pseudo_rand(32, MsbOption::MAYBE_ZERO, false).unwrap();
     let serial = serial.to_asn1_integer().unwrap();
 
     let mut x509_build = X509::builder().unwrap();
