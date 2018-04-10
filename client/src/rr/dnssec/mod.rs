@@ -49,3 +49,30 @@ pub use openssl::hash::DigestBytes as Digest;
 
 #[cfg(feature = "ring")]
 pub use ring::digest::Digest;
+
+#[cfg(feature = "openssl")]
+pub use openssl::pkey::{HasPrivate, HasPublic, Private, Public};
+
+#[cfg(not(feature = "openssl"))]
+pub use self::faux_key_type::{HasPrivate, HasPublic, Private, Public};
+
+#[cfg(not(feature = "openssl"))]
+mod faux_key_type {
+    /// A key that contains public key material
+    pub trait HasPublic {}
+
+    /// A key that contains private key material
+    pub trait HasPrivate {}
+
+    impl <K: HasPrivate> HasPublic for K {}
+
+    /// Faux implementation of the Openssl Public key types
+    pub enum Public{}
+
+    impl HasPublic for Public {}
+
+    /// Faux implementation of the Openssl Public key types
+    pub enum Private{}
+
+    impl HasPrivate for Private {}
+}

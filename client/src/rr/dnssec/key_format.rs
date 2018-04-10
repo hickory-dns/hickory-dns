@@ -13,6 +13,8 @@ use error::*;
 use rr::dnssec::Algorithm;
 use rr::dnssec::KeyPair;
 
+use rr::dnssec::Private;
+
 /// The format of the binary key
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum KeyFormat {
@@ -32,7 +34,7 @@ impl KeyFormat {
         bytes: &[u8],
         password: Option<&str>,
         algorithm: Algorithm,
-    ) -> DnsSecResult<KeyPair> {
+    ) -> DnsSecResult<KeyPair<Private>> {
         //  empty string prevents openssl from triggering a read from stdin...
         let password = password.unwrap_or("");
         let password = password.as_bytes();
@@ -136,7 +138,7 @@ impl KeyFormat {
 
         // generate the key
         #[allow(unused)]
-        let key_pair: KeyPair = match algorithm {
+        let key_pair: KeyPair<Private> = match algorithm {
             #[cfg(feature = "openssl")]
             e @ Algorithm::RSASHA1 | e @ Algorithm::RSASHA1NSEC3SHA1 => {
                 return Err(format!("unsupported Algorithm (insecure): {:?}", e).into())
@@ -197,14 +199,16 @@ impl KeyFormat {
             }
             #[cfg(feature = "ring")]
             KeyPair::ED25519(..) => panic!("should have returned early"),
+            #[cfg(not(feature = "openssl"))]
+            KeyPair::Phantom(..) => panic!("Phantom disallowed"),
             #[cfg(not(any(feature = "openssl", feature = "ring")))]
             _ => Err(format!("unsupported Algorithm, enable openssl feature (encode not supported with ring)").into()),
         }
     }
 
-    /// Decode private key
+    /// Encode private key
     #[deprecated]
-    pub fn encode_key(self, key_pair: &KeyPair, password: Option<&str>) -> DnsSecResult<Vec<u8>> {
+    pub fn encode_key(self, key_pair: &KeyPair<Private>, password: Option<&str>) -> DnsSecResult<Vec<u8>> {
         // on encoding, if the password is empty string, ignore it (empty string is ok on decode)
         #[allow(unused)]
         let password = password

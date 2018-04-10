@@ -6,8 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use openssl::pkcs12::*;
-use openssl::ssl;
-use openssl::ssl::{SslAcceptor, SslAcceptorBuilder, SslMethod, SslOptions};
+use openssl::ssl::{SslAcceptor, SslMethod, SslOptions};
 
 use std::fs::File;
 use std::io;
@@ -17,6 +16,9 @@ use std::path::Path;
 pub use openssl::pkcs12::ParsedPkcs12;
 pub use tokio_openssl::SslAcceptorExt;
 
+/// Read the certificate from the specified path.
+/// 
+/// If the password is specified, then it will be used to decode the Certificate
 pub fn read_cert(path: &Path, password: Option<&str>) -> Result<ParsedPkcs12, String> {
     let mut file = File::open(&path).map_err(|e| {
         format!("error opening pkcs12 cert file: {:?}: {}", path, e)
@@ -34,7 +36,7 @@ pub fn read_cert(path: &Path, password: Option<&str>) -> Result<ParsedPkcs12, St
         .map_err(|e| format!("failed to open pkcs12 from: {:?}: {}", path, e))
 }
 
-
+/// Construct the new Acceptor with the associated pkcs12 data
 pub fn new_acceptor(pkcs12: &ParsedPkcs12) -> io::Result<SslAcceptor> {
     // TODO: make an internal error type with conversions
     let mut builder = SslAcceptor::mozilla_modern(

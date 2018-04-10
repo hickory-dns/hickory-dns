@@ -30,15 +30,16 @@ use rr::{DNSClass, Name, RecordType};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::RData;
 #[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::KeyPair;
-#[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::dnssec::Algorithm;
+use rr::dnssec::{Algorithm, KeyPair};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::SIG;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSSECRecordType, DNSKEY, KEY};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::BinEncoder;
+
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::dnssec::Private;
 
 /// Use for performing signing and validation of DNSSec based components.
 ///
@@ -245,7 +246,7 @@ use serialize::binary::BinEncoder;
 pub struct Signer {
     // TODO: this should really be a trait and generic struct over KEY and DNSKEY
     key_rdata: RData,
-    key: KeyPair,
+    key: KeyPair<Private>,
     algorithm: Algorithm,
     signer_name: Name,
     sig_duration: Duration,
@@ -270,7 +271,7 @@ impl Signer {
     /// * `is_zone_update_auth` - this key may be used for updating the zone
     pub fn dnssec(
         key_rdata: DNSKEY,
-        key: KeyPair,
+        key: KeyPair<Private>,
         signer_name: Name,
         sig_duration: Duration,
     ) -> Self {
@@ -295,7 +296,7 @@ impl Signer {
     /// * `key` - the private key for signing, unless validating, where just the public key is necessary
     /// * `signer_name` - name in the zone to which this DNSKEY is bound
     /// * `is_zone_update_auth` - this key may be used for updating the zone
-    pub fn sig0(key_rdata: KEY, key: KeyPair, signer_name: Name) -> Self {
+    pub fn sig0(key_rdata: KEY, key: KeyPair<Private>, signer_name: Name) -> Self {
         let algorithm = key_rdata.algorithm();
 
         Signer {
@@ -312,7 +313,7 @@ impl Signer {
     #[deprecated(note = "use SIG0 or DNSSec constructors")]
     pub fn new(
         algorithm: Algorithm,
-        key: KeyPair,
+        key: KeyPair<Private>,
         signer_name: Name,
         sig_duration: Duration,
         is_zone_signing_key: bool,
@@ -333,8 +334,8 @@ impl Signer {
 
 
 
-    /// Return the key used for validateion/signing
-    pub fn key(&self) -> &KeyPair {
+    /// Return the key used for validation/signing
+    pub fn key(&self) -> &KeyPair<Private> {
         &self.key
     }
 
