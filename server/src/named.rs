@@ -56,7 +56,7 @@ use trust_dns::error::ParseResult;
 use trust_dns::serialize::txt::{Lexer, Parser};
 use trust_dns::rr::Name;
 #[cfg(feature = "dnssec")]
-use trust_dns::rr::dnssec::{KeyPair, Signer};
+use trust_dns::rr::dnssec::{KeyPair, Signer, Private};
 
 use trust_dns_server::authority::{Authority, Catalog, Journal, ZoneType};
 use trust_dns_server::config::{Config, TlsCertConfig, ZoneConfig};
@@ -230,7 +230,7 @@ fn load_key(zone_name: Name, key_config: &KeyConfig) -> Result<Signer, String> {
         .map_err(|e| format!("bad key format: {}", e))?;
 
     // read the key in
-    let key: KeyPair = {
+    let key: KeyPair<Private> = {
         info!("reading key: {:?}", key_path);
 
         let mut file = File::open(&key_path).map_err(|e| {
