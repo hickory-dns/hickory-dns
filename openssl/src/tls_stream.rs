@@ -11,10 +11,10 @@ use std::io;
 use futures::{future, Future, IntoFuture};
 use futures::sync::mpsc::unbounded;
 use openssl::pkcs12::ParsedPkcs12;
-use openssl::pkey::PKeyRef;
+use openssl::pkey::{PKeyRef, Private};
 use openssl::ssl;
-use openssl::ssl::{SslConnector as TlsConnector, SslConnectorBuilder, SslContextBuilder, SslMethod};
-use openssl::stack::StackRef;
+use openssl::ssl::{SslConnector, SslConnectorBuilder, SslContextBuilder, SslMethod, SslOptions};
+use openssl::stack::Stack;
 use openssl::x509::{X509, X509Ref};
 use openssl::x509::store::X509StoreBuilder;
 use tokio_core::net::TcpStream as TokioTcpStream;
@@ -27,14 +27,14 @@ use trust_dns::tcp::TcpStream;
 
 pub trait TlsIdentityExt {
     fn identity(&mut self, pkcs12: &ParsedPkcs12) -> io::Result<()> {
-        self.identity_parts(&pkcs12.cert, &pkcs12.pkey, &pkcs12.chain)
+        self.identity_parts(&pkcs12.cert, &pkcs12.pkey, pkcs12.chain.as_ref())
     }
 
     fn identity_parts(
         &mut self,
         cert: &X509Ref,
-        pkey: &PKeyRef,
-        chain: &StackRef<X509>,
+        pkey: &PKeyRef<Private>,
+        chain: Option<&Stack<X509>>,
     ) -> io::Result<()>;
 }
 
@@ -42,14 +42,16 @@ impl TlsIdentityExt for SslContextBuilder {
     fn identity_parts(
         &mut self,
         cert: &X509Ref,
-        pkey: &PKeyRef,
-        chain: &StackRef<X509>,
+        pkey: &PKeyRef<Private>,
+        chain: Option<&Stack<X509>>,
     ) -> io::Result<()> {
         self.set_certificate(cert)?;
         self.set_private_key(pkey)?;
         self.check_private_key()?;
+        if let Some(chain) = chain {
         for cert in chain {
             self.add_extra_chain_cert(cert.to_owned())?;
+        }
         }
         Ok(())
     }
@@ -58,8 +60,8 @@ impl TlsIdentityExt for SslContextBuilder {
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream>>;
 
-fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<TlsConnector> {
-    let mut tls = SslConnectorBuilder::new(SslMethod::tls()).map_err(|e| {
+fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnector> {
+    let mut tls = SslConnector::builder(SslMethod::tls()).map_err(|e| {
         io::Error::new(
             io::ErrorKind::ConnectionRefused,
             format!("tls error: {}", e),
@@ -72,8 +74,8 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<TlsConnecto
 
         // only want to support current TLS versions, 1.2 or future
         openssl_ctx_builder.set_options(
-            ssl::SSL_OP_NO_SSLV2 | ssl::SSL_OP_NO_SSLV3 | ssl::SSL_OP_NO_TLSV1
-                | ssl::SSL_OP_NO_TLSV1_1,
+            SslOptions::NO_SSLV2 | SslOptions::NO_SSLV3 | SslOptions::NO_TLSV1
+                | SslOptions::NO_TLSV1_1,
         );
 
         let mut store = X509StoreBuilder::new().map_err(|e| {
