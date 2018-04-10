@@ -99,6 +99,7 @@ impl<K: HasPublic> KeyPair<K> {
     /// If there is a private key associated with this keypair, it will not be included in this
     ///  format. Only the public key material will be included.
     pub fn to_public_bytes(&self) -> DnsSecResult<Vec<u8>> {
+        #[allow(unreachable_patterns)]
         match *self {
             // see from_vec() RSA sections for reference
             #[cfg(feature = "openssl")]

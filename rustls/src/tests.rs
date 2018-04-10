@@ -106,12 +106,18 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             let pkcs12 = Pkcs12::from_der(&server_pkcs12_der)
                 .and_then(|p| p.parse("mypass"))
                 .expect("Pkcs12::from_der");
-            let mut tls = SslAcceptorBuilder::mozilla_modern(
+            let mut tls = SslAcceptor::mozilla_modern(
                 SslMethod::tls(),
-                &pkcs12.pkey,
-                &pkcs12.cert,
-                &pkcs12.chain,
             ).expect("mozilla_modern failed");
+
+            tls.set_private_key(&pkcs12.pkey).expect("failed to associated key");
+            tls.set_certificate(&pkcs12.cert).expect("failed to associated cert");
+
+            if let Some(ref chain) = pkcs12.chain {
+                for cert in chain {
+                    tls.add_extra_chain_cert(cert.to_owned()).expect("failed to add chain");
+                }
+            }
 
             {
                 let mut openssl_ctx_builder = &mut tls;
@@ -120,7 +126,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
                 // FIXME: mtls tests hang on Linux...
                 if mtls {
-                    mode = SSL_VERIFY_PEER | SSL_VERIFY_FAIL_IF_NO_PEER_CERT;
+                    mode = SslVerifyMode::PEER | SslVerifyMode::FAIL_IF_NO_PEER_CERT;
 
                     let mut store = X509StoreBuilder::new().unwrap();
                     let root_ca = X509::from_der(&root_cert_der_copy).unwrap();
@@ -129,7 +135,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
                         .set_verify_cert_store(store.build())
                         .unwrap();
                 } else {
-                    mode.insert(SSL_VERIFY_NONE);
+                    mode.insert(SslVerifyMode::NONE);
                 }
 
                 openssl_ctx_builder.set_verify(mode);
