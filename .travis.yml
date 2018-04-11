@@ -31,6 +31,13 @@ matrix:
            RUN_KCOV=1
            RUST_BACKTRACE=full
 
+    # just dns-over-openssl
+    - rust: stable
+      env: MODULES="resolver"
+           OPTIONS="--no-default-features --features=dns-over-openssl"
+           RUN_KCOV=1
+           RUST_BACKTRACE=full
+
     # just ring
     - rust: stable
       env: MODULES="client integration-tests proto resolver server"
@@ -38,10 +45,24 @@ matrix:
            RUN_KCOV=1
            RUST_BACKTRACE=full
 
+    # just dns-over-rustls
+    - rust: stable
+      env: MODULES="resolver"
+           OPTIONS="--no-default-features --features=dns-over-rustls"
+           RUN_KCOV=1
+           RUST_BACKTRACE=full
+
+    # just dns-over-native-tls
+    - rust: stable
+      env: MODULES="resolver"
+           OPTIONS="--no-default-features --features=dns-over-native-tls"
+           RUN_KCOV=1
+           RUST_BACKTRACE=full
+
     # just tls using openssl
     - rust: stable
       env: MODULES="integration-tests server"
-           OPTIONS="--no-default-features --features=tls-openssl"
+           OPTIONS="--no-default-features --features=dns-over-openssl"
            RUN_KCOV=1
            RUST_BACKTRACE=full
 
