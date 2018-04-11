@@ -14,6 +14,7 @@ use smallvec::SmallVec;
 
 use op::Message;
 
+// FIXME: see https://github.com/bluejekyll/trust-dns/issues/383 for removing vec of messages and instead returning a Stream
 /// A DNS response object
 ///
 /// For Most DNS requests, only one response is expected, the exception is a multicast request.
@@ -42,22 +43,18 @@ impl Deref for DnsResponse {
     type Target = Message;
 
     fn deref(&self) -> &Self::Target {
-        debug_assert!(self.len() == 1, "There is more than one message in the response, this code path needs to deal with that");
         &self.0[0]
     }
 }
 
 impl DerefMut for DnsResponse {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        debug_assert!(self.len() == 1, "There is more than one message in the response, this code path needs to deal with that");
         &mut self.0[0]
     }
 }
 
 impl From<DnsResponse> for Message {
     fn from(mut response: DnsResponse) -> Message {
-        // there should be no way to create an empty smallvec
-        debug_assert!(response.len() == 1, "There is more than one message in the response, this code path needs to deal with that");
         response.0.remove(0)
     }
 }
