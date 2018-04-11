@@ -9,6 +9,8 @@
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::Duration;
 
+use smallvec::SmallVec;
+
 use trust_dns_proto::rr::Name;
 
 /// Configuration for the upstream nameservers to use for resolution
@@ -30,6 +32,83 @@ impl ResolverConfig {
             domain: None,
             search: vec![],
             name_servers: vec![],
+        }
+    }
+
+    /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
+    ///
+    /// Please see: https://www.cloudflare.com/dns/
+    fn cloudflare() -> Self {
+        let domain = None;
+        let cf_ns1 = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 53),
+            protocol: Protocol::Udp,
+        };
+
+        let cf_ns2 = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)), 53),
+            protocol: Protocol::Udp,
+        };
+
+        let cf_v6_ns1 = NameServerConfig {
+            socket_addr: SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
+                53,
+            ),
+            protocol: Protocol::Udp,
+        };
+
+        let cf_v6_ns2 = NameServerConfig {
+            socket_addr: SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
+                53,
+            ),
+            protocol: Protocol::Udp,
+        };
+
+        ResolverConfig {
+            domain,
+            search: vec![],
+            name_servers: vec![cf_ns1, cf_ns2, cf_v6_ns1, cf_v6_ns2],
+        }
+    }
+
+    /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
+    ///
+    /// Please see: https://www.cloudflare.com/dns/
+    #[cfg(feature = "dns-over-tls")]
+    fn cloudflare_tls() -> Self {
+        let domain = None;
+        let cf_ns1 = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 53),
+            protocol: Protocol::Udp,
+        };
+
+        let cf_ns2 = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)), 53),
+            protocol: Protocol::Udp,
+        };
+
+        let cf_v6_ns1 = NameServerConfig {
+            socket_addr: SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
+                53,
+            ),
+            protocol: Protocol::Udp,
+        };
+
+        let cf_v6_ns2 = NameServerConfig {
+            socket_addr: SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
+                53,
+            ),
+            protocol: Protocol::Udp,
+        };
+
+        ResolverConfig {
+            domain,
+            search: vec![],
+            name_servers: vec![cf_ns1, cf_ns2, cf_v6_ns1, cf_v6_ns2],
         }
     }
 
@@ -136,8 +215,8 @@ pub enum Protocol {
     Udp,
     /// TCP can be used for large queries, but not all NameServers support it
     Tcp,
-    // TODO: add client certificate for mTLS?
-    // Tls,
+    /// Tls for DNS over TLS
+    Tls,
     /// mDNS protocol for performing multicast lookups
     #[cfg(feature = "mdns")]
     Mdns,
@@ -148,6 +227,8 @@ impl Protocol {
     pub fn is_datagram(&self) -> bool {
         match *self {
             Protocol::Udp => true,
+            Protocol::Tcp => false,
+            #[cfg(feature = "dns-over-tls")]
             Protocol::Tcp => false,
             #[cfg(feature = "mdns")]
             Protocol::Mdns => true,

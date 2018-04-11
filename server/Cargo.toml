@@ -45,7 +45,13 @@ default = ["tls-openssl", "dnssec-openssl"]
 dnssec-openssl = ["dnssec", "trust-dns/dnssec-openssl", "trust-dns-proto/dnssec-openssl"]
 dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
-tls-openssl = ["tls", "trust-dns-openssl"]
+
+# TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
+dns-over-openssl = ["dns-over-tls", "tls-openssl"]
+dns-over-tls = []
+
+# This is a deprecated feature...
+tls-openssl = ["tls", "dns-over-tls", "dns-over-openssl"]
 # TODO: not yet supported on the server side
 # tls-ring = ["tls", "trust-dns-rustls"]
 tls = []

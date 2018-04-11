@@ -15,7 +15,7 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - Generic Record Type Lookup
 - CNAME chain resolution
 - mDNS support (enable with `mdns` feature)
-- *TBD* TLS integration
+- DNS over TLS (utilizing, `openssl`, `native-tls`, or `rustls`)
 
 ## Example
 
@@ -41,6 +41,29 @@ if address.is_ipv4() {
 } else {
     assert_eq!(address, IpAddr::V6(Ipv6Addr::new(0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946)));
 }
+```
+
+## Enabling DNS-over-TLS
+
+DNS over TLS is experimental in the TRust-DNS Resolver library. The underlying implementations have been available as addon libraries to the Client and Server, but the configuration is experimental in TRust-DNS Resolver. *WARNING* The author makes no claims on the security and/or privacy guarantees of this implementation.
+
+To use you must compile in support with one of the `dns-over-tls` features. There are three: `dns-over-openssl`, `dns-over-native-tls`, and `dns-over-rustls`. The reason for each is to make the TRust-DNS libraries flexible for different deployments, and/or security concerns. The easiest to use will generally be `dns-over-rustls` which utilizes the native Rust library (a rework of the `boringssl` project), this should compile and be usable on most ARM and x86 platforms. `dns-over-native-tls` will utilize the hosts TLS implementation where available or fallback to `openssl` where not. `dns-over-openssl` will specify that `openssl` should be used (which is a perfect fine option if required). If more than one is specified, the presidence will be in this order (i.e. only one can be used at a time) `dns-over-rustls`, `dns-over-native-tls`, and then `dns-over-openssl`. *NOTICE* the author is not responsible for any choice of library that does not meet required security requirements. 
+
+### Example
+
+Enable the TLS library through the dependency on `trust-dns-resolver`:
+
+```toml
+trust-dns-resolver = { version = "*", features = ["dns-over-rustls"] }
+```
+
+A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service:
+
+```rust
+// Construct a new Resolver with default configuration options
+let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
+
+/// see example above...
 ```
 
 ## Versioning
