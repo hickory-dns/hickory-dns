@@ -14,15 +14,15 @@
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::path::Path;
 use std::net::SocketAddr;
+use std::path::Path;
 use std::str::FromStr;
 use std::time::Duration;
 
 use resolv_conf;
 
-use trust_dns_proto::rr::Name;
 use config::*;
+use trust_dns_proto::rr::Name;
 
 const DEFAULT_PORT: u16 = 53;
 
@@ -51,7 +51,6 @@ fn parse_resolv_conf<T: AsRef<[u8]>>(data: T) -> io::Result<(ResolverConfig, Res
 fn into_resolver_config(
     parsed_config: resolv_conf::Config,
 ) -> io::Result<(ResolverConfig, ResolverOpts)> {
-
     let domain = if let Some(domain) = parsed_config.get_system_domain() {
         Some(Name::from_str(domain.as_str())?)
     } else {
@@ -64,10 +63,12 @@ fn into_resolver_config(
         nameservers.push(NameServerConfig {
             socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         });
         nameservers.push(NameServerConfig {
             socket_addr: SocketAddr::new(ip.into(), DEFAULT_PORT),
             protocol: Protocol::Tcp,
+            tls_dns_name: None,
         });
     }
     if nameservers.is_empty() {
@@ -97,11 +98,11 @@ fn into_resolver_config(
 
 #[cfg(test)]
 mod tests {
+    use super::*;
     use std::env;
     use std::net::*;
     use std::str::FromStr;
     use trust_dns_proto::rr::Name;
-    use super::*;
 
     fn empty_config() -> ResolverConfig {
         ResolverConfig::from_parts(None, vec![], vec![])
@@ -113,10 +114,12 @@ mod tests {
             NameServerConfig {
                 socket_addr: addr,
                 protocol: Protocol::Udp,
+                tls_dns_name: None,
             },
             NameServerConfig {
                 socket_addr: addr,
                 protocol: Protocol::Tcp,
+                tls_dns_name: None,
             },
         ]
     }

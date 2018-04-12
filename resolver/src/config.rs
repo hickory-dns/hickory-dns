@@ -7,6 +7,7 @@
 
 //! Configuration for a resolver
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::sync::Arc;
 use std::time::Duration;
 
 use smallvec::SmallVec;
@@ -43,11 +44,13 @@ impl ResolverConfig {
         let cf_ns1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 53),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         let cf_ns2 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)), 53),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         let cf_v6_ns1 = NameServerConfig {
@@ -56,6 +59,7 @@ impl ResolverConfig {
                 53,
             ),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         let cf_v6_ns2 = NameServerConfig {
@@ -64,6 +68,7 @@ impl ResolverConfig {
                 53,
             ),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         ResolverConfig {
@@ -79,30 +84,36 @@ impl ResolverConfig {
     #[cfg(feature = "dns-over-tls")]
     fn cloudflare_tls() -> Self {
         let domain = None;
+        let tls_dns_name = Some(Arc::new("tls-host=cloudflare-dns.com".to_string()));
+
         let cf_ns1 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 53),
-            protocol: Protocol::Udp,
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 853),
+            protocol: Protocol::Tls,
+            tls_dns_name: tls_dns_name.clone(),
         };
 
         let cf_ns2 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)), 53),
-            protocol: Protocol::Udp,
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)), 853),
+            protocol: Protocol::Tls,
+            tls_dns_name: tls_dns_name.clone(),
         };
 
         let cf_v6_ns1 = NameServerConfig {
             socket_addr: SocketAddr::new(
                 IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
-                53,
+                853,
             ),
-            protocol: Protocol::Udp,
+            protocol: Protocol::Tls,
+            tls_dns_name: tls_dns_name.clone(),
         };
 
         let cf_v6_ns2 = NameServerConfig {
             socket_addr: SocketAddr::new(
                 IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
-                53,
+                853,
             ),
-            protocol: Protocol::Udp,
+            protocol: Protocol::Tls,
+            tls_dns_name: tls_dns_name.clone(),
         };
 
         ResolverConfig {
@@ -177,11 +188,13 @@ impl Default for ResolverConfig {
         let google_ns1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         let google_ns2 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)), 53),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         let google_v6_ns1 = NameServerConfig {
@@ -190,6 +203,7 @@ impl Default for ResolverConfig {
                 53,
             ),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         let google_v6_ns2 = NameServerConfig {
@@ -198,6 +212,7 @@ impl Default for ResolverConfig {
                 53,
             ),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         ResolverConfig {
@@ -229,7 +244,7 @@ impl Protocol {
             Protocol::Udp => true,
             Protocol::Tcp => false,
             #[cfg(feature = "dns-over-tls")]
-            Protocol::Tcp => false,
+            Protocol::Tls => false,
             #[cfg(feature = "mdns")]
             Protocol::Mdns => true,
         }
@@ -242,12 +257,14 @@ impl Protocol {
 }
 
 /// Configuration for the NameServer
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq)]
 pub struct NameServerConfig {
     /// The address which the DNS NameServer is registered at.
     pub socket_addr: SocketAddr,
     /// The protocol to use when communicating with the NameServer.
     pub protocol: Protocol,
+    /// SPKI name, only relavent for TLS connections
+    pub tls_dns_name: Option<Arc<String>>,
 }
 
 /// The lookup ip strategy

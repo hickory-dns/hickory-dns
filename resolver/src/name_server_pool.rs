@@ -176,7 +176,7 @@ pub trait ConnectionProvider: Clone {
     ) -> Self::ConnHandle;
 }
 
-#[doc(hidden)]
+/// Standard connection implements the default mechanism for creating new Connections
 #[derive(Clone)]
 pub struct StandardConnection;
 
@@ -212,6 +212,18 @@ impl ConnectionProvider for StandardConnection {
                     NoopMessageFinalizer::new(),
                 )
             }
+            #[cfg(feature = "dns-over-tls")]
+            Protocol::Tls => {
+                let (stream, handle) =
+                    TcpClientStream::with_timeout(config.socket_addr, reactor, options.timeout);
+                DnsFuture::with_timeout(
+                    stream,
+                    handle,
+                    reactor,
+                    options.timeout,
+                    NoopMessageFinalizer::new(),
+                )
+            }
             // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr, reactor),
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {
@@ -238,8 +250,8 @@ impl ConnectionProvider for StandardConnection {
     }
 }
 
+/// Specifies the details of a remote NameServer used for lookups
 #[derive(Clone)]
-#[doc(hidden)]
 pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
     config: NameServerConfig,
     options: ResolverOpts,
@@ -643,8 +655,8 @@ where
                     Err(TryLockError::WouldBlock) => {
                         // since there is nothing registered with Tokio, we need to yield...
                         task::current().notify();
-                        return Ok(Async::NotReady)
-                    },
+                        return Ok(Async::NotReady);
+                    }
                     Ok(mut conns) => {
                         // select the highest priority connection
                         let conn = conns.peek_mut();
@@ -674,8 +686,8 @@ where
 mod mdns {
     use super::*;
 
-    use trust_dns_proto::DnsHandle;
     use trust_dns_proto::rr::domain::usage;
+    use trust_dns_proto::DnsHandle;
 
     /// Returns true
     pub fn maybe_local<C, P>(name_server: &mut NameServer<C, P>, request: DnsRequest) -> Local
@@ -810,6 +822,7 @@ mod tests {
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
         let mut io_loop = Core::new().unwrap();
         let mut name_server = NameServer::<_, StandardConnection>::new(
@@ -835,6 +848,7 @@ mod tests {
         let config = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 252),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
         let mut io_loop = Core::new().unwrap();
         let mut name_server =
@@ -858,11 +872,13 @@ mod tests {
         let config1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 252)), 253),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         let config2 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         };
 
         let mut resolver_config = ResolverConfig::new();
