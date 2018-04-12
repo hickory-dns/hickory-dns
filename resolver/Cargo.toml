@@ -35,9 +35,9 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-dns-over-nativetls = ["dns-over-tls"]
-dns-over-openssl = ["dns-over-tls"]
-dns-over-rustls = ["dns-over-tls"]
+dns-over-nativetls = ["dns-over-tls", "trust-dns-native-tls"]
+dns-over-openssl = ["dns-over-tls", "trust-dns-openssl"]
+dns-over-rustls = ["dns-over-tls", "trust-dns-rustls"]
 dns-over-tls = []
 
 dnssec-openssl = ["dnssec", "trust-dns-proto/dnssec-openssl"]
@@ -51,6 +51,7 @@ name = "trust_dns_resolver"
 path = "src/lib.rs"
 
 [dependencies]
+cfg-if = "0.1"
 error-chain = "0.1.12"
 futures = "^0.1.17"
 lazy_static = "^1.0"
@@ -59,10 +60,10 @@ lru-cache = "^0.1.1"
 resolv-conf = { version = "0.6.0", features = ["system"] } 
 smallvec = "^0.6"
 tokio-core = "^0.1"
-trust-dns-nativetls = { version = "^0.2", path = "../nativetls", optional = "true" }
-trust-dns-openssl = { version = "^0.2", path = "../openssl", optional = "true" }
+trust-dns-native-tls = { version = "^0.2", path = "../native-tls", optional = true }
+trust-dns-openssl = { version = "^0.2", path = "../openssl", optional = true }
 trust-dns-proto = { version = "^0.3", path = "../proto" }
-trust-dns-rustls = { version = "^0.2", path = "../openssl", optional = "true" }
+trust-dns-rustls = { version = "^0.2", path = "../rustls", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 ipconfig = { version = "^0.1.4" }

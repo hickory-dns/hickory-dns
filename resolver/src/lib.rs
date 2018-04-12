@@ -153,6 +153,8 @@
 #![deny(missing_docs)]
 
 #[macro_use]
+extern crate cfg_if;
+#[macro_use]
 extern crate error_chain;
 extern crate futures;
 #[cfg(target_os = "windows")]
@@ -163,13 +165,13 @@ extern crate lazy_static;
 extern crate log;
 extern crate lru_cache;
 extern crate resolv_conf;
+extern crate smallvec;
 extern crate tokio_core;
-extern crate trust_dns_proto;
-
 #[cfg(feature = "dns-over-native-tls")]
 extern crate trust_dns_native_tls;
 #[cfg(feature = "dns-over-openssl")]
 extern crate trust_dns_openssl;
+extern crate trust_dns_proto;
 #[cfg(feature = "dns-over-rustls")]
 extern crate trust_dns_rustls;
 
@@ -186,6 +188,8 @@ pub mod name_server_pool;
 mod resolver;
 mod resolver_future;
 pub mod system_conf;
+#[cfg(feature = "dns-over-tls")]
+mod tls;
 
 pub use hosts::Hosts;
 pub use resolver::Resolver;
