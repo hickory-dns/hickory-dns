@@ -36,10 +36,52 @@ impl ResolverConfig {
         }
     }
 
+    // Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
+    ///
+    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
+    pub fn google() -> Self {
+        let domain = None;
+        let google_ns1 = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
+            protocol: Protocol::Udp,
+            tls_dns_name: None,
+        };
+
+        let google_ns2 = NameServerConfig {
+            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)), 53),
+            protocol: Protocol::Udp,
+            tls_dns_name: None,
+        };
+
+        let google_v6_ns1 = NameServerConfig {
+            socket_addr: SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
+                53,
+            ),
+            protocol: Protocol::Udp,
+            tls_dns_name: None,
+        };
+
+        let google_v6_ns2 = NameServerConfig {
+            socket_addr: SocketAddr::new(
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
+                53,
+            ),
+            protocol: Protocol::Udp,
+            tls_dns_name: None,
+        };
+
+        ResolverConfig {
+            domain,
+            search: vec![],
+            name_servers: vec![google_ns1, google_ns2, google_v6_ns1, google_v6_ns2],
+        }
+    }
+
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
     ///
     /// Please see: https://www.cloudflare.com/dns/
-    fn cloudflare() -> Self {
+    pub fn cloudflare() -> Self {
         let domain = None;
         let cf_ns1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 53),
@@ -82,7 +124,7 @@ impl ResolverConfig {
     ///
     /// Please see: https://www.cloudflare.com/dns/
     #[cfg(feature = "dns-over-tls")]
-    fn cloudflare_tls() -> Self {
+    pub fn cloudflare_tls() -> Self {
         let domain = None;
         let tls_dns_name = Some(Arc::new("tls-host=cloudflare-dns.com".to_string()));
 
@@ -184,42 +226,7 @@ impl Default for ResolverConfig {
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
     fn default() -> Self {
-        let domain = None;
-        let google_ns1 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
-
-        let google_ns2 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)), 53),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
-
-        let google_v6_ns1 = NameServerConfig {
-            socket_addr: SocketAddr::new(
-                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
-                53,
-            ),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
-
-        let google_v6_ns2 = NameServerConfig {
-            socket_addr: SocketAddr::new(
-                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
-                53,
-            ),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
-
-        ResolverConfig {
-            domain,
-            search: vec![],
-            name_servers: vec![google_ns1, google_ns2, google_v6_ns1, google_v6_ns2],
-        }
+        ResolverConfig::google()
     }
 }
 
@@ -231,6 +238,7 @@ pub enum Protocol {
     /// TCP can be used for large queries, but not all NameServers support it
     Tcp,
     /// Tls for DNS over TLS
+    #[cfg(feature = "dns-over-tls")]
     Tls,
     /// mDNS protocol for performing multicast lookups
     #[cfg(feature = "mdns")]

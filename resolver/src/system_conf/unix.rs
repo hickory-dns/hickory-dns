@@ -134,8 +134,8 @@ mod tests {
         let parsed = parse_resolv_conf("nameserver 127.0.0.1").expect("failed");
         let mut cfg = empty_config();
         let nameservers = nameserver_config("127.0.0.1");
-        cfg.add_name_server(nameservers[0]);
-        cfg.add_name_server(nameservers[1]);
+        cfg.add_name_server(nameservers[0].clone());
+        cfg.add_name_server(nameservers[1].clone());
         assert_eq!(cfg.name_servers(), parsed.0.name_servers());
         assert_eq!(ResolverOpts::default(), parsed.1);
     }
