@@ -35,7 +35,7 @@ appveyor = { repository = "bluejekyll/trust-dns", branch = "master", service = "
 codecov = { repository = "bluejekyll/trust-dns", branch = "master", service = "github" }
 
 [features]
-dns-over-nativetls = ["dns-over-tls", "trust-dns-native-tls"]
+dns-over-native-tls = ["dns-over-tls", "trust-dns-native-tls"]
 dns-over-openssl = ["dns-over-tls", "trust-dns-openssl"]
 dns-over-rustls = ["dns-over-tls", "trust-dns-rustls"]
 dns-over-tls = []

@@ -12,8 +12,12 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use futures::Future;
-
 use tokio_core::reactor::Handle;
+
+use trust_dns_proto::DnsStreamHandle;
+use trust_dns_rustls::TlsClientStream;
+
+use error::*;
 
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
@@ -21,7 +25,7 @@ pub(crate) fn new_tls_stream(
     timeout: Duration,
 ) -> (
     Box<Future<Item = TlsClientStream, Error = io::Error>>,
-    Box<DnsStreamHandle<Error = ClientError>>,
+    Box<DnsStreamHandle<Error = ResolveError>>,
 ) {
     unimplemented!()
 }
