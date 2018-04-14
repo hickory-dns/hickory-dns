@@ -157,6 +157,7 @@
 
 #![deny(missing_docs)]
 
+#[cfg(feature = "dns-over-tls")]
 #[macro_use]
 extern crate cfg_if;
 #[macro_use]

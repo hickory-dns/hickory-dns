@@ -1161,7 +1161,6 @@ dependencies = [
  "openssl 0.10.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-openssl 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
- "trust-dns 0.13.0",
  "trust-dns-proto 0.3.2",
 ]
 
