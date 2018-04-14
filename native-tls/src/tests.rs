@@ -8,19 +8,21 @@
 use std;
 use std::env;
 use std::fs::File;
-use std::net::SocketAddr;
-use std::net::{IpAddr, Ipv4Addr};
+use std::io::{Read, Write};
 #[cfg(not(target_os = "linux"))]
 use std::net::Ipv6Addr;
-use std::io::{Read, Write};
-use std::sync::Arc;
+use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::atomic;
+use std::sync::Arc;
 use std::{thread, time};
 
 use futures::Stream;
 use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
 use tokio_core::reactor::Core;
+
+use trust_dns_proto::error::ProtoError;
 
 #[allow(unused)]
 use {TlsStream, TlsStreamBuilder};
@@ -187,7 +189,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     //     config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
     // }
 
-    let (stream, sender) = builder.build(server_addr, dns_name.to_string(), &io_loop.handle());
+    let (stream, sender) =
+        builder.build::<ProtoError>(server_addr, dns_name.to_string(), &io_loop.handle());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
     let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
