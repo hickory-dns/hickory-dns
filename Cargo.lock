@@ -1149,7 +1149,6 @@ dependencies = [
  "native-tls 0.1.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.16 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tls 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
- "trust-dns 0.13.0",
  "trust-dns-proto 0.3.2",
 ]
 

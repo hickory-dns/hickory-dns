@@ -22,7 +22,6 @@ extern crate futures;
 extern crate native_tls;
 extern crate tokio_core;
 extern crate tokio_tls;
-extern crate trust_dns;
 extern crate trust_dns_proto;
 
 pub mod tls_client_stream;
