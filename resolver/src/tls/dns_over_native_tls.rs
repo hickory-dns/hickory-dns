@@ -21,8 +21,8 @@ use error::*;
 
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
+    dns_name: String,
     loop_handle: &Handle,
-    timeout: Duration,
 ) -> (
     Box<Future<Item = TlsClientStream, Error = io::Error>>,
     Box<DnsStreamHandle<Error = ResolveError>>,

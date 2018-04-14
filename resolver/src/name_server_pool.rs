@@ -214,8 +214,11 @@ impl ConnectionProvider for StandardConnection {
             }
             #[cfg(feature = "dns-over-tls")]
             Protocol::Tls => {
-                let (stream, handle) =
-                    TcpClientStream::with_timeout(config.socket_addr, reactor, options.timeout);
+                let (stream, handle) = ::tls::new_tls_stream(
+                    config.socket_addr,
+                    config.tls_dns_name.clone().unwrap_or_default(),
+                    reactor,
+                );
                 DnsFuture::with_timeout(
                     stream,
                     handle,

@@ -7,25 +7,38 @@
 
 #![cfg(feature = "dns-over-rustls")]
 
+extern crate rustls;
+extern crate webpki_roots;
+
 use std::io;
 use std::net::SocketAddr;
-use std::time::Duration;
 
+use self::rustls::{ClientConfig, ProtocolVersion, RootCertStore};
 use futures::Future;
 use tokio_core::reactor::Handle;
 
 use trust_dns_proto::DnsStreamHandle;
-use trust_dns_rustls::TlsClientStream;
+use trust_dns_rustls::{TlsClientStream, TlsClientStreamBuilder};
 
 use error::*;
 
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
+    dns_name: String,
     loop_handle: &Handle,
-    timeout: Duration,
 ) -> (
     Box<Future<Item = TlsClientStream, Error = io::Error>>,
     Box<DnsStreamHandle<Error = ResolveError>>,
 ) {
-    unimplemented!()
+    // using the mozilla default root store
+    let mut root_store = RootCertStore::empty();
+    root_store.add_server_trust_anchors(&self::webpki_roots::TLS_SERVER_ROOTS);
+    let versions = vec![ProtocolVersion::TLSv1_2];
+
+    let mut client_config = ClientConfig::new();
+    client_config.root_store = root_store;
+    client_config.versions = versions;
+
+    let tls_builder = TlsClientStreamBuilder::with_client_config(client_config);
+    tls_builder.build(socket_addr, dns_name, loop_handle)
 }
