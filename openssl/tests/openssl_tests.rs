@@ -9,24 +9,23 @@ extern crate futures;
 extern crate openssl;
 extern crate tokio_core;
 extern crate tokio_openssl;
-extern crate trust_dns;
 extern crate trust_dns_openssl;
 extern crate trust_dns_proto;
 
-use std::{thread, time};
-use std::net::SocketAddr;
-use std::net::{IpAddr, Ipv4Addr};
+use std::io::{Read, Write};
 #[cfg(not(target_os = "linux"))]
 use std::net::Ipv6Addr;
-use std::io::{Read, Write};
-use std::sync::Arc;
+use std::net::SocketAddr;
+use std::net::{IpAddr, Ipv4Addr};
 use std::sync::atomic;
+use std::sync::Arc;
+use std::{thread, time};
 
 use futures::Stream;
 use openssl::pkey::*;
 use openssl::ssl::*;
-use openssl::x509::*;
 use openssl::x509::store::X509StoreBuilder;
+use openssl::x509::*;
 use tokio_core::reactor::Core;
 
 use openssl::asn1::*;
@@ -36,6 +35,8 @@ use openssl::nid::Nid;
 use openssl::pkcs12::*;
 use openssl::rsa::*;
 use openssl::x509::extension::*;
+
+use trust_dns_proto::error::ProtoError;
 
 use trust_dns_openssl::TlsStreamBuilder;
 
@@ -109,21 +110,22 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             let pkcs12 = Pkcs12::from_der(&server_pkcs12_der)
                 .and_then(|p| p.parse("mypass"))
                 .expect("Pkcs12::from_der");
-            let mut tls = SslAcceptor::mozilla_modern(
-                SslMethod::tls(),
-            ).expect("mozilla_modern failed");
+            let mut tls =
+                SslAcceptor::mozilla_modern(SslMethod::tls()).expect("mozilla_modern failed");
 
-            tls.set_private_key(&pkcs12.pkey).expect("failed to associated key");
-            tls.set_certificate(&pkcs12.cert).expect("failed to associated cert");
+            tls.set_private_key(&pkcs12.pkey)
+                .expect("failed to associated key");
+            tls.set_certificate(&pkcs12.cert)
+                .expect("failed to associated cert");
 
             if let Some(ref chain) = pkcs12.chain {
                 for cert in chain {
-                    tls.add_extra_chain_cert(cert.to_owned()).expect("failed to add chain");
+                    tls.add_extra_chain_cert(cert.to_owned())
+                        .expect("failed to add chain");
                 }
             }
 
             {
-                
                 let mut openssl_ctx_builder = &mut tls;
 
                 let mut mode = SslVerifyMode::empty();
@@ -200,7 +202,6 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
 
     let trust_chain = X509::from_der(&root_cert_der).unwrap();
 
-
     // barrier.wait();
     let mut builder = TlsStreamBuilder::new();
     builder.add_ca(trust_chain);
@@ -209,7 +210,8 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
     }
 
-    let (stream, sender) = builder.build(server_addr, subject_name.to_string(), &io_loop.handle());
+    let (stream, sender) =
+        builder.build::<ProtoError>(server_addr, subject_name.to_string(), &io_loop.handle());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
     let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
@@ -269,7 +271,9 @@ fn root_ca() -> (PKey<Private>, X509Name, X509) {
     let x509_name = x509_name.build();
 
     let mut serial: BigNum = BigNum::new().unwrap();
-    serial.pseudo_rand(32, MsbOption::MAYBE_ZERO, false).unwrap();
+    serial
+        .pseudo_rand(32, MsbOption::MAYBE_ZERO, false)
+        .unwrap();
     let serial = serial.to_asn1_integer().unwrap();
 
     let mut x509_build = X509::builder().unwrap();
@@ -302,7 +306,12 @@ fn root_ca() -> (PKey<Private>, X509Name, X509) {
 }
 
 /// Generates a certificate, see root_ca() for getting a root cert
-fn cert(subject_name: &str, ca_pkey: &PKey<Private>, ca_name: &X509Name, _: &X509) -> (PKey<Private>, X509, Pkcs12) {
+fn cert(
+    subject_name: &str,
+    ca_pkey: &PKey<Private>,
+    ca_name: &X509Name,
+    _: &X509,
+) -> (PKey<Private>, X509, Pkcs12) {
     let rsa = Rsa::generate(2048).unwrap();
     let pkey = PKey::from_rsa(rsa).unwrap();
 
@@ -313,7 +322,9 @@ fn cert(subject_name: &str, ca_pkey: &PKey<Private>, ca_name: &X509Name, _: &X50
     let x509_name = x509_name.build();
 
     let mut serial: BigNum = BigNum::new().unwrap();
-    serial.pseudo_rand(32, MsbOption::MAYBE_ZERO, false).unwrap();
+    serial
+        .pseudo_rand(32, MsbOption::MAYBE_ZERO, false)
+        .unwrap();
     let serial = serial.to_asn1_integer().unwrap();
 
     let mut x509_build = X509::builder().unwrap();
