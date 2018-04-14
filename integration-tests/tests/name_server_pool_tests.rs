@@ -42,6 +42,7 @@ fn mock_nameserver(
         NameServerConfig {
             socket_addr: SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), 0),
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         },
         ResolverOpts::default(),
         client,

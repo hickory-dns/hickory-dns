@@ -465,6 +465,7 @@ fn mdns_nameserver(
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
         protocol: Protocol::Mdns,
+        tls_dns_name: None,
     };
     NameServer::<_, StandardConnection>::new(config, options, reactor)
 }
