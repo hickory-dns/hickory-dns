@@ -141,6 +141,7 @@
 //!
 //! ```rust,no_run
 //! # extern crate trust_dns_resolver;
+//! # fn main() {
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
 //!
@@ -149,6 +150,7 @@
 //! let mut resolver = Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap();
 //!
 //! // see example above...
+//! # }
 //! ```
 //!
 //! ## mDNS (multicast DNS)

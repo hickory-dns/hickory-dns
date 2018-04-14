@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(feature = "dns-over-native-tls")]
+#![allow(dead_code)]
 
 use std::io;
 use std::net::SocketAddr;

@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 #![cfg(feature = "dns-over-rustls")]
+#![allow(dead_code)]
 
 extern crate rustls;
 extern crate webpki_roots;
