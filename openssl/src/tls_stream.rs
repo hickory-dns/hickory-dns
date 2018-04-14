@@ -5,24 +5,24 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::net::SocketAddr;
 use std::io;
+use std::net::SocketAddr;
 
-use futures::{future, Future, IntoFuture};
 use futures::sync::mpsc::unbounded;
+use futures::{future, Future, IntoFuture};
 use openssl::pkcs12::ParsedPkcs12;
 use openssl::pkey::{PKeyRef, Private};
 use openssl::ssl::{SslConnector, SslContextBuilder, SslMethod, SslOptions};
 use openssl::stack::Stack;
-use openssl::x509::{X509, X509Ref};
 use openssl::x509::store::X509StoreBuilder;
+use openssl::x509::{X509, X509Ref};
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_openssl::{SslConnectorExt, SslStream as TokioTlsStream};
 
-use trust_dns::error::ClientError;
-use trust_dns::BufStreamHandle;
-use trust_dns::tcp::TcpStream;
+use trust_dns_proto::error::FromProtoError;
+use trust_dns_proto::tcp::TcpStream;
+use trust_dns_proto::xfer::BufStreamHandle;
 
 pub trait TlsIdentityExt {
     fn identity(&mut self, pkcs12: &ParsedPkcs12) -> io::Result<()> {
@@ -48,9 +48,9 @@ impl TlsIdentityExt for SslContextBuilder {
         self.set_private_key(pkey)?;
         self.check_private_key()?;
         if let Some(chain) = chain {
-        for cert in chain {
-            self.add_extra_chain_cert(cert.to_owned())?;
-        }
+            for cert in chain {
+                self.add_extra_chain_cert(cert.to_owned())?;
+            }
         }
         Ok(())
     }
@@ -113,10 +113,13 @@ fn new(certs: Vec<X509>, pkcs12: Option<ParsedPkcs12>) -> io::Result<SslConnecto
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_stream_from_existing_tls_stream(
+pub fn tls_stream_from_existing_tls_stream<E>(
     stream: TokioTlsStream<TokioTcpStream>,
     peer_addr: SocketAddr,
-) -> (TlsStream, BufStreamHandle<ClientError>) {
+) -> (TlsStream, BufStreamHandle<E>)
+where
+    E: FromProtoError,
+{
     let (message_sender, outbound_messages) = unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
@@ -179,15 +182,18 @@ impl TlsStreamBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
-    pub fn build(
+    pub fn build<E>(
         self,
         name_server: SocketAddr,
         dns_name: String,
         loop_handle: &Handle,
     ) -> (
         Box<Future<Item = TlsStream, Error = io::Error>>,
-        BufStreamHandle<ClientError>,
-    ) {
+        BufStreamHandle<E>,
+    )
+    where
+        E: FromProtoError,
+    {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
@@ -210,8 +216,8 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream: Box<Future<Item = TlsStream, Error = io::Error>> = Box::new(
-            tcp.and_then(move |tcp_stream| {
+        let stream: Box<Future<Item = TlsStream, Error = io::Error>> =
+            Box::new(tcp.and_then(move |tcp_stream| {
                 tls_connector
                     .connect_async(&dns_name, tcp_stream)
                     .map(move |s| {
@@ -224,12 +230,11 @@ impl TlsStreamBuilder {
                         )
                     })
             }).map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::ConnectionRefused,
-                        format!("tls error: {}", e),
-                    )
-                }),
-        );
+                io::Error::new(
+                    io::ErrorKind::ConnectionRefused,
+                    format!("tls error: {}", e),
+                )
+            }));
 
         (stream, message_sender)
     }
