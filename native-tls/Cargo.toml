@@ -49,7 +49,6 @@ native-tls = "^0.1"
 tokio-core = "^0.1"
 tokio-tls = "^0.1"
 # disables default features, i.e. openssl...
-trust-dns = { version = "^0.13", path = "../client", default-features = false }
 trust-dns-proto = { version = "^0.3", path = "../proto", default-features = false }
 
 ## Commented out until MTLS support is complete

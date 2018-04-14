@@ -7,20 +7,20 @@
 
 //! Base TlsStream
 
-use std::net::SocketAddr;
 use std::io;
+use std::net::SocketAddr;
 
-use futures::{future, Future, IntoFuture};
 use futures::sync::mpsc::unbounded;
-use native_tls::{Certificate, Pkcs12, TlsConnector};
+use futures::{future, Future, IntoFuture};
 use native_tls::Protocol::Tlsv12;
+use native_tls::{Certificate, Pkcs12, TlsConnector};
 use tokio_core::net::TcpStream as TokioTcpStream;
 use tokio_core::reactor::Handle;
 use tokio_tls::{TlsConnectorExt, TlsStream as TokioTlsStream};
 
-use trust_dns::BufStreamHandle;
-use trust_dns::error::ClientError;
-use trust_dns::tcp::TcpStream;
+use trust_dns_proto::error::FromProtoError;
+use trust_dns_proto::tcp::TcpStream;
+use trust_dns_proto::xfer::BufStreamHandle;
 
 /// A TlsStream counterpart to the TcpStream which embeds a secure TlsStream
 pub type TlsStream = TcpStream<TokioTlsStream<TokioTcpStream>>;
@@ -67,10 +67,13 @@ fn tls_new(certs: Vec<Certificate>, pkcs12: Option<Pkcs12>) -> io::Result<TlsCon
 /// Initializes a TlsStream with an existing tokio_tls::TlsStream.
 ///
 /// This is intended for use with a TlsListener and Incoming connections
-pub fn tls_from_stream(
+pub fn tls_from_stream<E>(
     stream: TokioTlsStream<TokioTcpStream>,
     peer_addr: SocketAddr,
-) -> (TlsStream, BufStreamHandle<ClientError>) {
+) -> (TlsStream, BufStreamHandle<E>)
+where
+    E: FromProtoError,
+{
     let (message_sender, outbound_messages) = unbounded();
     let message_sender = BufStreamHandle::new(message_sender);
 
@@ -133,15 +136,18 @@ impl TlsStreamBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
-    pub fn build(
+    pub fn build<E>(
         self,
         name_server: SocketAddr,
         dns_name: String,
         loop_handle: &Handle,
     ) -> (
         Box<Future<Item = TlsStream, Error = io::Error>>,
-        BufStreamHandle<ClientError>,
-    ) {
+        BufStreamHandle<E>,
+    )
+    where
+        E: FromProtoError,
+    {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::new(message_sender);
 
@@ -164,8 +170,8 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream: Box<Future<Item = TlsStream, Error = io::Error>> = Box::new(
-            tcp.and_then(move |tcp_stream| {
+        let stream: Box<Future<Item = TlsStream, Error = io::Error>> =
+            Box::new(tcp.and_then(move |tcp_stream| {
                 tls_connector
                     .connect_async(&dns_name, tcp_stream)
                     .map(move |s| {
@@ -178,12 +184,11 @@ impl TlsStreamBuilder {
                         )
                     })
             }).map_err(|e| {
-                    io::Error::new(
-                        io::ErrorKind::ConnectionRefused,
-                        format!("tls error: {}", e),
-                    )
-                }),
-        );
+                io::Error::new(
+                    io::ErrorKind::ConnectionRefused,
+                    format!("tls error: {}", e),
+                )
+            }));
 
         (stream, message_sender)
     }
