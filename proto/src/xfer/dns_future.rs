@@ -8,8 +8,8 @@
 //! `DnsFuture` and associated types implement the state machines for sending DNS messages while using the underlying streams.
 
 use std::borrow::Borrow;
-use std::collections::HashMap;
 use std::collections::hash_map::Entry;
+use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -465,6 +465,7 @@ where
     fn poll(&mut self) -> Poll<(), Self::Error> {
         match self.new_receiver.poll() {
             Ok(Async::Ready(Some((_, complete)))) => {
+                // TODO: this error never seems to make it, the receiver closes early...
                 ignore_send(complete.send(Err(E::from(
                     ProtoErrorKind::Msg(self.error_msg.clone()).into(),
                 ))));
