@@ -7,10 +7,7 @@
 
 //! Configuration for a resolver
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
-use std::sync::Arc;
 use std::time::Duration;
-
-use smallvec::SmallVec;
 
 use trust_dns_proto::rr::Name;
 
@@ -126,7 +123,7 @@ impl ResolverConfig {
     #[cfg(feature = "dns-over-tls")]
     pub fn cloudflare_tls() -> Self {
         let domain = None;
-        let tls_dns_name = Some(Arc::new("tls-host=cloudflare-dns.com".to_string()));
+        let tls_dns_name = Some("cloudflare-dns.com".to_string());
 
         let cf_ns1 = NameServerConfig {
             socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 853),
@@ -272,7 +269,7 @@ pub struct NameServerConfig {
     /// The protocol to use when communicating with the NameServer.
     pub protocol: Protocol,
     /// SPKI name, only relavent for TLS connections
-    pub tls_dns_name: Option<Arc<String>>,
+    pub tls_dns_name: Option<String>,
 }
 
 /// The lookup ip strategy

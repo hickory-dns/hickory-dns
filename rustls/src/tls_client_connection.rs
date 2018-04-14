@@ -14,20 +14,18 @@
 
 //! TLS based DNS client connection for Client impls
 
-use std::net::SocketAddr;
 use std::io;
+use std::net::SocketAddr;
 
 use futures::Future;
 use rustls::Certificate;
 use tokio_core::reactor::Handle;
 
-use trust_dns::error::*;
-use trust_dns::client::ClientConnection;
+use trust_dns_proto::error::FromProtoError;
 use trust_dns_proto::DnsStreamHandle;
 
 use TlsClientStream;
 use TlsClientStreamBuilder;
-
 
 /// Tls client connection
 ///
@@ -44,26 +42,19 @@ impl TlsClientConnection {
     }
 }
 
-impl ClientConnection for TlsClientConnection {
-    type MessageStream = TlsClientStream;
+// impl ClientConnection for TlsClientConnection {
+//     type MessageStream = TlsClientStream;
 
-    fn new_stream(
-        &self,
-        handle: &Handle,
-    ) -> ClientResult<
-        (
-            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-            Box<DnsStreamHandle<Error = ClientError>>,
-        ),
-    > {
-        let (tls_client_stream, handle) =
-            self.builder
-                .clone()
-                .build(self.name_server, self.dns_name.clone(), handle);
-
-        Ok((tls_client_stream, handle))
-    }
-}
+//     fn new_stream(
+//         &self,
+//         handle: &Handle,
+//     ) -> ClientResult<(
+//         Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+//         Box<DnsStreamHandle<Error = FromProtoError>>,
+//     )> {
+//         panic!("this impl needs to become a generic in Client")
+//     }
+// }
 
 pub struct TlsClientConnectionBuilder(TlsClientStreamBuilder);
 
