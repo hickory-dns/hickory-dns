@@ -23,6 +23,7 @@ cfg_if! {
     }
 }
 
+#[cfg(not(feature = "dns-over-openssl"))]
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
