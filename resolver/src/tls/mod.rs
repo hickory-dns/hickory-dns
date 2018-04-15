@@ -33,14 +33,9 @@ mod tests {
     use config::{ResolverConfig, ResolverOpts};
     use ResolverFuture;
 
-    #[test]
-    fn test_cloudflare_tls() {
+    fn tls_test(config: ResolverConfig) {
         let mut io_loop = Core::new().unwrap();
-        let resolver = ResolverFuture::new(
-            ResolverConfig::cloudflare_tls(),
-            ResolverOpts::default(),
-            &io_loop.handle(),
-        );
+        let resolver = ResolverFuture::new(config, ResolverOpts::default(), &io_loop.handle());
 
         let response = io_loop
             .run(resolver.lookup_ip("www.example.com."))
@@ -60,4 +55,15 @@ mod tests {
             }
         }
     }
+
+    #[test]
+    fn test_cloudflare_tls() {
+        tls_test(ResolverConfig::cloudflare_tls())
+    }
+
+    #[test]
+    fn test_quad9_tls() {
+        tls_test(ResolverConfig::quad9_tls())
+    }
+
 }
