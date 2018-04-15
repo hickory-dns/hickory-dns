@@ -27,7 +27,6 @@ use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::tcp::TcpClientConnection;
 use trust_dns::udp::UdpClientConnection;
-//use trust_dns_rustls::TlsClientConnection;
 
 use trust_dns_server::authority::*;
 use trust_dns_server::ServerFuture;
@@ -136,6 +135,7 @@ fn read_file(path: &str) -> Vec<u8> {
 
 // TODO: move all this to future based clients
 #[test]
+
 fn test_server_www_tls() {
     let dns_name = "ns.example.com";
 

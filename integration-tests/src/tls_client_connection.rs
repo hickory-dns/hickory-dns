@@ -15,8 +15,6 @@
 //! TLS based DNS client connection for Client impls
 //! TODO: This modules was moved from trust-dns-rustls, it really doesn't need to exist if tests are refactored...
 
-#![cfg(feature = "dns-over-tls")]
-
 use std::io;
 use std::net::SocketAddr;
 
