@@ -3,34 +3,37 @@
 extern crate chrono;
 extern crate futures;
 extern crate openssl;
+extern crate rustls;
 extern crate tokio_core;
 extern crate trust_dns;
 extern crate trust_dns_proto;
+extern crate trust_dns_rustls;
 extern crate trust_dns_server;
 
-use std::sync::{Arc, Mutex};
 use std::fmt;
 use std::io;
+use std::sync::{Arc, Mutex};
 
-use futures::{finished, Async, Future, Poll};
 use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
+use futures::{finished, Async, Future, Poll};
 use tokio_core::reactor::Handle;
 
-use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::client::ClientConnection;
+use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
-use trust_dns_proto::{DnsStreamHandle, StreamHandle};
-use trust_dns_proto::op::EncodableMessage;
 use trust_dns_proto::error::FromProtoError;
+use trust_dns_proto::op::EncodableMessage;
+use trust_dns_proto::{DnsStreamHandle, StreamHandle};
 
 use trust_dns_server::authority::{Catalog, MessageRequest};
 use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
 
 pub mod authority;
 pub mod mock_client;
+pub mod tls_client_connection;
 
 #[allow(unused)]
 pub struct TestClientStream {
@@ -134,7 +137,6 @@ impl fmt::Debug for TestClientStream {
     }
 }
 
-
 // need to do something with the message channel, otherwise the ClientFuture will think there
 //  is no one listening to messages and shutdown...
 #[allow(dead_code)]
@@ -192,12 +194,10 @@ impl ClientConnection for NeverReturnsClientConnection {
     fn new_stream(
         &self,
         _: &Handle,
-    ) -> ClientResult<
-        (
-            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-            Box<DnsStreamHandle<Error = ClientError>>,
-        ),
-    > {
+    ) -> ClientResult<(
+        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = ClientError>>,
+    )> {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 
         Ok((client_stream, Box::new(handle)))
