@@ -26,7 +26,7 @@ use error::*;
 /// Trait for client connections
 pub trait ClientConnection: Sized {
     /// The associated DNS Message stream type.
-    type MessageStream: Stream<Item=Vec<u8>, Error=io::Error> + 'static;
+    type MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static;
 
     /// Return the inner Futures items
     ///
@@ -34,10 +34,42 @@ pub trait ClientConnection: Sized {
     fn new_stream(
         &self,
         handle: &Handle,
-    ) -> ClientResult<
-        (
-            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-            Box<DnsStreamHandle<Error = ClientError>>,
-        ),
-    >;
+    ) -> ClientResult<(
+        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = ClientError>>,
+    )>;
+}
+
+/// A lazy connection provider
+pub struct LazyConnection<F, S>(pub F)
+where
+    F: Fn(
+        &Handle
+    ) -> ClientResult<(
+        Box<Future<Item = S, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = ClientError>>,
+    )>,
+    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static;
+
+impl<F, S> ClientConnection for LazyConnection<F, S>
+where
+    F: Fn(
+        &Handle
+    ) -> ClientResult<(
+        Box<Future<Item = S, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = ClientError>>,
+    )>,
+    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
+{
+    type MessageStream = S;
+
+    fn new_stream(
+        &self,
+        handle: &Handle,
+    ) -> ClientResult<(
+        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = ClientError>>,
+    )> {
+        self.0(handle)
+    }
 }

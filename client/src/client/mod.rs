@@ -22,11 +22,11 @@ mod client_future;
 mod memoize_client_handle;
 mod rc_future;
 
-#[allow(deprecated)]
-pub use self::client::{Client, SyncClient};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 pub use self::client::SecureSyncClient;
-pub use self::client_connection::ClientConnection;
+#[allow(deprecated)]
+pub use self::client::{Client, SyncClient};
+pub use self::client_connection::{ClientConnection, LazyConnection};
 #[allow(deprecated)]
 pub use self::client_future::{BasicClientHandle, ClientFuture, ClientHandle};
 pub use self::memoize_client_handle::MemoizeClientHandle;

@@ -33,6 +33,7 @@ use trust_dns_server::authority::*;
 use trust_dns_server::ServerFuture;
 
 use trust_dns_integration::authority::create_example;
+use trust_dns_integration::tls_client_connection::TlsClientConnection;
 
 #[test]
 fn test_server_www_udp() {
@@ -133,43 +134,43 @@ fn read_file(path: &str) -> Vec<u8> {
     bytes
 }
 
-// FIXME: convert to Futures/Streams
-// #[test]
-// fn test_server_www_tls() {
-//     let dns_name = "ns.example.com";
+// TODO: move all this to future based clients
+#[test]
+fn test_server_www_tls() {
+    let dns_name = "ns.example.com";
 
-//     let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
-//     println!("using server src path: {}", server_path);
+    let server_path = env::var("TDNS_SERVER_SRC_ROOT").unwrap_or("../server".to_owned());
+    println!("using server src path: {}", server_path);
 
-//     let cert_der = read_file(&format!("{}/../tests/ca.der", server_path));
+    let cert_der = read_file(&format!("{}/../tests/ca.der", server_path));
 
-//     let pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
+    let pkcs12_der = read_file(&format!("{}/../tests/cert.p12", server_path));
 
-//     // Server address
-//     let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
-//     let tcp_listener = TcpListener::bind(&addr).unwrap();
+    // Server address
+    let addr = SocketAddr::V4(SocketAddrV4::new(Ipv4Addr::new(127, 0, 0, 1), 0));
+    let tcp_listener = TcpListener::bind(&addr).unwrap();
 
-//     let ipaddr = tcp_listener.local_addr().unwrap();
-//     println!("tcp_listner on port: {}", ipaddr);
-//     let server_continue = Arc::new(AtomicBool::new(true));
-//     let server_continue2 = server_continue.clone();
+    let ipaddr = tcp_listener.local_addr().unwrap();
+    println!("tcp_listner on port: {}", ipaddr);
+    let server_continue = Arc::new(AtomicBool::new(true));
+    let server_continue2 = server_continue.clone();
 
-//     let server_thread = thread::Builder::new()
-//         .name("test_server:tls:server".to_string())
-//         .spawn(move || server_thread_tls(tcp_listener, server_continue2, pkcs12_der))
-//         .unwrap();
+    let server_thread = thread::Builder::new()
+        .name("test_server:tls:server".to_string())
+        .spawn(move || server_thread_tls(tcp_listener, server_continue2, pkcs12_der))
+        .unwrap();
 
-//     let client_thread = thread::Builder::new()
-//         .name("test_server:tcp:client".to_string())
-//         .spawn(move || client_thread_www(lazy_tls_client(ipaddr, dns_name.to_string(), cert_der)))
-//         .unwrap();
+    let client_thread = thread::Builder::new()
+        .name("test_server:tcp:client".to_string())
+        .spawn(move || client_thread_www(lazy_tls_client(ipaddr, dns_name.to_string(), cert_der)))
+        .unwrap();
 
-//     let client_result = client_thread.join();
+    let client_result = client_thread.join();
 
-//     assert!(client_result.is_ok(), "client failed: {:?}", client_result);
-//     server_continue.store(false, Ordering::Relaxed);
-//     server_thread.join().unwrap();
-// }
+    assert!(client_result.is_ok(), "client failed: {:?}", client_result);
+    server_continue.store(false, Ordering::Relaxed);
+    server_thread.join().unwrap();
+}
 
 fn lazy_udp_client(ipaddr: SocketAddr) -> UdpClientConnection {
     UdpClientConnection::new(ipaddr).unwrap()
@@ -179,15 +180,14 @@ fn lazy_tcp_client(ipaddr: SocketAddr) -> TcpClientConnection {
     TcpClientConnection::new(ipaddr).unwrap()
 }
 
-// TODO: fix this and convert all clients to Futures/Streams
-// fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
-//     let mut builder = TlsClientConnection::builder();
+fn lazy_tls_client(ipaddr: SocketAddr, dns_name: String, cert_der: Vec<u8>) -> TlsClientConnection {
+    let mut builder = TlsClientConnection::builder();
 
-//     let trust_chain = Certificate(cert_der);
+    let trust_chain = Certificate(cert_der);
 
-//     builder.add_ca(trust_chain);
-//     builder.build(ipaddr, dns_name).unwrap()
-// }
+    builder.add_ca(trust_chain);
+    builder.build(ipaddr, dns_name).unwrap()
+}
 
 fn client_thread_www<C: ClientConnection>(conn: C)
 where

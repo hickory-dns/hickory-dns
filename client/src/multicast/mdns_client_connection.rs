@@ -14,10 +14,9 @@ use futures::Future;
 use tokio_core::reactor::Handle;
 use trust_dns_proto::DnsStreamHandle;
 
-use error::*;
 use client::ClientConnection;
-use multicast::{MdnsClientStream, MdnsQueryType, MDNS_IPV4, MDNS_IPV6};
-
+use error::*;
+use multicast::{MDNS_IPV4, MDNS_IPV6, MdnsClientStream, MdnsQueryType};
 
 /// MDNS based DNS Client connection
 ///
@@ -32,11 +31,8 @@ pub struct MdnsClientConnection {
 
 impl MdnsClientConnection {
     /// associates the socket to the well-known ipv4 multicast addess
-    pub fn new_ipv4(
-        packet_ttl: Option<u32>,
-        ipv4_if: Option<Ipv4Addr>,
-    ) -> Self {
-        MdnsClientConnection { 
+    pub fn new_ipv4(packet_ttl: Option<u32>, ipv4_if: Option<Ipv4Addr>) -> Self {
+        MdnsClientConnection {
             multicast_addr: *MDNS_IPV4,
             packet_ttl,
             ipv4_if,
@@ -45,11 +41,8 @@ impl MdnsClientConnection {
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
-    pub fn new_ipv6(
-        packet_ttl: Option<u32>,
-        ipv6_if: Option<u32>,
-    ) -> Self {
-        MdnsClientConnection { 
+    pub fn new_ipv6(packet_ttl: Option<u32>, ipv6_if: Option<u32>) -> Self {
+        MdnsClientConnection {
             multicast_addr: *MDNS_IPV6,
             packet_ttl,
             ipv4_if: None,
@@ -64,13 +57,18 @@ impl ClientConnection for MdnsClientConnection {
     fn new_stream(
         &self,
         handle: &Handle,
-    ) -> ClientResult<
-        (
-            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-            Box<DnsStreamHandle<Error = ClientError>>,
-        ),
-    > {
-        let (mdns_client_stream, handle) = MdnsClientStream::new(self.multicast_addr, MdnsQueryType::OneShot, self.packet_ttl,self.ipv4_if, self.ipv6_if, handle);
+    ) -> ClientResult<(
+        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = ClientError>>,
+    )> {
+        let (mdns_client_stream, handle) = MdnsClientStream::new(
+            self.multicast_addr,
+            MdnsQueryType::OneShot,
+            self.packet_ttl,
+            self.ipv4_if,
+            self.ipv6_if,
+            handle,
+        );
 
         Ok((mdns_client_stream, handle))
     }
