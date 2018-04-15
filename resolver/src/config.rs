@@ -7,6 +7,7 @@
 
 //! Configuration for a resolver
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::ops::{Deref, DerefMut};
 use std::time::Duration;
 
 use trust_dns_proto::rr::Name;
@@ -19,7 +20,7 @@ pub struct ResolverConfig {
     // search domains
     search: Vec<Name>,
     // nameservers to use for resolution.
-    name_servers: Vec<NameServerConfig>,
+    name_servers: NameServerConfigGroup,
 }
 
 impl ResolverConfig {
@@ -29,126 +30,80 @@ impl ResolverConfig {
             // TODO: this should get the hostname and use the basename as the default
             domain: None,
             search: vec![],
-            name_servers: vec![],
+            name_servers: NameServerConfigGroup::new(),
         }
     }
 
-    fn from_ips_clear(ips: &[IpAddr], port: u16) -> Self {
-        let domain = None;
-        let mut name_servers = Vec::<NameServerConfig>::with_capacity(ips.len());
-
-        for ip in ips {
-            let config = NameServerConfig {
-                socket_addr: SocketAddr::new(ip.clone(), port),
-                protocol: Protocol::Udp,
-                tls_dns_name: None,
-            };
-
-            name_servers.push(config);
-        }
-
-        ResolverConfig {
-            domain,
-            search: vec![],
-            name_servers,
-        }
-    }
-
-    #[cfg(feature = "dns-over-tls")]
-    fn from_ips_tls(ips: &[IpAddr], port: u16, tls_dns_name: String) -> Self {
-        let domain = None;
-        let mut name_servers = Vec::<NameServerConfig>::with_capacity(ips.len());
-
-        for ip in ips {
-            let config = NameServerConfig {
-                socket_addr: SocketAddr::new(ip.clone(), port),
-                protocol: Protocol::Tls,
-                tls_dns_name: Some(tls_dns_name.clone()),
-            };
-
-            name_servers.push(config);
-        }
-
-        ResolverConfig {
-            domain,
-            search: vec![],
-            name_servers,
-        }
-    }
-
-    // Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
     ///
     /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
+    ///
+    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn google() -> Self {
-        Self::from_ips_clear(
-            &[
-                IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
-                IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)),
-                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
-                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
-            ],
-            53,
-        )
+        ResolverConfig {
+            // TODO: this should get the hostname and use the basename as the default
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::google(),
+        }
     }
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
     ///
     /// Please see: https://www.cloudflare.com/dns/
+    ///
+    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn cloudflare() -> Self {
-        Self::from_ips_clear(
-            &[
-                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
-            ],
-            53,
-        )
+        ResolverConfig {
+            // TODO: this should get the hostname and use the basename as the default
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::cloudflare(),
+        }
     }
 
     /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
     ///
     /// Please see: https://www.cloudflare.com/dns/
+    ///
+    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`#[cfg(feature = "dns-over-tls")]
     #[cfg(feature = "dns-over-tls")]
     pub fn cloudflare_tls() -> Self {
-        Self::from_ips_tls(
-            &[
-                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
-                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
-                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
-            ],
-            853,
-            "cloudflare-dns.com".to_string(),
-        )
+        ResolverConfig {
+            // TODO: this should get the hostname and use the basename as the default
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::cloudflare_tls(),
+        }
     }
 
     /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings (thank you, Quad9).
     ///
-    /// PLease see: https://www.quad9.net/faq/
+    /// Please see: https://www.quad9.net/faq/
+    ///
+    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     pub fn quad9() -> Self {
-        Self::from_ips_clear(
-            &[
-                IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
-                IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
-            ],
-            53,
-        )
+        ResolverConfig {
+            // TODO: this should get the hostname and use the basename as the default
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::quad9(),
+        }
     }
 
     /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
     ///
     /// PLease see: https://www.quad9.net/faq/
+    ///
+    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-tls")]
     pub fn quad9_tls() -> Self {
-        Self::from_ips_tls(
-            &[
-                IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
-                IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
-            ],
-            853,
-            "dns.quad9.net".to_string(),
-        )
+        ResolverConfig {
+            // TODO: this should get the hostname and use the basename as the default
+            domain: None,
+            search: vec![],
+            name_servers: NameServerConfigGroup::quad9_tls(),
+        }
     }
 
     /// Create a ResolverConfig with all parts specified
@@ -158,15 +113,15 @@ impl ResolverConfig {
     /// * `domain` - domain of the entity querying results. If the `Name` being looked up is not an FQDN, then this is the first part appended to attempt a lookup. `ndots` in the `ResolverOption` does take precedence over this.
     /// * `search` - additional search domains that are attempted if the `Name` is not found in `domain`, defaults to `vec![]`
     /// * `name_servers` - set of name servers to use for lookups, defaults are Google: `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844`
-    pub fn from_parts(
+    pub fn from_parts<G: Into<NameServerConfigGroup>>(
         domain: Option<Name>,
         search: Vec<Name>,
-        name_servers: Vec<NameServerConfig>,
+        name_servers: G,
     ) -> Self {
         ResolverConfig {
             domain,
             search,
-            name_servers,
+            name_servers: name_servers.into(),
         }
     }
 
@@ -259,6 +214,169 @@ pub struct NameServerConfig {
     pub protocol: Protocol,
     /// SPKI name, only relavent for TLS connections
     pub tls_dns_name: Option<String>,
+}
+
+/// A set of name_servers to associate with a ResolverConfiguration
+#[derive(Clone, Debug, Eq, PartialEq)]
+pub struct NameServerConfigGroup(Vec<NameServerConfig>);
+
+impl NameServerConfigGroup {
+    /// Creates a new NameServerConfigGroup with a default size of 2
+    pub fn new() -> Self {
+        // this might be a nice oportunity for SmallVec
+        //   most name_server configs will be 2.
+        Self::with_capacity(2)
+    }
+
+    /// Creates a new NameServiceConfigGroup with the specified capacity
+    pub fn with_capacity(capacity: usize) -> Self {
+        NameServerConfigGroup(Vec::with_capacity(capacity))
+    }
+
+    fn from_ips_clear(ips: &[IpAddr], port: u16) -> Self {
+        let mut name_servers = Self::with_capacity(ips.len());
+
+        for ip in ips {
+            let config = NameServerConfig {
+                socket_addr: SocketAddr::new(ip.clone(), port),
+                protocol: Protocol::Udp,
+                tls_dns_name: None,
+            };
+
+            name_servers.push(config);
+        }
+
+        name_servers
+    }
+
+    #[cfg(feature = "dns-over-tls")]
+    fn from_ips_tls(ips: &[IpAddr], port: u16, tls_dns_name: String) -> Self {
+        let mut name_servers = Self::with_capacity(ips.len());
+
+        for ip in ips {
+            let config = NameServerConfig {
+                socket_addr: SocketAddr::new(ip.clone(), port),
+                protocol: Protocol::Tls,
+                tls_dns_name: Some(tls_dns_name.clone()),
+            };
+
+            name_servers.push(config);
+        }
+
+        name_servers
+    }
+
+    /// Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
+    ///
+    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
+    pub fn google() -> Self {
+        Self::from_ips_clear(
+            &[
+                IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
+                IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)),
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
+            ],
+            53,
+        )
+    }
+
+    /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
+    ///
+    /// Please see: https://www.cloudflare.com/dns/
+    pub fn cloudflare() -> Self {
+        Self::from_ips_clear(
+            &[
+                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
+            ],
+            53,
+        )
+    }
+
+    /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
+    ///
+    /// Please see: https://www.cloudflare.com/dns/
+    #[cfg(feature = "dns-over-tls")]
+    pub fn cloudflare_tls() -> Self {
+        Self::from_ips_tls(
+            &[
+                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
+                IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
+            ],
+            853,
+            "cloudflare-dns.com".to_string(),
+        )
+    }
+
+    /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings (thank you, Quad9).
+    ///
+    /// PLease see: https://www.quad9.net/faq/
+    pub fn quad9() -> Self {
+        Self::from_ips_clear(
+            &[
+                IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
+                IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
+            ],
+            53,
+        )
+    }
+
+    /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
+    ///
+    /// PLease see: https://www.quad9.net/faq/
+    #[cfg(feature = "dns-over-tls")]
+    pub fn quad9_tls() -> Self {
+        Self::from_ips_tls(
+            &[
+                IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
+                IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
+            ],
+            853,
+            "dns.quad9.net".to_string(),
+        )
+    }
+
+    /// Merges this set of NameServerConfigs with the other
+    ///
+    /// ```
+    /// use std::net::{SocketAddr, Ipv4Addr};
+    /// use trust_dns_resolver::config::NameServerConfigGroup;
+    ///
+    /// let mut group = NameServerConfigGroup::google();
+    /// group.merge(NameServerConfigGroup::cloudflare());
+    /// group.merge(NameServerConfigGroup::quad9());
+    ///
+    /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(8, 8, 8, 8).into(), 53)));
+    /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(1, 1, 1, 1).into(), 53)));
+    /// assert!(group.iter().any(|c| c.socket_addr == SocketAddr::new(Ipv4Addr::new(9, 9, 9, 9).into(), 53)));
+    /// ```
+    pub fn merge(&mut self, mut other: Self) {
+        self.append(&mut other)
+    }
+}
+
+impl Deref for NameServerConfigGroup {
+    type Target = Vec<NameServerConfig>;
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+impl DerefMut for NameServerConfigGroup {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        &mut self.0
+    }
+}
+
+impl From<Vec<NameServerConfig>> for NameServerConfigGroup {
+    fn from(configs: Vec<NameServerConfig>) -> Self {
+        NameServerConfigGroup(configs)
+    }
 }
 
 /// The lookup ip strategy
