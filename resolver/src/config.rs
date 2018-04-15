@@ -93,7 +93,7 @@ impl ResolverConfig {
 
     /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
     ///
-    /// PLease see: https://www.quad9.net/faq/
+    /// Please see: https://www.quad9.net/faq/
     ///
     /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-tls")]
@@ -315,7 +315,7 @@ impl NameServerConfigGroup {
 
     /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings (thank you, Quad9).
     ///
-    /// PLease see: https://www.quad9.net/faq/
+    /// Please see: https://www.quad9.net/faq/
     pub fn quad9() -> Self {
         Self::from_ips_clear(
             &[
@@ -328,7 +328,7 @@ impl NameServerConfigGroup {
 
     /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
     ///
-    /// PLease see: https://www.quad9.net/faq/
+    /// Please see: https://www.quad9.net/faq/
     #[cfg(feature = "dns-over-tls")]
     pub fn quad9_tls() -> Self {
         Self::from_ips_tls(

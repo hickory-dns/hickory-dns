@@ -137,7 +137,7 @@
 //! trust-dns-resolver = { version = "*", features = ["dns-over-rustls"] }
 //! ```
 //!
-//! A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service:
+//! A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as well):
 //!
 //! ```rust,no_run
 //! # extern crate trust_dns_resolver;

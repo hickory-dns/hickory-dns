@@ -15,7 +15,7 @@ This library contains implementations for IPv4 (A) and IPv6 (AAAA) resolution, m
 - Generic Record Type Lookup
 - CNAME chain resolution
 - mDNS support (enable with `mdns` feature)
-- DNS over TLS (utilizing, `openssl`, `native-tls`, or `rustls`)
+- DNS over TLS (utilizing `native-tls`, `rustls`, and `openssl`; `native-tls` or `rustls` are recommended)
 
 ## Example
 
@@ -57,7 +57,7 @@ Enable the TLS library through the dependency on `trust-dns-resolver`:
 trust-dns-resolver = { version = "*", features = ["dns-over-rustls"] }
 ```
 
-A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service:
+A default TLS configuration is available for Cloudflare's `1.1.1.1` DNS service (Quad9 as well):
 
 ```rust
 // Construct a new Resolver with default configuration options
