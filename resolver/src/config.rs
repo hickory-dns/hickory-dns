@@ -33,133 +33,122 @@ impl ResolverConfig {
         }
     }
 
-    // Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
-    ///
-    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
-    pub fn google() -> Self {
+    fn from_ips_clear(ips: &[IpAddr], port: u16) -> Self {
         let domain = None;
-        let google_ns1 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)), 53),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
+        let mut name_servers = Vec::<NameServerConfig>::with_capacity(ips.len());
 
-        let google_ns2 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)), 53),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
+        for ip in ips {
+            let config = NameServerConfig {
+                socket_addr: SocketAddr::new(ip.clone(), port),
+                protocol: Protocol::Udp,
+                tls_dns_name: None,
+            };
 
-        let google_v6_ns1 = NameServerConfig {
-            socket_addr: SocketAddr::new(
-                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
-                53,
-            ),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
-
-        let google_v6_ns2 = NameServerConfig {
-            socket_addr: SocketAddr::new(
-                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
-                53,
-            ),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
+            name_servers.push(config);
+        }
 
         ResolverConfig {
             domain,
             search: vec![],
-            name_servers: vec![google_ns1, google_ns2, google_v6_ns1, google_v6_ns2],
+            name_servers,
         }
+    }
+
+    #[cfg(feature = "dns-over-tls")]
+    fn from_ips_tls(ips: &[IpAddr], port: u16, tls_dns_name: String) -> Self {
+        let domain = None;
+        let mut name_servers = Vec::<NameServerConfig>::with_capacity(ips.len());
+
+        for ip in ips {
+            let config = NameServerConfig {
+                socket_addr: SocketAddr::new(ip.clone(), port),
+                protocol: Protocol::Tls,
+                tls_dns_name: Some(tls_dns_name.clone()),
+            };
+
+            name_servers.push(config);
+        }
+
+        ResolverConfig {
+            domain,
+            search: vec![],
+            name_servers,
+        }
+    }
+
+    // Creates a default configuration, using `8.8.8.8`, `8.8.4.4` and `2001:4860:4860::8888`, `2001:4860:4860::8844` (thank you, Google).
+    ///
+    /// Please see Google's [privacy statement](https://developers.google.com/speed/public-dns/privacy) for important information about what they track, many ISP's track similar information in DNS. To use the the system configuration see: `Resolver::from_system_conf` and `ResolverFuture::from_system_conf`
+    pub fn google() -> Self {
+        Self::from_ips_clear(
+            &[
+                IpAddr::V4(Ipv4Addr::new(8, 8, 8, 8)),
+                IpAddr::V4(Ipv4Addr::new(8, 8, 4, 4)),
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8888)),
+                IpAddr::V6(Ipv6Addr::new(0x2001, 0x4860, 0x4860, 0, 0, 0, 0, 0x8844)),
+            ],
+            53,
+        )
     }
 
     /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare).
     ///
     /// Please see: https://www.cloudflare.com/dns/
     pub fn cloudflare() -> Self {
-        let domain = None;
-        let cf_ns1 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 53),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
-
-        let cf_ns2 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)), 53),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
-
-        let cf_v6_ns1 = NameServerConfig {
-            socket_addr: SocketAddr::new(
+        Self::from_ips_clear(
+            &[
+                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
                 IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
-                53,
-            ),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
-
-        let cf_v6_ns2 = NameServerConfig {
-            socket_addr: SocketAddr::new(
                 IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
-                53,
-            ),
-            protocol: Protocol::Udp,
-            tls_dns_name: None,
-        };
-
-        ResolverConfig {
-            domain,
-            search: vec![],
-            name_servers: vec![cf_ns1, cf_ns2, cf_v6_ns1, cf_v6_ns2],
-        }
+            ],
+            53,
+        )
     }
 
-    /// Creates a default configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
+    /// Creates a configuration, using `1.1.1.1`, `1.0.0.1` and `2606:4700:4700::1111`, `2606:4700:4700::1001` (thank you, Cloudflare). This limits the registered connections to just TLS lookups
     ///
     /// Please see: https://www.cloudflare.com/dns/
     #[cfg(feature = "dns-over-tls")]
     pub fn cloudflare_tls() -> Self {
-        let domain = None;
-        let tls_dns_name = Some("cloudflare-dns.com".to_string());
-
-        let cf_ns1 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)), 853),
-            protocol: Protocol::Tls,
-            tls_dns_name: tls_dns_name.clone(),
-        };
-
-        let cf_ns2 = NameServerConfig {
-            socket_addr: SocketAddr::new(IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)), 853),
-            protocol: Protocol::Tls,
-            tls_dns_name: tls_dns_name.clone(),
-        };
-
-        let cf_v6_ns1 = NameServerConfig {
-            socket_addr: SocketAddr::new(
+        Self::from_ips_tls(
+            &[
+                IpAddr::V4(Ipv4Addr::new(1, 1, 1, 1)),
+                IpAddr::V4(Ipv4Addr::new(1, 0, 0, 1)),
                 IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1111)),
-                853,
-            ),
-            protocol: Protocol::Tls,
-            tls_dns_name: tls_dns_name.clone(),
-        };
-
-        let cf_v6_ns2 = NameServerConfig {
-            socket_addr: SocketAddr::new(
                 IpAddr::V6(Ipv6Addr::new(0x2606, 0x4700, 0x4700, 0, 0, 0, 0, 0x1001)),
-                853,
-            ),
-            protocol: Protocol::Tls,
-            tls_dns_name: tls_dns_name.clone(),
-        };
+            ],
+            853,
+            "cloudflare-dns.com".to_string(),
+        )
+    }
 
-        ResolverConfig {
-            domain,
-            search: vec![],
-            name_servers: vec![cf_ns1, cf_ns2, cf_v6_ns1, cf_v6_ns2],
-        }
+    /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings (thank you, Quad9).
+    ///
+    /// PLease see: https://www.quad9.net/faq/
+    pub fn quad9() -> Self {
+        Self::from_ips_clear(
+            &[
+                IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
+                IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
+            ],
+            53,
+        )
+    }
+
+    /// Creates a configuration, using `9.9.9.9` and `2620:fe::fe`, the "secure" variants of the quad9 settings. This limits the registered connections to just TLS lookups
+    ///
+    /// PLease see: https://www.quad9.net/faq/
+    #[cfg(feature = "dns-over-tls")]
+    pub fn quad9_tls() -> Self {
+        Self::from_ips_tls(
+            &[
+                IpAddr::V4(Ipv4Addr::new(9, 9, 9, 9)),
+                IpAddr::V6(Ipv6Addr::new(0x2620, 0x00fe, 0, 0, 0, 0, 0, 0x00fe)),
+            ],
+            853,
+            "dns.quad9.net".to_string(),
+        )
     }
 
     /// Create a ResolverConfig with all parts specified

@@ -11,12 +11,12 @@ use std::sync::{Arc, Mutex};
 
 use futures::Future;
 use tokio_core::reactor::Handle;
-#[cfg(feature = "dnssec")]
-use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::rr::domain::TryParseIp;
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
 use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse,
                             RetryDnsHandle};
+#[cfg(feature = "dnssec")]
+use trust_dns_proto::SecureDnsHandle;
 
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::DnsLru;
@@ -129,9 +129,7 @@ impl ResolverFuture {
         reactor: &Handle,
     ) -> Self {
         let pool = NameServerPool::<BasicResolverHandle, StandardConnection>::from_config(
-            &config,
-            &options,
-            reactor,
+            &config, &options, reactor,
         );
         let either;
         let client = RetryDnsHandle::new(pool.clone(), options.attempts);
@@ -343,14 +341,9 @@ mod tests {
 
     use super::*;
 
-    #[test]
-    fn test_lookup() {
+    fn lookup_test(config: ResolverConfig) {
         let mut io_loop = Core::new().unwrap();
-        let resolver = ResolverFuture::new(
-            ResolverConfig::default(),
-            ResolverOpts::default(),
-            &io_loop.handle(),
-        );
+        let resolver = ResolverFuture::new(config, ResolverOpts::default(), &io_loop.handle());
 
         let response = io_loop
             .run(resolver.lookup_ip("www.example.com."))
@@ -364,18 +357,26 @@ mod tests {
                 assert_eq!(
                     address,
                     IpAddr::V6(Ipv6Addr::new(
-                        0x2606,
-                        0x2800,
-                        0x220,
-                        0x1,
-                        0x248,
-                        0x1893,
-                        0x25c8,
-                        0x1946,
+                        0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
                     ))
                 );
             }
         }
+    }
+
+    #[test]
+    fn test_lookup_google() {
+        lookup_test(ResolverConfig::google())
+    }
+
+    #[test]
+    fn test_lookup_cloudflare() {
+        lookup_test(ResolverConfig::cloudflare())
+    }
+
+    #[test]
+    fn test_lookup_quad9() {
+        lookup_test(ResolverConfig::quad9())
     }
 
     #[test]
@@ -402,14 +403,7 @@ mod tests {
 
         assert_eq!(
             Some(IpAddr::V6(Ipv6Addr::new(
-                0x2606,
-                0x2800,
-                0x220,
-                0x1,
-                0x248,
-                0x1893,
-                0x25c8,
-                0x1946,
+                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
             ))),
             response.iter().next()
         );
@@ -441,14 +435,7 @@ mod tests {
                 assert_eq!(
                     address,
                     IpAddr::V6(Ipv6Addr::new(
-                        0x2606,
-                        0x2800,
-                        0x220,
-                        0x1,
-                        0x248,
-                        0x1893,
-                        0x25c8,
-                        0x1946,
+                        0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
                     ))
                 );
             }
@@ -501,14 +488,7 @@ mod tests {
                 assert_eq!(
                     address,
                     IpAddr::V6(Ipv6Addr::new(
-                        0x2606,
-                        0x2800,
-                        0x220,
-                        0x1,
-                        0x248,
-                        0x1893,
-                        0x25c8,
-                        0x1946,
+                        0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
                     ))
                 );
             }
