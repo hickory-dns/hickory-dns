@@ -124,13 +124,15 @@ Zones will be automatically resigned on any record updates via dynamic DNS.
 - [RFC 4035](https://tools.ietf.org/html/rfc4035): Protocol Modifications for DNSSEC
 - [RFC 4509](https://tools.ietf.org/html/rfc4509): SHA-256 in DNSSEC Delegation Signer
 - [RFC 5702](https://tools.ietf.org/html/rfc5702): SHA-2 Algorithms with RSA in DNSKEY and RRSIG for DNSSEC
+- [RFC 6762](https://tools.ietf.org/html/rfc6762): mDNS Multicast DNS (experimental feature: `mdns`)
+- [RFC 6763](https://tools.ietf.org/html/rfc6763): DNS-SD Service Discovery (experimental feature: `mdns`)
 - [RFC 6844](https://tools.ietf.org/html/rfc6844): DNS Certification Authority Authorization (CAA) Resource Record
 - [RFC 6698](https://tools.ietf.org/html/rfc6698): The DNS-Based Authentication of Named Entities (DANE) Transport Layer Security (TLS) Protocol: TLSA
 - [RFC 6840](https://tools.ietf.org/html/rfc6840): Clarifications and Implementation Notes for DNSSEC
 - [RFC 6844](https://tools.ietf.org/html/rfc6844): DNS Certification Authority Authorization Resource Record
 - [RFC 6944](https://tools.ietf.org/html/rfc6944): DNSKEY Algorithm Implementation Status
 - [RFC 6975](https://tools.ietf.org/html/rfc6975): Signaling Cryptographic Algorithm Understanding
-- [RFC 7858](https://tools.ietf.org/html/rfc7858): DNS over TLS
+- [RFC 7858](https://tools.ietf.org/html/rfc7858): DNS over TLS (feature: `dns-over-rustls`, `dns-over-native-tls`, or `dns-over-openssl`)
 
 ## RFC's in progress or not yet implemented
 
@@ -158,14 +160,12 @@ presume that the trust-dns repos have already been synced to the local system:
 
 ## Prerequisites
 
--   openssl development libraries (optional in client, min version 1.0.2)
--   sqlite3 development libraries (server only)
+-   openssl development libraries (optional in client and resolver, min version 1.0.2)
 
 ### Mac OS X: using homebrew
 
 ```
   $ brew install openssl
-  $ brew install sqlite
   $ export OPENSSL_INCLUDE_DIR=`brew --prefix openssl`/include
   $ export OPENSSL_LIB_DIR=`brew --prefix openssl`/lib
 ```
@@ -177,7 +177,6 @@ presume that the trust-dns repos have already been synced to the local system:
   #  if this is an issue, TLS can be disabled (on the client), see below.
   $ apt-get install openssl
   $ apt-get install libssl-dev
-  $ apt-get install libsqlite3-dev
 ```
 
 ## Testing
@@ -245,20 +244,41 @@ so this should allow it to work with most internal loads.
   $ dig @127.0.0.1 -p 24141 www.example.com
 ```
 
-## Using as a dependency
+## Using as a dependency and custom features
 
 The Client has a few features which can be disabled for different reasons when embedding in other software.
 
--  `dnssec-openssl` *default*
+- `dnssec-openssl`
     It is a default feature, so default-features will need to be set to false (this will disable all other default features in trust-dns). Until there are other crypto libraries supported, this will also disable DNSSec validation. The functions will still exist, but will always return errors on validation. The below example line will disable all default features and enable OpenSSL, remove `"openssl"` to remove the dependency on OpenSSL.
 
--  `dnssec-ring`
+- `dnssec-ring`
     Ring support can be used for RSA and ED25519 DNSSec validation.
+
+- `dns-over-native-tls`
+    Uses `native-tls` for DNS-over-TLS implementation, only supported in client and resolver, not server.
+ 
+- `dns-over-openssl`
+    Uses `openssl` for DNS-over-TLS implementation supported in server and client, resolver does not have default CA chains.
+
+- `dns-over-rustls`
+    Uses `rustls` for DNS-over-TLS implementation, only supported in client and resolver, not server. This is the best option where a pure Rust toolchain is desired.
+
+- `mdns` *EXPERIMENTAL*
+    Enables the experimental mDNS features as well as DNS-SD.
+
+Using custom features in dependencies:
 
 ```
 [dependencies]
   ...
 trust-dns = { version = "*", default-features = false, features = ["dnssec-openssl"] }
+```
+
+Using custom features during build:
+
+```console
+$> cargo build --release --features dns-over-rustls
+...
 ```
 
 # FAQ
