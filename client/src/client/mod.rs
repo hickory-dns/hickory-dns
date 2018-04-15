@@ -26,7 +26,7 @@ mod rc_future;
 pub use self::client::SecureSyncClient;
 #[allow(deprecated)]
 pub use self::client::{Client, SyncClient};
-pub use self::client_connection::{ClientConnection, LazyConnection};
+pub use self::client_connection::ClientConnection;
 #[allow(deprecated)]
 pub use self::client_future::{BasicClientHandle, ClientFuture, ClientHandle};
 pub use self::memoize_client_handle::MemoizeClientHandle;
