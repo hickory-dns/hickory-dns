@@ -1,16 +1,17 @@
 //! Hosts result from a configuration of `/etc/hosts`
 
 use std::collections::HashMap;
-use std::fs::File;
-use std::io::{self, BufRead, BufReader};
+use std::io;
 use std::path::Path;
+#[cfg(unix)]
 use std::str::FromStr;
 use std::sync::Arc;
 
 use lookup::Lookup;
 use trust_dns_proto::op::Query;
-use trust_dns_proto::rr::domain::TryParseIp;
-use trust_dns_proto::rr::{Name, RData, RecordType};
+#[cfg(unix)]
+use trust_dns_proto::rr::RData;
+use trust_dns_proto::rr::{Name, RecordType};
 
 #[derive(Debug, Default)]
 struct LookupType {
@@ -87,6 +88,11 @@ impl Hosts {
 /// parse configuration from `/etc/hosts`
 #[cfg(unix)]
 pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
+    use std::fs::File;
+    use std::io::{BufRead, BufReader};
+
+    use trust_dns_proto::rr::domain::TryParseIp;
+
     let mut hosts = Hosts {
         by_name: HashMap::new(),
     };
@@ -142,7 +148,7 @@ pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
 }
 
 #[cfg(not(unix))]
-pub fn read_hosts_conf<P: AsRef<Path>>(path: P) -> io::Result<Hosts> {
+pub fn read_hosts_conf<P: AsRef<Path>>(_path: P) -> io::Result<Hosts> {
     Err(io::Error::new(
         io::ErrorKind::Other,
         "Non-Posix systems currently not supported".to_string(),
