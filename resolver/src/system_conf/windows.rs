@@ -7,23 +7,27 @@
 
 //! System configuration loading for windows
 
-use std::str::FromStr;
 use std::net::SocketAddr;
+use std::str::FromStr;
 
-use ipconfig::get_adapters;
 use ipconfig::computer::{get_domain, get_search_list, is_round_robin_enabled};
+use ipconfig::get_adapters;
 
 use trust_dns_proto::rr::Name;
 
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
 
-
 macro_rules! map_ipconfig_error {
     // TODO: this should use error_chains chain facility
-    ($result:expr) => (
-            $result.map_err(|e| ResolveError::from(ResolveErrorKind::Msg(format!("failed to read from registry: {}", e))))
-        );
+    ($result:expr) => {
+        $result.map_err(|e| {
+            ResolveError::from(ResolveErrorKind::Msg(format!(
+                "failed to read from registry: {}",
+                e
+            )))
+        })
+    };
 }
 
 /// Returns the name servers of the computer (of all adapters)
@@ -39,10 +43,12 @@ fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
         name_servers.push(NameServerConfig {
             socket_addr,
             protocol: Protocol::Udp,
+            tls_dns_name: None,
         });
         name_servers.push(NameServerConfig {
             socket_addr,
             protocol: Protocol::Tcp,
+            tls_dns_name: None,
         });
     }
     Ok(name_servers)
