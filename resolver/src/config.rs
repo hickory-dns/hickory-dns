@@ -237,13 +237,19 @@ impl NameServerConfigGroup {
         let mut name_servers = Self::with_capacity(ips.len());
 
         for ip in ips {
-            let config = NameServerConfig {
+            let udp = NameServerConfig {
                 socket_addr: SocketAddr::new(ip.clone(), port),
                 protocol: Protocol::Udp,
                 tls_dns_name: None,
             };
+            let tcp = NameServerConfig {
+                socket_addr: SocketAddr::new(ip.clone(), port),
+                protocol: Protocol::Tcp,
+                tls_dns_name: None,
+            };
 
-            name_servers.push(config);
+            name_servers.push(udp);
+            name_servers.push(tcp);
         }
 
         name_servers
