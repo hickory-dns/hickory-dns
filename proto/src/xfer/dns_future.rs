@@ -12,7 +12,7 @@ use std::collections::hash_map::Entry;
 use std::collections::HashMap;
 use std::io;
 use std::sync::Arc;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use futures::stream::{Fuse as StreamFuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
@@ -20,7 +20,8 @@ use futures::{task, Async, Complete, Future, Poll};
 use rand;
 use rand::Rand;
 use smallvec::SmallVec;
-use tokio_core::reactor::{Handle, Timeout};
+use tokio_core::reactor::Handle;
+use tokio_timer::Delay;
 
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
@@ -38,14 +39,14 @@ struct ActiveRequest<E: FromProtoError> {
     //  this small vec will have no allocations, unless the requests is a DNS-SD request
     //  expecting more than one response
     responses: SmallVec<[Message; 1]>,
-    timeout: Timeout,
+    timeout: Delay,
 }
 
 impl<E: FromProtoError> ActiveRequest<E> {
     fn new(
         completion: Complete<Result<DnsResponse, E>>,
         request: DnsRequest,
-        timeout: Timeout,
+        timeout: Delay,
     ) -> Self {
         ActiveRequest {
             completion,
@@ -106,7 +107,6 @@ where
     MF: MessageFinalizer,
 {
     stream: S,
-    reactor_handle: Handle,
     timeout_duration: Duration,
     // TODO: genericize and remove this Box
     stream_handle: Box<DnsStreamHandle<Error = E>>,
@@ -168,13 +168,11 @@ where
     ) -> BasicDnsHandle<E> {
         let (sender, rx) = unbounded();
 
-        let loop_handle_clone = loop_handle.clone();
         loop_handle.spawn(
             stream
                 .then(move |res| match res {
                     Ok(stream) => ClientStreamOrError::Future(DnsFuture {
                         stream: stream,
-                        reactor_handle: loop_handle_clone,
                         timeout_duration: timeout_duration,
                         stream_handle: stream_handle,
                         new_receiver: rx.fuse().peekable(),
@@ -323,15 +321,7 @@ where
                     }
 
                     // store a Timeout for this message before sending
-                    let mut timeout =
-                        match Timeout::new(self.timeout_duration, &self.reactor_handle) {
-                            Ok(timeout) => timeout,
-                            Err(e) => {
-                                warn!("could not create timer: {}", e);
-                                ignore_send(complete.send(Err(E::from(e.into()))));
-                                continue; // to the next message...
-                            }
-                        };
+                    let mut timeout = Delay::new(Instant::now() + self.timeout_duration);
 
                     // make sure to register insterest in the Timeout
                     match timeout.poll() {

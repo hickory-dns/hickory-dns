@@ -10,16 +10,15 @@
 use std::io;
 use std::mem;
 use std::net::SocketAddr;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures::{Async, Future, Poll};
-use futures::future;
-use futures::future::Either;
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_core::net::TcpStream as TokioTcpStream;
-use tokio_core::reactor::{Handle, Timeout};
+use tokio_core::reactor::Handle;
+use tokio_timer::Deadline;
 
 use BufStreamHandle;
 use error::*;
@@ -63,7 +62,6 @@ pub enum ReadTcpState {
         bytes: Vec<u8>,
     },
 }
-
 
 /// A Stream used for sending data to and from a remote DNS endpoint (client or server).
 #[must_use = "futures do nothing unless polled"]
@@ -124,43 +122,31 @@ impl TcpStream<TokioTcpStream> {
     {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::<E>::new(message_sender);
-        let timeout = match Timeout::new(timeout, loop_handle) {
-            Ok(timeout) => timeout,
-            Err(e) => return (Box::new(future::err(e)), message_sender),
-        };
-
-
-        let tcp = TokioTcpStream::connect(&name_server, loop_handle);
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream: Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>> = Box::new(
-            timeout
-                .select2(tcp)
-                .then(move |res| match res {
-                    Ok(Either::A((_, _))) => future::err(io::Error::new(
+        let tcp = TokioTcpStream::connect(&name_server, loop_handle);
+        let stream = Deadline::new(tcp, Instant::now() + timeout)
+            .map_err(move |e| {
+                e.into_inner().unwrap_or_else(|| {
+                    io::Error::new(
                         io::ErrorKind::TimedOut,
                         format!("timed out connecting to: {}", name_server),
-                    )),
-                    Ok(Either::B((tcp_stream, _))) => future::ok((tcp_stream, name_server)),
-                    Err(Either::A((timeout_err, _))) => future::err(timeout_err),
-                    Err(Either::B((tcp_err, _))) => future::err(tcp_err),
+                    )
                 })
-                .map(move |(tcp_stream, name_server)| {
-                    TcpStream {
-                        socket: tcp_stream,
-                        outbound_messages: outbound_messages.fuse().peekable(),
-                        send_state: None,
-                        read_state: ReadTcpState::LenBytes {
-                            pos: 0,
-                            bytes: [0u8; 2],
-                        },
-                        peer_addr: name_server,
-                    }
-                }),
-        );
+            })
+            .map(move |tcp_stream| TcpStream {
+                socket: tcp_stream,
+                outbound_messages: outbound_messages.fuse().peekable(),
+                send_state: None,
+                read_state: ReadTcpState::LenBytes {
+                    pos: 0,
+                    bytes: [0u8; 2],
+                },
+                peer_addr: name_server,
+            });
 
-        (stream, message_sender)
+        (Box::new(stream), message_sender)
     }
 }
 

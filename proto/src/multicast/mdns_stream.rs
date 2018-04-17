@@ -468,8 +468,9 @@ pub mod tests {
     //   as there are probably unexpected responses coming on the standard addresses
     fn one_shot_mdns_test(mdns_addr: SocketAddr) {
         use std;
-        use std::time::Duration;
-        use tokio_core::reactor::{Core, Timeout};
+        use std::time::{Duration, Instant};
+        use tokio_core::reactor::Core;
+        use tokio_timer::Delay;
 
         let client_done = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -483,8 +484,7 @@ pub mod tests {
             .spawn(move || {
                 let mut server_loop = Core::new().unwrap();
                 let loop_handle = server_loop.handle();
-                let mut timeout = Timeout::new(Duration::from_millis(100), &loop_handle)
-                    .expect("failed to register timeout");
+                let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
@@ -530,8 +530,7 @@ pub mod tests {
                         }
                         Either::B(((), buffer_and_addr_stream_tmp)) => {
                             server_stream = buffer_and_addr_stream_tmp;
-                            timeout = Timeout::new(Duration::from_millis(100), &loop_handle)
-                                .expect("failed to register timeout");
+                            timeout = Delay::new(Instant::now() + Duration::from_millis(100));
                         }
                     }
 
@@ -554,8 +553,7 @@ pub mod tests {
             &loop_handle,
         );
         let mut stream = io_loop.run(stream).ok().unwrap().into_future();
-        let mut timeout = Timeout::new(Duration::from_millis(100), &io_loop.handle())
-            .expect("failed to register timeout");
+        let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
         let mut successes = 0;
 
         for _ in 0..send_recv_times {
@@ -592,8 +590,7 @@ pub mod tests {
                 }
                 Either::B(((), buffer_and_addr_stream_tmp)) => {
                     stream = buffer_and_addr_stream_tmp;
-                    timeout = Timeout::new(Duration::from_millis(100), &loop_handle)
-                        .expect("failed to register timeout");
+                    timeout = Delay::new(Instant::now() + Duration::from_millis(100));
                 }
             }
         }
@@ -623,8 +620,9 @@ pub mod tests {
     //   as there are probably unexpected responses coming on the standard addresses
     fn passive_mdns_test(mdns_query_type: MdnsQueryType, mdns_addr: SocketAddr) {
         use std;
-        use std::time::Duration;
-        use tokio_core::reactor::{Core, Timeout};
+        use std::time::{Duration, Instant};
+        use tokio_core::reactor::Core;
+        use tokio_timer::Delay;
 
         let server_got_packet = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
 
@@ -638,8 +636,7 @@ pub mod tests {
             .spawn(move || {
                 let mut server_loop = Core::new().unwrap();
                 let loop_handle = server_loop.handle();
-                let mut timeout = Timeout::new(Duration::from_millis(100), &loop_handle)
-                    .expect("failed to register timeout");
+                let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
                 // FIXME: this is hardcoded to index 5 for ipv6, which isn't going to be correct in most cases...
@@ -681,8 +678,7 @@ pub mod tests {
                         }
                         Either::B(((), buffer_and_addr_stream_tmp)) => {
                             server_stream = buffer_and_addr_stream_tmp;
-                            timeout = Timeout::new(Duration::from_millis(100), &loop_handle)
-                                .expect("failed to register timeout");
+                            timeout = Delay::new(Instant::now() + Duration::from_millis(100));
                         }
                     }
 
@@ -705,8 +701,7 @@ pub mod tests {
             &loop_handle,
         );
         let mut stream = io_loop.run(stream).ok().unwrap().into_future();
-        let mut timeout = Timeout::new(Duration::from_millis(100), &io_loop.handle())
-            .expect("failed to register timeout");
+        let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
 
         for _ in 0..send_recv_times {
             // test once
@@ -740,8 +735,7 @@ pub mod tests {
                 }
                 Either::B(((), buffer_and_addr_stream_tmp)) => {
                     stream = buffer_and_addr_stream_tmp;
-                    timeout = Timeout::new(Duration::from_millis(100), &loop_handle)
-                        .expect("failed to register timeout");
+                    timeout = Delay::new(Instant::now() + Duration::from_millis(100));
                 }
             }
         }
