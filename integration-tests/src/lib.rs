@@ -8,23 +8,25 @@ extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_server;
 
-use std::sync::{Arc, Mutex};
 use std::fmt;
 use std::io;
+use std::sync::{Arc, Mutex};
+use std::time::{Duration, Instant};
 
-use futures::{finished, Async, Future, Poll};
 use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
+use futures::{finished, Async, Future, Poll};
 use tokio_core::reactor::Handle;
+use tokio_core::reactor::Timeout;
 
-use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::client::ClientConnection;
+use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
-use trust_dns_proto::{DnsStreamHandle, StreamHandle};
-use trust_dns_proto::op::EncodableMessage;
 use trust_dns_proto::error::FromProtoError;
+use trust_dns_proto::op::EncodableMessage;
+use trust_dns_proto::{DnsStreamHandle, StreamHandle};
 
 use trust_dns_server::authority::{Catalog, MessageRequest};
 use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
@@ -134,17 +136,19 @@ impl fmt::Debug for TestClientStream {
     }
 }
 
-
 // need to do something with the message channel, otherwise the ClientFuture will think there
 //  is no one listening to messages and shutdown...
 #[allow(dead_code)]
 pub struct NeverReturnsClientStream {
+    timeout: Timeout,
     outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
 }
 
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
-    pub fn new() -> (
+    pub fn new(
+        handle: &Handle,
+    ) -> (
         Box<Future<Item = Self, Error = io::Error>>,
         StreamHandle<ClientError>,
     ) {
@@ -153,6 +157,7 @@ impl NeverReturnsClientStream {
 
         let stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>> =
             Box::new(finished(NeverReturnsClientStream {
+                timeout: Timeout::new(Duration::from_secs(1), handle).expect("timeout failed"),
                 outbound_messages: outbound_messages.fuse(),
             }));
 
@@ -165,9 +170,20 @@ impl Stream for NeverReturnsClientStream {
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        // always not ready...
-        task::current().notify();
-        Ok(Async::NotReady)
+        println!("still not returning");
+
+        // poll the timer forever...
+        match self.timeout.poll() {
+            Ok(Async::NotReady) => return Ok(Async::NotReady),
+            _ => (),
+        }
+
+        self.timeout.reset(Instant::now() + Duration::from_secs(1));
+
+        match self.timeout.poll() {
+            Ok(Async::NotReady) => return Ok(Async::NotReady),
+            _ => panic!("timeout fired early"),
+        }
     }
 }
 
@@ -191,14 +207,12 @@ impl ClientConnection for NeverReturnsClientConnection {
 
     fn new_stream(
         &self,
-        _: &Handle,
-    ) -> ClientResult<
-        (
-            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-            Box<DnsStreamHandle<Error = ClientError>>,
-        ),
-    > {
-        let (client_stream, handle) = NeverReturnsClientStream::new();
+        handle: &Handle,
+    ) -> ClientResult<(
+        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
+        Box<DnsStreamHandle<Error = ClientError>>,
+    )> {
+        let (client_stream, handle) = NeverReturnsClientStream::new(handle);
 
         Ok((client_stream, Box::new(handle)))
     }

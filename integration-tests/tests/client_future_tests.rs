@@ -11,7 +11,6 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::Arc;
 
-
 use chrono::Duration;
 use futures::Future;
 use openssl::rsa::Rsa;
@@ -19,15 +18,15 @@ use tokio_core::reactor::Core;
 
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::{DNSClass, IntoRecordSet, Name, RData, Record, RecordSet, RecordType};
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
-use trust_dns::udp::UdpClientStream;
+use trust_dns::rr::{DNSClass, IntoRecordSet, Name, RData, Record, RecordSet, RecordType};
 use trust_dns::tcp::TcpClientStream;
+use trust_dns::udp::UdpClientStream;
 use trust_dns_server::authority::Catalog;
 
-use trust_dns_integration::{NeverReturnsClientStream, TestClientStream};
 use trust_dns_integration::authority::create_example;
+use trust_dns_integration::{NeverReturnsClientStream, TestClientStream};
 
 #[test]
 fn test_query_nonet() {
@@ -162,12 +161,8 @@ fn test_notify() {
 
     let name = Name::from_str("ping.example.com").unwrap();
 
-    let message = io_loop.run(client.notify(
-        name.clone(),
-        DNSClass::IN,
-        RecordType::A,
-        None::<RecordSet>,
-    ));
+    let message =
+        io_loop.run(client.notify(name.clone(), DNSClass::IN, RecordType::A, None::<RecordSet>));
     assert!(message.is_ok());
     let message = message.unwrap();
     assert_eq!(
@@ -232,17 +227,12 @@ fn test_create() {
     record.set_rdata(RData::A(Ipv4Addr::new(100, 10, 100, 10)));
     let record = record;
 
-
     let result = io_loop
         .run(client.create(record.clone(), origin.clone()))
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            record.rr_type(),
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -292,11 +282,7 @@ fn test_create_multi() {
         .expect("create failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            record.rr_type(),
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -349,11 +335,7 @@ fn test_append() {
 
     // verify record contents
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            record.rr_type(),
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -370,11 +352,7 @@ fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            record.rr_type(),
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -389,11 +367,7 @@ fn test_append() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            record.rr_type(),
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -426,11 +400,7 @@ fn test_append_multi() {
 
     // verify record contents
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            record.rr_type(),
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -452,11 +422,7 @@ fn test_append_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            record.rr_type(),
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 3);
@@ -473,11 +439,7 @@ fn test_append_multi() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            record.rr_type(),
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 3);
@@ -508,20 +470,12 @@ fn test_compare_and_swap() {
     let new = new;
 
     let result = io_loop
-        .run(client.compare_and_swap(
-            current.clone(),
-            new.clone(),
-            origin.clone(),
-        ))
+        .run(client.compare_and_swap(current.clone(), new.clone(), origin.clone()))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(
-            new.name().clone(),
-            new.dns_class(),
-            new.rr_type(),
-        ))
+        .run(client.query(new.name().clone(), new.dns_class(), new.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -534,20 +488,12 @@ fn test_compare_and_swap() {
     let not = not;
 
     let result = io_loop
-        .run(client.compare_and_swap(
-            current,
-            not.clone(),
-            origin.clone(),
-        ))
+        .run(client.compare_and_swap(current, not.clone(), origin.clone()))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
     let result = io_loop
-        .run(client.query(
-            new.name().clone(),
-            new.dns_class(),
-            new.rr_type(),
-        ))
+        .run(client.query(new.name().clone(), new.dns_class(), new.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 1);
@@ -588,20 +534,12 @@ fn test_compare_and_swap_multi() {
     let new = new;
 
     let result = io_loop
-        .run(client.compare_and_swap(
-            current.clone(),
-            new.clone(),
-            origin.clone(),
-        ))
+        .run(client.compare_and_swap(current.clone(), new.clone(), origin.clone()))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(
-            new.name().clone(),
-            new.dns_class(),
-            new.record_type(),
-        ))
+        .run(client.query(new.name().clone(), new.dns_class(), new.record_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -616,20 +554,12 @@ fn test_compare_and_swap_multi() {
     let not = not;
 
     let result = io_loop
-        .run(client.compare_and_swap(
-            current,
-            not.clone(),
-            origin.clone(),
-        ))
+        .run(client.compare_and_swap(current, not.clone(), origin.clone()))
         .expect("compare_and_swap failed");
     assert_eq!(result.response_code(), ResponseCode::NXRRSet);
 
     let result = io_loop
-        .run(client.query(
-            new.name().clone(),
-            new.dns_class(),
-            new.record_type(),
-        ))
+        .run(client.query(new.name().clone(), new.dns_class(), new.record_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
     assert_eq!(result.answers().len(), 2);
@@ -801,11 +731,7 @@ fn test_delete_rrset() {
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            record.rr_type(),
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), record.rr_type()))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.answers().len(), 0);
@@ -826,11 +752,7 @@ fn test_delete_all() {
 
     // first check the must_exist option
     let result = io_loop
-        .run(client.delete_all(
-            record.name().clone(),
-            origin.clone(),
-            DNSClass::IN,
-        ))
+        .run(client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN))
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
@@ -850,30 +772,18 @@ fn test_delete_all() {
 
     // verify record contents
     let result = io_loop
-        .run(client.delete_all(
-            record.name().clone(),
-            origin.clone(),
-            DNSClass::IN,
-        ))
+        .run(client.delete_all(record.name().clone(), origin.clone(), DNSClass::IN))
         .expect("delete failed");
     assert_eq!(result.response_code(), ResponseCode::NoError);
 
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            RecordType::A,
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), RecordType::A))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.answers().len(), 0);
 
     let result = io_loop
-        .run(client.query(
-            record.name().clone(),
-            record.dns_class(),
-            RecordType::AAAA,
-        ))
+        .run(client.query(record.name().clone(), record.dns_class(), RecordType::AAAA))
         .expect("query failed");
     assert_eq!(result.response_code(), ResponseCode::NXDomain);
     assert_eq!(result.answers().len(), 0);
@@ -908,7 +818,7 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
 #[test]
 fn test_timeout_query_nonet() {
     let io_loop = Core::new().unwrap();
-    let (stream, sender) = NeverReturnsClientStream::new();
+    let (stream, sender) = NeverReturnsClientStream::new(&io_loop.handle());
     let client = ClientFuture::with_timeout(
         stream,
         Box::new(sender),
