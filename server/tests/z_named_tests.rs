@@ -18,6 +18,7 @@ extern crate trust_dns_openssl;
 
 mod server_harness;
 
+use std::io::Write;
 use std::net::*;
 use std::str::FromStr;
 
@@ -216,7 +217,7 @@ fn test_example_tls_toml_startup() {
 }
 
 #[test]
-fn test_server_continues_on_bad_data() {
+fn test_server_continues_on_bad_data_udp() {
     named_test_harness("example.toml", |port, _| {
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
@@ -236,6 +237,32 @@ fn test_server_continues_on_bad_data() {
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
         let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+
+        query_a(&mut io_loop, &mut client);
+    })
+}
+
+#[test]
+fn test_server_continues_on_bad_data_tcp() {
+    named_test_harness("example.toml", |port, _| {
+        let mut io_loop = Core::new().unwrap();
+        let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
+        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+
+        query_a(&mut io_loop, &mut client);
+
+        // Send a bad packet, this should get rejected by the server
+        let mut raw_socket = TcpStream::connect(addr).expect("couldn't bind raw");
+
+        raw_socket
+            .write_all(b"0xDEADBEEF")
+            .expect("raw send failed");
+
+        // just tests that multiple queries work
+        let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
+        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         query_a(&mut io_loop, &mut client);

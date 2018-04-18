@@ -16,10 +16,10 @@ use tokio_core;
 use tokio_core::reactor::Core;
 
 use trust_dns::error::*;
-use trust_dns::BufStreamHandle;
-use trust_dns::udp::UdpStream;
-use trust_dns::tcp::TcpStream;
 use trust_dns::serialize::binary::{BinDecodable, BinDecoder};
+use trust_dns::tcp::TcpStream;
+use trust_dns::udp::UdpStream;
+use trust_dns::BufStreamHandle;
 
 #[cfg(feature = "tls")]
 use trust_dns_openssl::{tls_server, TlsStream};
@@ -61,8 +61,15 @@ impl<T: RequestHandler> ServerFuture<T> {
             buf_stream
                 .for_each(move |(buffer, src_addr)| {
                     Self::handle_request(buffer, src_addr, stream_handle.clone(), handler.clone())
+                        .map_err(move |e| {
+                            debug!("error parsing UDP request src: {:?} error: {}", src_addr, e)
+                        })
+                        .ok();
+
+                    // continue processing...
+                    Ok(())
                 })
-                .map_err(|e| debug!("error in UDP request_stream handler: {}", e)),
+                .map_err(|e| panic!("error in UDP request_stream handler: {}", e)),
         );
     }
 
@@ -117,15 +124,14 @@ impl<T: RequestHandler> ServerFuture<T> {
                             .map_err(move |e| {
                                 debug!(
                                     "error in TCP request_stream src: {:?} error: {}",
-                                    src_addr,
-                                    e
+                                    src_addr, e
                                 )
                             }),
                     );
 
                     Ok(())
                 })
-                .map_err(|e| debug!("error in inbound tcp_stream: {}", e)),
+                .map_err(|e| panic!("error in inbound tcp_stream: {}", e)),
         );
 
         Ok(())
@@ -200,8 +206,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                                     .map_err(move |e| {
                                         debug!(
                                             "error in TCP request_stream src: {:?} error: {}",
-                                            src_addr,
-                                            e
+                                            src_addr, e
                                         )
                                     }),
                             );
@@ -210,7 +215,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                         })
                     //.map_err(move |e| debug!("error TLS handshake: {:?} error: {:?}", src_addr, e))
                 })
-                .map_err(|e| debug!("error in inbound tcp_stream: {}", e)),
+                .map_err(|e| panic!("error in inbound tls_stream: {}", e)),
         );
 
         Ok(())
