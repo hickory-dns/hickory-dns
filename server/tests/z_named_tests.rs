@@ -215,29 +215,29 @@ fn test_example_tls_toml_startup() {
     })
 }
 
-// #[test]
-// fn test_server_continues_on_bad_data() {
-//     named_test_harness("example.toml", |port, _| {
-//         let mut io_loop = Core::new().unwrap();
-//         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-//         let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
-//         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+#[test]
+fn test_server_continues_on_bad_data() {
+    named_test_harness("example.toml", |port, _| {
+        let mut io_loop = Core::new().unwrap();
+        let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
+        let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
-//         query_a(&mut io_loop, &mut client);
+        query_a(&mut io_loop, &mut client);
 
-//         // Send a bad packet, this should get rejected by the server
-//         let raw_socket = UdpSocket::bind(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0))
-//             .expect("couldn't bind raw");
+        // Send a bad packet, this should get rejected by the server
+        let raw_socket = UdpSocket::bind(SocketAddr::new(Ipv4Addr::new(0, 0, 0, 0).into(), 0))
+            .expect("couldn't bind raw");
 
-//         raw_socket
-//             .send_to(b"0xDEADBEEF", addr)
-//             .expect("raw send failed");
+        raw_socket
+            .send_to(b"0xDEADBEEF", addr)
+            .expect("raw send failed");
 
-//         // just tests that multiple queries work
-//         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-//         let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
-//         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+        // just tests that multiple queries work
+        let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
+        let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
-//         query_a(&mut io_loop, &mut client);
-//     })
-// }
+        query_a(&mut io_loop, &mut client);
+    })
+}
