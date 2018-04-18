@@ -66,7 +66,7 @@ impl ResolverConfig {
     ///
     /// Please see: https://www.cloudflare.com/dns/
     ///
-    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`#[cfg(feature = "dns-over-tls")]
+    /// NameServerConfigGroups can be combined to use a set of different providers, see `NameServerConfigGroup` and `ResolverConfig::from_parts`
     #[cfg(feature = "dns-over-tls")]
     pub fn cloudflare_tls() -> Self {
         ResolverConfig {
