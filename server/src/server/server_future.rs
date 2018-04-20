@@ -106,7 +106,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                     debug!("accepted request from: {}", src_addr);
                     // take the created stream...
                     let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
-                    let timeout_stream = TimeoutStream::new(buf_stream, timeout, &handle)?;
+                    let timeout_stream = TimeoutStream::new(buf_stream, timeout);
                     //let request_stream = RequestStream::new(timeout_stream, stream_handle);
                     let handler = handler.clone();
 
@@ -188,7 +188,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                         .and_then(move |tls_stream| {
                             let (buf_stream, stream_handle) =
                                 TlsStream::from_stream(tls_stream, src_addr);
-                            let timeout_stream = TimeoutStream::new(buf_stream, timeout, &handle)?;
+                            let timeout_stream = TimeoutStream::new(buf_stream, timeout);
                             //let request_stream = RequestStream::new(timeout_stream, stream_handle);
                             let handler = handler.clone();
 
