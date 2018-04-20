@@ -46,6 +46,6 @@ path = "src/pem_to_public_dnskey.rs"
 clap = "^2.23.3"
 data-encoding = "2.1.0"
 trust-dns = { version = "0.13.0", features = ["dnssec-openssl"], path = "../client" }
-env_logger = "0.5.3"
+env_logger = "0.5.7"
 log = "^0.4.1"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
