@@ -38,8 +38,8 @@ name = "trust_dns_integration"
 path = "src/lib.rs"
 
 [features]
-dnssec-openssl = ["dnssec", 
-                  "trust-dns-resolver/dnssec-openssl", 
+dnssec-openssl = ["dnssec",
+                  "trust-dns-resolver/dnssec-openssl",
                   "trust-dns-server/dnssec-openssl",
                   "trust-dns/dnssec-openssl",
                   "trust-dns-proto/dnssec-openssl"]
@@ -70,6 +70,7 @@ rand = "^0.4"
 rusqlite = { version = "^0.13.0", features = ["bundled"] }
 rustls = { version = "^0.11.0" }
 tokio-core = "^0.1"
+tokio-timer = "^0.2"
 trust-dns = { version = "*", path = "../client" }
 trust-dns-openssl = { version = "*", path = "../openssl" }
 trust-dns-proto = { version = "*", path = "../proto" }
