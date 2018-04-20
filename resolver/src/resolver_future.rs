@@ -595,6 +595,43 @@ mod tests {
     }
 
     #[test]
+    fn test_large_ndots() {
+        let domain = Name::from_str("incorrect.example.com.").unwrap();
+        let search = vec![
+            Name::from_str("bad.example.com.").unwrap(),
+            Name::from_str("wrong.example.com.").unwrap(),
+        ];
+        let name_servers: Vec<NameServerConfig> =
+            ResolverConfig::default().name_servers().to_owned();
+
+        let mut io_loop = Core::new().unwrap();
+        let resolver = ResolverFuture::new(
+            ResolverConfig::from_parts(Some(domain), search, name_servers),
+            ResolverOpts {
+                // matches kubernetes default
+                ndots: 5,
+                ip_strategy: LookupIpStrategy::Ipv4Only,
+                ..ResolverOpts::default()
+            },
+            &io_loop.handle(),
+        );
+
+        // notice this is not a FQDN, no trailing dot.
+        let response = io_loop
+            .run(resolver.lookup_ip("www.example.com"))
+            .expect("failed to run lookup");
+
+        assert_eq!(response.iter().count(), 1);
+        for address in response.iter() {
+            if address.is_ipv4() {
+                assert_eq!(address, IpAddr::V4(Ipv4Addr::new(93, 184, 216, 34)));
+            } else {
+                assert!(false, "should only be looking up IPv4");
+            }
+        }
+    }
+
+    #[test]
     fn test_domain_search() {
         // domain is good now, shoudl be combined with the name to form www.example.com
         let domain = Name::from_str("example.com.").unwrap();
