@@ -65,7 +65,7 @@ rand = "^0.4"
 ring = { version = "^0.12", optional = true }
 tokio-core = "^0.1"
 trust-dns-proto = {version = "^0.3", path = "../proto", features = ["dnssec"] }
-untrusted = { version = "^0.5", optional = true }
+untrusted = { version = "^0.6", optional = true }
 
 [dev-dependencies]
 openssl = { version = "^0.10", features = ["v102", "v110"], optional = false }
