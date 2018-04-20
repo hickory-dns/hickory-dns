@@ -806,7 +806,7 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
 #[test]
 fn test_timeout_query_nonet() {
     let io_loop = Core::new().unwrap();
-    let (stream, sender) = NeverReturnsClientStream::new(&io_loop.handle());
+    let (stream, sender) = NeverReturnsClientStream::new();
     let client = ClientFuture::with_timeout(
         stream,
         Box::new(sender),

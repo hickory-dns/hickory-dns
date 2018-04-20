@@ -5,6 +5,7 @@ extern crate futures;
 extern crate openssl;
 extern crate rustls;
 extern crate tokio_core;
+extern crate tokio_timer;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
@@ -20,7 +21,7 @@ use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
 use futures::{finished, Async, Future, Poll};
 use tokio_core::reactor::Handle;
-use tokio_core::reactor::Timeout;
+use tokio_timer::Delay;
 
 use trust_dns::client::ClientConnection;
 use trust_dns::error::{ClientError, ClientResult};
@@ -143,15 +144,13 @@ impl fmt::Debug for TestClientStream {
 //  is no one listening to messages and shutdown...
 #[allow(dead_code)]
 pub struct NeverReturnsClientStream {
-    timeout: Timeout,
+    timeout: Delay,
     outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
 }
 
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
-    pub fn new(
-        handle: &Handle,
-    ) -> (
+    pub fn new() -> (
         Box<Future<Item = Self, Error = io::Error>>,
         StreamHandle<ClientError>,
     ) {
@@ -160,7 +159,7 @@ impl NeverReturnsClientStream {
 
         let stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>> =
             Box::new(finished(NeverReturnsClientStream {
-                timeout: Timeout::new(Duration::from_secs(1), handle).expect("timeout failed"),
+                timeout: Delay::new(Instant::now() + Duration::from_secs(1)),
                 outbound_messages: outbound_messages.fuse(),
             }));
 
@@ -210,12 +209,12 @@ impl ClientConnection for NeverReturnsClientConnection {
 
     fn new_stream(
         &self,
-        handle: &Handle,
+        _handle: &Handle,
     ) -> ClientResult<(
         Box<Future<Item = Self::MessageStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = ClientError>>,
     )> {
-        let (client_stream, handle) = NeverReturnsClientStream::new(handle);
+        let (client_stream, handle) = NeverReturnsClientStream::new();
 
         Ok((client_stream, Box::new(handle)))
     }
