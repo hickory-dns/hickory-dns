@@ -14,12 +14,13 @@ use std::net::{Ipv4Addr, Ipv6Addr};
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::Instant;
 
-use futures::{task, future, Async, Future, Poll};
+use futures::{future, task, Async, Future, Poll};
 
-use trust_dns_proto::DnsHandle;
 use trust_dns_proto::op::{Message, Query, ResponseCode};
+use trust_dns_proto::rr::domain::usage::{IN_ADDR_ARPA_127, IP6_ARPA_1, ResolverUsage, DEFAULT,
+                                         INVALID, LOCALHOST as LOCALHOST_usage};
 use trust_dns_proto::rr::{DNSClass, Name, RData, RecordType};
-use trust_dns_proto::rr::domain::usage::{ResolverUsage, DEFAULT, LOCALHOST as LOCALHOST_usage, IN_ADDR_ARPA_127, IP6_ARPA_1, INVALID};
+use trust_dns_proto::DnsHandle;
 
 use dns_lru;
 use dns_lru::DnsLru;
@@ -34,8 +35,8 @@ thread_local! {
 
 lazy_static! {
     static ref LOCALHOST: Lookup = Lookup::from(RData::PTR(Name::from_ascii("localhost.").unwrap()));
-    static ref LOCALHOST_V4: Lookup = Lookup::from(RData::A(Ipv4Addr::new(127,0,0,1)));
-    static ref LOCALHOST_V6: Lookup = Lookup::from(RData::AAAA(Ipv6Addr::new(0,0,0,0,0,0,0,1)));
+    static ref LOCALHOST_V4: Lookup = Lookup::from(RData::A(Ipv4Addr::new(127, 0, 0, 1)));
+    static ref LOCALHOST_V6: Lookup = Lookup::from(RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
 }
 
 // TODO: need to consider this storage type as it compares to Authority in server...
@@ -83,15 +84,15 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
             };
 
             match usage.resolver() {
-               ResolverUsage::Loopback => match query.query_type() {
-                   // FIXME: look in hosts for these ips/names first...
-                   RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
-                   RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
-                   RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
-                   _ => return Box::new(future::err(DnsLru::nx_error(query))), // Are there any other types we can use?
-               },
-               ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
-               ResolverUsage::Normal => (),
+                ResolverUsage::Loopback => match query.query_type() {
+                    // FIXME: look in hosts for these ips/names first...
+                    RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
+                    RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
+                    RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
+                    _ => return Box::new(future::err(DnsLru::nx_error(query))), // Are there any other types we can use?
+                },
+                ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
+                ResolverUsage::Normal => (),
             }
         }
 
@@ -232,9 +233,9 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
         // It was a CNAME, but not included in the request...
         if was_cname {
             let next_query = Query::query(search_name, self.query.query_type());
-            Ok(Async::Ready(
-                self.next_query(next_query, cname_ttl, message),
-            ))
+            Ok(Async::Ready(self.next_query(
+                next_query, cname_ttl, message,
+            )))
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
             // Note on DNSSec, in secure_client_hanle, if verify_nsec fails then the request fails.
@@ -337,9 +338,12 @@ impl Future for InsertCache {
                     Records::Chained {
                         cached: lookup,
                         min_ttl: ttl,
-                    } => Ok(Async::Ready(
-                        lru.duplicate(query, lookup, ttl, Instant::now()),
-                    )),
+                    } => Ok(Async::Ready(lru.duplicate(
+                        query,
+                        lookup,
+                        ttl,
+                        Instant::now(),
+                    ))),
                     Records::NoData { ttl: Some(ttl) } => {
                         Err(lru.negative(query, ttl, Instant::now()))
                     }
@@ -568,8 +572,8 @@ mod tests {
     use futures::future;
 
     use trust_dns_proto::op::{Message, Query};
-    use trust_dns_proto::rr::{Name, Record};
     use trust_dns_proto::rr::rdata::SRV;
+    use trust_dns_proto::rr::{Name, Record};
 
     use super::*;
     use lookup_ip::tests::*;
@@ -639,32 +643,28 @@ mod tests {
 
     pub fn cname_message() -> ResolveResult<Message> {
         let mut message = Message::new();
-        message.insert_answers(vec![
-            Record::from_rdata(
-                Name::from_str("www.example.com.").unwrap(),
-                86400,
-                RecordType::CNAME,
-                RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
-            ),
-        ]);
+        message.insert_answers(vec![Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            86400,
+            RecordType::CNAME,
+            RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+        )]);
         Ok(message)
     }
 
     pub fn srv_message() -> ResolveResult<Message> {
         let mut message = Message::new();
-        message.insert_answers(vec![
-            Record::from_rdata(
-                Name::from_str("_443._tcp.www.example.com.").unwrap(),
-                86400,
-                RecordType::SRV,
-                RData::SRV(SRV::new(
-                    1,
-                    2,
-                    443,
-                    Name::from_str("actual.example.com.").unwrap(),
-                )),
-            ),
-        ]);
+        message.insert_answers(vec![Record::from_rdata(
+            Name::from_str("_443._tcp.www.example.com.").unwrap(),
+            86400,
+            RecordType::SRV,
+            RData::SRV(SRV::new(
+                1,
+                2,
+                443,
+                Name::from_str("actual.example.com.").unwrap(),
+            )),
+        )]);
         Ok(message)
     }
 
@@ -716,14 +716,12 @@ mod tests {
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
-            vec![
-                RData::SRV(SRV::new(
-                    1,
-                    2,
-                    443,
-                    Name::from_str("actual.example.com.").unwrap(),
-                )),
-            ]
+            vec![RData::SRV(SRV::new(
+                1,
+                2,
+                443,
+                Name::from_str("actual.example.com.").unwrap(),
+            ))]
         );
     }
 
@@ -743,22 +741,18 @@ mod tests {
         };
 
         let mut message = Message::new();
-        message.insert_answers(vec![
-            Record::from_rdata(
-                Name::from_str("ttl.example.com.").unwrap(),
-                first,
-                RecordType::CNAME,
-                RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
-            ),
-        ]);
-        message.insert_additionals(vec![
-            Record::from_rdata(
-                Name::from_str("actual.example.com.").unwrap(),
-                second,
-                RecordType::A,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
-            ),
-        ]);
+        message.insert_answers(vec![Record::from_rdata(
+            Name::from_str("ttl.example.com.").unwrap(),
+            first,
+            RecordType::CNAME,
+            RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+        )]);
+        message.insert_additionals(vec![Record::from_rdata(
+            Name::from_str("actual.example.com.").unwrap(),
+            second,
+            RecordType::A,
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+        )]);
 
         let poll: Async<Records> = query_future
             .handle_noerror(message)
@@ -786,50 +780,81 @@ mod tests {
     fn test_early_return_localhost() {
         let cache = Arc::new(Mutex::new(DnsLru::new(0)));
         let client = mock(vec![empty()]);
-        let mut client = CachingClient{lru: cache, client: client};
-        
+        let mut client = CachingClient {
+            lru: cache,
+            client: client,
+        };
+
         assert_eq!(
-            client.lookup(Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::A))
+            client
+                .lookup(Query::query(
+                    Name::from_ascii("localhost.").unwrap(),
+                    RecordType::A
+                ))
                 .wait()
                 .expect("should have returned localhost"),
             *LOCALHOST_V4
         );
 
         assert_eq!(
-            client.lookup(Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::AAAA))
+            client
+                .lookup(Query::query(
+                    Name::from_ascii("localhost.").unwrap(),
+                    RecordType::AAAA
+                ))
                 .wait()
                 .expect("should have returned localhost"),
             *LOCALHOST_V6
         );
 
         assert_eq!(
-            client.lookup(Query::query(Name::from(Ipv4Addr::new(127,0,0,1)), RecordType::PTR))
+            client
+                .lookup(Query::query(
+                    Name::from(Ipv4Addr::new(127, 0, 0, 1)),
+                    RecordType::PTR
+                ))
                 .wait()
                 .expect("should have returned localhost"),
             *LOCALHOST
         );
 
         assert_eq!(
-            client.lookup(Query::query(Name::from(Ipv6Addr::new(0,0,0,0,0,0,0,1)), RecordType::PTR))
+            client
+                .lookup(Query::query(
+                    Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                    RecordType::PTR
+                ))
                 .wait()
                 .expect("should have returned localhost"),
             *LOCALHOST
         );
 
         assert!(
-            client.lookup(Query::query(Name::from_ascii("localhost.").unwrap(), RecordType::MX))
+            client
+                .lookup(Query::query(
+                    Name::from_ascii("localhost.").unwrap(),
+                    RecordType::MX
+                ))
                 .wait()
                 .is_err()
         );
 
         assert!(
-            client.lookup(Query::query(Name::from(Ipv4Addr::new(127,0,0,1)), RecordType::MX))
+            client
+                .lookup(Query::query(
+                    Name::from(Ipv4Addr::new(127, 0, 0, 1)),
+                    RecordType::MX
+                ))
                 .wait()
                 .is_err()
         );
 
         assert!(
-            client.lookup(Query::query(Name::from(Ipv6Addr::new(0,0,0,0,0,0,0,1)), RecordType::MX))
+            client
+                .lookup(Query::query(
+                    Name::from(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+                    RecordType::MX
+                ))
                 .wait()
                 .is_err()
         );
@@ -839,12 +864,48 @@ mod tests {
     fn test_early_return_invalid() {
         let cache = Arc::new(Mutex::new(DnsLru::new(0)));
         let client = mock(vec![empty()]);
-        let mut client = CachingClient{lru: cache, client: client};
-        
+        let mut client = CachingClient {
+            lru: cache,
+            client: client,
+        };
+
         assert!(
-            client.lookup(Query::query(Name::from_ascii("horrible.invalid.").unwrap(), RecordType::A))
+            client
+                .lookup(Query::query(
+                    Name::from_ascii("horrible.invalid.").unwrap(),
+                    RecordType::A
+                ))
                 .wait()
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn test_no_error_on_dot_local_no_mdns() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+
+        let mut message = srv_message().unwrap();
+        message.add_answer(Record::from_rdata(
+            Name::from_str("www.example.local.").unwrap(),
+            86400,
+            RecordType::A,
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+        ));
+
+        let client = mock(vec![error(), Ok(message)]);
+        let mut client = CachingClient {
+            lru: cache,
+            client: client,
+        };
+
+        assert!(
+            client
+                .lookup(Query::query(
+                    Name::from_ascii("www.example.local.").unwrap(),
+                    RecordType::A,
+                ))
+                .wait()
+                .is_ok()
         );
     }
 }
