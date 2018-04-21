@@ -188,9 +188,11 @@ impl ResolverFuture {
             let mut names =
                 Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.config.search().len());
 
+            // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
+            let raw_name_first: bool = name.num_labels() as usize > self.options.ndots || name.is_localhost();
+
             // if not meeting ndots, we always do the raw name in the final lookup
-            // note: number of dots will always be one less than the number of labels
-            if name.num_labels() as usize <= self.options.ndots && !name.is_localhost() {
+            if !raw_name_first {
                 names.push(name.clone());
             }
 
@@ -205,8 +207,7 @@ impl ResolverFuture {
             }
 
             // this is the direct name lookup
-            // note: number of dots will always be one less than the number of labels
-            if name.num_labels() as usize > self.options.ndots || name.is_localhost() {
+            if raw_name_first {
                 // adding the name as though it's an FQDN for lookup
                 names.push(name.clone());
             }
