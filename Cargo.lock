@@ -253,7 +253,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 
 [[package]]
 name = "env_logger"
-version = "0.5.6"
+version = "0.5.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 dependencies = [
  "atty 0.2.8 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1112,7 +1112,7 @@ version = "0.1.0"
 dependencies = [
  "chrono 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "data-encoding 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "env_logger 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.10.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1124,7 +1124,7 @@ name = "trust-dns-integration"
 version = "0.1.0"
 dependencies = [
  "chrono 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "env_logger 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1170,7 +1170,7 @@ version = "0.3.2"
 dependencies = [
  "byteorder 1.2.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "data-encoding 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "env_logger 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "idna 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1229,7 +1229,7 @@ dependencies = [
  "backtrace 0.3.5 (registry+https://github.com/rust-lang/crates.io-index)",
  "chrono 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "clap 2.31.2 (registry+https://github.com/rust-lang/crates.io-index)",
- "env_logger 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "error-chain 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.21 (registry+https://github.com/rust-lang/crates.io-index)",
  "lazy_static 1.0.0 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1256,7 +1256,7 @@ version = "0.1.1"
 dependencies = [
  "clap 2.31.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "data-encoding 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
- "env_logger 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)",
+ "env_logger 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)",
  "log 0.4.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "openssl 0.10.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.13.0",
@@ -1453,7 +1453,7 @@ dependencies = [
 "checksum data-encoding-macro-internal 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)" = "b9f31cd0086d3b61c74c6d5a678e47aa3ac8b0c648dfc9165f8f97ccf1925cf1"
 "checksum dbghelp-sys 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)" = "97590ba53bcb8ac28279161ca943a924d1fd4a8fb3fa63302591647c4fc5b850"
 "checksum endian-type 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)" = "c34f04666d835ff5d62e058c3995147c06f42fe86ff053337632bca83e42702d"
-"checksum env_logger 0.5.6 (registry+https://github.com/rust-lang/crates.io-index)" = "0561146661ae44c579e993456bc76d11ce1e0c7d745e57b2fa7146b6e49fa2ad"
+"checksum env_logger 0.5.8 (registry+https://github.com/rust-lang/crates.io-index)" = "be27f8ea102a7182093a80d98f0b78623b580eda8791cbe8e2345fe6e57567a6"
 "checksum error-chain 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)" = "faa976b4fd2e4c2b2f3f486874b19e61944d3de3de8b61c9fcf835d583871bcc"
 "checksum error-chain 0.8.1 (registry+https://github.com/rust-lang/crates.io-index)" = "6930e04918388a9a2e41d518c25cf679ccafe26733fb4127dbf21993f2575d46"
 "checksum foreign-types 0.3.2 (registry+https://github.com/rust-lang/crates.io-index)" = "f6f339eb8adc052cd2ca78910fda869aefa38d22d5cb648e6485e4d3fc06f3b1"
