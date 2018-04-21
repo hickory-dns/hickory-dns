@@ -68,7 +68,7 @@ futures = "^0.1.17"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
 rand = "^0.4"
 rusqlite = { version = "^0.13.0", features = ["bundled"] }
-rustls = { version = "^0.11.0" }
+rustls = { version = "^0.12.0" }
 tokio-core = "^0.1"
 tokio-timer = "^0.2"
 trust-dns = { version = "*", path = "../client" }
