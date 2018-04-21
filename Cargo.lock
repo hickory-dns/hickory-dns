@@ -1063,7 +1063,7 @@ dependencies = [
  "rand 0.4.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "ring 0.12.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "trust-dns-proto 0.3.1",
+ "trust-dns-proto 0.3.2",
  "untrusted 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
@@ -1095,8 +1095,8 @@ dependencies = [
  "tokio-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.13.0",
  "trust-dns-openssl 0.2.0",
- "trust-dns-proto 0.3.1",
- "trust-dns-resolver 0.8.1",
+ "trust-dns-proto 0.3.2",
+ "trust-dns-resolver 0.8.2",
  "trust-dns-rustls 0.2.0",
  "trust-dns-server 0.13.0",
 ]
@@ -1110,7 +1110,7 @@ dependencies = [
  "tokio-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tls 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.13.0",
- "trust-dns-proto 0.3.1",
+ "trust-dns-proto 0.3.2",
 ]
 
 [[package]]
@@ -1122,12 +1122,12 @@ dependencies = [
  "tokio-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-openssl 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.13.0",
- "trust-dns-proto 0.3.1",
+ "trust-dns-proto 0.3.2",
 ]
 
 [[package]]
 name = "trust-dns-proto"
-version = "0.3.1"
+version = "0.3.2"
 dependencies = [
  "byteorder 1.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "data-encoding 2.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1147,7 +1147,7 @@ dependencies = [
 
 [[package]]
 name = "trust-dns-resolver"
-version = "0.8.1"
+version = "0.8.2"
 dependencies = [
  "error-chain 0.1.12 (registry+https://github.com/rust-lang/crates.io-index)",
  "futures 0.1.18 (registry+https://github.com/rust-lang/crates.io-index)",
@@ -1157,7 +1157,7 @@ dependencies = [
  "lru-cache 0.1.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "resolv-conf 0.6.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
- "trust-dns-proto 0.3.1",
+ "trust-dns-proto 0.3.2",
 ]
 
 [[package]]
@@ -1170,7 +1170,7 @@ dependencies = [
  "tokio-core 0.1.15 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-rustls 0.4.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.13.0",
- "trust-dns-proto 0.3.1",
+ "trust-dns-proto 0.3.2",
 ]
 
 [[package]]
@@ -1196,7 +1196,7 @@ dependencies = [
  "trust-dns 0.13.0",
  "trust-dns-native-tls 0.2.0",
  "trust-dns-openssl 0.2.0",
- "trust-dns-proto 0.3.1",
+ "trust-dns-proto 0.3.2",
 ]
 
 [[package]]
