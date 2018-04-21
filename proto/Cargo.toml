@@ -52,7 +52,7 @@ path = "src/lib.rs"
 [dependencies]
 byteorder = "^1.2"
 data-encoding = { version = "2.1.0", optional = true }
-error-chain = "0.1.12"
+error-chain = "0.8.1"
 futures = "^0.1.17"
 idna = "^0.1.4"
 lazy_static = "^1.0"
