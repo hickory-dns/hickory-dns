@@ -1060,4 +1060,37 @@ mod tests {
                 .is_err()
         );
     }
+
+    #[test]
+    #[cfg(not(feature = "mdns"))]
+    fn test_no_error_on_dot_local_no_mdns() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+
+        let mut message = srv_message().unwrap();
+        message.add_answer(Record::from_rdata(
+            Name::from_str("www.example.local.").unwrap(),
+            86400,
+            RecordType::A,
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+        ));
+
+        let client = mock(vec![error(), Ok(message)]);
+        let mut client = CachingClient {
+            lru: cache,
+            client: client,
+        };
+
+        assert!(
+            client
+                .lookup(
+                    Query::query(
+                        Name::from_ascii("www.example.local.").unwrap(),
+                        RecordType::A,
+                    ),
+                    Default::default()
+                )
+                .wait()
+                .is_ok()
+        );
+    }
 }
