@@ -7,6 +7,7 @@ extern crate lazy_static;
 extern crate log;
 extern crate openssl;
 extern crate tokio_core;
+extern crate tokio_timer;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_server;
@@ -15,11 +16,12 @@ use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::sync::{Arc, Barrier};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::thread::JoinHandle;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use futures::{Future, Stream};
 use futures::future::Either;
-use tokio_core::reactor::{Core, Timeout};
+use tokio_core::reactor::Core;
+use tokio_timer::Delay;
 
 use trust_dns::error::*;
 use trust_dns::client::{ClientFuture, ClientHandle};
@@ -50,11 +52,9 @@ fn mdns_responsder(
         .name(format!("{}:server", test_name))
         .spawn(move || {
             let mut io_loop = Core::new().unwrap();
-            let loop_handle = io_loop.handle();
 
             // a max time for the test to run
-            let mut timeout = Timeout::new(Duration::from_millis(100), &io_loop.handle())
-                .expect("failed to register timeout");
+            let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
 
             // FIXME: ipv6 if is hardcoded, need a different strategy
             let (mdns_stream, mdns_handle) = MdnsStream::new::<ClientError>(
@@ -97,8 +97,7 @@ fn mdns_responsder(
                     }
                     Either::B(((), data_src_stream_tmp)) => {
                         stream = data_src_stream_tmp;
-                        timeout = Timeout::new(Duration::from_millis(100), &loop_handle)
-                            .expect("failed to register timeout");
+                        timeout = Delay::new(Instant::now() + Duration::from_millis(100));
                     }
                 }
             }

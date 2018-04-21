@@ -31,7 +31,6 @@ extern crate chrono;
 extern crate env_logger;
 #[macro_use]
 extern crate error_chain;
-#[macro_use]
 extern crate futures;
 #[macro_use]
 extern crate log;
@@ -41,6 +40,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate time;
 extern crate tokio_core;
+extern crate tokio_timer;
 extern crate toml;
 extern crate trust_dns;
 extern crate trust_dns_proto;

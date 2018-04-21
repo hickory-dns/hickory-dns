@@ -21,6 +21,8 @@ use ring::error::Unspecified;
 #[cfg(not(feature = "ring"))]
 use self::not_ring::Unspecified;
 
+use tokio_timer::Error as TimerError;
+
 error_chain! {
     // The type defined for this error. These are the conventional
     // and recommended names, but they can be arbitrarily chosen.
@@ -56,6 +58,7 @@ error_chain! {
       SslErrorStack, SSL, "ssl error";
       Unspecified, Ring, "ring error";
       ::url::ParseError, UrlParsingError, "url parsing error";
+      TimerError, Timer, "timer error";
     }
 
     // Define additional `ErrorKind` variants. The syntax here is
@@ -265,6 +268,7 @@ impl Clone for ProtoErrorKind {
             ProtoErrorKind::MaxBufferSizeExceeded(ref max) => {
                 ProtoErrorKind::MaxBufferSizeExceeded(*max)
             }
+            ProtoErrorKind::Timer => ProtoErrorKind:: Timer,
         }
     }
 }
