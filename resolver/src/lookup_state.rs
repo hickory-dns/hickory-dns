@@ -1062,7 +1062,6 @@ mod tests {
     }
 
     #[test]
-    #[cfg(not(feature = "mdns"))]
     fn test_no_error_on_dot_local_no_mdns() {
         let cache = Arc::new(Mutex::new(DnsLru::new(1)));
 
