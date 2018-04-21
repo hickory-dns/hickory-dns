@@ -17,9 +17,8 @@ use std::time::Instant;
 use futures::{future, task, Async, Future, Poll};
 
 use trust_dns_proto::op::{Message, Query, ResponseCode};
-use trust_dns_proto::rr::domain::usage::{IN_ADDR_ARPA_127, IP6_ARPA_1,
-                                         LOCALHOST as LOCALHOST_usage, ResolverUsage, DEFAULT,
-                                         INVALID, LOCAL};
+use trust_dns_proto::rr::domain::usage::{IN_ADDR_ARPA_127, IP6_ARPA_1, ResolverUsage, DEFAULT,
+                                         INVALID, LOCAL, LOCALHOST as LOCALHOST_usage};
 use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
 
@@ -101,9 +100,10 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
                 // when mdns is enabled we will follow a standard query path
                 #[cfg(feature = "mdns")]
                 ResolverUsage::LinkLocal => (),
+                // TODO: this requires additional config, as Kubernetes and other systems misuse the .local. zone.
                 // when mdns is not enabled we will return errors on LinkLocal ("*.local.") names
                 #[cfg(not(feature = "mdns"))]
-                ResolverUsage::LinkLocal => return Box::new(future::err(DnsLru::nx_error(query))),
+                ResolverUsage::LinkLocal => (),
                 ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
                 ResolverUsage::Normal => (),
             }
@@ -284,9 +284,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
         if was_cname {
             let next_query = Query::query(search_name, self.query.query_type());
             Ok(Async::Ready(self.next_query(
-                next_query,
-                cname_ttl,
-                response,
+                next_query, cname_ttl, response,
             )))
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
@@ -711,32 +709,28 @@ mod tests {
 
     pub fn cname_message() -> ResolveResult<DnsResponse> {
         let mut message = Message::new();
-        message.insert_answers(vec![
-            Record::from_rdata(
-                Name::from_str("www.example.com.").unwrap(),
-                86400,
-                RecordType::CNAME,
-                RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
-            ),
-        ]);
+        message.insert_answers(vec![Record::from_rdata(
+            Name::from_str("www.example.com.").unwrap(),
+            86400,
+            RecordType::CNAME,
+            RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+        )]);
         Ok(message.into())
     }
 
     pub fn srv_message() -> ResolveResult<DnsResponse> {
         let mut message = Message::new();
-        message.insert_answers(vec![
-            Record::from_rdata(
-                Name::from_str("_443._tcp.www.example.com.").unwrap(),
-                86400,
-                RecordType::SRV,
-                RData::SRV(SRV::new(
-                    1,
-                    2,
-                    443,
-                    Name::from_str("www.example.com.").unwrap(),
-                )),
-            ),
-        ]);
+        message.insert_answers(vec![Record::from_rdata(
+            Name::from_str("_443._tcp.www.example.com.").unwrap(),
+            86400,
+            RecordType::SRV,
+            RData::SRV(SRV::new(
+                1,
+                2,
+                443,
+                Name::from_str("www.example.com.").unwrap(),
+            )),
+        )]);
         Ok(message.into())
     }
 
@@ -790,14 +784,12 @@ mod tests {
 
         assert_eq!(
             ips.iter().cloned().collect::<Vec<_>>(),
-            vec![
-                RData::SRV(SRV::new(
-                    1,
-                    2,
-                    443,
-                    Name::from_str("www.example.com.").unwrap(),
-                )),
-            ]
+            vec![RData::SRV(SRV::new(
+                1,
+                2,
+                443,
+                Name::from_str("www.example.com.").unwrap(),
+            ))]
         );
     }
 
@@ -921,22 +913,18 @@ mod tests {
         };
 
         let mut message = Message::new();
-        message.insert_answers(vec![
-            Record::from_rdata(
-                Name::from_str("ttl.example.com.").unwrap(),
-                first,
-                RecordType::CNAME,
-                RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
-            ),
-        ]);
-        message.insert_additionals(vec![
-            Record::from_rdata(
-                Name::from_str("actual.example.com.").unwrap(),
-                second,
-                RecordType::A,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
-            ),
-        ]);
+        message.insert_answers(vec![Record::from_rdata(
+            Name::from_str("ttl.example.com.").unwrap(),
+            first,
+            RecordType::CNAME,
+            RData::CNAME(Name::from_str("actual.example.com.").unwrap()),
+        )]);
+        message.insert_additionals(vec![Record::from_rdata(
+            Name::from_str("actual.example.com.").unwrap(),
+            second,
+            RecordType::A,
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+        )]);
 
         let poll: Async<Records> = query_future
             .handle_noerror(message.into())
@@ -1070,6 +1058,38 @@ mod tests {
                 )
                 .wait()
                 .is_err()
+        );
+    }
+
+    #[test]
+    fn test_no_error_on_dot_local_no_mdns() {
+        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+
+        let mut message = srv_message().unwrap();
+        message.add_answer(Record::from_rdata(
+            Name::from_str("www.example.local.").unwrap(),
+            86400,
+            RecordType::A,
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+        ));
+
+        let client = mock(vec![error(), Ok(message)]);
+        let mut client = CachingClient {
+            lru: cache,
+            client: client,
+        };
+
+        assert!(
+            client
+                .lookup(
+                    Query::query(
+                        Name::from_ascii("www.example.local.").unwrap(),
+                        RecordType::A,
+                    ),
+                    Default::default()
+                )
+                .wait()
+                .is_ok()
         );
     }
 }
