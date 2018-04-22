@@ -68,7 +68,7 @@ name = "named"
 path = "src/named.rs"
 
 [dependencies]
-backtrace = "^0.3.5"
+backtrace = "^0.3.6"
 chrono = "^0.4"
 clap = "^2.27"
 env_logger = "^0.5"
