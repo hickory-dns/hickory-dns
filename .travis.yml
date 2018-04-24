@@ -7,103 +7,54 @@ matrix:
     # optional feature variations
     # we want full coverage, include all features...
     - rust: stable
-      env: OPTIONS="--all-features"
+      env: RUST_BACKTRACE=full
            RUN_KCOV=1
-           RUST_BACKTRACE=full
-
-    # no features
-    - rust: stable
-      env: MODULES="client integration-tests proto resolver server"
-           OPTIONS="--no-default-features"
-           RUN_KCOV=1
-           RUST_BACKTRACE=full
-
-    # default features...
-    - rust: stable
-      env: MODULES="client integration-tests proto resolver server"
-           RUN_KCOV=1
-           RUST_BACKTRACE=full
-
-    # just openssl
-    - rust: stable
-      env: MODULES="client integration-tests proto resolver server"
-           OPTIONS="--no-default-features --features=dnssec-openssl"
-           RUN_KCOV=1
-           RUST_BACKTRACE=full
-
-    # just dns-over-openssl
-    - rust: stable
-      env: MODULES="resolver"
-           OPTIONS="--no-default-features --features=dns-over-openssl"
-           RUN_KCOV=1
-           RUST_BACKTRACE=full
-
-    # just ring
-    - rust: stable
-      env: MODULES="client integration-tests proto resolver server"
-           OPTIONS="--no-default-features --features=dnssec-ring"
-           RUN_KCOV=1
-           RUST_BACKTRACE=full
-
-    # just dns-over-rustls
-    - rust: stable
-      env: MODULES="resolver"
-           OPTIONS="--no-default-features --features=dns-over-rustls"
-           RUN_KCOV=1
-           RUST_BACKTRACE=full
-
-    # just dns-over-native-tls
-    - rust: stable
-      env: MODULES="resolver"
-           OPTIONS="--no-default-features --features=dns-over-native-tls"
-           RUN_KCOV=1
-           RUST_BACKTRACE=full
-
-    # just tls using openssl
-    - rust: stable
-      env: MODULES="integration-tests server"
-           OPTIONS="--no-default-features --features=dns-over-openssl"
-           RUN_KCOV=1
-           RUST_BACKTRACE=full
 
     # min rust version
     # - rust: 1.14.0
     - rust: beta
       env: RUST_BACKTRACE=full
 
+    # macos
     - os: osx
       rust: stable
-      env: OPTIONS="--all-features"
-           RUST_BACKTRACE=full
+      env: RUST_BACKTRACE=full
 
+    # nightly
     - rust: nightly
       env: RUST_BACKTRACE=full
 
+    # clippy
     - rust: nightly
-      env: CLIPPY=true
-           RUST_BACKTRACE=full
+      env: RUST_BACKTRACE=full
+      before_install:
+        - cargo install clippy --force
+      script:
+        - scripts/run_clippy.sh
 
     - rust: nightly
-      env: RUSTFMT=true
-           RUST_BACKTRACE=full
+      env: RUST_BACKTRACE=full
+      before_install:
+        - cargo install rustfmt-nightly --force
+      script:
+        - cargo fmt --all -- --write-mode=diff
 
     - rust: stable
-      env: MODULES="compatibility-tests"
-           TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
-           OPTIONS="--no-default-features --features=bind"
+      env: TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
            RUST_BACKTRACE=full
+      before_install:
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
+        - scripts/install_bind.sh
+      script:
+        - cargo test --manifest-path compatibility-tests/Cargo.toml --no-default-features --features=bind
 
   allow_failures:
     - rust: nightly
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
-  - if [[ "$MODULES" == "compatibility-tests" ]]; then scripts/install_bind.sh ; fi
-  - if [[ "$RUSTFMT" == "true" ]]; then cargo install rustfmt-nightly --force ; fi
-  - if [[ "$CLIPPY" == "true" ]]; then cargo install clippy --force; fi
+  - bash -c '[[ "$TRAVIS_OS_NAME" == "linux" ]] && then scripts/install_openssl_deb.sh'
 
 script:
-    - bash -c 'if [ -z ${CLIPPY+x} ] && [ -z ${RUSTFMT+x} ] ; then scripts/run_tests.sh ; fi'
-    - bash -c 'if [[ "$CLIPPY" == "true" ]] ; then scripts/run_clippy.sh ; fi'
-    - bash -c 'if [[ "$RUSTFMT" == "true" ]] ; then cargo fmt --all -- --write-mode=diff; fi'
+  - scripts/run_tests.sh
+
 after_success: scripts/run_kcov.sh
