@@ -84,6 +84,7 @@ time = "^0.1"
 tokio-core = "^0.1"
 tokio-tcp = "^0.1"
 tokio-timer = "^0.2"
+tokio-udp = "^0.1"
 toml = "^0.4"
 trust-dns = { version = "^0.13", path = "../client" }
 trust-dns-proto = { version = "^0.3", path = "../proto" }

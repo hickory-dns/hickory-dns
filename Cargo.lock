@@ -1136,6 +1136,7 @@ dependencies = [
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tcp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-timer 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-udp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.13.0",
  "trust-dns-openssl 0.2.0",
  "trust-dns-proto 0.3.2",
@@ -1189,6 +1190,7 @@ dependencies = [
  "tokio-io 0.1.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tcp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-timer 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-udp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "untrusted 0.5.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "url 1.7.0 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
@@ -1250,6 +1252,7 @@ dependencies = [
  "tokio-tcp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-timer 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-tls 0.1.4 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-udp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "toml 0.4.6 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.13.0",
  "trust-dns-native-tls 0.2.0",

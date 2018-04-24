@@ -37,6 +37,7 @@ extern crate clap;
 #[macro_use]
 extern crate log;
 extern crate tokio_tcp;
+extern crate tokio_udp;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
@@ -45,7 +46,7 @@ extern crate trust_dns_openssl;
 
 use std::fs::File;
 use std::collections::BTreeMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
 use std::io::Read;
 
@@ -53,6 +54,7 @@ use std::io::Read;
 use chrono::Duration;
 use clap::{Arg, ArgMatches};
 use tokio_tcp::TcpListener;
+use tokio_udp::UdpSocket;
 
 use trust_dns::error::ParseResult;
 use trust_dns::serialize::txt::{Lexer, Parser};

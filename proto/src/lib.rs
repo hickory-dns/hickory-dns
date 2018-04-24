@@ -37,6 +37,7 @@ extern crate tokio_core;
 extern crate tokio_io;
 extern crate tokio_tcp;
 extern crate tokio_timer;
+extern crate tokio_udp;
 #[cfg(feature = "ring")]
 extern crate untrusted;
 extern crate url;

@@ -72,6 +72,7 @@ rustls = { version = "^0.11.0" }
 tokio-core = "^0.1"
 tokio-tcp = "^0.1"
 tokio-timer = "^0.2"
+tokio-udp = "^0.1"
 trust-dns = { version = "*", path = "../client" }
 trust-dns-openssl = { version = "*", path = "../openssl" }
 trust-dns-proto = { version = "*", path = "../proto" }

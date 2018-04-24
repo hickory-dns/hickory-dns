@@ -47,7 +47,7 @@ fn test_query_nonet() {
 fn test_query_udp_ipv4() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+    let (stream, sender) = UdpClientStream::new(addr);
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -64,7 +64,7 @@ fn test_query_udp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+    let (stream, sender) = UdpClientStream::new(addr);
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -828,7 +828,7 @@ fn test_timeout_query_udp() {
         .next()
         .unwrap();
 
-    let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+    let (stream, sender) = UdpClientStream::new(addr);
     let client = ClientFuture::with_timeout(
         stream,
         sender,

@@ -190,7 +190,7 @@ impl ConnectionProvider for StandardConnection {
     ) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
             Protocol::Udp => {
-                let (stream, handle) = UdpClientStream::new(config.socket_addr, reactor);
+                let (stream, handle) = UdpClientStream::new(config.socket_addr);
                 // TODO: need config for Signer...
                 DnsFuture::with_timeout(
                     stream,

@@ -52,14 +52,14 @@ impl ClientConnection for UdpClientConnection {
 
     fn new_stream(
         &self,
-        handle: &Handle,
+        _handle: &Handle,
     ) -> ClientResult<
         (
             Box<Future<Item = Self::MessageStream, Error = io::Error>>,
             Box<DnsStreamHandle<Error = ClientError>>,
         ),
     > {
-        let (udp_client_stream, handle) = UdpClientStream::new(self.name_server, handle);
+        let (udp_client_stream, handle) = UdpClientStream::new(self.name_server);
 
         Ok((udp_client_stream, handle))
     }

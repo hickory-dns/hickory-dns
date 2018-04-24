@@ -9,7 +9,6 @@ use std::net::SocketAddr;
 use std::io;
 
 use futures::{Async, Future, Poll, Stream};
-use tokio_core::reactor::Handle;
 
 use BufDnsStreamHandle;
 use DnsStreamHandle;
@@ -34,7 +33,6 @@ impl UdpClientStream {
     ///  handle which can be used to send messages into the stream.
     pub fn new<E>(
         name_server: SocketAddr,
-        loop_handle: &Handle,
     ) -> (
         Box<Future<Item = UdpClientStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = E>>,
@@ -42,7 +40,7 @@ impl UdpClientStream {
     where
         E: FromProtoError + 'static,
     {
-        let (stream_future, sender) = UdpStream::new(name_server, loop_handle);
+        let (stream_future, sender) = UdpStream::new(name_server);
 
         let new_future: Box<Future<Item = UdpClientStream, Error = io::Error>> =
             Box::new(stream_future.map(move |udp_stream| {
@@ -159,7 +157,7 @@ fn udp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-    let (stream, mut sender) = UdpClientStream::new::<ProtoError>(server_addr, &io_loop.handle());
+    let (stream, mut sender) = UdpClientStream::new::<ProtoError>(server_addr);
     let mut stream: UdpClientStream = io_loop.run(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {
