@@ -43,7 +43,7 @@ matrix:
       env: TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
            RUST_BACKTRACE=full
       before_install:
-        - bash -c '[[ "$TRAVIS_OS_NAME" == "linux" ]] && scripts/install_openssl_deb.sh'
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
         - scripts/install_bind.sh
       script:
         - cargo test --manifest-path compatibility-tests/Cargo.toml --no-default-features --features=bind
@@ -52,7 +52,7 @@ matrix:
     - rust: nightly
 
 before_install:
-  - bash -c '[[ "$TRAVIS_OS_NAME" == "linux" ]] && scripts/install_openssl_deb.sh'
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
 
 script:
   - scripts/run_tests.sh
