@@ -1,4 +1,6 @@
-#!/bin/bash -e -x
+#!/bin/bash -e
+
+set -x
 
 # Enumerates all tests and feature variations for each module
 
