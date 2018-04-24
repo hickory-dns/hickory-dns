@@ -41,14 +41,14 @@ fn test_example_toml_startup() {
     named_test_harness("example.toml", |port, _| {
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         query_a(&mut io_loop, &mut client);
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         query_a(&mut io_loop, &mut client);
@@ -60,14 +60,14 @@ fn test_ipv4_only_toml_startup() {
     named_test_harness("ipv4_only.toml", |port, _| {
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
 
         let addr: SocketAddr = SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         // ipv6 should fail
@@ -89,14 +89,14 @@ fn test_ipv4_only_toml_startup() {
 //   named_test_harness("ipv6_only.toml", |port, _| {
 //     let mut io_loop = Core::new().unwrap();
 //     let addr: SocketAddr = ("127.0.0.1", port).to_socket_addrs().unwrap().next().unwrap();
-//     let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+//     let (stream, sender) = TcpClientStream::new(addr);
 //     let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 //
 //     // ipv4 should fail
 //     assert!(!query(&mut io_loop, client));
 //
 //     let addr: SocketAddr = ("::1", port).to_socket_addrs().unwrap().next().unwrap();
-//     let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+//     let (stream, sender) = TcpClientStream::new(addr);
 //     let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 //
 //     // ipv6 should succeed
@@ -112,14 +112,14 @@ fn test_ipv4_and_ipv6_toml_startup() {
     named_test_harness("ipv4_and_ipv6.toml", |port, _| {
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
 
         let addr: SocketAddr = SocketAddr::new(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         // ipv6 should succeed
@@ -134,7 +134,7 @@ fn test_nodata_where_name_exists() {
     named_test_harness("example.toml", |port, _| {
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         let msg = io_loop
@@ -155,7 +155,7 @@ fn test_nxdomain_where_no_name_exists() {
     named_test_harness("example.toml", |port, _| {
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         let msg = io_loop
@@ -196,7 +196,7 @@ fn test_example_tls_toml_startup() {
         let mut tls_conn_builder = TlsClientStreamBuilder::new();
         tls_conn_builder.add_ca_der(&cert_der).unwrap();
         let (stream, sender) =
-            tls_conn_builder.build(addr, "ns.example.com".to_string(), &io_loop.handle());
+            tls_conn_builder.build(addr, "ns.example.com".to_string());
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         // ipv4 should succeed
@@ -206,7 +206,7 @@ fn test_example_tls_toml_startup() {
         let mut tls_conn_builder = TlsClientStreamBuilder::new();
         tls_conn_builder.add_ca_der(&cert_der).unwrap();
         let (stream, sender) =
-            tls_conn_builder.build(addr, "ns.example.com".to_string(), &io_loop.handle());
+            tls_conn_builder.build(addr, "ns.example.com".to_string());
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         // ipv6 should succeed
@@ -248,7 +248,7 @@ fn test_server_continues_on_bad_data_tcp() {
     named_test_harness("example.toml", |port, _| {
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         query_a(&mut io_loop, &mut client);
@@ -262,7 +262,7 @@ fn test_server_continues_on_bad_data_tcp() {
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = TcpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         query_a(&mut io_loop, &mut client);

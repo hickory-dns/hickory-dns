@@ -49,7 +49,7 @@ impl ClientConnection for TlsClientConnection {
 
     fn new_stream(
         &self,
-        handle: &Handle,
+        _handle: &Handle,
     ) -> ClientResult<(
         Box<Future<Item = Self::MessageStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = ClientError>>,
@@ -57,7 +57,7 @@ impl ClientConnection for TlsClientConnection {
         let (tls_client_stream, handle) =
             self.builder
                 .clone()
-                .build(self.name_server, self.dns_name.clone(), handle);
+                .build(self.name_server, self.dns_name.clone());
 
         Ok((tls_client_stream, handle))
     }
@@ -88,7 +88,6 @@ impl TlsClientConnectionBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    /// * `loop_handle` - The reactor Core handle
     pub fn build(
         self,
         name_server: SocketAddr,
