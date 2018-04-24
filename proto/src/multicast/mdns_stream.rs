@@ -7,7 +7,7 @@
 
 use std;
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
 use futures::future;
 use futures::stream::Stream;
@@ -17,8 +17,8 @@ use futures::{Async, Future, Poll};
 use rand;
 use rand::distributions::{IndependentSample, Range};
 use socket2::{self, Socket};
-use tokio_core;
 use tokio_core::reactor::Handle;
+use tokio_udp::UdpSocket;
 
 use BufStreamHandle;
 use error::*;
@@ -39,7 +39,7 @@ pub struct MdnsStream {
     /// This is used for sending and (directly) receiving messages
     datagram: Option<UdpStream>,
     /// In one-shot multicast, this will not join the multicast group
-    multicast: Option<tokio_core::net::UdpSocket>,
+    multicast: Option<UdpSocket>,
 }
 
 impl MdnsStream {
@@ -159,18 +159,18 @@ impl MdnsStream {
                 next_socket
                     .map(move |socket: Option<_>| {
                         socket.map(|socket| {
-                            tokio_core::net::UdpSocket::from_socket(socket, &handle)
+                            UdpSocket::from_std(socket, &handle.new_tokio_handle())
                                 .expect("bad handle?")
                         })
                     })
                     .map(move |socket: Option<_>| {
                         let datagram =
                             socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
-                        let multicast: Option<tokio_core::net::UdpSocket> =
+                        let multicast: Option<UdpSocket> =
                             multicast_socket.map(|multicast_socket| {
-                                tokio_core::net::UdpSocket::from_socket(
+                                UdpSocket::from_std(
                                     multicast_socket,
-                                    &handle_clone,
+                                    &handle_clone.new_tokio_handle(),
                                 ).expect("bad handle?")
                             });
 
@@ -302,7 +302,7 @@ impl Stream for MdnsStream {
             let mut buf = [0u8; 2048];
 
             // TODO: should we drop this packet if it's not from the same src as dest?
-            let (len, src) = try_nb!(multicast.recv_from(&mut buf));
+            let (len, src) = try_ready!(multicast.poll_recv_from(&mut buf));
             // now return the multicast
             return Ok(Async::Ready(Some((
                 buf.iter().take(len).cloned().collect(),
@@ -324,7 +324,7 @@ struct NextRandomUdpSocket {
 }
 
 impl NextRandomUdpSocket {
-    fn prepare_sender(&self, socket: UdpSocket) -> io::Result<UdpSocket> {
+    fn prepare_sender(&self, socket: std::net::UdpSocket) -> io::Result<std::net::UdpSocket> {
         let addr = socket.local_addr()?;
         debug!("preparing sender on: {}", addr);
 
@@ -359,7 +359,7 @@ impl NextRandomUdpSocket {
 }
 
 impl Future for NextRandomUdpSocket {
-    type Item = Option<UdpSocket>;
+    type Item = Option<std::net::UdpSocket>;
     type Error = io::Error;
 
     /// polls until there is an available next random UDP port.
@@ -373,7 +373,7 @@ impl Future for NextRandomUdpSocket {
         } else if self.mdns_query_type.bind_on_5353() {
             let addr = SocketAddr::new(self.bind_address, MDNS_PORT);
             debug!("binding sending stream to {}", addr);
-            let socket = UdpSocket::bind(&addr)?;
+            let socket = std::net::UdpSocket::bind(&addr)?;
             let socket = self.prepare_sender(socket)?;
 
             Ok(Async::Ready(Some(socket)))
@@ -397,7 +397,7 @@ impl Future for NextRandomUdpSocket {
                 let addr = SocketAddr::new(self.bind_address, port);
                 debug!("binding sending stream to {}", addr);
 
-                match UdpSocket::bind(&addr) {
+                match std::net::UdpSocket::bind(&addr) {
                     Ok(socket) => {
                         let socket = self.prepare_sender(socket)?;
                         return Ok(Async::Ready(Some(socket)));
@@ -483,7 +483,6 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut server_loop = Core::new().unwrap();
-                let loop_handle = server_loop.handle();
                 let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
 
                 // TTLs are 0 so that multicast test packets never leave the test host...
@@ -635,7 +634,6 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut server_loop = Core::new().unwrap();
-                let loop_handle = server_loop.handle();
                 let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
 
                 // TTLs are 0 so that multicast test packets never leave the test host...

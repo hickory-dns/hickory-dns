@@ -221,7 +221,7 @@ fn test_server_continues_on_bad_data_udp() {
     named_test_harness("example.toml", |port, _| {
         let mut io_loop = Core::new().unwrap();
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = UdpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         query_a(&mut io_loop, &mut client);
@@ -236,7 +236,7 @@ fn test_server_continues_on_bad_data_udp() {
 
         // just tests that multiple queries work
         let addr: SocketAddr = SocketAddr::new(Ipv4Addr::new(127, 0, 0, 1).into(), port);
-        let (stream, sender) = UdpClientStream::new(addr, &io_loop.handle());
+        let (stream, sender) = UdpClientStream::new(addr);
         let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
         query_a(&mut io_loop, &mut client);

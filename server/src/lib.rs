@@ -42,6 +42,7 @@ extern crate time;
 extern crate tokio_core;
 extern crate tokio_tcp;
 extern crate tokio_timer;
+extern crate tokio_udp;
 extern crate toml;
 extern crate trust_dns;
 extern crate trust_dns_proto;

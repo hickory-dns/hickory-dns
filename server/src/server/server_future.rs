@@ -4,7 +4,6 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use std;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -14,6 +13,7 @@ use futures::{Async, Future, Poll, Stream};
 
 use tokio_core::reactor::Core;
 use tokio_tcp;
+use tokio_udp;
 
 use trust_dns::error::*;
 use trust_dns::serialize::binary::{BinDecodable, BinDecoder};
@@ -48,11 +48,11 @@ impl<T: RequestHandler> ServerFuture<T> {
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
-    pub fn register_socket(&self, socket: std::net::UdpSocket) {
+    pub fn register_socket(&self, socket: tokio_udp::UdpSocket) {
         debug!("registered udp: {:?}", socket);
 
         // create the new UdpStream
-        let (buf_stream, stream_handle) = UdpStream::with_bound(socket, &self.io_loop.handle());
+        let (buf_stream, stream_handle) = UdpStream::with_bound(socket);
         //let request_stream = RequestStream::new(buf_stream, stream_handle);
         let handler = self.handler.clone();
 

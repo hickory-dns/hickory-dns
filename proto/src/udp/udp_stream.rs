@@ -5,7 +5,6 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std;
 use std::io;
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 
@@ -15,8 +14,7 @@ use futures::task;
 use futures::{Async, Future, Poll};
 use rand;
 use rand::distributions::{IndependentSample, Range};
-use tokio_core;
-use tokio_core::reactor::Handle;
+use tokio_udp;
 
 use BufStreamHandle;
 use error::*;
@@ -25,7 +23,7 @@ use error::*;
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream {
     // FIXME: change UdpStream to always select a new Socket for every request
-    socket: tokio_core::net::UdpSocket,
+    socket: tokio_udp::UdpSocket,
     outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
 }
 
@@ -38,7 +36,6 @@ impl UdpStream {
     /// # Arguments
     ///
     /// * `name_server` - socket address for the remote server (used to determine IPv4 or IPv6)
-    /// * `loop_handle` - handle to the IO loop
     ///
     /// # Return
     ///
@@ -46,7 +43,6 @@ impl UdpStream {
     ///  handle which can be used to send messages into the stream.
     pub fn new<E>(
         name_server: SocketAddr,
-        loop_handle: &Handle,
     ) -> (
         Box<Future<Item = UdpStream, Error = io::Error>>,
         BufStreamHandle<E>,
@@ -64,13 +60,8 @@ impl UdpStream {
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
         let stream: Box<Future<Item = UdpStream, Error = io::Error>> = {
-            let handle = loop_handle.clone();
             Box::new(
                 next_socket
-                    .map(move |socket| {
-                        tokio_core::net::UdpSocket::from_socket(socket, &handle)
-                            .expect("something wrong with the handle?")
-                    })
                     .map(move |socket| UdpStream {
                         socket: socket,
                         outbound_messages: outbound_messages.fuse().peekable(),
@@ -89,25 +80,19 @@ impl UdpStream {
     /// # Arguments
     ///
     /// * `socket` - an already bound UDP socket
-    /// * `loop_handle` - handle to the IO loop
     ///
     /// # Return
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
     pub fn with_bound<E>(
-        socket: std::net::UdpSocket,
-        loop_handle: &Handle,
+        socket: tokio_udp::UdpSocket,
     ) -> (Self, BufStreamHandle<E>)
     where
         E: FromProtoError + 'static,
     {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::<E>::new(message_sender);
-
-        // TODO: consider making this return a Result...
-        let socket = tokio_core::net::UdpSocket::from_socket(socket, loop_handle)
-            .expect("could not register socket to loop");
 
         let stream = UdpStream {
             socket: socket,
@@ -119,7 +104,7 @@ impl UdpStream {
 
     #[allow(unused)]
     pub(crate) fn from_parts(
-        socket: tokio_core::net::UdpSocket,
+        socket: tokio_udp::UdpSocket,
         outbound_messages: UnboundedReceiver<(Vec<u8>, SocketAddr)>,
     ) -> Self {
         UdpStream {
@@ -154,13 +139,8 @@ impl Stream for UdpStream {
                 .peek()
                 .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
             {
-                match self.socket.poll_write() {
-                    Async::NotReady => return Ok(Async::NotReady),
-                    Async::Ready(_) => {
-                        // will return if the socket will block
-                        try_nb!(self.socket.send_to(buffer, &addr));
-                    }
-                }
+                // will return if the socket will block
+                try_ready!(self.socket.poll_send_to(buffer, &addr));
             }
 
             // now pop the request and check if we should break or continue.
@@ -183,7 +163,7 @@ impl Stream for UdpStream {
         let mut buf = [0u8; 2048];
 
         // TODO: should we drop this packet if it's not from the same src as dest?
-        let (len, src) = try_nb!(self.socket.recv_from(&mut buf));
+        let (len, src) = try_ready!(self.socket.poll_recv_from(&mut buf));
         Ok(Async::Ready(Some((
             buf.iter().take(len).cloned().collect(),
             src,
@@ -197,7 +177,7 @@ struct NextRandomUdpSocket {
 }
 
 impl Future for NextRandomUdpSocket {
-    type Item = std::net::UdpSocket;
+    type Item = tokio_udp::UdpSocket;
     type Error = io::Error;
 
     /// polls until there is an available next random UDP port.
@@ -212,7 +192,7 @@ impl Future for NextRandomUdpSocket {
             let zero_addr = SocketAddr::new(self.bind_address, port);
 
             // TODO: allow TTL to be adjusted...
-            match std::net::UdpSocket::bind(&zero_addr) {
+            match tokio_udp::UdpSocket::bind(&zero_addr) {
                 Ok(socket) => return Ok(Async::Ready(socket)),
                 Err(err) => debug!("unable to bind port, attempt: {}: {}", attempt, err),
             }
@@ -228,13 +208,14 @@ impl Future for NextRandomUdpSocket {
 
 #[test]
 fn test_next_random_socket() {
+    use tokio_core;
+
     let mut io_loop = tokio_core::reactor::Core::new().unwrap();
     let (stream, _) = UdpStream::new::<ProtoError>(
         SocketAddr::new(
-            std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)),
+            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
             52,
         ),
-        &io_loop.handle(),
     );
     drop(
         io_loop
@@ -246,13 +227,13 @@ fn test_next_random_socket() {
 
 #[test]
 fn test_udp_stream_ipv4() {
-    udp_stream_test(std::net::IpAddr::V4(std::net::Ipv4Addr::new(127, 0, 0, 1)))
+    udp_stream_test(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)))
 }
 
 #[test]
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_udp_stream_ipv6() {
-    udp_stream_test(std::net::IpAddr::V6(std::net::Ipv6Addr::new(
+    udp_stream_test(IpAddr::V6(Ipv6Addr::new(
         0,
         0,
         0,
@@ -265,10 +246,11 @@ fn test_udp_stream_ipv6() {
 }
 
 #[cfg(test)]
-fn udp_stream_test(server_addr: std::net::IpAddr) {
+fn udp_stream_test(server_addr: IpAddr) {
     use tokio_core::reactor::Core;
 
     use std;
+    use std::net::ToSocketAddrs;
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     std::thread::Builder::new()
@@ -329,8 +311,8 @@ fn udp_stream_test(server_addr: std::net::IpAddr) {
         std::net::SocketAddr::V6(_) => "[::1]:0",
     };
 
-    let socket = std::net::UdpSocket::bind(client_addr).expect("could not create socket"); // some random address...
-    let (mut stream, sender) = UdpStream::with_bound::<ProtoError>(socket, &io_loop.handle());
+    let socket = tokio_udp::UdpSocket::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap()).expect("could not create socket"); // some random address...
+    let (mut stream, sender) = UdpStream::with_bound::<ProtoError>(socket);
     //let mut stream: UdpStream = io_loop.run(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {
