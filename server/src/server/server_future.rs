@@ -87,13 +87,11 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               only, this would require some type of whitelisting.
     pub fn register_listener(
         &self,
-        listener: std::net::TcpListener,
+        listener: tokio_tcp::TcpListener,
         timeout: Duration,
     ) -> io::Result<()> {
         let handle = self.io_loop.handle();
         let handler = self.handler.clone();
-        let listener = tokio_tcp::TcpListener::from_std(listener, &handle.new_tokio_handle())
-            .expect("could not register listener");
         debug!("registered tcp: {:?}", listener);
 
         // for each incoming request...
@@ -152,14 +150,12 @@ impl<T: RequestHandler> ServerFuture<T> {
     #[cfg(feature = "tls")]
     pub fn register_tls_listener(
         &self,
-        listener: std::net::TcpListener,
+        listener: tokio_tcp::TcpListener,
         timeout: Duration,
         pkcs12: ParsedPkcs12,
     ) -> io::Result<()> {
         let handle = self.io_loop.handle();
         let handler = self.handler.clone();
-        let listener = tokio_tcp::TcpListener::from_std(listener, &handle.new_tokio_handle())
-            .expect("could not register listener");
         debug!("registered tcp: {:?}", listener);
 
         let tls_acceptor = tls_server::new_acceptor(&pkcs12)?;
