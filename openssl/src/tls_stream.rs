@@ -16,8 +16,7 @@ use openssl::ssl::{SslConnector, SslContextBuilder, SslMethod, SslOptions};
 use openssl::stack::Stack;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::{X509, X509Ref};
-use tokio_core::net::TcpStream as TokioTcpStream;
-use tokio_core::reactor::Handle;
+use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_openssl::{SslConnectorExt, SslStream as TokioTlsStream};
 
 use trust_dns_proto::error::FromProtoError;
@@ -181,12 +180,10 @@ impl TlsStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    /// * `loop_handle` - The reactor Core handle
     pub fn build<E>(
         self,
         name_server: SocketAddr,
         dns_name: String,
-        loop_handle: &Handle,
     ) -> (
         Box<Future<Item = TlsStream, Error = io::Error>>,
         BufStreamHandle<E>,
@@ -212,7 +209,7 @@ impl TlsStreamBuilder {
             }
         };
 
-        let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
+        let tcp = TokioTcpStream::connect(&name_server);
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.

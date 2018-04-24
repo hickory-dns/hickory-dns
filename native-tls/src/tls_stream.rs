@@ -14,8 +14,7 @@ use futures::sync::mpsc::unbounded;
 use futures::{future, Future, IntoFuture};
 use native_tls::Protocol::Tlsv12;
 use native_tls::{Certificate, Pkcs12, TlsConnector};
-use tokio_core::net::TcpStream as TokioTcpStream;
-use tokio_core::reactor::Handle;
+use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_tls::{TlsConnectorExt, TlsStream as TokioTlsStream};
 
 use trust_dns_proto::error::FromProtoError;
@@ -135,12 +134,10 @@ impl TlsStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Public Key Info (SPKI) name, as associated to a certificate
-    /// * `loop_handle` - The reactor Core handle
     pub fn build<E>(
         self,
         name_server: SocketAddr,
         dns_name: String,
-        loop_handle: &Handle,
     ) -> (
         Box<Future<Item = TlsStream, Error = io::Error>>,
         BufStreamHandle<E>,
@@ -166,7 +163,7 @@ impl TlsStreamBuilder {
             }
         };
 
-        let tcp = TokioTcpStream::connect(&name_server, &loop_handle);
+        let tcp = TokioTcpStream::connect(&name_server);
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.

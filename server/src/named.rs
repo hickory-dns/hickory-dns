@@ -36,6 +36,7 @@ extern crate chrono;
 extern crate clap;
 #[macro_use]
 extern crate log;
+extern crate tokio_tcp;
 extern crate trust_dns;
 extern crate trust_dns_server;
 
@@ -44,13 +45,14 @@ extern crate trust_dns_openssl;
 
 use std::fs::File;
 use std::collections::BTreeMap;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, TcpListener, ToSocketAddrs, UdpSocket};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs, UdpSocket};
 use std::path::{Path, PathBuf};
 use std::io::Read;
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
 use clap::{Arg, ArgMatches};
+use tokio_tcp::TcpListener;
 
 use trust_dns::error::ParseResult;
 use trust_dns::serialize::txt::{Lexer, Parser};

@@ -211,7 +211,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     }
 
     let (stream, sender) =
-        builder.build::<ProtoError>(server_addr, subject_name.to_string(), &io_loop.handle());
+        builder.build::<ProtoError>(server_addr, subject_name.to_string());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
     let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");

@@ -12,7 +12,6 @@ use std::io;
 use std::net::SocketAddr;
 
 use futures::Future;
-use tokio_core::reactor::Handle;
 
 use trust_dns_openssl::{TlsClientStream, TlsClientStreamBuilder};
 use trust_dns_proto::DnsStreamHandle;
@@ -22,11 +21,10 @@ use error::*;
 pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
-    loop_handle: &Handle,
 ) -> (
     Box<Future<Item = TlsClientStream, Error = io::Error>>,
     Box<DnsStreamHandle<Error = ResolveError>>,
 ) {
     let tls_builder = TlsClientStreamBuilder::new();
-    tls_builder.build(socket_addr, dns_name, loop_handle)
+    tls_builder.build(socket_addr, dns_name)
 }

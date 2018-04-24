@@ -19,8 +19,8 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use futures::Future;
-use tokio_core::net::TcpStream;
 use tokio_core::reactor::Handle;
+use tokio_tcp::TcpStream;
 use trust_dns_proto::DnsStreamHandle;
 
 use error::*;
@@ -72,7 +72,7 @@ impl ClientConnection for TcpClientConnection {
 
     fn new_stream(
         &self,
-        handle: &Handle,
+        _handle: &Handle,
     ) -> ClientResult<
         (
             Box<Future<Item = Self::MessageStream, Error = io::Error>>,
@@ -80,7 +80,7 @@ impl ClientConnection for TcpClientConnection {
         ),
     > {
         let (tcp_client_stream, handle) =
-            TcpClientStream::<TcpStream>::with_timeout(self.name_server, handle, self.timeout);
+            TcpClientStream::<TcpStream>::with_timeout(self.name_server, self.timeout);
 
         Ok((tcp_client_stream, handle))
     }
