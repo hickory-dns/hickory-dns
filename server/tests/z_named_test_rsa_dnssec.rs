@@ -60,7 +60,7 @@ fn standard_conn(port: u16, io_loop: &Core) -> BasicClientHandle {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+    let (stream, sender) = TcpClientStream::new(addr);
     ClientFuture::new(stream, sender, &io_loop.handle(), None)
 }
 

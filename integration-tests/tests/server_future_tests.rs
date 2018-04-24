@@ -1,6 +1,7 @@
 extern crate futures;
 extern crate openssl;
 extern crate rustls;
+extern crate tokio_tcp;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_openssl;
@@ -11,7 +12,7 @@ use std::env;
 use std::fs::File;
 use std::io;
 use std::io::Read;
-use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, TcpListener, UdpSocket};
+use std::net::{Ipv4Addr, SocketAddr, SocketAddrV4, UdpSocket};
 use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
@@ -21,6 +22,7 @@ use std::time::Duration;
 use futures::Stream;
 use openssl::pkcs12::Pkcs12;
 use rustls::Certificate;
+use tokio_tcp::TcpListener;
 
 use trust_dns::client::*;
 use trust_dns::op::*;

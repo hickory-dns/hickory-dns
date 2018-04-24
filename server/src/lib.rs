@@ -40,6 +40,7 @@ extern crate serde;
 extern crate serde_derive;
 extern crate time;
 extern crate tokio_core;
+extern crate tokio_tcp;
 extern crate tokio_timer;
 extern crate toml;
 extern crate trust_dns;

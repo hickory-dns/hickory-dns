@@ -16,8 +16,7 @@ use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use tokio_io::{AsyncRead, AsyncWrite};
-use tokio_core::net::TcpStream as TokioTcpStream;
-use tokio_core::reactor::Handle;
+use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_timer::Deadline;
 
 use BufStreamHandle;
@@ -91,7 +90,6 @@ impl TcpStream<TokioTcpStream> {
     /// * `loop_handle` - reference to the takio_core::Core for future based IO
     pub fn new<E>(
         name_server: SocketAddr,
-        loop_handle: &Handle,
     ) -> (
         Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>,
         BufStreamHandle<E>,
@@ -99,7 +97,7 @@ impl TcpStream<TokioTcpStream> {
     where
         E: FromProtoError,
     {
-        Self::with_timeout(name_server, loop_handle, Duration::from_secs(5))
+        Self::with_timeout(name_server, Duration::from_secs(5))
     }
 
     /// Creates a new future of the eventually establish a IO stream connection or fail trying
@@ -111,7 +109,6 @@ impl TcpStream<TokioTcpStream> {
     /// * `timeout` - connection timeout
     pub fn with_timeout<E>(
         name_server: SocketAddr,
-        loop_handle: &Handle,
         timeout: Duration,
     ) -> (
         Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>,
@@ -125,7 +122,7 @@ impl TcpStream<TokioTcpStream> {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let tcp = TokioTcpStream::connect(&name_server, loop_handle);
+        let tcp = TokioTcpStream::connect(&name_server);
         let stream = Deadline::new(tcp, Instant::now() + timeout)
             .map_err(move |e| {
                 e.into_inner().unwrap_or_else(|| {
@@ -151,7 +148,7 @@ impl TcpStream<TokioTcpStream> {
 }
 
 impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
-    /// Initializes a TcpStream with an existing tokio_core::net::TcpStream.
+    /// Initializes a TcpStream with an existing tokio_tcp::TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
     ///
@@ -524,7 +521,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
     // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
-    let (stream, sender) = TcpStream::new::<ProtoError>(server_addr, &io_loop.handle());
+    let (stream, sender) = TcpStream::new::<ProtoError>(server_addr);
 
     let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
 

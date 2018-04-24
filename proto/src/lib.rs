@@ -35,6 +35,7 @@ extern crate socket2;
 #[macro_use]
 extern crate tokio_core;
 extern crate tokio_io;
+extern crate tokio_tcp;
 extern crate tokio_timer;
 #[cfg(feature = "ring")]
 extern crate untrusted;

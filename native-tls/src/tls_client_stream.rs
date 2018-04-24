@@ -14,8 +14,7 @@ use futures::Future;
 use native_tls::Certificate;
 #[cfg(feature = "mtls")]
 use native_tls::Pkcs12;
-use tokio_core::net::TcpStream as TokioTcpStream;
-use tokio_core::reactor::Handle;
+use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_tls::TlsStream as TokioTlsStream;
 
 use trust_dns_proto::error::FromProtoError;
@@ -57,12 +56,10 @@ impl TlsClientStreamBuilder {
     ///
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
-    /// * `loop_handle` - The reactor Core handle
     pub fn build<E>(
         self,
         name_server: SocketAddr,
         dns_name: String,
-        loop_handle: &Handle,
     ) -> (
         Box<Future<Item = TlsClientStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = E>>,
@@ -70,7 +67,7 @@ impl TlsClientStreamBuilder {
     where
         E: FromProtoError + 'static,
     {
-        let (stream_future, sender) = self.0.build(name_server, dns_name, loop_handle);
+        let (stream_future, sender) = self.0.build(name_server, dns_name);
 
         let new_future: Box<Future<Item = TlsClientStream, Error = io::Error>> =
             Box::new(stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)));
