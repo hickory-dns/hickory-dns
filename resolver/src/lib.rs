@@ -36,11 +36,12 @@
 //!
 //! ```rust
 //! use std::net::*;
+//! use std::sync::Arc;
 //! use trust_dns_resolver::Resolver;
 //! use trust_dns_resolver::config::*;
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+//! let resolver = Resolver::new(Arc::new(ResolverConfig::default()), ResolverOpts::default()).unwrap();
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // The final dot forces this to be an FQDN, otherwise the search rules as specified
@@ -81,6 +82,7 @@
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! use std::net::*;
+//! use std::sync::Arc;
 //! use tokio_core::reactor::Core;
 //! use trust_dns_resolver::ResolverFuture;
 //! use trust_dns_resolver::config::*;
@@ -90,7 +92,7 @@
 //! let mut io_loop = Core::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), &io_loop.handle());
+//! let resolver = ResolverFuture::new(Arc::new(ResolverConfig::default()), ResolverOpts::default(), &io_loop.handle());
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to

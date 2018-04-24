@@ -61,7 +61,7 @@ impl DnsHandle for BasicResolverHandle {
 
 /// A Resolver for DNS records.
 pub struct ResolverFuture {
-    config: ResolverConfig,
+    config: Arc<ResolverConfig>,
     options: ResolverOpts,
     pub(crate) client_cache: CachingClient<LookupEither<BasicResolverHandle, StandardConnection>>,
     hosts: Option<Arc<Hosts>>,
@@ -108,7 +108,7 @@ impl ResolverFuture {
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
     /// * `reactor` - the [`tokio_core::Core`] to use with this future
-    pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
+    pub fn new(config: Arc<ResolverConfig>, options: ResolverOpts, reactor: &Handle) -> Self {
         let lru = Arc::new(Mutex::new(DnsLru::new(options.cache_size)));
 
         Self::with_cache(config, options, lru, reactor)
@@ -123,7 +123,7 @@ impl ResolverFuture {
     /// * `lru` - the cache to be used with the resolver
     /// * `reactor` - the [`tokio_core::Core`] to use with this future
     pub(crate) fn with_cache(
-        config: ResolverConfig,
+        config: Arc<ResolverConfig>,
         options: ResolverOpts,
         lru: Arc<Mutex<DnsLru>>,
         reactor: &Handle,
@@ -169,7 +169,7 @@ impl ResolverFuture {
     #[cfg(any(unix, target_os = "windows"))]
     pub fn from_system_conf(reactor: &Handle) -> ResolveResult<Self> {
         let (config, options) = super::system_conf::read_system_conf()?;
-        Ok(Self::new(config, options, reactor))
+        Ok(Self::new(Arc::new(config), options, reactor))
     }
 
     fn push_name(name: Name, names: &mut Vec<Name>) {
@@ -189,7 +189,8 @@ impl ResolverFuture {
                 Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.config.search().len());
 
             // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
-            let raw_name_first: bool = name.num_labels() as usize > self.options.ndots || name.is_localhost();
+            let raw_name_first: bool =
+                name.num_labels() as usize > self.options.ndots || name.is_localhost();
 
             // if not meeting ndots, we always do the raw name in the final lookup
             if !raw_name_first {
@@ -339,6 +340,7 @@ mod tests {
 
     use std::net::*;
     use std::str::FromStr;
+    use std::sync::Arc;
 
     use self::tokio_core::reactor::Core;
 
@@ -350,7 +352,8 @@ mod tests {
 
     fn lookup_test(config: ResolverConfig) {
         let mut io_loop = Core::new().unwrap();
-        let resolver = ResolverFuture::new(config, ResolverOpts::default(), &io_loop.handle());
+        let resolver =
+            ResolverFuture::new(Arc::new(config), ResolverOpts::default(), &io_loop.handle());
 
         let response = io_loop
             .run(resolver.lookup_ip("www.example.com."))
@@ -390,7 +393,7 @@ mod tests {
     fn test_ip_lookup() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::default(),
+            Arc::new(ResolverConfig::default()),
             ResolverOpts::default(),
             &io_loop.handle(),
         );
@@ -421,7 +424,7 @@ mod tests {
     fn test_sec_lookup() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::default(),
+            Arc::new(ResolverConfig::default()),
             ResolverOpts {
                 validate: true,
                 ..ResolverOpts::default()
@@ -454,7 +457,7 @@ mod tests {
     fn test_sec_lookup_fails() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::default(),
+            Arc::new(ResolverConfig::default()),
             ResolverOpts {
                 validate: true,
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -536,7 +539,11 @@ mod tests {
 
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::from_parts(Some(domain), search, name_servers),
+            Arc::new(ResolverConfig::from_parts(
+                Some(domain),
+                search,
+                name_servers,
+            )),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
@@ -570,7 +577,11 @@ mod tests {
 
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::from_parts(Some(domain), search, name_servers),
+            Arc::new(ResolverConfig::from_parts(
+                Some(domain),
+                search,
+                name_servers,
+            )),
             ResolverOpts {
                 // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
                 ndots: 2,
@@ -607,7 +618,11 @@ mod tests {
 
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::from_parts(Some(domain), search, name_servers),
+            Arc::new(ResolverConfig::from_parts(
+                Some(domain),
+                search,
+                name_servers,
+            )),
             ResolverOpts {
                 // matches kubernetes default
                 ndots: 5,
@@ -645,7 +660,11 @@ mod tests {
 
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::from_parts(Some(domain), search, name_servers),
+            Arc::new(ResolverConfig::from_parts(
+                Some(domain),
+                search,
+                name_servers,
+            )),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
@@ -682,7 +701,11 @@ mod tests {
 
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::from_parts(Some(domain), search, name_servers),
+            Arc::new(ResolverConfig::from_parts(
+                Some(domain),
+                search,
+                name_servers,
+            )),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
@@ -709,7 +732,7 @@ mod tests {
     fn test_idna() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::default(),
+            Arc::new(ResolverConfig::default()),
             ResolverOpts::default(),
             &io_loop.handle(),
         );
@@ -727,7 +750,7 @@ mod tests {
     fn test_localhost_ipv4() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::default(),
+            Arc::new(ResolverConfig::default()),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
                 ..ResolverOpts::default()
@@ -750,7 +773,7 @@ mod tests {
     fn test_localhost_ipv6() {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(
-            ResolverConfig::default(),
+            Arc::new(ResolverConfig::default()),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()

@@ -13,13 +13,13 @@ use std::sync::{Arc, Mutex};
 use tokio_core::reactor::{Core, Handle};
 use trust_dns_proto::rr::RecordType;
 
-use ResolverFuture;
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::DnsLru;
 use error::*;
 use lookup;
 use lookup::Lookup;
 use lookup_ip::LookupIp;
+use ResolverFuture;
 
 /// The Resolver is used for performing DNS queries.
 ///
@@ -27,7 +27,7 @@ use lookup_ip::LookupIp;
 ///
 /// Special note about resource consumption. The Resolver and all TRust-DNS software is built around the Tokio async-io library. This synchronous Resolver is intended to be a simpler wrapper for of the [`trust_dns_resolver::ResolverFuture`]. To allow the Resolver to be [`Send`] + [`Sync`], the construction of the `ResolverFuture` is lazy, this means some of the features of the `ResolverFuture`, like performance based resolution via the most efficient `NameServer` will be lost (the lookup cache is shared across invocations of the `Resolver`). If these other features of the TRust-DNS Resolver are desired, please use the tokio based `ResolverFuture`.
 pub struct Resolver {
-    config: ResolverConfig,
+    config: Arc<ResolverConfig>,
     options: ResolverOpts,
     lru: Arc<Mutex<DnsLru>>,
 }
@@ -72,7 +72,7 @@ impl Resolver {
     /// # Returns
     ///
     /// A new Resolver or an error if there was an error with the configuration.
-    pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
+    pub fn new(config: Arc<ResolverConfig>, options: ResolverOpts) -> io::Result<Self> {
         let lru = Arc::new(Mutex::new(DnsLru::new(options.cache_size)));
         Ok(Resolver {
             config,
@@ -89,7 +89,7 @@ impl Resolver {
     ///
     /// A new Resolver or an error if there was an error with the configuration.
     pub fn default() -> io::Result<Self> {
-        Self::new(ResolverConfig::default(), ResolverOpts::default())
+        Self::new(Arc::new(ResolverConfig::default()), ResolverOpts::default())
     }
 
     /// Constructs a new Resolver with the system configuration.
@@ -98,14 +98,14 @@ impl Resolver {
     #[cfg(any(unix, target_os = "windows"))]
     pub fn from_system_conf() -> io::Result<Self> {
         let (config, options) = super::system_conf::read_system_conf()?;
-        Self::new(config, options)
+        Self::new(Arc::new(config), options)
     }
 
     /// Constructs a new Core
     fn construct_and_run(&self, reactor: &Handle) -> ResolveResult<ResolverFuture> {
         // TODO: get a pair of the Future and the Handle, to run on the same Core.
         let future = ResolverFuture::with_cache(
-            self.config.clone(),
+            Arc::clone(&self.config),
             self.options.clone(),
             self.lru.clone(),
             reactor,
@@ -181,6 +181,7 @@ impl Resolver {
 #[cfg(test)]
 mod tests {
     use std::net::*;
+    use std::sync::Arc;
 
     use super::*;
 
@@ -195,7 +196,8 @@ mod tests {
 
     #[test]
     fn test_lookup() {
-        let resolver = Resolver::new(ResolverConfig::default(), ResolverOpts::default()).unwrap();
+        let resolver =
+            Resolver::new(Arc::new(ResolverConfig::default()), ResolverOpts::default()).unwrap();
 
         let response = resolver.lookup_ip("www.example.com.").unwrap();
         println!("response records: {:?}", response);
@@ -208,14 +210,7 @@ mod tests {
                 assert_eq!(
                     address,
                     IpAddr::V6(Ipv6Addr::new(
-                        0x2606,
-                        0x2800,
-                        0x220,
-                        0x1,
-                        0x248,
-                        0x1893,
-                        0x25c8,
-                        0x1946,
+                        0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
                     ))
                 );
             }
@@ -239,14 +234,7 @@ mod tests {
                 assert_eq!(
                     address,
                     IpAddr::V6(Ipv6Addr::new(
-                        0x2606,
-                        0x2800,
-                        0x220,
-                        0x1,
-                        0x248,
-                        0x1893,
-                        0x25c8,
-                        0x1946,
+                        0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
                     ))
                 );
             }
