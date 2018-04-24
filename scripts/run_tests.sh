@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 # Enumerates all tests and feature variations for each module
 

@@ -1,4 +1,4 @@
-#!/bin/bash -e
+#!/bin/bash -e -x
 
 trust_dns_dir=$(dirname $0)/..
 cd ${trust_dns_dir:?}
