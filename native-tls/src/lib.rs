@@ -21,6 +21,7 @@
 extern crate futures;
 extern crate native_tls;
 extern crate tokio_core;
+extern crate tokio_tcp;
 extern crate tokio_tls;
 extern crate trust_dns_proto;
 

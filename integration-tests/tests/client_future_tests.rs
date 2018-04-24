@@ -77,7 +77,7 @@ fn test_query_udp_ipv6() {
 fn test_query_tcp_ipv4() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+    let (stream, sender) = TcpClientStream::new(addr);
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -94,7 +94,7 @@ fn test_query_tcp_ipv6() {
         .unwrap()
         .next()
         .unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+    let (stream, sender) = TcpClientStream::new(addr);
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
@@ -851,7 +851,7 @@ fn test_timeout_query_tcp() {
         .unwrap();
 
     let (stream, sender) =
-        TcpClientStream::with_timeout(addr, &io_loop.handle(), std::time::Duration::from_millis(1));
+        TcpClientStream::with_timeout(addr, std::time::Duration::from_millis(1));
     let client = ClientFuture::with_timeout(
         stream,
         sender,

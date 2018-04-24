@@ -295,7 +295,7 @@ where
 
     let io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
-    let (stream, sender) = TcpClientStream::new(addr, &io_loop.handle());
+    let (stream, sender) = TcpClientStream::new(addr);
     let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);

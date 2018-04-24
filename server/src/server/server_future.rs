@@ -12,8 +12,8 @@ use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
 
-use tokio_core;
 use tokio_core::reactor::Core;
+use tokio_tcp;
 
 use trust_dns::error::*;
 use trust_dns::serialize::binary::{BinDecodable, BinDecoder};
@@ -92,9 +92,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ) -> io::Result<()> {
         let handle = self.io_loop.handle();
         let handler = self.handler.clone();
-        // TODO: this is an awkward interface with socketaddr...
-        let addr = listener.local_addr()?;
-        let listener = tokio_core::net::TcpListener::from_listener(listener, &addr, &handle)
+        let listener = tokio_tcp::TcpListener::from_std(listener, &handle.new_tokio_handle())
             .expect("could not register listener");
         debug!("registered tcp: {:?}", listener);
 
@@ -102,7 +100,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         self.io_loop.handle().spawn(
             listener
                 .incoming()
-                .for_each(move |(tcp_stream, src_addr)| {
+                .for_each(move |tcp_stream| {
+                    let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
                     // take the created stream...
                     let (buf_stream, stream_handle) = TcpStream::from_stream(tcp_stream, src_addr);
@@ -159,9 +158,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ) -> io::Result<()> {
         let handle = self.io_loop.handle();
         let handler = self.handler.clone();
-        // TODO: this is an awkward interface with socketaddr...
-        let addr = listener.local_addr().expect("listener is not bound?");
-        let listener = tokio_core::net::TcpListener::from_listener(listener, &addr, &handle)
+        let listener = tokio_tcp::TcpListener::from_std(listener, &handle.new_tokio_handle())
             .expect("could not register listener");
         debug!("registered tcp: {:?}", listener);
 
@@ -171,7 +168,8 @@ impl<T: RequestHandler> ServerFuture<T> {
         self.io_loop.handle().spawn(
             listener
                 .incoming()
-                .for_each(move |(tcp_stream, src_addr)| {
+                .for_each(move |tcp_stream| {
+                    let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
                     let handle = handle.clone();
                     let handler = handler.clone();

@@ -202,7 +202,7 @@ impl ConnectionProvider for StandardConnection {
             }
             Protocol::Tcp => {
                 let (stream, handle) =
-                    TcpClientStream::with_timeout(config.socket_addr, reactor, options.timeout);
+                    TcpClientStream::with_timeout(config.socket_addr, options.timeout);
                 // TODO: need config for Signer...
                 DnsFuture::with_timeout(
                     stream,
@@ -217,7 +217,6 @@ impl ConnectionProvider for StandardConnection {
                 let (stream, handle) = ::tls::new_tls_stream(
                     config.socket_addr,
                     config.tls_dns_name.clone().unwrap_or_default(),
-                    reactor,
                 );
                 DnsFuture::with_timeout(
                     stream,
