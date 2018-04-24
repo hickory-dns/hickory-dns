@@ -1134,6 +1134,7 @@ dependencies = [
  "rusqlite 0.13.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "rustls 0.11.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-core 0.1.17 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio-tcp 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio-timer 0.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "trust-dns 0.13.0",
  "trust-dns-openssl 0.2.0",
