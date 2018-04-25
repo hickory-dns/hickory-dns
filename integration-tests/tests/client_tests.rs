@@ -2,7 +2,6 @@ extern crate chrono;
 extern crate futures;
 extern crate openssl;
 extern crate tokio_core;
-extern crate tokio_reactor;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -18,7 +17,6 @@ use std::time;
 use chrono::Duration;
 use futures::Future;
 use openssl::rsa::Rsa;
-use tokio_reactor::Handle;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
@@ -51,7 +49,6 @@ impl ClientConnection for TestClientConnection {
 
     fn new_stream(
         &self,
-        _: &Handle,
     ) -> ClientResult<(
         Box<Future<Item = Self::MessageStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = ClientError>>,
