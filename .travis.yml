@@ -50,6 +50,7 @@ matrix:
            RUST_BACKTRACE=full
       script: 
         - scripts/run_tests_proto.sh
+        - scripts/run_tests_resolver.sh
 
     # macos
     - os: osx
@@ -58,6 +59,7 @@ matrix:
            RUST_BACKTRACE=full
       script: 
         - scripts/run_tests_proto.sh
+        - scripts/run_tests_resolver.sh
 
     # nightly
     - rust: nightly
@@ -65,6 +67,7 @@ matrix:
            RUST_BACKTRACE=full
       script: 
         - scripts/run_tests_proto.sh
+        - scripts/run_tests_resolver.sh        
 
     # clippy
     - rust: nightly
