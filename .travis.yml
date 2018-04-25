@@ -8,41 +8,63 @@ matrix:
     - rust: stable
       env: NAME=trust-dns-proto
            RUST_BACKTRACE=full
-      script: scripts/run_tests_proto.sh
+      script: 
+        - scripts/run_tests_proto.sh
 
     - rust: stable
       env: NAME=trust-dns-client
            RUST_BACKTRACE=full
-      script: scripts/run_tests_client.sh
+      script: 
+        - scripts/run_tests_client.sh
 
     - rust: stable
       env: NAME=trust-dns-resolver
            RUST_BACKTRACE=full
-      script: scripts/run_tests_resolver.sh
+      script: 
+        - scripts/run_tests_resolver.sh
 
     - rust: stable
       env: NAME=trust-dns-server
            RUST_BACKTRACE=full
-      script: scripts/run_tests_server.sh
+      script: 
+        - scripts/run_tests_server.sh
 
     - rust: stable
       env: NAME=trust-dns-integration-tests
            RUST_BACKTRACE=full
-      script: scripts/run_tests_integration_tests.sh
+      script: 
+        - scripts/run_tests_integration_tests.sh
+
+    # coverage reports
+    - rust: stable
+      env: NAME=kcov
+           RUST_BACKTRACE=full
+           RUN_KCOV=1
+      scripts: 
+        - scripts/run_kcov.sh
 
     # min rust version
     # - rust: 1.14.0
     - rust: beta
-      env: RUST_BACKTRACE=full
+      env: NAME=beta
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/run_tests_proto.sh
 
     # macos
     - os: osx
       rust: stable
-      env: RUST_BACKTRACE=full
+      env: NAME=macOS
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/run_tests_proto.sh
 
     # nightly
     - rust: nightly
-      env: RUST_BACKTRACE=full
+      env: NAME=nightly
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/run_tests_proto.sh
 
     # clippy
     - rust: nightly
@@ -78,4 +100,4 @@ before_install:
 #script:
 #  - scripts/run_tests.sh
 
-after_success: scripts/run_kcov.sh
+#after_success: scripts/run_kcov.sh
