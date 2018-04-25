@@ -39,6 +39,16 @@ export COVERALLS_PARALLEL=true
 SRC_PATHS=client/src,native-tls/src,openssl/src,proto/src,resolver/src,rustls/src,server/src
 EXCLUDE_PATHS=client/src/error,proto/src/error.rs,server/src/error,compatibility-tests/src/lib.rs
 
+# Build all tests
+cargo build --tests --manifest-path proto/Cargo.toml --all-features  
+cargo build --tests --manifest-path client/Cargo.toml --all-features
+cargo build --tests --manifest-path native-tls/Cargo.toml --all-features
+cargo build --tests --manifest-path openssl/Cargo.toml --all-features
+cargo build --tests --manifest-path rustls/Cargo.toml --all-features
+cargo build --tests --manifest-path resolver/Cargo.toml --all-features
+cargo build --tests --manifest-path server/Cargo.toml --all-features
+cargo build --tests --manifest-path integration-tests/Cargo.toml --all-features
+
 for i in target/debug/deps/trust_dns*-* target/debug/deps/*_tests-* ; do
   if [ -f $i ] && [ -x $i ]; then
     # submit the report... what's the executable since there are many?

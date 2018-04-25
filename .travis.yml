@@ -68,14 +68,16 @@ matrix:
 
     # clippy
     - rust: nightly
-      env: RUST_BACKTRACE=full
+      env: NAME=clippy
+           RUST_BACKTRACE=full
       before_install:
         - cargo install clippy --force
       script:
         - scripts/run_clippy.sh
 
     - rust: nightly
-      env: RUST_BACKTRACE=full
+      env: NAME=rustfmt
+           RUST_BACKTRACE=full
       before_install:
         - cargo install rustfmt-nightly --force
       script:
@@ -83,7 +85,8 @@ matrix:
 
     # compatiblity tests
     - rust: stable
-      env: TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
+      env: NAME=compatiblity
+           TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
            RUST_BACKTRACE=full
       before_install:
         - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
