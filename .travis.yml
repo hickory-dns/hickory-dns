@@ -4,11 +4,31 @@ language: rust
 
 matrix:
   include:
-    # optional feature variations
-    # we want full coverage, include all features...
+    # parallel builds for tests
     - rust: stable
-      env: RUST_BACKTRACE=full
-           RUN_KCOV=1
+      env: NAME=trust-dns-proto
+           RUST_BACKTRACE=full
+      script: scripts/run_tests_proto.sh
+
+    - rust: stable
+      env: NAME=trust-dns-client
+           RUST_BACKTRACE=full
+      script: scripts/run_tests_client.sh
+
+    - rust: stable
+      env: NAME=trust-dns-resolver
+           RUST_BACKTRACE=full
+      script: scripts/run_tests_resolver.sh
+
+    - rust: stable
+      env: NAME=trust-dns-server
+           RUST_BACKTRACE=full
+      script: scripts/run_tests_server.sh
+
+    - rust: stable
+      env: NAME=trust-dns-integration-tests
+           RUST_BACKTRACE=full
+      script: scripts/run_tests_integration_tests.sh
 
     # min rust version
     # - rust: 1.14.0
@@ -39,6 +59,7 @@ matrix:
       script:
         - cargo fmt --all -- --write-mode=diff
 
+    # compatiblity tests
     - rust: stable
       env: TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
            RUST_BACKTRACE=full
@@ -54,7 +75,7 @@ matrix:
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
 
-script:
-  - scripts/run_tests.sh
+#script:
+#  - scripts/run_tests.sh
 
 after_success: scripts/run_kcov.sh
