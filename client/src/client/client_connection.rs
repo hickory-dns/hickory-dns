@@ -17,7 +17,6 @@
 use std::io;
 
 use futures::{Future, Stream};
-use tokio_reactor::Handle;
 
 use trust_dns_proto::DnsStreamHandle;
 
@@ -33,7 +32,6 @@ pub trait ClientConnection: Sized {
     /// Consumes the connection and allows for future based operations afterward.
     fn new_stream(
         &self,
-        handle: &Handle,
     ) -> ClientResult<(
         Box<Future<Item = Self::MessageStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = ClientError>>,

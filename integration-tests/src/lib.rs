@@ -5,7 +5,6 @@ extern crate futures;
 extern crate openssl;
 extern crate rustls;
 extern crate tokio_core;
-extern crate tokio_reactor;
 extern crate tokio_timer;
 extern crate trust_dns;
 extern crate trust_dns_proto;
@@ -21,7 +20,6 @@ use futures::stream::{Fuse, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::task;
 use futures::{finished, Async, Future, Poll};
-use tokio_reactor::Handle;
 use tokio_timer::Delay;
 
 use trust_dns::client::ClientConnection;
@@ -210,7 +208,6 @@ impl ClientConnection for NeverReturnsClientConnection {
 
     fn new_stream(
         &self,
-        _: &Handle,
     ) -> ClientResult<(
         Box<Future<Item = Self::MessageStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = ClientError>>,
