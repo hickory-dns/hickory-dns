@@ -40,7 +40,7 @@ matrix:
       env: NAME=kcov
            RUST_BACKTRACE=full
            RUN_KCOV=1
-      scripts: 
+      script: 
         - scripts/run_kcov.sh
 
     # min rust version
@@ -103,7 +103,8 @@ matrix:
 before_install:
   - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
 
-#script:
-#  - scripts/run_tests.sh
+## All scripts are run above...
+script:
+  - fail
 
 #after_success: scripts/run_kcov.sh
