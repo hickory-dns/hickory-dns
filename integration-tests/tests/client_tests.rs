@@ -2,6 +2,7 @@ extern crate chrono;
 extern crate futures;
 extern crate openssl;
 extern crate tokio_core;
+extern crate tokio_reactor;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -17,7 +18,7 @@ use std::time;
 use chrono::Duration;
 use futures::Future;
 use openssl::rsa::Rsa;
-use tokio_core::reactor::Handle;
+use tokio_reactor::Handle;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};

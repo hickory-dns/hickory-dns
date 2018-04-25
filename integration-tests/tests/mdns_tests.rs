@@ -63,7 +63,7 @@ fn mdns_responsder(
                 Some(1),
                 None,
                 Some(5),
-                &io_loop.handle(),
+                &io_loop.handle().new_tokio_handle(),
             );
 
             let mut stream = io_loop
@@ -125,7 +125,7 @@ fn test_query_mdns_ipv4() {
         None,
         None,
         None,
-        &io_loop.handle(),
+        &io_loop.handle().new_tokio_handle(),
     );
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 
@@ -155,7 +155,7 @@ fn test_query_mdns_ipv6() {
         None,
         None,
         Some(5),
-        &io_loop.handle(),
+        &io_loop.handle().new_tokio_handle(),
     );
     let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
 

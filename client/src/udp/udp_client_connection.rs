@@ -18,7 +18,7 @@ use std::io;
 use std::net::SocketAddr;
 
 use futures::Future;
-use tokio_core::reactor::Handle;
+use tokio_reactor::Handle;
 use trust_dns_proto::DnsStreamHandle;
 
 use error::*;
@@ -52,7 +52,7 @@ impl ClientConnection for UdpClientConnection {
 
     fn new_stream(
         &self,
-        _handle: &Handle,
+        _: &Handle,
     ) -> ClientResult<
         (
             Box<Future<Item = Self::MessageStream, Error = io::Error>>,

@@ -235,7 +235,7 @@ impl ConnectionProvider for StandardConnection {
                     None,
                     None,
                     None,
-                    reactor,
+                    reactor.new_tokio_handle(),
                 );
                 // TODO: need config for Signer...
                 DnsFuture::with_timeout(

@@ -70,6 +70,7 @@ rand = "^0.4"
 rusqlite = { version = "^0.13.0", features = ["bundled"] }
 rustls = { version = "^0.11.0" }
 tokio-core = "^0.1"
+tokio-reactor = "^0.1"
 tokio-tcp = "^0.1"
 tokio-timer = "^0.2"
 tokio-udp = "^0.1"

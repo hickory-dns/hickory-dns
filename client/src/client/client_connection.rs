@@ -17,7 +17,7 @@
 use std::io;
 
 use futures::{Future, Stream};
-use tokio_core::reactor::Handle;
+use tokio_reactor::Handle;
 
 use trust_dns_proto::DnsStreamHandle;
 

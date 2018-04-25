@@ -20,7 +20,7 @@ use std::net::SocketAddr;
 
 use futures::Future;
 use rustls::Certificate;
-use tokio_core::reactor::Handle;
+use tokio_reactor::Handle;
 
 use trust_dns::client::ClientConnection;
 use trust_dns::error::*;
@@ -49,7 +49,7 @@ impl ClientConnection for TlsClientConnection {
 
     fn new_stream(
         &self,
-        _handle: &Handle,
+        _: &Handle,
     ) -> ClientResult<(
         Box<Future<Item = Self::MessageStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = ClientError>>,
