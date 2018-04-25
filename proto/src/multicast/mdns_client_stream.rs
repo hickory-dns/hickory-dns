@@ -9,7 +9,7 @@ use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Async, Future, Poll, Stream};
-use tokio_core::reactor::Handle;
+use tokio_reactor::Handle;
 
 use BufDnsStreamHandle;
 use DnsStreamHandle;

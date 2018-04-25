@@ -17,7 +17,7 @@ use futures::{Async, Future, Poll};
 use rand;
 use rand::distributions::{IndependentSample, Range};
 use socket2::{self, Socket};
-use tokio_core::reactor::Handle;
+use tokio_reactor::Handle;
 use tokio_udp::UdpSocket;
 
 use BufStreamHandle;
@@ -159,7 +159,7 @@ impl MdnsStream {
                 next_socket
                     .map(move |socket: Option<_>| {
                         socket.map(|socket| {
-                            UdpSocket::from_std(socket, &handle.new_tokio_handle())
+                            UdpSocket::from_std(socket, &handle)
                                 .expect("bad handle?")
                         })
                     })
@@ -170,7 +170,7 @@ impl MdnsStream {
                             multicast_socket.map(|multicast_socket| {
                                 UdpSocket::from_std(
                                     multicast_socket,
-                                    &handle_clone.new_tokio_handle(),
+                                    &handle_clone,
                                 ).expect("bad handle?")
                             });
 
@@ -444,7 +444,7 @@ pub mod tests {
             Some(1),
             None,
             None,
-            &io_loop.handle(),
+            &io_loop.handle().new_tokio_handle(),
         );
         let result = io_loop.run(stream);
 
@@ -493,7 +493,7 @@ pub mod tests {
                     Some(1),
                     None,
                     Some(5),
-                    &server_loop.handle(),
+                    &server_loop.handle().new_tokio_handle(),
                 );
 
                 // For one-shot responses we are competing with a system mDNS responder, we will respond from a different port...
@@ -549,7 +549,7 @@ pub mod tests {
             Some(1),
             None,
             Some(5),
-            &loop_handle,
+            &loop_handle.new_tokio_handle(),
         );
         let mut stream = io_loop.run(stream).ok().unwrap().into_future();
         let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
@@ -644,7 +644,7 @@ pub mod tests {
                     Some(1),
                     None,
                     Some(5),
-                    &server_loop.handle(),
+                    &server_loop.handle().new_tokio_handle(),
                 );
 
                 // For one-shot responses we are competing with a system mDNS responder, we will respond from a different port...
@@ -696,7 +696,7 @@ pub mod tests {
             Some(1),
             None,
             Some(5),
-            &loop_handle,
+            &loop_handle.new_tokio_handle(),
         );
         let mut stream = io_loop.run(stream).ok().unwrap().into_future();
         let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));

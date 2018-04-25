@@ -64,6 +64,7 @@ smallvec = "^0.6"
 socket2 = { version = "^0.3.4", features = ["reuseport"] }
 tokio-core = "^0.1"
 tokio-io = "^0.1"
+tokio-reactor = "^0.1"
 tokio-tcp = "^0.1"
 tokio-timer = "^0.2"
 tokio-udp = "^0.1"

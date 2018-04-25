@@ -19,7 +19,7 @@ use std::net::SocketAddr;
 use std::time::Duration;
 
 use futures::Future;
-use tokio_core::reactor::Handle;
+use tokio_reactor::Handle;
 use tokio_tcp::TcpStream;
 use trust_dns_proto::DnsStreamHandle;
 
@@ -72,7 +72,7 @@ impl ClientConnection for TcpClientConnection {
 
     fn new_stream(
         &self,
-        _handle: &Handle,
+        _: &Handle,
     ) -> ClientResult<
         (
             Box<Future<Item = Self::MessageStream, Error = io::Error>>,
