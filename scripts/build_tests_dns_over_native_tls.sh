@@ -7,4 +7,3 @@ cd ${trust_dns_dir:?}
 
 # Build all tests
 cargo build --tests --manifest-path resolver/Cargo.toml --features dns-over-native-tls
-cargo build --tests --manifest-path integration-tests/Cargo.toml --features dns-over-native-tls
