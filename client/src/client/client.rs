@@ -22,8 +22,6 @@ use trust_dns_proto::xfer::DnsResponse;
 use client::SecureClientHandle;
 use client::{BasicClientHandle, ClientConnection, ClientFuture, ClientHandle};
 use error::*;
-#[cfg(feature = "mdns")]
-use multicast::MdnsClientConnection;
 use rr::dnssec::Signer;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::TrustAnchor;
@@ -401,17 +399,6 @@ where
     }
 }
 
-#[cfg(feature = "mdns")]
-impl Client<BasicClientHandle> for SyncClient<MdnsClientConnection>
-{
-    fn new_future(&self, handle: &Handle) -> ClientResult<BasicClientHandle> {
-        let (stream, stream_handle) = self.conn.new_stream(&handle.new_tokio_handle())?;
-
-        let client = ClientFuture::new(stream, stream_handle, handle, self.signer.clone());
-        Ok(client)
-    }
-}
-
 impl<CC> Client<BasicClientHandle> for SyncClient<CC>
 where
     CC: ClientConnection,
@@ -482,17 +469,6 @@ where
         let mut client = self.new_future(&reactor.handle())?;
         let future = client.query(query_name.clone(), query_class, query_type);
         reactor.run(future)
-    }
-}
-
-#[cfg(all(feature = "dnssec", feature = "mdns"))]
-impl Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient<MdnsClientConnection>
-{
-    fn new_future(&self, handle: &Handle) -> ClientResult<SecureClientHandle<BasicClientHandle>> {
-        let (stream, stream_handle) = self.conn.new_stream(&handle.new_tokio_handle())?;
-
-        let client = ClientFuture::new(stream, stream_handle, handle, self.signer.clone());
-        Ok(SecureClientHandle::new(client))
     }
 }
 

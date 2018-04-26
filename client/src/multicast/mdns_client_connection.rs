@@ -14,6 +14,7 @@ use futures::Future;
 use tokio_reactor::Handle;
 use trust_dns_proto::DnsStreamHandle;
 
+use client::ClientConnection;
 use error::*;
 use multicast::{MDNS_IPV4, MDNS_IPV6, MdnsClientStream, MdnsQueryType};
 
@@ -48,16 +49,15 @@ impl MdnsClientConnection {
             ipv6_if,
         }
     }
+}
 
-    /// Like ClientConnection::new_stream but with a Handle as additional parameter
-    /// Return the inner Futures items
-    ///
-    /// Consumes the connection and allows for future based operations afterward.
-    pub fn new_stream(
+impl ClientConnection for MdnsClientConnection {
+    type MessageStream = MdnsClientStream;
+
+    fn new_stream(
         &self,
-        handle: &Handle,
     ) -> ClientResult<(
-        Box<Future<Item = MdnsClientStream, Error = io::Error>>,
+        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = ClientError>>,
     )> {
         let (mdns_client_stream, handle) = MdnsClientStream::new(
@@ -66,7 +66,7 @@ impl MdnsClientConnection {
             self.packet_ttl,
             self.ipv4_if,
             self.ipv6_if,
-            handle,
+            &Handle::current(),
         );
 
         Ok((mdns_client_stream, handle))
