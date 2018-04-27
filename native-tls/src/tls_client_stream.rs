@@ -61,15 +61,15 @@ impl TlsClientStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Box<Future<Item = TlsClientStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = E>>,
+        Box<Future<Item = TlsClientStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = E> + Send>,
     )
     where
-        E: FromProtoError + 'static,
+        E: FromProtoError + Send + 'static,
     {
         let (stream_future, sender) = self.0.build(name_server, dns_name);
 
-        let new_future: Box<Future<Item = TlsClientStream, Error = io::Error>> =
+        let new_future =
             Box::new(stream_future.map(move |tls_stream| TcpClientStream::from_stream(tls_stream)));
 
         let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));

@@ -195,7 +195,6 @@ impl ConnectionProvider for StandardConnection {
                 DnsFuture::with_timeout(
                     stream,
                     handle,
-                    reactor,
                     options.timeout,
                     NoopMessageFinalizer::new(),
                 )
@@ -207,7 +206,6 @@ impl ConnectionProvider for StandardConnection {
                 DnsFuture::with_timeout(
                     stream,
                     handle,
-                    reactor,
                     options.timeout,
                     NoopMessageFinalizer::new(),
                 )
@@ -221,7 +219,6 @@ impl ConnectionProvider for StandardConnection {
                 DnsFuture::with_timeout(
                     stream,
                     handle,
-                    reactor,
                     options.timeout,
                     NoopMessageFinalizer::new(),
                 )
@@ -241,7 +238,6 @@ impl ConnectionProvider for StandardConnection {
                 DnsFuture::with_timeout(
                     stream,
                     handle,
-                    reactor,
                     options.timeout,
                     NoopMessageFinalizer::new(),
                 )

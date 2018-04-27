@@ -25,7 +25,7 @@ use error::*;
 /// Trait for client connections
 pub trait ClientConnection: Sized {
     /// The associated DNS Message stream type.
-    type MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + 'static;
+    type MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static;
 
     /// Return the inner Futures items
     ///
@@ -33,7 +33,7 @@ pub trait ClientConnection: Sized {
     fn new_stream(
         &self,
     ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = ClientError>>,
+        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = ClientError> + Send>,
     )>;
 }

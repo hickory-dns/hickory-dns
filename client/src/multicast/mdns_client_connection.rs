@@ -57,8 +57,8 @@ impl ClientConnection for MdnsClientConnection {
     fn new_stream(
         &self,
     ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = ClientError>>,
+        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = ClientError> + Send>,
     )> {
         let (mdns_client_stream, handle) = MdnsClientStream::new(
             self.multicast_addr,
