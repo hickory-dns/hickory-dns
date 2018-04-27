@@ -226,7 +226,6 @@ extern crate ring;
 extern crate tokio_core;
 #[cfg(feature = "tokio-openssl")]
 extern crate tokio_openssl;
-extern crate tokio_reactor;
 extern crate tokio_tcp;
 #[cfg(feature = "tokio-tls")]
 extern crate tokio_tls;

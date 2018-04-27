@@ -13,8 +13,6 @@ use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
 use futures::{future, task, Async, Future, Poll};
-#[cfg(feature = "mdns")]
-use tokio_reactor::Handle;
 
 #[cfg(feature = "mdns")]
 use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
@@ -231,7 +229,6 @@ impl ConnectionProvider for StandardConnection {
                     None,
                     None,
                     None,
-                    &Handle::current(),
                 );
                 // TODO: need config for Signer...
                 DnsFuture::with_timeout(

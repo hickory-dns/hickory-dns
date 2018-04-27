@@ -175,7 +175,6 @@ extern crate lru_cache;
 extern crate resolv_conf;
 extern crate smallvec;
 extern crate tokio_core;
-extern crate tokio_reactor;
 #[cfg(feature = "dns-over-native-tls")]
 extern crate trust_dns_native_tls;
 #[cfg(feature = "dns-over-openssl")]
