@@ -90,7 +90,7 @@
 //! let mut io_loop = Core::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), &io_loop.handle());
+//! let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default());
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -175,7 +175,6 @@ extern crate lru_cache;
 extern crate resolv_conf;
 extern crate smallvec;
 extern crate tokio_core;
-extern crate tokio_reactor;
 #[cfg(feature = "dns-over-native-tls")]
 extern crate trust_dns_native_tls;
 #[cfg(feature = "dns-over-openssl")]
