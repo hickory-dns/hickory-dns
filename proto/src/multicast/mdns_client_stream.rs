@@ -9,7 +9,6 @@ use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::{Async, Future, Poll, Stream};
-use tokio_reactor::Handle;
 
 use BufDnsStreamHandle;
 use DnsStreamHandle;
@@ -29,7 +28,6 @@ impl MdnsClientStream {
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
-        loop_handle: &Handle,
     ) -> (
         Box<Future<Item = MdnsClientStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = E>>,
@@ -43,7 +41,6 @@ impl MdnsClientStream {
             packet_ttl,
             ipv4_if,
             None,
-            loop_handle,
         )
     }
 
@@ -52,7 +49,6 @@ impl MdnsClientStream {
         mdns_query_type: MdnsQueryType,
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
-        loop_handle: &Handle,
     ) -> (
         Box<Future<Item = MdnsClientStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = E>>,
@@ -66,7 +62,6 @@ impl MdnsClientStream {
             packet_ttl,
             None,
             ipv6_if,
-            loop_handle,
         )
     }
 
@@ -84,7 +79,6 @@ impl MdnsClientStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
-        loop_handle: &Handle,
     ) -> (
         Box<Future<Item = MdnsClientStream, Error = io::Error>>,
         Box<DnsStreamHandle<Error = E>>,
@@ -98,7 +92,6 @@ impl MdnsClientStream {
             packet_ttl,
             ipv4_if,
             ipv6_if,
-            loop_handle,
         );
 
         let new_future: Box<Future<Item = MdnsClientStream, Error = io::Error>> =
