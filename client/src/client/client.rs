@@ -14,7 +14,7 @@
 
 use std::sync::Arc;
 
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::Core;
 
 use trust_dns_proto::xfer::DnsResponse;
 
@@ -44,7 +44,7 @@ pub trait Client<C: ClientHandle> {
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
-    fn new_future(&self, handle: &Handle) -> ClientResult<C>;
+    fn new_future(&self) -> ClientResult<C>;
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations
     ///
@@ -63,7 +63,7 @@ pub trait Client<C: ClientHandle> {
         query_type: RecordType,
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Core::new()?;
-        let mut client = self.new_future(&reactor.handle())?;
+        let mut client = self.new_future()?;
         let future = client.query(name.clone(), query_class, query_type);
         reactor.run(future)
     }
@@ -87,7 +87,7 @@ pub trait Client<C: ClientHandle> {
         R: IntoRecordSet,
     {
         let mut reactor = Core::new()?;
-        let mut client = self.new_future(&reactor.handle())?;
+        let mut client = self.new_future()?;
         let future = client.notify(name, query_class, query_type, rrset);
         reactor.run(future)
     }
@@ -130,7 +130,7 @@ pub trait Client<C: ClientHandle> {
         R: IntoRecordSet,
     {
         let mut reactor = Core::new()?;
-        let mut client = self.new_future(&reactor.handle())?;
+        let mut client = self.new_future()?;
         let future = client.create(rrset, zone_origin);
         reactor.run(future)
     }
@@ -174,7 +174,7 @@ pub trait Client<C: ClientHandle> {
         R: IntoRecordSet,
     {
         let mut reactor = Core::new()?;
-        let mut client = self.new_future(&reactor.handle())?;
+        let mut client = self.new_future()?;
         let future = client.append(rrset, zone_origin, must_exist);
         reactor.run(future)
     }
@@ -231,7 +231,7 @@ pub trait Client<C: ClientHandle> {
         NR: IntoRecordSet,
     {
         let mut reactor = Core::new()?;
-        let mut client = self.new_future(&reactor.handle())?;
+        let mut client = self.new_future()?;
         let future = client.compare_and_swap(current, new, zone_origin);
         reactor.run(future)
     }
@@ -276,7 +276,7 @@ pub trait Client<C: ClientHandle> {
         R: IntoRecordSet,
     {
         let mut reactor = Core::new()?;
-        let mut client = self.new_future(&reactor.handle())?;
+        let mut client = self.new_future()?;
         let future = client.delete_by_rdata(record, zone_origin);
         reactor.run(future)
     }
@@ -318,7 +318,7 @@ pub trait Client<C: ClientHandle> {
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
     fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
         let mut reactor = Core::new()?;
-        let mut client = self.new_future(&reactor.handle())?;
+        let mut client = self.new_future()?;
         let future = client.delete_rrset(record, zone_origin);
         reactor.run(future)
     }
@@ -354,7 +354,7 @@ pub trait Client<C: ClientHandle> {
         dns_class: DNSClass,
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Core::new()?;
-        let mut client = self.new_future(&reactor.handle())?;
+        let mut client = self.new_future()?;
         let future = client.delete_all(name_of_records, zone_origin, dns_class);
         reactor.run(future)
     }
@@ -403,7 +403,7 @@ impl<CC> Client<BasicClientHandle> for SyncClient<CC>
 where
     CC: ClientConnection,
 {
-    fn new_future(&self, _handle: &Handle) -> ClientResult<BasicClientHandle> {
+    fn new_future(&self) -> ClientResult<BasicClientHandle> {
         let (stream, stream_handle) = self.conn.new_stream()?;
 
         let client = ClientFuture::new(stream, stream_handle, self.signer.clone());
@@ -466,7 +466,7 @@ where
         query_type: RecordType,
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Core::new()?;
-        let mut client = self.new_future(&reactor.handle())?;
+        let mut client = self.new_future()?;
         let future = client.query(query_name.clone(), query_class, query_type);
         reactor.run(future)
     }
@@ -477,7 +477,7 @@ impl<CC> Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient<CC>
 where
     CC: ClientConnection,
 {
-    fn new_future(&self, _handle: &Handle) -> ClientResult<SecureClientHandle<BasicClientHandle>> {
+    fn new_future(&self) -> ClientResult<SecureClientHandle<BasicClientHandle>> {
         let (stream, stream_handle) = self.conn.new_stream()?;
 
         let client = ClientFuture::new(stream, stream_handle, self.signer.clone());

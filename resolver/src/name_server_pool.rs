@@ -13,7 +13,8 @@ use std::sync::{Arc, Mutex, TryLockError};
 use std::time::{Duration, Instant};
 
 use futures::{future, task, Async, Future, Poll};
-use tokio_core::reactor::Handle;
+#[cfg(feature = "mdns")]
+use tokio_reactor::Handle;
 
 #[cfg(feature = "mdns")]
 use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
@@ -172,7 +173,6 @@ pub trait ConnectionProvider: Clone {
     fn new_connection(
         config: &NameServerConfig,
         options: &ResolverOpts,
-        reactor: &Handle,
     ) -> Self::ConnHandle;
 }
 
@@ -186,7 +186,6 @@ impl ConnectionProvider for StandardConnection {
     fn new_connection(
         config: &NameServerConfig,
         options: &ResolverOpts,
-        reactor: &Handle,
     ) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
             Protocol::Udp => {
@@ -223,7 +222,7 @@ impl ConnectionProvider for StandardConnection {
                     NoopMessageFinalizer::new(),
                 )
             }
-            // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr, reactor),
+            // TODO: Protocol::Tls => TlsClientStream::new(config.socket_addr),
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {
                 let (stream, handle) = MdnsClientStream::new(
@@ -232,7 +231,7 @@ impl ConnectionProvider for StandardConnection {
                     None,
                     None,
                     None,
-                    reactor.new_tokio_handle(),
+                    &Handle::current(),
                 );
                 // TODO: need config for Signer...
                 DnsFuture::with_timeout(
@@ -256,7 +255,6 @@ pub struct NameServer<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> {
     client: C,
     // TODO: switch to FuturesMutex? (Mutex will have some undesireable locking)
     stats: Arc<Mutex<NameServerStats>>,
-    reactor: Handle,
     phantom: PhantomData<P>,
 }
 
@@ -264,9 +262,8 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     pub fn new(
         config: NameServerConfig,
         options: ResolverOpts,
-        reactor: &Handle,
     ) -> NameServer<BasicResolverHandle, StandardConnection> {
-        let client = StandardConnection::new_connection(&config, &options, reactor);
+        let client = StandardConnection::new_connection(&config, &options);
 
         // TODO: setup EDNS
         NameServer {
@@ -274,7 +271,6 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             options,
             client,
             stats: Arc::new(Mutex::new(NameServerStats::default())),
-            reactor: reactor.clone(),
             phantom: PhantomData,
         }
     }
@@ -284,14 +280,12 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         config: NameServerConfig,
         options: ResolverOpts,
         client: C,
-        reactor: &Handle,
     ) -> NameServer<C, P> {
         NameServer {
             config,
             options,
             client,
             stats: Arc::new(Mutex::new(NameServerStats::default())),
-            reactor: reactor.clone(),
             phantom: PhantomData,
         }
     }
@@ -335,7 +329,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             if Instant::now().duration_since(when) > retry_delay {
                 debug!("reconnecting: {:?}", self.config);
                 // establish a new connection
-                let client = P::new_connection(&self.config, &self.options, &self.reactor);
+                let client = P::new_connection(&self.config, &self.options);
                 mem::replace(&mut self.client, client);
 
                 // reinitialize the mutex (in case it was poisoned before)
@@ -455,14 +449,13 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P
 #[cfg(feature = "mdns")]
 fn mdns_nameserver(
     options: ResolverOpts,
-    reactor: &Handle,
 ) -> NameServer<BasicResolverHandle, StandardConnection> {
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
         protocol: Protocol::Mdns,
         tls_dns_name: None,
     };
-    NameServer::<_, StandardConnection>::new(config, options, reactor)
+    NameServer::<_, StandardConnection>::new(config, options)
 }
 
 /// A pool of NameServers
@@ -483,7 +476,6 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
     pub(crate) fn from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
-        reactor: &Handle,
     ) -> NameServerPool<BasicResolverHandle, StandardConnection> {
         let datagram_conns: BinaryHeap<NameServer<BasicResolverHandle, StandardConnection>> =
             config
@@ -494,7 +486,6 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
                     NameServer::<_, StandardConnection>::new(
                         ns_config.clone(),
                         options.clone(),
-                        reactor,
                     )
                 })
                 .collect();
@@ -507,7 +498,6 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
                 NameServer::<_, StandardConnection>::new(
                     ns_config.clone(),
                     options.clone(),
-                    reactor,
                 )
             })
             .collect();
@@ -516,7 +506,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             datagram_conns: Arc::new(Mutex::new(datagram_conns)),
             stream_conns: Arc::new(Mutex::new(stream_conns)),
             #[cfg(feature = "mdns")]
-            mdns_conns: mdns_nameserver(options.clone(), reactor),
+            mdns_conns: mdns_nameserver(options.clone()),
             options: options.clone(),
             phantom: PhantomData,
         }
@@ -827,7 +817,6 @@ mod tests {
         let mut name_server = NameServer::<_, StandardConnection>::new(
             config,
             ResolverOpts::default(),
-            &io_loop.handle(),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
@@ -851,7 +840,7 @@ mod tests {
         };
         let mut io_loop = Core::new().unwrap();
         let mut name_server =
-            NameServer::<_, StandardConnection>::new(config, options, &io_loop.handle());
+            NameServer::<_, StandardConnection>::new(config, options);
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
@@ -888,7 +877,6 @@ mod tests {
         let mut pool = NameServerPool::<_, StandardConnection>::from_config(
             &resolver_config,
             &ResolverOpts::default(),
-            &io_loop.handle(),
         );
 
         let name = Name::parse("www.example.com.", None).unwrap();
