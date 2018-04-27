@@ -47,11 +47,11 @@ pub struct TestClientStream {
 impl TestClientStream {
     pub fn new<E: FromProtoError>(
         catalog: Arc<Catalog>,
-    ) -> (Box<Future<Item = Self, Error = io::Error>>, StreamHandle<E>) {
+    ) -> (Box<Future<Item = Self, Error = io::Error> + Send>, StreamHandle<E>) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
-        let stream: Box<Future<Item = TestClientStream, Error = io::Error>> =
+        let stream =
             Box::new(finished(TestClientStream {
                 catalog: catalog,
                 outbound_messages: outbound_messages.fuse(),
@@ -150,13 +150,13 @@ pub struct NeverReturnsClientStream {
 #[allow(dead_code)]
 impl NeverReturnsClientStream {
     pub fn new() -> (
-        Box<Future<Item = Self, Error = io::Error>>,
+        Box<Future<Item = Self, Error = io::Error> + Send>,
         StreamHandle<ClientError>,
     ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
-        let stream: Box<Future<Item = NeverReturnsClientStream, Error = io::Error>> =
+        let stream =
             Box::new(finished(NeverReturnsClientStream {
                 timeout: Delay::new(Instant::now() + Duration::from_secs(1)),
                 outbound_messages: outbound_messages.fuse(),
@@ -209,8 +209,8 @@ impl ClientConnection for NeverReturnsClientConnection {
     fn new_stream(
         &self,
     ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = ClientError>>,
+        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = ClientError> + Send>,
     )> {
         let (client_stream, handle) = NeverReturnsClientStream::new();
 

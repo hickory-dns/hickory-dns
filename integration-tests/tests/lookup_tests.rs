@@ -36,7 +36,6 @@ fn test_lookup() {
     let client = DnsFuture::new(
         stream,
         Box::new(sender),
-        &io_loop.handle(),
         NoopMessageFinalizer::new(),
     );
 
@@ -65,7 +64,6 @@ fn test_lookup_hosts() {
     let client = DnsFuture::new(
         stream,
         Box::new(sender),
-        &io_loop.handle(),
         NoopMessageFinalizer::new(),
     );
 

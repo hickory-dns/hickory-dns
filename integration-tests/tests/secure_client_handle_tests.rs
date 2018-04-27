@@ -230,7 +230,7 @@ where
 
     let io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
-    let client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
+    let client = ClientFuture::new(stream, Box::new(sender), None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
@@ -263,7 +263,7 @@ where
     let io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let client = ClientFuture::new(stream, sender, None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
@@ -296,7 +296,7 @@ where
     let io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let client = ClientFuture::new(stream, sender, None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 

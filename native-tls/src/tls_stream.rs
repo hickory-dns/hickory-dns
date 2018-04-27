@@ -139,7 +139,7 @@ impl TlsStreamBuilder {
         name_server: SocketAddr,
         dns_name: String,
     ) -> (
-        Box<Future<Item = TlsStream, Error = io::Error>>,
+        Box<Future<Item = TlsStream, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where
@@ -167,7 +167,7 @@ impl TlsStreamBuilder {
 
         // This set of futures collapses the next tcp socket into a stream which can be used for
         //  sending and receiving tcp packets.
-        let stream: Box<Future<Item = TlsStream, Error = io::Error>> =
+        let stream =
             Box::new(tcp.and_then(move |tcp_stream| {
                 tls_connector
                     .connect_async(&dns_name, tcp_stream)
