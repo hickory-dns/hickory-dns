@@ -22,8 +22,8 @@ pub(crate) fn new_tls_stream(
     socket_addr: SocketAddr,
     dns_name: String,
 ) -> (
-    Box<Future<Item = TlsClientStream, Error = io::Error>>,
-    Box<DnsStreamHandle<Error = ResolveError>>,
+    Box<Future<Item = TlsClientStream, Error = io::Error> + Send>,
+    Box<DnsStreamHandle<Error = ResolveError> + Send>,
 ) {
     let tls_builder = TlsClientStreamBuilder::new();
     tls_builder.build(socket_addr, dns_name)

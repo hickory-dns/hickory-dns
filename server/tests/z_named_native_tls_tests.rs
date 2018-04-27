@@ -58,7 +58,7 @@ fn test_example_tls_toml_startup() {
         tls_conn_builder.add_ca(cert);
         let (stream, sender) =
             tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+        let mut client = ClientFuture::new(stream, sender, None);
 
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
@@ -73,7 +73,7 @@ fn test_example_tls_toml_startup() {
         tls_conn_builder.add_ca(cert);
         let (stream, sender) =
             tls_conn_builder.build(addr, "ns.example.com".to_string());
-        let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+        let mut client = ClientFuture::new(stream, sender, None);
 
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);

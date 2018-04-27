@@ -20,7 +20,7 @@ use futures::{task, Async, Complete, Future, Poll};
 use rand;
 use rand::Rand;
 use smallvec::SmallVec;
-use tokio_core::reactor::Handle;
+use tokio_executor::spawn;
 use tokio_timer::Delay;
 
 use error::*;
@@ -109,7 +109,7 @@ where
     stream: S,
     timeout_duration: Duration,
     // TODO: genericize and remove this Box
-    stream_handle: Box<DnsStreamHandle<Error = E>>,
+    stream_handle: Box<DnsStreamHandle<Error = E> + Send>,
     new_receiver:
         Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<DnsResponse, E>>)>>>,
     active_requests: HashMap<u16, ActiveRequest<E>>,
@@ -118,9 +118,9 @@ where
 
 impl<S, E, MF> DnsFuture<S, E, MF>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
-    E: FromProtoError + 'static,
-    MF: MessageFinalizer + 'static,
+    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    E: FromProtoError + Send + 'static,
+    MF: MessageFinalizer + Send + Sync + 'static,
 {
     /// Spawns a new DnsFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
@@ -128,20 +128,16 @@ where
     ///
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
     ///              (see TcpClientStream or UdpClientStream)
-    /// * `loop_handle` - A Handle to the Tokio reactor Core, this is the Core on which the
-    ///                   the Stream will be spawned
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
-        stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<DnsStreamHandle<Error = E>>,
-        loop_handle: &Handle,
+        stream: Box<Future<Item = S, Error = io::Error> + Send>,
+        stream_handle: Box<DnsStreamHandle<Error = E> + Send>,
         signer: Option<Arc<MF>>,
     ) -> BasicDnsHandle<E> {
         Self::with_timeout(
             stream,
             stream_handle,
-            loop_handle,
             Duration::from_secs(5),
             signer,
         )
@@ -153,22 +149,19 @@ where
     ///
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
     ///              (see TcpClientStream or UdpClientStream)
-    /// * `loop_handle` - A Handle to the Tokio reactor Core, this is the Core on which the
-    ///                   the Stream will be spawned
     /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
     ///                        wait for a response before canceling the request.
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
-        stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<DnsStreamHandle<Error = E>>,
-        loop_handle: &Handle,
+        stream: Box<Future<Item = S, Error = io::Error> + Send>,
+        stream_handle: Box<DnsStreamHandle<Error = E> + Send>,
         timeout_duration: Duration,
         signer: Option<Arc<MF>>,
     ) -> BasicDnsHandle<E> {
         let (sender, rx) = unbounded();
 
-        loop_handle.spawn(
+        spawn(
             stream
                 .then(move |res| match res {
                     Ok(stream) => ClientStreamOrError::Future(DnsFuture {
@@ -264,9 +257,9 @@ where
 
 impl<S, E, MF> Future for DnsFuture<S, E, MF>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
-    E: FromProtoError + 'static,
-    MF: MessageFinalizer + 'static,
+    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    E: FromProtoError + Send + 'static,
+    MF: MessageFinalizer + Send + Sync + 'static,
 {
     type Item = ();
     type Error = E;
@@ -471,9 +464,9 @@ where
 
 enum ClientStreamOrError<S, E, MF>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
-    E: FromProtoError,
-    MF: MessageFinalizer + 'static,
+    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    E: FromProtoError + Send,
+    MF: MessageFinalizer + Send + Sync + 'static,
 {
     Future(DnsFuture<S, E, MF>),
     Errored(ClientStreamErrored<E>),
@@ -481,9 +474,9 @@ where
 
 impl<S, E, MF> Future for ClientStreamOrError<S, E, MF>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + 'static,
-    E: FromProtoError + 'static,
-    MF: MessageFinalizer + 'static,
+    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    E: FromProtoError + Send + 'static,
+    MF: MessageFinalizer + Send + Sync + 'static,
 {
     type Item = ();
     type Error = E;

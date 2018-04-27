@@ -36,7 +36,7 @@ fn test_query_nonet() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
-    let mut client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, Box::new(sender), None);
 
     io_loop.run(test_query(&mut client)).unwrap();
     io_loop.run(test_query(&mut client)).unwrap();
@@ -48,7 +48,7 @@ fn test_query_udp_ipv4() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -65,7 +65,7 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -78,7 +78,7 @@ fn test_query_tcp_ipv4() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -95,7 +95,7 @@ fn test_query_tcp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, &io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, sender, None);
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -145,7 +145,7 @@ fn test_notify() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(catalog));
-    let mut client = ClientFuture::new(stream, Box::new(sender), &io_loop.handle(), None);
+    let mut client = ClientFuture::new(stream, Box::new(sender), None);
 
     let name = Name::from_str("ping.example.com").unwrap();
 
@@ -194,7 +194,6 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, Name) {
     let client = ClientFuture::new(
         stream,
         Box::new(sender),
-        &io_loop.handle(),
         Some(Arc::new(signer)),
     );
 
@@ -810,7 +809,6 @@ fn test_timeout_query_nonet() {
     let client = ClientFuture::with_timeout(
         stream,
         Box::new(sender),
-        &io_loop.handle(),
         std::time::Duration::from_millis(1),
         None,
     );
@@ -832,7 +830,6 @@ fn test_timeout_query_udp() {
     let client = ClientFuture::with_timeout(
         stream,
         sender,
-        &io_loop.handle(),
         std::time::Duration::from_millis(1),
         None,
     );
@@ -855,7 +852,6 @@ fn test_timeout_query_tcp() {
     let client = ClientFuture::with_timeout(
         stream,
         sender,
-        &io_loop.handle(),
         std::time::Duration::from_millis(1),
         None,
     );

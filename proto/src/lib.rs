@@ -34,6 +34,7 @@ extern crate smallvec;
 extern crate socket2;
 #[macro_use]
 extern crate tokio_core;
+extern crate tokio_executor;
 extern crate tokio_io;
 extern crate tokio_reactor;
 extern crate tokio_tcp;
