@@ -55,7 +55,13 @@ impl MdnsStream {
     where
         E: FromProtoError + Send,
     {
-        Self::new::<E>(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
+        Self::new::<E>(
+            *MDNS_IPV4,
+            mdns_query_type,
+            packet_ttl,
+            ipv4_if,
+            None,
+        )
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
@@ -70,7 +76,13 @@ impl MdnsStream {
     where
         E: FromProtoError + Send,
     {
-        Self::new::<E>(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
+        Self::new::<E>(
+            *MDNS_IPV6,
+            mdns_query_type,
+            packet_ttl,
+            None,
+            ipv6_if,
+        )
     }
 
     /// This method is available for specifying a custom Multicast address to use.
