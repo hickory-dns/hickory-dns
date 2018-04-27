@@ -4,6 +4,7 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
+use std;
 use std::io;
 use std::net::SocketAddr;
 use std::sync::Arc;
@@ -12,6 +13,7 @@ use std::time::Duration;
 use futures::{Async, Future, Poll, Stream};
 
 use tokio_core::reactor::Core;
+use tokio_reactor::Handle;
 use tokio_tcp;
 use tokio_udp;
 
@@ -73,6 +75,11 @@ impl<T: RequestHandler> ServerFuture<T> {
         );
     }
 
+    /// Register a UDP socket. Should be bound before calling this function.
+    pub fn register_socket_std(&self, socket: std::net::UdpSocket) {
+        self.register_socket(tokio_udp::UdpSocket::from_std(socket, &Handle::current()).expect("bad handle?"))
+    }
+
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
     ///  IPv4 address.
     ///
@@ -132,6 +139,26 @@ impl<T: RequestHandler> ServerFuture<T> {
         );
 
         Ok(())
+    }
+
+    /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
+    ///  IPv4 address.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `listener` - a bound TCP socket
+    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    ///               requests within this time period will be closed. In the future it should be
+    ///               possible to create long-lived queries, but these should be from trusted sources
+    ///               only, this would require some type of whitelisting.
+    pub fn register_listener_std(
+        &self,
+        listener: std::net::TcpListener,
+        timeout: Duration,
+    ) -> io::Result<()> {
+        self.register_listener(tokio_tcp::TcpListener::from_std(listener, &Handle::current())?, timeout)
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -213,6 +240,29 @@ impl<T: RequestHandler> ServerFuture<T> {
         );
 
         Ok(())
+    }
+
+    /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
+    /// IPv6 or an IPv4 address.
+    ///
+    /// To make the server more resilient to DOS issues, there is a timeout. Care should be taken
+    ///  to not make this too low depending on use cases.
+    ///
+    /// # Arguments
+    /// * `listener` - a bound TCP (needs to be on a different port from standard TCP connections) socket
+    /// * `timeout` - timeout duration of incoming requests, any connection that does not send
+    ///               requests within this time period will be closed. In the future it should be
+    ///               possible to create long-lived queries, but these should be from trusted sources
+    ///               only, this would require some type of whitelisting.
+    /// * `pkcs12` - certificate used to announce to clients
+    #[cfg(feature = "dns-over-openssl")]
+    pub fn register_tls_listener_std(
+        &self,
+        listener: std::net::TcpListener,
+        timeout: Duration,
+        pkcs12: ParsedPkcs12,
+    ) -> io::Result<()> {
+        self.register_tls_listener(tokio_tcp::TcpListener::from_std(listener, &Handle::current())?, timeout, pkcs12)
     }
 
     /// TODO: how to do threads? should we do a bunch of listener threads and then query threads?
