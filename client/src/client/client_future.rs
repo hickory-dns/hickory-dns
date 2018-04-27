@@ -13,7 +13,6 @@ use std::time::Duration;
 use futures::Future;
 use futures::stream::Stream;
 use rand;
-use tokio_core::reactor::Handle;
 use trust_dns_proto::xfer::{BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsRequestOptions,
                             DnsResponse, DnsStreamHandle};
 
@@ -36,27 +35,23 @@ pub struct ClientFuture<S: Stream<Item = Vec<u8>, Error = io::Error>> {
     phantom: PhantomData<S>,
 }
 
-impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
+impl<S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static> ClientFuture<S> {
     /// Spawns a new ClientFuture Stream. This uses a default timeout of 5 seconds for all requests.
     ///
     /// # Arguments
     ///
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
     ///              (see TcpClientStream or UdpClientStream)
-    /// * `loop_handle` - A Handle to the Tokio reactor Core, this is the Core on which the
-    ///                   the Stream will be spawned
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `signer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn new(
-        stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<ClientStreamHandle<Error = ClientError>>,
-        loop_handle: &Handle,
+        stream: Box<Future<Item = S, Error = io::Error> + Send>,
+        stream_handle: Box<ClientStreamHandle<Error = ClientError> + Send>,
         signer: Option<Arc<Signer>>,
     ) -> BasicClientHandle {
         Self::with_timeout(
             stream,
             stream_handle,
-            loop_handle,
             Duration::from_secs(5),
             signer,
         )
@@ -68,23 +63,19 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + 'static> ClientFuture<S> {
     ///
     /// * `stream` - A stream of bytes that can be used to send/receive DNS messages
     ///              (see TcpClientStream or UdpClientStream)
-    /// * `loop_handle` - A Handle to the Tokio reactor Core, this is the Core on which the
-    ///                   the Stream will be spawned
     /// * `timeout_duration` - All requests may fail due to lack of response, this is the time to
     ///                        wait for a response before canceling the request.
     /// * `stream_handle` - The handle for the `stream` on which bytes can be sent/received.
     /// * `finalizer` - An optional signer for requests, needed for Updates with Sig0, otherwise not needed
     pub fn with_timeout(
-        stream: Box<Future<Item = S, Error = io::Error>>,
-        stream_handle: Box<DnsStreamHandle<Error = ClientError>>,
-        loop_handle: &Handle,
+        stream: Box<Future<Item = S, Error = io::Error> + Send>,
+        stream_handle: Box<DnsStreamHandle<Error = ClientError> + Send>,
         timeout_duration: Duration,
         finalizer: Option<Arc<Signer>>,
     ) -> BasicClientHandle {
         let dns_future_handle = DnsFuture::with_timeout(
             stream,
             stream_handle,
-            loop_handle,
             timeout_duration,
             finalizer,
         );

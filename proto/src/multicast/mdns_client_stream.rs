@@ -29,11 +29,11 @@ impl MdnsClientStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
-        Box<Future<Item = MdnsClientStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = E>>,
+        Box<Future<Item = MdnsClientStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = E> + Send>,
     )
     where
-        E: FromProtoError + 'static,
+        E: FromProtoError + Send + 'static,
     {
         Self::new::<E>(
             *MDNS_IPV4,
@@ -50,11 +50,11 @@ impl MdnsClientStream {
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsClientStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = E>>,
+        Box<Future<Item = MdnsClientStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = E> + Send>,
     )
     where
-        E: FromProtoError + 'static,
+        E: FromProtoError + Send + 'static,
     {
         Self::new::<E>(
             *MDNS_IPV6,
@@ -80,11 +80,11 @@ impl MdnsClientStream {
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsClientStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = E>>,
+        Box<Future<Item = MdnsClientStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = E> + Send>,
     )
     where
-        E: FromProtoError + 'static,
+        E: FromProtoError + Send + 'static,
     {
         let (stream_future, sender) = MdnsStream::new(
             mdns_addr,
@@ -94,7 +94,7 @@ impl MdnsClientStream {
             ipv6_if,
         );
 
-        let new_future: Box<Future<Item = MdnsClientStream, Error = io::Error>> =
+        let new_future =
             Box::new(stream_future.map(move |mdns_stream| MdnsClientStream {
                 mdns_stream: mdns_stream,
             }));

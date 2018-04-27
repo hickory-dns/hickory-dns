@@ -73,8 +73,8 @@ impl ClientConnection for TcpClientConnection {
         &self,
     ) -> ClientResult<
         (
-            Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-            Box<DnsStreamHandle<Error = ClientError>>,
+            Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
+            Box<DnsStreamHandle<Error = ClientError> + Send>,
         ),
     > {
         let (tcp_client_stream, handle) =

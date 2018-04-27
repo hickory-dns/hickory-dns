@@ -91,7 +91,7 @@ impl TcpStream<TokioTcpStream> {
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
-        Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>,
+        Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where
@@ -111,7 +111,7 @@ impl TcpStream<TokioTcpStream> {
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
-        Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error>>,
+        Box<Future<Item = TcpStream<TokioTcpStream>, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where

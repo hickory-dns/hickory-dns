@@ -49,11 +49,11 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
-        Box<Future<Item = MdnsStream, Error = io::Error>>,
+        Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where
-        E: FromProtoError,
+        E: FromProtoError + Send,
     {
         Self::new::<E>(
             *MDNS_IPV4,
@@ -70,11 +70,11 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsStream, Error = io::Error>>,
+        Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where
-        E: FromProtoError,
+        E: FromProtoError + Send,
     {
         Self::new::<E>(
             *MDNS_IPV6,
@@ -113,11 +113,11 @@ impl MdnsStream {
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsStream, Error = io::Error>>,
+        Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where
-        E: FromProtoError,
+        E: FromProtoError + Send,
     {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::<E>::new(message_sender);
@@ -145,7 +145,7 @@ impl MdnsStream {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream: Box<Future<Item = MdnsStream, Error = io::Error>> = {
+        let stream = {
             let handle = Handle::current();
             let handle_clone = handle.clone();
 

@@ -44,7 +44,7 @@ impl UdpStream {
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
-        Box<Future<Item = UdpStream, Error = io::Error>>,
+        Box<Future<Item = UdpStream, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where
@@ -59,15 +59,14 @@ impl UdpStream {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream: Box<Future<Item = UdpStream, Error = io::Error>> = {
+        let stream =
             Box::new(
                 next_socket
                     .map(move |socket| UdpStream {
                         socket: socket,
                         outbound_messages: outbound_messages.fuse().peekable(),
                     }),
-            )
-        };
+            );
 
         (stream, message_sender)
     }
