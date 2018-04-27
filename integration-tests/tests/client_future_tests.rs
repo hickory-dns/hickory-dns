@@ -164,7 +164,7 @@ fn test_notify() {
 //
 
 /// create a client with a sig0 section
-fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, Name) {
+fn create_sig0_ready_client() -> (BasicClientHandle, Name) {
     let mut authority = create_example();
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
@@ -199,7 +199,7 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, Name) {
 #[test]
 fn test_create() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // create a record
     let mut record = Record::with(
@@ -241,7 +241,7 @@ fn test_create() {
 #[test]
 fn test_create_multi() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // create a record
     let mut record = Record::with(
@@ -293,7 +293,7 @@ fn test_create_multi() {
 #[test]
 fn test_append() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // append a record
     let mut record = Record::with(
@@ -359,7 +359,7 @@ fn test_append() {
 #[test]
 fn test_append_multi() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // append a record
     let mut record = Record::with(
@@ -431,7 +431,7 @@ fn test_append_multi() {
 #[test]
 fn test_compare_and_swap() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // create a record
     let mut record = Record::with(
@@ -487,7 +487,7 @@ fn test_compare_and_swap() {
 #[test]
 fn test_compare_and_swap_multi() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // create a record
     let mut current = RecordSet::with_ttl(
@@ -553,7 +553,7 @@ fn test_compare_and_swap_multi() {
 #[test]
 fn test_delete_by_rdata() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // append a record
     let mut record1 = Record::with(
@@ -603,7 +603,7 @@ fn test_delete_by_rdata() {
 #[test]
 fn test_delete_by_rdata_multi() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
@@ -678,7 +678,7 @@ fn test_delete_by_rdata_multi() {
 #[test]
 fn test_delete_rrset() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // append a record
     let mut record = Record::with(
@@ -723,7 +723,7 @@ fn test_delete_rrset() {
 #[test]
 fn test_delete_all() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client(&io_loop);
+    let (mut client, origin) = create_sig0_ready_client();
 
     // append a record
     let mut record = Record::with(

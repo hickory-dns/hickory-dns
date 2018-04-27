@@ -10,7 +10,6 @@ use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
 use futures::Future;
-use tokio_core::reactor::Handle;
 use trust_dns_proto::rr::domain::TryParseIp;
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
 use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse,
@@ -107,11 +106,10 @@ impl ResolverFuture {
     ///
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
-    /// * `reactor` - the [`tokio_core::Core`] to use with this future
-    pub fn new(config: ResolverConfig, options: ResolverOpts, reactor: &Handle) -> Self {
+    pub fn new(config: ResolverConfig, options: ResolverOpts) -> Self {
         let lru = Arc::new(Mutex::new(DnsLru::new(options.cache_size)));
 
-        Self::with_cache(config, options, lru, reactor)
+        Self::with_cache(config, options, lru)
     }
 
     /// Construct a new ResolverFuture with the associated Client and configuration.
@@ -121,15 +119,13 @@ impl ResolverFuture {
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
     /// * `lru` - the cache to be used with the resolver
-    /// * `reactor` - the [`tokio_core::Core`] to use with this future
     pub(crate) fn with_cache(
         config: ResolverConfig,
         options: ResolverOpts,
         lru: Arc<Mutex<DnsLru>>,
-        reactor: &Handle,
     ) -> Self {
         let pool = NameServerPool::<BasicResolverHandle, StandardConnection>::from_config(
-            &config, &options, reactor,
+            &config, &options,
         );
         let either;
         let client = RetryDnsHandle::new(pool.clone(), options.attempts);
@@ -167,9 +163,9 @@ impl ResolverFuture {
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
-    pub fn from_system_conf(reactor: &Handle) -> ResolveResult<Self> {
+    pub fn from_system_conf() -> ResolveResult<Self> {
         let (config, options) = super::system_conf::read_system_conf()?;
-        Ok(Self::new(config, options, reactor))
+        Ok(Self::new(config, options))
     }
 
     fn push_name(name: Name, names: &mut Vec<Name>) {
@@ -350,7 +346,7 @@ mod tests {
 
     fn lookup_test(config: ResolverConfig) {
         let mut io_loop = Core::new().unwrap();
-        let resolver = ResolverFuture::new(config, ResolverOpts::default(), &io_loop.handle());
+        let resolver = ResolverFuture::new(config, ResolverOpts::default());
 
         let response = io_loop
             .run(resolver.lookup_ip("www.example.com."))
@@ -392,7 +388,6 @@ mod tests {
         let resolver = ResolverFuture::new(
             ResolverConfig::default(),
             ResolverOpts::default(),
-            &io_loop.handle(),
         );
 
         let response = io_loop
@@ -426,7 +421,6 @@ mod tests {
                 validate: true,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         let response = io_loop
@@ -460,7 +454,6 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         // needs to be a domain that exists, but is not signed (eventually this will be)
@@ -481,7 +474,7 @@ mod tests {
     #[cfg(any(unix, target_os = "windows"))]
     fn test_system_lookup() {
         let mut io_loop = Core::new().unwrap();
-        let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
+        let resolver = ResolverFuture::from_system_conf().unwrap();
 
         let response = io_loop
             .run(resolver.lookup_ip("www.example.com."))
@@ -508,7 +501,7 @@ mod tests {
     #[cfg(unix)]
     fn test_hosts_lookup() {
         let mut io_loop = Core::new().unwrap();
-        let resolver = ResolverFuture::from_system_conf(&io_loop.handle()).unwrap();
+        let resolver = ResolverFuture::from_system_conf().unwrap();
 
         let response = io_loop
             .run(resolver.lookup_ip("a.com"))
@@ -541,7 +534,6 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         let response = io_loop
@@ -577,7 +569,6 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         // notice this is not a FQDN, no trailing dot.
@@ -614,7 +605,6 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         // notice this is not a FQDN, no trailing dot.
@@ -650,7 +640,6 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         // notice no dots, should not trigger ndots rule
@@ -687,7 +676,6 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         // notice no dots, should not trigger ndots rule
@@ -711,7 +699,6 @@ mod tests {
         let resolver = ResolverFuture::new(
             ResolverConfig::default(),
             ResolverOpts::default(),
-            &io_loop.handle(),
         );
 
         let response = io_loop
@@ -732,7 +719,6 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         let response = io_loop
@@ -755,7 +741,6 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         let response = io_loop
