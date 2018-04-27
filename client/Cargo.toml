@@ -64,7 +64,6 @@ radix_trie = "0.1.2"
 rand = "^0.4"
 ring = { version = "^0.12", optional = true }
 tokio-core = "^0.1"
-tokio-reactor = "^0.1"
 tokio-tcp = "^0.1"
 trust-dns-proto = {version = "^0.3", path = "../proto", features = ["dnssec"] }
 untrusted = { version = "^0.5", optional = true }

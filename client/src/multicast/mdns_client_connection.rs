@@ -11,7 +11,6 @@ use std::io;
 use std::net::{Ipv4Addr, SocketAddr};
 
 use futures::Future;
-use tokio_reactor::Handle;
 use trust_dns_proto::DnsStreamHandle;
 
 use client::ClientConnection;
@@ -66,7 +65,6 @@ impl ClientConnection for MdnsClientConnection {
             self.packet_ttl,
             self.ipv4_if,
             self.ipv6_if,
-            &Handle::current(),
         );
 
         Ok((mdns_client_stream, handle))
