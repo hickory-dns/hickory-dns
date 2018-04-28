@@ -14,4 +14,5 @@ scripts/test_dns_over_openssl.sh
 scripts/test_dns_over_rustls.sh
 scripts/test_dnssec_openssl.sh
 scripts/test_dnssec_ring.sh
+scripts/test_mdns.sh
 scripts/test_no_default_features.sh

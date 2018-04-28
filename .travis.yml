@@ -69,6 +69,15 @@ matrix:
 
     # parallel builds for tests
     - rust: stable
+      env: NAME=mdns
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/test_mdns.sh
+      after_success:
+        - scripts/run_kcov.sh
+
+    # parallel builds for tests
+    - rust: stable
       env: NAME=no_default_features
            RUST_BACKTRACE=full
       script: 
