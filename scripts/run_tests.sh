@@ -7,17 +7,11 @@ cd $trust_dns_dir
 
 # Enumerates all tests and feature variations for each module
 
-# trust-dns-proto
-scripts/run_tests_proto.sh
-  
-# trust-dns + tls
-scripts/run_tests_client.sh
-
-# trust-dns-resolver
-scripts/run_tests_resolver.sh
-
-# trust-dns-server
-scripts/run_tests_server.sh
-
-# trust-dns-integration-tests
-scripts/run_tests_integration_tests.sh
+scripts/test_all_features.sh
+scripts/test_default_features.sh
+scripts/test_dns_over_native_tls.sh
+scripts/test_dns_over_openssl.sh
+scripts/test_dns_over_rustls.sh
+scripts/test_dnssec_openssl.sh
+scripts/test_dnssec_ring.sh
+scripts/test_no_default_features.sh

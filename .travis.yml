@@ -6,34 +6,75 @@ matrix:
   include:
     # parallel builds for tests
     - rust: stable
-      env: NAME=trust-dns-proto
+      env: NAME=all_features
            RUST_BACKTRACE=full
       script: 
-        - scripts/run_tests_proto.sh
+        - scripts/test_all_features.sh
+      after_success:
+        - scripts/run_kcov.sh
 
+    # parallel builds for tests
     - rust: stable
-      env: NAME=trust-dns-client
+      env: NAME=default_features
            RUST_BACKTRACE=full
       script: 
-        - scripts/run_tests_client.sh
+        - scripts/test_default_features.sh
+      after_success:
+        - scripts/run_kcov.sh
 
+    # parallel builds for tests
     - rust: stable
-      env: NAME=trust-dns-resolver
+      env: NAME=dns_over_native_tls
            RUST_BACKTRACE=full
       script: 
-        - scripts/run_tests_resolver.sh
+        - scripts/test_dns_over_native_tls.sh
+      after_success:
+        - scripts/run_kcov.sh
 
+    # parallel builds for tests
     - rust: stable
-      env: NAME=trust-dns-server
+      env: NAME=dns_over_openssl
            RUST_BACKTRACE=full
       script: 
-        - scripts/run_tests_server.sh
+        - scripts/test_dns_over_openssl.sh
+      after_success:
+        - scripts/run_kcov.sh
 
+    # parallel builds for tests
     - rust: stable
-      env: NAME=trust-dns-integration-tests
+      env: NAME=dns_over_rustls
            RUST_BACKTRACE=full
       script: 
-        - scripts/run_tests_integration_tests.sh
+        - scripts/test_dns_over_rustls.sh
+      after_success:
+        - scripts/run_kcov.sh
+
+    # parallel builds for tests
+    - rust: stable
+      env: NAME=dnssec_openssl
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/test_dnssec_openssl.sh
+      after_success:
+        - scripts/run_kcov.sh
+
+    # parallel builds for tests
+    - rust: stable
+      env: NAME=dnssec_ring
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/test_dnssec_ring.sh
+      after_success:
+        - scripts/run_kcov.sh
+
+    # parallel builds for tests
+    - rust: stable
+      env: NAME=no_default_features
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/test_no_default_features.sh
+      after_success:
+        - scripts/run_kcov.sh
 
     # min rust version
     # - rust: 1.14.0
@@ -41,8 +82,7 @@ matrix:
       env: NAME=beta
            RUST_BACKTRACE=full
       script: 
-        - scripts/run_tests_proto.sh
-        - scripts/run_tests_resolver.sh
+        - scripts/test_all_features.sh
 
     # macos
     - os: osx
@@ -50,16 +90,14 @@ matrix:
       env: NAME=macOS
            RUST_BACKTRACE=full
       script: 
-        - scripts/run_tests_proto.sh
-        - scripts/run_tests_resolver.sh
+        - scripts/test_all_features.sh
 
     # nightly
     - rust: nightly
       env: NAME=nightly
            RUST_BACKTRACE=full
       script: 
-        - scripts/run_tests_proto.sh
-        - scripts/run_tests_resolver.sh        
+        - scripts/test_all_features.sh
 
     # clippy
     - rust: nightly
@@ -88,57 +126,8 @@ matrix:
         - scripts/install_bind.sh
       script:
         - cargo test --manifest-path compatibility-tests/Cargo.toml --no-default-features --features=bind
-
-    ###
-    # coverage reports
-    - rust: stable
-      env: NAME=kcov-all-features
-           RUST_BACKTRACE=full
-           RUN_KCOV=1
-      script:
-        - scripts/build_tests_all_features.sh
+      after_success:
         - scripts/run_kcov.sh
-
-    - rust: stable
-      env: NAME=kcov-dns-over-native-tls
-           RUST_BACKTRACE=full
-           RUN_KCOV=1
-      script:
-        - scripts/build_tests_dns_over_native_tls.sh
-        - scripts/run_kcov.sh
-
-    - rust: stable
-      env: NAME=kcov-dns-over-openssl
-           RUST_BACKTRACE=full
-           RUN_KCOV=1
-      script:
-        - scripts/build_tests_dns_over_openssl.sh
-        - scripts/run_kcov.sh
-
-    - rust: stable
-      env: NAME=kcov-dns-over-rustls
-           RUST_BACKTRACE=full
-           RUN_KCOV=1
-      script:
-        - scripts/build_tests_dns_over_rustls.sh
-        - scripts/run_kcov.sh
-
-    - rust: stable
-      env: NAME=kcov-dnssec-openssl
-           RUST_BACKTRACE=full
-           RUN_KCOV=1
-      script:
-        - scripts/build_tests_dnssec_openssl.sh
-        - scripts/run_kcov.sh
-
-    - rust: stable
-      env: NAME=kcov-dnssec-ring
-           RUST_BACKTRACE=full
-           RUN_KCOV=1
-      script:
-        - scripts/build_tests_dnssec_ring.sh
-        - scripts/run_kcov.sh
-
 
   allow_failures:
     - rust: nightly
