@@ -1,5 +1,7 @@
 #!/bin/bash -e
 
+set -x
+
 # This script is used for CI and assumes clippy is installed already.
 # TODO: run clippy on the other crates, for now we only fixed the clippy warning on the client crate
 

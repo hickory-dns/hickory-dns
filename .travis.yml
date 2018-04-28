@@ -4,106 +4,148 @@ language: rust
 
 matrix:
   include:
-    # optional feature variations
-    # we want full coverage, include all features...
+    # parallel builds for tests
     - rust: stable
-      env: OPTIONS="--all-features"
-           RUN_KCOV=1
+      env: NAME=all_features
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_all_features.sh
+      after_success:
+        - scripts/run_kcov.sh
 
-    # no features
+    # parallel builds for tests
     - rust: stable
-      env: MODULES="client integration-tests proto resolver server"
-           OPTIONS="--no-default-features"
-           RUN_KCOV=1
+      env: NAME=default_features
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_default_features.sh
+      after_success:
+        - scripts/run_kcov.sh
 
-    # default features...
+    # parallel builds for tests
     - rust: stable
-      env: MODULES="client integration-tests proto resolver server"
-           RUN_KCOV=1
+      env: NAME=dns_over_native_tls
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_dns_over_native_tls.sh
+      after_success:
+        - scripts/run_kcov.sh
 
-    # just openssl
+    # parallel builds for tests
     - rust: stable
-      env: MODULES="client integration-tests proto resolver server"
-           OPTIONS="--no-default-features --features=dnssec-openssl"
-           RUN_KCOV=1
+      env: NAME=dns_over_openssl
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_dns_over_openssl.sh
+      after_success:
+        - scripts/run_kcov.sh
 
-    # just dns-over-openssl
+    # parallel builds for tests
     - rust: stable
-      env: MODULES="resolver"
-           OPTIONS="--no-default-features --features=dns-over-openssl"
-           RUN_KCOV=1
+      env: NAME=dns_over_rustls
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_dns_over_rustls.sh
+      after_success:
+        - scripts/run_kcov.sh
 
-    # just ring
+    # parallel builds for tests
     - rust: stable
-      env: MODULES="client integration-tests proto resolver server"
-           OPTIONS="--no-default-features --features=dnssec-ring"
-           RUN_KCOV=1
+      env: NAME=dnssec_openssl
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_dnssec_openssl.sh
+      after_success:
+        - scripts/run_kcov.sh
 
-    # just dns-over-rustls
+    # parallel builds for tests
     - rust: stable
-      env: MODULES="resolver"
-           OPTIONS="--no-default-features --features=dns-over-rustls"
-           RUN_KCOV=1
+      env: NAME=dnssec_ring
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_dnssec_ring.sh
+      after_success:
+        - scripts/run_kcov.sh
 
-    # just dns-over-native-tls
+    # parallel builds for tests
     - rust: stable
-      env: MODULES="resolver"
-           OPTIONS="--no-default-features --features=dns-over-native-tls"
-           RUN_KCOV=1
+      env: NAME=mdns
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_mdns.sh
+      after_success:
+        - scripts/run_kcov.sh
 
-    # just tls using openssl
+    # parallel builds for tests
     - rust: stable
-      env: MODULES="integration-tests server"
-           OPTIONS="--no-default-features --features=dns-over-openssl"
-           RUN_KCOV=1
+      env: NAME=no_default_features
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_no_default_features.sh
+      after_success:
+        - scripts/run_kcov.sh
 
     # min rust version
     # - rust: 1.14.0
     - rust: beta
-      env: RUST_BACKTRACE=full
+      env: NAME=beta
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/test_all_features.sh
 
+    # macos
     - os: osx
       rust: stable
-      env: OPTIONS="--all-features"
+      env: NAME=macOS
            RUST_BACKTRACE=full
+      script: 
+        - scripts/test_all_features.sh
+
+    # nightly
+    - rust: nightly
+      env: NAME=nightly
+           RUST_BACKTRACE=full
+      script: 
+        - scripts/test_all_features.sh
+
+    # clippy
+    - rust: nightly
+      env: NAME=clippy
+           RUST_BACKTRACE=full
+      before_install:
+        - cargo install clippy --force
+      script:
+        - scripts/run_clippy.sh
 
     - rust: nightly
-      env: RUST_BACKTRACE=full
-
-    - rust: nightly
-      env: CLIPPY=true
+      env: NAME=rustfmt
            RUST_BACKTRACE=full
+      before_install:
+        - cargo install rustfmt-nightly --force
+      script:
+        - cargo fmt --all -- --write-mode=diff
 
-    - rust: nightly
-      env: RUSTFMT=true
-           RUST_BACKTRACE=full
-
+    # compatiblity tests
     - rust: stable
-      env: MODULES="compatibility-tests"
+      env: NAME=compatiblity
            TDNS_BIND_PATH="../../bind-9.11.0-P1/bin/named/named"
-           OPTIONS="--no-default-features --features=bind"
            RUST_BACKTRACE=full
+      before_install:
+        - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
+        - scripts/install_bind.sh
+      script:
+        - cargo test --manifest-path compatibility-tests/Cargo.toml --no-default-features --features=bind
+      after_success:
+        - scripts/run_kcov.sh
 
   allow_failures:
     - rust: nightly
 
 before_install:
-  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh ; fi
-  - if [[ "$MODULES" == "compatibility-tests" ]]; then scripts/install_bind.sh ; fi
-  - if [[ "$RUSTFMT" == "true" ]]; then cargo install rustfmt-nightly --force ; fi
-  - if [[ "$CLIPPY" == "true" ]]; then cargo install clippy --force; fi
+  - if [[ "$TRAVIS_OS_NAME" == "linux" ]]; then scripts/install_openssl_deb.sh; fi
 
+## All scripts are run above...
 script:
-    - bash -c 'if [ -z ${CLIPPY+x} ] && [ -z ${RUSTFMT+x} ] ; then scripts/run_tests.sh ; fi'
-    - bash -c 'if [[ "$CLIPPY" == "true" ]] ; then scripts/run_clippy.sh ; fi'
-    - bash -c 'if [[ "$RUSTFMT" == "true" ]] ; then cargo fmt --all -- --write-mode=diff; fi'
-after_success: scripts/run_kcov.sh
+  - fail
+
+#after_success: scripts/run_kcov.sh

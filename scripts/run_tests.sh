@@ -1,18 +1,18 @@
 #!/bin/bash -e
 
-MODULES=${MODULES:-"client integration-tests native-tls openssl proto resolver rustls server"}
-CLIENT_OPTIONS=${CLIENT_OPTIONS} # add in all features
-OPTIONS=${OPTIONS}
+set -x
 
 trust_dns_dir=$(dirname $0)/..
-cd ${trust_dns_dir:?}
+cd $trust_dns_dir
 
-for i in ${MODULES:?}; do
-  pushd $i
-  opts=${OPTIONS}
-  if [ $i == "client" ] ; then opts="${OPTIONS} ${CLIENT_OPTIONS}" ; fi
-    
-  echo "executing $i: cargo test ${opts} $@"
-  cargo test ${opts} $@
-  popd
-done
+# Enumerates all tests and feature variations for each module
+
+scripts/test_all_features.sh
+scripts/test_default_features.sh
+scripts/test_dns_over_native_tls.sh
+scripts/test_dns_over_openssl.sh
+scripts/test_dns_over_rustls.sh
+scripts/test_dnssec_openssl.sh
+scripts/test_dnssec_ring.sh
+scripts/test_mdns.sh
+scripts/test_no_default_features.sh

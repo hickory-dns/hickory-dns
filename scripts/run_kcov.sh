@@ -1,5 +1,10 @@
 #!/bin/bash -e
 
+set -x
+
+# THIS SCRIPT ASSUMES TESTS HAVE ALREADY BEEN BUILT
+# *WARING* it is destructive and installs kcov via sudo!
+
 trust_dns_dir=$(dirname $0)/..
 cd ${trust_dns_dir:?}
 
@@ -11,7 +16,6 @@ esac
 # don't run on nightly or beta
 rustc --version | grep beta && exit 0;
 rustc --version | grep nightly && exit 0;
-if [ -z ${RUN_KCOV} ] ; then exit 0; fi
 
 rm -rf kcov-master master.tar.gz*
 
