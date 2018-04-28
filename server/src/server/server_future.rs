@@ -23,10 +23,10 @@ use trust_dns::tcp::TcpStream;
 use trust_dns::udp::UdpStream;
 use trust_dns::BufStreamHandle;
 
-#[cfg(feature = "tls")]
+#[cfg(feature = "dns-over-openssl")]
 use trust_dns_openssl::{tls_server, TlsStream};
 
-#[cfg(feature = "tls")]
+#[cfg(feature = "dns-over-openssl")]
 use trust_dns_openssl::tls_server::*;
 
 use authority::MessageRequest;
@@ -174,7 +174,7 @@ impl<T: RequestHandler> ServerFuture<T> {
     ///               possible to create long-lived queries, but these should be from trusted sources
     ///               only, this would require some type of whitelisting.
     /// * `pkcs12` - certificate used to announce to clients
-    #[cfg(feature = "tls")]
+    #[cfg(feature = "dns-over-openssl")]
     pub fn register_tls_listener(
         &self,
         listener: tokio_tcp::TcpListener,
