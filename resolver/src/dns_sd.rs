@@ -164,7 +164,6 @@ mod tests {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
                 ..ResolverOpts::default()
             },
-            &io_loop.handle(),
         );
 
         let response = io_loop

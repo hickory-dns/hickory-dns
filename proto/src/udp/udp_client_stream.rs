@@ -34,15 +34,15 @@ impl UdpClientStream {
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
-        Box<Future<Item = UdpClientStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = E>>,
+        Box<Future<Item = UdpClientStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = E> + Send>,
     )
     where
-        E: FromProtoError + 'static,
+        E: FromProtoError + Send + 'static,
     {
         let (stream_future, sender) = UdpStream::new(name_server);
 
-        let new_future: Box<Future<Item = UdpClientStream, Error = io::Error>> =
+        let new_future =
             Box::new(stream_future.map(move |udp_stream| {
                 UdpClientStream {
                     name_server: name_server,

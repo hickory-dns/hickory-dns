@@ -32,6 +32,7 @@ extern crate rand;
 extern crate ring;
 extern crate smallvec;
 extern crate socket2;
+extern crate tokio;
 #[macro_use]
 extern crate tokio_core;
 extern crate tokio_io;

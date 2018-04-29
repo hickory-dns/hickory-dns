@@ -20,10 +20,10 @@ use socket2::{self, Socket};
 use tokio_reactor::Handle;
 use tokio_udp::UdpSocket;
 
-use BufStreamHandle;
 use error::*;
 use multicast::MdnsQueryType;
 use udp::UdpStream;
+use BufStreamHandle;
 
 pub const MDNS_PORT: u16 = 5353;
 lazy_static! {
@@ -49,19 +49,13 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv4_if: Option<Ipv4Addr>,
     ) -> (
-        Box<Future<Item = MdnsStream, Error = io::Error>>,
+        Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where
-        E: FromProtoError,
+        E: FromProtoError + Send,
     {
-        Self::new::<E>(
-            *MDNS_IPV4,
-            mdns_query_type,
-            packet_ttl,
-            ipv4_if,
-            None,
-        )
+        Self::new::<E>(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
@@ -70,19 +64,13 @@ impl MdnsStream {
         packet_ttl: Option<u32>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsStream, Error = io::Error>>,
+        Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where
-        E: FromProtoError,
+        E: FromProtoError + Send,
     {
-        Self::new::<E>(
-            *MDNS_IPV6,
-            mdns_query_type,
-            packet_ttl,
-            None,
-            ipv6_if,
-        )
+        Self::new::<E>(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
     }
 
     /// This method is available for specifying a custom Multicast address to use.
@@ -113,11 +101,11 @@ impl MdnsStream {
         ipv4_if: Option<Ipv4Addr>,
         ipv6_if: Option<u32>,
     ) -> (
-        Box<Future<Item = MdnsStream, Error = io::Error>>,
+        Box<Future<Item = MdnsStream, Error = io::Error> + Send>,
         BufStreamHandle<E>,
     )
     where
-        E: FromProtoError,
+        E: FromProtoError + Send,
     {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = BufStreamHandle::<E>::new(message_sender);
@@ -145,7 +133,7 @@ impl MdnsStream {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream: Box<Future<Item = MdnsStream, Error = io::Error>> = {
+        let stream = {
             let handle = Handle::current();
             let handle_clone = handle.clone();
 
@@ -153,8 +141,7 @@ impl MdnsStream {
                 next_socket
                     .map(move |socket: Option<_>| {
                         socket.map(|socket| {
-                            UdpSocket::from_std(socket, &handle)
-                                .expect("bad handle?")
+                            UdpSocket::from_std(socket, &handle).expect("bad handle?")
                         })
                     })
                     .map(move |socket: Option<_>| {
@@ -162,10 +149,8 @@ impl MdnsStream {
                             socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
                         let multicast: Option<UdpSocket> =
                             multicast_socket.map(|multicast_socket| {
-                                UdpSocket::from_std(
-                                    multicast_socket,
-                                    &handle_clone,
-                                ).expect("bad handle?")
+                                UdpSocket::from_std(multicast_socket, &handle_clone)
+                                    .expect("bad handle?")
                             });
 
                         MdnsStream {

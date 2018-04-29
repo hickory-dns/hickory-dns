@@ -62,6 +62,7 @@ rand = "^0.4"
 ring = { version = "^0.12", optional = true }
 smallvec = "^0.6"
 socket2 = { version = "^0.3.4", features = ["reuseport"] }
+tokio = "^0.1"
 tokio-core = "^0.1"
 tokio-io = "^0.1"
 tokio-reactor = "^0.1"

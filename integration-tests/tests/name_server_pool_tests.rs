@@ -7,7 +7,7 @@ extern crate trust_dns_resolver;
 use std::net::*;
 use std::str::FromStr;
 
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::Core;
 
 use trust_dns::op::Query;
 use trust_dns::rr::{Name, RecordType};
@@ -23,7 +23,7 @@ struct MockConnProvider {}
 impl ConnectionProvider for MockConnProvider {
     type ConnHandle = MockClientHandle<ResolveError>;
 
-    fn new_connection(_: &NameServerConfig, _: &ResolverOpts, _: &Handle) -> Self::ConnHandle {
+    fn new_connection(_: &NameServerConfig, _: &ResolverOpts) -> Self::ConnHandle {
         MockClientHandle::mock(vec![])
     }
 }
@@ -34,7 +34,6 @@ type MockedNameServerPool = NameServerPool<MockClientHandle<ResolveError>, MockC
 #[cfg(test)]
 fn mock_nameserver(
     messages: Vec<ResolveResult<DnsResponse>>,
-    reactor: &Handle,
 ) -> MockedNameServer {
     let client = MockClientHandle::mock(messages);
 
@@ -46,7 +45,6 @@ fn mock_nameserver(
         },
         ResolverOpts::default(),
         client,
-        reactor,
     )
 }
 
@@ -55,7 +53,6 @@ fn mock_nameserver_pool(
     udp: Vec<MockedNameServer>,
     tcp: Vec<MockedNameServer>,
     _mdns: Option<MockedNameServer>,
-    _reactor: &Handle,
 ) -> MockedNameServerPool {
     #[cfg(not(feature = "mdns"))]
     return NameServerPool::from_nameservers(&ResolverOpts::default(), udp, tcp);
@@ -65,7 +62,7 @@ fn mock_nameserver_pool(
         &ResolverOpts::default(),
         udp,
         tcp,
-        _mdns.unwrap_or_else(|| mock_nameserver(vec![], _reactor)),
+        _mdns.unwrap_or_else(|| mock_nameserver(vec![])),
     );
 }
 

@@ -90,7 +90,7 @@
 //! let mut io_loop = Core::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default(), &io_loop.handle());
+//! let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default());
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
