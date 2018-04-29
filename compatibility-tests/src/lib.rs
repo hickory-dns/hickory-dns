@@ -29,7 +29,7 @@ mod none;
 #[cfg(feature = "bind")]
 pub use bind::named_process;
 
-#[cfg(feature = "none")]
+#[cfg(all(feature = "none", not(feature = "bind")))]
 pub use none::named_process;
 
 fn find_test_port() -> u16 {

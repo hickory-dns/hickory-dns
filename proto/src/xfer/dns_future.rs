@@ -284,7 +284,16 @@ where
                         Async::NotReady => break,
                     }
                 }
-                Ok(_) => None,
+                Ok(Async::Ready(None)) => {
+                    // We want to pop the nones off in the poll, to get rid of them.
+                    None
+                }
+                Ok(Async::NotReady) => {
+                    // we must break in the NotReady case as well, we don't want there to ever be a case where
+                    //  a message could arrive between peek and poll... i.e. a race condition where query_id
+                    //  would have been gotten
+                    break;
+                },
                 Err(()) => {
                     warn!("receiver was shutdown?");
                     break;
