@@ -5,23 +5,23 @@ extern crate trust_dns_server;
 
 use std::net::*;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use tokio_core::reactor::Core;
 
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle,
                         SecureClientHandle};
 use trust_dns::op::ResponseCode;
-use trust_dns::rr::Name;
 use trust_dns::rr::dnssec::TrustAnchor;
+use trust_dns::rr::Name;
 use trust_dns::rr::{DNSClass, RData, RecordType};
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::udp::UdpClientStream;
 
 use trust_dns_server::authority::Catalog;
 
-use trust_dns_integration::TestClientStream;
 use trust_dns_integration::authority::create_secure_example;
+use trust_dns_integration::TestClientStream;
 
 #[test]
 fn test_secure_query_example_nonet() {
@@ -229,7 +229,7 @@ where
     catalog.upsert(authority.origin().clone().into(), authority);
 
     let io_loop = Core::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
+    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = ClientFuture::new(stream, Box::new(sender), None);
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);

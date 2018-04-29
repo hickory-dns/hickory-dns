@@ -39,23 +39,25 @@ pub mod tls_client_connection;
 
 #[allow(unused)]
 pub struct TestClientStream {
-    catalog: Arc<Catalog>,
+    catalog: Arc<Mutex<Catalog>>,
     outbound_messages: Fuse<UnboundedReceiver<Vec<u8>>>,
 }
 
 #[allow(unused)]
 impl TestClientStream {
-    pub fn new<E: FromProtoError>(
-        catalog: Arc<Catalog>,
-    ) -> (Box<Future<Item = Self, Error = io::Error> + Send>, StreamHandle<E>) {
+    pub fn new<E: FromProtoError + Send>(
+        catalog: Arc<Mutex<Catalog>>,
+    ) -> (
+        Box<Future<Item = Self, Error = io::Error> + Send>,
+        StreamHandle<E>,
+    ) {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
-        let stream =
-            Box::new(finished(TestClientStream {
-                catalog: catalog,
-                outbound_messages: outbound_messages.fuse(),
-            }));
+        let stream = Box::new(finished(TestClientStream {
+            catalog: catalog,
+            outbound_messages: outbound_messages.fuse(),
+        }));
 
         (stream, message_sender)
     }
@@ -117,6 +119,8 @@ impl Stream for TestClientStream {
 
                 let response_handler = TestResponseHandler::new();
                 self.catalog
+                    .lock()
+                    .unwrap()
                     .handle_request(&request, response_handler.clone())
                     .unwrap();
 
@@ -156,11 +160,10 @@ impl NeverReturnsClientStream {
         let (message_sender, outbound_messages) = unbounded();
         let message_sender = StreamHandle::new(message_sender);
 
-        let stream =
-            Box::new(finished(NeverReturnsClientStream {
-                timeout: Delay::new(Instant::now() + Duration::from_secs(1)),
-                outbound_messages: outbound_messages.fuse(),
-            }));
+        let stream = Box::new(finished(NeverReturnsClientStream {
+            timeout: Delay::new(Instant::now() + Duration::from_secs(1)),
+            outbound_messages: outbound_messages.fuse(),
+        }));
 
         (stream, message_sender)
     }
