@@ -11,7 +11,7 @@ extern crate trust_dns_server;
 use std::io;
 use std::net::*;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time;
 
 use chrono::Duration;
@@ -33,13 +33,13 @@ use trust_dns_proto::DnsStreamHandle;
 use trust_dns_server::authority::Catalog;
 
 pub struct TestClientConnection {
-    catalog: Arc<Catalog>,
+    catalog: Arc<Mutex<Catalog>>,
 }
 
 impl TestClientConnection {
     pub fn new(catalog: Catalog) -> TestClientConnection {
         TestClientConnection {
-            catalog: Arc::new(catalog),
+            catalog: Arc::new(Mutex::new(catalog)),
         }
     }
 }
@@ -50,8 +50,8 @@ impl ClientConnection for TestClientConnection {
     fn new_stream(
         &self,
     ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = ClientError>>,
+        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send + 'static>,
+        Box<DnsStreamHandle<Error = ClientError> + Send + 'static>,
     )> {
         let (stream, handle) = TestClientStream::new(self.catalog.clone());
         Ok((stream, Box::new(handle)))
