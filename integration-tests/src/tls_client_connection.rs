@@ -49,8 +49,8 @@ impl ClientConnection for TlsClientConnection {
     fn new_stream(
         &self,
     ) -> ClientResult<(
-        Box<Future<Item = Self::MessageStream, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = ClientError>>,
+        Box<Future<Item = Self::MessageStream, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = ClientError> + Send>,
     )> {
         let (tls_client_stream, handle) =
             self.builder

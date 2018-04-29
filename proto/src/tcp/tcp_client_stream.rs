@@ -38,11 +38,11 @@ impl TcpClientStream<TokioTcpStream> {
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
-        Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = E>>,
+        Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = E> + Send>,
     )
     where
-        E: FromProtoError + 'static,
+        E: FromProtoError + Send + 'static,
     {
         Self::with_timeout(name_server, Duration::from_secs(5))
     }
@@ -58,17 +58,15 @@ impl TcpClientStream<TokioTcpStream> {
         name_server: SocketAddr,
         timeout: Duration,
     ) -> (
-        Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>>,
-        Box<DnsStreamHandle<Error = E>>,
+        Box<Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error> + Send>,
+        Box<DnsStreamHandle<Error = E> + Send>,
     )
     where
-        E: FromProtoError + 'static,
+        E: FromProtoError + Send + 'static,
     {
         let (stream_future, sender) = TcpStream::with_timeout(name_server, timeout);
 
-        let new_future: Box<
-            Future<Item = TcpClientStream<TokioTcpStream>, Error = io::Error>,
-        > = Box::new(stream_future.map(move |tcp_stream| {
+        let new_future = Box::new(stream_future.map(move |tcp_stream| {
             TcpClientStream {
                 tcp_stream: tcp_stream,
             }

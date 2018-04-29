@@ -10,7 +10,7 @@ use std::io;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
-use tokio_core::reactor::{Core, Handle};
+use tokio_core::reactor::Core;
 use trust_dns_proto::rr::RecordType;
 
 use ResolverFuture;
@@ -43,7 +43,7 @@ macro_rules! lookup_fn {
 /// * `query` - a str which parses to a domain name, failure to parse will return an error
 pub fn $p(&self, query: &str) -> ResolveResult<$l> {
     let mut reactor = Core::new()?;
-    let future = self.construct_and_run(&reactor.handle())?;
+    let future = self.construct_and_run()?;
     reactor.run(future.$p(query))
 }
     };
@@ -55,7 +55,7 @@ pub fn $p(&self, query: &str) -> ResolveResult<$l> {
 /// * `query` - a type which can be converted to `Name` via `From`.
 pub fn $p(&self, query: $t) -> ResolveResult<$l> {
     let mut reactor = Core::new()?;
-    let future = self.construct_and_run(&reactor.handle())?;
+    let future = self.construct_and_run()?;
     reactor.run(future.$p(query))
 }
     };
@@ -102,13 +102,11 @@ impl Resolver {
     }
 
     /// Constructs a new Core
-    fn construct_and_run(&self, reactor: &Handle) -> ResolveResult<ResolverFuture> {
-        // TODO: get a pair of the Future and the Handle, to run on the same Core.
+    fn construct_and_run(&self) -> ResolveResult<ResolverFuture> {
         let future = ResolverFuture::with_cache(
             self.config.clone(),
             self.options.clone(),
             self.lru.clone(),
-            reactor,
         );
 
         Ok(future)
@@ -124,7 +122,7 @@ impl Resolver {
     /// * `record_type` - type of record to lookup
     pub fn lookup(&self, name: &str, record_type: RecordType) -> ResolveResult<Lookup> {
         let mut reactor = Core::new()?;
-        let future = self.construct_and_run(&reactor.handle())?;
+        let future = self.construct_and_run()?;
         reactor.run(future.lookup(name, record_type))
     }
 
@@ -137,7 +135,7 @@ impl Resolver {
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
     pub fn lookup_ip(&self, host: &str) -> ResolveResult<LookupIp> {
         let mut reactor = Core::new()?;
-        let future = self.construct_and_run(&reactor.handle())?;
+        let future = self.construct_and_run()?;
         reactor.run(future.lookup_ip(host))
     }
 
@@ -158,7 +156,7 @@ impl Resolver {
         name: &str,
     ) -> ResolveResult<lookup::SrvLookup> {
         let mut reactor = Core::new()?;
-        let future = self.construct_and_run(&reactor.handle())?;
+        let future = self.construct_and_run()?;
         #[allow(deprecated)]
         reactor.run(future.lookup_service(service, protocol, name))
     }
@@ -166,7 +164,7 @@ impl Resolver {
     /// Lookup an SRV record.
     pub fn lookup_srv(&self, name: &str) -> ResolveResult<lookup::SrvLookup> {
         let mut reactor = Core::new()?;
-        let future = self.construct_and_run(&reactor.handle())?;
+        let future = self.construct_and_run()?;
         reactor.run(future.lookup_srv(name))
     }
 
