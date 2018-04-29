@@ -9,7 +9,7 @@ extern crate trust_dns_server;
 
 use std::net::*;
 use std::str::FromStr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use chrono::Duration;
 use futures::Future;
@@ -35,7 +35,7 @@ fn test_query_nonet() {
     catalog.upsert(authority.origin().clone().into(), authority);
 
     let mut io_loop = Core::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
+    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let mut client = ClientFuture::new(stream, Box::new(sender), None);
 
     io_loop.run(test_query(&mut client)).unwrap();
@@ -144,7 +144,7 @@ fn test_notify() {
     catalog.upsert(authority.origin().clone().into(), authority);
 
     let mut io_loop = Core::new().unwrap();
-    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
+    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let mut client = ClientFuture::new(stream, Box::new(sender), None);
 
     let name = Name::from_str("ping.example.com").unwrap();
@@ -190,12 +190,8 @@ fn create_sig0_ready_client(io_loop: &Core) -> (BasicClientHandle, Name) {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone().into(), authority);
 
-    let (stream, sender) = TestClientStream::new(Arc::new(catalog));
-    let client = ClientFuture::new(
-        stream,
-        Box::new(sender),
-        Some(Arc::new(signer)),
-    );
+    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let client = ClientFuture::new(stream, Box::new(sender), Some(Arc::new(signer)));
 
     (client, origin.into())
 }
@@ -827,12 +823,8 @@ fn test_timeout_query_udp() {
         .unwrap();
 
     let (stream, sender) = UdpClientStream::new(addr);
-    let client = ClientFuture::with_timeout(
-        stream,
-        sender,
-        std::time::Duration::from_millis(1),
-        None,
-    );
+    let client =
+        ClientFuture::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
     test_timeout_query(client, io_loop);
 }
 
@@ -847,13 +839,8 @@ fn test_timeout_query_tcp() {
         .next()
         .unwrap();
 
-    let (stream, sender) =
-        TcpClientStream::with_timeout(addr, std::time::Duration::from_millis(1));
-    let client = ClientFuture::with_timeout(
-        stream,
-        sender,
-        std::time::Duration::from_millis(1),
-        None,
-    );
+    let (stream, sender) = TcpClientStream::with_timeout(addr, std::time::Duration::from_millis(1));
+    let client =
+        ClientFuture::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
     test_timeout_query(client, io_loop);
 }
