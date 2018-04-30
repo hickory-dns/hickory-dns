@@ -223,7 +223,7 @@ extern crate radix_trie;
 extern crate rand;
 #[cfg(feature = "ring")]
 extern crate ring;
-extern crate tokio_core;
+extern crate tokio;
 #[cfg(feature = "tokio-openssl")]
 extern crate tokio_openssl;
 extern crate tokio_tcp;
