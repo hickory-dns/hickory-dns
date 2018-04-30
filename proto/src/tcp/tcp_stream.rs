@@ -87,7 +87,6 @@ impl TcpStream<TokioTcpStream> {
     /// # Arguments
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `loop_handle` - reference to the takio_core::Core for future based IO
     pub fn new<E>(
         name_server: SocketAddr,
     ) -> (
@@ -105,7 +104,6 @@ impl TcpStream<TokioTcpStream> {
     /// # Arguments
     ///
     /// * `name_server` - the IP and Port of the DNS server to connect to
-    /// * `loop_handle` - reference to the takio_core::Core for future based IO
     /// * `timeout` - connection timeout
     pub fn with_timeout<E>(
         name_server: SocketAddr,

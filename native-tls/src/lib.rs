@@ -20,6 +20,7 @@
 
 extern crate futures;
 extern crate native_tls;
+#[cfg(test)]
 extern crate tokio_core;
 extern crate tokio_tcp;
 extern crate tokio_tls;

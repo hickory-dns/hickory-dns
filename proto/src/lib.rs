@@ -33,8 +33,9 @@ extern crate ring;
 extern crate smallvec;
 extern crate socket2;
 extern crate tokio;
-#[macro_use]
+#[cfg(test)]
 extern crate tokio_core;
+#[macro_use]
 extern crate tokio_io;
 extern crate tokio_reactor;
 extern crate tokio_tcp;
