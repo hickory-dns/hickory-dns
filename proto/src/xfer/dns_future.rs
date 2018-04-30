@@ -10,7 +10,7 @@
 use std::borrow::Borrow;
 use std::collections::hash_map::Entry;
 use std::collections::HashMap;
-use std::{io, thread};
+use std::io;
 use std::sync::Arc;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
@@ -20,7 +20,7 @@ use futures::{task, Async, Complete, Future, Poll};
 use rand;
 use rand::Rand;
 use smallvec::SmallVec;
-use tokio;
+use tokio_executor;
 use tokio_timer::Delay;
 
 use error::*;
@@ -161,11 +161,7 @@ where
     ) -> BasicDnsHandle<E> {
         let (sender, rx) = unbounded();
 
-    // FIXME: Ultimately we should use tokio::spawn instead of thread + tokio::run
-    //        but we currently are having issues with the execution context initialization
-    thread::Builder::new()
-        .name("dns_future".to_string())
-        .spawn(move || {tokio::run(
+        tokio_executor::spawn(
             stream
                 .then(move |res| match res {
                     Ok(stream) => ClientStreamOrError::Future(DnsFuture {
@@ -189,7 +185,7 @@ where
                 .map_err(|e| {
                     error!("error in Proto: {}", e);
                 }),
-        )}).unwrap();
+        );
 
         BasicDnsHandle::new(sender)
     }
