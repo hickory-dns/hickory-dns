@@ -207,9 +207,9 @@ impl Future for NextRandomUdpSocket {
 
 #[test]
 fn test_next_random_socket() {
-    use tokio_core;
+    use tokio::runtime::current_thread::Runtime;
 
-    let mut io_loop = tokio_core::reactor::Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, _) = UdpStream::new::<ProtoError>(
         SocketAddr::new(
             IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
@@ -218,7 +218,7 @@ fn test_next_random_socket() {
     );
     drop(
         io_loop
-            .run(stream)
+            .block_on(stream)
             .ok()
             .expect("failed to get next socket address"),
     );
@@ -246,7 +246,7 @@ fn test_udp_stream_ipv6() {
 
 #[cfg(test)]
 fn udp_stream_test(server_addr: IpAddr) {
-    use tokio_core::reactor::Core;
+    use tokio::runtime::current_thread::Runtime;
 
     use std;
     use std::net::ToSocketAddrs;
@@ -301,7 +301,7 @@ fn udp_stream_test(server_addr: IpAddr) {
         .unwrap();
 
     // setup the client, which is going to run on the testing thread...
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
@@ -312,14 +312,14 @@ fn udp_stream_test(server_addr: IpAddr) {
 
     let socket = tokio_udp::UdpSocket::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap()).expect("could not create socket"); // some random address...
     let (mut stream, sender) = UdpStream::with_bound::<ProtoError>(socket);
-    //let mut stream: UdpStream = io_loop.run(stream).ok().unwrap();
+    //let mut stream: UdpStream = io_loop.block_on(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {
         // test once
         sender
             .unbounded_send((test_bytes.to_vec(), server_addr))
             .unwrap();
-        let (buffer_and_addr, stream_tmp) = io_loop.run(stream.into_future()).ok().unwrap();
+        let (buffer_and_addr, stream_tmp) = io_loop.block_on(stream.into_future()).ok().unwrap();
         stream = stream_tmp;
         let (buffer, addr) = buffer_and_addr.expect("no buffer received");
         assert_eq!(&buffer, test_bytes);

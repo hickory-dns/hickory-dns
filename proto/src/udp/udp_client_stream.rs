@@ -98,7 +98,7 @@ fn test_udp_client_stream_ipv6() {
 
 #[cfg(test)]
 fn udp_client_stream_test(server_addr: IpAddr) {
-    use tokio_core::reactor::Core;
+    use tokio::runtime::current_thread::Runtime;
 
     use std;
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -152,18 +152,18 @@ fn udp_client_stream_test(server_addr: IpAddr) {
         .unwrap();
 
     // setup the client, which is going to run on the testing thread...
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
-    // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
+    // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, mut sender) = UdpClientStream::new::<ProtoError>(server_addr);
-    let mut stream: UdpClientStream = io_loop.run(stream).ok().unwrap();
+    let mut stream: UdpClientStream = io_loop.block_on(stream).ok().unwrap();
 
     for _ in 0..send_recv_times {
         // test once
         sender.send(test_bytes.to_vec()).unwrap();
-        let (buffer, stream_tmp) = io_loop.run(stream.into_future()).ok().unwrap();
+        let (buffer, stream_tmp) = io_loop.block_on(stream.into_future()).ok().unwrap();
         stream = stream_tmp;
         assert_eq!(&buffer.expect("no buffer received"), test_bytes);
     }
