@@ -20,7 +20,7 @@ use std::{thread, time};
 use futures::Stream;
 use native_tls;
 use native_tls::{Certificate, TlsAcceptor};
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::error::ProtoError;
 
@@ -172,11 +172,11 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
     std::thread::yield_now();
 
     // setup the client, which is going to run on the testing thread...
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
-    // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
+    // let timeout = Timeout::new(Duration::from_secs(5));
 
     let trust_chain = Certificate::from_der(&root_cert_der).unwrap();
 
@@ -193,7 +193,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         builder.build::<ProtoError>(server_addr, dns_name.to_string());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
-    let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
+    let mut stream = io_loop.block_on(stream).ok().expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
@@ -201,7 +201,7 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
             .unbounded_send((TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
         let (buffer, stream_tmp) = io_loop
-            .run(stream.into_future())
+            .block_on(stream.into_future())
             .ok()
             .expect("future iteration run failed");
         stream = stream_tmp;

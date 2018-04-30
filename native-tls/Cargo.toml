@@ -52,7 +52,7 @@ tokio-tls = "^0.1"
 trust-dns-proto = { version = "^0.3", path = "../proto", default-features = false }
 
 [dev-dependencies]
-tokio-core = "^0.1"
+tokio = "^0.1.6"
 
 ## Commented out until MTLS support is complete
 # [target.'cfg(target_os = "linux")'.dependencies]
