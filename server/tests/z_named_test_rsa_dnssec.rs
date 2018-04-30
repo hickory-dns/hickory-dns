@@ -15,9 +15,11 @@ use std::path::Path;
 use std::io::*;
 use std::net::*;
 
+use futures::Future;
 use tokio_core::reactor::Core;
 
 use trust_dns::client::*;
+use trust_dns::error::ClientError;
 use trust_dns::tcp::TcpClientStream;
 use trust_dns::rr::dnssec::*;
 
@@ -54,7 +56,7 @@ fn trust_anchor(public_key_path: &Path, format: KeyFormat, algorithm: Algorithm)
     trust_anchor
 }
 
-fn standard_conn(port: u16) -> BasicClientHandle {
+fn standard_conn(port: u16) -> Box<Future<Item=BasicClientHandle, Error=ClientError> + Send> {
     let addr: SocketAddr = ("127.0.0.1", port)
         .to_socket_addrs()
         .unwrap()
@@ -77,13 +79,16 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
 
         // verify all records are present
         let client = standard_conn(port);
+        let client = io_loop.run(client).unwrap();
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
         let client = standard_conn(port);
+        let client = io_loop.run(client).unwrap();
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Secure client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
         let client = standard_conn(port);
+        let client = io_loop.run(client).unwrap();
         let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);

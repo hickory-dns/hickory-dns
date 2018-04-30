@@ -36,7 +36,8 @@ fn test_query_nonet() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let mut client = ClientFuture::new(stream, Box::new(sender), None);
+    let client = ClientFuture::new(stream, Box::new(sender), None);
+    let mut client = io_loop.run(client).unwrap();
 
     io_loop.run(test_query(&mut client)).unwrap();
     io_loop.run(test_query(&mut client)).unwrap();
@@ -48,7 +49,8 @@ fn test_query_udp_ipv4() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.run(client).unwrap();
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -65,7 +67,8 @@ fn test_query_udp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.run(client).unwrap();
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -78,7 +81,8 @@ fn test_query_tcp_ipv4() {
     let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.run(client).unwrap();
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -95,7 +99,8 @@ fn test_query_tcp_ipv6() {
         .next()
         .unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
-    let mut client = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.run(client).unwrap();
 
     // TODO: timeouts on these requests so that the test doesn't hang
     io_loop.run(test_query(&mut client)).unwrap();
@@ -145,7 +150,8 @@ fn test_notify() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let mut client = ClientFuture::new(stream, Box::new(sender), None);
+    let client = ClientFuture::new(stream, Box::new(sender), None);
+    let mut client = io_loop.run(client).unwrap();
 
     let name = Name::from_str("ping.example.com").unwrap();
 
@@ -164,7 +170,7 @@ fn test_notify() {
 //
 
 /// create a client with a sig0 section
-fn create_sig0_ready_client() -> (BasicClientHandle, Name) {
+fn create_sig0_ready_client(io_loop: &mut Core) -> (BasicClientHandle, Name) {
     let mut authority = create_example();
     authority.set_allow_update(true);
     let origin = authority.origin().clone();
@@ -193,13 +199,13 @@ fn create_sig0_ready_client() -> (BasicClientHandle, Name) {
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = ClientFuture::new(stream, Box::new(sender), Some(Arc::new(signer)));
 
-    (client, origin.into())
+    (io_loop.run(client).unwrap(), origin.into())
 }
 
 #[test]
 fn test_create() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // create a record
     let mut record = Record::with(
@@ -241,7 +247,7 @@ fn test_create() {
 #[test]
 fn test_create_multi() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // create a record
     let mut record = Record::with(
@@ -293,7 +299,7 @@ fn test_create_multi() {
 #[test]
 fn test_append() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record = Record::with(
@@ -359,7 +365,7 @@ fn test_append() {
 #[test]
 fn test_append_multi() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record = Record::with(
@@ -431,7 +437,7 @@ fn test_append_multi() {
 #[test]
 fn test_compare_and_swap() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // create a record
     let mut record = Record::with(
@@ -487,7 +493,7 @@ fn test_compare_and_swap() {
 #[test]
 fn test_compare_and_swap_multi() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // create a record
     let mut current = RecordSet::with_ttl(
@@ -553,7 +559,7 @@ fn test_compare_and_swap_multi() {
 #[test]
 fn test_delete_by_rdata() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record1 = Record::with(
@@ -603,7 +609,7 @@ fn test_delete_by_rdata() {
 #[test]
 fn test_delete_by_rdata_multi() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut rrset = RecordSet::with_ttl(
@@ -678,7 +684,7 @@ fn test_delete_by_rdata_multi() {
 #[test]
 fn test_delete_rrset() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record = Record::with(
@@ -723,7 +729,7 @@ fn test_delete_rrset() {
 #[test]
 fn test_delete_all() {
     let mut io_loop = Core::new().unwrap();
-    let (mut client, origin) = create_sig0_ready_client();
+    let (mut client, origin) = create_sig0_ready_client(&mut io_loop);
 
     // append a record
     let mut record = Record::with(
@@ -800,7 +806,7 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Core) {
 
 #[test]
 fn test_timeout_query_nonet() {
-    let io_loop = Core::new().unwrap();
+    let mut io_loop = Core::new().unwrap();
     let (stream, sender) = NeverReturnsClientStream::new();
     let client = ClientFuture::with_timeout(
         stream,
@@ -808,12 +814,13 @@ fn test_timeout_query_nonet() {
         std::time::Duration::from_millis(1),
         None,
     );
+    let client = io_loop.run(client).unwrap();
     test_timeout_query(client, io_loop);
 }
 
 #[test]
 fn test_timeout_query_udp() {
-    let io_loop = Core::new().unwrap();
+    let mut io_loop = Core::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
@@ -825,12 +832,13 @@ fn test_timeout_query_udp() {
     let (stream, sender) = UdpClientStream::new(addr);
     let client =
         ClientFuture::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
+    let client = io_loop.run(client).unwrap();
     test_timeout_query(client, io_loop);
 }
 
 #[test]
 fn test_timeout_query_tcp() {
-    let io_loop = Core::new().unwrap();
+    let mut io_loop = Core::new().unwrap();
 
     // this is a test network, it should NOT be in use
     let addr: SocketAddr = ("203.0.113.0", 53)
@@ -842,5 +850,6 @@ fn test_timeout_query_tcp() {
     let (stream, sender) = TcpClientStream::with_timeout(addr, std::time::Duration::from_millis(1));
     let client =
         ClientFuture::with_timeout(stream, sender, std::time::Duration::from_millis(1), None);
+    let client = io_loop.run(client).unwrap();
     test_timeout_query(client, io_loop);
 }

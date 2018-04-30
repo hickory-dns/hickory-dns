@@ -125,7 +125,8 @@ fn test_query_mdns_ipv4() {
         None,
         None,
     );
-    let mut client = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.run(client).unwrap();
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
@@ -154,7 +155,8 @@ fn test_query_mdns_ipv6() {
         None,
         Some(5),
     );
-    let mut client = ClientFuture::new(stream, sender, None);
+    let client = ClientFuture::new(stream, sender, None);
+    let mut client = io_loop.run(client).unwrap();
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
