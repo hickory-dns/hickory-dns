@@ -32,9 +32,9 @@ extern crate rand;
 extern crate ring;
 extern crate smallvec;
 extern crate socket2;
-extern crate tokio;
 #[cfg(test)]
 extern crate tokio_core;
+extern crate tokio_executor;
 #[macro_use]
 extern crate tokio_io;
 extern crate tokio_reactor;
