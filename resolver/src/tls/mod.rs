@@ -28,18 +28,19 @@ cfg_if! {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-    use tokio_core::reactor::Core;
+    use tokio::runtime::current_thread::Runtime;
 
     use config::{ResolverConfig, ResolverOpts};
     use ResolverFuture;
 
     fn tls_test(config: ResolverConfig) {
-        let mut io_loop = Core::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
+
         let resolver = ResolverFuture::new(config, ResolverOpts::default());
-        let resolver = io_loop.run(resolver).unwrap();
+        let resolver = io_loop.block_on(resolver).unwrap();
 
         let response = io_loop
-            .run(resolver.lookup_ip("www.example.com."))
+            .block_on(resolver.lookup_ip("www.example.com."))
             .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);

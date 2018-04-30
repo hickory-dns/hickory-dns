@@ -77,22 +77,22 @@
 //!
 //! ```rust
 //! # extern crate futures;
-//! # extern crate tokio_core;
+//! # extern crate tokio;
 //! # extern crate trust_dns_resolver;
 //! # fn main() {
 //! use std::net::*;
-//! use tokio_core::reactor::Core;
+//! use tokio::runtime::current_thread::Runtime;
 //! use trust_dns_resolver::ResolverFuture;
 //! use trust_dns_resolver::config::*;
 //!
 //! // We need a Tokio reactor::Core to run the resolver
 //! //  this is responsible for running all Future tasks and registering interest in IO channels
-//! let mut io_loop = Core::new().unwrap();
+//! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
 //! let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default());
 //! // The resolver we just constructed is a Future wait for the actual Resolver
-//! let resolver = io_loop.run(resolver).unwrap();
+//! let resolver = io_loop.block_on(resolver).unwrap();
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -100,7 +100,7 @@
 //! let lookup_future = resolver.lookup_ip("www.example.com.");
 //!
 //! // Run the lookup until it resolves or errors
-//! let mut response = io_loop.run(lookup_future).unwrap();
+//! let mut response = io_loop.block_on(lookup_future).unwrap();
 //!
 //! // There can be many addresses associated with the name,
 //! //  this can return IPv4 and/or IPv6 addresses
@@ -116,7 +116,7 @@
 //! Generally after a lookup in an asynchornous context, there would probably be a connection made to a server, for example:
 //!
 //! ```c
-//! let result = io_loop.run(lookup_future.and_then(|ips| {
+//! let result = io_loop.block_on(lookup_future.and_then(|ips| {
 //!                                  let ip = ips.next().unwrap();
 //!                                  TcpStream::connect()
 //!                              }).and_then(|conn| /* do something with the connection... */)
@@ -176,7 +176,7 @@ extern crate log;
 extern crate lru_cache;
 extern crate resolv_conf;
 extern crate smallvec;
-extern crate tokio_core;
+extern crate tokio;
 #[cfg(feature = "dns-over-native-tls")]
 extern crate trust_dns_native_tls;
 #[cfg(feature = "dns-over-openssl")]

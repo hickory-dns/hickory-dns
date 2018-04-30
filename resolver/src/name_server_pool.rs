@@ -753,7 +753,7 @@ mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
     use futures::future;
-    use tokio_core::reactor::Core;
+    use tokio::runtime::current_thread::Runtime;
 
     use trust_dns_proto::op::{Query, ResponseCode};
     use trust_dns_proto::rr::{Name, RecordType};
@@ -811,7 +811,7 @@ mod tests {
             protocol: Protocol::Udp,
             tls_dns_name: None,
         };
-        let mut io_loop = Core::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
         let name_server = future::lazy(|| {
             future::ok(NameServer::<_, StandardConnection>::new(
                 config,
@@ -821,7 +821,7 @@ mod tests {
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = io_loop
-            .run(name_server.and_then(|mut name_server| {
+            .block_on(name_server.and_then(|mut name_server| {
                 name_server.lookup(
                     Query::query(name.clone(), RecordType::A),
                     DnsRequestOptions::default(),
@@ -840,7 +840,7 @@ mod tests {
             protocol: Protocol::Udp,
             tls_dns_name: None,
         };
-        let mut io_loop = Core::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
         let name_server = future::lazy(|| {
             future::ok(NameServer::<_, StandardConnection>::new(config, options))
         });
@@ -848,7 +848,7 @@ mod tests {
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             io_loop
-                .run(name_server.and_then(|mut name_server| {
+                .block_on(name_server.and_then(|mut name_server| {
                     name_server.lookup(
                         Query::query(name.clone(), RecordType::A),
                         DnsRequestOptions::default()
@@ -878,7 +878,7 @@ mod tests {
         resolver_config.add_name_server(config1);
         resolver_config.add_name_server(config2);
 
-        let mut io_loop = Core::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
         let mut pool = NameServerPool::<_, StandardConnection>::from_config(
             &resolver_config,
             &ResolverOpts::default(),
@@ -890,7 +890,7 @@ mod tests {
         for i in 0..2 {
             assert!(
                 io_loop
-                    .run(pool.lookup(
+                    .block_on(pool.lookup(
                         Query::query(name.clone(), RecordType::A),
                         DnsRequestOptions::default()
                     ))
@@ -903,7 +903,7 @@ mod tests {
         for i in 0..10 {
             assert!(
                 io_loop
-                    .run(pool.lookup(
+                    .block_on(pool.lookup(
                         Query::query(name.clone(), RecordType::A),
                         DnsRequestOptions::default()
                     ))

@@ -148,7 +148,7 @@ impl ServiceInfo {
 
 #[cfg(test)]
 mod tests {
-    use tokio_core::reactor::Core;
+    use tokio::runtime::current_thread::Runtime;
 
     use config::*;
 
@@ -157,7 +157,7 @@ mod tests {
     #[test]
     #[ignore]
     fn test_list_services() {
-        let mut io_loop = Core::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
         let resolver = ResolverFuture::new(
             ResolverConfig::default(),
             ResolverOpts {
@@ -166,22 +166,22 @@ mod tests {
             },
         );
 
-        let resolver = io_loop.run(resolver).expect("failed to create resolver");
+        let resolver = io_loop.block_on(resolver).expect("failed to create resolver");
         let response = io_loop
-            .run(resolver.list_services("_http._tcp.local."))
+            .block_on(resolver.list_services("_http._tcp.local."))
             .expect("failed to run lookup");
 
         for name in response.iter() {
             println!("service: {}", name);
             let srvs = io_loop
-                .run(resolver.lookup_srv(name))
+                .block_on(resolver.lookup_srv(name))
                 .expect("failed to lookup name");
 
             for srv in srvs.iter() {
                 println!("service: {:#?}", srv);
 
                 let info = io_loop
-                    .run(resolver.service_info(name))
+                    .block_on(resolver.service_info(name))
                     .expect("info failed");
                 let info = info.to_map();
                 println!("info: {:#?}", info);
