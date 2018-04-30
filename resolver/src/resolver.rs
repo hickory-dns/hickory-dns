@@ -11,7 +11,7 @@ use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
 use futures::Future;
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 use trust_dns_proto::rr::RecordType;
 
 use ResolverFuture;
@@ -43,9 +43,9 @@ macro_rules! lookup_fn {
 ///
 /// * `query` - a str which parses to a domain name, failure to parse will return an error
 pub fn $p(&self, query: &str) -> ResolveResult<$l> {
-    let mut reactor = Core::new()?;
+    let mut io_loop = Runtime::new()?;
     let future = self.construct_and_run()?;
-    reactor.run(future.and_then(|future| {
+    io_loop.block_on(future.and_then(|future| {
         future.$p(query)
     }))
 }
@@ -57,9 +57,9 @@ pub fn $p(&self, query: &str) -> ResolveResult<$l> {
 ///
 /// * `query` - a type which can be converted to `Name` via `From`.
 pub fn $p(&self, query: $t) -> ResolveResult<$l> {
-    let mut reactor = Core::new()?;
+    let mut io_loop = Runtime::new()?;
     let future = self.construct_and_run()?;
-    reactor.run(future.and_then(|future| {
+    io_loop.block_on(future.and_then(|future| {
         future.$p(query)
     }))
 }
@@ -106,7 +106,7 @@ impl Resolver {
         Self::new(config, options)
     }
 
-    /// Constructs a new Core
+    /// Constructs a new ResolverFutture
     fn construct_and_run(&self) -> ResolveResult<Box<Future<Item=ResolverFuture, Error=ResolveError> + Send>> {
         let future = ResolverFuture::with_cache(
             self.config.clone(),
@@ -126,9 +126,9 @@ impl Resolver {
     /// * `name` - name of the record to lookup, if name is not a valid domain name, an error will be returned
     /// * `record_type` - type of record to lookup
     pub fn lookup(&self, name: &str, record_type: RecordType) -> ResolveResult<Lookup> {
-        let mut reactor = Core::new()?;
+        let mut io_loop = Runtime::new()?;
         let future = self.construct_and_run()?;
-        reactor.run(future.and_then(|future| {
+        io_loop.block_on(future.and_then(|future| {
             future.lookup(name, record_type)
         }))
     }
@@ -141,9 +141,9 @@ impl Resolver {
     ///
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
     pub fn lookup_ip(&self, host: &str) -> ResolveResult<LookupIp> {
-        let mut reactor = Core::new()?;
+        let mut io_loop = Runtime::new()?;
         let future = self.construct_and_run()?;
-        reactor.run(future.and_then(|future| {
+        io_loop.block_on(future.and_then(|future| {
             future.lookup_ip(host)
         }))
     }
@@ -164,19 +164,19 @@ impl Resolver {
         protocol: &str,
         name: &str,
     ) -> ResolveResult<lookup::SrvLookup> {
-        let mut reactor = Core::new()?;
+        let mut io_loop = Runtime::new()?;
         let future = self.construct_and_run()?;
         #[allow(deprecated)]
-        reactor.run(future.and_then(|future| {
+        io_loop.block_on(future.and_then(|future| {
             future.lookup_service(service, protocol, name)
         }))
     }
 
     /// Lookup an SRV record.
     pub fn lookup_srv(&self, name: &str) -> ResolveResult<lookup::SrvLookup> {
-        let mut reactor = Core::new()?;
+        let mut io_loop = Runtime::new()?;
         let future = self.construct_and_run()?;
-        reactor.run(future.and_then(|future| {
+        io_loop.block_on(future.and_then(|future| {
             future.lookup_srv(name)
         }))
     }
