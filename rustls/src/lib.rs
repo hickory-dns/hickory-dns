@@ -18,6 +18,7 @@
 
 extern crate futures;
 extern crate rustls;
+#[cfg(test)]
 extern crate tokio_core;
 extern crate tokio_rustls;
 extern crate tokio_tcp;

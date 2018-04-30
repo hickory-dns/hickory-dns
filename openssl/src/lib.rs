@@ -18,7 +18,6 @@
 
 extern crate futures;
 extern crate openssl;
-extern crate tokio_core;
 extern crate tokio_openssl;
 extern crate tokio_tcp;
 extern crate trust_dns_proto;

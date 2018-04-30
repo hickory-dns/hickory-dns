@@ -46,11 +46,13 @@ path = "src/lib.rs"
 [dependencies]
 futures = "^0.1.17"
 native-tls = "^0.1"
-tokio-core = "^0.1"
 tokio-tcp = "^0.1"
 tokio-tls = "^0.1"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "^0.3", path = "../proto", default-features = false }
+
+[dev-dependencies]
+tokio-core = "^0.1"
 
 ## Commented out until MTLS support is complete
 # [target.'cfg(target_os = "linux")'.dependencies]
