@@ -36,6 +36,7 @@ mod tests {
     fn tls_test(config: ResolverConfig) {
         let mut io_loop = Core::new().unwrap();
         let resolver = ResolverFuture::new(config, ResolverOpts::default());
+        let resolver = io_loop.run(resolver).unwrap();
 
         let response = io_loop
             .run(resolver.lookup_ip("www.example.com."))
