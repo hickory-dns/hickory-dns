@@ -33,7 +33,7 @@ extern crate ring;
 extern crate smallvec;
 extern crate socket2;
 #[cfg(test)]
-extern crate tokio_core;
+extern crate tokio;
 extern crate tokio_executor;
 #[macro_use]
 extern crate tokio_io;

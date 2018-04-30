@@ -137,7 +137,7 @@ const TEST_BYTES_LEN: usize = 8;
 #[cfg(test)]
 fn tcp_client_stream_test(server_addr: IpAddr) {
     use std::io::{Read, Write};
-    use tokio_core::reactor::Core;
+    use tokio::runtime::current_thread::Runtime;
 
     use std;
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
@@ -205,20 +205,20 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
         .unwrap();
 
     // setup the client, which is going to run on the testing thread...
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     // the tests should run within 5 seconds... right?
     // TODO: add timeout here, so that test never hangs...
-    // let timeout = Timeout::new(Duration::from_secs(5), &io_loop.handle());
+    // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, mut sender) = TcpClientStream::new::<ProtoError>(server_addr);
 
-    let mut stream = io_loop.run(stream).ok().expect("run failed to get stream");
+    let mut stream = io_loop.block_on(stream).expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
         sender.send(TEST_BYTES.to_vec()).expect("send failed");
         let (buffer, stream_tmp) = io_loop
-            .run(stream.into_future())
+            .block_on(stream.into_future())
             .ok()
             .expect("future iteration run failed");
         stream = stream_tmp;
