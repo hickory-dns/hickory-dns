@@ -7,7 +7,7 @@
 use std;
 use std::io;
 use std::net::SocketAddr;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use futures::{Async, Future, Poll, Stream};
@@ -35,17 +35,17 @@ use server::{Request, RequestHandler, ResponseHandle, TimeoutStream};
 // TODO, would be nice to have a Slab for buffers here...
 
 /// A Futures based implementation of a DNS server
-pub struct ServerFuture<T: RequestHandler + 'static> {
+pub struct ServerFuture<T: RequestHandler + Send + 'static> {
     io_loop: Core,
-    handler: Arc<T>,
+    handler: Arc<Mutex<T>>,
 }
 
-impl<T: RequestHandler> ServerFuture<T> {
+impl<T: RequestHandler + Send> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
     pub fn new(handler: T) -> io::Result<ServerFuture<T>> {
         Ok(ServerFuture {
             io_loop: Core::new()?,
-            handler: Arc::new(handler),
+            handler: Arc::new(Mutex::new(handler)),
         })
     }
 
@@ -287,7 +287,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         buffer: Vec<u8>,
         src_addr: SocketAddr,
         stream_handle: BufStreamHandle<ClientError>,
-        handler: Arc<T>,
+        handler: Arc<Mutex<T>>,
     ) -> io::Result<()> {
         let response_handle = ResponseHandle::new(src_addr, stream_handle);
 
@@ -320,7 +320,7 @@ impl<T: RequestHandler> ServerFuture<T> {
                 .unwrap_or_else(|| "empty_queries".to_string()),
         );
 
-        handler.handle_request(&request, response_handle)
+        handler.lock().unwrap().handle_request(&request, response_handle)
     }
 }
 
