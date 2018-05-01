@@ -37,7 +37,7 @@ use resolver_future::BasicResolverHandle;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
     rdatas: Arc<Vec<RData>>,
-    ttl_until: Option<Instant>,
+    valid_until: Option<Instant>,
 }
 
 impl Lookup {
@@ -45,15 +45,15 @@ impl Lookup {
     pub fn new(rdatas: Arc<Vec<RData>>,) -> Self {
         Lookup {
             rdatas,
-            ttl_until: None,
+            valid_until: None,
         }
     }
 
     /// Return a new instance with the given rdatas and TTL.
-    pub fn new_with_ttl(rdatas: Arc<Vec<RData>>, ttl: Instant,) -> Self {
+    pub fn new_with_deadline(rdatas: Arc<Vec<RData>>, ttl: Instant,) -> Self {
         Lookup {
             rdatas,
-            ttl_until: Some(ttl),
+            valid_until: Some(ttl),
         }
     }
 
@@ -63,8 +63,8 @@ impl Lookup {
     }
 
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
-    pub fn ttl_until(&self) -> Option<Instant> {
-        self.ttl_until
+    pub fn valid_until(&self) -> Option<Instant> {
+        self.valid_until
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -82,11 +82,11 @@ impl Lookup {
         rdatas.extend_from_slice(&*other.rdatas);
 
         // If both lookups have TTLs, choose the lower one.
-        match (self.ttl_until(), other.ttl_until()) {
+        match (self.valid_until(), other.valid_until()) {
             (Some(my_ttl), Some(other_ttl)) =>
-                Self::new_with_ttl(Arc::new(rdatas), min(my_ttl, other_ttl)),
+                Self::new_with_deadline(Arc::new(rdatas), min(my_ttl, other_ttl)),
             (Some(ttl), None) | (None, Some(ttl)) =>
-                Self::new_with_ttl(Arc::new(rdatas), ttl),
+                Self::new_with_deadline(Arc::new(rdatas), ttl),
             (None, None) => Self::new(Arc::new(rdatas))
         }
     }
@@ -482,7 +482,7 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v4_message()])),
             ).wait()
                 .unwrap()
-                .ttl_until(),
+                .valid_until(),
             Some(Instant::now() + Duration::from_secs(86400))
         );
     }
