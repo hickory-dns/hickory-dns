@@ -61,6 +61,7 @@ impl Lookup {
         LookupIter(self.rdatas.iter())
     }
 
+    /// Returns the TTL of the lookup.
     pub fn ttl(&self) -> Option<Duration> {
         self.ttl
     }
@@ -464,6 +465,21 @@ pub mod tests {
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
+        );
+    }
+
+    #[test]
+    fn test_lookup_ttl() {
+        assert_eq!(
+            InnerLookupFuture::lookup(
+                vec![Name::root()],
+                RecordType::A,
+                DnsRequestOptions::default(),
+                CachingClient::new(0, mock(vec![v4_message()])),
+            ).wait()
+                .unwrap()
+                .ttl(),
+            Some(Duration::from_secs(86400))
         );
     }
 

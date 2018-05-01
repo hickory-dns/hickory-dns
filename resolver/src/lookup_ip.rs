@@ -13,6 +13,7 @@ use std::error::Error;
 use std::mem;
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures::{future, task, Async, Future, Poll};
 
@@ -38,6 +39,11 @@ impl LookupIp {
     /// Returns a borrowed iterator of the returned IPs
     pub fn iter(&self) -> LookupIpIter {
         LookupIpIter(self.0.iter())
+    }
+
+    /// Returns the TTL of the lookup.
+    pub fn ttl(&self) -> Option<Duration> {
+        self.0.ttl()
     }
 }
 
