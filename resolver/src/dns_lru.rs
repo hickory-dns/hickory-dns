@@ -63,7 +63,7 @@ impl DnsLru {
         let ttl_until = now + ttl;
 
         // insert into the LRU
-        let lookup = Lookup::new(Arc::new(rdatas));
+        let lookup = Lookup::new_with_ttl(Arc::new(rdatas), ttl);
         self.0.insert(
             query,
             LruValue {
@@ -154,7 +154,7 @@ mod tests {
     use trust_dns_proto::rr::{Name, RecordType};
 
     use super::*;
- 
+
     #[test]
     fn test_is_current() {
         let now = Instant::now();
