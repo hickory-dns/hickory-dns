@@ -472,9 +472,8 @@ pub mod tests {
     }
 
     #[test]
-    fn test_lookup_ttl() {
-        use std::time::Duration;
-        assert_eq!(
+    fn test_lookup_deadline() {
+        assert!(
             InnerLookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
@@ -482,8 +481,10 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v4_message()])),
             ).wait()
                 .unwrap()
-                .valid_until(),
-            Some(Instant::now() + Duration::from_secs(86400))
+                .valid_until()
+                // Since `time::Instant` is opaque, we can't accurately compare
+                // the deadline, so just assert that there is one.
+                .is_some()
         );
     }
 
