@@ -13,7 +13,7 @@ use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::slice::Iter;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::Instant;
 
 use futures::{future, task, Async, Future, Poll};
 
@@ -37,7 +37,7 @@ use resolver_future::BasicResolverHandle;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
     rdatas: Arc<Vec<RData>>,
-    ttl: Option<Duration>,
+    ttl_until: Option<Instant>,
 }
 
 impl Lookup {
@@ -45,15 +45,15 @@ impl Lookup {
     pub fn new(rdatas: Arc<Vec<RData>>,) -> Self {
         Lookup {
             rdatas,
-            ttl: None,
+            ttl_until: None,
         }
     }
 
     /// Return a new instance with the given rdatas and TTL.
-    pub fn new_with_ttl(rdatas: Arc<Vec<RData>>, ttl: Duration,) -> Self {
+    pub fn new_with_ttl(rdatas: Arc<Vec<RData>>, ttl: Instant,) -> Self {
         Lookup {
             rdatas,
-            ttl: Some(ttl),
+            ttl_until: Some(ttl),
         }
     }
 
@@ -62,9 +62,9 @@ impl Lookup {
         LookupIter(self.rdatas.iter())
     }
 
-    /// Returns the TTL of the lookup.
-    pub fn ttl(&self) -> Option<Duration> {
-        self.ttl
+    /// Returns the `Instant` at which this `Lookup` is no longer valid.
+    pub fn ttl_until(&self) -> Option<Instant> {
+        self.ttl_until
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -82,7 +82,7 @@ impl Lookup {
         rdatas.extend_from_slice(&*other.rdatas);
 
         // If both lookups have TTLs, choose the lower one.
-        match (self.ttl(), other.ttl()) {
+        match (self.ttl_until(), other.ttl_until()) {
             (Some(my_ttl), Some(other_ttl)) =>
                 Self::new_with_ttl(Arc::new(rdatas), min(my_ttl, other_ttl)),
             (Some(ttl), None) | (None, Some(ttl)) =>
@@ -473,6 +473,7 @@ pub mod tests {
 
     #[test]
     fn test_lookup_ttl() {
+        use std::time::Duration;
         assert_eq!(
             InnerLookupFuture::lookup(
                 vec![Name::root()],
@@ -481,8 +482,8 @@ pub mod tests {
                 CachingClient::new(0, mock(vec![v4_message()])),
             ).wait()
                 .unwrap()
-                .ttl(),
-            Some(Duration::from_secs(86400))
+                .ttl_until(),
+            Some(Instant::now() + Duration::from_secs(86400))
         );
     }
 

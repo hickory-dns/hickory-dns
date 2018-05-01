@@ -13,7 +13,7 @@ use std::error::Error;
 use std::mem;
 use std::net::IpAddr;
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::Instant;
 
 use futures::{future, task, Async, Future, Poll};
 
@@ -41,9 +41,9 @@ impl LookupIp {
         LookupIpIter(self.0.iter())
     }
 
-    /// Returns the TTL of the lookup.
-    pub fn ttl(&self) -> Option<Duration> {
-        self.0.ttl()
+    /// Returns the `Instant` at which this lookup is no longer valid.
+    pub fn ttl_until(&self) -> Option<Instant> {
+        self.0.ttl_until()
     }
 }
 
