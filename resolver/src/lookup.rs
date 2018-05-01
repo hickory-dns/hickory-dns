@@ -49,11 +49,11 @@ impl Lookup {
         }
     }
 
-    /// Return a new instance with the given rdatas and TTL.
-    pub fn new_with_deadline(rdatas: Arc<Vec<RData>>, ttl: Instant,) -> Self {
+    /// Return a new instance with the given rdatas and deadline.
+    pub fn new_with_deadline(rdatas: Arc<Vec<RData>>, valid_until: Instant,) -> Self {
         Lookup {
             rdatas,
-            valid_until: Some(ttl),
+            valid_until: Some(valid_until),
         }
     }
 
