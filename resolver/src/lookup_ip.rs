@@ -42,8 +42,8 @@ impl LookupIp {
     }
 
     /// Returns the `Instant` at which this lookup is no longer valid.
-    pub fn ttl_until(&self) -> Option<Instant> {
-        self.0.ttl_until()
+    pub fn valid_until(&self) -> Option<Instant> {
+        self.0.valid_until()
     }
 }
 
