@@ -63,7 +63,7 @@ impl DnsLru {
         let ttl_until = now + ttl;
 
         // insert into the LRU
-        let lookup = Lookup::new_with_ttl(Arc::new(rdatas), ttl);
+        let lookup = Lookup::new_with_ttl(Arc::new(rdatas), ttl_until);
         self.0.insert(
             query,
             LruValue {
