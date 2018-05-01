@@ -12,6 +12,7 @@ use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::slice::Iter;
 use std::sync::Arc;
+use std::time::Duration;
 
 use futures::{future, task, Async, Future, Poll};
 
@@ -35,17 +36,33 @@ use resolver_future::BasicResolverHandle;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
     rdatas: Arc<Vec<RData>>,
+    ttl: Option<Duration>,
 }
 
 impl Lookup {
     /// Return new instance with given rdatas
-    pub fn new(rdatas: Arc<Vec<RData>>) -> Self {
-        Lookup { rdatas }
+    pub fn new(rdatas: Arc<Vec<RData>>,) -> Self {
+        Lookup {
+            rdatas,
+            ttl: None,
+        }
+    }
+
+    /// Return a new instance with the given rdatas and TTL.
+    pub fn new_with_ttl(rdatas: Arc<Vec<RData>>, ttl: Duration,) -> Self {
+        Lookup {
+            rdatas,
+            ttl: Some(ttl),
+        }
     }
 
     /// Returns a borrowed iterator of the returned IPs
     pub fn iter(&self) -> LookupIter {
         LookupIter(self.rdatas.iter())
+    }
+
+    pub fn ttl(&self) -> Option<Duration> {
+        self.ttl
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -62,7 +79,12 @@ impl Lookup {
         rdatas.extend_from_slice(&*self.rdatas);
         rdatas.extend_from_slice(&*other.rdatas);
 
-        Self::new(Arc::new(rdatas))
+        // If there's a known TTL for the appended lookup, use it.
+        if let Some(ttl) = other.ttl {
+            Self::new_with_ttl(Arc::new(rdatas), ttl)
+        } else {
+            Self::new(Arc::new(rdatas))
+        }
     }
 }
 
