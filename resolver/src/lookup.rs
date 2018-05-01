@@ -7,6 +7,7 @@
 
 //! Lookup result from a resolution of ipv4 and ipv6 records with a Resolver.
 
+use std::cmp::min;
 use std::error::Error as StdError;
 use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
@@ -80,11 +81,13 @@ impl Lookup {
         rdatas.extend_from_slice(&*self.rdatas);
         rdatas.extend_from_slice(&*other.rdatas);
 
-        // If there's a known TTL for the appended lookup, use it.
-        if let Some(ttl) = other.ttl {
-            Self::new_with_ttl(Arc::new(rdatas), ttl)
-        } else {
-            Self::new(Arc::new(rdatas))
+        // If both lookups have TTLs, choose the lower one.
+        match (self.ttl(), other.ttl()) {
+            (Some(my_ttl), Some(other_ttl)) =>
+                Self::new_with_ttl(Arc::new(rdatas), min(my_ttl, other_ttl)),
+            (Some(ttl), None) | (None, Some(ttl)) =>
+                Self::new_with_ttl(Arc::new(rdatas), ttl),
+            (None, None) => Self::new(Arc::new(rdatas))
         }
     }
 }
