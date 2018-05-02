@@ -30,7 +30,7 @@ use resolver_future::BasicResolverHandle;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
-/// When resolving IP records, there can be many IPs that match a given name. A consumer of this should expect that there are more than a single address potentially returned. Generally there are multiple IPs stored for a given service in DNS so that there is a form of high availability offered for a given name. The service implementation is resposible for the seymantics around which IP should be used and when, but in general if a connection fails to one, the next in the list should be attempted.
+/// When resolving IP records, there can be many IPs that match a given name. A consumer of this should expect that there are more than a single address potentially returned. Generally there are multiple IPs stored for a given service in DNS so that there is a form of high availability offered for a given name. The service implementation is resposible for the semantics around which IP should be used and when, but in general if a connection fails to one, the next in the list should be attempted.
 #[derive(Debug, Clone)]
 pub struct LookupIp(Lookup);
 
