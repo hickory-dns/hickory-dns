@@ -13,7 +13,7 @@ use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::slice::Iter;
 use std::sync::Arc;
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use futures::{future, task, Async, Future, Poll};
 
@@ -25,6 +25,7 @@ use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 use trust_dns_proto::{DnsHandle, RetryDnsHandle};
 
+use dns_lru::MAX_TTL;
 use error::*;
 use lookup_ip::LookupIpIter;
 use lookup_state::CachingClient;
@@ -37,23 +38,28 @@ use resolver_future::BasicResolverHandle;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
     rdatas: Arc<Vec<RData>>,
-    valid_until: Option<Instant>,
+    valid_until: Instant,
 }
 
 impl Lookup {
-    /// Return new instance with given rdatas
+    /// Return new instance with given rdatas and the maximum TTL.
     pub fn new(rdatas: Arc<Vec<RData>>,) -> Self {
+        let valid_until =
+            Instant::now() + Duration::from_secs(MAX_TTL as u64);
         Lookup {
             rdatas,
-            valid_until: None,
+            valid_until,
         }
     }
 
     /// Return a new instance with the given rdatas and deadline.
-    pub fn new_with_deadline(rdatas: Arc<Vec<RData>>, valid_until: Instant,) -> Self {
+    pub fn new_with_deadline(
+        rdatas: Arc<Vec<RData>>,
+        valid_until: Instant,
+    ) -> Self {
         Lookup {
             rdatas,
-            valid_until: Some(valid_until),
+            valid_until,
         }
     }
 
@@ -63,7 +69,7 @@ impl Lookup {
     }
 
     /// Returns the `Instant` at which this `Lookup` is no longer valid.
-    pub fn valid_until(&self) -> Option<Instant> {
+    pub fn valid_until(&self) -> Instant {
         self.valid_until
     }
 
@@ -81,14 +87,9 @@ impl Lookup {
         rdatas.extend_from_slice(&*self.rdatas);
         rdatas.extend_from_slice(&*other.rdatas);
 
-        // If both lookups have TTLs, choose the lower one.
-        match (self.valid_until(), other.valid_until()) {
-            (Some(my_ttl), Some(other_ttl)) =>
-                Self::new_with_deadline(Arc::new(rdatas), min(my_ttl, other_ttl)),
-            (Some(ttl), None) | (None, Some(ttl)) =>
-                Self::new_with_deadline(Arc::new(rdatas), ttl),
-            (None, None) => Self::new(Arc::new(rdatas))
-        }
+        // Choose the sooner deadline of the two lookups.
+        let valid_until = min(self.valid_until(), other.valid_until());
+        Self::new_with_deadline(Arc::new(rdatas), valid_until)
     }
 }
 
@@ -468,23 +469,6 @@ pub mod tests {
                 .map(|r| r.to_ip_addr().unwrap())
                 .collect::<Vec<IpAddr>>(),
             vec![Ipv4Addr::new(127, 0, 0, 1)]
-        );
-    }
-
-    #[test]
-    fn test_lookup_deadline() {
-        assert!(
-            InnerLookupFuture::lookup(
-                vec![Name::root()],
-                RecordType::A,
-                DnsRequestOptions::default(),
-                CachingClient::new(0, mock(vec![v4_message()])),
-            ).wait()
-                .unwrap()
-                .valid_until()
-                // Since `time::Instant` is opaque, we can't accurately compare
-                // the deadline, so just assert that there is one.
-                .is_some()
         );
     }
 
