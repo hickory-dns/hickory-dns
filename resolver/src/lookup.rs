@@ -43,7 +43,7 @@ pub struct Lookup {
 
 impl Lookup {
     /// Return new instance with given rdatas and the maximum TTL.
-    pub fn new(rdatas: Arc<Vec<RData>>,) -> Self {
+    pub fn new_with_max_ttl(rdatas: Arc<Vec<RData>>) -> Self {
         let valid_until =
             Instant::now() + Duration::from_secs(MAX_TTL as u64);
         Lookup {
@@ -95,7 +95,7 @@ impl Lookup {
 
 impl From<RData> for Lookup {
     fn from(data: RData) -> Self {
-        Lookup::new(Arc::new(vec![data]))
+        Lookup::new_with_max_ttl(Arc::new(vec![data]))
     }
 }
 
