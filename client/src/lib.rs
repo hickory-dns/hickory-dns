@@ -20,7 +20,7 @@
 //!
 //! The Client library is responsible for the basic protocols responsible for communicating with DNS servers (authorities) and resolvers. It can be used for managing DNS records through the use of update operations. It is possible to send raw DNS Messages with the Client, but for ease of use the `query` and various other update operations are recommended for general use.
 //!
-//! For a system like resolver built on top of the Client library, see [trust-dns-resolver](https://docs.rs/trust-dns-resolver). This is mostlikely what you want if all you want to do is lookup IP addresses.
+//! For a system-like resolver, see [trust-dns-resolver](https://docs.rs/trust-dns-resolver). This is mostlikely what you want if all you want to do is lookup IP addresses.
 //!
 //! For serving DNS serving, see [trust-dns-server](https://docs.rs/trust-dns-server).
 //!
