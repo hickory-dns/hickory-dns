@@ -256,7 +256,7 @@ impl ResolverFuture {
         if let Some(addr) = host.try_parse_ip() {
             return InnerLookupIpFuture::ok(
                 self.client_cache.clone(),
-                Lookup::new(Arc::new(vec![addr])),
+                Lookup::new_with_max_ttl(Arc::new(vec![addr])),
             );
         }
 
