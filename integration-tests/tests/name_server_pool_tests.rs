@@ -1,4 +1,4 @@
-extern crate tokio_core;
+extern crate tokio;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -7,7 +7,7 @@ extern crate trust_dns_resolver;
 use std::net::*;
 use std::str::FromStr;
 
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::op::Query;
 use trust_dns::rr::{Name, RecordType};
@@ -74,7 +74,7 @@ fn test_datagram() {
     let udp_message = message(query.clone(), vec![udp_record.clone()], vec![], vec![]);
     let tcp_message = message(query.clone(), vec![tcp_record], vec![], vec![]);
 
-    let mut reactor = Core::new().unwrap();
+    let mut reactor = Runtime::new().unwrap();
 
     let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)]);
     let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)]);
@@ -85,7 +85,7 @@ fn test_datagram() {
     let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(DnsRequest::from(request.into()));
 
-    let response = reactor.run(future).unwrap();
+    let response = reactor.block_on(future).unwrap();
     assert_eq!(response.answers()[0], udp_record);
 }
 
@@ -104,7 +104,7 @@ fn test_datagram_stream_upgrade() {
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
-    let mut reactor = Core::new().unwrap();
+    let mut reactor = Runtime::new().unwrap();
 
     let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)]);
     let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)]);
@@ -115,7 +115,7 @@ fn test_datagram_stream_upgrade() {
     let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
 
-    let response = reactor.run(future).unwrap();
+    let response = reactor.block_on(future).unwrap();
     assert_eq!(response.answers()[0], tcp_record);
 }
 
@@ -132,7 +132,7 @@ fn test_datagram_fails_to_stream() {
 
     let tcp_message = message(query.clone(), vec![tcp_record.clone()], vec![], vec![]);
 
-    let mut reactor = Core::new().unwrap();
+    let mut reactor = Runtime::new().unwrap();
 
     let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)]);
     let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)]);
@@ -143,7 +143,7 @@ fn test_datagram_fails_to_stream() {
     let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
 
-    let response = reactor.run(future).unwrap();
+    let response = reactor.block_on(future).unwrap();
     assert_eq!(response.answers()[0], tcp_record);
 }
 
@@ -163,7 +163,7 @@ fn test_local_mdns() {
 
     let mdns_message = message(query.clone(), vec![mdns_record.clone()], vec![], vec![]);
 
-    let mut reactor = Core::new().unwrap();
+    let mut reactor = Runtime::new().unwrap();
 
     let udp_nameserver = mock_nameserver(vec![udp_message.map(Into::into)]);
     let tcp_nameserver = mock_nameserver(vec![tcp_message.map(Into::into)]);
@@ -179,6 +179,6 @@ fn test_local_mdns() {
     let request = message::<ResolveError>(query, vec![], vec![], vec![]).unwrap();
     let future = pool.send(request);
 
-    let response = reactor.run(future).unwrap();
+    let response = reactor.block_on(future).unwrap();
     assert_eq!(response.answers()[0], mdns_record);
 }

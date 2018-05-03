@@ -6,7 +6,7 @@ extern crate futures;
 extern crate lazy_static;
 extern crate log;
 extern crate openssl;
-extern crate tokio_core;
+extern crate tokio;
 extern crate tokio_timer;
 extern crate trust_dns;
 extern crate trust_dns_integration;
@@ -20,7 +20,7 @@ use std::time::{Duration, Instant};
 
 use futures::{Future, Stream};
 use futures::future::Either;
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 use tokio_timer::Delay;
 
 use trust_dns::error::*;
@@ -51,7 +51,7 @@ fn mdns_responsder(
     let join_handle = std::thread::Builder::new()
         .name(format!("{}:server", test_name))
         .spawn(move || {
-            let mut io_loop = Core::new().unwrap();
+            let mut io_loop = Runtime::new().unwrap();
 
             // a max time for the test to run
             let mut timeout = Delay::new(Instant::now() + Duration::from_millis(100));
@@ -66,7 +66,7 @@ fn mdns_responsder(
             );
 
             let mut stream = io_loop
-                .run(mdns_stream)
+                .block_on(mdns_stream)
                 .ok()
                 .expect("failed to create server stream")
                 .into_future();
@@ -75,7 +75,7 @@ fn mdns_responsder(
 
             while !client_done.load(std::sync::atomic::Ordering::Relaxed) {
                 match io_loop
-                    .run(stream.select2(timeout))
+                    .block_on(stream.select2(timeout))
                     .ok()
                     .expect("server stream closed")
                 {
@@ -116,7 +116,7 @@ fn test_query_mdns_ipv4() {
     let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), addr);
 
     // Check that the server is ready before sending...
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     //let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = MdnsClientStream::new(
         addr,
@@ -126,13 +126,13 @@ fn test_query_mdns_ipv4() {
         None,
     );
     let client = ClientFuture::new(stream, sender, None);
-    let mut client = io_loop.run(client).unwrap();
+    let mut client = io_loop.block_on(client).unwrap();
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
     let future = client.query(name.clone(), DNSClass::IN, RecordType::PTR);
 
-    let message = io_loop.run(future).expect("mdns query failed");
+    let message = io_loop.block_on(future).expect("mdns query failed");
 
     client_done.store(true, Ordering::Relaxed);
 
@@ -145,7 +145,7 @@ fn test_query_mdns_ipv6() {
     let addr = SocketAddr::new(*TEST_MDNS_IPV6, MDNS_PORT + 2);
     let client_done = Arc::new(AtomicBool::new(false));
     let _server_thread = mdns_responsder("test_query_mdns_ipv4", client_done.clone(), addr);
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     // FIXME: ipv6 if is hardcoded...
     let (stream, sender) = MdnsClientStream::new(
@@ -156,13 +156,13 @@ fn test_query_mdns_ipv6() {
         Some(5),
     );
     let client = ClientFuture::new(stream, sender, None);
-    let mut client = io_loop.run(client).unwrap();
+    let mut client = io_loop.block_on(client).unwrap();
 
     // A PTR request is the DNS-SD method for doing a directory listing...
     let name = Name::from_ascii("_dns._udp.local.").unwrap();
     let future = client.query(name.clone(), DNSClass::IN, RecordType::PTR);
 
-    let message = io_loop.run(future).expect("mdns query failed");
+    let message = io_loop.block_on(future).expect("mdns query failed");
 
     client_done.store(true, Ordering::Relaxed);
 
