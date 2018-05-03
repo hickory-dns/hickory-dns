@@ -13,6 +13,7 @@ use std::error::Error;
 use std::mem;
 use std::net::IpAddr;
 use std::sync::Arc;
+use std::time::Instant;
 
 use futures::{future, task, Async, Future, Poll};
 
@@ -38,6 +39,11 @@ impl LookupIp {
     /// Returns a borrowed iterator of the returned IPs
     pub fn iter(&self) -> LookupIpIter {
         LookupIpIter(self.0.iter())
+    }
+
+    /// Returns the `Instant` at which this lookup is no longer valid.
+    pub fn valid_until(&self) -> Instant {
+        self.0.valid_until()
     }
 }
 

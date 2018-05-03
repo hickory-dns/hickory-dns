@@ -7,11 +7,13 @@
 
 //! Lookup result from a resolution of ipv4 and ipv6 records with a Resolver.
 
+use std::cmp::min;
 use std::error::Error as StdError;
 use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::slice::Iter;
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 
 use futures::{future, task, Async, Future, Poll};
 
@@ -23,6 +25,7 @@ use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 use trust_dns_proto::{DnsHandle, RetryDnsHandle};
 
+use dns_lru::MAX_TTL;
 use error::*;
 use lookup_ip::LookupIpIter;
 use lookup_state::CachingClient;
@@ -35,17 +38,39 @@ use resolver_future::BasicResolverHandle;
 #[derive(Clone, Debug, Eq, PartialEq)]
 pub struct Lookup {
     rdatas: Arc<Vec<RData>>,
+    valid_until: Instant,
 }
 
 impl Lookup {
-    /// Return new instance with given rdatas
-    pub fn new(rdatas: Arc<Vec<RData>>) -> Self {
-        Lookup { rdatas }
+    /// Return new instance with given rdatas and the maximum TTL.
+    pub fn new_with_max_ttl(rdatas: Arc<Vec<RData>>) -> Self {
+        let valid_until =
+            Instant::now() + Duration::from_secs(MAX_TTL as u64);
+        Lookup {
+            rdatas,
+            valid_until,
+        }
+    }
+
+    /// Return a new instance with the given rdatas and deadline.
+    pub fn new_with_deadline(
+        rdatas: Arc<Vec<RData>>,
+        valid_until: Instant,
+    ) -> Self {
+        Lookup {
+            rdatas,
+            valid_until,
+        }
     }
 
     /// Returns a borrowed iterator of the returned IPs
     pub fn iter(&self) -> LookupIter {
         LookupIter(self.rdatas.iter())
+    }
+
+    /// Returns the `Instant` at which this `Lookup` is no longer valid.
+    pub fn valid_until(&self) -> Instant {
+        self.valid_until
     }
 
     pub(crate) fn is_empty(&self) -> bool {
@@ -62,13 +87,15 @@ impl Lookup {
         rdatas.extend_from_slice(&*self.rdatas);
         rdatas.extend_from_slice(&*other.rdatas);
 
-        Self::new(Arc::new(rdatas))
+        // Choose the sooner deadline of the two lookups.
+        let valid_until = min(self.valid_until(), other.valid_until());
+        Self::new_with_deadline(Arc::new(rdatas), valid_until)
     }
 }
 
 impl From<RData> for Lookup {
     fn from(data: RData) -> Self {
-        Lookup::new(Arc::new(vec![data]))
+        Lookup::new_with_max_ttl(Arc::new(vec![data]))
     }
 }
 

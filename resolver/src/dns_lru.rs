@@ -24,13 +24,13 @@ pub const MAX_TTL: u32 = 2147483647_u32;
 struct LruValue {
     // In the None case, this represents an NXDomain
     lookup: Option<Lookup>,
-    ttl_until: Instant,
+    valid_until: Instant,
 }
 
 impl LruValue {
     /// Returns true if this set of ips is still valid
     fn is_current(&self, now: Instant) -> bool {
-        now <= self.ttl_until
+        now <= self.valid_until
     }
 }
 
@@ -60,15 +60,15 @@ impl DnsLru {
         );
 
         let ttl = Duration::from_secs(ttl as u64);
-        let ttl_until = now + ttl;
+        let valid_until = now + ttl;
 
         // insert into the LRU
-        let lookup = Lookup::new(Arc::new(rdatas));
+        let lookup = Lookup::new_with_deadline(Arc::new(rdatas), valid_until);
         self.0.insert(
             query,
             LruValue {
                 lookup: Some(lookup.clone()),
-                ttl_until,
+                valid_until,
             },
         );
 
@@ -84,13 +84,13 @@ impl DnsLru {
         now: Instant,
     ) -> Lookup {
         let ttl = Duration::from_secs(ttl as u64);
-        let ttl_until = now + ttl;
+        let valid_until = now + ttl;
 
         self.0.insert(
             query,
             LruValue {
                 lookup: Some(lookup.clone()),
-                ttl_until,
+                valid_until,
             },
         );
 
@@ -106,13 +106,13 @@ impl DnsLru {
         //   this would cache indefinitely, probably not correct
 
         let ttl = Duration::from_secs(ttl as u64);
-        let ttl_until = now + ttl;
+        let valid_until = now + ttl;
 
         self.0.insert(
             query.clone(),
             LruValue {
                 lookup: None,
-                ttl_until,
+                valid_until,
             },
         );
 
@@ -154,7 +154,7 @@ mod tests {
     use trust_dns_proto::rr::{Name, RecordType};
 
     use super::*;
- 
+
     #[test]
     fn test_is_current() {
         let now = Instant::now();
@@ -164,7 +164,7 @@ mod tests {
 
         let value = LruValue {
             lookup: None,
-            ttl_until: future,
+            valid_until: future,
         };
 
         assert!(value.is_current(now));

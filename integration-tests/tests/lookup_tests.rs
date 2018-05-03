@@ -64,7 +64,7 @@ fn test_lookup_hosts() {
     hosts.insert(
         Name::from_str("www.example.com.").unwrap(),
         RecordType::A,
-        Lookup::new(Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))])),
+        Lookup::new_with_max_ttl(Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))])),
     );
 
     let lookup = InnerLookupIpFuture::lookup(
