@@ -1,5 +1,5 @@
 extern crate futures;
-extern crate tokio_core;
+extern crate tokio;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
 extern crate trust_dns_resolver;
@@ -10,7 +10,7 @@ use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
 use futures::{Future, future};
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
 use trust_dns_proto::rr::{Name, RData, RecordType};
@@ -33,7 +33,7 @@ fn test_lookup() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone().into(), authority);
 
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = future::lazy(|| {
         future::ok(DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new()))
@@ -47,7 +47,7 @@ fn test_lookup() {
             CachingClient::new(0, client),
         )
     });
-    let lookup = io_loop.run(lookup).unwrap();
+    let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
@@ -61,7 +61,7 @@ fn test_lookup_hosts() {
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone().into(), authority);
 
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = future::lazy(|| {
         future::ok(DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new()))
@@ -84,7 +84,7 @@ fn test_lookup_hosts() {
             Some(Arc::new(hosts)),
         )
     });
-    let lookup = io_loop.run(lookup).unwrap();
+    let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(lookup.iter().next().unwrap(), Ipv4Addr::new(10, 0, 1, 104));
 }
@@ -106,8 +106,8 @@ fn test_mock_lookup() {
         CachingClient::new(0, client),
     );
 
-    let mut io_loop = Core::new().unwrap();
-    let lookup = io_loop.run(lookup).unwrap();
+    let mut io_loop = Runtime::new().unwrap();
+    let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
@@ -136,8 +136,8 @@ fn test_cname_lookup() {
         CachingClient::new(0, client),
     );
 
-    let mut io_loop = Core::new().unwrap();
-    let lookup = io_loop.run(lookup).unwrap();
+    let mut io_loop = Runtime::new().unwrap();
+    let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
@@ -171,8 +171,8 @@ fn test_chained_cname_lookup() {
         CachingClient::new(0, client),
     );
 
-    let mut io_loop = Core::new().unwrap();
-    let lookup = io_loop.run(lookup).unwrap();
+    let mut io_loop = Runtime::new().unwrap();
+    let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),
@@ -258,11 +258,11 @@ fn test_max_chained_lookup_depth() {
         client.clone(),
     );
 
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
 
     println!("performing max cname validation");
     // TODO: validate exact error
-    assert!(io_loop.run(lookup).is_err());
+    assert!(io_loop.block_on(lookup).is_err());
 
     // This query should succeed, as the queue depth should reset to 0 on a failed request
     let lookup = InnerLookupFuture::lookup(
@@ -273,7 +273,7 @@ fn test_max_chained_lookup_depth() {
     );
 
     println!("performing followup resolve, should work");
-    let lookup = io_loop.run(lookup).unwrap();
+    let lookup = io_loop.block_on(lookup).unwrap();
 
     assert_eq!(
         *lookup.iter().next().unwrap(),

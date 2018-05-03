@@ -4,7 +4,7 @@ extern crate chrono;
 extern crate futures;
 extern crate openssl;
 extern crate rustls;
-extern crate tokio_core;
+extern crate tokio;
 extern crate tokio_timer;
 extern crate trust_dns;
 extern crate trust_dns_proto;

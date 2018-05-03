@@ -1,6 +1,8 @@
 extern crate futures;
 extern crate openssl;
 extern crate rustls;
+extern crate tokio;
+extern crate tokio_timer;
 extern crate tokio_tcp;
 extern crate tokio_udp;
 extern crate trust_dns;
@@ -18,11 +20,13 @@ use std::str::FromStr;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
-use futures::Stream;
+use futures::{future, Future, Stream};
 use openssl::pkcs12::Pkcs12;
 use rustls::Certificate;
+use tokio::runtime::current_thread::Runtime;
+use tokio_timer::Delay;
 use tokio_tcp::TcpListener;
 use tokio_udp::UdpSocket;
 
@@ -249,23 +253,31 @@ fn new_catalog() -> Catalog {
 fn server_thread_udp(udp_socket: UdpSocket, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
 
-    let mut server = ServerFuture::new(catalog).expect("new udp server failed");
-    server.register_socket(udp_socket);
+    let mut io_loop = Runtime::new().unwrap();
+    let server = ServerFuture::new(catalog);
+    io_loop.block_on::<Box<Future<Item=(), Error=()> + Send>>(
+        Box::new(future::lazy(|| {
+            future::ok(server.register_socket(udp_socket))
+        }))
+    ).unwrap();
 
     while server_continue.load(Ordering::Relaxed) {
-        server.tokio_core().turn(Some(Duration::from_millis(10)));
+        io_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(10))).unwrap();
     }
 }
 
 fn server_thread_tcp(tcp_listener: TcpListener, server_continue: Arc<AtomicBool>) {
     let catalog = new_catalog();
-    let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
-    server
-        .register_listener(tcp_listener, Duration::from_secs(30))
-        .expect("tcp registration failed");
+    let mut io_loop = Runtime::new().unwrap();
+    let server = ServerFuture::new(catalog);
+    io_loop.block_on::<Box<Future<Item=(), Error=io::Error> + Send>>(
+        Box::new(future::lazy(|| {
+            future::result(server.register_listener(tcp_listener, Duration::from_secs(30)))
+        }))
+    ).expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
-        server.tokio_core().turn(Some(Duration::from_millis(10)));
+        io_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(10))).unwrap();
     }
 }
 
@@ -275,16 +287,19 @@ fn server_thread_tls(
     pkcs12_der: Vec<u8>,
 ) {
     let catalog = new_catalog();
-    let mut server = ServerFuture::new(catalog).expect("new tcp server failed");
-    let pkcs12 = Pkcs12::from_der(&pkcs12_der)
-        .expect("bad pkcs12 der")
-        .parse("mypass")
-        .expect("Pkcs12::from_der");
-    server
-        .register_tls_listener(tls_listener, Duration::from_secs(30), pkcs12)
-        .expect("tcp registration failed");
+    let mut io_loop = Runtime::new().unwrap();
+    let server = ServerFuture::new(catalog);
+    io_loop.block_on::<Box<Future<Item=(), Error=io::Error> + Send>>(
+        Box::new(future::lazy(|| {
+            let pkcs12 = Pkcs12::from_der(&pkcs12_der)
+                .expect("bad pkcs12 der")
+                .parse("mypass")
+                .expect("Pkcs12::from_der");
+            future::result(server.register_tls_listener(tls_listener, Duration::from_secs(30), pkcs12))
+        }))
+    ).expect("tcp registration failed");
 
     while server_continue.load(Ordering::Relaxed) {
-        server.tokio_core().turn(Some(Duration::from_millis(10)));
+        io_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(10))).unwrap();
     }
 }

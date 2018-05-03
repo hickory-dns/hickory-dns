@@ -1,4 +1,4 @@
-extern crate tokio_core;
+extern crate tokio;
 extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_server;
@@ -7,7 +7,7 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle, MemoizeClientHandle,
                         SecureClientHandle};
@@ -40,13 +40,13 @@ fn test_secure_query_example_tcp() {
     with_tcp(test_secure_query_example);
 }
 
-fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
+fn test_secure_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + 'static,
 {
     let name = Name::from_str("www.example.com").unwrap();
     let response = io_loop
-        .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
+        .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
 
     println!("response records: {:?}", response);
@@ -82,14 +82,14 @@ fn test_nsec_query_example_tcp() {
     with_tcp(test_nsec_query_example);
 }
 
-fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
+fn test_nsec_query_example<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + 'static,
 {
     let name = Name::from_str("none.example.com").unwrap();
 
     let response = io_loop
-        .run(client.query(name.clone(), DNSClass::IN, RecordType::A))
+        .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .expect("query failed");
     assert_eq!(response.response_code(), ResponseCode::NoError);
 }
@@ -112,14 +112,14 @@ fn test_nsec_query_type_tcp() {
     with_tcp(test_nsec_query_type);
 }
 
-fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
+fn test_nsec_query_type<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
 where
     H: ClientHandle + 'static,
 {
     let name = Name::from_str("www.example.com").unwrap();
 
     let response = io_loop
-        .run(client.query(name.clone(), DNSClass::IN, RecordType::NS))
+        .block_on(client.query(name.clone(), DNSClass::IN, RecordType::NS))
         .expect("query failed");
 
     assert_eq!(response.response_code(), ResponseCode::NoError);
@@ -147,14 +147,14 @@ where
 //     with_tcp(dnssec_rollernet_td_mixed_case_test);
 // }
 
-// fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
+// fn dnssec_rollernet_td_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
 // where
 //     H: ClientHandle + 'static,
 // {
 //     let name = Name::parse("rollernet.us.", None).unwrap();
 
 //     let response = io_loop
-//         .run(client.query(
+//         .block_on(client.query(
 //             name.clone(),
 //             DNSClass::IN,
 //             RecordType::DNSSEC(DNSSECRecordType::DS),
@@ -167,14 +167,14 @@ where
 //     assert!(response.answers().is_empty());
 // }
 
-// fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Core)
+// fn dnssec_rollernet_td_mixed_case_test<H>(mut client: SecureClientHandle<H>, mut io_loop: Runtime)
 // where
 //     H: ClientHandle + 'static,
 // {
 //     let name = Name::parse("RollErnet.Us.", None).unwrap();
 
 //     let response = io_loop
-//         .run(client.query(
+//         .block_on(client.query(
 //             name.clone(),
 //             DNSClass::IN,
 //             RecordType::DNSSEC(DNSSECRecordType::DS),
@@ -189,7 +189,7 @@ where
 
 fn with_nonet<F>(test: F)
 where
-    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Core),
+    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -228,10 +228,10 @@ where
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone().into(), authority);
 
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = ClientFuture::new(stream, Box::new(sender), None);
-    let client = io_loop.run(client).unwrap();
+    let client = io_loop.block_on(client).unwrap();
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
@@ -242,7 +242,7 @@ where
 
 fn with_udp<F>(test: F)
 where
-    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Core),
+    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -261,11 +261,11 @@ where
         })
         .unwrap();
 
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
     let client = ClientFuture::new(stream, sender, None);
-    let client = io_loop.run(client).unwrap();
+    let client = io_loop.block_on(client).unwrap();
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
@@ -276,7 +276,7 @@ where
 
 fn with_tcp<F>(test: F)
 where
-    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Core),
+    F: Fn(SecureClientHandle<MemoizeClientHandle<BasicClientHandle>>, Runtime),
 {
     let succeeded = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
@@ -295,11 +295,11 @@ where
         })
         .unwrap();
 
-    let mut io_loop = Core::new().unwrap();
+    let mut io_loop = Runtime::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
     let client = ClientFuture::new(stream, sender, None);
-    let client = io_loop.run(client).unwrap();
+    let client = io_loop.block_on(client).unwrap();
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
