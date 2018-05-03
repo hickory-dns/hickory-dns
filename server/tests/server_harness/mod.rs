@@ -11,7 +11,7 @@ use std::sync::*;
 use std::thread;
 use std::time::*;
 
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::xfer::DnsResponse;
 
@@ -144,13 +144,13 @@ where
 }
 
 pub fn query_message<C: ClientHandle>(
-    io_loop: &mut Core,
+    io_loop: &mut Runtime,
     client: &mut C,
     name: Name,
     record_type: RecordType,
 ) -> DnsResponse {
     println!("sending request");
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, record_type));
+    let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, record_type));
     println!("got response: {:#?}", response);
     response.expect("request failed")
 }
@@ -158,7 +158,7 @@ pub fn query_message<C: ClientHandle>(
 // This only validates that a query to the server works, it shouldn't be used for more than this.
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
 #[allow(dead_code)]
-pub fn query_a<C: ClientHandle>(io_loop: &mut Core, client: &mut C) {
+pub fn query_a<C: ClientHandle>(io_loop: &mut Runtime, client: &mut C) {
     let name = Name::from_str("www.example.com").unwrap();
     let response = query_message(io_loop, client, name, RecordType::A);
     let record = &response.answers()[0];
@@ -174,7 +174,7 @@ pub fn query_a<C: ClientHandle>(io_loop: &mut Core, client: &mut C) {
 //  i.e. more complex checks live with the clients and authorities to validate deeper funcionality
 #[allow(dead_code)]
 pub fn query_all_dnssec(
-    io_loop: &mut Core,
+    io_loop: &mut Runtime,
     client: BasicClientHandle,
     algorithm: Algorithm,
     with_rfc6975: bool,
@@ -225,7 +225,7 @@ pub fn query_all_dnssec(
 
 #[allow(dead_code)]
 pub fn query_all_dnssec_with_rfc6975(
-    io_loop: &mut Core,
+    io_loop: &mut Runtime,
     client: BasicClientHandle,
     algorithm: Algorithm,
 ) {
@@ -234,7 +234,7 @@ pub fn query_all_dnssec_with_rfc6975(
 
 #[allow(dead_code)]
 pub fn query_all_dnssec_wo_rfc6975(
-    io_loop: &mut Core,
+    io_loop: &mut Runtime,
     client: BasicClientHandle,
     algorithm: Algorithm,
 ) {
