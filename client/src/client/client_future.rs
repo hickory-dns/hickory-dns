@@ -10,7 +10,7 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::Future;
+use futures::{Future, future};
 use futures::stream::Stream;
 use rand;
 use trust_dns_proto::xfer::{BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsRequestOptions,
@@ -48,7 +48,7 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static> ClientFuture
         stream: Box<Future<Item = S, Error = io::Error> + Send>,
         stream_handle: Box<ClientStreamHandle<Error = ClientError> + Send>,
         signer: Option<Arc<Signer>>,
-    ) -> BasicClientHandle {
+    ) -> Box<Future<Item=BasicClientHandle, Error=ClientError> + Send> {
         Self::with_timeout(
             stream,
             stream_handle,
@@ -72,17 +72,19 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static> ClientFuture
         stream_handle: Box<DnsStreamHandle<Error = ClientError> + Send>,
         timeout_duration: Duration,
         finalizer: Option<Arc<Signer>>,
-    ) -> BasicClientHandle {
-        let dns_future_handle = DnsFuture::with_timeout(
-            stream,
-            stream_handle,
-            timeout_duration,
-            finalizer,
-        );
+    ) -> Box<Future<Item=BasicClientHandle, Error=ClientError> + Send> {
+        Box::new(future::lazy(move || {
+            let dns_future_handle = DnsFuture::with_timeout(
+                stream,
+                stream_handle,
+                timeout_duration,
+                finalizer,
+            );
 
-        BasicClientHandle {
-            message_sender: dns_future_handle,
-        }
+            future::ok(BasicClientHandle {
+                message_sender: dns_future_handle,
+            })
+        }))
     }
 }
 

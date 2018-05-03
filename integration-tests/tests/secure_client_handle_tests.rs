@@ -228,9 +228,10 @@ where
     let mut catalog = Catalog::new();
     catalog.upsert(authority.origin().clone().into(), authority);
 
-    let io_loop = Core::new().unwrap();
+    let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = ClientFuture::new(stream, Box::new(sender), None);
+    let client = io_loop.run(client).unwrap();
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
@@ -260,10 +261,11 @@ where
         })
         .unwrap();
 
-    let io_loop = Core::new().unwrap();
+    let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = UdpClientStream::new(addr);
     let client = ClientFuture::new(stream, sender, None);
+    let client = io_loop.run(client).unwrap();
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 
@@ -293,10 +295,11 @@ where
         })
         .unwrap();
 
-    let io_loop = Core::new().unwrap();
+    let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("8.8.8.8", 53).to_socket_addrs().unwrap().next().unwrap();
     let (stream, sender) = TcpClientStream::new(addr);
     let client = ClientFuture::new(stream, sender, None);
+    let client = io_loop.run(client).unwrap();
     let client = MemoizeClientHandle::new(client);
     let secure_client = SecureClientHandle::new(client);
 

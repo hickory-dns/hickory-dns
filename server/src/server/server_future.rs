@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures::{Async, Future, Poll, Stream};
+use futures::{Async, Future, future, Poll, Stream};
 
 use tokio_core::reactor::Core;
 use tokio_reactor::Handle;
@@ -188,7 +188,7 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         let tls_acceptor = tls_server::new_acceptor(&pkcs12)?;
 
         // for each incoming request...
-        self.io_loop.handle().spawn(
+        self.io_loop.handle().spawn(future::lazy(move || {
             listener
                 .incoming()
                 .for_each(move |tcp_stream| {
@@ -236,8 +236,8 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
                         })
                     //.map_err(move |e| debug!("error TLS handshake: {:?} error: {:?}", src_addr, e))
                 })
-                .map_err(|e| panic!("error in inbound tls_stream: {}", e)),
-        );
+                .map_err(|e| panic!("error in inbound tls_stream: {}", e))
+        }));
 
         Ok(())
     }

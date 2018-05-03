@@ -752,6 +752,7 @@ impl Future for Local {
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 
+    use futures::future;
     use tokio_core::reactor::Core;
 
     use trust_dns_proto::op::{Query, ResponseCode};
@@ -811,17 +812,21 @@ mod tests {
             tls_dns_name: None,
         };
         let mut io_loop = Core::new().unwrap();
-        let mut name_server = NameServer::<_, StandardConnection>::new(
-            config,
-            ResolverOpts::default(),
-        );
+        let name_server = future::lazy(|| {
+            future::ok(NameServer::<_, StandardConnection>::new(
+                config,
+                ResolverOpts::default(),
+            ))
+        });
 
         let name = Name::parse("www.example.com.", None).unwrap();
         let response = io_loop
-            .run(name_server.lookup(
-                Query::query(name.clone(), RecordType::A),
-                DnsRequestOptions::default(),
-            ))
+            .run(name_server.and_then(|mut name_server| {
+                name_server.lookup(
+                    Query::query(name.clone(), RecordType::A),
+                    DnsRequestOptions::default(),
+                )
+            }))
             .expect("query failed");
         assert_eq!(response.response_code(), ResponseCode::NoError);
     }
@@ -836,16 +841,19 @@ mod tests {
             tls_dns_name: None,
         };
         let mut io_loop = Core::new().unwrap();
-        let mut name_server =
-            NameServer::<_, StandardConnection>::new(config, options);
+        let name_server = future::lazy(|| {
+            future::ok(NameServer::<_, StandardConnection>::new(config, options))
+        });
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             io_loop
-                .run(name_server.lookup(
-                    Query::query(name.clone(), RecordType::A),
-                    DnsRequestOptions::default()
-                ))
+                .run(name_server.and_then(|mut name_server| {
+                    name_server.lookup(
+                        Query::query(name.clone(), RecordType::A),
+                        DnsRequestOptions::default()
+                    )
+                }))
                 .is_err()
         );
     }

@@ -1,3 +1,4 @@
+extern crate futures;
 extern crate tokio_core;
 extern crate trust_dns_integration;
 extern crate trust_dns_proto;
@@ -8,6 +9,7 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
+use futures::{Future, future};
 use tokio_core::reactor::Core;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
@@ -33,14 +35,18 @@ fn test_lookup() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let client = future::lazy(|| {
+        future::ok(DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new()))
+    });
 
-    let lookup = InnerLookupFuture::lookup(
-        vec![Name::from_str("www.example.com.").unwrap()],
-        RecordType::A,
-        Default::default(),
-        CachingClient::new(0, client),
-    );
+    let lookup = client.and_then(|client| {
+        InnerLookupFuture::lookup(
+            vec![Name::from_str("www.example.com.").unwrap()],
+            RecordType::A,
+            Default::default(),
+            CachingClient::new(0, client),
+        )
+    });
     let lookup = io_loop.run(lookup).unwrap();
 
     assert_eq!(
@@ -57,7 +63,9 @@ fn test_lookup_hosts() {
 
     let mut io_loop = Core::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
-    let client = DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new());
+    let client = future::lazy(|| {
+        future::ok(DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new()))
+    });
 
     let mut hosts = Hosts::default();
 
@@ -67,13 +75,15 @@ fn test_lookup_hosts() {
         Lookup::new_with_max_ttl(Arc::new(vec![RData::A(Ipv4Addr::new(10, 0, 1, 104))])),
     );
 
-    let lookup = InnerLookupIpFuture::lookup(
-        vec![Name::from_str("www.example.com.").unwrap()],
-        LookupIpStrategy::default(),
-        CachingClient::new(0, client),
-        Default::default(),
-        Some(Arc::new(hosts)),
-    );
+    let lookup = client.and_then(|client| {
+        InnerLookupIpFuture::lookup(
+            vec![Name::from_str("www.example.com.").unwrap()],
+            LookupIpStrategy::default(),
+            CachingClient::new(0, client),
+            Default::default(),
+            Some(Arc::new(hosts)),
+        )
+    });
     let lookup = io_loop.run(lookup).unwrap();
 
     assert_eq!(lookup.iter().next().unwrap(), Ipv4Addr::new(10, 0, 1, 104));

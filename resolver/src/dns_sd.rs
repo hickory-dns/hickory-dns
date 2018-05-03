@@ -166,6 +166,7 @@ mod tests {
             },
         );
 
+        let resolver = io_loop.run(resolver).expect("failed to create resolver");
         let response = io_loop
             .run(resolver.list_services("_http._tcp.local."))
             .expect("failed to run lookup");
