@@ -34,8 +34,10 @@
 extern crate chrono;
 #[macro_use]
 extern crate clap;
+extern crate futures;
 #[macro_use]
 extern crate log;
+extern crate tokio;
 extern crate tokio_tcp;
 extern crate tokio_udp;
 extern crate trust_dns;
@@ -48,11 +50,13 @@ use std::fs::File;
 use std::collections::BTreeMap;
 use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
 use std::path::{Path, PathBuf};
-use std::io::Read;
+use std::io::{self, Read};
 
 #[cfg(feature = "dnssec")]
 use chrono::Duration;
 use clap::{Arg, ArgMatches};
+use futures::{Future, future};
+use tokio::runtime::current_thread::Runtime;
 use tokio_tcp::TcpListener;
 use tokio_udp::UdpSocket;
 
@@ -379,14 +383,17 @@ pub fn main() {
     info!("Trust-DNS {} starting", trust_dns::version());
     // start up the server for listening
 
-    let config_path = Path::new(&args.flag_config);
+    let flag_config = args.flag_config.clone();
+    let config_path = Path::new(&flag_config);
     info!("loading configuration from: {:?}", config_path);
     let config = Config::read_config(config_path)
         .expect(&format!("could not read config: {:?}", config_path));
-    let zone_dir: &Path = args.flag_zonedir
+    let directory_config = config.get_directory().to_path_buf();
+    let flag_zonedir = args.flag_zonedir.clone();
+    let zone_dir: &Path = flag_zonedir
         .as_ref()
         .map(Path::new)
-        .unwrap_or_else(|| config.get_directory());
+        .unwrap_or_else(|| &directory_config);
 
     let mut catalog: Catalog = Catalog::new();
     // configure our server based on the config_path
@@ -432,42 +439,58 @@ pub fn main() {
         })
         .collect();
 
+    let mut io_loop = Runtime::new().expect("error when creating tokio Runtime");
 
     // now, run the server, based on the config
-    let mut server = ServerFuture::new(catalog).expect("error creating ServerFuture");
+    let mut server = ServerFuture::new(catalog);
 
-    // load all the listeners
-    for udp_socket in udp_sockets {
-        info!("listening for UDP on {:?}", udp_socket);
-        server.register_socket(udp_socket);
-    }
+    let server_future : Box<Future<Item=(), Error=()> + Send> = Box::new(future::lazy(move ||{
+        // load all the listeners
+        for udp_socket in udp_sockets {
+            info!("listening for UDP on {:?}", udp_socket);
+            server.register_socket(udp_socket);
+        }
 
-    // and TCP as necessary
-    for tcp_listener in tcp_listeners {
-        info!("listening for TCP on {:?}", tcp_listener);
-        server
-            .register_listener(tcp_listener, tcp_request_timeout)
-            .expect("could not register TCP listener");
-    }
+        // and TCP as necessary
+        for tcp_listener in tcp_listeners {
+            info!("listening for TCP on {:?}", tcp_listener);
+            server
+                .register_listener(tcp_listener, tcp_request_timeout)
+                .expect("could not register TCP listener");
+        }
 
-    // and TLS as necessary
-    if let Some(tls_cert_config) = config.get_tls_cert() {
-        config_tls(
-            &args,
-            &mut server,
-            &config,
-            tls_cert_config,
-            zone_dir,
-            &listen_addrs,
-        );
-    }
+        let tls_cert_config = config.get_tls_cert().clone();
 
-    // config complete, starting!
-    banner();
-    info!("awaiting connections...");
-    if let Err(e) = server.listen() {
+        // and TLS as necessary
+        if let Some(tls_cert_config) = tls_cert_config {
+            config_tls(
+                &args,
+                &mut server,
+                &config,
+                tls_cert_config,
+                zone_dir,
+                &listen_addrs,
+            );
+        }
+
+        // config complete, starting!
+        banner();
+        info!("awaiting connections...");
+
+        /// TODO: how to do threads? should we do a bunch of listener threads and then query threads?
+        /// Ideally the processing would be n-threads for recieving, which hand off to m-threads for
+        ///  request handling. It would generally be the case that n <= m.
+        info!("Server starting up");
+        future::empty()
+    }));
+
+    if let Err(e) = io_loop.block_on(server_future.map_err(|_| io::Error::new(
+        io::ErrorKind::Interrupted,
+        "Server stopping due to interruption",
+    ))) {
         error!("failed to listen: {}", e);
     }
+
 
     // we're exiting for some reason...
     info!("Trust-DNS {} stopping", trust_dns::version());

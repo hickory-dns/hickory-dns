@@ -3,7 +3,7 @@
 
 extern crate futures;
 extern crate log;
-extern crate tokio_core;
+extern crate tokio;
 extern crate trust_dns;
 extern crate trust_dns_proto;
 
@@ -16,7 +16,7 @@ use std::io::*;
 use std::net::*;
 
 use futures::Future;
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::*;
 use trust_dns::error::ClientError;
@@ -75,20 +75,20 @@ fn generic_test(config_toml: &str, key_path: &str, key_format: KeyFormat, algori
     let server_path = Path::new(&server_path);
 
     named_test_harness(config_toml, |port, _| {
-        let mut io_loop = Core::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
 
         // verify all records are present
         let client = standard_conn(port);
-        let client = io_loop.run(client).unwrap();
+        let client = io_loop.block_on(client).unwrap();
         query_all_dnssec_with_rfc6975(&mut io_loop, client, algorithm);
         let client = standard_conn(port);
-        let client = io_loop.run(client).unwrap();
+        let client = io_loop.block_on(client).unwrap();
         query_all_dnssec_wo_rfc6975(&mut io_loop, client, algorithm);
 
         // test that request with Secure client is successful, i.e. validates chain
         let trust_anchor = trust_anchor(&server_path.join(key_path), key_format, algorithm);
         let client = standard_conn(port);
-        let client = io_loop.run(client).unwrap();
+        let client = io_loop.block_on(client).unwrap();
         let mut client = SecureClientHandle::with_trust_anchor(client, trust_anchor);
 
         query_a(&mut io_loop, &mut client);

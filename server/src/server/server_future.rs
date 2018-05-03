@@ -10,9 +10,9 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures::{Async, Future, future, Poll, Stream};
+use futures::{Future, future, Stream};
 
-use tokio_core::reactor::Core;
+use tokio_executor;
 use tokio_reactor::Handle;
 use tokio_tcp;
 use tokio_udp;
@@ -36,17 +36,15 @@ use server::{Request, RequestHandler, ResponseHandle, TimeoutStream};
 
 /// A Futures based implementation of a DNS server
 pub struct ServerFuture<T: RequestHandler + Send + 'static> {
-    io_loop: Core,
     handler: Arc<Mutex<T>>,
 }
 
 impl<T: RequestHandler + Send> ServerFuture<T> {
     /// Creates a new ServerFuture with the specified Handler.
-    pub fn new(handler: T) -> io::Result<ServerFuture<T>> {
-        Ok(ServerFuture {
-            io_loop: Core::new()?,
+    pub fn new(handler: T) -> ServerFuture<T> {
+        ServerFuture {
             handler: Arc::new(Mutex::new(handler)),
-        })
+        }
     }
 
     /// Register a UDP socket. Should be bound before calling this function.
@@ -59,7 +57,7 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         let handler = self.handler.clone();
 
         // this spawns a ForEach future which handles all the requests into a Handler.
-        self.io_loop.handle().spawn(
+        tokio_executor::spawn(
             buf_stream
                 .for_each(move |(buffer, src_addr)| {
                     Self::handle_request(buffer, src_addr, stream_handle.clone(), handler.clone())
@@ -97,12 +95,11 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         listener: tokio_tcp::TcpListener,
         timeout: Duration,
     ) -> io::Result<()> {
-        let handle = self.io_loop.handle();
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 
         // for each incoming request...
-        self.io_loop.handle().spawn(
+        tokio_executor::spawn(
             listener
                 .incoming()
                 .for_each(move |tcp_stream| {
@@ -115,7 +112,7 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
                     let handler = handler.clone();
 
                     // and spawn to the io_loop
-                    handle.spawn(
+                    tokio_executor::spawn(
                         timeout_stream
                             .for_each(move |(buffer, src_addr)| {
                                 Self::handle_request(
@@ -181,20 +178,18 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         timeout: Duration,
         pkcs12: ParsedPkcs12,
     ) -> io::Result<()> {
-        let handle = self.io_loop.handle();
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 
         let tls_acceptor = tls_server::new_acceptor(&pkcs12)?;
 
         // for each incoming request...
-        self.io_loop.handle().spawn(future::lazy(move || {
+        tokio_executor::spawn(future::lazy(move || {
             listener
                 .incoming()
                 .for_each(move |tcp_stream| {
                     let src_addr = tcp_stream.peer_addr().unwrap();
                     debug!("accepted request from: {}", src_addr);
-                    let handle = handle.clone();
                     let handler = handler.clone();
 
                     // take the created stream...
@@ -214,7 +209,7 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
                             let handler = handler.clone();
 
                             // and spawn to the io_loop
-                            handle.spawn(
+                            tokio_executor::spawn(
                                 timeout_stream
                                     .for_each(move |(buffer, addr)| {
                                         Self::handle_request(
@@ -265,24 +260,6 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         self.register_tls_listener(tokio_tcp::TcpListener::from_std(listener, &Handle::current())?, timeout, pkcs12)
     }
 
-    /// TODO: how to do threads? should we do a bunch of listener threads and then query threads?
-    /// Ideally the processing would be n-threads for recieving, which hand off to m-threads for
-    ///  request handling. It would generally be the case that n <= m.
-    pub fn listen(&mut self) -> io::Result<()> {
-        info!("Server starting up");
-        self.io_loop.run(Forever)?;
-
-        Err(io::Error::new(
-            io::ErrorKind::Interrupted,
-            "Server stopping due to interruption",
-        ))
-    }
-
-    /// Returns a reference to the tokio core loop driving this Server instance
-    pub fn tokio_core(&mut self) -> &mut Core {
-        &mut self.io_loop
-    }
-
     fn handle_request(
         buffer: Vec<u8>,
         src_addr: SocketAddr,
@@ -321,17 +298,5 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         );
 
         handler.lock().unwrap().handle_request(&request, response_handle)
-    }
-}
-
-struct Forever;
-
-impl Future for Forever {
-    type Item = ();
-    type Error = io::Error;
-
-    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        // run forever...
-        Ok(Async::NotReady)
     }
 }

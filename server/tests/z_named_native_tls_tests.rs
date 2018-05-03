@@ -12,7 +12,7 @@ extern crate chrono;
 extern crate futures;
 extern crate log;
 extern crate native_tls;
-extern crate tokio_core;
+extern crate tokio;
 extern crate trust_dns;
 extern crate trust_dns_native_tls;
 extern crate trust_dns_proto;
@@ -26,7 +26,7 @@ use std::io::*;
 use std::net::*;
 
 use native_tls::Certificate;
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::*;
 use trust_dns_native_tls::TlsClientStreamBuilder;
@@ -47,7 +47,7 @@ fn test_example_tls_toml_startup() {
             .read_to_end(&mut cert_der)
             .expect("failed to read cert");
 
-        let mut io_loop = Core::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = ("127.0.0.1", tls_port)
             .to_socket_addrs()
             .unwrap()
@@ -59,7 +59,7 @@ fn test_example_tls_toml_startup() {
         let (stream, sender) =
             tls_conn_builder.build(addr, "ns.example.com".to_string());
         let client = ClientFuture::new(stream, sender, None);
-        let mut client = io_loop.run(client).unwrap();
+        let mut client = io_loop.block_on(client).unwrap();
 
         // ipv4 should succeed
         query_a(&mut io_loop, &mut client);
@@ -75,7 +75,7 @@ fn test_example_tls_toml_startup() {
         let (stream, sender) =
             tls_conn_builder.build(addr, "ns.example.com".to_string());
         let client = ClientFuture::new(stream, sender, None);
-        let mut client = io_loop.run(client).unwrap();
+        let mut client = io_loop.block_on(client).unwrap();
 
         // ipv6 should succeed
         query_a(&mut io_loop, &mut client);
