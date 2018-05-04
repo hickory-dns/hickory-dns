@@ -413,7 +413,6 @@ impl Future for NextRandomUdpSocket {
 pub mod tests {
     use super::*;
     use futures::future::{Either, Future};
-    use std::thread;
     use tokio::runtime::current_thread::Runtime;
 
     // TODO: is there a better way?
@@ -529,7 +528,7 @@ pub mod tests {
                     }
 
                     // let the server turn for a bit... send the message
-                    thread::sleep(Duration::from_millis(100));
+                    server_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(100))).unwrap();
                 }
             })
             .unwrap();
@@ -680,7 +679,7 @@ pub mod tests {
                     }
 
                     // let the server turn for a bit... send the message
-                    thread::sleep(Duration::from_millis(100));
+                    io_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(100))).unwrap();
                 }
             })
             .unwrap();
