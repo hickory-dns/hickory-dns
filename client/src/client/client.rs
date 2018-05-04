@@ -65,9 +65,9 @@ pub trait Client<C: ClientHandle> {
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        let mut client = reactor.block_on(client)?;
-        let future = client.query(name.clone(), query_class, query_type);
-        reactor.block_on(future)
+        reactor.block_on(client.and_then(|mut client| {
+            client.query(name.clone(), query_class, query_type)
+        }))
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -90,9 +90,9 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        let mut client = reactor.block_on(client)?;
-        let future = client.notify(name, query_class, query_type, rrset);
-        reactor.block_on(future)
+        reactor.block_on(client.and_then(|mut client| {
+            client.notify(name, query_class, query_type, rrset)
+        }))
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -134,9 +134,9 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        let mut client = reactor.block_on(client)?;
-        let future = client.create(rrset, zone_origin);
-        reactor.block_on(future)
+        reactor.block_on(client.and_then(|mut client| {
+            client.create(rrset, zone_origin)
+        }))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
@@ -179,9 +179,9 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        let mut client = reactor.block_on(client)?;
-        let future = client.append(rrset, zone_origin, must_exist);
-        reactor.block_on(future)
+        reactor.block_on(client.and_then(|mut client| {
+            client.append(rrset, zone_origin, must_exist)
+        }))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -237,9 +237,9 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        let mut client = reactor.block_on(client)?;
-        let future = client.compare_and_swap(current, new, zone_origin);
-        reactor.block_on(future)
+        reactor.block_on(client.and_then(|mut client| {
+            client.compare_and_swap(current, new, zone_origin)
+        }))
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -283,9 +283,9 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        let mut client = reactor.block_on(client)?;
-        let future = client.delete_by_rdata(record, zone_origin);
-        reactor.block_on(future)
+        reactor.block_on(client.and_then(|mut client| {
+            client.delete_by_rdata(record, zone_origin)
+        }))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -326,9 +326,9 @@ pub trait Client<C: ClientHandle> {
     fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        let mut client = reactor.block_on(client)?;
-        let future = client.delete_rrset(record, zone_origin);
-        reactor.block_on(future)
+        reactor.block_on(client.and_then(|mut client| {
+            client.delete_rrset(record, zone_origin)
+        }))
     }
 
     /// Deletes all records at the specified name
@@ -363,9 +363,9 @@ pub trait Client<C: ClientHandle> {
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        let mut client = reactor.block_on(client)?;
-        let future = client.delete_all(name_of_records, zone_origin, dns_class);
-        reactor.block_on(future)
+        reactor.block_on(client.and_then(|mut client| {
+            client.delete_all(name_of_records, zone_origin, dns_class)
+        }))
     }
 }
 
@@ -476,9 +476,9 @@ where
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        let mut client = reactor.block_on(client)?;
-        let future = client.query(query_name.clone(), query_class, query_type);
-        reactor.block_on(future)
+        reactor.block_on(client.and_then(|mut client| {
+            client.query(query_name.clone(), query_class, query_type)
+        }))
     }
 }
 
