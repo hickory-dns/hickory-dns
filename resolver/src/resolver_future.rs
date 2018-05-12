@@ -352,6 +352,25 @@ mod tests {
 
     use super::*;
 
+    fn is_send_t<T: Send>() -> bool {
+        true
+    }
+
+    fn is_sync_t<T: Sync>() -> bool {
+        true
+    }
+
+    #[test]
+    fn test_send_sync() {
+        assert!(is_send_t::<ResolverConfig>());
+        assert!(is_send_t::<ResolverConfig>());
+        assert!(is_send_t::<ResolverOpts>());
+        assert!(is_sync_t::<ResolverOpts>());
+
+        assert!(is_send_t::<ResolverFuture>());
+        assert!(is_sync_t::<ResolverFuture>());
+    }
+
     fn lookup_test(config: ResolverConfig) {
         let mut io_loop = Runtime::new().unwrap();
         let resolver = ResolverFuture::new(config, ResolverOpts::default());
