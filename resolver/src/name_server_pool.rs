@@ -38,16 +38,20 @@ enum NameServerState {
     ///  failed at some point after. The Failed state should *not* be entered due to an
     ///  error contained in a Message recieved from the server. In All cases to reestablish
     ///  a new connection will need to be created.
-    Failed { when: Instant }, // TODO: make error Arc...
+    Failed { when: Instant },
 }
 
 impl NameServerState {
     fn to_usize(&self) -> usize {
         match *self {
-            NameServerState::Init { .. } => 3, // Should we instead prefer already established connections?
-            NameServerState::Established { .. } => 2,
+            NameServerState::Init { .. } => 2,
+            NameServerState::Established { .. } => 3, // prefer established connections
             NameServerState::Failed { .. } => 1,
         }
+    }
+
+    fn is_failed(&self) -> bool {
+       if 
     }
 }
 
@@ -164,7 +168,7 @@ impl Ord for NameServerStats {
 
         // TODO: track latency and use lowest latency connection...
 
-        // invert failure comparison
+        // invert failure comparison, i.e. the one with the least failures, wins
         if self.failures <= other.failures {
             return Ordering::Greater;
         }
