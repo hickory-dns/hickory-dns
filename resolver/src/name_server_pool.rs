@@ -11,7 +11,8 @@ use std::mem;
 use std::sync::{Arc, Mutex, TryLockError};
 use std::time::Instant;
 
-use futures::{future, task, Async, Future, Poll};
+use futures::future::Loop;
+use futures::{future, task, Async, Future, IntoFuture, Poll};
 
 #[cfg(feature = "mdns")]
 use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
@@ -619,17 +620,41 @@ where
                     Ok(mut conns) => {
                         // select the highest priority connection
                         //   reorder the connections based on current view...
+                        //   this reorders the inner set
                         conns.sort_unstable();
-                        let mut conns = conns.clone(); // get a stable view for trying all connections
-                        let conn = conns.pop();
 
-                        if conn.is_none() {
-                            return Err(ResolveErrorKind::Message("No connections available").into());
-                        }
+                        // TODO: restrict this size to a maximum # of NameServers to try
+                        let mut conns: Vec<NameServer<C, P>> = conns.clone(); // get a stable view for trying all connections
+                        let request = mem::replace(request, None);
+                        let request = request.expect("bad state, mesage should never be None");
+                        let request_loop = request.clone();
 
-                        let message = mem::replace(request, None);
-                        future = conn.unwrap()
-                            .send(message.expect("bad state, mesage should never be None"));
+                        let loop_future = future::loop_fn(
+                            (
+                                conns,
+                                request_loop,
+                                ResolveError::from(ResolveErrorKind::Message(
+                                    "No connections available",
+                                )),
+                            ),
+                            |(mut conns, request, err)| {
+                                let conn = conns.pop();
+
+                                let request_cont = request.clone();
+                                conn.ok_or_else(move || err).into_future().and_then(
+                                    move |mut conn| {
+                                        conn.send(request).then(|sent_res| match sent_res {
+                                            Ok(sent) => Ok(Loop::Break(sent)),
+                                            Err(err) => {
+                                                Ok(Loop::Continue((conns, request_cont, err)))
+                                            }
+                                        })
+                                    },
+                                )
+                            },
+                        );
+
+                        future = Box::new(loop_future);
                     }
                 }
             }
