@@ -70,13 +70,12 @@ impl<'i> Iterator for LookupIpIter<'i> {
 }
 
 /// The Future returned from ResolverFuture when performing an A or AAAA lookup.
-pub type LookupIpFuture =
-    InnerLookupIpFuture<LookupEither<BasicResolverHandle, StandardConnection>>;
-
-/// The Future returned from ResolverFuture when performing an A or AAAA lookup.
 ///
-/// This type isn't necessarily something that should be used by users, see `LookupIpFuture`
-pub struct InnerLookupIpFuture<C: DnsHandle<Error = ResolveError> + 'static> {
+/// This type isn't necessarily something that should be used by users, see the default TypeParameters are generally correct
+pub struct LookupIpFuture<C = LookupEither<BasicResolverHandle, StandardConnection>>
+where
+    C: DnsHandle<Error = ResolveError> + 'static,
+{
     client_cache: CachingClient<C>,
     names: Vec<Name>,
     strategy: LookupIpStrategy,
@@ -85,7 +84,7 @@ pub struct InnerLookupIpFuture<C: DnsHandle<Error = ResolveError> + 'static> {
     hosts: Option<Arc<Hosts>>,
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> LookupIpFuture<C> {
     /// Perform a lookup from a hostname to a set of IPs
     ///
     /// # Arguments
@@ -115,7 +114,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
             Err(err) => Box::new(future::err(err)),
         };
 
-        InnerLookupIpFuture {
+        LookupIpFuture {
             client_cache: client_cache,
             names,
             strategy,
@@ -149,7 +148,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
     }
 
     pub(crate) fn error<E: Error>(client_cache: CachingClient<C>, error: E) -> Self {
-        return InnerLookupIpFuture {
+        return LookupIpFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client_cache,
             names: vec![],
@@ -163,7 +162,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
     }
 
     pub(crate) fn ok(client_cache: CachingClient<C>, lp: Lookup) -> Self {
-        return InnerLookupIpFuture {
+        return LookupIpFuture {
             client_cache,
             names: vec![],
             strategy: LookupIpStrategy::default(),
@@ -174,7 +173,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupIpFuture<C> {
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> Future for InnerLookupIpFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> Future for LookupIpFuture<C> {
     type Item = LookupIp;
     type Error = ResolveError;
 
@@ -403,27 +402,23 @@ pub mod tests {
 
     pub fn v4_message() -> ResolveResult<DnsResponse> {
         let mut message = Message::new();
-        message.insert_answers(vec![
-            Record::from_rdata(
-                Name::root(),
-                86400,
-                RecordType::A,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
-            ),
-        ]);
+        message.insert_answers(vec![Record::from_rdata(
+            Name::root(),
+            86400,
+            RecordType::A,
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+        )]);
         Ok(message.into())
     }
 
     pub fn v6_message() -> ResolveResult<DnsResponse> {
         let mut message = Message::new();
-        message.insert_answers(vec![
-            Record::from_rdata(
-                Name::root(),
-                86400,
-                RecordType::AAAA,
-                RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
-            ),
-        ]);
+        message.insert_answers(vec![Record::from_rdata(
+            Name::root(),
+            86400,
+            RecordType::AAAA,
+            RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)),
+        )]);
         Ok(message.into())
     }
 
