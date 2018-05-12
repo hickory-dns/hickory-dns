@@ -9,9 +9,9 @@
 
 use std::marker::PhantomData;
 
-use futures::IntoFuture;
 use futures::sync::mpsc::UnboundedSender;
 use futures::sync::oneshot;
+use futures::IntoFuture;
 use futures::{Complete, Future};
 use rand;
 
@@ -120,7 +120,7 @@ where
 }
 
 /// A trait for implementing high level functions of DNS.
-pub trait DnsHandle: Clone {
+pub trait DnsHandle: Clone + Send {
     /// The associated error type returned by future send operations
     type Error: FromProtoError;
 
