@@ -106,12 +106,12 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Google IPv6 nameservers as defaults for `ResolverConfig::default`
 - support for domain name search in `ResolverConfig` and `LookupIpFuture`
 - support for search names in `ResolverConfig` and `LookupIpFuture`
-- `LookupIpFuture` type alias to `InnerLookupIpFuture<NameServerPool>` *compatibility*
+- `LookupIpFuture` type alias to `LookupIpFuture<NameServerPool>` *compatibility*
 
 ### Changed
 
-- *breaking* `LookupIpFuture` renamed to `InnerLookupIpFuture`
-- *breaking* `InnerLookupIpFuture` now takes a generic parameter, generally `<NameServerPool>`
+- *breaking* `LookupIpFuture` renamed to `LookupIpFuture`
+- *breaking* `LookupIpFuture` now takes a generic parameter, generally `<NameServerPool>`
 
 ## 0.2.0
 

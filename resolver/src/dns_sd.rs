@@ -17,8 +17,10 @@ use trust_dns_proto::rr::{IntoName, Name, RecordType};
 use trust_dns_proto::xfer::DnsRequestOptions;
 
 use error::*;
-use lookup::{InnerLookupFuture, LookupFuture, ReverseLookup, ReverseLookupFuture,
-             ReverseLookupIter, TxtLookup, TxtLookupFuture};
+use lookup::{
+    LookupFuture, LookupFuture, ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup,
+    TxtLookupFuture,
+};
 use resolver_future::ResolverFuture;
 
 /// An extension for the Resolver to perform DNS Service Discovery
@@ -45,7 +47,7 @@ impl DnsSdFuture for ResolverFuture {
         let name: Name = match name.into_name() {
             Ok(name) => name,
             Err(err) => {
-                return ListServicesFuture(ReverseLookupFuture::from(InnerLookupFuture::error(
+                return ListServicesFuture(ReverseLookupFuture::from(LookupFuture::error(
                     self.client_cache.clone(),
                     err,
                 )));
@@ -166,7 +168,9 @@ mod tests {
             },
         );
 
-        let resolver = io_loop.block_on(resolver).expect("failed to create resolver");
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
         let response = io_loop
             .block_on(resolver.list_services("_http._tcp.local."))
             .expect("failed to run lookup");
