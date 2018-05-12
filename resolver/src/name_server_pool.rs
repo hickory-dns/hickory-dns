@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::cmp::Ordering;
-use std::collections::BinaryHeap;
 use std::marker::PhantomData;
 use std::mem;
 use std::sync::{Arc, Mutex, TryLockError};
@@ -44,14 +43,10 @@ enum NameServerState {
 impl NameServerState {
     fn to_usize(&self) -> usize {
         match *self {
-            NameServerState::Init { .. } => 2,
-            NameServerState::Established { .. } => 3, // prefer established connections
+            NameServerState::Init { .. } => 3,
+            NameServerState::Established { .. } => 2,
             NameServerState::Failed { .. } => 1,
         }
-    }
-
-    fn is_failed(&self) -> bool {
-       if 
     }
 }
 
@@ -69,7 +64,6 @@ impl Ord for NameServerState {
                     },
                 ) => {
                     // We reverse, because we want the "older" failures to be tried first...
-                    //    i.e. a higher rank in the BinaryHeap
                     self_when.cmp(other_when).reverse()
                 }
                 _ => Ordering::Equal,
@@ -301,9 +295,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         }
     }
 
-    /// checks if the connection is failed, if so, then it
-    ///  will check the last falure time, and if the retry period is acceptable,
-    ///  then reconnect.
+    /// checks if the connection is failed, if so then reconnect.
     fn try_reconnect(&mut self) -> ResolveResult<()> {
         let error_opt: Option<(usize, usize)> = self.stats
             .lock()
@@ -452,8 +444,8 @@ fn mdns_nameserver(options: ResolverOpts) -> NameServer<BasicResolverHandle, Sta
 #[derive(Clone)]
 pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
-    datagram_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
-    stream_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
+    datagram_conns: Arc<Mutex<Vec<NameServer<C, P>>>>, /* All NameServers must be the same type */
+    stream_conns: Arc<Mutex<Vec<NameServer<C, P>>>>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
@@ -465,17 +457,16 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         config: &ResolverConfig,
         options: &ResolverOpts,
     ) -> NameServerPool<BasicResolverHandle, StandardConnection> {
-        let datagram_conns: BinaryHeap<NameServer<BasicResolverHandle, StandardConnection>> =
-            config
-                .name_servers()
-                .iter()
-                .filter(|ns_config| ns_config.protocol.is_datagram())
-                .map(|ns_config| {
-                    NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
-                })
-                .collect();
+        let datagram_conns: Vec<NameServer<BasicResolverHandle, StandardConnection>> = config
+            .name_servers()
+            .iter()
+            .filter(|ns_config| ns_config.protocol.is_datagram())
+            .map(|ns_config| {
+                NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
+            })
+            .collect();
 
-        let stream_conns: BinaryHeap<NameServer<BasicResolverHandle, StandardConnection>> = config
+        let stream_conns: Vec<NameServer<BasicResolverHandle, StandardConnection>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
@@ -526,10 +517,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         }
     }
 
-    fn try_send(
-        conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
-        request: DnsRequest,
-    ) -> TrySend<C, P> {
+    fn try_send(conns: Arc<Mutex<Vec<NameServer<C, P>>>>, request: DnsRequest) -> TrySend<C, P> {
         TrySend::Lock {
             conns,
             request: Some(request),
@@ -594,7 +582,7 @@ where
 
 enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     Lock {
-        conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
+        conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
         request: Option<DnsRequest>,
     },
     DoSend(Box<Future<Item = DnsResponse, Error = ResolveError> + Send>),
@@ -630,7 +618,10 @@ where
                     }
                     Ok(mut conns) => {
                         // select the highest priority connection
-                        let conn = conns.peek_mut();
+                        //   reorder the connections based on current view...
+                        conns.sort_unstable();
+                        let mut conns = conns.clone(); // get a stable view for trying all connections
+                        let conn = conns.pop();
 
                         if conn.is_none() {
                             return Err(ResolveErrorKind::Message("No connections available").into());
