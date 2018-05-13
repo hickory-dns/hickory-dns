@@ -18,7 +18,7 @@ where
     result: Arc<Mutex<Option<Poll<F::Item, F::Error>>>>,
 }
 
-pub fn rc_future<I, F>(future: I) -> RcFuture<I::Future>
+pub fn rc_future<I>(future: I) -> RcFuture<I::Future>
 where
     I: IntoFuture,
     <I as IntoFuture>::Item: Clone + Send,

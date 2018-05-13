@@ -33,7 +33,7 @@ impl<C: ClientHandle> DnsHandle for MutMessageHandle<C> {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         let mut request = request.into();
         {
             // mutable block

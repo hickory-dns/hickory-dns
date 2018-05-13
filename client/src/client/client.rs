@@ -14,7 +14,7 @@
 
 use std::sync::Arc;
 
-use futures::{Future, future};
+use futures::{future, Future};
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::xfer::DnsResponse;
@@ -45,7 +45,7 @@ pub trait Client<C: ClientHandle> {
     /// Return the inner Futures items
     ///
     /// Consumes the connection and allows for future based operations afterward.
-    fn new_future(&self) -> ClientResult<Box<Future<Item=C, Error=ClientError> + Send>>;
+    fn new_future(&self) -> ClientResult<Box<Future<Item = C, Error = ClientError> + Send>>;
 
     /// A *classic* DNS query, i.e. does not perform any DNSSec operations
     ///
@@ -65,9 +65,9 @@ pub trait Client<C: ClientHandle> {
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        reactor.block_on(client.and_then(|mut client| {
-            client.query(name.clone(), query_class, query_type)
-        }))
+        reactor.block_on(
+            client.and_then(|mut client| client.query(name.clone(), query_class, query_type)),
+        )
     }
 
     /// Sends a NOTIFY message to the remote system
@@ -90,9 +90,9 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        reactor.block_on(client.and_then(|mut client| {
-            client.notify(name, query_class, query_type, rrset)
-        }))
+        reactor.block_on(
+            client.and_then(|mut client| client.notify(name, query_class, query_type, rrset)),
+        )
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -134,9 +134,7 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        reactor.block_on(client.and_then(|mut client| {
-            client.create(rrset, zone_origin)
-        }))
+        reactor.block_on(client.and_then(|mut client| client.create(rrset, zone_origin)))
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exist (atomicity
@@ -179,9 +177,8 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        reactor.block_on(client.and_then(|mut client| {
-            client.append(rrset, zone_origin, must_exist)
-        }))
+        reactor
+            .block_on(client.and_then(|mut client| client.append(rrset, zone_origin, must_exist)))
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -237,9 +234,9 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        reactor.block_on(client.and_then(|mut client| {
-            client.compare_and_swap(current, new, zone_origin)
-        }))
+        reactor.block_on(
+            client.and_then(|mut client| client.compare_and_swap(current, new, zone_origin)),
+        )
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -283,9 +280,7 @@ pub trait Client<C: ClientHandle> {
     {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        reactor.block_on(client.and_then(|mut client| {
-            client.delete_by_rdata(record, zone_origin)
-        }))
+        reactor.block_on(client.and_then(|mut client| client.delete_by_rdata(record, zone_origin)))
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -326,9 +321,7 @@ pub trait Client<C: ClientHandle> {
     fn delete_rrset(&self, record: Record, zone_origin: Name) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        reactor.block_on(client.and_then(|mut client| {
-            client.delete_rrset(record, zone_origin)
-        }))
+        reactor.block_on(client.and_then(|mut client| client.delete_rrset(record, zone_origin)))
     }
 
     /// Deletes all records at the specified name
@@ -363,9 +356,10 @@ pub trait Client<C: ClientHandle> {
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        reactor.block_on(client.and_then(|mut client| {
-            client.delete_all(name_of_records, zone_origin, dns_class)
-        }))
+        reactor.block_on(
+            client
+                .and_then(|mut client| client.delete_all(name_of_records, zone_origin, dns_class)),
+        )
     }
 }
 
@@ -412,7 +406,9 @@ impl<CC> Client<BasicClientHandle> for SyncClient<CC>
 where
     CC: ClientConnection,
 {
-    fn new_future(&self) -> ClientResult<Box<Future<Item=BasicClientHandle, Error=ClientError> + Send>> {
+    fn new_future(
+        &self,
+    ) -> ClientResult<Box<Future<Item = BasicClientHandle, Error = ClientError> + Send>> {
         let (stream, stream_handle) = self.conn.new_stream()?;
 
         let client = ClientFuture::new(stream, stream_handle, self.signer.clone());
@@ -476,9 +472,9 @@ where
     ) -> ClientResult<DnsResponse> {
         let mut reactor = Runtime::new()?;
         let client = self.new_future()?;
-        reactor.block_on(client.and_then(|mut client| {
-            client.query(query_name.clone(), query_class, query_type)
-        }))
+        reactor.block_on(
+            client.and_then(|mut client| client.query(query_name.clone(), query_class, query_type)),
+        )
     }
 }
 
@@ -487,7 +483,11 @@ impl<CC> Client<SecureClientHandle<BasicClientHandle>> for SecureSyncClient<CC>
 where
     CC: ClientConnection,
 {
-    fn new_future(&self) -> ClientResult<Box<Future<Item=SecureClientHandle<BasicClientHandle>, Error=ClientError> + Send>> {
+    fn new_future(
+        &self,
+    ) -> ClientResult<
+        Box<Future<Item = SecureClientHandle<BasicClientHandle>, Error = ClientError> + Send>,
+    > {
         let (stream, stream_handle) = self.conn.new_stream()?;
 
         let client = ClientFuture::new(stream, stream_handle, self.signer.clone());
