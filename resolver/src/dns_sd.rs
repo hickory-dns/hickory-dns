@@ -18,8 +18,7 @@ use trust_dns_proto::xfer::DnsRequestOptions;
 
 use error::*;
 use lookup::{
-    LookupFuture, LookupFuture, ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup,
-    TxtLookupFuture,
+    LookupFuture, ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture,
 };
 use resolver_future::ResolverFuture;
 
