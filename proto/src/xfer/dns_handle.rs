@@ -92,7 +92,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         let request = request.into();
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
@@ -141,7 +141,7 @@ pub trait DnsHandle: Clone + Send {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>>;
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
     /// A *classic* DNS query
     ///
@@ -154,7 +154,7 @@ pub trait DnsHandle: Clone + Send {
         &mut self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         debug!("querying: {} {:?}", query.name(), query.query_type());
 
         // build the message

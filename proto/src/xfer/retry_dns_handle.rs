@@ -9,9 +9,9 @@
 
 use futures::{Future, Poll};
 
-use DnsHandle;
 use error::FromProtoError;
 use xfer::{DnsRequest, DnsResponse};
+use DnsHandle;
 
 /// Can be used to reattempt a queries if they fail
 ///
@@ -52,7 +52,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         let request = request.into();
 
         // need to clone here so that the retry can resend if necessary...
@@ -72,7 +72,7 @@ where
 struct RetrySendFuture<H: DnsHandle, E> {
     request: DnsRequest,
     handle: H,
-    future: Box<Future<Item = DnsResponse, Error = E>>,
+    future: Box<Future<Item = DnsResponse, Error = E> + Send>,
     remaining_attempts: usize,
 }
 
@@ -108,11 +108,11 @@ where
 #[cfg(test)]
 mod test {
     use super::*;
-    use DnsHandle;
     use error::*;
     use futures::*;
     use op::*;
     use std::cell::Cell;
+    use DnsHandle;
 
     #[derive(Clone)]
     struct TestClient {
@@ -127,7 +127,7 @@ mod test {
         fn send<R: Into<DnsRequest>>(
             &mut self,
             _: R,
-        ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+        ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
             let i = self.attempts.get();
 
             if i > self.retries || self.retries - i == 0 {

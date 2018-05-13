@@ -67,7 +67,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
         &mut self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
+    ) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
         QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
 
         // see https://tools.ietf.org/html/rfc6761
@@ -151,7 +151,7 @@ impl Future for FromCache {
 
 /// This is the Future responsible for performing an actual query.
 struct QueryFuture<C: DnsHandle<Error = ResolveError> + 'static> {
-    message_future: Box<Future<Item = DnsResponse, Error = ResolveError>>,
+    message_future: Box<Future<Item = DnsResponse, Error = ResolveError> + Send>,
     query: Query,
     cache: Arc<Mutex<DnsLru>>,
     /// is this a DNSSec validating client?
@@ -167,7 +167,7 @@ enum Records {
     NoData { ttl: Option<u32> },
     /// Future lookup for recursive cname records
     CnameChain {
-        next: Box<Future<Item = Lookup, Error = ResolveError>>,
+        next: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
         min_ttl: u32,
     },
     /// Already cached, chained queries
@@ -415,7 +415,7 @@ enum QueryState<C: DnsHandle<Error = ResolveError> + 'static> {
     Query(QueryFuture<C>),
     /// CNAME lookup (internally it is making cached queries
     CnameChain(
-        Box<Future<Item = Lookup, Error = ResolveError>>,
+        Box<Future<Item = Lookup, Error = ResolveError> + Send>,
         Query,
         u32,
         Arc<Mutex<DnsLru>>,
@@ -474,7 +474,11 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryState<C> {
         }
     }
 
-    fn cname(&mut self, future: Box<Future<Item = Lookup, Error = ResolveError>>, cname_ttl: u32) {
+    fn cname(
+        &mut self,
+        future: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
+        cname_ttl: u32,
+    ) {
         // The error state, this query is complete...
         let query_state = mem::replace(self, QueryState::Error);
 
