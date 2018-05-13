@@ -21,7 +21,8 @@ rm -rf kcov-master master.tar.gz*
 
 # install kcov
 # sudo apt-get install libcurl4-openssl-dev libelf-dev libdw-dev
-sudo apt-get install cmake libcurl4-openssl-dev libelf-dev libdw-dev
+sudo apt-get update --yes
+sudo apt-get install --yes cmake libcurl4-openssl-dev libelf-dev libdw-dev
 wget https://github.com/SimonKagstrom/kcov/archive/master.tar.gz
 tar xzf master.tar.gz
 mkdir kcov-master/build
