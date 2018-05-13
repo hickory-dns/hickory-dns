@@ -14,16 +14,16 @@ use std::sync::Arc;
 
 use futures::*;
 
-use DnsHandle;
 use error::*;
 use op::{OpCode, Query};
+use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
 #[cfg(feature = "dnssec")]
 use rr::dnssec::Verifier;
-use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType, DNSKEY, SIG};
 use rr::dnssec::{Algorithm, SupportedAlgorithms, TrustAnchor};
 use rr::rdata::opt::EdnsOption;
 use rr::{DNSClass, Name, RData, Record, RecordType};
 use xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
+use DnsHandle;
 
 #[derive(Debug)]
 struct Rrset {
@@ -101,7 +101,7 @@ where
 impl<H, E> DnsHandle for SecureDnsHandle<H>
 where
     H: DnsHandle<Error = E>,
-    E: FromProtoError + Clone,
+    E: FromProtoError + Clone + Send,
 {
     type Error = E;
 
@@ -113,7 +113,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         let mut request = request.into();
 
         // backstop, this might need to be configurable at some point
@@ -208,7 +208,7 @@ where
 /// A future to verify all RRSets in a returned Message.
 struct VerifyRrsetsFuture<E> {
     message_result: Option<DnsResponse>,
-    rrsets: SelectAll<Box<Future<Item = Rrset, Error = E>>>,
+    rrsets: SelectAll<Box<Future<Item = Rrset, Error = E> + Send>>,
     verified_rrsets: HashSet<(Name, RecordType)>,
 }
 
@@ -218,7 +218,7 @@ fn verify_rrsets<H, E>(
     handle: &SecureDnsHandle<H>,
     message_result: DnsResponse,
     dns_class: DNSClass,
-) -> Box<Future<Item = DnsResponse, Error = E>>
+) -> Box<Future<Item = DnsResponse, Error = E> + Send>
 where
     H: DnsHandle<Error = E>,
     E: FromProtoError + Clone,
@@ -259,7 +259,7 @@ where
 
     // collect all the rrsets to verify
     // TODO: is there a way to get rid of this clone() safely?
-    let mut rrsets: Vec<Box<Future<Item = Rrset, Error = E>>> =
+    let mut rrsets: Vec<Box<Future<Item = Rrset, Error = E> + Send>> =
         Vec::with_capacity(rrset_types.len());
     for (name, record_type) in rrset_types {
         // TODO: should we evaluate the different sections (answers and name_servers) separately?
@@ -424,7 +424,7 @@ fn verify_rrset<H, E>(
     handle: SecureDnsHandle<H, E>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = E>>
+) -> Box<Future<Item = Rrset, Error = E> + Send>
 where
     H: DnsHandle<Error = E>,
     E: FromProtoError,
@@ -467,7 +467,7 @@ where
 fn verify_dnskey_rrset<H, E>(
     mut handle: SecureDnsHandle<H, E>,
     rrset: Rrset,
-) -> Box<Future<Item = Rrset, Error = E>>
+) -> Box<Future<Item = Rrset, Error = E> + Send>
 where
     H: DnsHandle<Error = E>,
     E: FromProtoError,
@@ -636,7 +636,7 @@ fn verify_default_rrset<H, E>(
     handle: &SecureDnsHandle<H>,
     rrset: Rrset,
     rrsigs: Vec<Record>,
-) -> Box<Future<Item = Rrset, Error = E>>
+) -> Box<Future<Item = Rrset, Error = E> + Send>
 where
     H: DnsHandle<Error = E>,
     E: FromProtoError,

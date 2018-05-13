@@ -4,15 +4,14 @@
 // http://apache.org/licenses/LICENSE-2.0> or the MIT license <LICENSE-MIT or
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use futures::Future;
 use trust_dns_proto::xfer::{DnsHandle, DnsRequest, DnsResponse};
 
-use client::ClientHandle;
 use client::rc_future::{rc_future, RcFuture};
+use client::ClientHandle;
 use error::*;
 use op::Query;
 
@@ -26,8 +25,11 @@ use op::Query;
 #[must_use = "queries can only be sent through a ClientHandle"]
 pub struct MemoizeClientHandle<H: ClientHandle> {
     client: H,
-    active_queries:
-        Rc<RefCell<HashMap<Query, RcFuture<Box<Future<Item = DnsResponse, Error = ClientError>>>>>>,
+    active_queries: Arc<
+        Mutex<
+            HashMap<Query, RcFuture<Box<Future<Item = DnsResponse, Error = ClientError> + Send>>>,
+        >,
+    >,
 }
 
 impl<H> MemoizeClientHandle<H>
@@ -38,7 +40,7 @@ where
     pub fn new(client: H) -> MemoizeClientHandle<H> {
         MemoizeClientHandle {
             client: client,
-            active_queries: Rc::new(RefCell::new(HashMap::new())),
+            active_queries: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -52,18 +54,18 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         let request = request.into();
         let query = request.queries().first().expect("no query!").clone();
 
-        if let Some(rc_future) = self.active_queries.borrow().get(&query) {
+        if let Some(rc_future) = self.active_queries.lock().expect("poisoned").get(&query) {
             // FIXME check TTLs?
             return Box::new(rc_future.clone().map_err(ClientError::from));
         }
 
         // check if there are active queries
         {
-            let map = self.active_queries.borrow();
+            let map = self.active_queries.lock().expect("poisoned");
             let request = map.get(&query);
             if request.is_some() {
                 return Box::new(request.unwrap().clone().map_err(ClientError::from));
@@ -71,7 +73,7 @@ where
         }
 
         let request = rc_future(self.client.send(request));
-        let mut map = self.active_queries.borrow_mut();
+        let mut map = self.active_queries.lock().expect("poisoned");
         map.insert(query, request.clone());
 
         Box::new(request)
@@ -99,7 +101,7 @@ mod test {
         fn send<R: Into<DnsRequest>>(
             &mut self,
             _: R,
-        ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+        ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
             let mut message = Message::new();
             let i = self.i.get();
 
