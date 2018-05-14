@@ -70,3 +70,6 @@ webpki-roots = { version = "^0.13", optional = true }
 
 [target.'cfg(windows)'.dependencies]
 ipconfig = { version = "^0.1.4" }
+
+[dev-dependencies]
+tokio-io = "^0.1"

@@ -9,9 +9,9 @@
 
 use std::marker::PhantomData;
 
-use futures::IntoFuture;
 use futures::sync::mpsc::UnboundedSender;
 use futures::sync::oneshot;
+use futures::IntoFuture;
 use futures::{Complete, Future};
 use rand;
 
@@ -92,7 +92,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         let request = request.into();
         let (complete, receiver) = oneshot::channel();
         let message_sender: &mut _ = &mut self.message_sender;
@@ -120,7 +120,7 @@ where
 }
 
 /// A trait for implementing high level functions of DNS.
-pub trait DnsHandle: Clone {
+pub trait DnsHandle: Clone + Send {
     /// The associated error type returned by future send operations
     type Error: FromProtoError;
 
@@ -141,7 +141,7 @@ pub trait DnsHandle: Clone {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>>;
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
     /// A *classic* DNS query
     ///
@@ -154,7 +154,7 @@ pub trait DnsHandle: Clone {
         &mut self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         debug!("querying: {} {:?}", query.name(), query.query_type());
 
         // build the message

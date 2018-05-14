@@ -9,7 +9,7 @@ use std::net::*;
 use std::str::FromStr;
 use std::sync::{Arc, Mutex};
 
-use futures::{Future, future};
+use futures::{future, Future};
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::op::{NoopMessageFinalizer, Query};
@@ -17,8 +17,8 @@ use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_proto::DnsFuture;
 use trust_dns_resolver::config::LookupIpStrategy;
 use trust_dns_resolver::error::ResolveError;
-use trust_dns_resolver::lookup::{InnerLookupFuture, Lookup};
-use trust_dns_resolver::lookup_ip::InnerLookupIpFuture;
+use trust_dns_resolver::lookup::{Lookup, LookupFuture};
+use trust_dns_resolver::lookup_ip::LookupIpFuture;
 use trust_dns_resolver::lookup_state::CachingClient;
 use trust_dns_resolver::Hosts;
 use trust_dns_server::authority::Catalog;
@@ -36,11 +36,15 @@ fn test_lookup() {
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = future::lazy(|| {
-        future::ok(DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new()))
+        future::ok(DnsFuture::new(
+            stream,
+            Box::new(sender),
+            NoopMessageFinalizer::new(),
+        ))
     });
 
     let lookup = client.and_then(|client| {
-        InnerLookupFuture::lookup(
+        LookupFuture::lookup(
             vec![Name::from_str("www.example.com.").unwrap()],
             RecordType::A,
             Default::default(),
@@ -64,7 +68,11 @@ fn test_lookup_hosts() {
     let mut io_loop = Runtime::new().unwrap();
     let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
     let client = future::lazy(|| {
-        future::ok(DnsFuture::new(stream, Box::new(sender), NoopMessageFinalizer::new()))
+        future::ok(DnsFuture::new(
+            stream,
+            Box::new(sender),
+            NoopMessageFinalizer::new(),
+        ))
     });
 
     let mut hosts = Hosts::default();
@@ -76,7 +84,7 @@ fn test_lookup_hosts() {
     );
 
     let lookup = client.and_then(|client| {
-        InnerLookupIpFuture::lookup(
+        LookupIpFuture::lookup(
             vec![Name::from_str("www.example.com.").unwrap()],
             LookupIpStrategy::default(),
             CachingClient::new(0, client),
@@ -99,7 +107,7 @@ fn test_mock_lookup() {
     let message = message(resp_query, vec![v4_record], vec![], vec![]);
     let client = MockClientHandle::<ResolveError>::mock(vec![message.map(Into::into)]);
 
-    let lookup = InnerLookupFuture::lookup(
+    let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         Default::default(),
@@ -129,7 +137,7 @@ fn test_cname_lookup() {
     let message = message(resp_query, vec![cname_record, v4_record], vec![], vec![]);
     let client = MockClientHandle::mock(vec![message.map(Into::into)]);
 
-    let lookup = InnerLookupFuture::lookup(
+    let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         Default::default(),
@@ -164,7 +172,7 @@ fn test_chained_cname_lookup() {
     // the mock pops messages...
     let client = MockClientHandle::mock(vec![message2.map(Into::into), message1.map(Into::into)]);
 
-    let lookup = InnerLookupFuture::lookup(
+    let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         Default::default(),
@@ -251,7 +259,7 @@ fn test_max_chained_lookup_depth() {
     ]);
 
     let client = CachingClient::new(0, client);
-    let lookup = InnerLookupFuture::lookup(
+    let lookup = LookupFuture::lookup(
         vec![Name::from_str("www.example.com.").unwrap()],
         RecordType::A,
         Default::default(),
@@ -265,7 +273,7 @@ fn test_max_chained_lookup_depth() {
     assert!(io_loop.block_on(lookup).is_err());
 
     // This query should succeed, as the queue depth should reset to 0 on a failed request
-    let lookup = InnerLookupFuture::lookup(
+    let lookup = LookupFuture::lookup(
         vec![Name::from_str("cname9.example.com.").unwrap()],
         RecordType::A,
         Default::default(),

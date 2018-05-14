@@ -9,11 +9,12 @@
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
-use futures::{Future, future};
+use futures::{future, Future};
 use trust_dns_proto::rr::domain::TryParseIp;
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
-use trust_dns_proto::xfer::{BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse,
-                            RetryDnsHandle};
+use trust_dns_proto::xfer::{
+    BasicDnsHandle, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse, RetryDnsHandle,
+};
 #[cfg(feature = "dnssec")]
 use trust_dns_proto::SecureDnsHandle;
 
@@ -21,8 +22,8 @@ use config::{ResolverConfig, ResolverOpts};
 use dns_lru::DnsLru;
 use error::*;
 use hosts::Hosts;
-use lookup::{self, InnerLookupFuture, Lookup, LookupEither, LookupFuture};
-use lookup_ip::{InnerLookupIpFuture, LookupIpFuture};
+use lookup::{self, Lookup, LookupEither, LookupFuture};
+use lookup_ip::LookupIpFuture;
 use lookup_state::CachingClient;
 use name_server_pool::{NameServerPool, StandardConnection};
 
@@ -49,7 +50,7 @@ impl DnsHandle for BasicResolverHandle {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         Box::new(
             self.message_sender
                 .send(request)
@@ -79,7 +80,7 @@ pub fn $p<N: IntoName>(&self, query: N) -> $f {
     let name = match query.into_name() {
         Ok(name) => name,
         Err(err) => {
-            return InnerLookupFuture::error(self.client_cache.clone(), err).into();
+            return LookupFuture::error(self.client_cache.clone(), err).into();
         }
     };
 
@@ -106,7 +107,10 @@ impl ResolverFuture {
     ///
     /// * `config` - configuration, name_servers, etc. for the Resolver
     /// * `options` - basic lookup options for the resolver
-    pub fn new(config: ResolverConfig, options: ResolverOpts) -> Box<Future<Item=Self, Error=ResolveError> + Send> {
+    pub fn new(
+        config: ResolverConfig,
+        options: ResolverOpts,
+    ) -> Box<Future<Item = Self, Error = ResolveError> + Send> {
         let lru = Arc::new(Mutex::new(DnsLru::new(options.cache_size)));
 
         Self::with_cache(config, options, lru)
@@ -123,7 +127,7 @@ impl ResolverFuture {
         config: ResolverConfig,
         options: ResolverOpts,
         lru: Arc<Mutex<DnsLru>>,
-    ) -> Box<Future<Item=Self, Error=ResolveError> + Send> {
+    ) -> Box<Future<Item = Self, Error = ResolveError> + Send> {
         Box::new(future::lazy(move || {
             let pool = NameServerPool::<BasicResolverHandle, StandardConnection>::from_config(
                 &config, &options,
@@ -165,7 +169,8 @@ impl ResolverFuture {
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
-    pub fn from_system_conf() -> ResolveResult<Box<Future<Item=Self, Error=ResolveError> + Send>> {
+    pub fn from_system_conf() -> ResolveResult<Box<Future<Item = Self, Error = ResolveError> + Send>>
+    {
         let (config, options) = super::system_conf::read_system_conf()?;
         Ok(Self::new(config, options))
     }
@@ -187,7 +192,8 @@ impl ResolverFuture {
                 Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.config.search().len());
 
             // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
-            let raw_name_first: bool = name.num_labels() as usize > self.options.ndots || name.is_localhost();
+            let raw_name_first: bool =
+                name.num_labels() as usize > self.options.ndots || name.is_localhost();
 
             // if not meeting ndots, we always do the raw name in the final lookup
             if !raw_name_first {
@@ -230,7 +236,7 @@ impl ResolverFuture {
         let name = match name.into_name() {
             Ok(name) => name,
             Err(err) => {
-                return InnerLookupFuture::error(self.client_cache.clone(), err);
+                return LookupFuture::error(self.client_cache.clone(), err);
             }
         };
 
@@ -256,7 +262,7 @@ impl ResolverFuture {
     pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> LookupIpFuture {
         // if host is a ip address, return directly.
         if let Some(addr) = host.try_parse_ip() {
-            return InnerLookupIpFuture::ok(
+            return LookupIpFuture::ok(
                 self.client_cache.clone(),
                 Lookup::new_with_max_ttl(Arc::new(vec![addr])),
             );
@@ -265,7 +271,7 @@ impl ResolverFuture {
         let name = match host.into_name() {
             Ok(name) => name,
             Err(err) => {
-                return InnerLookupIpFuture::error(self.client_cache.clone(), err);
+                return LookupIpFuture::error(self.client_cache.clone(), err);
             }
         };
 
@@ -309,7 +315,7 @@ impl ResolverFuture {
         let name = match name.into_name() {
             Ok(name) => name,
             Err(err) => {
-                return InnerLookupFuture::error(self.client_cache.clone(), err).into();
+                return LookupFuture::error(self.client_cache.clone(), err).into();
             }
         };
 
@@ -346,14 +352,35 @@ mod tests {
 
     use super::*;
 
+    fn is_send_t<T: Send>() -> bool {
+        true
+    }
+
+    fn is_sync_t<T: Sync>() -> bool {
+        true
+    }
+
+    #[test]
+    fn test_send_sync() {
+        assert!(is_send_t::<ResolverConfig>());
+        assert!(is_send_t::<ResolverConfig>());
+        assert!(is_send_t::<ResolverOpts>());
+        assert!(is_sync_t::<ResolverOpts>());
+
+        assert!(is_send_t::<ResolverFuture>());
+        assert!(is_sync_t::<ResolverFuture>());
+
+        assert!(is_send_t::<DnsRequest>());
+        assert!(is_send_t::<LookupIpFuture>());
+        assert!(is_send_t::<LookupFuture>());
+    }
+
     fn lookup_test(config: ResolverConfig) {
         let mut io_loop = Runtime::new().unwrap();
         let resolver = ResolverFuture::new(config, ResolverOpts::default());
 
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("www.example.com.")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("www.example.com.")))
             .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
@@ -389,12 +416,11 @@ mod tests {
     #[test]
     fn test_ip_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = ResolverFuture::new(
-            ResolverConfig::default(),
-            ResolverOpts::default(),
-        );
+        let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default());
 
-        let resolver = io_loop.block_on(resolver).expect("failed to create resolver");
+        let resolver = io_loop
+            .block_on(resolver)
+            .expect("failed to create resolver");
         let response = io_loop
             .block_on(resolver.lookup_ip("10.1.0.2"))
             .expect("failed to run lookup");
@@ -429,9 +455,7 @@ mod tests {
         );
 
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("www.example.com.")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("www.example.com.")))
             .expect("failed to run lookup");
 
         // TODO: this test is flaky, sometimes 1 is returned, sometimes 2...
@@ -465,9 +489,8 @@ mod tests {
 
         // needs to be a domain that exists, but is not signed (eventually this will be)
         let name = Name::from_str("www.trust-dns.org.").unwrap();
-        let response = io_loop.block_on(resolver.and_then(|resolver| {
-            resolver.lookup_ip("www.trust-dns.org.")
-        }));
+        let response = io_loop
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("www.trust-dns.org.")));
 
         assert!(response.is_err());
         let error = response.unwrap_err();
@@ -486,9 +509,7 @@ mod tests {
         let resolver = ResolverFuture::from_system_conf().unwrap();
 
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("www.example.com.")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("www.example.com.")))
             .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 2);
@@ -515,9 +536,7 @@ mod tests {
         let resolver = ResolverFuture::from_system_conf().unwrap();
 
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("a.com")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("a.com")))
             .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
@@ -550,9 +569,7 @@ mod tests {
         );
 
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("www.example.com.")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("www.example.com.")))
             .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
@@ -588,9 +605,7 @@ mod tests {
 
         // notice this is not a FQDN, no trailing dot.
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("www.example.com")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("www.example.com")))
             .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
@@ -626,9 +641,7 @@ mod tests {
 
         // notice this is not a FQDN, no trailing dot.
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("www.example.com")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("www.example.com")))
             .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
@@ -663,9 +676,7 @@ mod tests {
 
         // notice no dots, should not trigger ndots rule
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("www")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("www")))
             .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
@@ -701,9 +712,7 @@ mod tests {
 
         // notice no dots, should not trigger ndots rule
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("www")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("www")))
             .expect("failed to run lookup");
 
         assert_eq!(response.iter().count(), 1);
@@ -719,15 +728,10 @@ mod tests {
     #[test]
     fn test_idna() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = ResolverFuture::new(
-            ResolverConfig::default(),
-            ResolverOpts::default(),
-        );
+        let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default());
 
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("中国.icom.museum.")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("中国.icom.museum.")))
             .expect("failed to run lookup");
 
         // we just care that the request succeeded, not about the actual content
@@ -747,9 +751,7 @@ mod tests {
         );
 
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("localhost")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("localhost")))
             .expect("failed to run lookup");
 
         let mut iter = response.iter();
@@ -771,9 +773,7 @@ mod tests {
         );
 
         let response = io_loop
-            .block_on(resolver.and_then(|resolver| {
-                resolver.lookup_ip("localhost")
-            }))
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("localhost")))
             .expect("failed to run lookup");
 
         let mut iter = response.iter();

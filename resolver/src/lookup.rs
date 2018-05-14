@@ -17,12 +17,12 @@ use std::time::{Duration, Instant};
 
 use futures::{future, task, Async, Future, Poll};
 
-#[cfg(feature = "dnssec")]
-use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::op::Query;
 use trust_dns_proto::rr::rdata;
 use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
+#[cfg(feature = "dnssec")]
+use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::{DnsHandle, RetryDnsHandle};
 
 use dns_lru::MAX_TTL;
@@ -44,8 +44,7 @@ pub struct Lookup {
 impl Lookup {
     /// Return new instance with given rdatas and the maximum TTL.
     pub fn new_with_max_ttl(rdatas: Arc<Vec<RData>>) -> Self {
-        let valid_until =
-            Instant::now() + Duration::from_secs(MAX_TTL as u64);
+        let valid_until = Instant::now() + Duration::from_secs(MAX_TTL as u64);
         Lookup {
             rdatas,
             valid_until,
@@ -53,10 +52,7 @@ impl Lookup {
     }
 
     /// Return a new instance with the given rdatas and deadline.
-    pub fn new_with_deadline(
-        rdatas: Arc<Vec<RData>>,
-        valid_until: Instant,
-    ) -> Self {
+    pub fn new_with_deadline(rdatas: Arc<Vec<RData>>, valid_until: Instant) -> Self {
         Lookup {
             rdatas,
             valid_until,
@@ -138,7 +134,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         match *self {
             LookupEither::Retry(ref mut c) => c.send(request),
             #[cfg(feature = "dnssec")]
@@ -148,19 +144,19 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
 }
 
 /// The Future returned from ResolverFuture when performing a lookup.
-pub type LookupFuture = InnerLookupFuture<LookupEither<BasicResolverHandle, StandardConnection>>;
-
-/// The Future returned from ResolverFuture when performing a lookup.
 #[doc(hidden)]
-pub struct InnerLookupFuture<C: DnsHandle<Error = ResolveError> + 'static> {
+pub struct LookupFuture<C = LookupEither<BasicResolverHandle, StandardConnection>>
+where
+    C: DnsHandle<Error = ResolveError> + 'static,
+{
     client_cache: CachingClient<C>,
     names: Vec<Name>,
     record_type: RecordType,
     options: DnsRequestOptions,
-    future: Box<Future<Item = Lookup, Error = ResolveError>>,
+    future: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> LookupFuture<C> {
     /// Perform a lookup from a name and type to a set of RDatas
     ///
     /// # Arguments
@@ -179,14 +175,14 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
             ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
         });
 
-        let query: Box<Future<Item = Lookup, Error = ResolveError>> = match name {
+        let query: Box<Future<Item = Lookup, Error = ResolveError> + Send> = match name {
             Ok(name) => {
                 Box::new(client_cache.lookup(Query::query(name, record_type), options.clone()))
             }
             Err(err) => Box::new(future::err(err)),
         };
 
-        InnerLookupFuture {
+        LookupFuture {
             client_cache: client_cache,
             names,
             record_type,
@@ -214,7 +210,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
     }
 
     pub(crate) fn error<E: StdError>(client_cache: CachingClient<C>, error: E) -> Self {
-        return InnerLookupFuture {
+        return LookupFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client_cache,
             names: vec![],
@@ -227,7 +223,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> InnerLookupFuture<C> {
     }
 }
 
-impl<C: DnsHandle<Error = ResolveError> + 'static> Future for InnerLookupFuture<C> {
+impl<C: DnsHandle<Error = ResolveError> + 'static> Future for LookupFuture<C> {
     type Item = Lookup;
     type Error = ResolveError;
 
@@ -421,7 +417,7 @@ pub mod tests {
         fn send<R: Into<DnsRequest>>(
             &mut self,
             _: R,
-        ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+        ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
@@ -430,14 +426,12 @@ pub mod tests {
 
     pub fn v4_message() -> ResolveResult<DnsResponse> {
         let mut message = Message::new();
-        message.insert_answers(vec![
-            Record::from_rdata(
-                Name::root(),
-                86400,
-                RecordType::A,
-                RData::A(Ipv4Addr::new(127, 0, 0, 1)),
-            ),
-        ]);
+        message.insert_answers(vec![Record::from_rdata(
+            Name::root(),
+            86400,
+            RecordType::A,
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+        )]);
         Ok(message.into())
     }
 
@@ -458,7 +452,7 @@ pub mod tests {
     #[test]
     fn test_lookup() {
         assert_eq!(
-            InnerLookupFuture::lookup(
+            LookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
@@ -475,7 +469,7 @@ pub mod tests {
     #[test]
     fn test_error() {
         assert!(
-            InnerLookupFuture::lookup(
+            LookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
@@ -488,7 +482,7 @@ pub mod tests {
     #[test]
     fn test_empty_no_response() {
         assert_eq!(
-            InnerLookupFuture::lookup(
+            LookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),

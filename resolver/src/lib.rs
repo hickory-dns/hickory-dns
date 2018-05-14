@@ -166,6 +166,7 @@
 extern crate cfg_if;
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
 extern crate futures;
 #[cfg(target_os = "windows")]
 extern crate ipconfig;
@@ -200,6 +201,9 @@ mod resolver_future;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
+
+// reexports from proto
+pub use self::trust_dns_proto::rr::{IntoName, Name, TryParseIp};
 
 pub use hosts::Hosts;
 pub use resolver::Resolver;

@@ -10,11 +10,13 @@ use std::marker::PhantomData;
 use std::sync::Arc;
 use std::time::Duration;
 
-use futures::{Future, future};
 use futures::stream::Stream;
+use futures::{future, Future};
 use rand;
-use trust_dns_proto::xfer::{BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsRequestOptions,
-                            DnsResponse, DnsStreamHandle};
+use trust_dns_proto::xfer::{
+    BasicDnsHandle, DnsFuture, DnsHandle, DnsRequest, DnsRequestOptions, DnsResponse,
+    DnsStreamHandle,
+};
 
 use client::ClientStreamHandle;
 use error::*;
@@ -48,13 +50,8 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static> ClientFuture
         stream: Box<Future<Item = S, Error = io::Error> + Send>,
         stream_handle: Box<ClientStreamHandle<Error = ClientError> + Send>,
         signer: Option<Arc<Signer>>,
-    ) -> Box<Future<Item=BasicClientHandle, Error=ClientError> + Send> {
-        Self::with_timeout(
-            stream,
-            stream_handle,
-            Duration::from_secs(5),
-            signer,
-        )
+    ) -> Box<Future<Item = BasicClientHandle, Error = ClientError> + Send> {
+        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
 
     /// Spawns a new ClientFuture Stream.
@@ -72,14 +69,10 @@ impl<S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static> ClientFuture
         stream_handle: Box<DnsStreamHandle<Error = ClientError> + Send>,
         timeout_duration: Duration,
         finalizer: Option<Arc<Signer>>,
-    ) -> Box<Future<Item=BasicClientHandle, Error=ClientError> + Send> {
+    ) -> Box<Future<Item = BasicClientHandle, Error = ClientError> + Send> {
         Box::new(future::lazy(move || {
-            let dns_future_handle = DnsFuture::with_timeout(
-                stream,
-                stream_handle,
-                timeout_duration,
-                finalizer,
-            );
+            let dns_future_handle =
+                DnsFuture::with_timeout(stream, stream_handle, timeout_duration, finalizer);
 
             future::ok(BasicClientHandle {
                 message_sender: dns_future_handle,
@@ -103,7 +96,7 @@ impl DnsHandle for BasicClientHandle {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         Box::new(self.message_sender.send(request).map_err(ClientError::from))
     }
 }
@@ -115,7 +108,7 @@ where
 }
 
 /// A trait for implementing high level functions of DNS.
-pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> {
+pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
     /// A *classic* DNS query
     ///
     /// *Note* As of now, this will not recurse on PTR or CNAME record responses, that is up to
