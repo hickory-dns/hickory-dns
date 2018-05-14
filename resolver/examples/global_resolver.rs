@@ -115,19 +115,9 @@ pub fn resolve<N: IntoName + TryParseIp>(host: N, port: u16) -> IoFuture<Vec<Soc
 
 fn main() {
     use std::thread;
-    use std::time::Duration;
 
     // Let's resolve some names, we should be able to do it across threads
     let names = &["www.google.com", "www.reddit.com", "www.wikipedia.org"];
-
-    // println!("spawning to runtime");
-    // runtime.spawn(
-    //     resolve("www.google.com", 443)
-    //         .map(|addrs| println!("addrs: {:?}", addrs))
-    //         .map_err(|err| println!("lookup error: {}", err)),
-    // );
-
-    thread::sleep(Duration::from_secs(1));
 
     // spawn all the threads to do the lookups
     let threads = names
@@ -143,6 +133,7 @@ fn main() {
         })
         .collect::<Vec<_>>();
 
+    // print the resolved IPs
     for (name, join) in threads {
         let result = join.join();
         println!("{} resolved to {:?}", name, result);
