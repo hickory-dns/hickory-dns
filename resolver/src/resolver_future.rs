@@ -50,7 +50,7 @@ impl DnsHandle for BasicResolverHandle {
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         Box::new(
             self.message_sender
                 .send(request)
@@ -351,6 +351,29 @@ mod tests {
     use config::{LookupIpStrategy, NameServerConfig};
 
     use super::*;
+
+    fn is_send_t<T: Send>() -> bool {
+        true
+    }
+
+    fn is_sync_t<T: Sync>() -> bool {
+        true
+    }
+
+    #[test]
+    fn test_send_sync() {
+        assert!(is_send_t::<ResolverConfig>());
+        assert!(is_send_t::<ResolverConfig>());
+        assert!(is_send_t::<ResolverOpts>());
+        assert!(is_sync_t::<ResolverOpts>());
+
+        assert!(is_send_t::<ResolverFuture>());
+        assert!(is_sync_t::<ResolverFuture>());
+
+        assert!(is_send_t::<DnsRequest>());
+        assert!(is_send_t::<LookupIpFuture>());
+        assert!(is_send_t::<LookupFuture>());
+    }
 
     fn lookup_test(config: ResolverConfig) {
         let mut io_loop = Runtime::new().unwrap();

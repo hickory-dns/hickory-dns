@@ -15,3 +15,6 @@ cargo test --manifest-path rustls/Cargo.toml
 cargo test --manifest-path resolver/Cargo.toml
 cargo test --manifest-path server/Cargo.toml
 cargo test --manifest-path integration-tests/Cargo.toml
+
+# All examples should go here
+cargo run --manifest-path resolver/Cargo.toml --example global_resolver

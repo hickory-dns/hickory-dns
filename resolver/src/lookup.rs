@@ -134,7 +134,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         match *self {
             LookupEither::Retry(ref mut c) => c.send(request),
             #[cfg(feature = "dnssec")]
@@ -153,7 +153,7 @@ where
     names: Vec<Name>,
     record_type: RecordType,
     options: DnsRequestOptions,
-    future: Box<Future<Item = Lookup, Error = ResolveError>>,
+    future: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
 }
 
 impl<C: DnsHandle<Error = ResolveError> + 'static> LookupFuture<C> {
@@ -175,7 +175,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupFuture<C> {
             ResolveError::from(ResolveErrorKind::Message("can not lookup for no names"))
         });
 
-        let query: Box<Future<Item = Lookup, Error = ResolveError>> = match name {
+        let query: Box<Future<Item = Lookup, Error = ResolveError> + Send> = match name {
             Ok(name) => {
                 Box::new(client_cache.lookup(Query::query(name, record_type), options.clone()))
             }
@@ -417,7 +417,7 @@ pub mod tests {
         fn send<R: Into<DnsRequest>>(
             &mut self,
             _: R,
-        ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+        ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))

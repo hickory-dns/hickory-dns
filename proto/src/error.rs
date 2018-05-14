@@ -12,14 +12,14 @@ use std::sync::Arc;
 
 use rr::{Name, RecordType};
 
-#[cfg(feature = "openssl")]
-use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(not(feature = "openssl"))]
 use self::not_openssl::SslErrorStack;
-#[cfg(feature = "ring")]
-use ring::error::Unspecified;
 #[cfg(not(feature = "ring"))]
 use self::not_ring::Unspecified;
+#[cfg(feature = "openssl")]
+use openssl::error::ErrorStack as SslErrorStack;
+#[cfg(feature = "ring")]
+use ring::error::Unspecified;
 
 use tokio_timer::Error as TimerError;
 
@@ -175,7 +175,6 @@ pub mod not_openssl {
         }
     }
 
-
     impl std::error::Error for SslErrorStack {
         fn description(&self) -> &str {
             "openssl feature not enabled"
@@ -195,7 +194,6 @@ pub mod not_ring {
             Ok(())
         }
     }
-
 
     impl std::error::Error for Unspecified {
         fn description(&self) -> &str {
@@ -268,7 +266,7 @@ impl Clone for ProtoErrorKind {
             ProtoErrorKind::MaxBufferSizeExceeded(ref max) => {
                 ProtoErrorKind::MaxBufferSizeExceeded(*max)
             }
-            ProtoErrorKind::Timer => ProtoErrorKind:: Timer,
+            ProtoErrorKind::Timer => ProtoErrorKind::Timer,
         }
     }
 }
@@ -289,10 +287,10 @@ impl Clone for ProtoError {
     }
 }
 
-pub trait FromProtoError: From<ProtoError> + ::std::error::Error + Clone {}
+pub trait FromProtoError: From<ProtoError> + ::std::error::Error + Clone + Send {}
 
 impl<E> FromProtoError for E
 where
-    E: From<ProtoError> + ::std::error::Error + Clone,
+    E: From<ProtoError> + ::std::error::Error + Clone + Send,
 {
 }

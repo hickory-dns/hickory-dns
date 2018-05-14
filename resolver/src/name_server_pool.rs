@@ -165,13 +165,10 @@ impl PartialOrd for NameServerStats {
 }
 
 #[doc(hidden)]
-pub trait ConnectionProvider: Clone {
+pub trait ConnectionProvider: 'static + Clone + Send + Sync {
     type ConnHandle;
 
-    fn new_connection(
-        config: &NameServerConfig,
-        options: &ResolverOpts,
-    ) -> Self::ConnHandle;
+    fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle;
 }
 
 /// Standard connection implements the default mechanism for creating new Connections
@@ -181,10 +178,7 @@ pub struct StandardConnection;
 impl ConnectionProvider for StandardConnection {
     type ConnHandle = BasicResolverHandle;
 
-    fn new_connection(
-        config: &NameServerConfig,
-        options: &ResolverOpts,
-    ) -> Self::ConnHandle {
+    fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
             Protocol::Udp => {
                 let (stream, handle) = UdpClientStream::new(config.socket_addr);
@@ -359,7 +353,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         // if state is failed, return future::err(), unless retry delay expired...
         if let Err(error) = self.try_reconnect() {
             return Box::new(future::err(error));
@@ -444,9 +438,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-fn mdns_nameserver(
-    options: ResolverOpts,
-) -> NameServer<BasicResolverHandle, StandardConnection> {
+fn mdns_nameserver(options: ResolverOpts) -> NameServer<BasicResolverHandle, StandardConnection> {
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
         protocol: Protocol::Mdns,
@@ -480,10 +472,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
                 .iter()
                 .filter(|ns_config| ns_config.protocol.is_datagram())
                 .map(|ns_config| {
-                    NameServer::<_, StandardConnection>::new(
-                        ns_config.clone(),
-                        options.clone(),
-                    )
+                    NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
                 })
                 .collect();
 
@@ -492,10 +481,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
             .map(|ns_config| {
-                NameServer::<_, StandardConnection>::new(
-                    ns_config.clone(),
-                    options.clone(),
-                )
+                NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
             })
             .collect();
 
@@ -562,7 +548,7 @@ where
     fn send<R: Into<DnsRequest>>(
         &mut self,
         request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
         let request = request.into();
         let datagram_conns = self.datagram_conns.clone();
         let stream_conns1 = self.stream_conns.clone();
@@ -612,7 +598,7 @@ enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'st
         conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
         request: Option<DnsRequest>,
     },
-    DoSend(Box<Future<Item = DnsResponse, Error = ResolveError>>),
+    DoSend(Box<Future<Item = DnsResponse, Error = ResolveError> + Send>),
 }
 
 impl<C, P> Future for TrySend<C, P>
@@ -694,7 +680,7 @@ mod mdns {
 }
 
 pub enum Local {
-    ResolveFuture(Box<Future<Item = DnsResponse, Error = ResolveError>>),
+    ResolveFuture(Box<Future<Item = DnsResponse, Error = ResolveError> + Send>),
     NotMdns(DnsRequest),
 }
 
@@ -712,7 +698,7 @@ impl Local {
     /// # Panics
     ///
     /// Panics if this is in fact a Local::NotMdns
-    fn take_future(self) -> Box<Future<Item = DnsResponse, Error = ResolveError>> {
+    fn take_future(self) -> Box<Future<Item = DnsResponse, Error = ResolveError> + Send> {
         match self {
             Local::ResolveFuture(future) => future,
             _ => panic!("non Local queries have no future, see take_message()"),
@@ -841,19 +827,16 @@ mod tests {
             tls_dns_name: None,
         };
         let mut io_loop = Runtime::new().unwrap();
-        let name_server = future::lazy(|| {
-            future::ok(NameServer::<_, StandardConnection>::new(config, options))
-        });
+        let name_server =
+            future::lazy(|| future::ok(NameServer::<_, StandardConnection>::new(config, options)));
 
         let name = Name::parse("www.example.com.", None).unwrap();
         assert!(
             io_loop
-                .block_on(name_server.and_then(|mut name_server| {
-                    name_server.lookup(
-                        Query::query(name.clone(), RecordType::A),
-                        DnsRequestOptions::default()
-                    )
-                }))
+                .block_on(name_server.and_then(|mut name_server| name_server.lookup(
+                    Query::query(name.clone(), RecordType::A),
+                    DnsRequestOptions::default()
+                )))
                 .is_err()
         );
     }

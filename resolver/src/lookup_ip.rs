@@ -80,7 +80,7 @@ where
     names: Vec<Name>,
     strategy: LookupIpStrategy,
     options: DnsRequestOptions,
-    future: Box<Future<Item = Lookup, Error = ResolveError>>,
+    future: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
     hosts: Option<Arc<Hosts>>,
 }
 
@@ -103,7 +103,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupIpFuture<C> {
             ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names"))
         });
 
-        let query: Box<Future<Item = Lookup, Error = ResolveError>> = match name {
+        let query: Box<Future<Item = Lookup, Error = ResolveError> + Send> = match name {
             Ok(name) => strategic_lookup(
                 name,
                 strategy,
@@ -199,7 +199,7 @@ fn strategic_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Box<Future<Item = Lookup, Error = ResolveError>> {
+) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
     match strategy {
         LookupIpStrategy::Ipv4Only => ipv4_only(name, client, options, hosts),
         LookupIpStrategy::Ipv6Only => ipv6_only(name, client, options, hosts),
@@ -215,7 +215,7 @@ fn hosts_lookup<C: DnsHandle<Error = ResolveError> + 'static>(
     mut client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Box<Future<Item = Lookup, Error = ResolveError>> {
+) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
     if let Some(hosts) = hosts {
         if let Some(lookup) = hosts.lookup_static_host(&query) {
             return Box::new(future::ok(lookup));
@@ -232,7 +232,7 @@ fn ipv4_only<C: DnsHandle<Error = ResolveError> + 'static>(
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Box<Future<Item = Lookup, Error = ResolveError>> {
+) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
     hosts_lookup(Query::query(name, RecordType::A), client, options, hosts)
 }
 
@@ -242,7 +242,7 @@ fn ipv6_only<C: DnsHandle<Error = ResolveError> + 'static>(
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Box<Future<Item = Lookup, Error = ResolveError>> {
+) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
     hosts_lookup(Query::query(name, RecordType::AAAA), client, options, hosts)
 }
 
@@ -252,7 +252,7 @@ fn ipv4_and_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Box<Future<Item = Lookup, Error = ResolveError>> {
+) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
     Box::new(
         hosts_lookup(
             Query::query(name.clone(), RecordType::A),
@@ -280,7 +280,7 @@ fn ipv4_and_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
                             Err(_) => future::ok(ips),
                         })) as
                             // This cast is to resolve a comilation error, not sure of it's necessity
-                            Box<Future<Item = Lookup, Error = ResolveError>>
+                            Box<Future<Item = Lookup, Error = ResolveError> + Send>
                     }
 
                     // One failed, just return the other
@@ -296,7 +296,7 @@ fn ipv6_then_ipv4<C: DnsHandle<Error = ResolveError> + 'static>(
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Box<Future<Item = Lookup, Error = ResolveError>> {
+) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
     rt_then_swap(
         name,
         client,
@@ -313,7 +313,7 @@ fn ipv4_then_ipv6<C: DnsHandle<Error = ResolveError> + 'static>(
     client: CachingClient<C>,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Box<Future<Item = Lookup, Error = ResolveError>> {
+) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
     rt_then_swap(
         name,
         client,
@@ -332,7 +332,7 @@ fn rt_then_swap<C: DnsHandle<Error = ResolveError> + 'static>(
     second_type: RecordType,
     options: DnsRequestOptions,
     hosts: Option<Arc<Hosts>>,
-) -> Box<Future<Item = Lookup, Error = ResolveError>> {
+) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
     let or_client = client.clone();
     Box::new(
         hosts_lookup(
@@ -351,10 +351,10 @@ fn rt_then_swap<C: DnsHandle<Error = ResolveError> + 'static>(
                             options,
                             hosts,
                         ))
-                            as Box<Future<Item = Lookup, Error = ResolveError>>
+                            as Box<Future<Item = Lookup, Error = ResolveError> + Send>
                     } else {
                         Box::new(future::ok(ips))
-                            as Box<Future<Item = Lookup, Error = ResolveError>>
+                            as Box<Future<Item = Lookup, Error = ResolveError> + Send>
                     }
                 }
                 Err(_) => Box::new(hosts_lookup(
@@ -393,7 +393,7 @@ pub mod tests {
         fn send<R: Into<DnsRequest>>(
             &mut self,
             _: R,
-        ) -> Box<Future<Item = DnsResponse, Error = Self::Error>> {
+        ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))

@@ -17,8 +17,10 @@ use std::time::Instant;
 use futures::{future, task, Async, Future, Poll};
 
 use trust_dns_proto::op::{Message, Query, ResponseCode};
-use trust_dns_proto::rr::domain::usage::{IN_ADDR_ARPA_127, IP6_ARPA_1, ResolverUsage, DEFAULT,
-                                         INVALID, LOCAL, LOCALHOST as LOCALHOST_usage};
+use trust_dns_proto::rr::domain::usage::{
+    IN_ADDR_ARPA_127, IP6_ARPA_1, ResolverUsage, DEFAULT, INVALID, LOCAL,
+    LOCALHOST as LOCALHOST_usage,
+};
 use trust_dns_proto::rr::{DNSClass, Name, RData, Record, RecordType};
 use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions, DnsResponse};
 
@@ -29,9 +31,8 @@ use lookup::Lookup;
 
 const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 
-// FIXME: this is wrong, it must be restricted to the Tokio Task,
-thread_local! {
-    static QUERY_DEPTH: RefCell<u8> = RefCell::new(0);
+task_local! {
+    static QUERY_DEPTH: RefCell<u8> = RefCell::new(0)
 }
 
 lazy_static! {
@@ -65,9 +66,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
         &mut self,
         query: Query,
         options: DnsRequestOptions,
-    ) -> Box<Future<Item = Lookup, Error = ResolveError>> {
-        QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
-
+    ) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
         // see https://tools.ietf.org/html/rfc6761
         //
         // ```text
@@ -149,7 +148,7 @@ impl Future for FromCache {
 
 /// This is the Future responsible for performing an actual query.
 struct QueryFuture<C: DnsHandle<Error = ResolveError> + 'static> {
-    message_future: Box<Future<Item = DnsResponse, Error = ResolveError>>,
+    message_future: Box<Future<Item = DnsResponse, Error = ResolveError> + Send>,
     query: Query,
     cache: Arc<Mutex<DnsLru>>,
     /// is this a DNSSec validating client?
@@ -165,7 +164,7 @@ enum Records {
     NoData { ttl: Option<u32> },
     /// Future lookup for recursive cname records
     CnameChain {
-        next: Box<Future<Item = Lookup, Error = ResolveError>>,
+        next: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
         min_ttl: u32,
     },
     /// Already cached, chained queries
@@ -334,6 +333,9 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for QueryFuture<C> {
     type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        // tracking the depth of our queries, to prevetn infinite CNAME recursion
+        QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
+
         match self.message_future.poll() {
             Ok(Async::Ready(message)) => {
                 // TODO: take all records and cache them?
@@ -413,7 +415,7 @@ enum QueryState<C: DnsHandle<Error = ResolveError> + 'static> {
     Query(QueryFuture<C>),
     /// CNAME lookup (internally it is making cached queries
     CnameChain(
-        Box<Future<Item = Lookup, Error = ResolveError>>,
+        Box<Future<Item = Lookup, Error = ResolveError> + Send>,
         Query,
         u32,
         Arc<Mutex<DnsLru>>,
@@ -472,7 +474,11 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryState<C> {
         }
     }
 
-    fn cname(&mut self, future: Box<Future<Item = Lookup, Error = ResolveError>>, cname_ttl: u32) {
+    fn cname(
+        &mut self,
+        future: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
+        cname_ttl: u32,
+    ) {
         // The error state, this query is complete...
         let query_state = mem::replace(self, QueryState::Error);
 
