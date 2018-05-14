@@ -201,6 +201,9 @@ pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
 
+// reexports from proto
+pub use self::trust_dns_proto::rr::{IntoName, Name, TryParseIp};
+
 pub use hosts::Hosts;
 pub use resolver::Resolver;
 pub use resolver_future::ResolverFuture;
