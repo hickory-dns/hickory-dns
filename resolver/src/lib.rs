@@ -166,6 +166,7 @@
 extern crate cfg_if;
 #[macro_use]
 extern crate error_chain;
+#[macro_use]
 extern crate futures;
 #[cfg(target_os = "windows")]
 extern crate ipconfig;

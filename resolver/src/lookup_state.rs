@@ -31,10 +31,9 @@ use lookup::Lookup;
 
 const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
 
-// FIXME: this is wrong, it must be restricted to the Tokio Task,
-// thread_local! {
-//     static QUERY_DEPTH: RefCell<u8> = RefCell::new(0);
-// }
+task_local! {
+    static QUERY_DEPTH: RefCell<u8> = RefCell::new(0)
+}
 
 lazy_static! {
     static ref LOCALHOST: Lookup = Lookup::from(RData::PTR(Name::from_ascii("localhost.").unwrap()));
@@ -68,8 +67,6 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
         query: Query,
         options: DnsRequestOptions,
     ) -> Box<Future<Item = Lookup, Error = ResolveError> + Send> {
-        //   QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
-
         // see https://tools.ietf.org/html/rfc6761
         //
         // ```text
@@ -113,7 +110,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
 
         Box::new(
             QueryState::lookup(query, options, &mut self.client, self.lru.clone()).then(|f| {
-                // QUERY_DEPTH.with(|c| *c.borrow_mut() -= 1);
+                QUERY_DEPTH.with(|c| *c.borrow_mut() -= 1);
                 f
             }),
         )
@@ -176,15 +173,15 @@ enum Records {
 
 impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
     fn next_query(&mut self, query: Query, cname_ttl: u32, message: DnsResponse) -> Records {
-        // if QUERY_DEPTH.with(|c| *c.borrow() >= MAX_QUERY_DEPTH) {
-        //     // TODO: This should return an error
-        //     self.handle_nxdomain(message, true)
-        // } else {
-        Records::CnameChain {
-            next: self.client.lookup(query, self.options.clone()),
-            min_ttl: cname_ttl,
+        if QUERY_DEPTH.with(|c| *c.borrow() >= MAX_QUERY_DEPTH) {
+            // TODO: This should return an error
+            self.handle_nxdomain(message, true)
+        } else {
+            Records::CnameChain {
+                next: self.client.lookup(query, self.options.clone()),
+                min_ttl: cname_ttl,
+            }
         }
-        // }
     }
 
     fn handle_noerror(&mut self, mut response: DnsResponse) -> Poll<Records, ResolveError> {
@@ -336,6 +333,9 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for QueryFuture<C> {
     type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        // tracking the depth of our queries, to prevetn infinite CNAME recursion
+        QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
+
         match self.message_future.poll() {
             Ok(Async::Ready(message)) => {
                 // TODO: take all records and cache them?
