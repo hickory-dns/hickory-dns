@@ -6,13 +6,13 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::cmp::Ordering;
-use std::collections::BinaryHeap;
 use std::marker::PhantomData;
 use std::mem;
 use std::sync::{Arc, Mutex, TryLockError};
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
-use futures::{future, task, Async, Future, Poll};
+use futures::future::Loop;
+use futures::{future, task, Async, Future, IntoFuture, Poll};
 
 #[cfg(feature = "mdns")]
 use trust_dns_proto::multicast::{MDNS_IPV4, MdnsClientStream, MdnsQueryType};
@@ -24,9 +24,6 @@ use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest, DnsResponse};
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
 use resolver_future::BasicResolverHandle;
-
-const MIN_RETRY_DELAY_MS: u64 = 500;
-const MAX_RETRY_DELAY_S: u64 = 360;
 
 /// State of a connection with a remote NameServer.
 #[derive(Clone, Debug)]
@@ -41,13 +38,13 @@ enum NameServerState {
     ///  failed at some point after. The Failed state should *not* be entered due to an
     ///  error contained in a Message recieved from the server. In All cases to reestablish
     ///  a new connection will need to be created.
-    Failed { error: ResolveError, when: Instant }, // TODO: make error Arc...
+    Failed { when: Instant },
 }
 
 impl NameServerState {
     fn to_usize(&self) -> usize {
         match *self {
-            NameServerState::Init { .. } => 3, // Should we instead prefer already established connections?
+            NameServerState::Init { .. } => 3,
             NameServerState::Established { .. } => 2,
             NameServerState::Failed { .. } => 1,
         }
@@ -56,7 +53,24 @@ impl NameServerState {
 
 impl Ord for NameServerState {
     fn cmp(&self, other: &Self) -> Ordering {
-        self.to_usize().cmp(&other.to_usize())
+        let (self_num, other_num) = (self.to_usize(), other.to_usize());
+        match self_num.cmp(&other_num) {
+            Ordering::Equal => match (self, other) {
+                (
+                    NameServerState::Failed {
+                        when: ref self_when,
+                    },
+                    NameServerState::Failed {
+                        when: ref other_when,
+                    },
+                ) => {
+                    // We reverse, because we want the "older" failures to be tried first...
+                    self_when.cmp(other_when).reverse()
+                }
+                _ => Ordering::Equal,
+            },
+            cmp => cmp,
+        }
     }
 }
 
@@ -124,9 +138,10 @@ impl NameServerStats {
 
     fn next_failure(&mut self, error: ResolveError, when: Instant) {
         self.failures += 1;
+        debug!("name_server connection failure: {}", error);
 
         // update current state
-        mem::replace(&mut self.state, NameServerState::Failed { error, when });
+        mem::replace(&mut self.state, NameServerState::Failed { when });
     }
 }
 
@@ -148,7 +163,7 @@ impl Ord for NameServerStats {
 
         // TODO: track latency and use lowest latency connection...
 
-        // invert failure comparison
+        // invert failure comparison, i.e. the one with the least failures, wins
         if self.failures <= other.failures {
             return Ordering::Greater;
         }
@@ -281,15 +296,13 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
         }
     }
 
-    /// checks if the connection is failed, if so, then it
-    ///  will check the last falure time, and if the retry period is acceptable,
-    ///  then reconnect.
+    /// checks if the connection is failed, if so then reconnect.
     fn try_reconnect(&mut self) -> ResolveResult<()> {
-        let error_opt: Option<(ResolveError, Instant, usize, usize)> = self.stats
+        let error_opt: Option<(usize, usize)> = self.stats
             .lock()
             .map(|stats| {
-                if let NameServerState::Failed { ref error, when } = stats.state {
-                    Some((error.clone(), when, stats.successes, stats.failures))
+                if let NameServerState::Failed { .. } = stats.state {
+                    Some((stats.successes, stats.failures))
                 } else {
                     None
                 }
@@ -299,39 +312,18 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
             })?;
 
         // if this is in a failure state
-        if let Some((error, when, successes, failures)) = error_opt {
-            // Backoff is based on successes vs. failures...
-            let max_delay = Duration::from_secs(MAX_RETRY_DELAY_S);
-            let min_delay = Duration::from_millis(MIN_RETRY_DELAY_MS);
-            let failures = failures.saturating_sub(successes);
-            let retry_delay = Duration::from_millis(failures.saturating_mul(10) as u64); // 10 ms backoff
+        if let Some((successes, failures)) = error_opt {
+            debug!("reconnecting: {:?}", self.config);
+            // establish a new connection
+            let client = P::new_connection(&self.config, &self.options);
+            mem::replace(&mut self.client, client);
 
-            // TODO: switch to min|max when they stabalize
-            let retry_delay = if retry_delay < max_delay {
-                if retry_delay > min_delay {
-                    retry_delay
-                } else {
-                    min_delay
-                }
-            } else {
-                max_delay
-            };
-
-            if Instant::now().duration_since(when) > retry_delay {
-                debug!("reconnecting: {:?}", self.config);
-                // establish a new connection
-                let client = P::new_connection(&self.config, &self.options);
-                mem::replace(&mut self.client, client);
-
-                // reinitialize the mutex (in case it was poisoned before)
-                mem::replace(
-                    &mut self.stats,
-                    Arc::new(Mutex::new(NameServerStats::init(None, successes, failures))),
-                );
-                Ok(())
-            } else {
-                Err(error)
-            }
+            // reinitialize the mutex (in case it was poisoned before)
+            mem::replace(
+                &mut self.stats,
+                Arc::new(Mutex::new(NameServerStats::init(None, successes, failures))),
+            );
+            Ok(())
         } else {
             Ok(())
         }
@@ -453,8 +445,8 @@ fn mdns_nameserver(options: ResolverOpts) -> NameServer<BasicResolverHandle, Sta
 #[derive(Clone)]
 pub struct NameServerPool<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     // TODO: switch to FuturesMutex (Mutex will have some undesireable locking)
-    datagram_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
-    stream_conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>, /* All NameServers must be the same type */
+    datagram_conns: Arc<Mutex<Vec<NameServer<C, P>>>>, /* All NameServers must be the same type */
+    stream_conns: Arc<Mutex<Vec<NameServer<C, P>>>>,   /* All NameServers must be the same type */
     #[cfg(feature = "mdns")]
     mdns_conns: NameServer<C, P>, /* All NameServers must be the same type */
     options: ResolverOpts,
@@ -466,17 +458,16 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         config: &ResolverConfig,
         options: &ResolverOpts,
     ) -> NameServerPool<BasicResolverHandle, StandardConnection> {
-        let datagram_conns: BinaryHeap<NameServer<BasicResolverHandle, StandardConnection>> =
-            config
-                .name_servers()
-                .iter()
-                .filter(|ns_config| ns_config.protocol.is_datagram())
-                .map(|ns_config| {
-                    NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
-                })
-                .collect();
+        let datagram_conns: Vec<NameServer<BasicResolverHandle, StandardConnection>> = config
+            .name_servers()
+            .iter()
+            .filter(|ns_config| ns_config.protocol.is_datagram())
+            .map(|ns_config| {
+                NameServer::<_, StandardConnection>::new(ns_config.clone(), options.clone())
+            })
+            .collect();
 
-        let stream_conns: BinaryHeap<NameServer<BasicResolverHandle, StandardConnection>> = config
+        let stream_conns: Vec<NameServer<BasicResolverHandle, StandardConnection>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
@@ -527,10 +518,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
         }
     }
 
-    fn try_send(
-        conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
-        request: DnsRequest,
-    ) -> TrySend<C, P> {
+    fn try_send(conns: Arc<Mutex<Vec<NameServer<C, P>>>>, request: DnsRequest) -> TrySend<C, P> {
         TrySend::Lock {
             conns,
             request: Some(request),
@@ -595,7 +583,7 @@ where
 
 enum TrySend<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> {
     Lock {
-        conns: Arc<Mutex<BinaryHeap<NameServer<C, P>>>>,
+        conns: Arc<Mutex<Vec<NameServer<C, P>>>>,
         request: Option<DnsRequest>,
     },
     DoSend(Box<Future<Item = DnsResponse, Error = ResolveError> + Send>),
@@ -631,15 +619,42 @@ where
                     }
                     Ok(mut conns) => {
                         // select the highest priority connection
-                        let conn = conns.peek_mut();
+                        //   reorder the connections based on current view...
+                        //   this reorders the inner set
+                        conns.sort_unstable();
 
-                        if conn.is_none() {
-                            return Err(ResolveErrorKind::Message("No connections available").into());
-                        }
+                        // TODO: restrict this size to a maximum # of NameServers to try
+                        let mut conns: Vec<NameServer<C, P>> = conns.clone(); // get a stable view for trying all connections
+                        let request = mem::replace(request, None);
+                        let request = request.expect("bad state, mesage should never be None");
+                        let request_loop = request.clone();
 
-                        let message = mem::replace(request, None);
-                        future = conn.unwrap()
-                            .send(message.expect("bad state, mesage should never be None"));
+                        let loop_future = future::loop_fn(
+                            (
+                                conns,
+                                request_loop,
+                                ResolveError::from(ResolveErrorKind::Message(
+                                    "No connections available",
+                                )),
+                            ),
+                            |(mut conns, request, err)| {
+                                let conn = conns.pop();
+
+                                let request_cont = request.clone();
+                                conn.ok_or_else(move || err).into_future().and_then(
+                                    move |mut conn| {
+                                        conn.send(request).then(|sent_res| match sent_res {
+                                            Ok(sent) => Ok(Loop::Break(sent)),
+                                            Err(err) => {
+                                                Ok(Loop::Continue((conns, request_cont, err)))
+                                            }
+                                        })
+                                    },
+                                )
+                            },
+                        );
+
+                        future = Box::new(loop_future);
                     }
                 }
             }
@@ -737,6 +752,7 @@ impl Future for Local {
 #[cfg(test)]
 mod tests {
     use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+    use std::time::Duration;
 
     use futures::future;
     use tokio::runtime::current_thread::Runtime;
@@ -764,7 +780,6 @@ mod tests {
 
         let failed = NameServerStats {
             state: NameServerState::Failed {
-                error: ResolveErrorKind::Msg("test".to_string()).into(),
                 when: Instant::now(),
             },
             successes: 0,
