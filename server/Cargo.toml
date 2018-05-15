@@ -47,7 +47,7 @@ dnssec-ring = ["dnssec", "trust-dns/dnssec-ring", "trust-dns-proto/dnssec-ring"]
 dnssec = []
 
 # TODO: migrate all tls and tls-openssl features to dns-over-tls, et al
-dns-over-openssl = ["dns-over-tls", "tls-openssl", "trust-dns-openssl", "tls"]
+dns-over-openssl = ["dns-over-tls", "trust-dns-openssl", "tls"]
 dns-over-tls = []
 
 # This is a deprecated feature...
