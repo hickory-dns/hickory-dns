@@ -260,12 +260,20 @@ impl ResolverFuture {
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
     pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> LookupIpFuture {
+        let mut finally_ip_addr = None;
+
         // if host is a ip address, return directly.
-        if let Some(addr) = host.try_parse_ip() {
-            return LookupIpFuture::ok(
-                self.client_cache.clone(),
-                Lookup::new_with_max_ttl(Arc::new(vec![addr])),
-            );
+        if let Some(ip_addr) = host.try_parse_ip() {
+            // if ndots are greater than 4, then we can't assume the name is an IpAddr
+            //   TODO: should we always do search before returning this?
+            if self.options.ndots > 4 && ip_addr.to_ip_addr().map_or(false, |ip| ip.is_ipv4()) {
+                finally_ip_addr = Some(ip_addr);
+            } else {
+                return LookupIpFuture::ok(
+                    self.client_cache.clone(),
+                    Lookup::new_with_max_ttl(Arc::new(vec![ip_addr])),
+                );
+            }
         }
 
         let name = match host.into_name() {
@@ -287,6 +295,7 @@ impl ResolverFuture {
             self.client_cache.clone(),
             DnsRequestOptions::default(),
             hosts,
+            finally_ip_addr,
         )
     }
 

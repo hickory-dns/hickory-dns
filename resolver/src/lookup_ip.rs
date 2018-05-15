@@ -82,6 +82,7 @@ where
     options: DnsRequestOptions,
     future: Box<Future<Item = Lookup, Error = ResolveError> + Send>,
     hosts: Option<Arc<Hosts>>,
+    finally_ip_addr: Option<RData>,
 }
 
 impl<C: DnsHandle<Error = ResolveError> + 'static> LookupIpFuture<C> {
@@ -98,6 +99,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupIpFuture<C> {
         client_cache: CachingClient<C>,
         options: DnsRequestOptions,
         hosts: Option<Arc<Hosts>>,
+        finally_ip_addr: Option<RData>,
     ) -> Self {
         let name = names.pop().ok_or_else(|| {
             ResolveError::from(ResolveErrorKind::Message("can not lookup IPs for no names"))
@@ -121,6 +123,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupIpFuture<C> {
             options,
             future: query,
             hosts: hosts,
+            finally_ip_addr,
         }
     }
 
@@ -142,6 +145,10 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupIpFuture<C> {
             // guarantee that we get scheduled for the next turn...
             task::current().notify();
             Ok(Async::NotReady)
+        } else if let Some(ip_addr) = mem::replace(&mut self.finally_ip_addr, None) {
+            Ok(Async::Ready(
+                Lookup::new_with_max_ttl(Arc::new(vec![ip_addr])).into(),
+            ))
         } else {
             otherwise()
         }
@@ -158,6 +165,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupIpFuture<C> {
                 ResolveErrorKind::Msg(format!("{}", error)).into(),
             )),
             hosts: None,
+            finally_ip_addr: None,
         };
     }
 
@@ -169,6 +177,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupIpFuture<C> {
             options: DnsRequestOptions::default(),
             future: Box::new(future::ok(lp)),
             hosts: None,
+            finally_ip_addr: None,
         };
     }
 }

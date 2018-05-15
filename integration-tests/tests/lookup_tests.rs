@@ -90,6 +90,7 @@ fn test_lookup_hosts() {
             CachingClient::new(0, client),
             Default::default(),
             Some(Arc::new(hosts)),
+            None,
         )
     });
     let lookup = io_loop.block_on(lookup).unwrap();
