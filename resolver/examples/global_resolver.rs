@@ -54,7 +54,7 @@ lazy_static! {
                 use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
 
                 // Get a new resolver with the google nameservers as the upstream recursive resolvers
-                future = ResolverFuture::new(ResolverConfig::google(), ResolverOpts::default()).expect("Failed to create ResolverFuture");
+                future = ResolverFuture::new(ResolverConfig::google(), ResolverOpts::default());
             }
 
             // this will block the thread until the Resolver is constructed with the above configuration
