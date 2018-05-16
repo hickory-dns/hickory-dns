@@ -7,11 +7,33 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 ### Added
 
-- dns-over-tls configurations (requires one of `dns-over-native-tls` or `dns-over-rustls` features)
+- DNS-over-TLS configurations (requires one of `dns-over-native-tls` or `dns-over-rustls` features) #396
+- Experimental DNS-SD, service discovery (RFC 6763, `mdns` feature required) #363
+- Experimental mDNS, multicast DNS, known issues persist (RFC 6762, `mdns` feature required) #337
+- Exposed TTLs on `Lookup` objects @hawkw #444
 
 ### Changed
 
-- enforced all resolver futures are Sendable
+- Use tokio-timer (part of tokio upgrade) @justinlatimer #411
+- Backtrace now optional @briansmith #416
+- Upgrade to tokio-tcp (tokio upgrade) @Keruspe #426
+- Upgrade to tokio-udp (tokio upgrade) @Keruspe #427
+- Upgrade to tokio-executor (tokio upgrade) @Keruspe and @justinlatimer #438
+- Always reattempt nameserver reconnections regardless of time #457
+- Defaulted type parameter for LookupFuture, removed InnerLookupFuture #459
+
+### Fixed
+
+- BinEncoder panic on record sets of extreme sizes #352
+- Panic when oneshot channel receiver goes away #356
+- Incorrect IPv6 configuration for Google nameservers #358
+- Properly yield on failure to acquire lock #372
+- Correct order of search list with ndots variable #410
+- Send (Sync where applicable) enforced on all DnsHandle::send and other interfaces #460
+
+### Removed
+
+- usage of tokio-core::Core @Keruspe #446
 
 ## 0.8.1
 

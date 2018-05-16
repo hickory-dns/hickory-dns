@@ -10,6 +10,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Updated `trust-dns-proto` to `0.3`, which brings in better `Name` and `Label` impls
 - rusqlite updated to 0.13 #331 (@oherrala)
 - Many serialization improvements #317
+- Use tokio-timer (part of tokio upgrade) @justinlatimer #411
+- Backtrace now optional @briansmith #416
+- Use tokio-tcp (part of tokio upgrade) @Keruspe #426
+- Use tokio-udp (part of tokio upgrade) @Keruspe #426
+- Upgrade to tokio-executor (tokio upgrade) @Keruspe and @justinlatimer #438
+- Send (Sync where applicable) enforced on all DnsHandle::send and other interfaces #460
+- ClientHandle api return Send @ariwaranosai #465
 
 ### Added
 
@@ -20,6 +27,13 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 
 - octal escapes fixed in `Name` parsing #330
 - `NULL` record type incorrectly valued at `0` to proper `10` #329 (@jannic)
+- BinEncoder panic on record sets of extreme sizes #352
+- Panic when oneshot channel receiver goes away #356
+- Hung server on UDP due to bad data #407
+
+### Removed
+
+- usage of tokio-core::Core @Keruspe #446
 
 ## 0.13.0
 
