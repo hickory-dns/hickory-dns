@@ -29,7 +29,7 @@ use dns_lru::DnsLru;
 use error::*;
 use lookup::Lookup;
 
-const MAX_QUERY_DEPTH: u8 = 8; // arbitrarily chosen number...
+const MAX_QUERY_DEPTH: u8 = 7; // arbitrarily chosen number...
 
 task_local! {
     static QUERY_DEPTH: RefCell<u8> = RefCell::new(0)
@@ -108,12 +108,12 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
             }
         }
 
-        Box::new(
-            QueryState::lookup(query, options, &mut self.client, self.lru.clone()).then(|f| {
-                QUERY_DEPTH.with(|c| *c.borrow_mut() -= 1);
-                f
-            }),
-        )
+        Box::new(QueryState::lookup(
+            query,
+            options,
+            &mut self.client,
+            self.lru.clone(),
+        ))
     }
 }
 
@@ -177,6 +177,9 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
             // TODO: This should return an error
             self.handle_nxdomain(message, true)
         } else {
+            // tracking the depth of our queries, to prevent infinite CNAME recursion
+            QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
+
             Records::CnameChain {
                 next: self.client.lookup(query, self.options.clone()),
                 min_ttl: cname_ttl,
@@ -333,9 +336,6 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for QueryFuture<C> {
     type Error = ResolveError;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
-        // tracking the depth of our queries, to prevetn infinite CNAME recursion
-        QUERY_DEPTH.with(|c| *c.borrow_mut() += 1);
-
         match self.message_future.poll() {
             Ok(Async::Ready(message)) => {
                 // TODO: take all records and cache them?

@@ -135,7 +135,7 @@ fn main() {
 
     // print the resolved IPs
     for (name, join) in threads {
-        let result = join.join();
+        let result = join.join().expect(&format!("error resolving: {}", name));
         println!("{} resolved to {:?}", name, result);
     }
 }
