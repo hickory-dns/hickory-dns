@@ -14,7 +14,9 @@
 
 use std::sync::Arc;
 
-use futures::{future, Future};
+#[cfg(feature = "dnssec")]
+use futures::future;
+use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns_proto::xfer::DnsResponse;

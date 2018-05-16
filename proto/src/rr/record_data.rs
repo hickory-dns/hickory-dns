@@ -491,9 +491,10 @@ impl RData {
         // we should have read rdata_length, but we did not
         let read = decoder.index() - start_idx;
         if read != rdata_length as usize {
-            return Err(
-                ProtoErrorKind::IncorrectRDataLengthRead(read, rdata_length as usize).into(),
-            );
+            return Err(ProtoErrorKind::IncorrectRDataLengthRead {
+                read,
+                len: rdata_length as usize,
+            }.into());
         }
 
         result

@@ -68,7 +68,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<NULL> {
             if let Ok(byte) = decoder.pop() {
                 anything.push(byte);
             } else {
-                return Err(ProtoErrorKind::Message("unexpected end of input reached").into());
+                return Err("unexpected end of input reached".into());
             }
         }
 

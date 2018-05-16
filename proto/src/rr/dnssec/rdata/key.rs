@@ -757,7 +757,7 @@ impl KEY {
     //         if let Err(e) = name.emit(&mut encoder)
     //                .and_then(|_| emit(&mut encoder, self)) {
     //             warn!("error serializing KEY: {}", e);
-    //             return Err(ProtoErrorKind::Msg(format!("error serializing KEY: {}", e)).into());
+    //             return Err(format!("error serializing KEY: {}", e).into());
     //         }
     //     }
 

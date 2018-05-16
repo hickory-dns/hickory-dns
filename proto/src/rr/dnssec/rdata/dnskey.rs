@@ -226,7 +226,7 @@ impl DNSKEY {
                 .and_then(|_| emit(&mut encoder, self))
             {
                 warn!("error serializing dnskey: {}", e);
-                return Err(ProtoErrorKind::Msg(format!("error serializing dnskey: {}", e)).into());
+                return Err(format!("error serializing dnskey: {}", e).into());
             }
         }
 
@@ -236,7 +236,7 @@ impl DNSKEY {
     /// This will always return an error unless the Ring or OpenSSL features are enabled
     #[cfg(not(any(feature = "openssl", feature = "ring")))]
     pub fn to_digest(&self, _: &Name, _: DigestType) -> ProtoResult<Digest> {
-        Err(ProtoErrorKind::Message("Ring or OpenSSL must be enabled for this feature").into())
+        Err("Ring or OpenSSL must be enabled for this feature".into())
     }
 }
 

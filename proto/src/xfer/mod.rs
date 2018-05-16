@@ -108,6 +108,6 @@ where
         sender
             .sender
             .unbounded_send((buffer, name_server))
-            .map_err(|e| E::from(ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()))
+            .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
     }
 }

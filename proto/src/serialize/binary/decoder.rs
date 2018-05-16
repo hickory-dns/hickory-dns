@@ -14,8 +14,8 @@
  * limitations under the License.
  */
 
-use error::{ProtoErrorKind, ProtoResult};
 use byteorder::{ByteOrder, NetworkEndian};
+use error::ProtoResult;
 
 /// This is non-destructive to the inner buffer, b/c for pointer types we need to perform a reverse
 ///  seek to lookup names
@@ -49,7 +49,7 @@ impl<'a> BinDecoder<'a> {
             self.index += 1;
             Ok(byte)
         } else {
-            Err(ProtoErrorKind::Message("unexpected end of input reached").into())
+            Err("unexpected end of input reached".into())
         }
     }
 
@@ -135,7 +135,7 @@ impl<'a> BinDecoder<'a> {
     pub fn read_slice(&mut self, len: usize) -> ProtoResult<&'a [u8]> {
         let end = self.index + len;
         if end > self.buffer.len() {
-            return Err(ProtoErrorKind::Message("buffer exhausted").into());
+            return Err("buffer exhausted".into());
         }
         let slice: &'a [u8] = &self.buffer[self.index..end];
         self.index += len;
@@ -145,7 +145,7 @@ impl<'a> BinDecoder<'a> {
     /// Reads a slice from a previous index to the current
     pub fn slice_from(&self, index: usize) -> ProtoResult<&'a [u8]> {
         if index > self.index {
-            return Err(ProtoErrorKind::Message("index antecedes upper bound").into());
+            return Err("index antecedes upper bound".into());
         }
 
         Ok(&self.buffer[index..self.index])

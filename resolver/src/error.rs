@@ -5,94 +5,147 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![allow(missing_docs)]
+//! Error types for the crate
 
-use std::io;
+use failure::{Backtrace, Context, Fail};
+use std::{fmt, io};
+use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 use trust_dns_proto::op::Query;
 
-error_chain! {
-    // The type defined for this error. These are the conventional
-    // and recommended names, but they can be arbitrarily chosen.
-    types {
-        ResolveError, ResolveErrorKind, ResolveChainErr, ResolveResult;
-    }
+/// An alias for results returned by functions of this crate
+pub type ResolveResult<T> = ::std::result::Result<T, ResolveError>;
 
-    // Automatic conversions between this error chain and other
-    // error chains. In this case, it will e.g. generate an
-    // `ErrorKind` variant called `Dist` which in turn contains
-    // the `rustup_dist::ErrorKind`, with conversions from
-    // `rustup_dist::Error`.
-    //
-    // This section can be empty.
-    links {
-        ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
-    }
+/// The error kind for errors that get returned in the crate
+#[derive(Eq, PartialEq, Debug, Fail)]
+pub enum ResolveErrorKind {
+    /// An error with an arbitrary message, referenced as &'static str
+    #[fail(display = "{}", _0)]
+    Message(&'static str),
 
-    // Automatic conversions between this error chain and other
-    // error types not defined by the `error_chain!`. These will be
-    // boxed as the error cause and wrapped in a new error with,
-    // in this case, the `ErrorKind::Temp` variant.
-    //
-    // This section can be empty.
-    foreign_links {
-      ::std::io::Error, Io, "io error";
-    }
+    /// An error with an arbitrary message, stored as String
+    #[fail(display = "{}", _0)]
+    Msg(String),
 
-    // Define additional `ErrorKind` variants. The syntax here is
-    // the same as `quick_error!`, but the `from()` and `cause()`
-    // syntax is not supported.
-    errors {
-        Message(msg: &'static str) {
-            description(msg)
-            display("{}", msg)
-        }
+    /// No records were found for a query
+    #[fail(display = "no record found for {}", _0)]
+    NoRecordsFound(Query),
 
-        NoRecordsFound(query: Query) {
-            description("no record found for name")
-            display("no record found for {}", query)
-        }
-    }
+    // foreign
+    /// An error got returned from IO
+    #[fail(display = "io error")]
+    Io,
+
+    /// An error got returned by the trust-dns-proto crate
+    #[fail(display = "proto error")]
+    Proto,
+
+    /// A request timed out
+    #[fail(display = "request timed out")]
+    Timeout,
 }
 
 impl Clone for ResolveErrorKind {
     fn clone(&self) -> Self {
-        match self {
-            &ResolveErrorKind::Io => ResolveErrorKind::Io,
-            &ResolveErrorKind::Message(ref string) => ResolveErrorKind::Message(string),
-            &ResolveErrorKind::Msg(ref string) => ResolveErrorKind::Msg(string.clone()),
-            &ResolveErrorKind::NoRecordsFound(ref query) => {
-                ResolveErrorKind::NoRecordsFound(query.clone())
-            }
-            &ResolveErrorKind::Proto(ref kind) => ResolveErrorKind::Proto(kind.clone()),
+        use self::ResolveErrorKind::*;
+        match *self {
+            Message(msg) => Message(msg),
+            Msg(ref msg) => Msg(msg.clone()),
+            NoRecordsFound(ref query) => NoRecordsFound(query.clone()),
+
+            // foreign
+            Io => Io,
+            Proto => Proto,
+            Timeout => Timeout,
         }
+    }
+}
+
+/// The error type for errors that get returned in the crate
+#[derive(Debug)]
+pub struct ResolveError {
+    inner: Context<ResolveErrorKind>,
+}
+
+impl ResolveError {
+    /// Get the kind of the error
+    pub fn kind(&self) -> &ResolveErrorKind {
+        self.inner.get_context()
     }
 }
 
 impl Clone for ResolveError {
     fn clone(&self) -> Self {
-        let cloned_kind: ResolveErrorKind = self.0.clone();
-
-        let inner_error: Option<Box<::std::error::Error + Send + 'static>> =
-            (&self.1).0.as_ref().map(|e| {
-                Box::new(ResolveError::from(ResolveErrorKind::Msg(format!("{}", e))))
-                    as Box<::std::error::Error + Send + 'static>
-            });
-        ResolveError(cloned_kind, (inner_error, (self.1).1.clone()))
+        ResolveError {
+            inner: Context::new(self.inner.get_context().clone()),
+        }
     }
 }
 
-// This is an expensive comparison option, only available for testing...
-#[cfg(test)]
-impl PartialEq for ResolveErrorKind {
-    fn eq(&self, other: &ResolveErrorKind) -> bool {
-        self.to_string() == other.to_string()
+impl Fail for ResolveError {
+    fn cause(&self) -> Option<&Fail> {
+        self.inner.cause()
+    }
+
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.inner.backtrace()
+    }
+}
+
+impl fmt::Display for ResolveError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.inner, f)
+    }
+}
+
+impl From<ResolveErrorKind> for ResolveError {
+    fn from(kind: ResolveErrorKind) -> ResolveError {
+        ResolveError {
+            inner: Context::new(kind),
+        }
+    }
+}
+
+impl From<Context<ResolveErrorKind>> for ResolveError {
+    fn from(inner: Context<ResolveErrorKind>) -> ResolveError {
+        ResolveError { inner }
+    }
+}
+
+impl From<&'static str> for ResolveError {
+    fn from(msg: &'static str) -> ResolveError {
+        ResolveErrorKind::Message(msg).into()
+    }
+}
+
+impl From<String> for ResolveError {
+    fn from(msg: String) -> ResolveError {
+        ResolveErrorKind::Msg(msg).into()
+    }
+}
+
+impl From<io::Error> for ResolveError {
+    fn from(e: io::Error) -> ResolveError {
+        match e.kind() {
+            io::ErrorKind::TimedOut => e.context(ResolveErrorKind::Timeout).into(),
+            _ => e.context(ResolveErrorKind::Io).into(),
+        }
+    }
+}
+
+impl From<ProtoError> for ResolveError {
+    fn from(e: ProtoError) -> ResolveError {
+        match *e.kind() {
+            ProtoErrorKind::Timeout => e.context(ResolveErrorKind::Timeout).into(),
+            _ => e.context(ResolveErrorKind::Proto).into(),
+        }
     }
 }
 
 impl From<ResolveError> for io::Error {
     fn from(e: ResolveError) -> Self {
-        match e.kind() {
-            _ => io::Error::new(io::ErrorKind::Other, format!("ResolveError: {}", e)),
+        match *e.kind() {
+            ResolveErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e.compat()),
+            _ => io::Error::new(io::ErrorKind::Other, e.compat()),
         }
     }
 }

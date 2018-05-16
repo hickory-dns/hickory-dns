@@ -17,6 +17,7 @@ use openssl::rsa::Rsa;
 use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::{BasicClientHandle, ClientFuture, ClientHandle};
+use trust_dns::error::ClientErrorKind;
 use trust_dns::op::ResponseCode;
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::{DNSSECRData, DNSSECRecordType};
@@ -785,11 +786,7 @@ fn test_timeout_query(mut client: BasicClientHandle, mut io_loop: Runtime) {
         .block_on(client.query(name.clone(), DNSClass::IN, RecordType::A))
         .unwrap_err();
 
-    let error_str = format!("{}", err);
-    assert!(
-        error_str.contains("timed out"),
-        format!("actual error: {}", error_str)
-    );
+    assert_eq!(err.kind(), &ClientErrorKind::Timeout);
 
     io_loop
         .block_on(client.query(name.clone(), DNSClass::IN, RecordType::AAAA))
