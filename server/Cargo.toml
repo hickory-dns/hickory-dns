@@ -88,11 +88,11 @@ tokio-tcp = "^0.1"
 tokio-timer = "^0.2"
 tokio-udp = "^0.1"
 toml = "^0.4"
-trust-dns = { version = "^0.13", path = "../client" }
-trust-dns-proto = { version = "^0.3", path = "../proto" }
-trust-dns-openssl = { version = "^0.2.0", path = "../openssl", optional = true }
+trust-dns = { version = "^0.14", path = "../client" }
+trust-dns-proto = { version = "^0.4", path = "../proto" }
+trust-dns-openssl = { version = "^0.3", path = "../openssl", optional = true }
 
 [dev-dependencies]
 native-tls = "^0.1"
-trust-dns-native-tls = { version = "^0.2", path = "../native-tls" }
+trust-dns-native-tls = { version = "^0.3", path = "../native-tls" }
 tokio-tls = "^0.1"

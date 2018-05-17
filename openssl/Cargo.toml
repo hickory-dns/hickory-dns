@@ -46,7 +46,7 @@ futures = "^0.1.17"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
 tokio-openssl = "^0.2"
 tokio-tcp = "^0.1"
-trust-dns-proto = { version = "^0.3", path = "../proto" }
+trust-dns-proto = { version = "^0.4", path = "../proto" }
 
 [dev-dependencies]
 openssl = { version = "^0.10", features = ["v102", "v110"] }
