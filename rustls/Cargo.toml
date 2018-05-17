@@ -49,7 +49,7 @@ rustls = "^0.11"
 tokio-rustls = "^0.4"
 tokio-tcp = "^0.1"
 # disables default features, i.e. openssl...
-trust-dns-proto = { version = "^0.3", path = "../proto", default-features = false }
+trust-dns-proto = { version = "^0.4", path = "../proto", default-features = false }
 
 [dev-dependencies]
 openssl = { version = "^0.10", features = ["v102", "v110"] }
