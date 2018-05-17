@@ -99,6 +99,74 @@ fn test_lookup_hosts() {
 }
 
 #[test]
+fn test_lookup_ipv4_like() {
+    let authority = create_example();
+    let mut catalog = Catalog::new();
+    catalog.upsert(authority.origin().clone().into(), authority);
+
+    let mut io_loop = Runtime::new().unwrap();
+    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let client = future::lazy(|| {
+        future::ok(DnsFuture::new(
+            stream,
+            Box::new(sender),
+            NoopMessageFinalizer::new(),
+        ))
+    });
+
+    let lookup = client.and_then(|client| {
+        LookupIpFuture::lookup(
+            vec![Name::from_str("1.2.3.4.example.com.").unwrap()],
+            LookupIpStrategy::default(),
+            CachingClient::new(0, client),
+            Default::default(),
+            Some(Arc::new(Hosts::default())),
+            Some(RData::A(Ipv4Addr::new(1, 2, 3, 4))),
+        )
+    });
+    let lookup = io_loop.block_on(lookup).unwrap();
+
+    assert_eq!(
+        lookup.iter().next().unwrap(),
+        Ipv4Addr::new(198, 51, 100, 35)
+    );
+}
+
+#[test]
+fn test_lookup_ipv4_like_fall_through() {
+    let authority = create_example();
+    let mut catalog = Catalog::new();
+    catalog.upsert(authority.origin().clone().into(), authority);
+
+    let mut io_loop = Runtime::new().unwrap();
+    let (stream, sender) = TestClientStream::new(Arc::new(Mutex::new(catalog)));
+    let client = future::lazy(|| {
+        future::ok(DnsFuture::new(
+            stream,
+            Box::new(sender),
+            NoopMessageFinalizer::new(),
+        ))
+    });
+
+    let lookup = client.and_then(|client| {
+        LookupIpFuture::lookup(
+            vec![Name::from_str("198.51.100.35.example.com.").unwrap()],
+            LookupIpStrategy::default(),
+            CachingClient::new(0, client),
+            Default::default(),
+            Some(Arc::new(Hosts::default())),
+            Some(RData::A(Ipv4Addr::new(198, 51, 100, 35))),
+        )
+    });
+    let lookup = io_loop.block_on(lookup).unwrap();
+
+    assert_eq!(
+        lookup.iter().next().unwrap(),
+        Ipv4Addr::new(198, 51, 100, 35)
+    );
+}
+
+#[test]
 fn test_mock_lookup() {
     let resp_query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
     let v4_record = v4_record(

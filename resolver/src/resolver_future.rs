@@ -265,8 +265,10 @@ impl ResolverFuture {
         // if host is a ip address, return directly.
         if let Some(ip_addr) = host.try_parse_ip() {
             // if ndots are greater than 4, then we can't assume the name is an IpAddr
+            //   this accepts IPv6 as well, b/c IPv6 can take the form: 2001:db8::198.51.100.35
+            //   but `:` is not a valid DNS character, so techinically this will fail parsing.
             //   TODO: should we always do search before returning this?
-            if self.options.ndots > 4 && ip_addr.to_ip_addr().map_or(false, |ip| ip.is_ipv4()) {
+            if self.options.ndots > 4 {
                 finally_ip_addr = Some(ip_addr);
             } else {
                 return LookupIpFuture::ok(
@@ -276,9 +278,16 @@ impl ResolverFuture {
             }
         }
 
-        let name = match host.into_name() {
-            Ok(name) => name,
-            Err(err) => {
+        let name = match (host.into_name(), finally_ip_addr.as_ref()) {
+            (Ok(name), _) => name,
+            (Err(_), Some(ip_addr)) => {
+                // it was a valid IP, return that...
+                return LookupIpFuture::ok(
+                    self.client_cache.clone(),
+                    Lookup::new_with_max_ttl(Arc::new(vec![ip_addr.clone()])),
+                );
+            }
+            (Err(err), None) => {
                 return LookupIpFuture::error(self.client_cache.clone(), err);
             }
         };
@@ -289,6 +298,7 @@ impl ResolverFuture {
         } else {
             None
         };
+
         LookupIpFuture::lookup(
             names,
             self.options.ip_strategy,
@@ -789,6 +799,84 @@ mod tests {
         assert_eq!(
             iter.next().expect("no AAAA"),
             IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1,))
+        );
+    }
+
+    #[test]
+    fn test_search_ipv4_large_ndots() {
+        let mut io_loop = Runtime::new().unwrap();
+        let mut config = ResolverConfig::default();
+        config.add_search(Name::from_str("example.com").unwrap());
+
+        let resolver = ResolverFuture::new(
+            config,
+            ResolverOpts {
+                ip_strategy: LookupIpStrategy::Ipv4Only,
+                ndots: 5,
+                ..ResolverOpts::default()
+            },
+        );
+
+        let response = io_loop
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("198.51.100.35")))
+            .expect("failed to run lookup");
+
+        let mut iter = response.iter();
+        assert_eq!(
+            iter.next().expect("no rdatas"),
+            IpAddr::V4(Ipv4Addr::new(198, 51, 100, 35))
+        );
+    }
+
+    #[test]
+    fn test_search_ipv6_large_ndots() {
+        let mut io_loop = Runtime::new().unwrap();
+        let mut config = ResolverConfig::default();
+        config.add_search(Name::from_str("example.com").unwrap());
+
+        let resolver = ResolverFuture::new(
+            config,
+            ResolverOpts {
+                ip_strategy: LookupIpStrategy::Ipv4Only,
+                ndots: 5,
+                ..ResolverOpts::default()
+            },
+        );
+
+        let response = io_loop
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("2001:db8::c633:6423")))
+            .expect("failed to run lookup");
+
+        let mut iter = response.iter();
+        assert_eq!(
+            iter.next().expect("no rdatas"),
+            IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0xc633, 0x6423))
+        );
+    }
+
+    #[test]
+    fn test_search_ipv6_name_parse_fails() {
+        let mut io_loop = Runtime::new().unwrap();
+        let mut config = ResolverConfig::default();
+        config.add_search(Name::from_str("example.com").unwrap());
+
+        let resolver = ResolverFuture::new(
+            config,
+            ResolverOpts {
+                ip_strategy: LookupIpStrategy::Ipv4Only,
+                ndots: 5,
+                ..ResolverOpts::default()
+            },
+        );
+
+        let response = io_loop
+            .block_on(resolver.and_then(|resolver| resolver.lookup_ip("2001:db8::198.51.100.35")))
+            .expect("failed to run lookup");
+
+        let mut iter = response.iter();
+        assert_eq!(
+            iter.next().expect("no rdatas"),
+            IpAddr::V6(Ipv6Addr::new(0x2001, 0xdb8, 0, 0, 0, 0, 0xc633, 0x6423))
         );
     }
 }
