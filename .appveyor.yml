@@ -6,7 +6,18 @@ environment:
     OPENSSL_VERSION: 1_1_0h
     OPENSSL_DIR: C:\OpenSSL
     RUST_BACKTRACE: 1
-    test_script:
+
+  # Just checking the basics on i686/32bit
+  - NAME: i686
+    TARGET: i686-pc-windows-msvc
+    BITS: 32
+    OPENSSL_VERSION: 1_1_0h
+    OPENSSL_DIR: C:\OpenSSL
+    RUST_BACKTRACE: 1
+
+test:
+  matrix:
+  - test_script:
     - cargo test --manifest-path proto/Cargo.toml
     - cargo test --manifest-path client/Cargo.toml
     - cargo test --manifest-path resolver/Cargo.toml
@@ -14,65 +25,35 @@ environment:
     - cargo test --manifest-path integration-tests/Cargo.toml
     - cargo run --manifest-path resolver/Cargo.toml --example global_resolver
 
-  - NAME: all-features
-    TARGET: x86_64-pc-windows-msvc
-    BITS: 64
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
-    RUST_BACKTRACE: 1
-    test_script:
+  - test_script:
     - cargo test --manifest-path proto/Cargo.toml --all-features
     - cargo test --manifest-path client/Cargo.toml --all-features
     - cargo test --manifest-path resolver/Cargo.toml --all-features
     - cargo test --manifest-path server/Cargo.toml --all-features
     - cargo test --manifest-path integration-tests/Cargo.toml --all-features
 
-  - NAME: no-default-features
-    TARGET: x86_64-pc-windows-msvc
-    BITS: 64
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
-    RUST_BACKTRACE: 1
-    test_script:
+  - test_script:
     - cargo test --manifest-path proto/Cargo.toml --no-default-features
     - cargo test --manifest-path client/Cargo.toml --no-default-features
     - cargo test --manifest-path resolver/Cargo.toml --no-default-features
     - cargo test --manifest-path server/Cargo.toml --no-default-features
     - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features
 
-  - NAME: dnssec-openssl
-    TARGET: x86_64-pc-windows-msvc
-    BITS: 64
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
-    RUST_BACKTRACE: 1
-    test_script:
+  - test_script:
     - cargo test --manifest-path proto/Cargo.toml --no-default-features --features=dnssec-openssl
     - cargo test --manifest-path client/Cargo.toml --no-default-features --features=dnssec-openssl
     - cargo test --manifest-path resolver/Cargo.toml --no-default-features --features=dnssec-openssl
     - cargo test --manifest-path server/Cargo.toml --no-default-features --features=dnssec-openssl
     - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features --features=dnssec-openssl
 
-  - NAME: dnssec-ring
-    TARGET: x86_64-pc-windows-msvc
-    BITS: 64
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
-    RUST_BACKTRACE: 1
-    test_script:
+  - test_script:
     - cargo test --manifest-path proto/Cargo.toml --no-default-features --features=dnssec-ring  
     - cargo test --manifest-path client/Cargo.toml --no-default-features --features=dnssec-ring
     - cargo test --manifest-path resolver/Cargo.toml --no-default-features --features=dnssec-ring
     - cargo test --manifest-path server/Cargo.toml --no-default-features --features=dnssec-ring
     - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features --features=dnssec-ring
 
-  - NAME: dns-over-tls
-    TARGET: x86_64-pc-windows-msvc
-    BITS: 64
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
-    RUST_BACKTRACE: 1
-    test_script:
+  - test_script:
     - cargo test --manifest-path native-tls/Cargo.toml
     - cargo test --manifest-path openssl/Cargo.toml
     - cargo test --manifest-path rustls/Cargo.toml
@@ -83,13 +64,7 @@ environment:
     - cargo test --manifest-path resolver/Cargo.toml --features=dns-over-rustls
 
   # Just checking the basics on i686/32bit
-  - NAME: i686
-    TARGET: i686-pc-windows-msvc
-    BITS: 32
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
-    RUST_BACKTRACE: 1
-    test_script:
+  - test_script:
     - cargo test --manifest-path proto/Cargo.toml
     - cargo test --manifest-path client/Cargo.toml
     - cargo test --manifest-path resolver/Cargo.toml
