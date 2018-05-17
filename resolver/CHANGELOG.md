@@ -11,6 +11,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Experimental DNS-SD, service discovery (RFC 6763, `mdns` feature required) #363
 - Experimental mDNS, multicast DNS, known issues persist (RFC 6762, `mdns` feature required) #337
 - Exposed TTLs on `Lookup` objects @hawkw #444
+- Added global resolver example #460
 
 ### Changed
 
@@ -30,6 +31,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Properly yield on failure to acquire lock #372
 - Correct order of search list with ndots variable #410
 - Send (Sync where applicable) enforced on all DnsHandle::send and other interfaces #460
+- Properly track max query depth as a `task_local` not `thread_local` #460, #469
 
 ### Removed
 
