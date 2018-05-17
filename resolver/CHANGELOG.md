@@ -32,6 +32,7 @@ This project adheres to [Semantic Versioning](http://semver.org/).
 - Correct order of search list with ndots variable #410
 - Send (Sync where applicable) enforced on all DnsHandle::send and other interfaces #460
 - Properly track max query depth as a `task_local` not `thread_local` #460, #469
+- IPv4 like name resolution in lookup_ip with search order #467
 
 ### Removed
 
