@@ -61,7 +61,7 @@ where
 
     fn send(&mut self, buffer: Vec<u8>) -> Result<(), Self::Error> {
         UnboundedSender::unbounded_send(&self.sender, buffer)
-            .map_err(|e| E::from(ProtoErrorKind::Msg(format!("mpsc::SendError {}", e)).into()))
+            .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
     }
 }
 
@@ -103,7 +103,7 @@ where
             Err(e) => {
                 let (complete, receiver) = oneshot::channel();
                 ignore_send(complete.send(Err(E::from(
-                    ProtoErrorKind::Msg(format!("error sending to channel: {}", e)).into(),
+                    format!("error sending to channel: {}", e).into(),
                 ))));
                 receiver
             }

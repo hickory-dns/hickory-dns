@@ -392,7 +392,7 @@ impl Parser {
                 '0'...'9' => {
                     collect *= 10;
                     collect += c.to_digit(10)
-                        .ok_or_else(|| ParseErrorKind::CharToIntError(c))?;
+                        .ok_or_else(|| ParseErrorKind::CharToInt(c))?;
                 }
                 'S' | 's' => {
                     value += collect;
@@ -414,7 +414,7 @@ impl Parser {
                     value += collect * 604_800;
                     collect = 0;
                 }
-                _ => return Err(ParseErrorKind::ParseTimeError(ttl_str.to_string()).into()),
+                _ => return Err(ParseErrorKind::ParseTime(ttl_str.to_string()).into()),
             }
         }
 

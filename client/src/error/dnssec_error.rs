@@ -13,55 +13,144 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::io::Error as IoError;
 
-#[cfg(feature = "openssl")]
-use openssl::error::ErrorStack as SslErrorStack;
+//! Dnssec error types for the crate
+
+use std::fmt;
+
+use failure::{Backtrace, Context, Fail};
+
 #[cfg(not(feature = "openssl"))]
 use self::not_openssl::SslErrorStack;
-#[cfg(feature = "ring")]
-use ring::error::Unspecified;
 #[cfg(not(feature = "ring"))]
 use self::not_ring::Unspecified;
+#[cfg(feature = "openssl")]
+use openssl::error::ErrorStack as SslErrorStack;
+#[cfg(feature = "ring")]
+use ring::error::Unspecified;
+use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 
-error_chain! {
-    // The type defined for this error. These are the conventional
-    // and recommended names, but they can be arbitrarily chosen.
-    types {
-        Error, ErrorKind, ChainErr, Result;
+/// An alias for dnssec results returned by functions of this crate
+pub type Result<T> = ::std::result::Result<T, Error>;
+
+/// The error kind for dnssec errors that get returned in the crate
+#[derive(Eq, PartialEq, Debug, Fail)]
+pub enum ErrorKind {
+    /// An error with an arbitrary message, referenced as &'static str
+    #[fail(display = "{}", _0)]
+    Message(&'static str),
+
+    /// An error with an arbitrary message, stored as String
+    #[fail(display = "{}", _0)]
+    Msg(String),
+
+    // foreign
+    /// An error got returned by the trust-dns-proto crate
+    #[fail(display = "proto error")]
+    Proto,
+
+    /// A ring error
+    #[fail(display = "ring error")]
+    Ring,
+
+    /// An ssl error
+    #[fail(display = "ssl error")]
+    SSL,
+
+    /// A request timed out
+    #[fail(display = "request timed out")]
+    Timeout,
+}
+
+impl Clone for ErrorKind {
+    fn clone(&self) -> Self {
+        use self::ErrorKind::*;
+        match *self {
+            Message(msg) => Message(msg),
+            Msg(ref msg) => Msg(msg.clone()),
+
+            // foreign
+            Proto => Proto,
+            Ring => Ring,
+            SSL => SSL,
+            Timeout => Timeout,
+        }
+    }
+}
+
+/// The error type for dnssec errors that get returned in the crate
+#[derive(Debug)]
+pub struct Error {
+    inner: Context<ErrorKind>,
+}
+
+impl Error {
+    /// Get the kind of the error
+    pub fn kind(&self) -> &ErrorKind {
+        self.inner.get_context()
+    }
+}
+
+impl Fail for Error {
+    fn cause(&self) -> Option<&Fail> {
+        self.inner.cause()
     }
 
-    // Automatic conversions between this error chain and other
-    // error chains. In this case, it will e.g. generate an
-    // `ErrorKind` variant called `Dist` which in turn contains
-    // the `rustup_dist::ErrorKind`, with conversions from
-    // `rustup_dist::Error`.
-    //
-    // This section can be empty.
-    links {
-        ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.inner.backtrace()
     }
+}
 
-    // Automatic conversions between this error chain and other
-    // error types not defined by the `error_chain!`. These will be
-    // boxed as the error cause and wrapped in a new error with,
-    // in this case, the `ErrorKind::Temp` variant.
-    //
-    // This section can be empty.
-    foreign_links {
-      IoError, Io, "io error";
-      SslErrorStack, SSL, "ssl error";
-      Unspecified, Ring, "undetailed error";
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.inner, f)
     }
+}
 
-    // Define additional `ErrorKind` variants. The syntax here is
-    // the same as `quick_error!`, but the `from()` and `cause()`
-    // syntax is not supported.
-    errors {
-      Message(msg: &'static str) {
-        description(msg)
-        display("{}", msg)
-      }
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Error {
+        Error {
+            inner: Context::new(kind),
+        }
+    }
+}
+
+impl From<Context<ErrorKind>> for Error {
+    fn from(inner: Context<ErrorKind>) -> Error {
+        Error { inner }
+    }
+}
+
+impl From<&'static str> for Error {
+    fn from(msg: &'static str) -> Error {
+        ErrorKind::Message(msg).into()
+    }
+}
+
+impl From<String> for Error {
+    fn from(msg: String) -> Error {
+        ErrorKind::Msg(msg).into()
+    }
+}
+
+impl From<ProtoError> for Error {
+    fn from(e: ProtoError) -> Error {
+        match *e.kind() {
+            ProtoErrorKind::Timeout => e.context(ErrorKind::Timeout).into(),
+            _ => e.context(ErrorKind::Proto).into(),
+        }
+    }
+}
+
+impl From<Unspecified> for Error {
+    fn from(e: Unspecified) -> Error {
+        e.context(ErrorKind::Ring).into()
+    }
+}
+
+impl From<SslErrorStack> for Error {
+    fn from(e: SslErrorStack) -> Error {
+        e.context(ErrorKind::SSL).into()
     }
 }
 
@@ -77,7 +166,6 @@ pub mod not_openssl {
             Ok(())
         }
     }
-
 
     impl std::error::Error for SslErrorStack {
         fn description(&self) -> &str {
@@ -98,7 +186,6 @@ pub mod not_ring {
             Ok(())
         }
     }
-
 
     impl std::error::Error for Unspecified {
         fn description(&self) -> &str {

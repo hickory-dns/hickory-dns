@@ -20,12 +20,12 @@ impl<'a> RSAPublicKey<'a> {
             }
             Some(e_len) if *e_len != 0 => (1, usize::from(*e_len)),
             _ => {
-                return Err(ProtoErrorKind::Message("bad public key").into());
+                return Err("bad public key".into());
             }
         };
 
         if encoded.len() < e_len_len + e_len {
-            return Err(ProtoErrorKind::Message("bad public key").into());
+            return Err("bad public key".into());
         };
 
         let (e, n) = encoded[e_len_len..].split_at(e_len);

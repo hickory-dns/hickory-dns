@@ -18,21 +18,9 @@ use trust_dns_proto::rr::Name;
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
 
-macro_rules! map_ipconfig_error {
-    // TODO: this should use error_chains chain facility
-    ($result:expr) => {
-        $result.map_err(|e| {
-            ResolveError::from(ResolveErrorKind::Msg(format!(
-                "failed to read from registry: {}",
-                e
-            )))
-        })
-    };
-}
-
 /// Returns the name servers of the computer (of all adapters)
 fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
-    let adapters = map_ipconfig_error!(get_adapters())?;
+    let adapters = get_adapters()?;
     let mut name_servers = vec![];
 
     for dns_server in adapters
@@ -57,19 +45,19 @@ fn get_name_servers() -> ResolveResult<Vec<NameServerConfig>> {
 pub fn read_system_conf() -> ResolveResult<(ResolverConfig, ResolverOpts)> {
     let name_servers = get_name_servers()?;
 
-    let search_list: Vec<Name> = map_ipconfig_error!(get_search_list())?
+    let search_list: Vec<Name> = get_search_list()?
         .iter()
         .map(|x| Name::from_str(x))
         .collect::<Result<Vec<_>, _>>()?;
 
-    let domain = match map_ipconfig_error!(get_domain())? {
+    let domain = match get_domain()? {
         Some(domain) => Name::from_str(&domain)?,
         None => Name::root(),
     };
 
     let config = ResolverConfig::from_parts(Some(domain), search_list, name_servers);
 
-    let rotate = map_ipconfig_error!(is_round_robin_enabled())?;
+    let rotate = is_round_robin_enabled()?;
 
     let opts = ResolverOpts {
         rotate,

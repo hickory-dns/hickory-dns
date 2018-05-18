@@ -109,7 +109,9 @@ impl Name {
     /// ```
     pub fn append_label<L: IntoLabel>(mut self, label: L) -> ProtoResult<Self> {
         self.labels.push(label.into_label()?);
-        if self.labels.len() > 255 { return Err(ProtoErrorKind::Message("labels exceed maximum length of 255").into()) };
+        if self.labels.len() > 255 {
+            return Err("labels exceed maximum length of 255".into());
+        };
         Ok(self)
     }
 
@@ -145,8 +147,12 @@ impl Name {
         let labels: Vec<_> = labels.into_iter().map(Result::unwrap).collect();
         let errors: Vec<_> = errors.into_iter().map(Result::unwrap_err).collect();
 
-        if labels.len() > 255 { return Err(ProtoErrorKind::Message("labels exceed maximum length of 255").into()) };
-        if !errors.is_empty() { return Err(ProtoErrorKind::Msg(format!("error converting some labels: {:?}", errors)).into()) }; 
+        if labels.len() > 255 {
+            return Err("labels exceed maximum length of 255".into());
+        };
+        if !errors.is_empty() {
+            return Err(format!("error converting some labels: {:?}", errors).into());
+        };
 
         Ok(Name {
             is_fqdn: true,
@@ -483,15 +489,12 @@ impl Name {
                     }
                     '\\' => state = ParseState::Escape1,
                     ch if !ch.is_control() && !ch.is_whitespace() => label.push(ch),
-                    _ => {
-                        return Err(ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)).into())
-                    }
+                    _ => return Err(format!("unrecognized char: {}", ch).into()),
                 },
                 ParseState::Escape1 => {
                     if ch.is_numeric() {
-                        state = ParseState::Escape2(ch.to_digit(8).ok_or_else(|| {
-                            ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
-                        })?);
+                        state = ParseState::Escape2(ch.to_digit(8)
+                            .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?);
                     } else {
                         // it's a single escaped char
                         label.push(ch);
@@ -501,25 +504,23 @@ impl Name {
                 ParseState::Escape2(i) => if ch.is_numeric() {
                     state = ParseState::Escape3(
                         i,
-                        ch.to_digit(8).ok_or_else(|| {
-                            ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
-                        })?,
+                        ch.to_digit(8)
+                            .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?,
                     );
                 } else {
-                    return Err(ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)))?;
+                    return Err(ProtoError::from(format!("unrecognized char: {}", ch)))?;
                 },
                 ParseState::Escape3(i, ii) => if ch.is_numeric() {
                     // octal conversion
-                    let val: u32 = (i * 8 * 8) + (ii * 8) + ch.to_digit(8).ok_or_else(|| {
-                        ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
-                    })?;
-                    let new: char = char::from_u32(val).ok_or_else(|| {
-                        ProtoError::from(ProtoErrorKind::Msg(format!("illegal char: {}", ch)))
-                    })?;
+                    let val: u32 = (i * 8 * 8) + (ii * 8)
+                        + ch.to_digit(8)
+                            .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
+                    let new: char = char::from_u32(val)
+                        .ok_or_else(|| ProtoError::from(format!("illegal char: {}", ch)))?;
                     label.push(new);
                     state = ParseState::Label;
                 } else {
-                    return Err(ProtoErrorKind::Msg(format!("unrecognized char: {}", ch)))?;
+                    return Err(format!("unrecognized char: {}", ch))?;
                 },
             }
         }
@@ -1342,7 +1343,7 @@ mod tests {
         }
 
         assert!(result.is_err());
-        match result.unwrap_err().into_kind() {
+        match *result.unwrap_err().kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
             _ => assert!(false),
         }

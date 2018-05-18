@@ -118,9 +118,7 @@ where
 
         // backstop, this might need to be configurable at some point
         if self.request_depth > 20 {
-            return Box::new(failed(E::from(
-                ProtoErrorKind::Message("exceeded max validation depth").into(),
-            )));
+            return Box::new(failed(E::from("exceeded max validation depth".into())));
         }
 
         // dnssec only matters on queries.
@@ -187,12 +185,7 @@ where
 
                             if !verify_nsec(&query, nsecs.as_slice()) {
                                 // TODO change this to remove the NSECs, like we do for the others?
-                                return Err(E::from(
-                                    ProtoErrorKind::Message(
-                                        "could not validate nxdomain \
-                                         with NSEC",
-                                    ).into(),
-                                ));
+                                return Err(E::from("could not validate nxdomain with NSEC".into()));
                             }
                         }
 
@@ -746,7 +739,10 @@ where
     // if there are no available verifications, then we are in a failed state.
     if verifications.is_empty() {
         return Box::new(failed(E::from(
-            ProtoErrorKind::RrsigsNotPresent(rrset.name.clone(), rrset.record_type).into(),
+            ProtoErrorKind::RrsigsNotPresent {
+                name: rrset.name.clone(),
+                record_type: rrset.record_type,
+            }.into(),
         )));
     }
 

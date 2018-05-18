@@ -19,7 +19,7 @@ use openssl::rsa::Rsa;
 
 #[allow(deprecated)]
 use trust_dns::client::{Client, ClientConnection, SecureSyncClient, SyncClient};
-use trust_dns::error::{ClientError, ClientResult};
+use trust_dns::error::{ClientError, ClientErrorKind, ClientResult};
 use trust_dns::op::*;
 use trust_dns::rr::dnssec::{Algorithm, KeyPair, Signer};
 use trust_dns::rr::rdata::*;
@@ -190,11 +190,7 @@ where
 
     let err = response.unwrap_err();
 
-    let error_str = format!("{}", err);
-    assert!(
-        error_str.contains("timed out"),
-        format!("actual error: {}", error_str)
-    );
+    assert_eq!(err.kind(), &ClientErrorKind::Timeout);
 }
 
 #[test]
