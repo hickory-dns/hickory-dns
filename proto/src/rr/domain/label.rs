@@ -36,10 +36,7 @@ impl Label {
     /// Generally users should use `from_str` or `from_ascii`
     pub fn from_raw_bytes(bytes: &[u8]) -> ProtoResult<Self> {
         if bytes.len() > 63 {
-            return Err(ProtoErrorKind::Msg(format!(
-                "Label exceeds maximum length 63: {}",
-                bytes.len()
-            )).into());
+            return Err(format!("Label exceeds maximum length 63: {}", bytes.len()).into());
         };
         Ok(Label(Rc::from(bytes)))
     }
@@ -64,10 +61,7 @@ impl Label {
             },
         ) {
             Ok(puny) => Self::from_ascii(&puny),
-            Err(e) => Err(ProtoErrorKind::Msg(format!(
-                "Label contains invalid characters: {:?}",
-                e
-            )).into()),
+            Err(e) => Err(format!("Label contains invalid characters: {:?}", e).into()),
         }
     }
 
@@ -84,7 +78,7 @@ impl Label {
         {
             Label::from_raw_bytes(s.as_bytes())
         } else {
-            Err(ProtoErrorKind::Msg(format!("Malformed label: {}", s)).into())
+            Err(format!("Malformed label: {}", s).into())
         }
     }
 

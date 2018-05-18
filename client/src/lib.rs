@@ -209,7 +209,7 @@ extern crate data_encoding;
 #[macro_use]
 extern crate data_encoding_macro;
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
 extern crate futures;
 #[macro_use]
 extern crate lazy_static;

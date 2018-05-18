@@ -16,9 +16,6 @@
 
 //! All defined errors for Trust-DNS
 
-// TODO figure out how to doc error_chain!
-#![allow(missing_docs)]
-
 mod config_error;
 mod persistence_error;
 
@@ -27,9 +24,6 @@ pub use self::persistence_error::Error as PersistenceError;
 
 pub use self::config_error::ErrorKind as ConfigErrorKind;
 pub use self::persistence_error::ErrorKind as PersistenceErrorKind;
-
-pub use self::config_error::ChainErr as ConfigChainErr;
-pub use self::persistence_error::ChainErr as PersistenceChainErr;
 
 pub use self::config_error::Result as ConfigResult;
 pub use self::persistence_error::Result as PersistenceResult;

@@ -8,12 +8,13 @@
 //! Lookup result from a resolution of ipv4 and ipv6 records with a Resolver.
 
 use std::cmp::min;
-use std::error::Error as StdError;
 use std::mem;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::slice::Iter;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
+
+use failure::Fail;
 
 use futures::{future, task, Async, Future, Poll};
 
@@ -209,7 +210,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupFuture<C> {
         }
     }
 
-    pub(crate) fn error<E: StdError>(client_cache: CachingClient<C>, error: E) -> Self {
+    pub(crate) fn error<E: Fail>(client_cache: CachingClient<C>, error: E) -> Self {
         return LookupFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client_cache,
@@ -482,7 +483,7 @@ pub mod tests {
     #[test]
     fn test_empty_no_response() {
         assert_eq!(
-            LookupFuture::lookup(
+            *LookupFuture::lookup(
                 vec![Name::root()],
                 RecordType::A,
                 DnsRequestOptions::default(),
@@ -490,7 +491,7 @@ pub mod tests {
             ).wait()
                 .unwrap_err()
                 .kind(),
-            &ResolveErrorKind::NoRecordsFound(Query::query(Name::root(), RecordType::A))
+            ResolveErrorKind::NoRecordsFound(Query::query(Name::root(), RecordType::A))
         );
     }
 }

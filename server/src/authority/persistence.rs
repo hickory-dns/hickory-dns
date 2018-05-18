@@ -101,7 +101,10 @@ impl Journal {
         )?;
         //
         if count != 1 {
-            return Err(PersistenceErrorKind::WrongInsertCount(count, 1).into());
+            return Err(PersistenceErrorKind::WrongInsertCount {
+                got: count,
+                expect: 1,
+            }.into());
         };
 
         Ok(())
@@ -152,9 +155,10 @@ impl Journal {
                 // todo add location to this...
                 match Record::read(&mut decoder) {
                     Ok(record) => Ok((row_id, record)),
-                    Err(decode_error) => Err(rusqlite::Error::InvalidParameterName(
-                        format!("could not decode: {}", decode_error),
-                    )),
+                    Err(decode_error) => Err(rusqlite::Error::InvalidParameterName(format!(
+                        "could not decode: {}",
+                        decode_error
+                    ))),
                 }
             },
         )?

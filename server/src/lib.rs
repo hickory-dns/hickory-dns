@@ -30,7 +30,7 @@
 extern crate chrono;
 extern crate env_logger;
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
 extern crate futures;
 #[macro_use]
 extern crate log;

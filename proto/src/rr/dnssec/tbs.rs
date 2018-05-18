@@ -106,7 +106,7 @@ pub fn rrset_tbs(
     let name: Name = if let Some(name) = determine_name(name, num_labels) {
         name
     } else {
-        return Err(ProtoErrorKind::Msg(format!("could not determine name from {}", name)).into());
+        return Err(format!("could not determine name from {}", name).into());
     };
 
     // TODO: rather than buffering here, use the Signer/Verifier? might mean fewer allocations...
@@ -190,9 +190,7 @@ pub fn rrset_tbs_with_rrsig(rrsig: &Record, records: &[Record]) -> ProtoResult<T
     if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *rrsig.rdata() {
         rrset_tbs_with_sig(rrsig.name(), rrsig.dns_class(), sig, records)
     } else {
-        return Err(
-            ProtoErrorKind::Msg(format!("could not determine name from {}", rrsig.name())).into(),
-        );
+        return Err(format!("could not determine name from {}", rrsig.name()).into());
     }
 }
 
@@ -229,7 +227,6 @@ pub fn rrset_tbs_with_sig(
         records,
     )
 }
-
 
 /// [RFC 4035](https://tools.ietf.org/html/rfc4035), DNSSEC Protocol Modifications, March 2005
 ///

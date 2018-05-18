@@ -505,12 +505,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 
                         state = ParseNameKeyPairState::Key { key, key_values }
                     }
-                    ch => {
-                        return Err(
-                            ProtoErrorKind::Msg(format!("bad character in CAA issuer key: {}", ch))
-                                .into(),
-                        )
-                    }
+                    ch => return Err(format!("bad character in CAA issuer key: {}", ch).into()),
                 }
             }
             ParseNameKeyPairState::Key {
@@ -533,12 +528,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
 
                         state = ParseNameKeyPairState::Key { key, key_values }
                     }
-                    ch => {
-                        return Err(
-                            ProtoErrorKind::Msg(format!("bad character in CAA issuer key: {}", ch))
-                                .into(),
-                        )
-                    }
+                    ch => return Err(format!("bad character in CAA issuer key: {}", ch).into()),
                 }
             }
             ParseNameKeyPairState::Value {
@@ -562,13 +552,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                             key_values,
                         }
                     }
-                    ch => {
-                        return Err(
-                            ProtoErrorKind::Msg(
-                                format!("bad character in CAA issuer value: {}", ch),
-                            ).into(),
-                        )
-                    }
+                    ch => return Err(format!("bad character in CAA issuer value: {}", ch).into()),
                 }
             }
         }
@@ -587,7 +571,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
             key_values
         }
         ParseNameKeyPairState::Key { key, .. } => {
-            return Err(ProtoErrorKind::Msg(format!("key missing value: {}", key)).into())
+            return Err(format!("key missing value: {}", key).into())
         }
     };
 
@@ -745,7 +729,7 @@ pub fn read(decoder: &mut BinDecoder, rdata_length: u16) -> ProtoResult<CAA> {
 // TODO: change this to return &str
 fn read_tag(decoder: &mut BinDecoder, len: u8) -> ProtoResult<String> {
     if len == 0 || len > 15 {
-        return Err(ProtoErrorKind::Message("CAA tag length out of bounds, 1-15").into());
+        return Err("CAA tag length out of bounds, 1-15".into());
     }
     let mut tag = String::with_capacity(len as usize);
 
@@ -756,7 +740,7 @@ fn read_tag(decoder: &mut BinDecoder, len: u8) -> ProtoResult<String> {
             ch @ 'a'...'z' | ch @ 'A'...'Z' | ch @ '0'...'9' => {
                 tag.push(ch);
             }
-            _ => return Err(ProtoErrorKind::Message("CAA tag character(s) out of bounds").into()),
+            _ => return Err("CAA tag character(s) out of bounds".into()),
         }
     }
 
@@ -770,16 +754,14 @@ fn emit_tag(buf: &mut [u8], tag: &Property) -> ProtoResult<u8> {
 
     let len = property.len();
     if len > ::std::u8::MAX as usize {
-        return Err(ProtoErrorKind::Msg(format!("CAA property too long: {}", len)).into());
+        return Err(format!("CAA property too long: {}", len).into());
     }
     if buf.len() < len {
-        return Err(
-            ProtoErrorKind::Msg(format!(
-                "insufficient capacity in CAA buffer: {} for tag: {}",
-                buf.len(),
-                len
-            )).into(),
-        );
+        return Err(format!(
+            "insufficient capacity in CAA buffer: {} for tag: {}",
+            buf.len(),
+            len
+        ).into());
     }
 
     // copy into the buffer

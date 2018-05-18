@@ -656,11 +656,11 @@ mod tests {
         let mut client = mock(vec![empty()]);
 
         assert_eq!(
-            QueryState::lookup(Query::new(), Default::default(), &mut client, cache)
+            *QueryState::lookup(Query::new(), Default::default(), &mut client, cache)
                 .wait()
                 .unwrap_err()
                 .kind(),
-            &ResolveErrorKind::NoRecordsFound(Query::new())
+            ResolveErrorKind::NoRecordsFound(Query::new())
         );
     }
 

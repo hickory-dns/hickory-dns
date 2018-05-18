@@ -344,7 +344,7 @@ pub enum State {
 }
 
 /// Tokens emited from each Lexer pass
-#[derive(PartialEq, Debug, Clone)]
+#[derive(Eq, PartialEq, Debug, Clone)]
 pub enum Token {
     /// only if the first part of the line
     Blank,

@@ -165,7 +165,7 @@
 #[macro_use]
 extern crate cfg_if;
 #[macro_use]
-extern crate error_chain;
+extern crate failure;
 #[macro_use]
 extern crate futures;
 #[cfg(target_os = "windows")]

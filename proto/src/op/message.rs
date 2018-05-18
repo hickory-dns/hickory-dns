@@ -612,9 +612,7 @@ impl Message {
 
             if !is_additional {
                 if saw_sig0 {
-                    return Err(
-                        ProtoErrorKind::Message("sig0 must be final resource record").into(),
-                    );
+                    return Err("sig0 must be final resource record".into());
                 } // SIG0 must be last
                 records.push(record)
             } else {
@@ -626,31 +624,16 @@ impl Message {
                     }
                     RecordType::OPT => {
                         if saw_sig0 {
-                            return Err(
-                                ProtoErrorKind::Message(
-                                    "sig0 must be final resource \
-                                     record",
-                                ).into(),
-                            );
+                            return Err("sig0 must be final resource record".into());
                         } // SIG0 must be last
                         if edns.is_some() {
-                            return Err(
-                                ProtoErrorKind::Message(
-                                    "more than one edns record \
-                                     present",
-                                ).into(),
-                            );
+                            return Err("more than one edns record present".into());
                         }
                         edns = Some((&record).into());
                     }
                     _ => {
                         if saw_sig0 {
-                            return Err(
-                                ProtoErrorKind::Message(
-                                    "sig0 must be final resource \
-                                     record",
-                                ).into(),
-                            );
+                            return Err("sig0 must be final resource record".into());
                         } // SIG0 must be last
                         records.push(record);
                     }

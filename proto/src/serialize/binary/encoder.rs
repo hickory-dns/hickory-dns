@@ -524,7 +524,7 @@ mod tests {
         encoder.emit(4).expect("failed to write");
         let error = encoder.emit(5).unwrap_err();
 
-        match error.into_kind() {
+        match *error.kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
             _ => assert!(false),
         }
@@ -538,7 +538,7 @@ mod tests {
         encoder.set_max_size(0);
         let error = encoder.emit(0).unwrap_err();
 
-        match error.into_kind() {
+        match *error.kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
             _ => assert!(false),
         }
@@ -555,7 +555,7 @@ mod tests {
 
         let error = encoder.place::<u16>().unwrap_err();
 
-        match error.into_kind() {
+        match *error.kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
             _ => assert!(false),
         }

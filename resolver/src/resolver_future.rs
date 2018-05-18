@@ -360,12 +360,11 @@ impl ResolverFuture {
 mod tests {
     extern crate tokio;
 
+    use failure::Fail;
     use std::net::*;
     use std::str::FromStr;
 
     use self::tokio::runtime::current_thread::Runtime;
-
-    use trust_dns_proto::error::ProtoErrorKind;
 
     use config::{LookupIpStrategy, NameServerConfig};
 
@@ -514,10 +513,18 @@ mod tests {
         assert!(response.is_err());
         let error = response.unwrap_err();
 
-        assert_eq!(
-            error.kind(),
-            &ResolveErrorKind::Proto(ProtoErrorKind::RrsigsNotPresent(name, RecordType::A))
+        use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
+
+        let error_str = format!("{}", error.root_cause());
+        let expected_str = format!(
+            "{}",
+            ProtoError::from(ProtoErrorKind::RrsigsNotPresent {
+                name,
+                record_type: RecordType::A
+            })
         );
+        assert_eq!(error_str, expected_str);
+        assert_eq!(*error.kind(), ResolveErrorKind::Proto);
     }
 
     #[test]

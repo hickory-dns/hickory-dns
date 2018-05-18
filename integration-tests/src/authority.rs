@@ -97,7 +97,14 @@ pub fn create_example() -> Authority {
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
+                0x2606,
+                0x2800,
+                0x220,
+                0x1,
+                0x248,
+                0x1893,
+                0x25c8,
+                0x1946,
             )))
             .clone(),
         0,
@@ -152,7 +159,14 @@ pub fn create_example() -> Authority {
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
-                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
+                0x2606,
+                0x2800,
+                0x220,
+                0x1,
+                0x248,
+                0x1893,
+                0x25c8,
+                0x1946,
             )))
             .clone(),
         0,
@@ -177,12 +191,7 @@ pub fn create_secure_example() -> Authority {
     let rsa = Rsa::generate(2048).unwrap();
     let key = KeyPair::from_rsa(rsa).unwrap();
     let dnskey = key.to_dnskey(Algorithm::RSASHA256).unwrap();
-    let signer = Signer::dnssec(
-        dnskey,
-        key,
-        authority.origin().clone().into(),
-        Duration::weeks(1),
-    );
+    let signer = Signer::dnssec(dnskey, key, authority.origin().clone().into(), Duration::weeks(1));
 
     authority.add_secure_key(signer);
     authority.secure_zone();
