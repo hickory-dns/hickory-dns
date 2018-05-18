@@ -80,7 +80,7 @@ fn verify_with_pkey(
             if b {
                 Ok(())
             } else {
-                Err(ProtoErrorKind::Message("could not verify").into())
+                Err("could not verify".into())
             }
         })
 }
@@ -285,13 +285,11 @@ impl<'k> Ed25519<'k> {
     /// ```
     pub fn from_public_bytes(public_key: &'k [u8]) -> ProtoResult<Self> {
         if public_key.len() != ED25519_PUBLIC_KEY_LEN {
-            return Err(
-                ProtoErrorKind::Msg(format!(
-                    "expected {} byte public_key: {}",
-                    ED25519_PUBLIC_KEY_LEN,
-                    public_key.len()
-                )).into(),
-            );
+            return Err(format!(
+                "expected {} byte public_key: {}",
+                ED25519_PUBLIC_KEY_LEN,
+                public_key.len()
+            ).into());
         }
 
         Ok(Ed25519 { raw: public_key })

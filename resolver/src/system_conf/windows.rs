@@ -19,14 +19,8 @@ use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
 
 macro_rules! map_ipconfig_error {
-    // TODO: this should use error_chains chain facility
     ($result:expr) => {
-        $result.map_err(|e| {
-            ResolveError::from(ResolveErrorKind::Msg(format!(
-                "failed to read from registry: {}",
-                e
-            )))
-        })
+        $result.map_err(|e| e.context(ResolveErrorKind::from("failed to read from registry")))
     };
 }
 

@@ -86,9 +86,7 @@ impl<E: FromProtoError> ActiveRequest<E> {
     ///   otherwise an error will alway be returned.
     fn complete(self) {
         if self.responses.is_empty() {
-            self.complete_with_error(
-                ProtoErrorKind::Message("no responses received, should have timedout").into(),
-            );
+            self.complete_with_error("no responses received, should have timedout".into());
         } else {
             ignore_send(self.completion.send(Ok(self.responses.into())));
         }
@@ -135,12 +133,7 @@ where
         stream_handle: Box<DnsStreamHandle<Error = E> + Send>,
         signer: Option<Arc<MF>>,
     ) -> BasicDnsHandle<E> {
-        Self::with_timeout(
-            stream,
-            stream_handle,
-            Duration::from_secs(5),
-            signer,
-        )
+        Self::with_timeout(stream, stream_handle, Duration::from_secs(5), signer)
     }
 
     /// Spawns a new DnsFuture Stream.
@@ -173,12 +166,7 @@ where
                         signer: signer,
                     }),
                     Err(stream_error) => ClientStreamOrError::Errored(ClientStreamErrored {
-                        error_msg: format!(
-                            "stream error {}:{}: {}",
-                            file!(),
-                            line!(),
-                            stream_error
-                        ),
+                        error: E::from(stream_error.into()),
                         new_receiver: rx.fuse().peekable(),
                     }),
                 })
@@ -198,27 +186,18 @@ where
             &mut self.active_requests
         {
             if active_req.is_canceled() {
-                canceled.insert(
-                    id,
-                    ProtoError::from(ProtoErrorKind::Message("requestor canceled")),
-                );
+                canceled.insert(id, ProtoError::from("requestor canceled"));
             }
 
             // check for timeouts...
             match active_req.poll_timeout() {
                 Ok(Async::Ready(_)) => {
-                    canceled.insert(
-                        id,
-                        ProtoError::from(ProtoErrorKind::Message("request timed out")),
-                    );
+                    canceled.insert(id, ProtoError::from(ProtoErrorKind::Timeout));
                 }
                 Ok(Async::NotReady) => (),
                 Err(e) => {
                     error!("unexpected error from timeout: {}", e);
-                    canceled.insert(
-                        id,
-                        ProtoError::from(ProtoErrorKind::Message("error registering timeout")),
-                    );
+                    canceled.insert(id, ProtoError::from("error registering timeout"));
                 }
             }
         }
@@ -307,7 +286,9 @@ where
 
                     let now = SystemTime::now()
                         .duration_since(UNIX_EPOCH)
-                        .map_err(|_| "Current time is before the Unix epoch.".into())?
+                        .map_err(|_| {
+                            ProtoErrorKind::Message("Current time is before the Unix epoch.").into()
+                        })?
                         .as_secs();
                     let now = now as u32; // XXX: truncates u64 to u32.
 
@@ -413,7 +394,7 @@ where
 
         // Clean shutdown happens when all pending requests are done and the
         // incoming channel has been closed (e.g. you'll never receive another
-        // request). Errors wiil return early...
+        // request). Errors will return early...
         let done = match self.new_receiver.peek() {
             Ok(Async::Ready(None)) => true,
             Ok(_) => false,
@@ -441,8 +422,7 @@ struct ClientStreamErrored<E>
 where
     E: FromProtoError,
 {
-    // TODO: is there a better thing to grab here?
-    error_msg: String,
+    error: E,
     new_receiver:
         Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<DnsResponse, E>>)>>>,
 }
@@ -458,9 +438,7 @@ where
         match self.new_receiver.poll() {
             Ok(Async::Ready(Some((_, complete)))) => {
                 // TODO: this error never seems to make it, the receiver closes early...
-                ignore_send(complete.send(Err(E::from(
-                    ProtoErrorKind::Msg(self.error_msg.clone()).into(),
-                ))));
+                ignore_send(complete.send(Err(self.error.clone())));
 
                 task::current().notify();
                 Ok(Async::NotReady)

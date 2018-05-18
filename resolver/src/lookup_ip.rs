@@ -9,11 +9,12 @@
 //!
 //! At it's heart LookupIp uses Lookup for performing all lookups. It is unlike other standard lookups in that there are customizations around A and AAAA resolutions.
 
-use std::error::Error;
 use std::mem;
 use std::net::IpAddr;
 use std::sync::Arc;
 use std::time::Instant;
+
+use failure::Fail;
 
 use futures::{future, task, Async, Future, Poll};
 
@@ -154,7 +155,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupIpFuture<C> {
         }
     }
 
-    pub(crate) fn error<E: Error>(client_cache: CachingClient<C>, error: E) -> Self {
+    pub(crate) fn error<E: Fail>(client_cache: CachingClient<C>, error: E) -> Self {
         return LookupIpFuture {
             // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
             client_cache,

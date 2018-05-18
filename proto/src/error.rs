@@ -5,10 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-#![allow(missing_docs)]
+//! Error types for the crate
 
-use std::io;
-use std::sync::Arc;
+#![deny(missing_docs)]
+
+use std::{fmt, io};
 
 use rr::{Name, RecordType};
 
@@ -21,151 +22,243 @@ use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(feature = "ring")]
 use ring::error::Unspecified;
 
+use failure::{Backtrace, Context, Fail};
 use tokio_timer::Error as TimerError;
 
-error_chain! {
-    // The type defined for this error. These are the conventional
-    // and recommended names, but they can be arbitrarily chosen.
-    types {
-        ProtoError, ProtoErrorKind, ProtoChainErr, ProtoResult;
-    }
+/// An alias for results returned by functions of this crate
+pub type ProtoResult<T> = ::std::result::Result<T, ProtoError>;
 
-    // Automatic conversions between this error chain and other
-    // error chains. In this case, it will e.g. generate an
-    // `ErrorKind` variant called `Dist` which in turn contains
-    // the `rustup_dist::ErrorKind`, with conversions from
-    // `rustup_dist::Error`.
-    //
-    // This section can be empty.
-    links {
-    //   super::decode_error::Error, super::decode_error::ErrorKind, Decode;
-    //   super::encode_error::Error, super::encode_error::ErrorKind, Encode;
-    //   DnsSecError, ProtoErrorKind, DnsSec;
-    }
+/// The error kind for errors that get returned in the crate
+#[derive(Eq, PartialEq, Debug, Fail)]
+pub enum ProtoErrorKind {
+    /// An error caused by a canceled future
+    #[fail(display = "future was canceled: {:?}", _0)]
+    Canceled(::futures::sync::oneshot::Canceled),
 
-    // Automatic conversions between this error chain and other
-    // error types not defined by the `error_chain!`. These will be
-    // boxed as the error cause and wrapped in a new error with,
-    // in this case, the `ErrorKind::Temp` variant.
-    //
-    // This section can be empty.
-    foreign_links {
-      ::std::io::Error, Io, "io error";
-      ::std::net::AddrParseError, AddrParseError, "network address parse error";
-      ::std::num::ParseIntError, ParseIntError, "error parsing number";
-      ::std::str::Utf8Error, Utf8Error, "error parsing utf string";
-      ::std::string::FromUtf8Error, FromUtf8Error, "utf8 conversion error";
-      SslErrorStack, SSL, "ssl error";
-      Unspecified, Ring, "ring error";
-      ::url::ParseError, UrlParsingError, "url parsing error";
-      TimerError, Timer, "timer error";
-    }
+    /// Character data length exceeded the limit of 255
+    #[fail(display = "char data length exceeds 255: {}", _0)]
+    CharacterDataTooLong(usize),
 
-    // Define additional `ErrorKind` variants. The syntax here is
-    // the same as `quick_error!`, but the `from()` and `cause()`
-    // syntax is not supported.
-    errors {
-      Canceled(c: ::futures::sync::oneshot::Canceled) {
-        description("future was canceled")
-        display("future was canceled: {:?}", c)
-      }
+    /// DNS protocol version doesn't have the expected version 3
+    #[fail(display = "dns key value unknown, must be 3: {}", _0)]
+    DnsKeyProtocolNot3(u8),
 
-      CharacterDataTooLong(len: usize) {
-        description("char data length exceeds 255")
-        display("char data length exceeds 255: {}", len)
-      }
+    /// A domain name was too long
+    #[fail(display = "name label data exceed 255: {}", _0)]
+    DomainNameTooLong(usize),
 
-      DnsKeyProtocolNot3(value: u8) {
-        description("dns key value unknown, must be 3")
-        display("dns key value unknown, must be 3: {}", value)
-      }
+    /// EDNS resource record label is not the root label, although required
+    #[fail(display = "edns resource record label must be the root label (.): {}", _0)]
+    EdnsNameNotRoot(::rr::Name),
 
-      DomainNameTooLong(len: usize) {
-        description("name label data exceed 255")
-        display("name label data exceed 255: {}", len)
-      }
+    /// The length of rdata read was not as expected
+    #[fail(display = "incorrect rdata length read: {} expected: {}", read, len)]
+    IncorrectRDataLengthRead {
+        /// The amount of read data
+        read: usize,
+        /// The expected length of the data
+        len: usize,
+    },
 
-      EdnsNameNotRoot(found: ::rr::Name) {
-        description("edns resource record label must be the root label (.)")
-        display("edns resource record label must be the root label (.): {}", found)
-      }
+    /// Label bytes exceeded the limit of 63
+    #[fail(display = "label bytes exceed 63: {}", _0)]
+    LabelBytesTooLong(usize),
 
-      LabelBytesTooLong(len: usize) {
-        description("label bytes exceed 63")
-        display("label bytes exceed 63: {}", len)
-      }
+    /// The maximum buffer size was exceeded
+    #[fail(display = "maximum buffer size exceeded: {}", _0)]
+    MaxBufferSizeExceeded(usize),
 
-      Message(msg: &'static str) {
-        description(msg)
-        display("{}", msg)
-      }
+    /// An error with an arbitrary message, referenced as &'static str
+    #[fail(display = "{}", _0)]
+    Message(&'static str),
 
-      NoError {
-        description("no error specified")
-        display("no error specified")
-      }
+    /// An error with an arbitrary message, stored as String
+    #[fail(display = "{}", _0)]
+    Msg(String),
 
-      IncorrectRDataLengthRead(read: usize, len: usize) {
-        description("incorrect rdata length read")
-        display("incorrect rdata length read: {} expected: {}", read, len)
-      }
+    /// No error was specified
+    #[fail(display = "no error specified")]
+    NoError,
 
-      Timeout {
-        description("request timeout")
-        display("request timed out")
-      }
+    /// Missing rrsigs
+    #[fail(
+        display = "rrsigs are not present for record set name: {} record_type: {}",
+        name,
+        record_type
+    )]
+    RrsigsNotPresent {
+        /// The record set name
+        name: Name,
+        /// The record type
+        record_type: RecordType,
+    },
 
-      UnknownAlgorithmTypeValue(value: u8) {
-        description("algorithm type value unknown")
-        display("algorithm type value unknown: {}", value)
-      }
+    /// An unknown algorithm type was found
+    #[fail(display = "algorithm type value unknown: {}", _0)]
+    UnknownAlgorithmTypeValue(u8),
 
-      UnknownDnsClassStr(value: String) {
-        description("dns class string unknown")
-        display("dns class string unknown: {}", value)
-      }
+    /// An unknown dns class was found
+    #[fail(display = "dns class string unknown: {}", _0)]
+    UnknownDnsClassStr(String),
 
-      UnknownDnsClassValue(value: u16) {
-        description("dns class value unknown")
-        display("dns class value unknown: {}", value)
-      }
+    /// An unknown dns class value was found
+    #[fail(display = "dns class value unknown: {}", _0)]
+    UnknownDnsClassValue(u16),
 
-      UnrecognizedLabelCode(value: u8) {
-        description("unrecognized label code")
-        display("unrecognized label code: {:b}", value)
-      }
+    /// An unknown record type string was found
+    #[fail(display = "record type string unknown: {}", _0)]
+    UnknownRecordTypeStr(String),
 
-      UnrecognizedNsec3Flags(value: u8) {
-        description("nsec3 flags should be 0b0000000*")
-        display("nsec3 flags should be 0b0000000*: {:b}", value)
-      }
+    /// An unknown record type value was found
+    #[fail(display = "record type value unknown: {}", _0)]
+    UnknownRecordTypeValue(u16),
 
-      UnknownRecordTypeStr(value: String) {
-        description("record type string unknown")
-        display("record type string unknown: {}", value)
-      }
+    /// An unrecognized label code was found
+    #[fail(display = "unrecognized label code: {:b}", _0)]
+    UnrecognizedLabelCode(u8),
 
-      UnknownRecordTypeValue(value: u16) {
-        description("record type value unknown")
-        display("record type value unknown: {}", value)
-      }
+    /// Unrecognized nsec3 flags were found
+    #[fail(display = "nsec3 flags should be 0b0000000*: {:b}", _0)]
+    UnrecognizedNsec3Flags(u8),
 
-      RrsigsNotPresent(name: Name, record_type: RecordType) {
-        description("rrsigs are not present for record set")
-        display("rrsigs are not present for record set name: {} record_type: {}", name, record_type)
-      }
+    // foreign
+    /// An error got returned from IO
+    #[fail(display = "io error")]
+    Io,
 
-      MaxBufferSizeExceeded(size: usize) {
-        description("maximum buffer size exceeded")
-        display("maximum buffer size exceeded: {}", size)
-      }
+    /// A ring error
+    #[fail(display = "ring error")]
+    Ring,
+
+    /// An ssl error
+    #[fail(display = "ssl error")]
+    SSL,
+
+    /// A tokio timer error
+    #[fail(display = "timer error")]
+    Timer,
+
+    /// A request timed out
+    #[fail(display = "request timed out")]
+    Timeout,
+
+    /// An url parsing error
+    #[fail(display = "url parsing error")]
+    UrlParsing,
+
+    /// A utf8 parsing error
+    #[fail(display = "error parsing utf8 string")]
+    Utf8,
+}
+
+/// The error type for errors that get returned in the crate
+#[derive(Debug)]
+pub struct ProtoError {
+    inner: Context<ProtoErrorKind>,
+}
+
+impl ProtoError {
+    /// Get the kind of the error
+    pub fn kind(&self) -> &ProtoErrorKind {
+        self.inner.get_context()
     }
 }
 
+impl Clone for ProtoError {
+    fn clone(&self) -> Self {
+        ProtoError {
+            inner: Context::new(self.inner.get_context().clone()),
+        }
+    }
+}
+
+impl Fail for ProtoError {
+    fn cause(&self) -> Option<&Fail> {
+        self.inner.cause()
+    }
+
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.inner.backtrace()
+    }
+}
+
+impl fmt::Display for ProtoError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.inner, f)
+    }
+}
+
+impl From<ProtoErrorKind> for ProtoError {
+    fn from(kind: ProtoErrorKind) -> ProtoError {
+        ProtoError {
+            inner: Context::new(kind),
+        }
+    }
+}
+
+impl From<Context<ProtoErrorKind>> for ProtoError {
+    fn from(inner: Context<ProtoErrorKind>) -> ProtoError {
+        ProtoError { inner }
+    }
+}
+
+impl From<&'static str> for ProtoError {
+    fn from(msg: &'static str) -> ProtoError {
+        ProtoErrorKind::Message(msg).into()
+    }
+}
+
+impl From<String> for ProtoError {
+    fn from(msg: String) -> ProtoError {
+        ProtoErrorKind::Msg(msg).into()
+    }
+}
+
+impl From<io::Error> for ProtoError {
+    fn from(e: io::Error) -> ProtoError {
+        match e.kind() {
+            io::ErrorKind::TimedOut => e.context(ProtoErrorKind::Timeout).into(),
+            _ => e.context(ProtoErrorKind::Io).into(),
+        }
+    }
+}
+
+impl From<Unspecified> for ProtoError {
+    fn from(e: Unspecified) -> ProtoError {
+        e.context(ProtoErrorKind::Ring).into()
+    }
+}
+
+impl From<SslErrorStack> for ProtoError {
+    fn from(e: SslErrorStack) -> ProtoError {
+        e.context(ProtoErrorKind::SSL).into()
+    }
+}
+
+impl From<TimerError> for ProtoError {
+    fn from(e: TimerError) -> ProtoError {
+        e.context(ProtoErrorKind::Timer).into()
+    }
+}
+
+impl From<::url::ParseError> for ProtoError {
+    fn from(e: ::url::ParseError) -> ProtoError {
+        e.context(ProtoErrorKind::UrlParsing).into()
+    }
+}
+
+impl From<::std::str::Utf8Error> for ProtoError {
+    fn from(e: ::std::str::Utf8Error) -> ProtoError {
+        e.context(ProtoErrorKind::Utf8).into()
+    }
+}
+
+/// Stubs for running without OpenSSL
 #[cfg(not(feature = "openssl"))]
 pub mod not_openssl {
     use std;
 
+    /// SslErrorStac stub
     #[derive(Debug)]
     pub struct SslErrorStack;
 
@@ -182,10 +275,12 @@ pub mod not_openssl {
     }
 }
 
+/// Types used without ring
 #[cfg(not(feature = "ring"))]
 pub mod not_ring {
     use std;
 
+    /// The Unspecified error replacement
     #[derive(Debug)]
     pub struct Unspecified;
 
@@ -204,93 +299,62 @@ pub mod not_ring {
 
 impl From<ProtoError> for io::Error {
     fn from(e: ProtoError) -> Self {
-        let error_kind = match *e.kind() {
-            ProtoErrorKind::Timeout => io::ErrorKind::TimedOut,
-            _ => io::ErrorKind::Other,
-        };
-
-        io::Error::new(error_kind, format!("ProtoError: {}", e))
+        match *e.kind() {
+            ProtoErrorKind::Timeout => io::Error::new(io::ErrorKind::TimedOut, e.compat()),
+            _ => io::Error::new(io::ErrorKind::Other, e.compat()),
+        }
     }
 }
 
 impl Clone for ProtoErrorKind {
     fn clone(&self) -> Self {
+        use self::ProtoErrorKind::*;
         match *self {
-            ProtoErrorKind::AddrParseError => ProtoErrorKind::AddrParseError,
-            ProtoErrorKind::Canceled(ref c) => ProtoErrorKind::Canceled(*c),
-            ProtoErrorKind::CharacterDataTooLong(len) => ProtoErrorKind::CharacterDataTooLong(len),
-            ProtoErrorKind::DnsKeyProtocolNot3(value) => ProtoErrorKind::DnsKeyProtocolNot3(value),
-            ProtoErrorKind::DomainNameTooLong(len) => ProtoErrorKind::DomainNameTooLong(len),
-            ProtoErrorKind::EdnsNameNotRoot(ref found) => {
-                ProtoErrorKind::EdnsNameNotRoot(found.clone())
-            }
-            ProtoErrorKind::FromUtf8Error => ProtoErrorKind::FromUtf8Error,
-            ProtoErrorKind::Io => ProtoErrorKind::Io,
-            ProtoErrorKind::IncorrectRDataLengthRead(read, len) => {
-                ProtoErrorKind::IncorrectRDataLengthRead(read, len)
-            }
-            ProtoErrorKind::LabelBytesTooLong(len) => ProtoErrorKind::LabelBytesTooLong(len),
-            ProtoErrorKind::Message(msg) => ProtoErrorKind::Message(msg),
-            ProtoErrorKind::Msg(ref string) => ProtoErrorKind::Msg(string.clone()),
-            ProtoErrorKind::NoError => ProtoErrorKind::NoError,
-            ProtoErrorKind::ParseIntError => ProtoErrorKind::ParseIntError,
-            ProtoErrorKind::Timeout => ProtoErrorKind::Timeout,
-            ProtoErrorKind::UnknownAlgorithmTypeValue(value) => {
-                ProtoErrorKind::UnknownAlgorithmTypeValue(value)
-            }
-            ProtoErrorKind::UnknownDnsClassStr(ref value) => {
-                ProtoErrorKind::UnknownDnsClassStr(value.clone())
-            }
-            ProtoErrorKind::UnknownDnsClassValue(value) => {
-                ProtoErrorKind::UnknownDnsClassValue(value)
-            }
-            ProtoErrorKind::UnrecognizedLabelCode(value) => {
-                ProtoErrorKind::UnrecognizedLabelCode(value)
-            }
-            ProtoErrorKind::UnrecognizedNsec3Flags(value) => {
-                ProtoErrorKind::UnrecognizedNsec3Flags(value)
-            }
-            ProtoErrorKind::UnknownRecordTypeStr(ref value) => {
-                ProtoErrorKind::UnknownRecordTypeStr(value.clone())
-            }
-            ProtoErrorKind::UnknownRecordTypeValue(value) => {
-                ProtoErrorKind::UnknownRecordTypeValue(value)
-            }
-            ProtoErrorKind::UrlParsingError => ProtoErrorKind::UrlParsingError,
-            ProtoErrorKind::Utf8Error => ProtoErrorKind::Utf8Error,
-            ProtoErrorKind::Ring => ProtoErrorKind::Ring,
-            ProtoErrorKind::SSL => ProtoErrorKind::SSL,
-            ProtoErrorKind::RrsigsNotPresent(ref name, ref record_type) => {
-                ProtoErrorKind::RrsigsNotPresent(name.clone(), *record_type)
-            }
-            ProtoErrorKind::MaxBufferSizeExceeded(ref max) => {
-                ProtoErrorKind::MaxBufferSizeExceeded(*max)
-            }
-            ProtoErrorKind::Timer => ProtoErrorKind::Timer,
+            Canceled(ref c) => Canceled(*c),
+            CharacterDataTooLong(len) => CharacterDataTooLong(len),
+            DnsKeyProtocolNot3(protocol) => DnsKeyProtocolNot3(protocol),
+            DomainNameTooLong(len) => DomainNameTooLong(len),
+            EdnsNameNotRoot(ref found) => EdnsNameNotRoot(found.clone()),
+            IncorrectRDataLengthRead { read, len } => IncorrectRDataLengthRead { read, len },
+            LabelBytesTooLong(len) => LabelBytesTooLong(len),
+            MaxBufferSizeExceeded(max) => MaxBufferSizeExceeded(max),
+            Message(msg) => Message(msg),
+            Msg(ref msg) => Msg(msg.clone()),
+            NoError => NoError,
+            RrsigsNotPresent {
+                ref name,
+                ref record_type,
+            } => RrsigsNotPresent {
+                name: name.clone(),
+                record_type: *record_type,
+            },
+            UnknownAlgorithmTypeValue(value) => UnknownAlgorithmTypeValue(value),
+            UnknownDnsClassStr(ref value) => UnknownDnsClassStr(value.clone()),
+            UnknownDnsClassValue(value) => UnknownDnsClassValue(value),
+            UnknownRecordTypeStr(ref value) => UnknownRecordTypeStr(value.clone()),
+            UnknownRecordTypeValue(value) => UnknownRecordTypeValue(value),
+            UnrecognizedLabelCode(value) => UnrecognizedLabelCode(value),
+            UnrecognizedNsec3Flags(flags) => UnrecognizedNsec3Flags(flags),
+
+            // foreign
+            Io => Io,
+            Ring => Ring,
+            SSL => SSL,
+            Timeout => Timeout,
+            Timer => Timer,
+            UrlParsing => UrlParsing,
+            Utf8 => Utf8,
         }
     }
 }
 
-// TODO: replace this when https://github.com/rust-lang-nursery/error-chain/pull/163 is merged
-impl Clone for ProtoError {
-    fn clone(&self) -> Self {
-        let cloned_kind: ProtoErrorKind = self.0.clone();
-
-        // sadly need to convert the inner error...
-
-        let inner_error: Option<Box<::std::error::Error + Send + 'static>> =
-            (&self.1).0.as_ref().map(|e| {
-                Box::new(ProtoError::from(ProtoErrorKind::Msg(format!("{}", e))))
-                    as Box<::std::error::Error + Send + 'static>
-            });
-        ProtoError(cloned_kind, (inner_error, Arc::clone(&(self.1).1)))
-    }
-}
-
-pub trait FromProtoError: From<ProtoError> + ::std::error::Error + Clone + Send {}
+/// A trait marking a type which implements From<ProtoError> and
+/// failure::Fail (which includes all std::error::Error types)
+/// as well as Clone + Send
+pub trait FromProtoError: From<ProtoError> + Fail + Clone + Send {}
 
 impl<E> FromProtoError for E
 where
-    E: From<ProtoError> + ::std::error::Error + Clone + Send,
+    E: From<ProtoError> + Fail + Clone + Send,
 {
 }

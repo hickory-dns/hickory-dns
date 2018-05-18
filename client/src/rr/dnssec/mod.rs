@@ -41,7 +41,6 @@ pub use self::dnssec::Verifier;
 
 pub use error::DnsSecError;
 pub use error::DnsSecErrorKind;
-pub use error::DnsSecChainErr;
 pub use error::DnsSecResult;
 
 #[cfg(all(not(feature = "ring"), feature = "openssl"))]

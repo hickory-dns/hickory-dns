@@ -13,80 +13,112 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-use std::num;
-use std::string::FromUtf8Error;
 
-error_chain! {
-    // The type defined for this error. These are the conventional
-    // and recommended names, but they can be arbitrarily chosen.
-    types {
-        Error, ErrorKind, ChainErr, Result;
+//! Lexer error types for the crate
+
+use std::fmt;
+
+use failure::{Backtrace, Context, Fail};
+
+/// An alias for lexer results returned by functions of this crate
+pub type Result<T> = ::std::result::Result<T, Error>;
+
+/// The error kind for lexer errors that get returned in the crate
+#[derive(Eq, PartialEq, Debug, Fail)]
+pub enum ErrorKind {
+    /// Unexpected end of input
+    #[fail(display = "unexpected end of input")]
+    EOF,
+
+    /// An illegal character was found
+    #[fail(display = "illegal character input: {}", _0)]
+    IllegalCharacter(char),
+
+    /// An illegal state was reached
+    #[fail(display = "illegal state: {}", _0)]
+    IllegalState(&'static str),
+
+    /// An error with an arbitrary message, referenced as &'static str
+    #[fail(display = "{}", _0)]
+    Message(&'static str),
+
+    /// An unclosed list was found
+    #[fail(display = "unclosed list, missing ')'")]
+    UnclosedList,
+
+    /// An unclosed quoted string was found
+    #[fail(display = "unclosed quoted string")]
+    UnclosedQuotedString,
+
+    /// An unrecognized character was found
+    #[fail(display = "unrecognized character input: {}", _0)]
+    UnrecognizedChar(char),
+
+    /// An unrecognized dollar content was found
+    #[fail(display = "unrecognized dollar content: {}", _0)]
+    UnrecognizedDollar(String),
+
+    /// An unrecognized octet was found
+    #[fail(display = "unrecognized octet: {:x}", _0)]
+    UnrecognizedOctet(u32),
+}
+
+impl Clone for ErrorKind {
+    fn clone(&self) -> Self {
+        use self::ErrorKind::*;
+        match *self {
+            EOF => EOF,
+            IllegalCharacter(c) => IllegalCharacter(c),
+            IllegalState(s) => IllegalState(s),
+            Message(msg) => Message(msg),
+            UnclosedList => UnclosedList,
+            UnclosedQuotedString => UnclosedQuotedString,
+            UnrecognizedChar(c) => UnrecognizedChar(c),
+            UnrecognizedDollar(ref s) => UnrecognizedDollar(s.clone()),
+            UnrecognizedOctet(o) => UnrecognizedOctet(o),
+        }
+    }
+}
+
+/// The error type for lexer errors that get returned in the crate
+#[derive(Debug)]
+pub struct Error {
+    inner: Context<ErrorKind>,
+}
+
+impl Error {
+    /// Get the kind of the error
+    pub fn kind(&self) -> &ErrorKind {
+        self.inner.get_context()
+    }
+}
+
+impl From<ErrorKind> for Error {
+    fn from(kind: ErrorKind) -> Error {
+        Error {
+            inner: Context::new(kind),
+        }
+    }
+}
+
+impl From<Context<ErrorKind>> for Error {
+    fn from(inner: Context<ErrorKind>) -> Error {
+        Error { inner }
+    }
+}
+
+impl Fail for Error {
+    fn cause(&self) -> Option<&Fail> {
+        self.inner.cause()
     }
 
-    // Automatic conversions between this error chain and other
-    // error chains. In this case, it will e.g. generate an
-    // `ErrorKind` variant called `Dist` which in turn contains
-    // the `rustup_dist::ErrorKind`, with conversions from
-    // `rustup_dist::Error`.
-    //
-    // This section can be empty.
-    links {
-        ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
+    fn backtrace(&self) -> Option<&Backtrace> {
+        self.inner.backtrace()
     }
+}
 
-    // Automatic conversions between this error chain and other
-    // error types not defined by the `error_chain!`. These will be
-    // boxed as the error cause and wrapped in a new error with,
-    // in this case, the `ErrorKind::Temp` variant.
-    //
-    // This section can be empty.
-    foreign_links {
-      FromUtf8Error, FromUtf8, "from utf8 error";
-      num::ParseIntError, ParseInt, "parse int error";
-    }
-
-    // Define additional `ErrorKind` variants. The syntax here is
-    // the same as `quick_error!`, but the `from()` and `cause()`
-    // syntax is not supported.
-    errors {
-      IllegalCharacter(ch: char) {
-        description("illegal character input")
-        display("illegal character input: {}", ch)
-      }
-
-      UnrecognizedChar(ch: char) {
-        description("unrecognized character input")
-        display("unrecognized character input: {}", ch)
-      }
-
-      UnrecognizedOctet(octet: u32) {
-        description("unrecognized octet")
-        display("unrecognized octet: {:x}", octet)
-      }
-
-      UnclosedQuotedString {
-        description("unclosed quoted string")
-        display("unclosed quoted string")
-      }
-
-      UnclosedList {
-        description("unclosed list, missing ')'")
-        display("unclosed list, missing ')'")
-      }
-
-      UnrecognizedDollar(string: String) {
-        description("unrecognized dollar content")
-        display("unrecognized dollar content: {}", string)
-      }
-
-      EOF {
-        description("unexpected end of input")
-        display("unexpected end of input")
-      }
-
-      IllegalState(string: &'static str) {
-        description("illegal state")
-        display("illegal state: {}", string)
-      }
+impl fmt::Display for Error {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        fmt::Display::fmt(&self.inner, f)
     }
 }
