@@ -117,6 +117,7 @@ impl From<&'static str> for ResolveError {
     }
 }
 
+#[cfg(target_os = "windows")]
 impl From<::ipconfig::error::Error> for ResolveError {
     fn from(e: ::ipconfig::error::Error) -> ResolveError {
         e.context(ResolveErrorKind::Message("failed to read from registry"))
