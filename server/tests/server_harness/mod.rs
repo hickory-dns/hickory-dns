@@ -64,6 +64,8 @@ where
     let mut named_out = BufReader::new(mem::replace(&mut named.stdout, None).expect("no stdout"));
 
     // forced thread killer
+    let named = Arc::new(Mutex::new(named));
+    let named_killer = Arc::clone(&named);
     let succeeded = Arc::new(atomic::AtomicBool::new(false));
     let succeeded_clone = succeeded.clone();
     let killer_join = thread::Builder::new()
@@ -71,9 +73,10 @@ where
         .spawn(move || {
             let succeeded = succeeded_clone;
 
-            let mut kill_named = || {
+            let kill_named = || {
                 println!("killing named");
 
+                let mut named = named_killer.lock().unwrap();
                 if let Err(e) = named.kill() {
                     println!("warning: failed to kill named: {:?}", e);
                 }
@@ -95,7 +98,19 @@ where
     // we should get the correct output before 1000 lines...
     let mut output = String::new();
     let mut found = false;
-    for _ in 0..1000 {
+    for _ in 0..10_000 {
+        {
+            assert!(
+                named
+                    .lock()
+                    .unwrap()
+                    .try_wait()
+                    .expect("failed to check status of named")
+                    .is_none(),
+                "named has already exited"
+            );
+        }
+
         output.clear();
         named_out
             .read_line(&mut output)
