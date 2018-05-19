@@ -41,7 +41,7 @@
 //!
 //! ```toml
 //! [dependencies]
-//! trust-dns = "^0.13"
+//! trust-dns = "^0.14"
 //! ```
 //!
 //! By default DNSSec validation is built in with OpenSSL, this can be disabled with:
