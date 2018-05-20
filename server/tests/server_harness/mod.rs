@@ -98,7 +98,9 @@ where
     // we should get the correct output before 1000 lines...
     let mut output = String::new();
     let mut found = false;
-    for _ in 0..10_000 {
+    let wait_for_start_until = Instant::now() + Duration::from_secs(60);
+
+    while Instant::now() < wait_for_start_until {
         {
             assert!(
                 named
