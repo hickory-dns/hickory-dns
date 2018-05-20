@@ -426,7 +426,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
     ///   master.
     /// ```
     ///
-    /// # Arguements
+    /// # Arguments
     ///
     /// * `current` - the current rrset which must exist for the swap to complete
     /// * `new` - the new rrset with which to replace the current rrset
