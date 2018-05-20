@@ -14,29 +14,29 @@ environment:
     OPENSSL_VERSION: 1_1_0h
     OPENSSL_DIR: C:\OpenSSL
 
-  - NO_DEFAULT_FEATURES_SUITE: 1
-    TARGET: x86_64-pc-windows-msvc
-    BITS: 64
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
+  # - NO_DEFAULT_FEATURES_SUITE: 1
+  #   TARGET: x86_64-pc-windows-msvc
+  #   BITS: 64
+  #   OPENSSL_VERSION: 1_1_0h
+  #   OPENSSL_DIR: C:\OpenSSL
 
-  - DNSSEC_OPENSSL_SUITE: 1
-    TARGET: x86_64-pc-windows-msvc
-    BITS: 64
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
+  # - DNSSEC_OPENSSL_SUITE: 1
+  #   TARGET: x86_64-pc-windows-msvc
+  #   BITS: 64
+  #   OPENSSL_VERSION: 1_1_0h
+  #   OPENSSL_DIR: C:\OpenSSL
 
-  - DNSSEC_RING_SUITE: 1
-    TARGET: x86_64-pc-windows-msvc
-    BITS: 64
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
+  # - DNSSEC_RING_SUITE: 1
+  #   TARGET: x86_64-pc-windows-msvc
+  #   BITS: 64
+  #   OPENSSL_VERSION: 1_1_0h
+  #   OPENSSL_DIR: C:\OpenSSL
 
-  - DNS_OVER_TLS_SUITE: 1
-    TARGET: x86_64-pc-windows-msvc
-    BITS: 64
-    OPENSSL_VERSION: 1_1_0h
-    OPENSSL_DIR: C:\OpenSSL
+  # - DNS_OVER_TLS_SUITE: 1
+  #   TARGET: x86_64-pc-windows-msvc
+  #   BITS: 64
+  #   OPENSSL_VERSION: 1_1_0h
+  #   OPENSSL_DIR: C:\OpenSSL
 
   # Just checking the basics on i686/32bit
   - TARGET: i686-pc-windows-msvc

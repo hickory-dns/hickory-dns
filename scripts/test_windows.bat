@@ -6,7 +6,7 @@ REM variables
 
 set RUST_BACKTRACE=full
 
-if %DEFAULT_SUITE% NEQ 0 (
+if [%DEFAULT_SUITE%] NEQ [0] (
     cargo test --manifest-path proto\Cargo.toml
     cargo test --manifest-path client\Cargo.toml
     cargo test --manifest-path resolver\Cargo.toml
@@ -15,7 +15,7 @@ if %DEFAULT_SUITE% NEQ 0 (
     cargo run --manifest-path resolver\Cargo.toml --example global_resolver
 )
 
-if %ALL_FEATURES_SUITE% NEQ 0 (
+if [%ALL_FEATURES_SUITE%] NEQ [0] (
     cargo test --manifest-path proto\Cargo.toml --all-features
     cargo test --manifest-path client\Cargo.toml --all-features
     cargo test --manifest-path resolver\Cargo.toml --all-features
@@ -23,7 +23,7 @@ if %ALL_FEATURES_SUITE% NEQ 0 (
     cargo test --manifest-path integration-tests\Cargo.toml --all-features
 )
 
-if %NO_DEFAULT_FEATURES_SUITE% NEQ 0 (
+if [%NO_DEFAULT_FEATURES_SUITE%] NEQ [0] (
     cargo test --manifest-path proto\Cargo.toml --no-default-features
     cargo test --manifest-path client\Cargo.toml --no-default-features
     cargo test --manifest-path resolver\Cargo.toml --no-default-features
@@ -31,7 +31,7 @@ if %NO_DEFAULT_FEATURES_SUITE% NEQ 0 (
     cargo test --manifest-path integration-tests\Cargo.toml --no-default-features
 )
 
-if %DNSSEC_OPENSSL_SUITE% NEQ 0 (
+if [%DNSSEC_OPENSSL_SUITE%] NEQ [0] (
     cargo test --manifest-path proto\Cargo.toml --no-default-features --features=dnssec-openssl
     cargo test --manifest-path client\Cargo.toml --no-default-features --features=dnssec-openssl
     cargo test --manifest-path resolver\Cargo.toml --no-default-features --features=dnssec-openssl
@@ -39,7 +39,7 @@ if %DNSSEC_OPENSSL_SUITE% NEQ 0 (
     cargo test --manifest-path integration-tests\Cargo.toml --no-default-features --features=dnssec-openssl
 )
 
-if %DNSSEC_RING_SUITE% NEQ 0 (
+if [%DNSSEC_RING_SUITE%] NEQ [0] (
     cargo test --manifest-path proto\Cargo.toml --no-default-features --features=dnssec-ring  
     cargo test --manifest-path client\Cargo.toml --no-default-features --features=dnssec-ring
     cargo test --manifest-path resolver\Cargo.toml --no-default-features --features=dnssec-ring
@@ -47,7 +47,7 @@ if %DNSSEC_RING_SUITE% NEQ 0 (
     cargo test --manifest-path integration-tests\Cargo.toml --no-default-features --features=dnssec-ring
 )
 
-if %DNS_OVER_TLS_SUITE% NEQ 0 (
+if [%DNS_OVER_TLS_SUITE%] NEQ [0] (
     cargo test --manifest-path native-tls\Cargo.toml
     cargo test --manifest-path openssl\Cargo.toml
     cargo test --manifest-path rustls\Cargo.toml
