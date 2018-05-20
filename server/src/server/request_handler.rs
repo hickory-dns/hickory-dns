@@ -7,8 +7,8 @@
 
 //! Request Handler for incoming requests
 
-use std::net::SocketAddr;
 use std::io;
+use std::net::SocketAddr;
 
 use authority::MessageRequest;
 use server::ResponseHandler;
@@ -22,7 +22,7 @@ pub struct Request<'r> {
 }
 
 /// Trait for handling incoming requests, and providing a message response.
-pub trait RequestHandler {
+pub trait RequestHandler: Send + 'static {
     // TODO: allow associated error type
     // type Error;
 
@@ -32,7 +32,7 @@ pub trait RequestHandler {
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - handle to which a return message should be sent
-    fn handle_request<'q, 'a, R: ResponseHandler + 'static>(
+    fn handle_request<'q, 'a, R: ResponseHandler>(
         &'a self,
         request: &'q Request,
         response_handle: R,

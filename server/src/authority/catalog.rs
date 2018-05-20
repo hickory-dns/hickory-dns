@@ -20,11 +20,11 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::RwLock;
 
-use trust_dns::op::{Edns, Header, MessageType, OpCode, LowerQuery, ResponseCode};
-use trust_dns::rr::{LowerName, RecordType};
+use server::{Request, RequestHandler, ResponseHandler};
+use trust_dns::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
-use server::{Request, RequestHandler, ResponseHandler};
+use trust_dns::rr::{LowerName, RecordType};
 
 use authority::{AuthLookup, Authority, MessageRequest, MessageResponse, ZoneType};
 
@@ -33,7 +33,7 @@ pub struct Catalog {
     authorities: HashMap<LowerName, RwLock<Authority>>,
 }
 
-fn send_response<R: ResponseHandler + 'static>(
+fn send_response<R: ResponseHandler>(
     response_edns: Option<Edns>,
     mut response: MessageResponse,
     response_handle: R,
@@ -66,7 +66,7 @@ impl RequestHandler for Catalog {
     ///
     /// * `request` - the requested action to perform.
     /// * `response_handle` - sink for the response message to be sent
-    fn handle_request<'q, 'a, R: ResponseHandler + 'static>(
+    fn handle_request<'q, 'a, R: ResponseHandler>(
         &'a self,
         request: &'q Request,
         response_handle: R,
@@ -213,7 +213,7 @@ impl Catalog {
     ///
     /// * `request` - an update message
     /// * `response_handle` - sink for the response message to be sent
-    pub fn update<'q, R: ResponseHandler + 'static>(
+    pub fn update<'q, R: ResponseHandler>(
         &self,
         update: &'q MessageRequest,
         response_edns: Option<Edns>,
@@ -301,7 +301,7 @@ impl Catalog {
     ///
     /// * `request` - the query message.
     /// * `response_handle` - sink for the response message to be sent
-    pub fn lookup<'q, R: ResponseHandler + 'static>(
+    pub fn lookup<'q, R: ResponseHandler>(
         &self,
         request: &'q MessageRequest,
         response_edns: Option<Edns>,

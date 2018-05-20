@@ -8,13 +8,13 @@
 use std::io;
 use std::net::SocketAddr;
 
-use trust_dns::BufStreamHandle;
 use trust_dns::error::ClientError;
-use trust_dns_proto::op::EncodableMessage;
 use trust_dns::serialize::binary::{BinEncodable, BinEncoder};
+use trust_dns::BufStreamHandle;
+use trust_dns_proto::op::EncodableMessage;
 
 /// A handler for send a response to a client
-pub trait ResponseHandler {
+pub trait ResponseHandler: Send + 'static {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
