@@ -1,79 +1,49 @@
+clone_depth: 1
+
 environment:
   matrix:
-  - NAME: default
+  - DEFAULT_SUITE: 1
     TARGET: x86_64-pc-windows-msvc
     BITS: 64
     OPENSSL_VERSION: 1_1_0h
     OPENSSL_DIR: C:\OpenSSL
-    RUST_BACKTRACE: 1
+
+  - ALL_FEATURES_SUITE: 1
+    TARGET: x86_64-pc-windows-msvc
+    BITS: 64
+    OPENSSL_VERSION: 1_1_0h
+    OPENSSL_DIR: C:\OpenSSL
+
+  - NO_DEFAULT_FEATURES_SUITE: 1
+    TARGET: x86_64-pc-windows-msvc
+    BITS: 64
+    OPENSSL_VERSION: 1_1_0h
+    OPENSSL_DIR: C:\OpenSSL
+
+  - DNSSEC_OPENSSL_SUITE: 1
+    TARGET: x86_64-pc-windows-msvc
+    BITS: 64
+    OPENSSL_VERSION: 1_1_0h
+    OPENSSL_DIR: C:\OpenSSL
+
+  - DNSSEC_RING_SUITE: 1
+    TARGET: x86_64-pc-windows-msvc
+    BITS: 64
+    OPENSSL_VERSION: 1_1_0h
+    OPENSSL_DIR: C:\OpenSSL
+
+  - DNS_OVER_TLS_SUITE: 1
+    TARGET: x86_64-pc-windows-msvc
+    BITS: 64
+    OPENSSL_VERSION: 1_1_0h
+    OPENSSL_DIR: C:\OpenSSL
 
   # Just checking the basics on i686/32bit
-  - NAME: i686
-    TARGET: i686-pc-windows-msvc
+  - TARGET: i686-pc-windows-msvc
+    ALL_FEATURES_SUITE: 1
     BITS: 32
     OPENSSL_VERSION: 1_1_0h
     OPENSSL_DIR: C:\OpenSSL
-    RUST_BACKTRACE: 1
-
-test:
-  matrix:
-  - test_script:
-    - cargo test --manifest-path proto/Cargo.toml
-    - cargo test --manifest-path client/Cargo.toml
-    - cargo test --manifest-path resolver/Cargo.toml
-    - cargo test --manifest-path server/Cargo.toml
-    - cargo test --manifest-path integration-tests/Cargo.toml
-    - cargo run --manifest-path resolver/Cargo.toml --example global_resolver
-
-  - test_script:
-    - cargo test --manifest-path proto/Cargo.toml --all-features
-    - cargo test --manifest-path client/Cargo.toml --all-features
-    - cargo test --manifest-path resolver/Cargo.toml --all-features
-    - cargo test --manifest-path server/Cargo.toml --all-features
-    - cargo test --manifest-path integration-tests/Cargo.toml --all-features
-
-  - test_script:
-    - cargo test --manifest-path proto/Cargo.toml --no-default-features
-    - cargo test --manifest-path client/Cargo.toml --no-default-features
-    - cargo test --manifest-path resolver/Cargo.toml --no-default-features
-    - cargo test --manifest-path server/Cargo.toml --no-default-features
-    - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features
-
-  - test_script:
-    - cargo test --manifest-path proto/Cargo.toml --no-default-features --features=dnssec-openssl
-    - cargo test --manifest-path client/Cargo.toml --no-default-features --features=dnssec-openssl
-    - cargo test --manifest-path resolver/Cargo.toml --no-default-features --features=dnssec-openssl
-    - cargo test --manifest-path server/Cargo.toml --no-default-features --features=dnssec-openssl
-    - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features --features=dnssec-openssl
-
-  - test_script:
-    - cargo test --manifest-path proto/Cargo.toml --no-default-features --features=dnssec-ring  
-    - cargo test --manifest-path client/Cargo.toml --no-default-features --features=dnssec-ring
-    - cargo test --manifest-path resolver/Cargo.toml --no-default-features --features=dnssec-ring
-    - cargo test --manifest-path server/Cargo.toml --no-default-features --features=dnssec-ring
-    - cargo test --manifest-path integration-tests/Cargo.toml --no-default-features --features=dnssec-ring
-
-  - test_script:
-    - cargo test --manifest-path native-tls/Cargo.toml
-    - cargo test --manifest-path openssl/Cargo.toml
-    - cargo test --manifest-path rustls/Cargo.toml
-    - cargo test --manifest-path resolver/Cargo.toml --features=dns-over-native-tls
-    - cargo test --manifest-path resolver/Cargo.toml --features=dns-over-openssl
-    - cargo test --manifest-path server/Cargo.toml --features=dns-over-openssl
-    - cargo test --manifest-path integration-tests/Cargo.toml --features=dns-over-openssl
-    - cargo test --manifest-path resolver/Cargo.toml --features=dns-over-rustls
-
-  # Just checking the basics on i686/32bit
-  - test_script:
-    - cargo test --manifest-path proto/Cargo.toml
-    - cargo test --manifest-path client/Cargo.toml
-    - cargo test --manifest-path resolver/Cargo.toml
-    - cargo test --manifest-path server/Cargo.toml
-    - cargo test --manifest-path integration-tests/Cargo.toml
-    - cargo test --manifest-path native-tls/Cargo.toml
-    - cargo test --manifest-path openssl/Cargo.toml
-    - cargo test --manifest-path rustls/Cargo.toml
-    - cargo run --manifest-path resolver/Cargo.toml --example global_resolver
 
 init:
   - ps: Disable-NetFirewallRule -DisplayName 'Core Networking - Group Policy (LSASS-Out)'
@@ -95,4 +65,4 @@ build: false
 
 # All grouped by feature to reduce recompilation of the libraries
 test_script:
-  - fail
+  - scripts\test_windows.bat
