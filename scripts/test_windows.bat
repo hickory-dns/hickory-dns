@@ -13,6 +13,7 @@ if [%DEFAULT_SUITE%] EQU [1] (
     cargo test --manifest-path server\Cargo.toml
     cargo test --manifest-path integration-tests\Cargo.toml
     cargo run --manifest-path resolver\Cargo.toml --example global_resolver
+    cargo run --manifest-path resolver\Cargo.toml --example multithreaded_runtime
 )
 
 if [%ALL_FEATURES_SUITE%] EQU [1] (
@@ -40,7 +41,7 @@ if [%DNSSEC_OPENSSL_SUITE%] EQU [1] (
 )
 
 if [%DNSSEC_RING_SUITE%] EQU [1] (
-    cargo test --manifest-path proto\Cargo.toml --no-default-features --features=dnssec-ring  
+    cargo test --manifest-path proto\Cargo.toml --no-default-features --features=dnssec-ring
     cargo test --manifest-path client\Cargo.toml --no-default-features --features=dnssec-ring
     cargo test --manifest-path resolver\Cargo.toml --no-default-features --features=dnssec-ring
     cargo test --manifest-path server\Cargo.toml --no-default-features --features=dnssec-ring
