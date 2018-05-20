@@ -18,3 +18,4 @@ cargo test --manifest-path integration-tests/Cargo.toml
 
 # All examples should go here
 cargo run --manifest-path resolver/Cargo.toml --example global_resolver
+cargo run --manifest-path resolver/Cargo.toml --example multithreaded_runtime
