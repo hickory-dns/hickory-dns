@@ -117,23 +117,26 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for LookupIpFuture<C> 
                         self.options.clone(),
                         self.hosts.clone(),
                     );
+                    // Continue looping with the new query. It will be polled
+                    // on the next iteration of the loop.
                     continue;
                 } else if let Some(ip_addr) = self.finally_ip_addr.take() {
-                    // Otherwise, if there's an IP address to fall back to, we'll
-                    // return it.
+                    // Otherwise, if there's an IP address to fall back to,
+                    // we'll return it.
                     return Ok(Async::Ready(
                         Lookup::new_with_max_ttl(Arc::new(vec![ip_addr])).into(),
                     ));
                 }
             };
 
-            // If we didn't have to retry the query, or we weren't able to retry
-            // because we've exhausted the names to search and have no fallback
-            // IP address, return the current query.
+            // If we didn't have to retry the query, or we weren't able to
+            // retry because we've exhausted the names to search and have no
+            // fallback IP address, return the current query.
             return query.map(|async| async.map(LookupIp::from));
-            // If we skipped retrying the  query, this will return the successful
-            // lookup, otherwise, if the retry failed, this will return the last
-            // query result --- either an empty lookup or the last error we saw.
+            // If we skipped retrying the  query, this will return the
+            // successful lookup, otherwise, if the retry failed, this will
+            // return the last  query result --- either an empty lookup or the
+            // last error we saw.
         }
     }
 }
