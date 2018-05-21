@@ -88,7 +88,11 @@ lazy_static! {
 ///
 /// This looks up the `host` (a &str or String is good), and combines that with the provided port
 ///   this mimics the lookup functions of std::net.
-pub fn resolve<N: IntoName + TryParseIp>(host: N, port: u16) -> IoFuture<Vec<SocketAddr>> {
+pub fn resolve<N>(host: N, port: u16) -> IoFuture<Vec<SocketAddr>>
+where
+    // TODO: It would be nice to remove the `'static` bound on `N`.
+    N: IntoName + TryParseIp + Send + 'static,
+{
     // Now we use the global resolver to perform a lookup_ip.
     let resolve_future = GLOBAL_DNS_RESOLVER.lookup_ip(host).then(move |result| {
         // map the result into what we want...

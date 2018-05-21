@@ -23,7 +23,7 @@ use dns_lru::{self, DnsLru};
 use error::*;
 use hosts::Hosts;
 use lookup::{self, Lookup, LookupEither, LookupFuture};
-use lookup_ip::LookupIpFuture;
+use lookup_ip::{LookupIp, LookupIpFuture};
 use lookup_state::CachingClient;
 use name_server_pool::{NameServerPool, StandardConnection};
 
@@ -179,49 +179,8 @@ impl ResolverFuture {
         Ok(Self::new(config, options))
     }
 
-    fn push_name(name: Name, names: &mut Vec<Name>) {
-        if !names.contains(&name) {
-            names.push(name);
-        }
-    }
-
     fn build_names(&self, name: Name) -> Vec<Name> {
-        // if it's fully qualified, we can short circuit the lookup logic
-        if name.is_fqdn() {
-            vec![name]
-        } else {
-            // Otherwise we have to build the search list
-            // Note: the vec is built in reverse order of precedence, for stack semantics
-            let mut names =
-                Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + self.config.search().len());
-
-            // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
-            let raw_name_first: bool =
-                name.num_labels() as usize > self.options.ndots || name.is_localhost();
-
-            // if not meeting ndots, we always do the raw name in the final lookup
-            if !raw_name_first {
-                names.push(name.clone());
-            }
-
-            for search in self.config.search().iter().rev() {
-                let name_search = name.clone().append_domain(search);
-                Self::push_name(name_search, &mut names);
-            }
-
-            if let Some(domain) = self.config.domain() {
-                let name_search = name.clone().append_domain(domain);
-                Self::push_name(name_search, &mut names);
-            }
-
-            // this is the direct name lookup
-            if raw_name_first {
-                // adding the name as though it's an FQDN for lookup
-                names.push(name.clone());
-            }
-
-            names
-        }
+        build_names(name, &self.config, self.options.ndots)
     }
 
     /// Generic lookup for any RecordType
@@ -263,54 +222,60 @@ impl ResolverFuture {
     ///
     /// # Arguments
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
-    pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N) -> LookupIpFuture {
-        let mut finally_ip_addr = None;
+    pub fn lookup_ip<N: IntoName + TryParseIp>(&self, host: N)
+        -> impl Future<Item = LookupIp, Error = ResolveError>
+    {
+        let client_cache = self.client_cache.clone();
+        let options = self.options;
+        // Would be nice to not
+        let hosts = self.hosts.as_ref().cloned();
+        // TODO: It would be nice to not have to clone this for `build_names`,
+        //       as it's rather heavy...
+        let config = self.config.clone();
+        future::lazy(move || {
+            let mut finally_ip_addr = None;
 
-        // if host is a ip address, return directly.
-        if let Some(ip_addr) = host.try_parse_ip() {
-            // if ndots are greater than 4, then we can't assume the name is an IpAddr
-            //   this accepts IPv6 as well, b/c IPv6 can take the form: 2001:db8::198.51.100.35
-            //   but `:` is not a valid DNS character, so techinically this will fail parsing.
-            //   TODO: should we always do search before returning this?
-            if self.options.ndots > 4 {
-                finally_ip_addr = Some(ip_addr);
-            } else {
-                return LookupIpFuture::ok(
-                    self.client_cache.clone(),
-                    Lookup::new_with_max_ttl(Arc::new(vec![ip_addr])),
-                );
+            // if host is a ip address, return directly.
+            if let Some(ip_addr) = host.try_parse_ip() {
+                // if ndots are greater than 4, then we can't assume the name is an IpAddr
+                //   this accepts IPv6 as well, b/c IPv6 can take the form: 2001:db8::198.51.100.35
+                //   but `:` is not a valid DNS character, so techinically this will fail parsing.
+                //   TODO: should we always do search before returning this?
+                if options.ndots > 4 {
+                    finally_ip_addr = Some(ip_addr);
+                } else {
+                    return LookupIpFuture::ok(
+                        client_cache,
+                        Lookup::new_with_max_ttl(Arc::new(vec![ip_addr])),
+                    );
+                }
             }
-        }
 
-        let name = match (host.into_name(), finally_ip_addr.as_ref()) {
-            (Ok(name), _) => name,
-            (Err(_), Some(ip_addr)) => {
-                // it was a valid IP, return that...
-                return LookupIpFuture::ok(
-                    self.client_cache.clone(),
-                    Lookup::new_with_max_ttl(Arc::new(vec![ip_addr.clone()])),
-                );
-            }
-            (Err(err), None) => {
-                return LookupIpFuture::error(self.client_cache.clone(), err);
-            }
-        };
+            let name = match (host.into_name(), finally_ip_addr.as_ref()) {
+                (Ok(name), _) => name,
+                (Err(_), Some(ip_addr)) => {
+                    // it was a valid IP, return that...
+                    return LookupIpFuture::ok(
+                        client_cache.clone(),
+                        Lookup::new_with_max_ttl(Arc::new(vec![ip_addr.clone()])),
+                    );
+                }
+                (Err(err), None) => {
+                    return LookupIpFuture::error(client_cache, err);
+                }
+            };
 
-        let names = self.build_names(name);
-        let hosts = if let Some(ref hosts) = self.hosts {
-            Some(Arc::clone(hosts))
-        } else {
-            None
-        };
+            let names = build_names(name, &config, options.ndots);
 
-        LookupIpFuture::lookup(
-            names,
-            self.options.ip_strategy,
-            self.client_cache.clone(),
-            DnsRequestOptions::default(),
-            hosts,
-            finally_ip_addr,
-        )
+            LookupIpFuture::lookup(
+                names,
+                options.ip_strategy,
+                client_cache,
+                DnsRequestOptions::default(),
+                hosts,
+                finally_ip_addr,
+            )
+        })
     }
 
     /// Performs a DNS lookup for an SRV record for the specified service type and protocol at the given name.
@@ -358,6 +323,57 @@ impl ResolverFuture {
     #[deprecated(note = "use lookup_srv instead, this interface is none ideal")]
     lookup_fn!(srv_lookup, lookup::SrvLookupFuture, RecordType::SRV);
     lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
+}
+
+pub(crate) fn build_names(
+    name: Name,
+    config: &ResolverConfig,
+    ndots: usize,
+) -> Vec<Name> {
+
+    fn push_name(name: Name, names: &mut Vec<Name>) {
+        if !names.contains(&name) {
+            names.push(name);
+        }
+    }
+
+    // if it's fully qualified, we can short circuit the lookup logic
+    if name.is_fqdn() {
+        vec![name]
+    } else {
+        // Otherwise we have to build the search list
+        // Note: the vec is built in reverse order of precedence, for stack semantics
+        let mut names =
+            Vec::<Name>::with_capacity(1 /*FQDN*/ + 1 /*DOMAIN*/ + config.search().len());
+
+        // if not meeting ndots, we always do the raw name in the final lookup, or it's a localhost...
+        let raw_name_first: bool =
+            name.num_labels() as usize > ndots || name.is_localhost();
+
+        // if not meeting ndots, we always do the raw name in the final lookup
+        if !raw_name_first {
+            names.push(name.clone());
+        }
+
+        for search in config.search().iter().rev() {
+            let name_search = name.clone().append_domain(search);
+            push_name(name_search, &mut names);
+        }
+
+        if let Some(domain) = config.domain() {
+            let name_search = name.clone().append_domain(domain);
+            push_name(name_search, &mut names);
+        }
+
+        // this is the direct name lookup
+        if raw_name_first {
+            // adding the name as though it's an FQDN for lookup
+            names.push(name.clone());
+        }
+
+        names
+
+    }
 }
 
 #[cfg(test)]
