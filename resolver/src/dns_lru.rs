@@ -37,24 +37,36 @@ impl LruValue {
 #[derive(Debug)]
 pub(crate) struct DnsLru {
     cache: LruCache<Query, LruValue>,
-    /// An optional minimum TTL value.
+    /// An optional minimum TTL value for positive responses.
     ///
-    /// RDatas with TTLs under `cache_min_ttl` will use `cache_min_ttl` instead.
-    cache_min_ttl: Duration,
+    /// Positive responses with TTLs under `min_positive_ttl` will use
+    /// `` instead.
+    min_positive_ttl: Duration,
+    /// An optional minimum TTL value for negative (`NXDOMAIN`) responses.
+    ///
+    /// `NXDOMAIN` responses with TTLs under `min_negative_ttl` will use
+    /// `min_negative_ttl` instead.
+    min_negative_ttl: Duration,
 }
 
 impl DnsLru {
     pub(crate) fn new(capacity: usize) -> Self {
-        Self::with_min_ttl(capacity, None)
-    }
-
-    pub(crate) fn with_min_ttl(capacity: usize, min_ttl: Option<Duration>) -> Self {
         let cache = LruCache::new(capacity);
-        let cache_min_ttl = min_ttl.unwrap_or_else(|| Duration::from_secs(0));
         DnsLru {
             cache,
-            cache_min_ttl,
+            min_positive_ttl: Duration::from_secs(0),
+            min_negative_ttl: Duration::from_secs(0),
         }
+    }
+
+    pub(crate) fn with_min_positive_ttl(mut self, min: Duration) -> Self {
+        self.min_positive_ttl = min;
+        self
+    }
+
+    pub(crate) fn with_min_negative_ttl(mut self, min: Duration) -> Self {
+        self.min_negative_ttl = min;
+        self
     }
 
     pub(crate) fn insert(
@@ -77,7 +89,7 @@ impl DnsLru {
         let ttl = Duration::from_secs(ttl as u64);
         // If the cache was configured with a minimum TTL, and that value is higher
         // than the minimum TTL in the values, use it instead.
-        let ttl = self.cache_min_ttl.max(ttl);
+        let ttl = self.min_positive_ttl.max(ttl);
         let valid_until = now + ttl;
 
         // insert into the LRU
@@ -124,6 +136,9 @@ impl DnsLru {
         //   this would cache indefinitely, probably not correct
 
         let ttl = Duration::from_secs(ttl as u64);
+        // If the cache was configured with a min TTL for negative responses,
+        // and that TTL is higher than the response's TTL, use it instead.
+        let ttl = self.min_negative_ttl.max(ttl);
         let valid_until = now + ttl;
 
         self.cache.insert(
@@ -192,7 +207,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lookup_uses_cache_min_ttl() {
+    fn test_lookup_uses_min_positive_ttl() {
         let now = Instant::now();
 
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
@@ -201,7 +216,8 @@ mod tests {
         let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
 
         // configure the cache with a minimum TTL of 2 seconds.
-        let mut lru = DnsLru::with_min_ttl(1, Some(Duration::from_secs(2)));
+        let mut lru = DnsLru::new(1)
+            .with_min_positive_ttl(Duration::from_secs(2));
 
         let rc_ips = lru.insert(name.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
@@ -261,7 +277,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_min_ttl() {
+    fn test_insert_min_positive_ttl() {
         let now = Instant::now();
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         // TTL should be 1
@@ -276,7 +292,8 @@ mod tests {
 
         // this cache should override the TTL of 1 seconds with the configured
         // minimum TTL of 3 seconds.
-        let mut lru = DnsLru::with_min_ttl(1, Some(Duration::from_secs(3)));
+        let mut lru = DnsLru::new(1)
+            .with_min_positive_ttl(Duration::from_secs(3));
 
         lru.insert(name.clone(), ips_ttl, now);
 
