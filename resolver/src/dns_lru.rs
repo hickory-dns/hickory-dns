@@ -192,6 +192,34 @@ mod tests {
     }
 
     #[test]
+    fn test_lookup_uses_cache_min_ttl() {
+        let now = Instant::now();
+
+        let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        // record should have TTL of 1 second.
+        let ips_ttl = vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), 1)];
+        let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
+
+        // configure the cache with a minimum TTL of 2 seconds.
+        let mut lru = DnsLru::with_min_ttl(1, Some(Duration::from_secs(2)));
+
+        let rc_ips = lru.insert(name.clone(), ips_ttl, now);
+        assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
+        // the returned lookup should use the cache's min TTL, since the
+        // query's TTL was below the minimum.
+        assert_eq!(rc_ips.valid_until(), now + Duration::from_secs(2));
+
+        // record should have TTL of 3 seconds.
+        let ips_ttl = vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), 3)];
+
+        let rc_ips = lru.insert(name.clone(), ips_ttl, now);
+        assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
+        // the returned lookup should use the record's TTL, since it's
+        // greater than the cache's minimum.
+        assert_eq!(rc_ips.valid_until(), now + Duration::from_secs(3));
+    }
+
+    #[test]
     fn test_insert() {
         let now = Instant::now();
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
