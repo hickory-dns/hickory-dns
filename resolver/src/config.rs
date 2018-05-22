@@ -439,7 +439,7 @@ pub struct ResolverOpts {
     ///
     /// If this is set, any responses with a TTL lower than this value will have a TTL of
     /// `min_ttl` instead.
-    pub min_ttl: Option<Duration>,
+    pub cache_min_ttl: Option<Duration>,
 }
 
 impl Default for ResolverOpts {
@@ -458,7 +458,7 @@ impl Default for ResolverOpts {
             ip_strategy: LookupIpStrategy::default(),
             cache_size: 32,
             use_hosts_file: true,
-            min_ttl: None,
+            cache_min_ttl: None,
         }
     }
 }

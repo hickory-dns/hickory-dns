@@ -78,7 +78,10 @@ impl Resolver {
     ///
     /// A new Resolver or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        let lru = Arc::new(Mutex::new(DnsLru::new(options.cache_size)));
+        let lru = Arc::new(Mutex::new(DnsLru::with_min_ttl(
+            options.cache_size,
+            options.cache_min_ttl,
+        )));
         Ok(Resolver {
             config,
             options,
