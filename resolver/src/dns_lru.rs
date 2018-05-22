@@ -35,11 +35,26 @@ impl LruValue {
 }
 
 #[derive(Debug)]
-pub(crate) struct DnsLru(LruCache<Query, LruValue>);
+pub(crate) struct DnsLru {
+    cache: LruCache<Query, LruValue>,
+    /// An optional minimum TTL value.
+    ///
+    /// RDatas with TTLs under `cache_min_ttl` will use `cache_min_ttl` instead.
+    cache_min_ttl: Duration,
+}
 
 impl DnsLru {
     pub(crate) fn new(capacity: usize) -> Self {
-        DnsLru(LruCache::new(capacity))
+        Self::with_min_ttl(capacity, None)
+    }
+
+    pub(crate) fn with_min_ttl(capacity: usize, min_ttl: Option<Duration>) -> Self {
+        let cache = LruCache::new(capacity);
+        let cache_min_ttl = min_ttl.unwrap_or_else(|| Duration::from_secs(0));
+        DnsLru {
+            cache,
+            cache_min_ttl,
+        }
     }
 
     pub(crate) fn insert(
@@ -60,11 +75,14 @@ impl DnsLru {
         );
 
         let ttl = Duration::from_secs(ttl as u64);
+        // If the cache was configured with a minimum TTL, and that value is higher
+        // than the minimum TTL in the values, use it instead.
+        let ttl = self.cache_min_ttl.max(ttl);
         let valid_until = now + ttl;
 
         // insert into the LRU
         let lookup = Lookup::new_with_deadline(Arc::new(rdatas), valid_until);
-        self.0.insert(
+        self.cache.insert(
             query,
             LruValue {
                 lookup: Some(lookup.clone()),
@@ -86,7 +104,7 @@ impl DnsLru {
         let ttl = Duration::from_secs(ttl as u64);
         let valid_until = now + ttl;
 
-        self.0.insert(
+        self.cache.insert(
             query,
             LruValue {
                 lookup: Some(lookup.clone()),
@@ -108,7 +126,7 @@ impl DnsLru {
         let ttl = Duration::from_secs(ttl as u64);
         let valid_until = now + ttl;
 
-        self.0.insert(
+        self.cache.insert(
             query.clone(),
             LruValue {
                 lookup: None,
@@ -122,7 +140,7 @@ impl DnsLru {
     /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
     pub(crate) fn get(&mut self, query: &Query, now: Instant) -> Option<Lookup> {
         let mut out_of_date = false;
-        let lookup = self.0.get_mut(query).and_then(|value| {
+        let lookup = self.cache.get_mut(query).and_then(|value| {
             if value.is_current(now) {
                 out_of_date = false;
                 value.lookup.clone()
@@ -136,7 +154,7 @@ impl DnsLru {
         // this assumes time is always moving forward, this would only not be true in contrived situations where now
         //  is not current time, like tests...
         if out_of_date {
-            self.0.remove(query);
+            self.cache.remove(query);
         }
 
         lookup
@@ -211,6 +229,47 @@ mod tests {
 
         // 2 should be one too far
         let rc_ips = lru.get(&name, now + Duration::from_secs(2));
+        assert!(rc_ips.is_none());
+    }
+
+    #[test]
+    fn test_insert_min_ttl() {
+        let now = Instant::now();
+        let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        // TTL should be 1
+        let ips_ttl = vec![
+            (RData::A(Ipv4Addr::new(127, 0, 0, 1)), 1),
+            (RData::A(Ipv4Addr::new(127, 0, 0, 2)), 2),
+        ];
+        let ips = vec![
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            RData::A(Ipv4Addr::new(127, 0, 0, 2)),
+        ];
+
+        // this cache should override the TTL of 1 seconds with the configured
+        // minimum TTL of 3 seconds.
+        let mut lru = DnsLru::with_min_ttl(1, Some(Duration::from_secs(3)));
+
+        lru.insert(name.clone(), ips_ttl, now);
+
+        // still valid
+        let rc_ips = lru.get(&name, now + Duration::from_secs(1)).unwrap();
+        for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
+            assert_eq!(rc_ip, ip, "after 1 second");
+        }
+
+        let rc_ips = lru.get(&name, now + Duration::from_secs(2)).unwrap();
+        for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
+            assert_eq!(rc_ip, ip, "after 2 seconds");
+        }
+
+        let rc_ips = lru.get(&name, now + Duration::from_secs(3)).unwrap();
+        for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
+            assert_eq!(rc_ip, ip, "after 3 seconds");
+        }
+
+        // after 4 seconds, the records should be invalid.
+        let rc_ips = lru.get(&name, now + Duration::from_secs(4));
         assert!(rc_ips.is_none());
     }
 }

@@ -435,6 +435,11 @@ pub struct ResolverOpts {
     pub cache_size: usize,
     /// Check /ect/hosts file before dns requery (only works for unix like OS)
     pub use_hosts_file: bool,
+    /// Optional minimum TTL for cached responses.
+    ///
+    /// If this is set, any responses with a TTL lower than this value will have a TTL of
+    /// `min_ttl` instead.
+    pub min_ttl: Option<Duration>,
 }
 
 impl Default for ResolverOpts {
@@ -453,6 +458,7 @@ impl Default for ResolverOpts {
             ip_strategy: LookupIpStrategy::default(),
             cache_size: 32,
             use_hosts_file: true,
+            min_ttl: None,
         }
     }
 }
