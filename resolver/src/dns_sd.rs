@@ -11,19 +11,19 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use futures::{Async, Future, Poll};
+use futures::{future, Async, Future, Poll};
 
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
 use trust_dns_proto::xfer::DnsRequestOptions;
 
 use error::*;
 use lookup::{
-    LookupFuture, ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture,
+    ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture,
 };
-use resolver_future::ResolverFuture;
+use resolver_handle::{BackgroundLookup, ResolverHandle};
 
 /// An extension for the Resolver to perform DNS Service Discovery
-pub trait DnsSdFuture {
+pub trait DnsSdHandle {
     /// List all services available
     ///
     /// https://tools.ietf.org/html/rfc6763#section-4.1
@@ -37,7 +37,7 @@ pub trait DnsSdFuture {
     fn service_info<N: IntoName>(&self, name: N) -> ServiceInfoFuture;
 }
 
-impl DnsSdFuture for ResolverFuture {
+impl DnsSdHandle for ResolverHandle {
     fn list_services<N: IntoName>(&self, name: N) -> ListServicesFuture {
         let options = DnsRequestOptions {
             expects_multiple_responses: true,
@@ -45,28 +45,23 @@ impl DnsSdFuture for ResolverFuture {
         };
         let name: Name = match name.into_name() {
             Ok(name) => name,
-            Err(err) => {
-                return ListServicesFuture(ReverseLookupFuture::from(LookupFuture::error(
-                    self.client_cache.clone(),
-                    err,
-                )));
-            }
+            Err(err) => return ListServicesFuture(err.into()),
         };
 
-        let ptr_future: LookupFuture = self.inner_lookup(name, RecordType::PTR, options);
-        let ptr_future: ReverseLookupFuture = ptr_future.into();
+        let ptr_future: BackgroundLookup<ReverseLookupFuture> =
+            self.inner_lookup(name, RecordType::PTR, options);
 
         ListServicesFuture(ptr_future)
     }
 
     fn service_info<N: IntoName>(&self, name: N) -> ServiceInfoFuture {
-        let txt_future: TxtLookupFuture = self.txt_lookup(name);
+        let txt_future = self.txt_lookup(name);
         ServiceInfoFuture(txt_future)
     }
 }
 
 /// A DNS Service Discovery future of Services discovered through the list operation
-pub struct ListServicesFuture(ReverseLookupFuture);
+pub struct ListServicesFuture(BackgroundLookup<ReverseLookupFuture>);
 
 impl Future for ListServicesFuture {
     type Item = ListServices;
@@ -87,7 +82,7 @@ pub struct ListServices(ReverseLookup);
 impl ListServices {
     /// Returns an iterator over the list of returned names of services.
     ///
-    /// Each name can be queried for additional information. To lookup service entries see `ResolverFuture::srv_lookup`. To get parameters associated with the service, see `DnsSdFuture::service_info`.
+    /// Each name can be queried for additional information. To lookup service entries see `ResolverHandle::srv_lookup`. To get parameters associated with the service, see `DnsSdFuture::service_info`.
     pub fn iter(&self) -> ListServicesIter {
         ListServicesIter(self.0.iter())
     }
@@ -105,7 +100,7 @@ impl<'i> Iterator for ListServicesIter<'i> {
 }
 
 /// A Future that resolves to the TXT information for a service
-pub struct ServiceInfoFuture(TxtLookupFuture);
+pub struct ServiceInfoFuture(BackgroundLookup<TxtLookupFuture>);
 
 impl Future for ServiceInfoFuture {
     type Item = ServiceInfo;
@@ -159,7 +154,7 @@ mod tests {
     #[ignore]
     fn test_list_services() {
         let mut io_loop = Runtime::new().unwrap();
-        let resolver = ResolverFuture::new(
+        let (resolver, bg) = ResolverHandle::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
@@ -167,9 +162,8 @@ mod tests {
             },
         );
 
-        let resolver = io_loop
-            .block_on(resolver)
-            .expect("failed to create resolver");
+        io_loop.spawn(bg);
+
         let response = io_loop
             .block_on(resolver.list_services("_http._tcp.local."))
             .expect("failed to run lookup");
