@@ -491,7 +491,10 @@ pub mod tests {
             ).wait()
                 .unwrap_err()
                 .kind(),
-            ResolveErrorKind::NoRecordsFound(Query::query(Name::root(), RecordType::A))
+            ResolveErrorKind::NoRecordsFound {
+                query: Query::query(Name::root(), RecordType::A),
+                valid_until: None,
+            }
         );
     }
 }
