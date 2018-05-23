@@ -23,7 +23,7 @@ use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest, DnsResponse};
 
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
-use resolver_future::BasicResolverHandle;
+use resolver_handle::BasicResolverHandle;
 
 /// State of a connection with a remote NameServer.
 #[derive(Clone, Debug)]

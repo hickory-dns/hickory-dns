@@ -14,7 +14,7 @@ use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 use trust_dns_proto::rr::RecordType;
 
-use ResolverFuture;
+use ResolverHandle;
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::{self, DnsLru};
 use error::*;
@@ -44,10 +44,9 @@ macro_rules! lookup_fn {
 /// * `query` - a str which parses to a domain name, failure to parse will return an error
 pub fn $p(&self, query: &str) -> ResolveResult<$l> {
     let mut io_loop = Runtime::new()?;
-    let future = self.construct_and_run()?;
-    io_loop.block_on(future.and_then(|future| {
-        future.$p(query)
-    }))
+    let (handle, bg) = self.construct_and_run()?;
+    io_loop.spawn(bg);
+    io_loop.block_on(handle.$p(query))
 }
     };
     ($p:ident, $l:ty, $t:ty) => {
@@ -58,10 +57,9 @@ pub fn $p(&self, query: &str) -> ResolveResult<$l> {
 /// * `query` - a type which can be converted to `Name` via `From`.
 pub fn $p(&self, query: $t) -> ResolveResult<$l> {
     let mut io_loop = Runtime::new()?;
-    let future = self.construct_and_run()?;
-    io_loop.block_on(future.and_then(|future| {
-        future.$p(query)
-    }))
+    let (handle, bg) = self.construct_and_run()?;
+    io_loop.spawn(bg);
+    io_loop.block_on(handle.$p(query))
 }
     };
 }
@@ -112,14 +110,15 @@ impl Resolver {
     }
 
     /// Constructs a new ResolverFutture
-    fn construct_and_run(&self) -> ResolveResult<Box<Future<Item=ResolverFuture, Error=ResolveError> + Send>> {
-        let future = ResolverFuture::with_cache(
+    fn construct_and_run(&self) -> ResolveResult<(ResolverHandle, impl Future<Item=(), Error=()>)> {
+        // TODO: can we reuse the background task/handle once it has been spawned?
+        let handle = ResolverHandle::with_cache(
             self.config.clone(),
             self.options.clone(),
             self.lru.clone(),
         );
 
-        Ok(future)
+        Ok(handle)
     }
 
     /// Generic lookup for any RecordType
@@ -132,10 +131,9 @@ impl Resolver {
     /// * `record_type` - type of record to lookup
     pub fn lookup(&self, name: &str, record_type: RecordType) -> ResolveResult<Lookup> {
         let mut io_loop = Runtime::new()?;
-        let future = self.construct_and_run()?;
-        io_loop.block_on(future.and_then(|future| {
-            future.lookup(name, record_type)
-        }))
+        let (handle, bg) = self.construct_and_run()?;
+        io_loop.spawn(bg);
+        io_loop.block_on(handle.lookup(name, record_type))
     }
 
     /// Performs a dual-stack DNS lookup for the IP for the given hostname.
@@ -147,10 +145,9 @@ impl Resolver {
     /// * `host` - string hostname, if this is an invalid hostname, an error will be returned.
     pub fn lookup_ip(&self, host: &str) -> ResolveResult<LookupIp> {
         let mut io_loop = Runtime::new()?;
-        let future = self.construct_and_run()?;
-        io_loop.block_on(future.and_then(|future| {
-            future.lookup_ip(host)
-        }))
+        let (handle, bg) = self.construct_and_run()?;
+        io_loop.spawn(bg);
+        io_loop.block_on(handle.lookup_ip(host))
     }
 
     /// Performs a DNS lookup for an SRV record for the specified service type and protocol at the given name.
@@ -170,20 +167,18 @@ impl Resolver {
         name: &str,
     ) -> ResolveResult<lookup::SrvLookup> {
         let mut io_loop = Runtime::new()?;
-        let future = self.construct_and_run()?;
+        let (handle, bg) = self.construct_and_run()?;
+        io_loop.spawn(bg);
         #[allow(deprecated)]
-        io_loop.block_on(future.and_then(|future| {
-            future.lookup_service(service, protocol, name)
-        }))
+        io_loop.block_on(handle.lookup_service(service, protocol, name))
     }
 
     /// Lookup an SRV record.
     pub fn lookup_srv(&self, name: &str) -> ResolveResult<lookup::SrvLookup> {
         let mut io_loop = Runtime::new()?;
-        let future = self.construct_and_run()?;
-        io_loop.block_on(future.and_then(|future| {
-            future.lookup_srv(name)
-        }))
+        let (handle, bg) = self.construct_and_run()?;
+        io_loop.spawn(bg);
+        io_loop.block_on(handle.lookup_srv(name))
     }
 
     lookup_fn!(reverse_lookup, lookup::ReverseLookup, IpAddr);

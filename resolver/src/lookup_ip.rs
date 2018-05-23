@@ -27,7 +27,7 @@ use hosts::Hosts;
 use lookup::{Lookup, LookupEither, LookupIter};
 use lookup_state::CachingClient;
 use name_server_pool::StandardConnection;
-use resolver_future::BasicResolverHandle;
+use resolver_handle::BasicResolverHandle;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///

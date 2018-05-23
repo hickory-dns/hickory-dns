@@ -13,9 +13,7 @@ use std::slice::Iter;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use failure::Fail;
-
-use futures::{future, Async, Future, Poll};
+use futures::{future, task, Async, Future, Poll};
 
 use trust_dns_proto::op::Query;
 use trust_dns_proto::rr::rdata;
@@ -30,7 +28,7 @@ use error::*;
 use lookup_ip::LookupIpIter;
 use lookup_state::CachingClient;
 use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
-use resolver_future::BasicResolverHandle;
+use resolver_handle::BasicResolverHandle;
 
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Proto library.
 ///
@@ -189,19 +187,6 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> LookupFuture<C> {
             options,
             query,
         }
-    }
-
-    pub(crate) fn error<E: Fail>(client_cache: CachingClient<C>, error: E) -> Self {
-        return LookupFuture {
-            // errors on names don't need to be cheap... i.e. this clone is unfortunate in this case.
-            client_cache,
-            names: vec![],
-            record_type: RecordType::NULL,
-            options: DnsRequestOptions::default(),
-            query: Box::new(future::err(
-                ResolveErrorKind::Msg(format!("{}", error)).into(),
-            )),
-        };
     }
 }
 

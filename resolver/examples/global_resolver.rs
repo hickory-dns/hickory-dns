@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 
 use futures::Future;
 use tokio_io::IoFuture;
-use trust_dns_resolver::{IntoName, ResolverFuture, TryParseIp};
+use trust_dns_resolver::{IntoName, ResolverHandle, TryParseIp};
 
 // This is an example of registering a static global resolver into any system.
 //
@@ -18,15 +18,16 @@ use trust_dns_resolver::{IntoName, ResolverFuture, TryParseIp};
 //   in the mean time, this example has the necessary steps to do so.
 //
 // Thank you to @zonyitoo for the original example.
-
+// TODO: this example can probably be made much simpler with the new
+//      `ResolverHandle`.
 lazy_static! {
     // First we need to setup the global Resolver
-    static ref GLOBAL_DNS_RESOLVER: ResolverFuture = {
+    static ref GLOBAL_DNS_RESOLVER: ResolverHandle = {
         use std::sync::{Arc, Mutex, Condvar};
         use std::thread;
 
         // We'll be using this condvar to get the Resolver from the thread...
-        let pair = Arc::new((Mutex::new(None::<ResolverFuture>), Condvar::new()));
+        let pair = Arc::new((Mutex::new(None::<ResolverHandle>), Condvar::new()));
         let pair2 = pair.clone();
 
 
@@ -38,27 +39,25 @@ lazy_static! {
             let mut runtime = tokio::runtime::current_thread::Runtime::new().expect("failed to launch Runtime");
 
             // our platform independent future, result, see next blocks
-            let future;
+            let (resolver, bg) = {
 
-            // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
-            #[cfg(any(unix, windows))]
-            {
-                // use the system resolver configuration
-                future = ResolverFuture::from_system_conf().expect("Failed to create ResolverFuture");
-            }
+                // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
+                #[cfg(any(unix, windows))]
+                {
+                    // use the system resolver configuration
+                    ResolverHandle::from_system_conf().expect("Failed to create ResolverFuture")
+                }
 
-            // For other operating systems, we can use one of the preconfigured definitions
-            #[cfg(not(any(unix, windows)))]
-            {
-                // Directly reference the config types
-                use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+                // For other operating systems, we can use one of the preconfigured definitions
+                #[cfg(not(any(unix, windows)))]
+                {
+                    // Directly reference the config types
+                    use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
 
-                // Get a new resolver with the google nameservers as the upstream recursive resolvers
-                future = ResolverFuture::new(ResolverConfig::google(), ResolverOpts::default());
-            }
-
-            // this will block the thread until the Resolver is constructed with the above configuration
-            let resolver = runtime.block_on(future).expect("Failed to create DNS resolver");
+                    // Get a new resolver with the google nameservers as the upstream recursive resolvers
+                    ResolverHandle::new(ResolverConfig::google(), ResolverOpts::default())
+                }
+            };
 
             let &(ref lock, ref cvar) = &*pair2;
             let mut started = lock.lock().unwrap();
@@ -66,7 +65,7 @@ lazy_static! {
             cvar.notify_one();
             drop(started);
 
-            runtime.run().expect("Resolver Thread shutdown!");
+            runtime.block_on(bg).expect("Failed to create DNS resolver");
         });
 
         // Wait for the thread to start up.
@@ -88,11 +87,7 @@ lazy_static! {
 ///
 /// This looks up the `host` (a &str or String is good), and combines that with the provided port
 ///   this mimics the lookup functions of std::net.
-pub fn resolve<N>(host: N, port: u16) -> IoFuture<Vec<SocketAddr>>
-where
-    // TODO: It would be nice to remove the `'static` bound on `N`.
-    N: IntoName + TryParseIp + Send + 'static,
-{
+pub fn resolve<N: IntoName + TryParseIp>(host: N, port: u16) -> IoFuture<Vec<SocketAddr>> {
     // Now we use the global resolver to perform a lookup_ip.
     let resolve_future = GLOBAL_DNS_RESOLVER.lookup_ip(host).then(move |result| {
         // map the result into what we want...
