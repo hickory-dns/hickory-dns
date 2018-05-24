@@ -50,47 +50,32 @@ pub(crate) struct DnsLru {
 }
 
 #[derive(Copy, Clone, Debug, Default)]
-pub(crate) struct LruBuilder {
+pub(crate) struct TtlConfig {
     /// An optional minimum TTL value for positive responses.
     ///
     /// Positive responses with TTLs under `min_positive_ttl` will use
     /// `` instead.
-    min_positive_ttl: Option<Duration>,
+    pub min_positive_ttl: Option<Duration>,
     /// An optional minimum TTL value for negative (`NXDOMAIN`) responses.
     ///
     /// `NXDOMAIN` responses with TTLs under `min_negative_ttl` will use
     /// `min_negative_ttl` instead.
-    min_negative_ttl: Option<Duration>,
-}
-
-impl LruBuilder {
-    pub(crate) fn with_min_positive_ttl(mut self, min: Option<Duration>) -> Self {
-        self.min_positive_ttl = min;
-        self
-    }
-
-    pub(crate) fn with_min_negative_ttl(mut self, min: Option<Duration>) -> Self {
-        self.min_negative_ttl = min;
-        self
-    }
-
-    pub(crate) fn build(self, capacity: usize) -> DnsLru {
-        let cache = LruCache::new(capacity);
-        DnsLru {
-            cache,
-            min_positive_ttl: self.min_positive_ttl.unwrap_or_else(|| Duration::from_secs(0)),
-            min_negative_ttl: self.min_negative_ttl.unwrap_or_else(|| Duration::from_secs(0)),
-        }
-    }
+    pub min_negative_ttl: Option<Duration>,
 }
 
 impl DnsLru {
     pub(crate) fn new(capacity: usize) -> Self {
-        Self::builder().build(capacity)
+        Self::with_ttls(capacity, TtlConfig::default())
     }
 
-    pub(crate) fn builder() -> LruBuilder {
-        LruBuilder::default()
+    pub(crate) fn with_ttls(capacity: usize, ttl_cfg: TtlConfig) -> Self {
+        let TtlConfig { min_positive_ttl, min_negative_ttl } = ttl_cfg;
+        let cache = LruCache::with_capacity(capacity);
+        Self {
+            cache,
+            min_positive_ttl: min_positive_ttl.unwrap_or_else(|| Duration::from_secs(0)),
+            min_negative_ttl: min_negative_ttl.unwrap_or_else(|| Duration::from_secs(0)),
+        }
     }
 
     pub(crate) fn insert(
@@ -240,9 +225,11 @@ mod tests {
         let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
 
         // configure the cache with a minimum TTL of 2 seconds.
-        let mut lru = DnsLru::builder()
-            .with_min_positive_ttl(Some(Duration::from_secs(2)))
-            .build(1);
+        let ttls = TtlConfig {
+            min_positive_ttl: Some(Duration::from_secs(2)),
+            ..Default::default
+        };
+        let mut lru = DnsLru::with_ttls(1, ttls);
 
         let rc_ips = lru.insert(name.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
@@ -317,10 +304,11 @@ mod tests {
 
         // this cache should override the TTL of 1 seconds with the configured
         // minimum TTL of 3 seconds.
-        let mut lru = DnsLru::builder()
-            .with_min_positive_ttl(Some(Duration::from_secs(3)))
-            .build(1);
-
+        let ttls = TtlConfig {
+            min_positive_ttl: Some(Duration::from_secs(3)),
+            ..Default::default
+        };
+        let mut lru = DnsLru::with_ttls(1, ttls);
         lru.insert(name.clone(), ips_ttl, now);
 
         // still valid

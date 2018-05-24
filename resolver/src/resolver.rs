@@ -16,7 +16,7 @@ use trust_dns_proto::rr::RecordType;
 
 use ResolverFuture;
 use config::{ResolverConfig, ResolverOpts};
-use dns_lru::DnsLru;
+use dns_lru::{self, DnsLru};
 use error::*;
 use lookup;
 use lookup::Lookup;
@@ -78,11 +78,12 @@ impl Resolver {
     ///
     /// A new Resolver or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
-        let lru = DnsLru::builder()
-            .with_min_negative_ttl(options.min_negative_ttl)
-            .with_min_positive_ttl(options.min_positive_ttl)
-            .build(options.cache_size);
+        let ttls = dns_lru::TtlConfig {
+            min_positive_ttl: options.min_positive_ttl,
+            min_negative_ttl: options.min_negative_ttl,
+        };
 
+        let lru = DnsLru::with_ttls(options.cache_size, ttls);
         let lru = Arc::new(Mutex::new(lru));
 
         Ok(Resolver {
