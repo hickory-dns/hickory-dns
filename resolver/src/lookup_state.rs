@@ -94,7 +94,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
                     RecordType::A => return Box::new(future::ok(LOCALHOST_V4.clone())),
                     RecordType::AAAA => return Box::new(future::ok(LOCALHOST_V6.clone())),
                     RecordType::PTR => return Box::new(future::ok(LOCALHOST.clone())),
-                    _ => return Box::new(future::err(DnsLru::nx_error(query))), // Are there any other types we can use?
+                    _ => return Box::new(future::err(DnsLru::nx_error(query, None))), // Are there any other types we can use?
                 },
                 // when mdns is enabled we will follow a standard query path
                 #[cfg(feature = "mdns")]
@@ -103,7 +103,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
                 // when mdns is not enabled we will return errors on LinkLocal ("*.local.") names
                 #[cfg(not(feature = "mdns"))]
                 ResolverUsage::LinkLocal => (),
-                ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query))),
+                ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query, None))),
                 ResolverUsage::Normal => (),
             }
         }
@@ -259,7 +259,7 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
                         if (self.query.query_type().is_any() || self.query.query_type() == r.rr_type()) &&
                             (search_name.as_ref() == r.name() || self.query.name() == r.name()) {
                             Some((r.unwrap_rdata(), ttl))
-                        } else 
+                        } else
                         // srv evaluation, it's an srv lookup and the srv_search_name/target matches this name
                         //   and it's an IP
                         if self.query.query_type().is_srv() && r.rr_type().is_ip_addr() && search_name.as_ref() == r.name() {
@@ -400,7 +400,7 @@ impl Future for InsertCache {
                         Err(lru.negative(query, ttl, Instant::now()))
                     }
                     Records::NoData { ttl: None } | Records::CnameChain { .. } => {
-                        Err(DnsLru::nx_error(query))
+                        Err(DnsLru::nx_error(query, None))
                     }
                 }
             }
@@ -660,7 +660,10 @@ mod tests {
                 .wait()
                 .unwrap_err()
                 .kind(),
-            ResolveErrorKind::NoRecordsFound(Query::new())
+            ResolveErrorKind::NoRecordsFound {
+                query: Query::new(),
+                valid_until: None,
+            }
         );
     }
 

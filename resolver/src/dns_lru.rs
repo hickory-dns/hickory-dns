@@ -151,8 +151,8 @@ impl DnsLru {
         lookup
     }
 
-    pub(crate) fn nx_error(query: Query) -> ResolveError {
-        ResolveErrorKind::NoRecordsFound(query).into()
+    pub(crate) fn nx_error(query: Query, valid_until: Option<Instant>) -> ResolveError {
+        ResolveErrorKind::NoRecordsFound { query, valid_until }.into()
     }
 
     pub(crate) fn negative(&mut self, query: Query, ttl: u32, now: Instant) -> ResolveError {
@@ -173,7 +173,7 @@ impl DnsLru {
             },
         );
 
-        Self::nx_error(query)
+        Self::nx_error(query, Some(valid_until))
     }
 
     /// This needs to be mut b/c it's an LRU, meaning the ordering of elements will potentially change on retrieval...
