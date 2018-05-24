@@ -8,7 +8,7 @@
 //! Error types for the crate
 
 use failure::{Backtrace, Context, Fail};
-use std::{fmt, io};
+use std::{fmt, io, time::Instant};
 use trust_dns_proto::error::{ProtoError, ProtoErrorKind};
 use trust_dns_proto::op::Query;
 
@@ -27,8 +27,14 @@ pub enum ResolveErrorKind {
     Msg(String),
 
     /// No records were found for a query
-    #[fail(display = "no record found for {}", _0)]
-    NoRecordsFound(Query),
+    #[fail(display = "no record found for {}", query)]
+    NoRecordsFound {
+        /// The query for which no records were found.
+        query: Query,
+        /// A deadline after which the the `NXDOMAIN` response is no longer
+        /// valid, and the nameserver should be queried again.
+        valid_until: Option<Instant>
+    },
 
     // foreign
     /// An error got returned from IO
@@ -50,7 +56,10 @@ impl Clone for ResolveErrorKind {
         match *self {
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
-            NoRecordsFound(ref query) => NoRecordsFound(query.clone()),
+            NoRecordsFound { ref query, valid_until } => NoRecordsFound {
+                query: query.clone(),
+                valid_until,
+            },
 
             // foreign
             Io => Io,
