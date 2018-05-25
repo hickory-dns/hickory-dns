@@ -54,7 +54,7 @@ pub struct CachingClient<C: DnsHandle<Error = ResolveError>> {
 impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
     #[doc(hidden)]
     pub fn new(max_size: usize, client: C) -> Self {
-        Self::with_cache(Arc::new(Mutex::new(DnsLru::new(max_size))), client)
+        Self::with_cache(Arc::new(Mutex::new(DnsLru::new(max_size, Default::default()))), client)
     }
 
     pub(crate) fn with_cache(lru: Arc<Mutex<DnsLru>>, client: C) -> Self {
@@ -652,7 +652,7 @@ mod tests {
 
     #[test]
     fn test_empty_cache() {
-        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         let mut client = mock(vec![empty()]);
 
         assert_eq!(
@@ -669,7 +669,7 @@ mod tests {
 
     #[test]
     fn test_from_cache() {
-        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         cache.lock().unwrap().insert(
             Query::new(),
             vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), u32::max_value())],
@@ -690,7 +690,7 @@ mod tests {
 
     #[test]
     fn test_no_cache_insert() {
-        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         // first should come from client...
         let mut client = mock(vec![v4_message()]);
 
@@ -744,7 +744,7 @@ mod tests {
     }
 
     fn no_recursion_on_query_test(query_type: RecordType) {
-        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
         let mut client = mock(vec![error(), cname_message()]);
@@ -775,7 +775,7 @@ mod tests {
 
     #[test]
     fn test_non_recursive_srv_query() {
-        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
 
         // the cname should succeed, we shouldn't query again after that, which would cause an error...
         let mut client = mock(vec![error(), srv_message()]);
@@ -804,7 +804,7 @@ mod tests {
 
     #[test]
     fn test_single_srv_query_response() {
-        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
 
         let mut message = srv_message().unwrap();
         message.add_answer(Record::from_rdata(
@@ -906,7 +906,7 @@ mod tests {
     // }
 
     fn cname_ttl_test(first: u32, second: u32) {
-        let lru = Arc::new(Mutex::new(DnsLru::new(1)));
+        let lru = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
         // expecting no queries to be performed
         let client = CachingClient::with_cache(Arc::clone(&lru), mock(vec![error()]));
 
@@ -959,7 +959,7 @@ mod tests {
 
     #[test]
     fn test_early_return_localhost() {
-        let cache = Arc::new(Mutex::new(DnsLru::new(0)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(0, dns_lru::TtlConfig::default())));
         let client = mock(vec![empty()]);
         let mut client = CachingClient {
             lru: cache,
@@ -1049,7 +1049,7 @@ mod tests {
 
     #[test]
     fn test_early_return_invalid() {
-        let cache = Arc::new(Mutex::new(DnsLru::new(0)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(0, dns_lru::TtlConfig::default())));
         let client = mock(vec![empty()]);
         let mut client = CachingClient {
             lru: cache,
@@ -1072,7 +1072,7 @@ mod tests {
 
     #[test]
     fn test_no_error_on_dot_local_no_mdns() {
-        let cache = Arc::new(Mutex::new(DnsLru::new(1)));
+        let cache = Arc::new(Mutex::new(DnsLru::new(1, dns_lru::TtlConfig::default())));
 
         let mut message = srv_message().unwrap();
         message.add_answer(Record::from_rdata(
