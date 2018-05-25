@@ -79,8 +79,9 @@ impl Resolver {
     /// A new Resolver or an error if there was an error with the configuration.
     pub fn new(config: ResolverConfig, options: ResolverOpts) -> io::Result<Self> {
         let ttls = dns_lru::TtlConfig {
-            min_positive_ttl: options.min_positive_ttl,
-            min_negative_ttl: options.min_negative_ttl,
+            positive_min_ttl: options.positive_min_ttl,
+            negative_min_ttl: options.negative_min_ttl,
+            ..Default::default() // for now.
         };
 
         let lru = DnsLru::new(options.cache_size, ttls);

@@ -112,8 +112,9 @@ impl ResolverFuture {
         options: ResolverOpts,
     ) -> Box<Future<Item = Self, Error = ResolveError> + Send> {
         let ttls = dns_lru::TtlConfig {
-            min_positive_ttl: options.min_positive_ttl,
-            min_negative_ttl: options.min_negative_ttl,
+            positive_min_ttl: options.positive_min_ttl,
+            negative_min_ttl: options.negative_min_ttl,
+            ..Default::default() // for now
         };
 
         let lru = DnsLru::new(options.cache_size, ttls);
