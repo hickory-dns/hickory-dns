@@ -64,13 +64,9 @@ pub(crate) struct TtlConfig {
 }
 
 impl DnsLru {
-    pub(crate) fn new(capacity: usize) -> Self {
-        Self::with_ttls(capacity, TtlConfig::default())
-    }
-
-    pub(crate) fn with_ttls(capacity: usize, ttl_cfg: TtlConfig) -> Self {
+    pub(crate) fn new(capacity: usize, ttl_cfg: TtlConfig) -> Self {
         let TtlConfig { min_positive_ttl, min_negative_ttl } = ttl_cfg;
-        let cache = LruCache::with_capacity(capacity);
+        let cache = LruCache::new(capacity);
         Self {
             cache,
             min_positive_ttl: min_positive_ttl.unwrap_or_else(|| Duration::from_secs(0)),
@@ -227,9 +223,9 @@ mod tests {
         // configure the cache with a minimum TTL of 2 seconds.
         let ttls = TtlConfig {
             min_positive_ttl: Some(Duration::from_secs(2)),
-            ..Default::default
+            ..Default::default()
         };
-        let mut lru = DnsLru::with_ttls(1, ttls);
+        let mut lru = DnsLru::new(1, ttls);
 
         let rc_ips = lru.insert(name.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
@@ -253,7 +249,7 @@ mod tests {
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         let ips_ttl = vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), 1)];
         let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
-        let mut lru = DnsLru::new(1);
+        let mut lru = DnsLru::new(1, TtlConfig::default());
 
         let rc_ips = lru.insert(name.clone(), ips_ttl, now);
         assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
@@ -275,7 +271,7 @@ mod tests {
             RData::A(Ipv4Addr::new(127, 0, 0, 1)),
             RData::A(Ipv4Addr::new(127, 0, 0, 2)),
         ];
-        let mut lru = DnsLru::new(1);
+        let mut lru = DnsLru::new(1, TtlConfig::default());
 
         lru.insert(name.clone(), ips_ttl, now);
 
@@ -306,9 +302,9 @@ mod tests {
         // minimum TTL of 3 seconds.
         let ttls = TtlConfig {
             min_positive_ttl: Some(Duration::from_secs(3)),
-            ..Default::default
+            ..Default::default()
         };
-        let mut lru = DnsLru::with_ttls(1, ttls);
+        let mut lru = DnsLru::new(1, ttls);
         lru.insert(name.clone(), ips_ttl, now);
 
         // still valid

@@ -83,7 +83,7 @@ impl Resolver {
             min_negative_ttl: options.min_negative_ttl,
         };
 
-        let lru = DnsLru::with_ttls(options.cache_size, ttls);
+        let lru = DnsLru::new(options.cache_size, ttls);
         let lru = Arc::new(Mutex::new(lru));
 
         Ok(Resolver {

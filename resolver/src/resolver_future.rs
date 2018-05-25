@@ -19,7 +19,7 @@ use trust_dns_proto::xfer::{
 use trust_dns_proto::SecureDnsHandle;
 
 use config::{ResolverConfig, ResolverOpts};
-use dns_lru::DnsLru;
+use dns_lru::{self, DnsLru};
 use error::*;
 use hosts::Hosts;
 use lookup::{self, Lookup, LookupEither, LookupFuture};
@@ -116,7 +116,7 @@ impl ResolverFuture {
             min_negative_ttl: options.min_negative_ttl,
         };
 
-        let lru = DnsLru::with_ttls(options.cache_size, ttls);
+        let lru = DnsLru::new(options.cache_size, ttls);
         let lru = Arc::new(Mutex::new(lru));
 
         Self::with_cache(config, options, lru)
