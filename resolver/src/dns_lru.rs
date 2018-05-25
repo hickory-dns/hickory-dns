@@ -128,16 +128,16 @@ impl DnsLru {
     ) -> Lookup {
         let len = rdatas_and_ttl.len();
         // collapse the values, we're going to take the Minimum TTL as the correct one
-        let (rdatas, ttl): (Vec<RData>, u32) = rdatas_and_ttl.into_iter().fold(
-            (Vec::with_capacity(len), MAX_TTL),
+        let (rdatas, ttl): (Vec<RData>, Duration) = rdatas_and_ttl.into_iter().fold(
+            (Vec::with_capacity(len), self.positive_max_ttl),
             |(mut rdatas, mut min_ttl), (rdata, ttl)| {
                 rdatas.push(rdata);
+                let ttl = Duration::from_secs(ttl as u64);
                 min_ttl = min_ttl.min(ttl);
                 (rdatas, min_ttl)
             },
         );
 
-        let ttl = Duration::from_secs(ttl as u64);
         // If the cache was configured with a minimum TTL, and that value is higher
         // than the minimum TTL in the values, use it instead.
         let ttl = self.positive_min_ttl.max(ttl);
