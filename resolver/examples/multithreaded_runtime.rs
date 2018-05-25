@@ -7,7 +7,7 @@ extern crate trust_dns_resolver;
 
 use futures::Future;
 use tokio::runtime::Runtime;
-use trust_dns_resolver::ResolverHandle;
+use trust_dns_resolver::AsyncResolver;
 
 fn main() {
 
@@ -19,7 +19,7 @@ fn main() {
         #[cfg(any(unix, windows))]
         {
             // use the system resolver configuration
-            ResolverHandle::from_system_conf().expect("Failed to create ResolverFuture")
+            AsyncResolver::from_system_conf().expect("Failed to create ResolverFuture")
         }
 
         // For other operating systems, we can use one of the preconfigured definitions
@@ -29,7 +29,7 @@ fn main() {
             use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
 
             // Get a new resolver with the google nameservers as the upstream recursive resolvers
-            ResolverHandle::new(ResolverConfig::google(), ResolverOpts::default())
+            AsyncResolver::new(ResolverConfig::google(), ResolverOpts::default())
         }
     };
 

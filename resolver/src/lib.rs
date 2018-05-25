@@ -82,7 +82,7 @@
 //! # fn main() {
 //! use std::net::*;
 //! use tokio::runtime::current_thread::Runtime;
-//! use trust_dns_resolver::ResolverHandle;
+//! use trust_dns_resolver::AsyncResolver;
 //! use trust_dns_resolver::config::*;
 //!
 //! // We need a Tokio Runtime to run the resolver
@@ -90,11 +90,11 @@
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let (resolver, background) = ResolverHandle::new(
+//! let (resolver, background) = AsyncResolver::new(
 //!     ResolverConfig::default(),
 //!     ResolverOpts::default()
 //! );
-//! // ResolverHandle::new returns a handle for sending resolve requests and a background task
+//! // AsyncResolver::new returns a handle for sending resolve requests and a background task
 //! // that must be spawned on an executor.
 //! io_loop.spawn(background);
 //!
@@ -206,7 +206,7 @@ pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server_pool;
 mod resolver;
-mod resolver_handle;
+mod async_resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
@@ -216,7 +216,12 @@ pub use self::trust_dns_proto::rr::{IntoName, Name, TryParseIp};
 
 pub use hosts::Hosts;
 pub use resolver::Resolver;
-pub use resolver_handle::ResolverHandle;
+pub use async_resolver::AsyncResolver;
+
+/// This is an alias for [`AsyncResolver`], which replaced
+/// the type previously called `ResolverFuture`.
+#[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
+pub type ResolverFuture = AsyncResolver;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {

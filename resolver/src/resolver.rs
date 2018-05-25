@@ -14,7 +14,7 @@ use futures::Future;
 use tokio::runtime::current_thread::Runtime;
 use trust_dns_proto::rr::RecordType;
 
-use ResolverHandle;
+use AsyncResolver;
 use config::{ResolverConfig, ResolverOpts};
 use dns_lru::{self, DnsLru};
 use error::*;
@@ -110,9 +110,9 @@ impl Resolver {
     }
 
     /// Constructs a new ResolverFutture
-    fn construct_and_run(&self) -> ResolveResult<(ResolverHandle, impl Future<Item=(), Error=()>)> {
+    fn construct_and_run(&self) -> ResolveResult<(AsyncResolver, impl Future<Item=(), Error=()>)> {
         // TODO: can we reuse the background task/handle once it has been spawned?
-        let handle = ResolverHandle::with_cache(
+        let handle = AsyncResolver::with_cache(
             self.config.clone(),
             self.options.clone(),
             self.lru.clone(),

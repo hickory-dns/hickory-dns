@@ -21,7 +21,7 @@ use lookup_ip::LookupIpFuture;
 use lookup_state::CachingClient;
 use name_server_pool::{NameServerPool, StandardConnection};
 
-use super::{BasicResolverHandle, Request};
+use super::{BasicAsyncResolver, Request};
 
 /// Returns a new future that will drive the background task.
 pub(super) fn task(
@@ -31,7 +31,7 @@ pub(super) fn task(
     request_rx: mpsc::UnboundedReceiver<Request>,
 ) -> impl Future<Item = (), Error = ()> {
     future::lazy(move || {
-        let pool = NameServerPool::<BasicResolverHandle, StandardConnection>::from_config(
+        let pool = NameServerPool::<BasicAsyncResolver, StandardConnection>::from_config(
             &config, &options,
         );
         let either;
@@ -69,7 +69,7 @@ pub(super) fn task(
 }
 
 type ClientCache =
-    CachingClient<LookupEither<BasicResolverHandle, StandardConnection>>;
+    CachingClient<LookupEither<BasicAsyncResolver, StandardConnection>>;
 
 /// Background task that resolves DNS queries.
 struct Task {
@@ -195,13 +195,13 @@ impl Future for Task {
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
             let poll = self.request_rx.poll().map_err(|e| {
-                error!("ResolverHandle poisoned: {:?}", e);
+                error!("AsyncResolver poisoned: {:?}", e);
             });
             match try_ready!(poll) {
                 None => {
                     // mpsc::UnboundedReceiver::poll() returns `None` when the sender
                     // has been dropped.
-                    trace!("ResolverHandle dropped, shutting down background task.");
+                    trace!("AsyncResolver dropped, shutting down background task.");
                     // Return `Ready` so the background future finishes, as no handles
                     // are using it any longer.
                     return Ok(Async::Ready(()))

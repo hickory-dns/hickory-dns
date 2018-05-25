@@ -11,7 +11,7 @@
 use std::borrow::Cow;
 use std::collections::HashMap;
 
-use futures::{future, Async, Future, Poll};
+use futures::{Async, Future, Poll};
 
 use trust_dns_proto::rr::{IntoName, Name, RecordType};
 use trust_dns_proto::xfer::DnsRequestOptions;
@@ -20,7 +20,7 @@ use error::*;
 use lookup::{
     ReverseLookup, ReverseLookupFuture, ReverseLookupIter, TxtLookup, TxtLookupFuture,
 };
-use resolver_handle::{BackgroundLookup, ResolverHandle};
+use async_resolver::{BackgroundLookup, AsyncResolver};
 
 /// An extension for the Resolver to perform DNS Service Discovery
 pub trait DnsSdHandle {
@@ -37,7 +37,7 @@ pub trait DnsSdHandle {
     fn service_info<N: IntoName>(&self, name: N) -> ServiceInfoFuture;
 }
 
-impl DnsSdHandle for ResolverHandle {
+impl DnsSdHandle for AsyncResolver {
     fn list_services<N: IntoName>(&self, name: N) -> ListServicesFuture {
         let options = DnsRequestOptions {
             expects_multiple_responses: true,
@@ -82,7 +82,7 @@ pub struct ListServices(ReverseLookup);
 impl ListServices {
     /// Returns an iterator over the list of returned names of services.
     ///
-    /// Each name can be queried for additional information. To lookup service entries see `ResolverHandle::srv_lookup`. To get parameters associated with the service, see `DnsSdFuture::service_info`.
+    /// Each name can be queried for additional information. To lookup service entries see `AsyncResolver::srv_lookup`. To get parameters associated with the service, see `DnsSdFuture::service_info`.
     pub fn iter(&self) -> ListServicesIter {
         ListServicesIter(self.0.iter())
     }
@@ -154,7 +154,7 @@ mod tests {
     #[ignore]
     fn test_list_services() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,

@@ -31,12 +31,12 @@ mod tests {
     use tokio::runtime::current_thread::Runtime;
 
     use config::{ResolverConfig, ResolverOpts};
-    use ResolverHandle;
+    use AsyncResolver;
 
     fn tls_test(config: ResolverConfig) {
         let mut io_loop = Runtime::new().unwrap();
 
-        let (resolver, bg) = ResolverHandle::new(config, ResolverOpts::default());
+        let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());
         io_loop.spawn(bg);
 
         let response = io_loop
