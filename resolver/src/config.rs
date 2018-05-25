@@ -444,13 +444,13 @@ pub struct ResolverOpts {
     /// Optional minimum TTL for positive responses.
     ///
     /// If this is set, any positive responses with a TTL lower than this value will have a TTL of
-    /// `min_positive_ttl` instead.
-    pub min_positive_ttl: Option<Duration>,
+    /// `positive_min_ttl` instead.
+    pub positive_min_ttl: Option<Duration>,
     /// Optional minimum TTL for negative (`NXDOMAIN`) responses.
     ///
     /// If this is set, any positive responses with a TTL lower than this value will have a TTL of
-    /// `min_negative_ttl` instead.
-    pub min_negative_ttl: Option<Duration>,
+    /// `negative_min_ttl` instead.
+    pub negative_min_ttl: Option<Duration>,
 }
 
 impl Default for ResolverOpts {
@@ -469,8 +469,8 @@ impl Default for ResolverOpts {
             ip_strategy: LookupIpStrategy::default(),
             cache_size: 32,
             use_hosts_file: true,
-            min_negative_ttl: None,
-            min_positive_ttl: None,
+            negative_min_ttl: None,
+            positive_min_ttl: None,
         }
     }
 }

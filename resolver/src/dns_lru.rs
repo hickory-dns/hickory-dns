@@ -37,40 +37,86 @@ impl LruValue {
 #[derive(Debug)]
 pub(crate) struct DnsLru {
     cache: LruCache<Query, LruValue>,
-    /// An optional minimum TTL value for positive responses.
+    /// A minimum TTL value for positive responses.
     ///
-    /// Positive responses with TTLs under `min_positive_ttl` will use
-    /// `` instead.
-    min_positive_ttl: Duration,
-    /// An optional minimum TTL value for negative (`NXDOMAIN`) responses.
+    /// Positive responses with TTLs under `positive_max_ttl` will use
+    /// `positive_max_ttl` instead.
     ///
-    /// `NXDOMAIN` responses with TTLs under `min_negative_ttl` will use
-    /// `min_negative_ttl` instead.
-    min_negative_ttl: Duration,
+    /// If this value is not set on the `TtlConfig` used to construct this
+    /// `DnsLru`, it will default to 0.
+    positive_min_ttl: Duration,
+    /// A minimum TTL value for negative (`NXDOMAIN`) responses.
+    ///
+    /// `NXDOMAIN` responses with TTLs under `negative_min_ttl` will use
+    /// `negative_min_ttl` instead.
+    ///
+    /// If this value is not set on the `TtlConfig` used to construct this
+    /// `DnsLru`, it will default to 0.
+    negative_min_ttl: Duration,
+    /// A maximum TTL value for positive responses.
+    ///
+    /// Positive responses with TTLs over `positive_max_ttl` will use
+    /// `positive_max_ttl` instead.
+    ///
+    ///  If this value is not set on the `TtlConfig` used to construct this
+    /// `DnsLru`, it will default to [`MAX_TTL`] seconds.
+    ///
+    /// [`MAX_TTL`]: const.MAX_TTL.html
+    positive_max_ttl: Duration,
+    /// A maximum TTL value for negative (`NXDOMAIN`) responses.
+    ///
+    /// `NXDOMAIN` responses with TTLs over `negative_max_ttl` will use
+    /// `negative_max_ttl` instead.
+    ///
+    ///  If this value is not set on the `TtlConfig` used to construct this
+    /// `DnsLru`, it will default to [`MAX_TTL`] seconds.
+    ///
+    /// [`MAX_TTL`]: const.MAX_TTL.html
+    negative_max_ttl: Duration,
+
 }
 
 #[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct TtlConfig {
     /// An optional minimum TTL value for positive responses.
     ///
-    /// Positive responses with TTLs under `min_positive_ttl` will use
-    /// `` instead.
-    pub min_positive_ttl: Option<Duration>,
+    /// Positive responses with TTLs under `positive_min_ttl` will use
+    /// `positive_min_ttl` instead.
+    pub positive_min_ttl: Option<Duration>,
     /// An optional minimum TTL value for negative (`NXDOMAIN`) responses.
     ///
-    /// `NXDOMAIN` responses with TTLs under `min_negative_ttl` will use
-    /// `min_negative_ttl` instead.
-    pub min_negative_ttl: Option<Duration>,
+    /// `NXDOMAIN` responses with TTLs under `negative_min_ttl will use
+    /// `negative_min_ttl` instead.
+    pub negative_min_ttl: Option<Duration>,
+    /// An optional maximum TTL value for positive responses.
+    ///
+    /// Positive responses with TTLs positive `positive_max_ttl` will use
+    /// `positive_max_ttl` instead.
+    pub positive_max_ttl: Option<Duration>,
+    /// An optional maximum TTL value for negative (`NXDOMAIN`) responses.
+    ///
+    /// `NXDOMAIN` responses with TTLs over `negative_max_ttl` will use
+    /// `negative_max_ttl` instead.
+    pub negative_max_ttl: Option<Duration>,
 }
 
 impl DnsLru {
     pub(crate) fn new(capacity: usize, ttl_cfg: TtlConfig) -> Self {
-        let TtlConfig { min_positive_ttl, min_negative_ttl } = ttl_cfg;
+        let TtlConfig {
+            positive_min_ttl,
+            negative_min_ttl,
+            positive_max_ttl,
+            negative_max_ttl,
+        } = ttl_cfg;
         let cache = LruCache::new(capacity);
         Self {
             cache,
-            min_positive_ttl: min_positive_ttl.unwrap_or_else(|| Duration::from_secs(0)),
-            min_negative_ttl: min_negative_ttl.unwrap_or_else(|| Duration::from_secs(0)),
+            positive_min_ttl: positive_min_ttl.unwrap_or_else(|| Duration::from_secs(0)),
+            negative_min_ttl: negative_min_ttl.unwrap_or_else(|| Duration::from_secs(0)),
+            positive_max_ttl: positive_max_ttl
+                .unwrap_or_else(|| Duration::from_secs(MAX_TTL as u64)),
+            negative_max_ttl: negative_max_ttl
+                .unwrap_or_else(|| Duration::from_secs(MAX_TTL as u64)),
         }
     }
 
@@ -94,7 +140,7 @@ impl DnsLru {
         let ttl = Duration::from_secs(ttl as u64);
         // If the cache was configured with a minimum TTL, and that value is higher
         // than the minimum TTL in the values, use it instead.
-        let ttl = self.min_positive_ttl.max(ttl);
+        let ttl = self.positive_min_ttl.max(ttl);
         let valid_until = now + ttl;
 
         // insert into the LRU
@@ -143,7 +189,7 @@ impl DnsLru {
         let ttl = Duration::from_secs(ttl as u64);
         // If the cache was configured with a min TTL for negative responses,
         // and that TTL is higher than the response's TTL, use it instead.
-        let ttl = self.min_negative_ttl.max(ttl);
+        let ttl = self.negative_min_ttl.max(ttl);
         let valid_until = now + ttl;
 
         self.cache.insert(
@@ -212,7 +258,7 @@ mod tests {
     }
 
     #[test]
-    fn test_lookup_uses_min_positive_ttl() {
+    fn test_lookup_uses_positive_min_ttl() {
         let now = Instant::now();
 
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
@@ -222,7 +268,7 @@ mod tests {
 
         // configure the cache with a minimum TTL of 2 seconds.
         let ttls = TtlConfig {
-            min_positive_ttl: Some(Duration::from_secs(2)),
+            positive_min_ttl: Some(Duration::from_secs(2)),
             ..Default::default()
         };
         let mut lru = DnsLru::new(1, ttls);
@@ -285,7 +331,7 @@ mod tests {
     }
 
     #[test]
-    fn test_insert_min_positive_ttl() {
+    fn test_insert_positive_min_ttl() {
         let now = Instant::now();
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
         // TTL should be 1
@@ -301,7 +347,7 @@ mod tests {
         // this cache should override the TTL of 1 seconds with the configured
         // minimum TTL of 3 seconds.
         let ttls = TtlConfig {
-            min_positive_ttl: Some(Duration::from_secs(3)),
+            positive_min_ttl: Some(Duration::from_secs(3)),
             ..Default::default()
         };
         let mut lru = DnsLru::new(1, ttls);
