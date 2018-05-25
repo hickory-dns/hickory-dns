@@ -290,6 +290,43 @@ mod tests {
     }
 
     #[test]
+    fn test_error_uses_negative_min_ttl() {
+        let now = Instant::now();
+
+        let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+
+        // configure the cache with a maximum TTL of 2 seconds.
+        let ttls = TtlConfig {
+            negative_min_ttl: Some(Duration::from_secs(2)),
+            ..Default::default()
+        };
+        let mut lru = DnsLru::new(1, ttls);
+
+        // neg response should have TTL of 1 seconds.
+        let nx_error = lru.negative(name.clone(), 1, now);
+        match nx_error.kind() {
+            &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
+                let valid_until = valid_until.expect("resolve error should have a deadline");
+                // the error's `valid_until` field should have been limited to 2 seconds.
+                assert_eq!(valid_until, now + Duration::from_secs(2));
+            },
+            other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
+        }
+
+        // neg response should have TTL of 3 seconds.
+        let nx_error = lru.negative(name.clone(), 3, now);
+        match nx_error.kind() {
+            &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
+                let valid_until = valid_until.expect("ResolveError should have a deadline");
+                // the error's `valid_until` field should not have been limited, as it was
+                // over the min TTL.
+                assert_eq!(valid_until, now + Duration::from_secs(3));
+            },
+            other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
+        }
+    }
+
+    #[test]
     fn test_lookup_uses_positive_max_ttl() {
         let now = Instant::now();
 
@@ -319,6 +356,43 @@ mod tests {
         // the returned lookup should use the record's TTL, since it's
         // below than the cache's maximum.
         assert_eq!(rc_ips.valid_until(), now + Duration::from_secs(59));
+    }
+
+    #[test]
+    fn test_error_uses_negative_max_ttl() {
+        let now = Instant::now();
+
+        let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+
+        // configure the cache with a maximum TTL of 60 seconds.
+        let ttls = TtlConfig {
+            negative_max_ttl: Some(Duration::from_secs(60)),
+            ..Default::default()
+        };
+        let mut lru = DnsLru::new(1, ttls);
+
+        // neg response should have TTL of 62 seconds.
+        let nx_error = lru.negative(name.clone(), 62, now);
+        match nx_error.kind() {
+            &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
+                let valid_until = valid_until.expect("resolve error should have a deadline");
+                // the error's `valid_until` field should have been limited to 60 seconds.
+                assert_eq!(valid_until, now + Duration::from_secs(60));
+            },
+            other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
+        }
+
+        // neg response should have TTL of 59 seconds.
+        let nx_error = lru.negative(name.clone(), 59, now);
+        match nx_error.kind() {
+            &ResolveErrorKind::NoRecordsFound { valid_until, .. } => {
+                let valid_until = valid_until.expect("resolve error should have a deadline");
+                // the error's `valid_until` field should not have been limited, as it was
+                // under the max TTL.
+                assert_eq!(valid_until, now + Duration::from_secs(59));
+            }
+            other => panic!("expected ResolveErrorKind::NoRecordsFound, got {:?}", other),
+        }
     }
 
     #[test]
