@@ -13,7 +13,7 @@ use std::slice::Iter;
 use std::sync::Arc;
 use std::time::{Duration, Instant};
 
-use futures::{future, task, Async, Future, Poll};
+use futures::{future, Async, Future, Poll};
 
 use trust_dns_proto::op::Query;
 use trust_dns_proto::rr::rdata;
@@ -28,7 +28,7 @@ use error::*;
 use lookup_ip::LookupIpIter;
 use lookup_state::CachingClient;
 use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
-use resolver_handle::BasicResolverHandle;
+use async_resolver::BasicAsyncResolver;
 
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Proto library.
 ///
@@ -143,7 +143,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
 
 /// The Future returned from ResolverFuture when performing a lookup.
 #[doc(hidden)]
-pub struct LookupFuture<C = LookupEither<BasicResolverHandle, StandardConnection>>
+pub struct LookupFuture<C = LookupEither<BasicAsyncResolver, StandardConnection>>
 where
     C: DnsHandle<Error = ResolveError> + 'static,
 {

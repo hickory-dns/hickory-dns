@@ -5,7 +5,7 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-//! Structs for creating and using a ResolverHandle
+//! Structs for creating and using a AsyncResolver
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
@@ -25,24 +25,24 @@ use lookup_ip::LookupIpFuture;
 
 mod background;
 
-/// Root Handle to communicate with the ResolverHandle
+/// Root Handle to communicate with the AsyncResolver
 ///
 /// This can be used directly to perform queries. See [`trust_dns_proto::SecureClientHandle`] for
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
-pub struct BasicResolverHandle {
+pub struct BasicAsyncResolver {
     message_sender: BasicDnsHandle<ResolveError>,
 }
 
-impl BasicResolverHandle {
+impl BasicAsyncResolver {
     pub(crate) fn new(dns_handle: BasicDnsHandle<ResolveError>) -> Self {
-        BasicResolverHandle {
+        BasicAsyncResolver {
             message_sender: dns_handle,
         }
     }
 }
 
-impl DnsHandle for BasicResolverHandle {
+impl DnsHandle for BasicAsyncResolver {
     type Error = ResolveError;
 
     fn send<R: Into<DnsRequest>>(
@@ -59,17 +59,17 @@ impl DnsHandle for BasicResolverHandle {
 
 /// A handle for resolving DNS records.
 ///
-/// Creating a `ResolverHandle` returns a new handle and a future that should
+/// Creating a `AsyncResolver` returns a new handle and a future that should
 /// be spawned on an executor to drive the background work. The lookup methods
-/// on `ResolverHandle` request lookups from the background task.
+/// on `AsyncResolver` request lookups from the background task.
 ///
-/// The futures returned by a `ResolverHandle` and the corresponding background
+/// The futures returned by a `AsyncResolver` and the corresponding background
 /// task need not be spawned on the same executor, or be in the same thread.
 ///  Additionally, one background task may have any number of handles; calling
 /// `clone()` on a handle will create a new handle linked to the same
 /// background task.
 ///
-/// *NOTE* If lookup futures returned by a `ResolverHandle` and the background
+/// *NOTE* If lookup futures returned by a `AsyncResolver` and the background
 /// future are spawned on two separate `CurrentThread` executors, one thread
 /// cannot run both executors simultaneously, so the `run` or `block_on`
 /// functions will cause the thread to deadlock. If both the background work
@@ -79,7 +79,7 @@ impl DnsHandle for BasicResolverHandle {
 /// The background task future will finish once all existing handles to it
 /// have been dropped.
 #[derive(Clone)]
-pub struct ResolverHandle {
+pub struct AsyncResolver {
     request_tx: mpsc::UnboundedSender<Request>,
 }
 
@@ -118,7 +118,7 @@ type BgSend<F, G> =
         fn(F) -> G
     >;
 
-/// Used by `ResolverHandle` for communicating with the background resolver task.
+/// Used by `AsyncResolver` for communicating with the background resolver task.
 enum Request {
     /// Requests a lookup of the specified `RecordType`.
     Lookup {
@@ -168,8 +168,8 @@ pub fn $p(&self, query: $t) -> BackgroundLookup<$f> {
     };
 }
 
-impl ResolverHandle {
-    /// Construct a new ResolverHandle with the associated Client and configuration.
+impl AsyncResolver {
+    /// Construct a new AsyncResolver with the associated Client and configuration.
     ///
     /// # Arguments
     ///
@@ -178,8 +178,8 @@ impl ResolverHandle {
     ///
     /// # Returns
     ///
-    /// A tuple containing the new ResolverHandle and a future that drives the
-    /// background task that runs resolutions for the ResolverHandle.
+    /// A tuple containing the new AsyncResolver and a future that drives the
+    /// background task that runs resolutions for the AsyncResolver.
     pub fn new(
         config: ResolverConfig,
         options: ResolverOpts,
@@ -193,7 +193,7 @@ impl ResolverHandle {
         Self::with_cache(config, options, lru)
     }
 
-    /// Construct a new ResolverHandle with the associated Client and configuration.
+    /// Construct a new AsyncResolver with the associated Client and configuration.
     ///
     /// # Arguments
     ///
@@ -203,8 +203,8 @@ impl ResolverHandle {
     ///
     /// # Returns
     ///
-    /// A tuple containing the new ResolverHandle and a future that drives the
-    /// background task that runs resolutions for the ResolverHandle.
+    /// A tuple containing the new AsyncResolver and a future that drives the
+    /// background task that runs resolutions for the AsyncResolver.
     pub(crate) fn with_cache(
         config: ResolverConfig,
         options: ResolverOpts,
@@ -428,8 +428,8 @@ mod tests {
         assert!(is_send_t::<ResolverOpts>());
         assert!(is_sync_t::<ResolverOpts>());
 
-        assert!(is_send_t::<ResolverHandle>());
-        assert!(is_sync_t::<ResolverHandle>());
+        assert!(is_send_t::<AsyncResolver>());
+        assert!(is_sync_t::<AsyncResolver>());
 
         assert!(is_send_t::<DnsRequest>());
         assert!(is_send_t::<LookupIpFuture>());
@@ -438,7 +438,7 @@ mod tests {
 
     fn lookup_test(config: ResolverConfig) {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(config, ResolverOpts::default());
+        let (resolver, bg) = AsyncResolver::new(config, ResolverOpts::default());
         io_loop.spawn(bg);
 
         let response = io_loop
@@ -478,7 +478,7 @@ mod tests {
     #[test]
     fn test_ip_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(ResolverConfig::default(), ResolverOpts::default());
+        let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
 
         io_loop.spawn(bg);
 
@@ -507,10 +507,10 @@ mod tests {
     fn test_ip_lookup_across_threads() {
         // Test ensuring that running the background task on a separate Tokio
         // executor in a separate thread from the futures returned by the
-        // ResolverHandle works correctly.
+        // AsyncResolver works correctly.
         use std::thread;
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(ResolverConfig::default(), ResolverOpts::default());
+        let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
 
         thread::spawn(move || {
             let mut background_runtime = Runtime::new().unwrap();
@@ -543,7 +543,7 @@ mod tests {
     #[ignore] // these appear to not work on travis
     fn test_sec_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -577,7 +577,7 @@ mod tests {
     #[ignore] // these appear to not work on travis
     fn test_sec_lookup_fails() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 validate: true,
@@ -615,7 +615,7 @@ mod tests {
     #[cfg(any(unix, target_os = "windows"))]
     fn test_system_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::from_system_conf().unwrap();
+        let (resolver, bg) = AsyncResolver::from_system_conf().unwrap();
 
         io_loop.spawn(bg);
 
@@ -644,7 +644,7 @@ mod tests {
     #[cfg(unix)]
     fn test_hosts_lookup() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::from_system_conf().unwrap();
+        let (resolver, bg) = AsyncResolver::from_system_conf().unwrap();
 
         io_loop.spawn(bg);
 
@@ -673,7 +673,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -708,7 +708,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // our name does have 2, the default should be fine, let's just narrow the test criteria a bit.
@@ -746,7 +746,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 // matches kubernetes default
@@ -785,7 +785,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -823,7 +823,7 @@ mod tests {
             ResolverConfig::default().name_servers().to_owned();
 
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::from_parts(Some(domain), search, name_servers),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -851,7 +851,7 @@ mod tests {
     #[test]
     fn test_idna() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(ResolverConfig::default(), ResolverOpts::default());
+        let (resolver, bg) = AsyncResolver::new(ResolverConfig::default(), ResolverOpts::default());
 
         io_loop.spawn(bg);
 
@@ -867,7 +867,7 @@ mod tests {
     #[test]
     fn test_localhost_ipv4() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4thenIpv6,
@@ -891,7 +891,7 @@ mod tests {
     #[test]
     fn test_localhost_ipv6() {
         let mut io_loop = Runtime::new().unwrap();
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             ResolverConfig::default(),
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv6thenIpv4,
@@ -918,7 +918,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -946,7 +946,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
@@ -974,7 +974,7 @@ mod tests {
         let mut config = ResolverConfig::default();
         config.add_search(Name::from_str("example.com").unwrap());
 
-        let (resolver, bg) = ResolverHandle::new(
+        let (resolver, bg) = AsyncResolver::new(
             config,
             ResolverOpts {
                 ip_strategy: LookupIpStrategy::Ipv4Only,
