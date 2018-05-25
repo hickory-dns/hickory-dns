@@ -186,10 +186,11 @@ impl DnsLru {
         // TODO: if we are getting a negative response, should we instead fallback to cache?
         //   this would cache indefinitely, probably not correct
 
-        let ttl = Duration::from_secs(ttl as u64);
-        // If the cache was configured with a min TTL for negative responses,
-        // and that TTL is higher than the response's TTL, use it instead.
-        let ttl = self.negative_min_ttl.max(ttl);
+        let ttl = Duration::from_secs(ttl as u64)
+            // Clamp the TTL so that it's between the cache's configured
+            // minimum and maximum TTLs for negative responses.
+            .max(self.negative_min_ttl)
+            .min(self.negative_max_ttl);
         let valid_until = now + ttl;
 
         self.cache.insert(
