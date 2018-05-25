@@ -13,6 +13,7 @@ use std::time::{Duration, Instant};
 use trust_dns_proto::op::Query;
 use trust_dns_proto::rr::RData;
 
+use config;
 use error::*;
 use lookup::Lookup;
 use lru_cache::LruCache;
@@ -98,6 +99,17 @@ pub(crate) struct TtlConfig {
     /// `NXDOMAIN` responses with TTLs over `negative_max_ttl` will use
     /// `negative_max_ttl` instead.
     pub negative_max_ttl: Option<Duration>,
+}
+
+impl TtlConfig {
+    pub(crate) fn from_opts(opts: &config::ResolverOpts) -> TtlConfig {
+        TtlConfig {
+            positive_min_ttl: opts.positive_min_ttl,
+            negative_min_ttl: opts.negative_min_ttl,
+            positive_max_ttl: opts.positive_max_ttl,
+            negative_max_ttl: opts.negative_max_ttl,
+        }
+    }
 }
 
 impl DnsLru {

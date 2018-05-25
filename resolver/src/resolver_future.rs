@@ -111,13 +111,10 @@ impl ResolverFuture {
         config: ResolverConfig,
         options: ResolverOpts,
     ) -> Box<Future<Item = Self, Error = ResolveError> + Send> {
-        let ttls = dns_lru::TtlConfig {
-            positive_min_ttl: options.positive_min_ttl,
-            negative_min_ttl: options.negative_min_ttl,
-            ..Default::default() // for now
-        };
-
-        let lru = DnsLru::new(options.cache_size, ttls);
+        let lru = DnsLru::new(
+            options.cache_size,
+            dns_lru::TtlConfig::from_opts(&options),
+        );
         let lru = Arc::new(Mutex::new(lru));
 
         Self::with_cache(config, options, lru)
