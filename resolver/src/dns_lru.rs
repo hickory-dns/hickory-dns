@@ -290,6 +290,38 @@ mod tests {
     }
 
     #[test]
+    fn test_lookup_uses_positive_max_ttl() {
+        let now = Instant::now();
+
+        let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        // record should have TTL of 62 seconds.
+        let ips_ttl = vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), 62)];
+        let ips = vec![RData::A(Ipv4Addr::new(127, 0, 0, 1))];
+
+        // configure the cache with a maximum TTL of 60 seconds.
+        let ttls = TtlConfig {
+            positive_max_ttl: Some(Duration::from_secs(60)),
+            ..Default::default()
+        };
+        let mut lru = DnsLru::new(1, ttls);
+
+        let rc_ips = lru.insert(name.clone(), ips_ttl, now);
+        assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
+        // the returned lookup should use the cache's min TTL, since the
+        // query's TTL was above the maximum.
+        assert_eq!(rc_ips.valid_until(), now + Duration::from_secs(60));
+
+        // record should have TTL of 59 seconds.
+        let ips_ttl = vec![(RData::A(Ipv4Addr::new(127, 0, 0, 1)), 59)];
+
+        let rc_ips = lru.insert(name.clone(), ips_ttl, now);
+        assert_eq!(*rc_ips.iter().next().unwrap(), ips[0]);
+        // the returned lookup should use the record's TTL, since it's
+        // below than the cache's maximum.
+        assert_eq!(rc_ips.valid_until(), now + Duration::from_secs(59));
+    }
+
+    #[test]
     fn test_insert() {
         let now = Instant::now();
         let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
@@ -371,6 +403,45 @@ mod tests {
 
         // after 4 seconds, the records should be invalid.
         let rc_ips = lru.get(&name, now + Duration::from_secs(4));
+        assert!(rc_ips.is_none());
+    }
+
+    #[test]
+    fn test_insert_positive_max_ttl() {
+        let now = Instant::now();
+        let name = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        // TTL should be 500
+        let ips_ttl = vec![
+            (RData::A(Ipv4Addr::new(127, 0, 0, 1)), 400),
+            (RData::A(Ipv4Addr::new(127, 0, 0, 2)), 500),
+        ];
+        let ips = vec![
+            RData::A(Ipv4Addr::new(127, 0, 0, 1)),
+            RData::A(Ipv4Addr::new(127, 0, 0, 2)),
+        ];
+
+        // this cache should override the TTL of 500 seconds with the configured
+        // minimum TTL of 2 seconds.
+        let ttls = TtlConfig {
+            positive_max_ttl: Some(Duration::from_secs(2)),
+            ..Default::default()
+        };
+        let mut lru = DnsLru::new(1, ttls);
+        lru.insert(name.clone(), ips_ttl, now);
+
+        // still valid
+        let rc_ips = lru.get(&name, now + Duration::from_secs(1)).unwrap();
+        for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
+            assert_eq!(rc_ip, ip, "after 1 second");
+        }
+
+        let rc_ips = lru.get(&name, now + Duration::from_secs(2)).unwrap();
+        for (rc_ip, ip) in rc_ips.iter().zip(ips.iter()) {
+            assert_eq!(rc_ip, ip, "after 2 seconds");
+        }
+
+        // after 3 seconds, the records should be invalid.
+        let rc_ips = lru.get(&name, now + Duration::from_secs(3));
         assert!(rc_ips.is_none());
     }
 }
