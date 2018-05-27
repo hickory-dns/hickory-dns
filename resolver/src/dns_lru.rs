@@ -77,6 +77,13 @@ pub(crate) struct DnsLru {
 
 }
 
+/// The time-to-live, TTL, configuration for use by the cache.
+/// 
+/// It should be understood that the TTL in DNS is expressed with a u32.
+///   We use Duration here for tracking this which can express larger values
+///   than the DNS standard. Generally a Duration greater than u32::MAX_VALUE
+///   shouldn't cause any issue as this will never be used in serialization,
+///   but understand that this would be outside the standard range.
 #[derive(Copy, Clone, Debug, Default)]
 pub(crate) struct TtlConfig {
     /// An optional minimum TTL value for positive responses.
