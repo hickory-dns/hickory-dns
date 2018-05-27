@@ -176,6 +176,11 @@ extern crate lazy_static;
 extern crate log;
 extern crate lru_cache;
 extern crate resolv_conf;
+#[cfg(feature = "serde-config")]
+#[macro_use]
+extern crate serde_derive;
+#[cfg(feature = "serde-config")]
+extern crate serde;
 extern crate smallvec;
 extern crate tokio;
 #[cfg(feature = "dns-over-native-tls")]
