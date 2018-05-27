@@ -1,9 +1,9 @@
-use std::io;
 use std::mem;
 use std::time::{Duration, Instant};
 
 use futures::{Async, Future, Poll, Stream};
 use tokio_timer::Delay;
+use trust_dns_proto::error::ProtoError;
 
 /// This wraps the underlying Stream in a timeout.
 ///
@@ -44,10 +44,10 @@ impl<S> TimeoutStream<S> {
 
 impl<S, I> Stream for TimeoutStream<S>
 where
-    S: Stream<Item = I, Error = io::Error>,
+    S: Stream<Item = I, Error = ProtoError>,
 {
     type Item = I;
-    type Error = io::Error;
+    type Error = ProtoError;
 
     // somehow insert a timeout here...
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -60,17 +60,11 @@ where
                 match timeout.poll() {
                     Ok(Async::Ready(_)) => {
                         warn!("timeout fired immediately!");
-                        return Err(io::Error::new(
-                            io::ErrorKind::TimedOut,
-                            format!("timeout fired immediately!"),
-                        ));
+                        return Err(format!("timeout fired immediately!").into());
                     }
                     Err(e) => {
                         error!("could not register interest in Timeout: {}", e);
-                        return Err(io::Error::new(
-                            io::ErrorKind::TimedOut,
-                            format!("could not register interest in Timeout: {}", e),
-                        ));
+                        return Err(format!("could not register interest in Timeout: {}", e).into());
                     }
                     Ok(Async::NotReady) => (), // this is the exepcted state...
                 }
@@ -85,14 +79,11 @@ where
                         Ok(Async::NotReady) => return Ok(Async::NotReady),
                         Ok(Async::Ready(())) => {
                             debug!("timeout on stream");
-                            return Err(io::Error::new(
-                                io::ErrorKind::TimedOut,
-                                format!("nothing ready in {:?}", self.timeout_duration),
-                            ));
+                            return Err(
+                                format!("nothing ready in {:?}", self.timeout_duration).into()
+                            );
                         }
-                        Err(_) => {
-                            return Err(io::Error::new(io::ErrorKind::Other, "timer internal error"));
-                        }
+                        Err(_) => Err(format!("timer internal error").into()),
                     }
                 } else {
                     return Ok(Async::NotReady);

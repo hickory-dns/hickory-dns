@@ -22,6 +22,7 @@ use trust_dns::serialize::binary::{BinDecodable, BinDecoder};
 use trust_dns::tcp::TcpStream;
 use trust_dns::udp::UdpStream;
 use trust_dns::BufStreamHandle;
+use trust_dns_proto::error::ProtoResult;
 
 #[cfg(feature = "dns-over-openssl")]
 use trust_dns_openssl::{tls_server, TlsStream};
@@ -274,7 +275,7 @@ impl<T: RequestHandler> ServerFuture<T> {
         src_addr: SocketAddr,
         stream_handle: BufStreamHandle<ClientError>,
         handler: Arc<Mutex<T>>,
-    ) -> io::Result<()> {
+    ) -> ProtoResult<()> {
         let response_handle = ResponseHandle::new(src_addr, stream_handle);
 
         // TODO: rather than decoding the message here, this RequestStream should instead

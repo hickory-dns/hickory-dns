@@ -17,7 +17,6 @@
 //  should be the only "front-end" for lookups, where if that misses, then we go to the catalog
 //  then, if requested, do a recursive lookup... i.e. the catalog would only point to files.
 use std::collections::HashMap;
-use std::io;
 use std::sync::RwLock;
 
 use server::{Request, RequestHandler, ResponseHandler};
@@ -25,6 +24,7 @@ use trust_dns::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode}
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
 use trust_dns::rr::{LowerName, RecordType};
+use trust_dns_proto::error::ProtoResult;
 
 use authority::{AuthLookup, Authority, MessageRequest, MessageResponse, ZoneType};
 
@@ -37,7 +37,7 @@ fn send_response<R: ResponseHandler>(
     response_edns: Option<Edns>,
     mut response: MessageResponse,
     response_handle: R,
-) -> io::Result<()> {
+) -> ProtoResult<()> {
     if let Some(mut resp_edns) = response_edns {
         // set edns DAU and DHU
         // send along the algorithms which are supported by this authority
@@ -56,7 +56,7 @@ fn send_response<R: ResponseHandler>(
         response.set_edns(resp_edns);
     }
 
-    response_handle.send(response)
+    response_handle.respond(response).map_err(|(e, _)| e)
 }
 
 impl RequestHandler for Catalog {
@@ -70,7 +70,7 @@ impl RequestHandler for Catalog {
         &'a self,
         request: &'q Request,
         response_handle: R,
-    ) -> io::Result<()> {
+    ) -> ProtoResult<()> {
         let request_message = &request.message;
         trace!("request: {:?}", request_message);
 
@@ -101,7 +101,9 @@ impl RequestHandler for Catalog {
                 response.edns(resp_edns);
 
                 // TODO: should ResponseHandle consume self?
-                return response_handle.send(response.build(response_header));
+                return response_handle
+                    .respond(response.build(response_header))
+                    .map_err(|(e, _)| e);
             }
 
             response_edns = Some(resp_edns);
@@ -122,11 +124,13 @@ impl RequestHandler for Catalog {
                 c @ _ => {
                     error!("unimplemented op_code: {:?}", c);
                     let response = MessageResponse::new(Some(request_message.raw_queries()));
-                    return response_handle.send(response.error_msg(
-                        request_message.id(),
-                        request_message.op_code(),
-                        ResponseCode::NotImp,
-                    ));
+                    return response_handle
+                        .respond(response.error_msg(
+                            request_message.id(),
+                            request_message.op_code(),
+                            ResponseCode::NotImp,
+                        ))
+                        .map_err(|(e, _)| e);
                 }
             },
             MessageType::Response => {
@@ -136,11 +140,13 @@ impl RequestHandler for Catalog {
                 );
                 let response = MessageResponse::new(Some(request_message.raw_queries()));
 
-                return response_handle.send(response.error_msg(
-                    request_message.id(),
-                    request_message.op_code(),
-                    ResponseCode::FormErr,
-                ));
+                return response_handle
+                    .respond(response.error_msg(
+                        request_message.id(),
+                        request_message.op_code(),
+                        ResponseCode::FormErr,
+                    ))
+                    .map_err(|(e, _)| e);
             }
         };
     }
@@ -218,7 +224,7 @@ impl Catalog {
         update: &'q MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) -> io::Result<()> {
+    ) -> ProtoResult<()> {
         let response = MessageResponse::new(None);
         let mut response_header = Header::default();
         response_header.set_id(update.id());
@@ -306,7 +312,7 @@ impl Catalog {
         request: &'q MessageRequest,
         response_edns: Option<Edns>,
         response_handle: R,
-    ) -> io::Result<()> {
+    ) -> ProtoResult<()> {
         // TODO: the spec is very unclear on what to do with multiple queries
         //  we will search for each, in the future, maybe make this threaded to respond even faster.
         for query in request.queries() {

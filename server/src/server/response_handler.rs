@@ -5,20 +5,20 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::io;
 use std::net::SocketAddr;
 
 use trust_dns::error::ClientError;
 use trust_dns::serialize::binary::{BinEncodable, BinEncoder};
 use trust_dns::BufStreamHandle;
+use trust_dns_proto::error::ProtoError;
 use trust_dns_proto::op::EncodableMessage;
 
 /// A handler for send a response to a client
-pub trait ResponseHandler: Send + 'static {
+pub trait ResponseHandler: Sized + Send + 'static {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send<M: EncodableMessage>(self, response: M) -> io::Result<()>;
+    fn respond<M: EncodableMessage>(self, response: M) -> Result<(), (ProtoError, Self)>;
 }
 
 /// A handler for wraping a BufStreamHandle, which will properly serialize the message and add the
@@ -39,7 +39,7 @@ impl ResponseHandler for ResponseHandle {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send<M: EncodableMessage>(self, response: M) -> io::Result<()> {
+    fn respond<M: EncodableMessage>(self, response: M) -> Result<(), (ProtoError, Self)> {
         info!(
             "response: {} response_code: {} answers: {} name_servers: {} additionals: {}",
             response.header().id(),
@@ -48,21 +48,23 @@ impl ResponseHandler for ResponseHandle {
             response.name_servers_len(),
             response.additionals_len(),
         );
+
+        // TODO: LOOP here?
+
+        // try to send, if max buffer size hit && it's an axfr, then take answers that are remaining... send those?
+
         let mut buffer = Vec::with_capacity(512);
         let encode_result = {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buffer);
             response.emit(&mut encoder)
         };
 
-        encode_result.map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::Other,
-                format!("error encoding message: {}", e),
-            )
-        })?;
-
-        self.stream_handle
-            .unbounded_send((buffer, self.dst))
-            .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
+        match encode_result {
+            Err(e) => return Err((e, self)),
+            Ok(_) => self
+                .stream_handle
+                .unbounded_send((buffer, self.dst))
+                .map_err(|e| (format!("unbounded_send error: {}", e).into(), self)),
+        }
     }
 }

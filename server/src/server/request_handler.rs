@@ -7,11 +7,11 @@
 
 //! Request Handler for incoming requests
 
-use std::io;
 use std::net::SocketAddr;
 
 use authority::MessageRequest;
 use server::ResponseHandler;
+use trust_dns_proto::error::ProtoResult;
 
 /// An incoming request to the DNS catalog
 pub struct Request<'r> {
@@ -36,5 +36,5 @@ pub trait RequestHandler: Send + 'static {
         &'a self,
         request: &'q Request,
         response_handle: R,
-    ) -> io::Result<()>;
+    ) -> ProtoResult<()>;
 }

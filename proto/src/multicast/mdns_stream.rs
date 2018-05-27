@@ -20,10 +20,10 @@ use socket2::{self, Socket};
 use tokio_reactor::Handle;
 use tokio_udp::UdpSocket;
 
-use BufStreamHandle;
 use error::*;
 use multicast::MdnsQueryType;
 use udp::UdpStream;
+use BufStreamHandle;
 
 pub const MDNS_PORT: u16 = 5353;
 lazy_static! {
@@ -55,13 +55,7 @@ impl MdnsStream {
     where
         E: FromProtoError + Send,
     {
-        Self::new::<E>(
-            *MDNS_IPV4,
-            mdns_query_type,
-            packet_ttl,
-            ipv4_if,
-            None,
-        )
+        Self::new::<E>(*MDNS_IPV4, mdns_query_type, packet_ttl, ipv4_if, None)
     }
 
     /// associates the socket to the well-known ipv6 multicast addess
@@ -76,13 +70,7 @@ impl MdnsStream {
     where
         E: FromProtoError + Send,
     {
-        Self::new::<E>(
-            *MDNS_IPV6,
-            mdns_query_type,
-            packet_ttl,
-            None,
-            ipv6_if,
-        )
+        Self::new::<E>(*MDNS_IPV6, mdns_query_type, packet_ttl, None, ipv6_if)
     }
 
     /// This method is available for specifying a custom Multicast address to use.
@@ -153,8 +141,7 @@ impl MdnsStream {
                 next_socket
                     .map(move |socket: Option<_>| {
                         socket.map(|socket| {
-                            UdpSocket::from_std(socket, &handle)
-                                .expect("bad handle?")
+                            UdpSocket::from_std(socket, &handle).expect("bad handle?")
                         })
                     })
                     .map(move |socket: Option<_>| {
@@ -162,10 +149,8 @@ impl MdnsStream {
                             socket.map(|socket| UdpStream::from_parts(socket, outbound_messages));
                         let multicast: Option<UdpSocket> =
                             multicast_socket.map(|multicast_socket| {
-                                UdpSocket::from_std(
-                                    multicast_socket,
-                                    &handle_clone,
-                                ).expect("bad handle?")
+                                UdpSocket::from_std(multicast_socket, &handle_clone)
+                                    .expect("bad handle?")
                             });
 
                         MdnsStream {
@@ -278,7 +263,7 @@ impl MdnsStream {
 
 impl Stream for MdnsStream {
     type Item = (Vec<u8>, SocketAddr);
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         assert!(self.datagram.is_some() || self.multicast.is_some());
@@ -475,7 +460,9 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut server_loop = Runtime::new().unwrap();
-                let mut timeout : Box<Future<Item=(), Error=tokio_timer::Error> + Send> = Box::new(future::lazy(|| {
+                let mut timeout: Box<
+                    Future<Item = (), Error = tokio_timer::Error> + Send,
+                > = Box::new(future::lazy(|| {
                     Delay::new(Instant::now() + Duration::from_millis(100))
                 }));
 
@@ -500,7 +487,8 @@ pub mod tests {
                         return;
                     }
                     // wait for some bytes...
-                    match server_loop.block_on(future::lazy(|| server_stream.select2(timeout)))
+                    match server_loop
+                        .block_on(future::lazy(|| server_stream.select2(timeout)))
                         .ok()
                         .expect("server stream closed")
                     {
@@ -528,7 +516,9 @@ pub mod tests {
                     }
 
                     // let the server turn for a bit... send the message
-                    server_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(100))).unwrap();
+                    server_loop
+                        .block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
+                        .unwrap();
                 }
             })
             .unwrap();
@@ -545,9 +535,9 @@ pub mod tests {
             Some(5),
         );
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout : Box<Future<Item=(), Error=tokio_timer::Error> + Send> = Box::new(future::lazy(|| {
-            Delay::new(Instant::now() + Duration::from_millis(100))
-        }));
+        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> = Box::new(
+            future::lazy(|| Delay::new(Instant::now() + Duration::from_millis(100))),
+        );
         let mut successes = 0;
 
         for _ in 0..send_recv_times {
@@ -630,7 +620,9 @@ pub mod tests {
             .name("test_one_shot_mdns:server".to_string())
             .spawn(move || {
                 let mut io_loop = Runtime::new().unwrap();
-                let mut timeout : Box<Future<Item=(), Error=tokio_timer::Error> + Send> = Box::new(future::lazy(|| {
+                let mut timeout: Box<
+                    Future<Item = (), Error = tokio_timer::Error> + Send,
+                > = Box::new(future::lazy(|| {
                     Delay::new(Instant::now() + Duration::from_millis(100))
                 }));
 
@@ -652,7 +644,8 @@ pub mod tests {
 
                 for _ in 0..(send_recv_times + 1) {
                     // wait for some bytes...
-                    match io_loop.block_on(future::lazy(|| server_stream.select2(timeout)))
+                    match io_loop
+                        .block_on(future::lazy(|| server_stream.select2(timeout)))
                         .ok()
                         .expect("server stream closed")
                     {
@@ -679,7 +672,9 @@ pub mod tests {
                     }
 
                     // let the server turn for a bit... send the message
-                    io_loop.block_on(Delay::new(Instant::now() + Duration::from_millis(100))).unwrap();
+                    io_loop
+                        .block_on(Delay::new(Instant::now() + Duration::from_millis(100)))
+                        .unwrap();
                 }
             })
             .unwrap();
@@ -695,9 +690,9 @@ pub mod tests {
             Some(5),
         );
         let mut stream = io_loop.block_on(stream).ok().unwrap().into_future();
-        let mut timeout : Box<Future<Item=(), Error=tokio_timer::Error> + Send> = Box::new(future::lazy(|| {
-            Delay::new(Instant::now() + Duration::from_millis(100))
-        }));
+        let mut timeout: Box<Future<Item = (), Error = tokio_timer::Error> + Send> = Box::new(
+            future::lazy(|| Delay::new(Instant::now() + Duration::from_millis(100))),
+        );
 
         for _ in 0..send_recv_times {
             // test once

@@ -26,7 +26,7 @@ use trust_dns::client::ClientConnection;
 use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
-use trust_dns_proto::error::FromProtoError;
+use trust_dns_proto::error::{FromProtoError, ProtoError};
 use trust_dns_proto::op::EncodableMessage;
 use trust_dns_proto::{DnsStreamHandle, StreamHandle};
 
@@ -86,7 +86,7 @@ impl TestResponseHandler {
 }
 
 impl ResponseHandler for TestResponseHandler {
-    fn send<M: EncodableMessage>(self, response: M) -> io::Result<()> {
+    fn respond<M: EncodableMessage>(self, response: M) -> Result<(), (ProtoError, Self)> {
         let buf = &mut self.buf.lock().unwrap();
         let mut encoder = BinEncoder::new(buf);
         response.emit(&mut encoder).expect("could not encode");

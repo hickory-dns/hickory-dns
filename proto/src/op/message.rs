@@ -16,13 +16,13 @@
 
 //! Basic protocol message for DNS
 
-use std::sync::Arc;
 use std::mem;
+use std::sync::Arc;
 
+use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 use error::*;
 use rr::{Record, RecordType};
 use serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode};
-use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
 use rr::dnssec::rdata::DNSSECRecordType;
@@ -740,6 +740,8 @@ impl<M: EncodableMessage> BinEncodable for M {
         //  will need to update the header for trucation and the lengths if we send less than the
         //  full response.
         self.emit_queries(encoder)?;
+        // FIXME: need to do some on max records
+        //  return offset of last emitted record.
         self.emit_answers(encoder)?;
         self.emit_name_servers(encoder)?;
         self.emit_additionals(encoder)?;

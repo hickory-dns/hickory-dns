@@ -16,8 +16,8 @@ use rand;
 use rand::distributions::{IndependentSample, Range};
 use tokio_udp;
 
-use BufStreamHandle;
 use error::*;
+use BufStreamHandle;
 
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
@@ -59,14 +59,10 @@ impl UdpStream {
 
         // This set of futures collapses the next udp socket into a stream which can be used for
         //  sending and receiving udp packets.
-        let stream =
-            Box::new(
-                next_socket
-                    .map(move |socket| UdpStream {
-                        socket: socket,
-                        outbound_messages: outbound_messages.fuse().peekable(),
-                    }),
-            );
+        let stream = Box::new(next_socket.map(move |socket| UdpStream {
+            socket: socket,
+            outbound_messages: outbound_messages.fuse().peekable(),
+        }));
 
         (stream, message_sender)
     }
@@ -84,9 +80,7 @@ impl UdpStream {
     ///
     /// a tuple of a Future Stream which will handle sending and receiving messsages, and a
     ///  handle which can be used to send messages into the stream.
-    pub fn with_bound<E>(
-        socket: tokio_udp::UdpSocket,
-    ) -> (Self, BufStreamHandle<E>)
+    pub fn with_bound<E>(socket: tokio_udp::UdpSocket) -> (Self, BufStreamHandle<E>)
     where
         E: FromProtoError + 'static,
     {
@@ -127,26 +121,24 @@ impl UdpStream {
 
 impl Stream for UdpStream {
     type Item = (Vec<u8>, SocketAddr);
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         // this will not accept incoming data while there is data to send
         //  makes this self throttling.
         loop {
             // first try to send
-            if let Async::Ready(Some(&(ref buffer, addr))) = self.outbound_messages
-                .peek()
-                .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
-            {
+            if let Async::Ready(Some(&(ref buffer, addr))) = self.outbound_messages.peek().map_err(
+                |()| ProtoError::from(format!("could not peek udp_stream outbound_messages")),
+            )? {
                 // will return if the socket will block
                 try_ready!(self.socket.poll_send_to(buffer, &addr));
             }
 
             // now pop the request and check if we should break or continue.
-            match self.outbound_messages
-                .poll()
-                .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
-            {
+            match self.outbound_messages.poll().map_err(|()| {
+                ProtoError::from(format!("could not poll udp_stream outbound_messages"))
+            })? {
                 // already handled above, here to make sure the poll() pops the next message
                 Async::Ready(Some(_)) => (),
                 // now we get to drop through to the receives...
@@ -210,12 +202,8 @@ fn test_next_random_socket() {
     use tokio::runtime::current_thread::Runtime;
 
     let mut io_loop = Runtime::new().unwrap();
-    let (stream, _) = UdpStream::new::<ProtoError>(
-        SocketAddr::new(
-            IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)),
-            52,
-        ),
-    );
+    let (stream, _) =
+        UdpStream::new::<ProtoError>(SocketAddr::new(IpAddr::V4(Ipv4Addr::new(127, 0, 0, 1)), 52));
     drop(
         io_loop
             .block_on(stream)
@@ -232,16 +220,7 @@ fn test_udp_stream_ipv4() {
 #[test]
 #[cfg(not(target_os = "linux"))] // ignored until Travis-CI fixes IPv6
 fn test_udp_stream_ipv6() {
-    udp_stream_test(IpAddr::V6(Ipv6Addr::new(
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        0,
-        1,
-    )))
+    udp_stream_test(IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)))
 }
 
 #[cfg(test)]
@@ -310,7 +289,9 @@ fn udp_stream_test(server_addr: IpAddr) {
         std::net::SocketAddr::V6(_) => "[::1]:0",
     };
 
-    let socket = tokio_udp::UdpSocket::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap()).expect("could not create socket"); // some random address...
+    let socket =
+        tokio_udp::UdpSocket::bind(&client_addr.to_socket_addrs().unwrap().next().unwrap())
+            .expect("could not create socket"); // some random address...
     let (mut stream, sender) = UdpStream::with_bound::<ProtoError>(socket);
     //let mut stream: UdpStream = io_loop.block_on(stream).ok().unwrap();
 

@@ -12,15 +12,15 @@ use std::mem;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
-use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
+use futures::{Async, Future, Poll};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_timer::Deadline;
 
-use BufStreamHandle;
 use error::*;
+use BufStreamHandle;
 
 /// Current state while writing to the remote of the TCP connection
 enum WriteTcpState {
@@ -187,7 +187,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
 
 impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
     type Item = (Vec<u8>, SocketAddr);
-    type Error = io::Error;
+    type Error = ProtoError;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         // this will not accept incoming data while there is data to send
@@ -265,7 +265,8 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                 };
             } else {
                 // then see if there is more to send
-                match self.outbound_messages
+                match self
+                    .outbound_messages
                     .poll()
                     .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
                 {
@@ -277,10 +278,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                         // This is an error if the destination is not our peer (this is TCP after all)
                         //  This will kill the connection...
                         if peer != dst {
-                            return Err(io::Error::new(
-                                io::ErrorKind::InvalidData,
-                                format!("mismatched peer: {} and dst: {}", peer, dst),
-                            ));
+                            return Err(format!("mismatched peer: {} and dst: {}", peer, dst).into());
                         }
 
                         // will return if the socket will block
@@ -331,10 +329,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                             // Since this is the start of the next message, we have a clean end
                             return Ok(Async::Ready(None));
                         } else {
-                            return Err(io::Error::new(
-                                io::ErrorKind::BrokenPipe,
-                                "closed while reading length",
-                            ));
+                            return Err(format!("closed while reading length").into());
                         }
                     }
                     debug!("in ReadTcpState::LenBytes: {}", pos);
@@ -368,10 +363,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
 
                         // Since this is the start of the next message, we have a clean end
                         // try!(self.socket.shutdown(Shutdown::Both));  // FIXME: add generic shutdown function
-                        return Err(io::Error::new(
-                            io::ErrorKind::BrokenPipe,
-                            "closed while reading message",
-                        ));
+                        return Err(format!("closed while reading message").into());
                     }
 
                     debug!("in ReadTcpState::Bytes: {}", bytes.len());
@@ -417,11 +409,11 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
     }
 }
 
-#[cfg(test)]
-use std::net::{IpAddr, Ipv4Addr};
 #[cfg(not(target_os = "linux"))]
 #[cfg(test)]
 use std::net::Ipv6Addr;
+#[cfg(test)]
+use std::net::{IpAddr, Ipv4Addr};
 
 #[test]
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
@@ -521,7 +513,10 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, sender) = TcpStream::new::<ProtoError>(server_addr);
 
-    let mut stream = io_loop.block_on(stream).ok().expect("run failed to get stream");
+    let mut stream = io_loop
+        .block_on(stream)
+        .ok()
+        .expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
