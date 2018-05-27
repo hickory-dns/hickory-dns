@@ -3,6 +3,14 @@
 All notable changes to this project will be documented in this file.
 This project adheres to [Semantic Versioning](http://semver.org/).
 
+## Unreleased
+
+### Changed
+
+- `ResolverFuture` renamed to `AsyncResolver` @hawkw #487
+- *breaking* `AsyncResolver::new` returns a tuple of an `AsyncResolver` and a future that drives DNS lookups in the background @hawkw #487
+- *breaking* All `AsyncResolver` lookup methods return `BackgroundLookup<T>` rather than `T` @hawkw #487
+
 ## 0.9
 
 ### Added
