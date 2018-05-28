@@ -49,5 +49,5 @@ data-encoding = "2.1.0"
 env_logger = "0.5"
 futures = "^0.1.17"
 openssl = { version = "^0.10", features = ["v102", "v110"] }
-rand = "^0.4"
+rand = "^0.5"
 trust-dns = { version = "*", path="../client", features = ["dnssec-openssl"] }
