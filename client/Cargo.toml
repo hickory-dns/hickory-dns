@@ -61,7 +61,7 @@ lazy_static = "^1.0"
 log = "^0.4.1"
 openssl = { version = "^0.10", features = ["v102", "v110"], optional = true }
 radix_trie = "0.1.2"
-rand = "^0.4"
+rand = "^0.5"
 ring = { version = "^0.12", optional = true }
 tokio = "^0.1.6"
 tokio-tcp = "^0.1"
