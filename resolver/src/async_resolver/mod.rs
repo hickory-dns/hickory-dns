@@ -76,8 +76,13 @@ impl DnsHandle for BasicAsyncResolver {
 /// and the lookup futures are intended to be run on the same thread, they
 /// should be spawned on the same executor.
 ///
-/// The background task future will finish once all existing handles to it
-/// have been dropped.
+/// The background task manages the name server pool and other state used
+/// to drive lookups. When this future is spawned on an executor, it will
+/// first construct and configure the necessary client state, before checking
+/// for any incoming lookup requests, handling them, and and yielding. It will
+/// continue to do so as long as there are still any [`AsyncResolver`] handle
+/// linked to it. When all of its [`AsyncResolver`]s have been dropped, the
+/// background future will finish.
 #[derive(Clone)]
 pub struct AsyncResolver {
     request_tx: mpsc::UnboundedSender<Request>,
@@ -169,7 +174,7 @@ pub fn $p(&self, query: $t) -> BackgroundLookup<$f> {
 }
 
 impl AsyncResolver {
-    /// Construct a new AsyncResolver with the associated Client and configuration.
+    /// Construct a new `AsyncResolver` with the provided configuration.
     ///
     /// # Arguments
     ///
@@ -178,8 +183,10 @@ impl AsyncResolver {
     ///
     /// # Returns
     ///
-    /// A tuple containing the new AsyncResolver and a future that drives the
-    /// background task that runs resolutions for the AsyncResolver.
+    /// A tuple containing the new `AsyncResolver` and a future that drives the
+    /// background task that runs resolutions for the `AsyncResolver`. See the
+    /// documentation for `AsyncResolver` for more information on how to use
+    /// the background future.
     pub fn new(
         config: ResolverConfig,
         options: ResolverOpts,
@@ -193,7 +200,7 @@ impl AsyncResolver {
         Self::with_cache(config, options, lru)
     }
 
-    /// Construct a new AsyncResolver with the associated Client and configuration.
+    /// Construct a new `AsyncResolver` with the associated Client and configuration.
     ///
     /// # Arguments
     ///
@@ -203,8 +210,10 @@ impl AsyncResolver {
     ///
     /// # Returns
     ///
-    /// A tuple containing the new AsyncResolver and a future that drives the
-    /// background task that runs resolutions for the AsyncResolver.
+    /// A tuple containing the new `AsyncResolver` and a future that drives the
+    /// background task that runs resolutions for the `AsyncResolver`. See the
+    /// documentation for `AsyncResolver` for more information on how to use
+    /// the background future.
     pub(crate) fn with_cache(
         config: ResolverConfig,
         options: ResolverOpts,

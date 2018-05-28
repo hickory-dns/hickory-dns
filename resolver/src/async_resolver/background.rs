@@ -24,6 +24,14 @@ use name_server_pool::{NameServerPool, StandardConnection};
 use super::{BasicAsyncResolver, Request};
 
 /// Returns a new future that will drive the background task.
+///
+/// This background task manages the [`NameServerPool`] and other state used
+/// to drive lookups. When this future is spawned on an executor, it will
+/// first construct the [`NameServerPool`] and configure the client state,
+/// before yielding. When polled again, it will check for any incoming lookup
+/// requests, handle them, and then yield again, as long as there are still any
+/// [`AsyncResolver`] handles linked to that background task. When all of its
+/// [`AsyncResolver`]s have been dropped, the background future will finish.
 pub(super) fn task(
     config: ResolverConfig,
     options: ResolverOpts,
