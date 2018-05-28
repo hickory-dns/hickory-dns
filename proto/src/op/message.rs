@@ -734,7 +734,7 @@ impl<M: EncodableMessage> BinEncodable for M {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         // clone the header to set the counts lazily
         let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
-        self.update_header_counts(include_sig0).emit(encoder)?;
+        let place = encoder.place::<Header>()?;
 
         // TODO: this feels like the right place to verify the max packet size of the message,
         //  will need to update the header for trucation and the lengths if we send less than the
@@ -757,6 +757,9 @@ impl<M: EncodableMessage> BinEncodable for M {
         if include_sig0 {
             Message::emit_records(encoder, self.sig0())?;
         }
+
+        // FIXME: replace with actual record counts written
+        place.replace(encoder, self.update_header_counts(include_sig0))?;
         Ok(())
     }
 }

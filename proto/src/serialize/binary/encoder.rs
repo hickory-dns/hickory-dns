@@ -20,6 +20,7 @@ use byteorder::{ByteOrder, NetworkEndian};
 use error::{ProtoErrorKind, ProtoResult};
 
 use super::BinEncodable;
+use op::Header;
 
 // this is private to make sure there is no accidental access to the inner buffer.
 mod private {
@@ -28,15 +29,15 @@ mod private {
     /// A wrapper for a buffer that guarantees writes never exceed a defined set of bytes
     pub struct MaximalBuf<'a> {
         max_size: usize,
-        buffer: &'a mut Vec<u8>
+        buffer: &'a mut Vec<u8>,
     }
 
     impl<'a> MaximalBuf<'a> {
         pub fn new(max_size: u16, buffer: &'a mut Vec<u8>) -> Self {
-           MaximalBuf {
-               max_size: max_size as usize,
-               buffer,
-           }
+            MaximalBuf {
+                max_size: max_size as usize,
+                buffer,
+            }
         }
 
         /// Sets the maximum size to enforce
@@ -48,7 +49,8 @@ mod private {
         ///
         /// and reserves the additional space in the buffer
         pub fn enforced_write<F>(&mut self, additional: usize, writer: F) -> ProtoResult<()>
-        where F: FnOnce(&mut Vec<u8>) -> ()
+        where
+            F: FnOnce(&mut Vec<u8>) -> (),
         {
             let expected_len = self.buffer.len() + additional;
 
@@ -67,7 +69,7 @@ mod private {
         pub fn truncate(&mut self, len: usize) {
             self.buffer.truncate(len)
         }
- 
+
         /// returns the length of the underlying buffer
         pub fn len(&self) -> usize {
             self.buffer.len()
@@ -90,7 +92,7 @@ pub struct BinEncoder<'a> {
     offset: usize,
     buffer: private::MaximalBuf<'a>,
     /// start and end of label pointers, smallvec here?
-    name_pointers: Vec<(usize, usize)>, 
+    name_pointers: Vec<(usize, usize)>,
     mode: EncodeMode,
     canonical_names: bool,
 }
@@ -195,7 +197,8 @@ impl<'a> BinEncoder<'a> {
     pub fn trim(&mut self) {
         let offset = self.offset;
         self.buffer.truncate(offset);
-        self.name_pointers.retain(|&(start, end)| start < offset && end <= offset);
+        self.name_pointers
+            .retain(|&(start, end)| start < offset && end <= offset);
     }
 
     // /// returns an error if the maximum buffer size would be exceeded with the addition number of elements
@@ -237,11 +240,11 @@ impl<'a> BinEncoder<'a> {
         for &(match_start, match_end) in &self.name_pointers {
             let matcher = self.slice_of(match_start as usize, match_end as usize);
             if matcher == search {
-                assert!(match_start <= (u16::max_value() as usize)); 
-                return Some(match_start as u16)
+                assert!(match_start <= (u16::max_value() as usize));
+                return Some(match_start as u16);
             }
         }
-        
+
         None
     }
 
@@ -249,10 +252,11 @@ impl<'a> BinEncoder<'a> {
     pub fn emit(&mut self, b: u8) -> ProtoResult<()> {
         if self.offset < self.buffer.len() {
             let offset = self.offset;
-            self.buffer.enforced_write(0, |buffer|
-            *buffer
-                .get_mut(offset)
-                .expect("could not get index at offset") = b)?;
+            self.buffer.enforced_write(0, |buffer| {
+                *buffer
+                    .get_mut(offset)
+                    .expect("could not get index at offset") = b
+            })?;
         } else {
             self.buffer.enforced_write(1, |buffer| buffer.push(b))?;
         }
@@ -319,20 +323,21 @@ impl<'a> BinEncoder<'a> {
         // replacement case, the necessary space should have been reserved already...
         if self.offset < self.buffer.len() {
             let offset = self.offset;
-        
+
             self.buffer.enforced_write(0, |buffer| {
                 let mut offset = offset;
-            for b in data {
+                for b in data {
                     *buffer
                         .get_mut(offset)
-                  .expect("could not get index at offset for slice") = *b;
+                        .expect("could not get index at offset for slice") = *b;
                     offset += 1;
-            }
+                }
             })?;
 
             self.offset += data.len();
         } else {
-            self.buffer.enforced_write(data.len(), |buffer| buffer.extend_from_slice(data))?;
+            self.buffer
+                .enforced_write(data.len(), |buffer| buffer.extend_from_slice(data))?;
             self.offset += data.len();
         }
 
@@ -372,9 +377,10 @@ impl<'a> BinEncoder<'a> {
     pub fn place<T: EncodedSize>(&mut self) -> ProtoResult<Place<T>> {
         let index = self.offset;
         let len = T::size_of();
- 
+
         // resize the buffer
-        self.buffer.enforced_write(len, |buffer| buffer.resize(index + len, 0))?;
+        self.buffer
+            .enforced_write(len, |buffer| buffer.resize(index + len, 0))?;
 
         // update the offset
         self.offset += len;
@@ -418,12 +424,19 @@ impl<'a> BinEncoder<'a> {
 ///
 /// it does not necessarily equal `std::mem::size_of`, though it might, especially for primitives
 pub trait EncodedSize: BinEncodable {
+    /// Return the size in bytes of the
     fn size_of() -> usize;
 }
 
 impl EncodedSize for u16 {
     fn size_of() -> usize {
         2
+    }
+}
+
+impl EncodedSize for Header {
+    fn size_of() -> usize {
+        Header::len()
     }
 }
 
@@ -454,12 +467,11 @@ pub enum EncodeMode {
     Normal,
 }
 
-
 #[cfg(test)]
 mod tests {
+    use super::*;
     use op::Message;
     use serialize::binary::BinDecoder;
-    use super::*;
 
     #[test]
     fn test_label_compression_regression() {
@@ -471,7 +483,14 @@ mod tests {
         ;; AUTHORITY SECTION:
         gds.alibabadns.com.     1799    IN      SOA     gdsns1.alibabadns.com. none. 2015080610 1800 600 3600 360
         */
-        let data: Vec<u8> = vec![154, 50, 129, 128, 0, 1, 0, 0, 0, 1, 0, 1, 7, 98, 108, 117, 101, 100, 111, 116, 2, 105, 115, 8, 97, 117, 116, 111, 110, 97, 118, 105, 3, 99, 111, 109, 3, 103, 100, 115, 10, 97, 108, 105, 98, 97, 98, 97, 100, 110, 115, 3, 99, 111, 109, 0, 0, 28, 0, 1, 192, 36, 0, 6, 0, 1, 0, 0, 7, 7, 0, 35, 6, 103, 100, 115, 110, 115, 49, 192, 40, 4, 110, 111, 110, 101, 0, 120, 27, 176, 162, 0, 0, 7, 8, 0, 0, 2, 88, 0, 0, 14, 16, 0, 0, 1, 104, 0, 0, 41, 2, 0, 0, 0, 0, 0, 0, 0];
+        let data: Vec<u8> = vec![
+            154, 50, 129, 128, 0, 1, 0, 0, 0, 1, 0, 1, 7, 98, 108, 117, 101, 100, 111, 116, 2, 105,
+            115, 8, 97, 117, 116, 111, 110, 97, 118, 105, 3, 99, 111, 109, 3, 103, 100, 115, 10,
+            97, 108, 105, 98, 97, 98, 97, 100, 110, 115, 3, 99, 111, 109, 0, 0, 28, 0, 1, 192, 36,
+            0, 6, 0, 1, 0, 0, 7, 7, 0, 35, 6, 103, 100, 115, 110, 115, 49, 192, 40, 4, 110, 111,
+            110, 101, 0, 120, 27, 176, 162, 0, 0, 7, 8, 0, 0, 2, 88, 0, 0, 14, 16, 0, 0, 1, 104, 0,
+            0, 41, 2, 0, 0, 0, 0, 0, 0, 0,
+        ];
 
         let msg = Message::from_vec(&data).unwrap();
         msg.to_bytes().unwrap();

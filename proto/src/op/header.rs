@@ -18,10 +18,10 @@
 
 use std::convert::From;
 
-use serialize::binary::*;
-use error::*;
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
+use error::*;
+use serialize::binary::*;
 
 /// Metadata for the `Message` struct.
 ///
