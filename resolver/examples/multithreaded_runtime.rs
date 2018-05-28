@@ -6,44 +6,38 @@ extern crate tokio;
 extern crate trust_dns_resolver;
 
 use futures::Future;
-use futures::sync::oneshot::channel;
 use tokio::runtime::Runtime;
-use trust_dns_resolver::ResolverFuture;
-use trust_dns_resolver::error::ResolveError;
+use trust_dns_resolver::AsyncResolver;
 
 fn main() {
+
     // Set up the standard tokio runtime (multithreaded by default).
     let mut runtime = Runtime::new().expect("Failed to create runtime");
 
-    let future;
-    // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
-    #[cfg(any(unix, windows))]
-    {
-        future = ResolverFuture::from_system_conf().expect("Failed to create ResolverFuture");
-    }
-    // For other operating systems, we can use one of the preconfigured definitions
-    #[cfg(not(any(unix, windows)))]
-    {
-        use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
-        future = ResolverFuture::new(ResolverConfig::google(), ResolverOpts::default());
-    }
+    let (resolver, bg) = {
+        // To make this independent, if targeting macOS, BSD, Linux, or Windows, we can use the system's configuration:
+        #[cfg(any(unix, windows))]
+        {
+            // use the system resolver configuration
+            AsyncResolver::from_system_conf().expect("Failed to create ResolverFuture")
+        }
 
-    // The resolver needs to be created in the runtime so it can connect to the reactor. The tokio multithreaded
-    // runtime doesn't provide a mechanism to return the result of future out of the reactor. Create a oneshot
-    // channel that can be used to send the created resolver out.
-    let (sender, receiver) = channel::<Result<ResolverFuture, ResolveError>>();
-    runtime.spawn(future.then(|result| {
-        sender
-            .send(result)
-            .map_err(|_| println!("Failed to send resolver"))
-    }));
+        // For other operating systems, we can use one of the preconfigured definitions
+        #[cfg(not(any(unix, windows)))]
+        {
+            // Directly reference the config types
+            use trust_dns_resolver::config::{ResolverConfig, ResolverOpts};
+
+            // Get a new resolver with the google nameservers as the upstream recursive resolvers
+            AsyncResolver::new(ResolverConfig::google(), ResolverOpts::default())
+        }
+    };
+
+    // The resolver background task needs to be created in the runtime so it can
+    // connect to the reactor.
+    runtime.spawn(bg);
     // Once the resolver is created, we can ask the runtime to shut down when it's done.
     let shutdown = runtime.shutdown_on_idle();
-    // Wait unti the resolver has been created and fetch it from the oneshot channel.
-    let resolver = receiver
-        .wait()
-        .expect("Failed to retrieve resolver")
-        .expect("Failed to create resolver");
 
     // Create some futures representing name lookups.
     let names = &["www.google.com", "www.reddit.com", "www.wikipedia.org"];

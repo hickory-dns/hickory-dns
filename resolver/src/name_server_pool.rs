@@ -23,7 +23,7 @@ use trust_dns_proto::xfer::{DnsFuture, DnsHandle, DnsRequest, DnsResponse};
 
 use config::{NameServerConfig, Protocol, ResolverConfig, ResolverOpts};
 use error::*;
-use resolver_future::BasicResolverHandle;
+use async_resolver::BasicAsyncResolver;
 
 /// State of a connection with a remote NameServer.
 #[derive(Clone, Debug)]
@@ -191,7 +191,7 @@ pub trait ConnectionProvider: 'static + Clone + Send + Sync {
 pub struct StandardConnection;
 
 impl ConnectionProvider for StandardConnection {
-    type ConnHandle = BasicResolverHandle;
+    type ConnHandle = BasicAsyncResolver;
 
     fn new_connection(config: &NameServerConfig, options: &ResolverOpts) -> Self::ConnHandle {
         let dns_handle = match config.protocol {
@@ -249,7 +249,7 @@ impl ConnectionProvider for StandardConnection {
             }
         };
 
-        BasicResolverHandle::new(dns_handle)
+        BasicAsyncResolver::new(dns_handle)
     }
 }
 
@@ -268,7 +268,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> NameServer<C, P> {
     pub fn new(
         config: NameServerConfig,
         options: ResolverOpts,
-    ) -> NameServer<BasicResolverHandle, StandardConnection> {
+    ) -> NameServer<BasicAsyncResolver, StandardConnection> {
         let client = StandardConnection::new_connection(&config, &options);
 
         // TODO: setup EDNS
@@ -430,7 +430,7 @@ impl<C: DnsHandle, P: ConnectionProvider<ConnHandle = C>> Eq for NameServer<C, P
 
 // TODO: once IPv6 is better understood, also make this a binary keep.
 #[cfg(feature = "mdns")]
-fn mdns_nameserver(options: ResolverOpts) -> NameServer<BasicResolverHandle, StandardConnection> {
+fn mdns_nameserver(options: ResolverOpts) -> NameServer<BasicAsyncResolver, StandardConnection> {
     let config = NameServerConfig {
         socket_addr: *MDNS_IPV4,
         protocol: Protocol::Mdns,
@@ -457,8 +457,8 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
     pub(crate) fn from_config(
         config: &ResolverConfig,
         options: &ResolverOpts,
-    ) -> NameServerPool<BasicResolverHandle, StandardConnection> {
-        let datagram_conns: Vec<NameServer<BasicResolverHandle, StandardConnection>> = config
+    ) -> NameServerPool<BasicAsyncResolver, StandardConnection> {
+        let datagram_conns: Vec<NameServer<BasicAsyncResolver, StandardConnection>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_datagram())
@@ -467,7 +467,7 @@ impl<C: DnsHandle + 'static, P: ConnectionProvider<ConnHandle = C> + 'static> Na
             })
             .collect();
 
-        let stream_conns: Vec<NameServer<BasicResolverHandle, StandardConnection>> = config
+        let stream_conns: Vec<NameServer<BasicAsyncResolver, StandardConnection>> = config
             .name_servers()
             .iter()
             .filter(|ns_config| ns_config.protocol.is_stream())
