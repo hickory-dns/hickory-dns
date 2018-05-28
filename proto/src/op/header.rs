@@ -18,10 +18,10 @@
 
 use std::convert::From;
 
-use serialize::binary::*;
-use error::*;
 use super::op_code::OpCode;
 use super::response_code::ResponseCode;
+use error::*;
+use serialize::binary::*;
 
 /// Metadata for the `Message` struct.
 ///
@@ -371,24 +371,6 @@ impl Header {
     /// This is the additional record section count, this section may include EDNS options.
     pub fn additional_count(&self) -> u16 {
         self.additional_count
-    }
-
-    /// This is a specialized clone which clones all the fields but the counts
-    ///  handy for setting the count fields before sending over the wire.
-    pub fn clone(
-        &self,
-        query_count: u16,
-        answer_count: u16,
-        name_server_count: u16,
-        additional_count: u16,
-    ) -> Self {
-        Header {
-            query_count: query_count,
-            answer_count: answer_count,
-            name_server_count: name_server_count,
-            additional_count: additional_count,
-            ..*self
-        }
     }
 }
 

@@ -5,11 +5,11 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use trust_dns_proto::error::*;
-use trust_dns_proto::op::EncodableMessage;
 use trust_dns::op::{Edns, Header, MessageType, OpCode, ResponseCode};
 use trust_dns::rr::Record;
 use trust_dns::serialize::binary::BinEncoder;
+use trust_dns_proto::error::*;
+use trust_dns_proto::op::EncodableMessage;
 
 use authority::Queries;
 
@@ -55,7 +55,7 @@ macro_rules! section {
             self.$s.len()
         }
 
-        fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
             encoder.emit_all_refs(self.$s.iter())
         }
     }
@@ -70,11 +70,13 @@ impl<'q, 'a> EncodableMessage for MessageResponse<'q, 'a> {
         self.queries.map(|s| s.len()).unwrap_or(0)
     }
 
-    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
         if let Some(queries) = self.queries {
-            encoder.emit_vec(queries.as_bytes())
+            encoder
+                .emit_vec(queries.as_bytes())
+                .map(|()| self.queries_len())
         } else {
-            Ok(())
+            Ok(0)
         }
     }
 

@@ -5,11 +5,13 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
+use trust_dns::op::LowerQuery;
 use trust_dns_proto::error::*;
+use trust_dns_proto::op::{
+    Edns, EncodableMessage, Header, Message, MessageType, OpCode, ResponseCode,
+};
 use trust_dns_proto::rr::Record;
 use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
-use trust_dns_proto::op::{Edns, EncodableMessage, Header, Message, MessageType, OpCode, ResponseCode};
-use trust_dns::op::LowerQuery;
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
@@ -223,7 +225,7 @@ impl<'r> Queries<'r> {
         }
         Ok(queries)
     }
-    
+
     /// Read queries from a decoder
     pub fn read(decoder: &mut BinDecoder<'r>, num_queries: usize) -> ProtoResult<Self> {
         let queries_start = decoder.index();
@@ -250,7 +252,7 @@ macro_rules! section {
             self.$s.len()
         }
 
-        fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
             encoder.emit_all(self.$s.iter())
         }
     }
@@ -265,7 +267,7 @@ impl<'r> EncodableMessage for MessageRequest<'r> {
         self.queries.len()
     }
 
-    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
         // we emit the queries, in order to guarantee canonical form
         //   in cases where that's necessary, like SIG0 validation
         encoder.emit_all(self.queries.queries.iter())
