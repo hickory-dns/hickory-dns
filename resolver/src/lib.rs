@@ -82,17 +82,21 @@
 //! # fn main() {
 //! use std::net::*;
 //! use tokio::runtime::current_thread::Runtime;
-//! use trust_dns_resolver::ResolverFuture;
+//! use trust_dns_resolver::AsyncResolver;
 //! use trust_dns_resolver::config::*;
 //!
-//! // We need a Tokio reactor::Core to run the resolver
+//! // We need a Tokio Runtime to run the resolver
 //! //  this is responsible for running all Future tasks and registering interest in IO channels
 //! let mut io_loop = Runtime::new().unwrap();
 //!
 //! // Construct a new Resolver with default configuration options
-//! let resolver = ResolverFuture::new(ResolverConfig::default(), ResolverOpts::default());
-//! // The resolver we just constructed is a Future wait for the actual Resolver
-//! let resolver = io_loop.block_on(resolver).unwrap();
+//! let (resolver, background) = AsyncResolver::new(
+//!     ResolverConfig::default(),
+//!     ResolverOpts::default()
+//! );
+//! // AsyncResolver::new returns a handle for sending resolve requests and a background task
+//! // that must be spawned on an executor.
+//! io_loop.spawn(background);
 //!
 //! // Lookup the IP addresses associated with a name.
 //! // This returns a future that will lookup the IP addresses, it must be run in the Core to
@@ -202,7 +206,7 @@ pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server_pool;
 mod resolver;
-mod resolver_future;
+mod async_resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
@@ -212,7 +216,22 @@ pub use self::trust_dns_proto::rr::{IntoName, Name, TryParseIp};
 
 pub use hosts::Hosts;
 pub use resolver::Resolver;
-pub use resolver_future::ResolverFuture;
+pub use async_resolver::AsyncResolver;
+
+/// This is an alias for [`AsyncResolver`], which replaced the type previously
+/// called `ResolverFuture`.
+///
+/// # Note
+///
+/// For users of `ResolverFuture`, the return type for `ResolverFuture::new`
+/// has changed since version 0.9 of `trust-dns-resolver`. It now returns
+/// a tuple of an [`AsyncResolver`] _and_ a background future, which must
+/// be spawned on a reactor before any lookup futures will run.
+///
+/// See the [`AsyncResolver`] documentation for more information on how to
+/// use the background future.
+#[deprecated(note = "use [`trust_dns_resolver::AsyncResolver`] instead")]
+pub type ResolverFuture = AsyncResolver;
 
 /// returns a version as specified in Cargo.toml
 pub fn version() -> &'static str {
