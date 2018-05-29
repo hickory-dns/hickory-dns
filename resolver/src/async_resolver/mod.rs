@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 //! Structs for creating and using a AsyncResolver
+use std::fmt;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
@@ -91,6 +92,7 @@ pub struct AsyncResolver {
 /// A future that represents sending a request to a background task,
 /// waiting for it to send back a lookup future, and then running the
 /// lookup future.
+#[derive(Debug)]
 pub struct Background<F, G = F>
 where
     F: Future<Error = ResolveError>,
@@ -365,8 +367,19 @@ impl AsyncResolver {
     lookup_fn!(txt_lookup, lookup::TxtLookupFuture, RecordType::TXT);
 }
 
-// ===== impl Background =====
+impl fmt::Debug for AsyncResolver {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 
+        f.debug_struct("AsyncResolver")
+            // We probably don't want to print out the `fmt::Debug` output
+            // for `mpsc::UnboundedSender`, as it's *quite* wordy but not
+            // terribly useful...
+            .field("request_tx", &"...")
+            .finish()
+    }
+}
+
+// ===== impl Background =====
 
 impl<F, G> Future for Background<F, G>
 where

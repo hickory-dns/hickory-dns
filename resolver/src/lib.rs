@@ -216,7 +216,12 @@ pub use self::trust_dns_proto::rr::{IntoName, Name, TryParseIp};
 
 pub use hosts::Hosts;
 pub use resolver::Resolver;
-pub use async_resolver::AsyncResolver;
+pub use async_resolver::{
+    AsyncResolver,
+    Background,
+    BackgroundLookup,
+    BackgroundLookupIp,
+};
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.
