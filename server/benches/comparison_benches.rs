@@ -2,7 +2,7 @@
 
 extern crate futures;
 extern crate test;
-extern crate tokio_core;
+extern crate tokio;
 
 extern crate trust_dns;
 extern crate trust_dns_server;
@@ -18,9 +18,10 @@ use std::thread;
 use std::time::Duration;
 
 use test::Bencher;
-use tokio_core::reactor::Core;
+use tokio::runtime::current_thread::Runtime;
 
 use trust_dns::client::*;
+use trust_dns::error::*;
 use trust_dns::op::*;
 use trust_dns::rr::*;
 use trust_dns::udp::*;
@@ -47,18 +48,18 @@ fn wrap_process(named: Child, server_port: u16) -> NamedProcess {
     let mut started = false;
 
     for _ in 0..20 {
-        let mut io_loop = Core::new().unwrap();
+        let mut io_loop = Runtime::new().unwrap();
         let addr: SocketAddr = ("127.0.0.1", server_port)
             .to_socket_addrs()
             .unwrap()
             .next()
             .unwrap();
-        let handle = io_loop.handle();
-        let (stream, sender) = UdpClientStream::new(addr, &handle);
-        let mut client = ClientFuture::new(stream, sender, &handle, None);
+        let (stream, sender) = UdpClientStream::new(addr);
+        let mut client = ClientFuture::new(stream, sender, None);
+        let mut client = io_loop.block_on(client).unwrap();
 
         let name = domain::Name::from_str("www.example.com.").unwrap();
-        let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
+        let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A));
 
         if response.is_ok() {
             started = true;
@@ -105,11 +106,16 @@ fn trust_dns_process() -> (NamedProcess, u16) {
 }
 
 /// Runs the bench tesk using the specified client
-fn bench(b: &mut Bencher, io_loop: &mut Core, client: &mut BasicClientHandle) {
+fn bench(
+    b: &mut Bencher,
+    client: &mut futures::Future<Item = BasicClientHandle, Error = ClientError>
+) {
+    let mut io_loop = Runtime::new().unwrap();
+    let mut client = io_loop.block_on(client).unwrap();
     let name = domain::Name::from_str("www.example.com.").unwrap();
 
     // validate the request
-    let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
+    let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A));
     assert!(
         !response.is_err(),
         "request failed: {}",
@@ -127,7 +133,7 @@ fn bench(b: &mut Bencher, io_loop: &mut Core, client: &mut BasicClientHandle) {
     }
 
     b.iter(|| {
-        let response = io_loop.run(client.query(name.clone(), DNSClass::IN, RecordType::A));
+        let response = io_loop.block_on(client.query(name.clone(), DNSClass::IN, RecordType::A));
         response.unwrap();
     });
 }
@@ -137,17 +143,15 @@ fn bench(b: &mut Bencher, io_loop: &mut Core, client: &mut BasicClientHandle) {
 fn trust_dns_udp_bench(b: &mut Bencher) {
     let (named, server_port) = trust_dns_process();
 
-    let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", server_port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
-    let handle = io_loop.handle();
-    let (stream, sender) = UdpClientStream::new(addr, &handle);
-    let mut client = ClientFuture::new(stream, sender, &handle, None);
+    let (stream, sender) = UdpClientStream::new(addr);
+    let mut client = ClientFuture::new(stream, sender, None);
 
-    bench(b, &mut io_loop, &mut client);
+    bench(b, &mut *client);
 
     // cleaning up the named process
     drop(named);
@@ -158,34 +162,30 @@ fn trust_dns_udp_bench(b: &mut Bencher) {
 fn trust_dns_udp_bench_prof(b: &mut Bencher) {
     let server_port = 6363;
 
-    let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", server_port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
-    let handle = io_loop.handle();
-    let (stream, sender) = UdpClientStream::new(addr, &handle);
-    let mut client = ClientFuture::new(stream, sender, &handle, None);
+    let (stream, sender) = UdpClientStream::new(addr);
+    let mut client = ClientFuture::new(stream, sender, None);
 
-    bench(b, &mut io_loop, &mut client);
+    bench(b, &mut client);
 }
 
 #[bench]
 fn trust_dns_tcp_bench(b: &mut Bencher) {
     let (named, server_port) = trust_dns_process();
 
-    let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", server_port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
-    let handle = io_loop.handle();
-    let (stream, sender) = TcpClientStream::new(addr, &handle);
-    let mut client = ClientFuture::new(stream, sender, &handle, None);
+    let (stream, sender) = TcpClientStream::new(addr);
+    let mut client = ClientFuture::new(stream, sender, None);
 
-    bench(b, &mut io_loop, &mut client);
+    bench(b, &mut client);
 
     // cleaning up the named process
     drop(named);
@@ -231,17 +231,15 @@ fn bind_process() -> (NamedProcess, u16) {
 fn bind_udp_bench(b: &mut Bencher) {
     let (named, server_port) = bind_process();
 
-    let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", server_port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
-    let handle = io_loop.handle();
-    let (stream, sender) = UdpClientStream::new(addr, &handle);
-    let mut client = ClientFuture::new(stream, sender, &handle, None);
+    let (stream, sender) = UdpClientStream::new(addr);
+    let mut client = ClientFuture::new(stream, sender, None);
 
-    bench(b, &mut io_loop, &mut client);
+    bench(b, &mut client);
 
     // cleaning up the named process
     drop(named);
@@ -252,17 +250,15 @@ fn bind_udp_bench(b: &mut Bencher) {
 fn bind_tcp_bench(b: &mut Bencher) {
     let (named, server_port) = bind_process();
 
-    let mut io_loop = Core::new().unwrap();
     let addr: SocketAddr = ("127.0.0.1", server_port)
         .to_socket_addrs()
         .unwrap()
         .next()
         .unwrap();
-    let handle = io_loop.handle();
-    let (stream, sender) = TcpClientStream::new(addr, &handle);
-    let mut client = ClientFuture::new(stream, sender, &handle, None);
+    let (stream, sender) = TcpClientStream::new(addr);
+    let mut client = ClientFuture::new(stream, sender, None);
 
-    bench(b, &mut io_loop, &mut client);
+    bench(b, &mut client);
 
     // cleaning up the named process
     drop(named);
