@@ -125,6 +125,12 @@ matrix:
       script:
         - cargo fmt --all -- --write-mode=diff
 
+    # benchmark tests; built but not run in Travis to avoid inconsistent timing results
+    - rust: nightly
+      env: NAME=bench
+      script:
+        - scripts/build_benches.sh
+
     # compatiblity tests
     - rust: stable
       env: NAME=compatiblity
