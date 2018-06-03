@@ -5,12 +5,11 @@ extern crate trust_dns_server;
 use std::net::{Ipv4Addr, Ipv6Addr};
 use std::str::FromStr;
 
-use trust_dns::rr::*;
 use trust_dns::rr::dnssec::*;
+use trust_dns::rr::*;
 use trust_dns::serialize::txt::*;
 use trust_dns_proto::rr::rdata::tlsa::*;
 use trust_dns_server::authority::*;
-
 
 #[test]
 fn test_string() {
@@ -77,17 +76,14 @@ _443._tcp.www.example.com. IN TLSA (
     // not validating everything, just one of each...
 
     // SOA
-    let soa_record = authority.soa().unwrap().first().cloned().unwrap();
+    let soa_record = authority.soa().next().cloned().unwrap();
     assert_eq!(RecordType::SOA, soa_record.rr_type());
     assert_eq!(&Name::from_str("isi.edu").unwrap(), soa_record.name()); // i.e. the origin or domain
     assert_eq!(3_600_000, soa_record.ttl());
     assert_eq!(DNSClass::IN, soa_record.dns_class());
     if let RData::SOA(ref soa) = *soa_record.rdata() {
         // this should all be lowercased
-        assert_eq!(
-            &Name::from_str("venera.isi.edu").unwrap(),
-            soa.mname()
-        );
+        assert_eq!(&Name::from_str("venera.isi.edu").unwrap(), soa.mname());
         assert_eq!(
             &Name::from_str("action\\.domains.isi.edu").unwrap(),
             soa.rname()
@@ -109,7 +105,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap();
+        .collect();
     let mut compare = vec![
         // this is cool, zip up the expected results... works as long as the order is good.
         Name::from_str("a.isi.edu").unwrap(),
@@ -141,7 +137,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap();
+        .collect();
     let mut compare = vec![
         (10, Name::from_str("venera.isi.edu").unwrap()),
         (20, Name::from_str("vaxa.isi.edu").unwrap()),
@@ -150,7 +146,6 @@ _443._tcp.www.example.com. IN TLSA (
     compare.sort();
     mx_records.sort();
     let compare = mx_records.iter().zip(compare);
-
 
     for (record, (num, ref name)) in compare {
         assert_eq!(&Name::from_str("isi.edu").unwrap(), record.name());
@@ -173,9 +168,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap()
-        .first()
-        .cloned()
+        .next()
         .unwrap();
     assert_eq!(&Name::from_str("a.isi.edu").unwrap(), a_record.name());
     assert_eq!(60, a_record.ttl()); // TODO: should this be minimum or expire?
@@ -195,14 +188,9 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap()
-        .first()
-        .cloned()
+        .next()
         .unwrap();
-    assert_eq!(
-        &Name::from_str("aaaa.isi.edu").unwrap(),
-        aaaa_record.name()
-    );
+    assert_eq!(&Name::from_str("aaaa.isi.edu").unwrap(), aaaa_record.name());
     if let RData::AAAA(ref address) = *aaaa_record.rdata() {
         assert_eq!(
             &Ipv6Addr::from_str("4321:0:1:2:3:4:567:89ab").unwrap(),
@@ -220,9 +208,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap()
-        .first()
-        .cloned()
+        .next()
         .unwrap();
     assert_eq!(
         &Name::from_str("short.isi.edu").unwrap(),
@@ -243,7 +229,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap();
+        .collect();
     let compare = vec![
         vec![
             Box::from("I".as_bytes()),
@@ -260,7 +246,10 @@ _443._tcp.www.example.com. IN TLSA (
             Box::from("record".as_bytes()),
         ],
         vec![Box::from("key=val".as_bytes())],
-        vec![Box::from("I am a different".as_bytes()),  Box::from("txt record".as_bytes())],
+        vec![
+            Box::from("I am a different".as_bytes()),
+            Box::from("txt record".as_bytes()),
+        ],
     ];
 
     txt_records.sort();
@@ -269,7 +258,6 @@ _443._tcp.www.example.com. IN TLSA (
     println!("txt_records: {:#?}", txt_records);
 
     let compare = txt_records.iter().zip(compare);
-
 
     for (record, ref vector) in compare {
         if let RData::TXT(ref rdata) = *record.rdata() {
@@ -287,9 +275,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap()
-        .first()
-        .cloned()
+        .next()
         .unwrap();
     if let RData::PTR(ref ptrdname) = *ptr_record.rdata() {
         assert_eq!(&Name::from_str("a.isi.edu").unwrap(), ptrdname);
@@ -305,18 +291,13 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap()
-        .first()
-        .cloned()
+        .next()
         .unwrap();
     if let RData::SRV(ref rdata) = *srv_record.rdata() {
         assert_eq!(rdata.priority(), 1);
         assert_eq!(rdata.weight(), 2);
         assert_eq!(rdata.port(), 3);
-        assert_eq!(
-            rdata.target(),
-            &Name::from_str("short.isi.edu").unwrap()
-        );
+        assert_eq!(rdata.target(), &Name::from_str("short.isi.edu").unwrap());
     } else {
         panic!("Not an SRV record!!!") // valid panic, test code
     }
@@ -329,11 +310,12 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap()
-        .first()
-        .cloned()
+        .next()
         .unwrap();
-    assert_eq!(&Name::from_str("rust-❤️-🦀.isi.edu").unwrap(), idna_record.name());
+    assert_eq!(
+        &Name::from_str("rust-❤️-🦀.isi.edu").unwrap(),
+        idna_record.name()
+    );
     if let RData::A(ref address) = *idna_record.rdata() {
         assert_eq!(&Ipv4Addr::new(192u8, 0u8, 2u8, 1u8), address);
     } else {
@@ -348,9 +330,7 @@ _443._tcp.www.example.com. IN TLSA (
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap()
-        .first()
-        .cloned()
+        .next()
         .expect("nocerts not found");
     if let RData::CAA(ref rdata) = *caa_record.rdata() {
         assert!(!rdata.issuer_critical());
@@ -363,15 +343,14 @@ _443._tcp.www.example.com. IN TLSA (
     // TLSA
     let tlsa_record: &Record = authority
         .lookup(
-            &Name::parse("_443._tcp.www.example.com.", None).unwrap().into(),
+            &Name::parse("_443._tcp.www.example.com.", None)
+                .unwrap()
+                .into(),
             RecordType::TLSA,
             false,
             SupportedAlgorithms::new(),
         )
-        .unwrap()
-        .first()
-        .cloned()
-        .expect("tlsa record not found");
+        .next().expect("tlsa record not found");
 
     if let RData::TLSA(ref rdata) = *tlsa_record.rdata() {
         assert_eq!(*rdata.cert_usage(), CertUsage::CA);
@@ -380,38 +359,8 @@ _443._tcp.www.example.com. IN TLSA (
         assert_eq!(
             rdata.cert_data(),
             &[
-                210,
-                171,
-                222,
-                36,
-                13,
-                124,
-                211,
-                238,
-                107,
-                75,
-                40,
-                197,
-                77,
-                240,
-                52,
-                185,
-                121,
-                131,
-                161,
-                209,
-                110,
-                138,
-                65,
-                14,
-                69,
-                97,
-                203,
-                16,
-                102,
-                24,
-                233,
-                113
+                210, 171, 222, 36, 13, 124, 211, 238, 107, 75, 40, 197, 77, 240, 52, 185, 121, 131,
+                161, 209, 110, 138, 65, 14, 69, 97, 203, 16, 102, 24, 233, 113
             ]
         );
     } else {

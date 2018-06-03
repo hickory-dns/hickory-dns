@@ -42,6 +42,11 @@ impl DnsRequest {
     pub fn options(&self) -> &DnsRequestOptions {
         &self.options
     }
+
+    /// Unwraps the raw message
+    pub fn unwrap(self) -> Message {
+        self.message
+    }
 }
 
 impl Deref for DnsRequest {

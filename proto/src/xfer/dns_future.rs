@@ -25,7 +25,7 @@ use tokio_timer::Delay;
 
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
-use xfer::{ignore_send, DnsRequest, DnsResponse};
+use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse};
 use {BasicDnsHandle, DnsStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -33,8 +33,10 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 struct ActiveRequest<E: FromProtoError> {
     // the completion is the channel for a response to the original request
     completion: Complete<Result<DnsResponse, E>>,
+    request_id: u16,
+    request_options: DnsRequestOptions,
     // the original request and associated options
-    request: DnsRequest,
+    //request: DnsRequest,
     // most requests pass a single Message response directly through to the completion
     //  this small vec will have no allocations, unless the requests is a DNS-SD request
     //  expecting more than one response
@@ -45,12 +47,16 @@ struct ActiveRequest<E: FromProtoError> {
 impl<E: FromProtoError> ActiveRequest<E> {
     fn new(
         completion: Complete<Result<DnsResponse, E>>,
-        request: DnsRequest,
+        request_id: u16,
+        request_options: DnsRequestOptions,
+        // request: DnsRequest,
         timeout: Delay,
     ) -> Self {
         ActiveRequest {
             completion,
-            request,
+            request_id,
+            request_options,
+            // request,
             responses: SmallVec::new(),
             timeout,
         }
@@ -71,9 +77,17 @@ impl<E: FromProtoError> ActiveRequest<E> {
         self.responses.push(message);
     }
 
-    fn request(&self) -> &DnsRequest {
-        &self.request
+    fn request_id(&self) -> u16 {
+        self.request_id
     }
+
+    fn request_options(&self) -> &DnsRequestOptions {
+        &self.request_options
+    }
+
+    // fn request(&mut self) -> &mut DnsRequest {
+    //     &mut self.request
+    // }
 
     /// Sends an error
     fn complete_with_error(self, error: ProtoError) {
@@ -268,7 +282,7 @@ where
                     //  a message could arrive between peek and poll... i.e. a race condition where query_id
                     //  would have been gotten
                     break;
-                },
+                }
                 Err(()) => {
                     warn!("receiver was shutdown?");
                     break;
@@ -277,7 +291,9 @@ where
 
             // finally pop the reciever
             match self.new_receiver.poll() {
-                Ok(Async::Ready(Some((mut request, complete)))) => {
+                Ok(Async::Ready(Some((request, complete)))) => {
+                    let mut request: DnsRequest = request;
+
                     // if there was a message, and the above succesion was succesful,
                     //  register the new message, if not do not register, and set the complete to error.
                     // getting a random query id, this mitigates potential cache poisoning.
@@ -325,19 +341,29 @@ where
                     }
 
                     // send the message
-                    let active_request = ActiveRequest::new(complete, request, timeout);
-                    match active_request.request().to_vec() {
+                    let active_request = ActiveRequest::new(
+                        complete,
+                        request.id(),
+                        request.options().clone(),
+                        timeout,
+                    );
+
+                    match request.unwrap().to_vec() {
                         Ok(buffer) => {
-                            debug!("sending message id: {}", query_id);
+                            debug!("sending message id: {}", active_request.request_id());
                             self.stream_handle.send(buffer)?;
 
                             // add to the map -after- the client send b/c we don't want to put it in the map if
                             //  we ended up returning from the send.
                             self.active_requests
-                                .insert(active_request.request().id(), active_request);
+                                .insert(active_request.request_id(), active_request);
                         }
                         Err(e) => {
-                            debug!("error message id: {} error: {}", query_id, e);
+                            debug!(
+                                "error message id: {} error: {}",
+                                active_request.request_id(),
+                                e
+                            );
                             // complete with the error, don't add to the map of active requests
                             active_request.complete_with_error(e);
                         }
@@ -370,10 +396,7 @@ where
                                     active_request.add_response(message);
 
                                     // determine if this is complete
-                                    !active_request
-                                        .request()
-                                        .options()
-                                        .expects_multiple_responses
+                                    !active_request.request_options().expects_multiple_responses
                                 };
 
                                 // now check if the request is complete

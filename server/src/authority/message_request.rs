@@ -247,11 +247,7 @@ impl<'r> Queries<'r> {
 }
 
 macro_rules! section {
-    ($s:ident, $l:ident, $e:ident) => {
-        fn $l(&self) -> usize {
-            self.$s.len()
-        }
-
+    ($s:ident, $e:ident) => {
         fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
             encoder.emit_all(self.$s.iter())
         }
@@ -263,19 +259,15 @@ impl<'r> EncodableMessage for MessageRequest<'r> {
         &self.header
     }
 
-    fn queries_len(&self) -> usize {
-        self.queries.len()
-    }
-
     fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
         // we emit the queries, in order to guarantee canonical form
         //   in cases where that's necessary, like SIG0 validation
         encoder.emit_all(self.queries.queries.iter())
     }
 
-    section!(answers, answers_len, emit_answers);
-    section!(name_servers, name_servers_len, emit_name_servers);
-    section!(additionals, additionals_len, emit_additionals);
+    section!(answers, emit_answers);
+    section!(name_servers, emit_name_servers);
+    section!(additionals, emit_additionals);
 
     fn edns(&self) -> Option<&Edns> {
         MessageRequest::edns(self)
