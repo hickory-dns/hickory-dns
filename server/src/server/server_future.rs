@@ -10,7 +10,7 @@ use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
-use futures::{Future, future, Stream};
+use futures::{Future, Stream};
 
 use tokio_executor;
 use tokio_reactor::Handle;
@@ -75,7 +75,9 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
 
     /// Register a UDP socket. Should be bound before calling this function.
     pub fn register_socket_std(&self, socket: std::net::UdpSocket) {
-        self.register_socket(tokio_udp::UdpSocket::from_std(socket, &Handle::current()).expect("bad handle?"))
+        self.register_socket(
+            tokio_udp::UdpSocket::from_std(socket, &Handle::current()).expect("bad handle?"),
+        )
     }
 
     /// Register a TcpListener to the Server. This should already be bound to either an IPv6 or an
@@ -155,7 +157,10 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         listener: std::net::TcpListener,
         timeout: Duration,
     ) -> io::Result<()> {
-        self.register_listener(tokio_tcp::TcpListener::from_std(listener, &Handle::current())?, timeout)
+        self.register_listener(
+            tokio_tcp::TcpListener::from_std(listener, &Handle::current())?,
+            timeout,
+        )
     }
 
     /// Register a TlsListener to the Server. The TlsListener should already be bound to either an
@@ -178,6 +183,8 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         timeout: Duration,
         pkcs12: ParsedPkcs12,
     ) -> io::Result<()> {
+        use futures::future;
+
         let handler = self.handler.clone();
         debug!("registered tcp: {:?}", listener);
 
@@ -257,7 +264,11 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         timeout: Duration,
         pkcs12: ParsedPkcs12,
     ) -> io::Result<()> {
-        self.register_tls_listener(tokio_tcp::TcpListener::from_std(listener, &Handle::current())?, timeout, pkcs12)
+        self.register_tls_listener(
+            tokio_tcp::TcpListener::from_std(listener, &Handle::current())?,
+            timeout,
+            pkcs12,
+        )
     }
 
     fn handle_request(
@@ -297,6 +308,9 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
                 .unwrap_or_else(|| "empty_queries".to_string()),
         );
 
-        handler.lock().unwrap().handle_request(&request, response_handle)
+        handler
+            .lock()
+            .unwrap()
+            .handle_request(&request, response_handle)
     }
 }

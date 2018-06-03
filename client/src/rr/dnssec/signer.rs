@@ -508,9 +508,7 @@ impl Signer {
     ///
     ///  ---
     pub fn sign_message(&self, message: &Message, pre_sig0: &SIG) -> ProtoResult<Vec<u8>> {
-        // TODO: remove this somehow...
-        let mut message = message.clone();
-        tbs::message_tbs(&mut message, pre_sig0).and_then(|tbs| self.sign(&tbs))
+        tbs::message_tbs(message, pre_sig0).and_then(|tbs| self.sign(&tbs))
     }
 }
 

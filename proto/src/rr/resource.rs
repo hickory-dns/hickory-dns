@@ -140,7 +140,7 @@ impl Record {
     ///                 field specifies the meaning of the data in the RDATA
     ///                 field.
     /// ```
-    #[deprecated(note = "use `Record::set_record_type`")]
+    // #[deprecated(note = "use `Record::set_record_type`")]
     pub fn set_rr_type(&mut self, rr_type: RecordType) -> &mut Self {
         self.rr_type = rr_type;
         self
@@ -195,7 +195,7 @@ impl Record {
     }
 
     /// Returns the type of the RData in the record
-    #[deprecated(note = "use `Record::record_type`")]
+    // #[deprecated(note = "use `Record::record_type`")]
     pub fn rr_type(&self) -> RecordType {
         self.rr_type
     }

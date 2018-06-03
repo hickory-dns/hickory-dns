@@ -7,18 +7,16 @@
 
 //! All authority related types
 
+#[cfg(feature = "dnssec")]
 use std::borrow::Borrow;
 use std::collections::btree_map::Values;
 use std::collections::BTreeMap;
-use std::iter::Chain;
-use std::slice::Iter;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
 use trust_dns::op::{LowerQuery, ResponseCode};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
 use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
-#[cfg(feature = "dnssec")]
 use trust_dns_proto::rr::RrsetRecords;
 
 #[cfg(feature = "dnssec")]
@@ -149,7 +147,7 @@ impl Authority {
 
             for rr_set in self.records.values() {
                 // TODO: should we preserve rr_sets or not?
-                for record in rr_set.iter() {
+                for record in rr_set.records_without_rrsigs() {
                     journal.insert_record(serial, record)?;
                 }
             }
@@ -376,6 +374,8 @@ impl Authority {
         //           if (zone_rrset<rrset.name, rrset.type> != rrset)
         //                return (NXRRSET)
         for require in pre_requisites {
+            let required_name = LowerName::from(require.name());
+
             if require.ttl() != 0 {
                 warn!("ttl must be 0 for: {:?}", require);
                 return Err(ResponseCode::FormErr);
@@ -392,10 +392,7 @@ impl Authority {
             match require.rr_type() {
               // ANY      ANY      empty    Name is in use
               RecordType::ANY => {
-                let lower_name: LowerName = require.name().into();
-                let lookup = self.lookup(&lower_name, RecordType::ANY, false, SupportedAlgorithms::new());
-                
-                if self.lookup(&require.name().into(), RecordType::ANY, false, SupportedAlgorithms::new()).is_totally_empty() {
+                if self.lookup(&required_name, RecordType::ANY, false, SupportedAlgorithms::new()).is_totally_empty() {
                   return Err(ResponseCode::NXDomain);
                 } else {
                   continue;
@@ -403,7 +400,7 @@ impl Authority {
               },
               // ANY      rrset    empty    RRset exists (value independent)
               rrset => {
-                if self.lookup(&require.name().into(), rrset, false, SupportedAlgorithms::new()).is_totally_empty() {
+                if self.lookup(&required_name, rrset, false, SupportedAlgorithms::new()).is_totally_empty() {
                   return Err(ResponseCode::NXRRSet);
                 } else {
                   continue;
@@ -419,7 +416,7 @@ impl Authority {
             match require.rr_type() {
               // NONE     ANY      empty    Name is not in use
               RecordType::ANY => {
-                if !self.lookup(&require.name().into(), RecordType::ANY, false, SupportedAlgorithms::new()).is_totally_empty() {
+                if !self.lookup(&required_name, RecordType::ANY, false, SupportedAlgorithms::new()).is_totally_empty() {
                   return Err(ResponseCode::YXDomain);
                 } else {
                   continue;
@@ -427,7 +424,7 @@ impl Authority {
               },
               // NONE     rrset    empty    RRset does not exist
               rrset => {
-                if !self.lookup(&require.name().into(), rrset, false, SupportedAlgorithms::new()).is_totally_empty() {
+                if !self.lookup(&required_name, rrset, false, SupportedAlgorithms::new()).is_totally_empty() {
                   return Err(ResponseCode::YXRRSet);
                 } else {
                   continue;
@@ -440,7 +437,7 @@ impl Authority {
         ,
         class if class == self.class =>
           // zone     rrset    rr       RRset exists (value dependent)
-          if self.lookup(&require.name().into(), require.rr_type(), false, SupportedAlgorithms::new())
+          if self.lookup(&required_name, require.rr_type(), false, SupportedAlgorithms::new())
                  .find(|rr| *rr == require)
                  .is_none() {
             return Err(ResponseCode::NXRRSet);
@@ -1038,12 +1035,7 @@ impl Authority {
                 .records
                 .get(&rr_key)
                 .map_or(LookupRecords::NxDomain, |rr_set| {
-                    let records = rr_set.records(is_secure, supported_algorithms);
-                    if records.is_empty() {
-                        LookupRecords::NxDomain
-                    } else {
-                        LookupRecords::RecordsIter(records)
-                    }
+                    LookupRecords::from(rr_set.records(is_secure, supported_algorithms))
                 }),
         };
 
@@ -1095,12 +1087,7 @@ impl Authority {
             .skip_while(|rr_set| name < &rr_set.name().into())
             .next()
             .map_or(LookupRecords::NxDomain, |rr_set| {
-                let records = rr_set.records(is_secure, supported_algorithms);
-                if records.is_empty() {
-                    LookupRecords::NxDomain
-                } else {
-                    LookupRecords::RecordsIter(records)
-                }
+                LookupRecords::from(rr_set.records(is_secure, supported_algorithms))
             })
     }
 
@@ -1305,7 +1292,6 @@ impl Authority {
 ///
 /// * `'r` - the record_set's lifetime, from the catalog
 /// * `'q` - the lifetime of the query/request
-#[cfg(feature = "dnssec")]
 #[derive(Debug)]
 pub struct AnyRecordsIter<'r, 'q> {
     is_secure: bool,
@@ -1317,7 +1303,6 @@ pub struct AnyRecordsIter<'r, 'q> {
     query_name: &'q LowerName,
 }
 
-#[cfg(feature = "dnssec")]
 impl<'r, 'q> AnyRecordsIter<'r, 'q> {
     fn new(
         is_secure: bool,
@@ -1338,7 +1323,6 @@ impl<'r, 'q> AnyRecordsIter<'r, 'q> {
     }
 }
 
-#[cfg(feature = "dnssec")]
 impl<'r, 'q> Iterator for AnyRecordsIter<'r, 'q> {
     type Item = &'r Record;
 
@@ -1395,14 +1379,8 @@ pub enum LookupRecords<'r, 'q> {
 }
 
 impl<'r, 'q> LookupRecords<'r, 'q> {
-    // // FIXME: this is dangerous, becuase it is not accurate...
-    // /// This is an NxDomain or NameExists, and has no associated records
-    // pub fn is_empty(&self) -> bool {
-    //     self.is_nx_domain() || self.is_name_exists()
-    // }
-
     /// This is an NxDomain or NameExists, and has no associated records
-    /// 
+    ///
     /// this consumes the iterator, and verifies it is empty
     pub fn is_totally_empty(self) -> bool {
         self.count() == 0
@@ -1434,5 +1412,20 @@ impl<'r, 'q> Iterator for LookupRecords<'r, 'q> {
             LookupRecords::RecordsIter(ref mut i) => i.next(),
             LookupRecords::AnyRecordsIter(ref mut i) => i.next(),
         }
+    }
+}
+
+impl<'r, 'q> From<RrsetRecords<'r>> for LookupRecords<'r, 'q> {
+    fn from(rrset_records: RrsetRecords<'r>) -> Self {
+        match rrset_records {
+            RrsetRecords::Empty => LookupRecords::NxDomain,
+            rrset_records => LookupRecords::RecordsIter(rrset_records),
+        }
+    }
+}
+
+impl<'r, 'q> From<AnyRecordsIter<'r, 'q>> for LookupRecords<'r, 'q> {
+    fn from(rrset_records: AnyRecordsIter<'r, 'q>) -> Self {
+        LookupRecords::AnyRecordsIter(rrset_records)
     }
 }
