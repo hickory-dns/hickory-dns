@@ -86,18 +86,12 @@ pub trait EncodableMessage {
     /// The Header associated with this Message
     fn header(&self) -> &Header;
 
-    // /// return the length of the set of queries
-    // fn queries_len(&self) -> usize;
-
     /// Emit the queries section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     ///
     /// # Returns
     ///
     /// Number of queries written, which should equal the number of queries in the message. see `ProtoErrorKind::NotAllRecordsWritten` on error for count of records written.
     fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<usize>;
-
-    // /// return the length of the set of queries
-    // fn answers_len(&self) -> usize;
 
     /// Emit the answers section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     ///
@@ -106,18 +100,12 @@ pub trait EncodableMessage {
     /// Number of answers written, which should equal the number of answers in the message. see `ProtoErrorKind::NotAllRecordsWritten` on error for count of records written.
     fn emit_answers(&self, encoder: &mut BinEncoder) -> ProtoResult<usize>;
 
-    // /// return the length of the set of queries
-    // fn name_servers_len(&self) -> usize;
-
     /// Emit the name_servers section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     ///
     /// # Returns
     ///
     /// Number of name_servers written, which should equal the number of name_servers in the message. see `ProtoErrorKind::NotAllRecordsWritten` on error for count of records written.
     fn emit_name_servers(&self, encoder: &mut BinEncoder) -> ProtoResult<usize>;
-
-    // /// return the length of the set of queries
-    // fn additionals_len(&self) -> usize;
 
     /// Emit the additionals section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     ///
@@ -694,6 +682,9 @@ impl Message {
 
     /// Encodes the Message into a buffer
     pub fn to_vec(self) -> Result<Vec<u8>, ProtoError> {
+        // TODO: this feels like the right place to verify the max packet size of the message,
+        //  will need to update the header for trucation and the lengths if we send less than the
+        //  full response. This needs to conform with the EDNS settings of the server...
         let mut buffer = Vec::with_capacity(512);
         {
             let mut encoder = BinEncoder::new(&mut buffer);
@@ -785,13 +776,9 @@ pub fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bo
 
 impl<M: EncodableMessage> BinEncodable for M {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        // clone the header to set the counts lazily
         let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
         let place = encoder.place::<Header>()?;
 
-        // TODO: this feels like the right place to verify the max packet size of the message,
-        //  will need to update the header for trucation and the lengths if we send less than the
-        //  full response.
         let query_count = self.emit_queries(encoder)?;
         // FIXME: need to do some on max records
         //  return offset of last emitted record.

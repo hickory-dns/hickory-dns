@@ -443,6 +443,7 @@ impl IntoIterator for RecordSet {
     }
 }
 
+/// An iterator over all the records and their signatures
 #[cfg(feature = "dnssec")]
 #[derive(Debug)]
 pub struct RecordsAndRrsigsIter<'r>(Chain<Iter<'r, Record>, RrsigsByAlgorithms<'r>>);
@@ -456,6 +457,7 @@ impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
     }
 }
 
+/// An iterator that limits the record signatures by SupportedAlgorithms
 #[cfg(feature = "dnssec")]
 #[derive(Debug)]
 pub struct RrsigsByAlgorithms<'r> {

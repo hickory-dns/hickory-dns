@@ -493,6 +493,7 @@ impl<T: EncodedSize> Place<T> {
     }
 }
 
+/// A type representing a rollback point in a stream
 pub struct Rollback {
     rollback_index: usize,
 }
