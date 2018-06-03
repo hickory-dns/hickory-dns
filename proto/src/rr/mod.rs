@@ -34,3 +34,4 @@ pub use self::record_type::RecordType;
 pub use self::resource::Record;
 pub use self::rr_set::IntoRecordSet;
 pub use self::rr_set::RecordSet;
+pub use self::rr_set::RrsetRecords;

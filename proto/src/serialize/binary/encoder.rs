@@ -352,22 +352,9 @@ impl<'a> BinEncoder<'a> {
     /// Emits all the elements of an Iterator to the encoder
     pub fn emit_all<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
         &mut self,
-        iter: I,
+        mut iter: I,
     ) -> ProtoResult<usize> {
-        let mut count = 0;
-        for i in iter {
-            let rollback = self.set_rollback();
-            i.emit(self).map_err(|e| {
-                if let ProtoErrorKind::MaxBufferSizeExceeded(_) = e.kind() {
-                    rollback.rollback(self);
-                    return ProtoErrorKind::NotAllRecordsWritten { count }.into();
-                } else {
-                    return e;
-                }
-            })?;
-            count += 1;
-        }
-        Ok(count)
+        self.emit_iter(&mut iter)
     }
 
     // TODO: dedup with above emit_all
@@ -392,6 +379,27 @@ impl<'a> BinEncoder<'a> {
             count += 1;
         }
 
+        Ok(count)
+    }
+
+    /// emits all items in the iterator, return the number emited
+    pub fn emit_iter<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable>(
+        &mut self,
+        iter: &mut I,
+    ) -> ProtoResult<usize> {
+        let mut count = 0;
+        for i in iter {
+            let rollback = self.set_rollback();
+            i.emit(self).map_err(|e| {
+                if let ProtoErrorKind::MaxBufferSizeExceeded(_) = e.kind() {
+                    rollback.rollback(self);
+                    return ProtoErrorKind::NotAllRecordsWritten { count }.into();
+                } else {
+                    return e;
+                }
+            })?;
+            count += 1;
+        }
         Ok(count)
     }
 

@@ -30,7 +30,7 @@ use trust_dns_proto::error::FromProtoError;
 use trust_dns_proto::op::EncodableMessage;
 use trust_dns_proto::{DnsStreamHandle, StreamHandle};
 
-use trust_dns_server::authority::{Catalog, MessageRequest};
+use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
 use trust_dns_server::server::{Request, RequestHandler, ResponseHandler};
 
 pub mod authority;
@@ -86,10 +86,12 @@ impl TestResponseHandler {
 }
 
 impl ResponseHandler for TestResponseHandler {
-    fn send<M: EncodableMessage>(self, response: M) -> io::Result<()> {
+    fn send(self, response: MessageResponse) -> io::Result<()> {
         let buf = &mut self.buf.lock().unwrap();
         let mut encoder = BinEncoder::new(buf);
-        response.emit(&mut encoder).expect("could not encode");
+        response
+            .destructive_emit(&mut encoder)
+            .expect("could not encode");
         Ok(())
     }
 }

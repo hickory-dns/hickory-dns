@@ -17,6 +17,7 @@
 //! Basic protocol message for DNS
 
 use std::mem;
+use std::ops::Deref;
 use std::sync::Arc;
 
 use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
@@ -85,8 +86,8 @@ pub trait EncodableMessage {
     /// The Header associated with this Message
     fn header(&self) -> &Header;
 
-    /// return the length of the set of queries
-    fn queries_len(&self) -> usize;
+    // /// return the length of the set of queries
+    // fn queries_len(&self) -> usize;
 
     /// Emit the queries section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     ///
@@ -95,8 +96,8 @@ pub trait EncodableMessage {
     /// Number of queries written, which should equal the number of queries in the message. see `ProtoErrorKind::NotAllRecordsWritten` on error for count of records written.
     fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<usize>;
 
-    /// return the length of the set of queries
-    fn answers_len(&self) -> usize;
+    // /// return the length of the set of queries
+    // fn answers_len(&self) -> usize;
 
     /// Emit the answers section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     ///
@@ -105,8 +106,8 @@ pub trait EncodableMessage {
     /// Number of answers written, which should equal the number of answers in the message. see `ProtoErrorKind::NotAllRecordsWritten` on error for count of records written.
     fn emit_answers(&self, encoder: &mut BinEncoder) -> ProtoResult<usize>;
 
-    /// return the length of the set of queries
-    fn name_servers_len(&self) -> usize;
+    // /// return the length of the set of queries
+    // fn name_servers_len(&self) -> usize;
 
     /// Emit the name_servers section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     ///
@@ -115,8 +116,8 @@ pub trait EncodableMessage {
     /// Number of name_servers written, which should equal the number of name_servers in the message. see `ProtoErrorKind::NotAllRecordsWritten` on error for count of records written.
     fn emit_name_servers(&self, encoder: &mut BinEncoder) -> ProtoResult<usize>;
 
-    /// return the length of the set of queries
-    fn additionals_len(&self) -> usize;
+    // /// return the length of the set of queries
+    // fn additionals_len(&self) -> usize;
 
     /// Emit the additionals section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
     ///
@@ -130,45 +131,37 @@ pub trait EncodableMessage {
 
     /// Any SIG0 records for signed messages
     fn sig0(&self) -> &[Record];
+}
 
-    /// Returns a new Header with accurate counts for each Message section
-    fn update_header_counts(&self, is_truncated: bool, counts: HeaderCounts) -> Header {
-        assert!(counts.query_count <= u16::max_value() as usize);
-        assert!(counts.answer_count <= u16::max_value() as usize);
-        assert!(counts.nameserver_count <= u16::max_value() as usize);
-        assert!(counts.additional_count <= u16::max_value() as usize);
+/// Returns a new Header with accurate counts for each Message section
+pub fn update_header_counts(
+    current_header: &Header,
+    is_truncated: bool,
+    counts: HeaderCounts,
+) -> Header {
+    assert!(counts.query_count <= u16::max_value() as usize);
+    assert!(counts.answer_count <= u16::max_value() as usize);
+    assert!(counts.nameserver_count <= u16::max_value() as usize);
+    assert!(counts.additional_count <= u16::max_value() as usize);
 
-        let mut header = self.header().clone();
-        header.set_query_count(counts.query_count as u16);
-        header.set_answer_count(counts.answer_count as u16);
-        header.set_name_server_count(counts.nameserver_count as u16);
-        header.set_additional_count(counts.additional_count as u16);
-        header.set_truncated(is_truncated);
+    let mut header = current_header.clone();
+    header.set_query_count(counts.query_count as u16);
+    header.set_answer_count(counts.answer_count as u16);
+    header.set_name_server_count(counts.nameserver_count as u16);
+    header.set_additional_count(counts.additional_count as u16);
+    header.set_truncated(is_truncated);
 
-        header
-    }
+    header
 }
 
 /// Tracks the counts of the records in the Message.
 ///
 /// This is only used internally during serialization.
 pub struct HeaderCounts {
-    query_count: usize,
-    answer_count: usize,
-    nameserver_count: usize,
-    additional_count: usize,
-}
-
-macro_rules! section {
-    ($s:ident, $l:ident, $e:ident) => {
-        fn $l(&self) -> usize {
-            self.$s.len()
-        }
-
-        fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
-            encoder.emit_all(self.$s.iter())
-        }
-    }
+    pub query_count: usize,
+    pub answer_count: usize,
+    pub nameserver_count: usize,
+    pub additional_count: usize,
 }
 
 impl EncodableMessage for Message {
@@ -176,10 +169,21 @@ impl EncodableMessage for Message {
         &self.header
     }
 
-    section!(queries, queries_len, emit_queries);
-    section!(answers, answers_len, emit_answers);
-    section!(name_servers, name_servers_len, emit_name_servers);
-    section!(additionals, additionals_len, emit_additionals);
+    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+        encoder.emit_all(self.queries.iter())
+    }
+
+    fn emit_answers(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+        encoder.emit_all(self.answers.iter())
+    }
+
+    fn emit_name_servers(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+        encoder.emit_all(self.name_servers.iter())
+    }
+
+    fn emit_additionals(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+        encoder.emit_all(self.additionals.iter())
+    }
 
     fn edns(&self) -> Option<&Edns> {
         Message::edns(self)
@@ -595,13 +599,14 @@ impl Message {
     ///  this happens implicitly on write_to, so no need to call before write_to
     #[cfg(test)]
     pub fn update_counts(&mut self) -> &mut Self {
-        self.header = self.update_header_counts(
+        self.header = update_header_counts(
+            self.header(),
             false,
             HeaderCounts {
-                query_count: self.queries_len(),
-                answer_count: self.answers_len(),
-                nameserver_count: self.name_servers_len(),
-                additional_count: self.additionals_len(),
+                query_count: self.queries.len(),
+                answer_count: self.answers.len(),
+                nameserver_count: self.name_servers.len(),
+                additional_count: self.additionals.len(),
             },
         );
         self
@@ -684,7 +689,7 @@ impl Message {
     }
 
     /// Encodes the Message into a buffer
-    pub fn to_vec(&self) -> Result<Vec<u8>, ProtoError> {
+    pub fn to_vec(self) -> Result<Vec<u8>, ProtoError> {
         let mut buffer = Vec::with_capacity(512);
         {
             let mut encoder = BinEncoder::new(&mut buffer);
@@ -719,6 +724,13 @@ impl Message {
     }
 }
 
+impl Deref for Message {
+    type Target = Header;
+
+    fn deref(&self) -> &Self::Target {
+        &self.header
+    }
+}
 /// A trait for performing final ammendments to a Message before it is sent.
 ///
 /// An example of this is a SIG0 signer, which needs the final form of the message,
@@ -757,7 +769,7 @@ impl MessageFinalizer for NoopMessageFinalizer {
 }
 
 /// Returns the count written and a boolean if it was truncated
-fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
+pub fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
     result.map(|count| (count, false)).or_else(|e| {
         if let ProtoErrorKind::NotAllRecordsWritten { count } = e.kind() {
             return Ok((*count, true));
@@ -804,7 +816,10 @@ impl<M: EncodableMessage> BinEncodable for M {
         };
         let was_truncated = answer_count.1 || nameserver_count.1 || additional_count.1;
 
-        place.replace(encoder, self.update_header_counts(was_truncated, counts))?;
+        place.replace(
+            encoder,
+            update_header_counts(self.header(), was_truncated, counts),
+        )?;
         Ok(())
     }
 }

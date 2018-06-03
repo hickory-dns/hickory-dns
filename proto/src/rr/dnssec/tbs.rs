@@ -1,10 +1,10 @@
 //! hash functions for DNSSec operations
 
+use super::rdata::{sig, DNSSECRData, SIG};
 use error::*;
 use op::EncodableMessage;
-use rr::{DNSClass, Name, RData, Record, RecordType};
 use rr::dnssec::Algorithm;
-use super::rdata::{sig, DNSSECRData, SIG};
+use rr::{DNSClass, Name, RData, Record, RecordType};
 use serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 
 /// Data To Be Signed.
@@ -93,7 +93,8 @@ pub fn rrset_tbs(
 
     // collect only the records for this rrset
     for record in records {
-        if dns_class == record.dns_class() && type_covered == record.rr_type()
+        if dns_class == record.dns_class()
+            && type_covered == record.rr_type()
             && name == record.name()
         {
             rrset.push(record);

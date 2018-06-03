@@ -8,20 +8,24 @@
 //! All authority related types
 
 use std::borrow::Borrow;
+use std::collections::btree_map::Values;
 use std::collections::BTreeMap;
+use std::iter::Chain;
+use std::slice::Iter;
 
 #[cfg(feature = "dnssec")]
 use trust_dns::error::*;
 use trust_dns::op::{LowerQuery, ResponseCode};
-use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
 use trust_dns::rr::dnssec::{Signer, SupportedAlgorithms};
+use trust_dns::rr::{DNSClass, LowerName, Name, RData, Record, RecordSet, RecordType, RrKey};
+#[cfg(feature = "dnssec")]
+use trust_dns_proto::rr::RrsetRecords;
 
-use authority::{AuthLookup, Journal, MessageRequest, UpdateResult, ZoneType};
 #[cfg(feature = "dnssec")]
 use authority::UpdateRequest;
+use authority::{AuthLookup, Journal, MessageRequest, UpdateResult, ZoneType};
 
 use error::{PersistenceErrorKind, PersistenceResult};
-
 
 /// Authority is responsible for storing the resource records for a particular zone.
 ///
@@ -195,7 +199,7 @@ impl Authority {
     ///
     /// *Note*: This will only return the SOA, if this is fullfilling a request, a standard lookup
     ///  should be used, see `soa_secure()`, which will optionally return RRSIGs.
-    pub fn soa(&self) -> AuthLookup {
+    pub fn soa<'s>(&'s self) -> LookupRecords<'s, 's> {
         // SOA should be origin|SOA
         self.lookup(
             &self.origin,
@@ -206,11 +210,11 @@ impl Authority {
     }
 
     /// Returns the SOA record for the zone
-    pub fn soa_secure(
-        &self,
+    pub fn soa_secure<'s>(
+        &'s self,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup {
+    ) -> LookupRecords<'s, 's> {
         self.lookup(
             &self.origin,
             RecordType::SOA,
@@ -221,7 +225,7 @@ impl Authority {
 
     /// Returns the minimum ttl (as used in the SOA record)
     pub fn minimum_ttl(&self) -> u32 {
-        self.soa().iter().next().map_or(0, |soa| {
+        self.soa().next().map_or(0, |soa| {
             if let RData::SOA(ref rdata) = *soa.rdata() {
                 rdata.minimum()
             } else {
@@ -232,7 +236,7 @@ impl Authority {
 
     /// get the current serial number for the zone.
     pub fn serial(&self) -> u32 {
-        self.soa().iter().next().map_or_else(
+        self.soa().next().map_or_else(
             || {
                 warn!("no soa record found for zone: {}", self.origin);
                 0
@@ -248,7 +252,7 @@ impl Authority {
     }
 
     fn increment_soa_serial(&mut self) -> u32 {
-        let opt_soa_serial = self.soa().iter().next().map(|soa| {
+        let opt_soa_serial = self.soa().next().map(|soa| {
             // TODO: can we get a mut reference to SOA directly?
             let mut soa: Record = soa.clone();
 
@@ -275,7 +279,11 @@ impl Authority {
     }
 
     /// Get the NS, NameServer, record for the zone
-    pub fn ns(&self, is_secure: bool, supported_algorithms: SupportedAlgorithms) -> AuthLookup {
+    pub fn ns<'s>(
+        &'s self,
+        is_secure: bool,
+        supported_algorithms: SupportedAlgorithms,
+    ) -> LookupRecords<'s, 's> {
         self.lookup(
             &self.origin,
             RecordType::NS,
@@ -384,7 +392,10 @@ impl Authority {
             match require.rr_type() {
               // ANY      ANY      empty    Name is in use
               RecordType::ANY => {
-                if self.lookup(&require.name().into(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
+                let lower_name: LowerName = require.name().into();
+                let lookup = self.lookup(&lower_name, RecordType::ANY, false, SupportedAlgorithms::new());
+                
+                if self.lookup(&require.name().into(), RecordType::ANY, false, SupportedAlgorithms::new()).is_totally_empty() {
                   return Err(ResponseCode::NXDomain);
                 } else {
                   continue;
@@ -392,7 +403,7 @@ impl Authority {
               },
               // ANY      rrset    empty    RRset exists (value independent)
               rrset => {
-                if self.lookup(&require.name().into(), rrset, false, SupportedAlgorithms::new()).is_empty() {
+                if self.lookup(&require.name().into(), rrset, false, SupportedAlgorithms::new()).is_totally_empty() {
                   return Err(ResponseCode::NXRRSet);
                 } else {
                   continue;
@@ -408,7 +419,7 @@ impl Authority {
             match require.rr_type() {
               // NONE     ANY      empty    Name is not in use
               RecordType::ANY => {
-                if !self.lookup(&require.name().into(), RecordType::ANY, false, SupportedAlgorithms::new()).is_empty() {
+                if !self.lookup(&require.name().into(), RecordType::ANY, false, SupportedAlgorithms::new()).is_totally_empty() {
                   return Err(ResponseCode::YXDomain);
                 } else {
                   continue;
@@ -416,7 +427,7 @@ impl Authority {
               },
               // NONE     rrset    empty    RRset does not exist
               rrset => {
-                if !self.lookup(&require.name().into(), rrset, false, SupportedAlgorithms::new()).is_empty() {
+                if !self.lookup(&require.name().into(), rrset, false, SupportedAlgorithms::new()).is_totally_empty() {
                   return Err(ResponseCode::YXRRSet);
                 } else {
                   continue;
@@ -430,7 +441,6 @@ impl Authority {
         class if class == self.class =>
           // zone     rrset    rr       RRset exists (value dependent)
           if self.lookup(&require.name().into(), require.rr_type(), false, SupportedAlgorithms::new())
-                 .iter()
                  .find(|rr| *rr == require)
                  .is_none() {
             return Err(ResponseCode::NXRRSet);
@@ -506,34 +516,32 @@ impl Authority {
                     }
                 })
                 .any(|sig| {
-                    let name = sig.signer_name();
+                    let name = LowerName::from(sig.signer_name());
                     let keys = self.lookup(
-                        &name.into(),
+                        &name,
                         RecordType::DNSSEC(DNSSECRecordType::KEY),
                         false,
                         SupportedAlgorithms::new(),
                     );
                     debug!("found keys {:?}", keys);
                     // FIXME: check key usage flags and restrictions
-                    keys.iter()
-                        .filter_map(|rr_set| {
-                            if let RData::DNSSEC(DNSSECRData::KEY(ref key)) = *rr_set.rdata() {
-                                Some(key)
-                            } else {
-                                None
-                            }
-                        })
-                        .any(|key| {
-                            key.verify_message(update_message, sig.sig(), sig)
-                                .map(|_| {
-                                    info!("verified sig: {:?} with key: {:?}", sig, key);
-                                    true
-                                })
-                                .unwrap_or_else(|_| {
-                                    debug!("did not verify sig: {:?} with key: {:?}", sig, key);
-                                    false
-                                })
-                        })
+                    keys.filter_map(|rr_set| {
+                        if let RData::DNSSEC(DNSSECRData::KEY(ref key)) = *rr_set.rdata() {
+                            Some(key)
+                        } else {
+                            None
+                        }
+                    }).any(|key| {
+                        key.verify_message(update_message, sig.sig(), sig)
+                            .map(|_| {
+                                info!("verified sig: {:?} with key: {:?}", sig, key);
+                                true
+                            })
+                            .unwrap_or_else(|_| {
+                                debug!("did not verify sig: {:?} with key: {:?}", sig, key);
+                                false
+                            })
+                    })
                 }) {
             return Ok(());
         } else {
@@ -742,7 +750,9 @@ impl Authority {
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
                     match rr.rr_type() {
-                        t @ RecordType::SOA | t @ RecordType::NS if LowerName::new(rr.name()) == self.origin => {
+                        t @ RecordType::SOA | t @ RecordType::NS
+                            if LowerName::new(rr.name()) == self.origin =>
+                        {
                             // SOA and NS records are not to be deleted if they are the origin records
                             info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", t);
                             continue;
@@ -758,7 +768,8 @@ impl Authority {
                                 "deleting all records at name (not SOA or NS at origin): {:?}",
                                 rr.name()
                             );
-                            let to_delete = self.records
+                            let to_delete = self
+                                .records
                                 .keys()
                                 .filter(|k| {
                                     !((k.record_type == RecordType::SOA
@@ -840,7 +851,8 @@ impl Authority {
         assert_eq!(self.class, record.dns_class());
 
         let rr_key = RrKey::new(record.name().into(), record.rr_type());
-        let records: &mut RecordSet = self.records
+        let records: &mut RecordSet = self
+            .records
             .entry(rr_key)
             .or_insert_with(|| RecordSet::new(record.name(), record.rr_type(), serial));
 
@@ -931,12 +943,12 @@ impl Authority {
     ///
     /// Returns a vectory containing the results of the query, it will be empty if not found. If
     ///  `is_secure` is true, in the case of no records found then NSEC records will be returned.
-    pub fn search<'s>(
+    pub fn search<'s, 'q>(
         &'s self,
-        query: &LowerQuery,
+        query: &'q LowerQuery,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup<'s> {
+    ) -> AuthLookup<'s, 'q> {
         let lookup_name = query.name();
         let record_type: RecordType = query.query_type();
 
@@ -946,41 +958,45 @@ impl Authority {
             match self.zone_type() {
                 ZoneType::Master | ZoneType::Slave => (),
                 // TODO: Forward?
-                _ => return AuthLookup::NoName, // TODO: this sould be an error.
+                _ => return AuthLookup::NxDomain, // TODO: this sould be an error.
             }
         }
 
-        // perform the actual lookup 
-        let query_result = if record_type == RecordType::SOA {
-            // on an SOA request always return the SOA, regardless of the name
-            self.lookup(&self.origin, record_type, is_secure, supported_algorithms)
-        } else {
-            self.lookup(lookup_name, record_type, is_secure, supported_algorithms)
-        };
+        // perform the actual lookup
+        match record_type {
+            RecordType::SOA => {
+                let lookup =
+                    self.lookup(&self.origin, record_type, is_secure, supported_algorithms);
 
-        if RecordType::AXFR == record_type {
-            let lookup = self.soa();
-            match lookup {
-                AuthLookup::Records(soa) => {
-                    let soa = soa.first().expect("soa should exist here");
-                    // TODO: make a custom return type with it's own chained iterator for prepending and appending the SOA...
-                    let mut xfr: Vec<&Record> = if let AuthLookup::Records(records) = query_result {
-                        records
-                    } else {
-                        vec![]
-                    };
-                    xfr.insert(0, soa);
-                    xfr.push(soa);
-
-                    return AuthLookup::Records(xfr);
+                match lookup {
+                    LookupRecords::NxDomain => AuthLookup::NxDomain,
+                    LookupRecords::NameExists => AuthLookup::NameExists,
+                    lookup => AuthLookup::SOA(lookup),
                 }
-                AuthLookup::NameExists | AuthLookup::NoName => {
-                    return AuthLookup::NoName;
+            }
+            RecordType::AXFR => {
+                // FIXME: shouldn't these SOA's be secure? at least the first, perhaps not the last?
+                let start_soa = self.soa();
+                let end_soa = self.soa();
+                let records =
+                    self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
+
+                match start_soa {
+                    LookupRecords::NxDomain => AuthLookup::NxDomain,
+                    LookupRecords::NameExists => AuthLookup::NameExists,
+                    start_soa => AuthLookup::AXFR(start_soa.chain(records).chain(end_soa)),
+                }
+            }
+            _ => {
+                let lookup = self.lookup(lookup_name, record_type, is_secure, supported_algorithms);
+
+                match lookup {
+                    LookupRecords::NxDomain => AuthLookup::NxDomain,
+                    LookupRecords::NameExists => AuthLookup::NameExists,
+                    lookup => AuthLookup::Records(lookup),
                 }
             }
         }
-
-        query_result
     }
 
     /// Looks up all Resource Records matching the giving `Name` and `RecordType`.
@@ -997,48 +1013,53 @@ impl Authority {
     /// # Return value
     ///
     /// None if there are no matching records, otherwise a `Vec` containing the found records.
-    pub fn lookup<'s>(
+    pub fn lookup<'s, 'q>(
         &'s self,
-        name: &LowerName,
+        name: &'q LowerName,
         rtype: RecordType,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> AuthLookup<'s> {
+    ) -> LookupRecords<'s, 'q> {
         let rr_key = RrKey::new(name.clone(), rtype);
 
         // Collect the records from each rr_set
-        let result: Vec<&Record> = match rtype {
-            RecordType::ANY | RecordType::AXFR => self.records
-                .values()
-                .filter(|rr_set| {
-                    rtype == RecordType::ANY || rr_set.record_type() != RecordType::SOA
-                })
-                .filter(|rr_set| rtype == RecordType::AXFR || &LowerName::new(rr_set.name()) == name)
-                .fold(Vec::<&Record>::new(), |mut vec, rr_set| {
-                    vec.append(&mut rr_set.records(is_secure, supported_algorithms));
-                    vec
+        let result: LookupRecords = match rtype {
+            RecordType::AXFR | RecordType::ANY => {
+                let result = AnyRecordsIter::new(
+                    is_secure,
+                    supported_algorithms,
+                    self.records.values(),
+                    rtype,
+                    name,
+                );
+                LookupRecords::AnyRecordsIter(result)
+            }
+            _ => self
+                .records
+                .get(&rr_key)
+                .map_or(LookupRecords::NxDomain, |rr_set| {
+                    let records = rr_set.records(is_secure, supported_algorithms);
+                    if records.is_empty() {
+                        LookupRecords::NxDomain
+                    } else {
+                        LookupRecords::RecordsIter(records)
+                    }
                 }),
-            _ => self.records.get(&rr_key).map_or(vec![], |rr_set| {
-                rr_set
-                    .records(is_secure, supported_algorithms)
-                    .into_iter()
-                    .collect()
-            }),
         };
 
         // This is annoying. The 1035 spec literally specifies that most DNS authorities would want to store
         //   records in a list except when there are a lot of records. But this makes indexed lookups by name+type
         //   always return empty sets. This is only important in the negative case, where other DNS authorities
         //   generally return NoError and no results when other types exist at the same name. bah.
-        if result.is_empty() {
+        if result.is_nx_domain() {
             if self.records.keys().any(|key| key.name() == name) {
-                return AuthLookup::NameExists;
+                return LookupRecords::NameExists;
             } else {
-                return AuthLookup::NoName;
+                return LookupRecords::NxDomain;
             }
         }
 
-        AuthLookup::Records(result)
+        result
     }
 
     /// Return the NSEC records based on the given name
@@ -1048,12 +1069,12 @@ impl Authority {
     /// * `name` - given this name (i.e. the lookup name), return the NSEC record that is less than
     ///            this
     /// * `is_secure` - if true then it will return RRSIG records as well
-    pub fn get_nsec_records(
-        &self,
-        name: &LowerName,
+    pub fn get_nsec_records<'s, 'q>(
+        &'s self,
+        name: &'q LowerName,
         is_secure: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Vec<&Record> {
+    ) -> LookupRecords<'s, 'q> {
         #[cfg(feature = "dnssec")]
         fn is_nsec_rrset(rr_set: &RecordSet) -> bool {
             use trust_dns::rr::rdata::DNSSECRecordType;
@@ -1073,11 +1094,13 @@ impl Authority {
             .filter(|rr_set| is_nsec_rrset(rr_set))
             .skip_while(|rr_set| name < &rr_set.name().into())
             .next()
-            .map_or(vec![], |rr_set| {
-                rr_set
-                    .records(is_secure, supported_algorithms)
-                    .into_iter()
-                    .collect()
+            .map_or(LookupRecords::NxDomain, |rr_set| {
+                let records = rr_set.records(is_secure, supported_algorithms);
+                if records.is_empty() {
+                    LookupRecords::NxDomain
+                } else {
+                    LookupRecords::RecordsIter(records)
+                }
             })
     }
 
@@ -1114,11 +1137,10 @@ impl Authority {
         debug!("generating nsec records: {}", self.origin);
 
         // first remove all existing nsec records
-        let delete_keys: Vec<RrKey> = self.records
+        let delete_keys: Vec<RrKey> = self
+            .records
             .keys()
-            .filter(|k| {
-                k.record_type == RecordType::DNSSEC(DNSSECRecordType::NSEC)
-            })
+            .filter(|k| k.record_type == RecordType::DNSSEC(DNSSECRecordType::NSEC))
             .cloned()
             .collect();
 
@@ -1136,7 +1158,9 @@ impl Authority {
             for key in self.records.keys() {
                 match nsec_info {
                     None => nsec_info = Some((key.name.borrow(), vec![key.record_type])),
-                    Some((name, ref mut vec)) if &LowerName::new(name) == &key.name => vec.push(key.record_type),
+                    Some((name, ref mut vec)) if &LowerName::new(name) == &key.name => {
+                        vec.push(key.record_type)
+                    }
                     Some((name, vec)) => {
                         // names aren't equal, create the NSEC record
                         let mut record = Record::with(
@@ -1274,5 +1298,141 @@ impl Authority {
         }
 
         Ok(())
+    }
+}
+
+/// # Lifetimes
+///
+/// * `'r` - the record_set's lifetime, from the catalog
+/// * `'q` - the lifetime of the query/request
+#[cfg(feature = "dnssec")]
+#[derive(Debug)]
+pub struct AnyRecordsIter<'r, 'q> {
+    is_secure: bool,
+    supported_algorithms: SupportedAlgorithms,
+    rrsets: Values<'r, RrKey, RecordSet>,
+    rrset: Option<&'r RecordSet>,
+    records: Option<RrsetRecords<'r>>,
+    query_type: RecordType,
+    query_name: &'q LowerName,
+}
+
+#[cfg(feature = "dnssec")]
+impl<'r, 'q> AnyRecordsIter<'r, 'q> {
+    fn new(
+        is_secure: bool,
+        supported_algorithms: SupportedAlgorithms,
+        rrsets: Values<'r, RrKey, RecordSet>,
+        query_type: RecordType,
+        query_name: &'q LowerName,
+    ) -> Self {
+        AnyRecordsIter {
+            is_secure,
+            supported_algorithms,
+            rrsets,
+            rrset: None,
+            records: None,
+            query_type,
+            query_name,
+        }
+    }
+}
+
+#[cfg(feature = "dnssec")]
+impl<'r, 'q> Iterator for AnyRecordsIter<'r, 'q> {
+    type Item = &'r Record;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let query_type = self.query_type;
+        let query_name = self.query_name;
+
+        loop {
+            if let Some(ref mut records) = self.records {
+                let record = records
+                    .by_ref()
+                    .filter(|rr_set| {
+                        query_type == RecordType::ANY || rr_set.record_type() != RecordType::SOA
+                    })
+                    .filter(|rr_set| {
+                        query_type == RecordType::AXFR
+                            || &LowerName::from(rr_set.name()) == query_name
+                    })
+                    .next();
+
+                if record.is_some() {
+                    return record;
+                }
+            }
+
+            self.rrset = self.rrsets.next();
+
+            // if there are no more RecordSets, then return
+            if self.rrset.is_none() {
+                return None;
+            }
+
+            // getting here, we must have exhausted our records from the rrset
+            self.records = Some(
+                self.rrset
+                    .expect("rrset should not be None at this point")
+                    .records(self.is_secure, self.supported_algorithms),
+            );
+        }
+    }
+}
+
+/// The result of a lookup
+#[derive(Debug)]
+pub enum LookupRecords<'r, 'q> {
+    /// There is no record by the name
+    NxDomain,
+    /// There is no record for the given query, but there are other records at that name
+    NameExists,
+    /// The associate records
+    RecordsIter(RrsetRecords<'r>),
+    /// A generic lookup response where anything is desired
+    AnyRecordsIter(AnyRecordsIter<'r, 'q>),
+}
+
+impl<'r, 'q> LookupRecords<'r, 'q> {
+    // // FIXME: this is dangerous, becuase it is not accurate...
+    // /// This is an NxDomain or NameExists, and has no associated records
+    // pub fn is_empty(&self) -> bool {
+    //     self.is_nx_domain() || self.is_name_exists()
+    // }
+
+    /// This is an NxDomain or NameExists, and has no associated records
+    /// 
+    /// this consumes the iterator, and verifies it is empty
+    pub fn is_totally_empty(self) -> bool {
+        self.count() == 0
+    }
+
+    /// This is an NxDomain
+    pub fn is_nx_domain(&self) -> bool {
+        match *self {
+            LookupRecords::NxDomain => true,
+            _ => false,
+        }
+    }
+
+    /// This is a NameExists
+    pub fn is_name_exists(&self) -> bool {
+        match *self {
+            LookupRecords::NameExists => true,
+            _ => false,
+        }
+    }
+}
+
+impl<'r, 'q> Iterator for LookupRecords<'r, 'q> {
+    type Item = &'r Record;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            LookupRecords::NxDomain | LookupRecords::NameExists => None,
+            LookupRecords::RecordsIter(ref mut i) => i.next(),
+            LookupRecords::AnyRecordsIter(ref mut i) => i.next(),
+        }
     }
 }

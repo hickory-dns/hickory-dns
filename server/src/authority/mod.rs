@@ -43,6 +43,7 @@ pub mod persistence;
 
 pub use self::auth_lookup::AuthLookup;
 pub use self::authority::Authority;
+pub use self::authority::LookupRecords;
 pub use self::catalog::Catalog;
 pub use self::message_request::{MessageRequest, Queries, UpdateRequest};
 pub use self::message_response::{MessageResponse, MessageResponseBuilder};
