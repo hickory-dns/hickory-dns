@@ -6,13 +6,11 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::iter::Chain;
-use std::ops::Deref;
 
 use trust_dns::rr::Record;
 use trust_dns::serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 use trust_dns_proto::error::*;
-use trust_dns_proto::op::EncodableMessage;
-use trust_dns_proto::op::{message, Edns, Header, Message, MessageType, OpCode, ResponseCode};
+use trust_dns_proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
 
 use authority::{AuthLookup, LookupRecords, Queries};
 

@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 
 use std::iter::Chain;
-use std::slice::Iter;
 
 use trust_dns::rr::Record;
 
@@ -50,39 +49,7 @@ impl<'r, 'q> AuthLookup<'r, 'q> {
             _ => false,
         }
     }
-
-    // /// Returns an iterator over the records
-    // pub fn iter(&'r self) -> AuthLookupIter<'r> {
-    //     match *self {
-    //         AuthLookup::NameExists | AuthLookup::NoName => AuthLookupIter(None),
-    //         AuthLookup::Records(ref records) => AuthLookupIter(Some(records.iter())),
-    //     }
-    // }
-
-    // /// Unwraps the associated records, or panics if this is a NameExists or NoNmae
-    // pub fn unwrap(self) -> Vec<&'r Record> {
-    //     if let AuthLookup::Records(records) = self {
-    //         records
-    //     } else {
-    //         panic!("AuthLookup was not Records: {:?}", self)
-    //     }
-    // }
 }
-
-// /// An Iterator for AuthLookup
-// pub struct AuthLookupIter<'r>(Option<Iter<'r, &'r Record>>);
-
-// impl<'r> Iterator for AuthLookupIter<'r> {
-//     type Item = &'r Record;
-
-//     fn next(&mut self) -> Option<Self::Item> {
-//         if let Some(ref mut iter) = self.0 {
-//             iter.next().map(|r| *r)
-//         } else {
-//             None
-//         }
-//     }
-// }
 
 impl<'r, 'q> Iterator for AuthLookup<'r, 'q> {
     type Item = &'r Record;

@@ -158,9 +158,13 @@ pub fn update_header_counts(
 ///
 /// This is only used internally during serialization.
 pub struct HeaderCounts {
+    /// The number of queries in the Message
     pub query_count: usize,
+    /// The number of answers in the Message
     pub answer_count: usize,
+    /// The number of nameservers or authorities in the Message
     pub nameserver_count: usize,
+    /// The number of additional records in the Message
     pub additional_count: usize,
 }
 

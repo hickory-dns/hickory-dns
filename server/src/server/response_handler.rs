@@ -9,9 +9,8 @@ use std::io;
 use std::net::SocketAddr;
 
 use trust_dns::error::ClientError;
-use trust_dns::serialize::binary::{BinEncodable, BinEncoder};
+use trust_dns::serialize::binary::BinEncoder;
 use trust_dns::BufStreamHandle;
-use trust_dns_proto::op::EncodableMessage;
 
 use authority::MessageResponse;
 

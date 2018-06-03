@@ -199,7 +199,7 @@ impl RecordSet {
     }
 
     /// Returns an iterator over the records in the set
-    #[deprecated]
+    #[deprecated(note = "see `records_without_rrsigs`")]
     pub fn iter<'s>(&'s self) -> Iter<'s, Record> {
         self.records.iter()
     }
@@ -497,6 +497,7 @@ impl<'r> Iterator for RrsigsByAlgorithms<'r> {
     }
 }
 
+/// An iterator over the RecordSet data
 #[derive(Debug)]
 pub enum RrsetRecords<'r> {
     /// There are no records in the record set
