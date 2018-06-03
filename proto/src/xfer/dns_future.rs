@@ -35,8 +35,6 @@ struct ActiveRequest<E: FromProtoError> {
     completion: Complete<Result<DnsResponse, E>>,
     request_id: u16,
     request_options: DnsRequestOptions,
-    // the original request and associated options
-    //request: DnsRequest,
     // most requests pass a single Message response directly through to the completion
     //  this small vec will have no allocations, unless the requests is a DNS-SD request
     //  expecting more than one response
@@ -49,7 +47,6 @@ impl<E: FromProtoError> ActiveRequest<E> {
         completion: Complete<Result<DnsResponse, E>>,
         request_id: u16,
         request_options: DnsRequestOptions,
-        // request: DnsRequest,
         timeout: Delay,
     ) -> Self {
         ActiveRequest {
@@ -77,17 +74,15 @@ impl<E: FromProtoError> ActiveRequest<E> {
         self.responses.push(message);
     }
 
+    /// the request id of the message that was sent
     fn request_id(&self) -> u16 {
         self.request_id
     }
 
+    /// the request options from the message that was sent
     fn request_options(&self) -> &DnsRequestOptions {
         &self.request_options
     }
-
-    // fn request(&mut self) -> &mut DnsRequest {
-    //     &mut self.request
-    // }
 
     /// Sends an error
     fn complete_with_error(self, error: ProtoError) {

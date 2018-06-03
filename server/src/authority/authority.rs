@@ -1288,6 +1288,10 @@ impl Authority {
     }
 }
 
+/// An iterator over an ANY query for Records.
+///
+/// The length of this result cannot be known without consuming the iterator.
+///
 /// # Lifetimes
 ///
 /// * `'r` - the record_set's lifetime, from the catalog
