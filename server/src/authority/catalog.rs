@@ -26,7 +26,10 @@ use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
 use trust_dns::rr::{LowerName, RecordType};
 
-use authority::{AuthLookup, Authority, LookupRecords, MessageRequest, MessageResponse, ZoneType};
+use authority::{
+    AuthLookup, Authority, LookupRecords, MessageRequest, MessageResponse, MessageResponseBuilder,
+    ZoneType,
+};
 
 /// Set of authorities, zones, available to this server.
 pub struct Catalog {
@@ -78,7 +81,7 @@ impl RequestHandler for Catalog {
 
         // check if it's edns
         if let Some(req_edns) = request_message.edns() {
-            let mut response = MessageResponse::new(Some(request_message.raw_queries()));
+            let mut response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
             let mut response_header = Header::default();
             response_header.set_id(request_message.id());
 
@@ -121,7 +124,7 @@ impl RequestHandler for Catalog {
                 }
                 c @ _ => {
                     error!("unimplemented op_code: {:?}", c);
-                    let response = MessageResponse::new(Some(request_message.raw_queries()));
+                    let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
                     return response_handle.send(response.error_msg(
                         request_message.id(),
                         request_message.op_code(),
@@ -134,7 +137,7 @@ impl RequestHandler for Catalog {
                     "got a response as a request from id: {}",
                     request_message.id()
                 );
-                let response = MessageResponse::new(Some(request_message.raw_queries()));
+                let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
 
                 return response_handle.send(response.error_msg(
                     request_message.id(),
@@ -219,7 +222,7 @@ impl Catalog {
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> io::Result<()> {
-        let response = MessageResponse::new(None);
+        let response = MessageResponseBuilder::new(None);
         let mut response_header = Header::default();
         response_header.set_id(update.id());
         response_header.set_op_code(OpCode::Update);
@@ -318,7 +321,7 @@ impl Catalog {
                     authority.origin()
                 );
 
-                let mut response = MessageResponse::new(Some(request.raw_queries()));
+                let mut response = MessageResponseBuilder::new(Some(request.raw_queries()));
                 let mut response_header = Header::new();
                 response_header.set_id(request.id());
                 response_header.set_op_code(OpCode::Query);
@@ -409,7 +412,7 @@ impl Catalog {
             }
         }
 
-        let response = MessageResponse::new(Some(request.raw_queries()));
+        let response = MessageResponseBuilder::new(Some(request.raw_queries()));
         return send_response(
             response_edns,
             response.error_msg(request.id(), request.op_code(), ResponseCode::NXDomain),

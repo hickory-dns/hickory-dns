@@ -2,18 +2,18 @@ extern crate trust_dns;
 extern crate trust_dns_integration;
 extern crate trust_dns_server;
 
-use std::net::*;
 use std::collections::*;
+use std::net::*;
 
 use trust_dns::op::*;
-use trust_dns::rr::*;
 use trust_dns::rr::rdata::*;
+use trust_dns::rr::*;
 use trust_dns::serialize::binary::{BinDecodable, BinEncodable};
 
 use trust_dns_server::authority::*;
 
-use trust_dns_integration::*;
 use trust_dns_integration::authority::create_example;
+use trust_dns_integration::*;
 
 pub fn create_test() -> Authority {
     let origin: Name = Name::parse("test.com.", None).unwrap();
@@ -81,14 +81,7 @@ pub fn create_test() -> Authority {
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
-                0x2606,
-                0x2800,
-                0x220,
-                0x1,
-                0x248,
-                0x1893,
-                0x25c8,
-                0x1946,
+                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
             )))
             .clone(),
         0,
@@ -112,14 +105,7 @@ pub fn create_test() -> Authority {
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
-                0x2606,
-                0x2800,
-                0x220,
-                0x1,
-                0x248,
-                0x1893,
-                0x25c8,
-                0x1946,
+                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
             )))
             .clone(),
         0,
@@ -349,14 +335,7 @@ fn test_axfr() {
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
-                0x2606,
-                0x2800,
-                0x220,
-                0x1,
-                0x248,
-                0x1893,
-                0x25c8,
-                0x1946,
+                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
             )))
             .clone(),
         Record::new()
@@ -372,14 +351,7 @@ fn test_axfr() {
             .set_rr_type(RecordType::AAAA)
             .set_dns_class(DNSClass::IN)
             .set_rdata(RData::AAAA(Ipv6Addr::new(
-                0x2606,
-                0x2800,
-                0x220,
-                0x1,
-                0x248,
-                0x1893,
-                0x25c8,
-                0x1946,
+                0x2606, 0x2800, 0x220, 0x1, 0x248, 0x1893, 0x25c8, 0x1946,
             )))
             .clone(),
         Record::new()
@@ -403,3 +375,6 @@ fn test_axfr() {
 
     assert_eq!(expected_set, answers);
 }
+
+#[test]
+fn test_truncated_returns_records() {}

@@ -725,7 +725,8 @@ impl Authority {
         //                zone_rr<rr.name, rr.type, rr.data> = Nil
         //      return (NOERROR)
         for rr in records {
-            let rr_key = RrKey::new(rr.name().into(), rr.rr_type());
+            let rr_name = LowerName::from(rr.name());
+            let rr_key = RrKey::new(rr_name.clone(), rr.rr_type());
 
             match rr.dns_class() {
                 class if class == self.class => {
@@ -747,9 +748,7 @@ impl Authority {
                 DNSClass::ANY => {
                     // This is a delete of entire RRSETs, either many or one. In either case, the spec is clear:
                     match rr.rr_type() {
-                        t @ RecordType::SOA | t @ RecordType::NS
-                            if LowerName::new(rr.name()) == self.origin =>
-                        {
+                        t @ RecordType::SOA | t @ RecordType::NS if rr_name == self.origin => {
                             // SOA and NS records are not to be deleted if they are the origin records
                             info!("skipping delete of {:?} see RFC 2136 - 3.4.2.3", t);
                             continue;
@@ -763,7 +762,7 @@ impl Authority {
                             // ANY      ANY      empty    Delete all RRsets from a name
                             info!(
                                 "deleting all records at name (not SOA or NS at origin): {:?}",
-                                rr.name()
+                                rr_name
                             );
                             let to_delete = self
                                 .records
@@ -773,7 +772,7 @@ impl Authority {
                                         || k.record_type == RecordType::NS)
                                         && k.name != self.origin)
                                 })
-                                .filter(|k| k.name == rr.name().into())
+                                .filter(|k| k.name == rr_name)
                                 .cloned()
                                 .collect::<Vec<RrKey>>();
                             for delete in to_delete {
