@@ -33,10 +33,7 @@ fn test_search() {
         let record = result.next().unwrap();
         assert_eq!(record.rr_type(), RecordType::A);
         assert_eq!(record.dns_class(), DNSClass::IN);
-        assert_eq!(
-            record.rdata(),
-            &RData::A(Ipv4Addr::new(93, 184, 216, 34))
-        );
+        assert_eq!(record.rdata(), &RData::A(Ipv4Addr::new(93, 184, 216, 34)));
     } else {
         panic!("expected a result"); // valid panic, in test
     }
@@ -54,13 +51,10 @@ fn test_search_www() {
 
     let mut result = example.search(&query, false, SupportedAlgorithms::new());
     if !result.is_empty() {
-        let record = result.next().unwrap();        
+        let record = result.next().unwrap();
         assert_eq!(record.rr_type(), RecordType::A);
         assert_eq!(record.dns_class(), DNSClass::IN);
-        assert_eq!(
-            record.rdata(),
-            &RData::A(Ipv4Addr::new(93, 184, 216, 34))
-        );
+        assert_eq!(record.rdata(), &RData::A(Ipv4Addr::new(93, 184, 216, 34)));
     } else {
         panic!("expected a result"); // valid panic, in test
     }
@@ -70,10 +64,7 @@ fn test_search_www() {
 fn test_authority() {
     let authority: Authority = create_example();
 
-    assert_eq!(
-        authority.soa().next().unwrap().dns_class(),
-        DNSClass::IN
-    );
+    assert_eq!(authority.soa().next().unwrap().dns_class(), DNSClass::IN);
 
     assert!(
         !authority
@@ -840,8 +831,7 @@ fn test_zone_signing() {
     );
 
     assert!(
-        results
-            .any(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY)),
+        results.any(|r| r.rr_type() == RecordType::DNSSEC(DNSSECRecordType::DNSKEY)),
         "must contain a DNSKEY"
     );
 
@@ -861,11 +851,11 @@ fn test_zone_signing() {
         }
 
         let mut inner_results = authority.lookup(
-        &authority.origin(),
-        RecordType::AXFR,
-        true,
-        SupportedAlgorithms::all(),
-    );
+            &authority.origin(),
+            RecordType::AXFR,
+            true,
+            SupportedAlgorithms::all(),
+        );
 
         // validate all records have associated RRSIGs after signing
         assert!(
@@ -890,8 +880,7 @@ fn test_get_nsec() {
     let authority: Authority = create_secure_example();
     let lower_name = LowerName::from(name.clone());
 
-    let results =
-        authority.get_nsec_records(&lower_name, true, SupportedAlgorithms::all());
+    let results = authority.get_nsec_records(&lower_name, true, SupportedAlgorithms::all());
 
     for record in results {
         assert!(record.name() < &name);
@@ -1004,7 +993,12 @@ fn test_recovery() {
         recovered_authority.records().len(),
         authority.records().len()
     );
-    assert!(recovered_authority.soa().zip(authority.soa()).all(|(r1, r2)| r1 == r2));
+    assert!(
+        recovered_authority
+            .soa()
+            .zip(authority.soa())
+            .all(|(r1, r2)| r1 == r2)
+    );
     assert!(
         recovered_authority
             .records()
@@ -1015,8 +1009,8 @@ fn test_recovery() {
                     .get(rr_key)
                     .expect(&format!("key doesn't exist: {:?}", rr_key));
                 rr_set
-                    .iter()
-                    .zip(other_rr_set.iter())
+                    .records_without_rrsigs()
+                    .zip(other_rr_set.records_without_rrsigs())
                     .all(|(record, other_record)| {
                         record.ttl() == other_record.ttl() && record.rdata() == other_record.rdata()
                     })
@@ -1029,8 +1023,8 @@ fn test_recovery() {
             .get(rr_key)
             .expect(&format!("key doesn't exist: {:?}", rr_key));
         rr_set
-            .iter()
-            .zip(other_rr_set.iter())
+            .records_without_rrsigs()
+            .zip(other_rr_set.records_without_rrsigs())
             .all(|(record, other_record)| {
                 record.ttl() == other_record.ttl() && record.rdata() == other_record.rdata()
             })

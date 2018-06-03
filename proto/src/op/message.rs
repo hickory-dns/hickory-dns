@@ -16,6 +16,7 @@
 
 //! Basic protocol message for DNS
 
+use std::iter;
 use std::mem;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -667,13 +668,6 @@ impl Message {
         Ok((records, edns, sig0s))
     }
 
-    fn emit_records(encoder: &mut BinEncoder, records: &[Record]) -> ProtoResult<usize> {
-        for r in records {
-            r.emit(encoder)?;
-        }
-        Ok(records.len())
-    }
-
     /// Decodes a message from the buffer.
     pub fn from_vec(buffer: &[u8]) -> ProtoResult<Message> {
         let mut decoder = BinDecoder::new(buffer);
@@ -774,6 +768,7 @@ pub fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bo
     })
 }
 
+// TODO: need to figure out how to merge this implementation with MessageResponse::destructive_emit
 impl<M: EncodableMessage> BinEncodable for M {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
         let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
@@ -788,15 +783,18 @@ impl<M: EncodableMessage> BinEncodable for M {
 
         if let Some(edns) = self.edns() {
             // need to commit the error code
-            Record::from(edns).emit(encoder)?;
-            additional_count.0 += 1;
+            let count = count_was_truncated(encoder.emit_all(iter::once(&Record::from(edns))))?;
+            additional_count.0 += count.0;
+            additional_count.1 |= count.1;
         }
 
         // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
         //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
         //  part of the additionals section.
         if include_sig0 {
-            additional_count.0 += Message::emit_records(encoder, self.sig0())?;
+            let count = count_was_truncated(encoder.emit_all(self.sig0().iter()))?;
+            additional_count.0 += count.0;
+            additional_count.1 |= count.1;
         }
 
         let counts = HeaderCounts {

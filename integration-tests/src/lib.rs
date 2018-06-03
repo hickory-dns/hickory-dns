@@ -27,7 +27,6 @@ use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
 use trust_dns_proto::error::FromProtoError;
-use trust_dns_proto::op::EncodableMessage;
 use trust_dns_proto::{DnsStreamHandle, StreamHandle};
 
 use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
