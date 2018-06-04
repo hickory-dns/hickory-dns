@@ -39,8 +39,8 @@ error_chain! {
     //
     // This section can be empty.
     links {
-        ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
-        DnsSecError, DnsSecErrorKind, DnsSec;
+        Proto(::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind);
+        DnsSec(DnsSecError, DnsSecErrorKind);
     }
 
     // Automatic conversions between this error chain and other
@@ -50,8 +50,8 @@ error_chain! {
     //
     // This section can be empty.
     foreign_links {
-      io::Error, Io, "io error";
-      SslErrorStack, SSL, "ssl error";
+      Io(io::Error);
+      SSL(SslErrorStack);
     }
 
     // Define additional `ErrorKind` variants. The syntax here is

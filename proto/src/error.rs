@@ -8,7 +8,6 @@
 #![allow(missing_docs)]
 
 use std::io;
-use std::sync::Arc;
 
 use rr::{Name, RecordType};
 
@@ -16,11 +15,13 @@ use rr::{Name, RecordType};
 use self::not_openssl::SslErrorStack;
 #[cfg(not(feature = "ring"))]
 use self::not_ring::Unspecified;
+use error_chain;
 #[cfg(feature = "openssl")]
 use openssl::error::ErrorStack as SslErrorStack;
 #[cfg(feature = "ring")]
 use ring::error::Unspecified;
 
+use std::error::Error;
 use tokio_timer::Error as TimerError;
 
 error_chain! {
@@ -50,15 +51,14 @@ error_chain! {
     //
     // This section can be empty.
     foreign_links {
-      ::std::io::Error, Io, "io error";
-      ::std::net::AddrParseError, AddrParseError, "network address parse error";
-      ::std::num::ParseIntError, ParseIntError, "error parsing number";
-      ::std::str::Utf8Error, Utf8Error, "error parsing utf string";
-      ::std::string::FromUtf8Error, FromUtf8Error, "utf8 conversion error";
-      SslErrorStack, SSL, "ssl error";
-      Unspecified, Ring, "ring error";
-      ::url::ParseError, UrlParsingError, "url parsing error";
-      TimerError, Timer, "timer error";
+      Io(::std::io::Error);
+      AddrParseError(::std::net::AddrParseError);
+      ParseIntError(::std::num::ParseIntError);
+      Utf8Error(::std::str::Utf8Error);
+      SSL(SslErrorStack);
+      Ring(Unspecified);
+      UrlParsingError(::url::ParseError);
+      Timer(TimerError);
     }
 
     // Define additional `ErrorKind` variants. The syntax here is
@@ -166,7 +166,7 @@ error_chain! {
 pub mod not_openssl {
     use std;
 
-    #[derive(Debug)]
+    #[derive(Debug, Clone)]
     pub struct SslErrorStack;
 
     impl std::fmt::Display for SslErrorStack {
@@ -186,7 +186,7 @@ pub mod not_openssl {
 pub mod not_ring {
     use std;
 
-    #[derive(Debug)]
+    #[derive(Debug, Copy, Clone)]
     pub struct Unspecified;
 
     impl std::fmt::Display for Unspecified {
@@ -216,7 +216,7 @@ impl From<ProtoError> for io::Error {
 impl Clone for ProtoErrorKind {
     fn clone(&self) -> Self {
         match *self {
-            ProtoErrorKind::AddrParseError => ProtoErrorKind::AddrParseError,
+            ProtoErrorKind::AddrParseError(ref e) => ProtoErrorKind::AddrParseError(e.clone()),
             ProtoErrorKind::Canceled(ref c) => ProtoErrorKind::Canceled(*c),
             ProtoErrorKind::CharacterDataTooLong(len) => ProtoErrorKind::CharacterDataTooLong(len),
             ProtoErrorKind::DnsKeyProtocolNot3(value) => ProtoErrorKind::DnsKeyProtocolNot3(value),
@@ -224,8 +224,9 @@ impl Clone for ProtoErrorKind {
             ProtoErrorKind::EdnsNameNotRoot(ref found) => {
                 ProtoErrorKind::EdnsNameNotRoot(found.clone())
             }
-            ProtoErrorKind::FromUtf8Error => ProtoErrorKind::FromUtf8Error,
-            ProtoErrorKind::Io => ProtoErrorKind::Io,
+            ProtoErrorKind::Io(ref e) => {
+                ProtoErrorKind::Io(io::Error::new(e.kind(), e.description()))
+            }
             ProtoErrorKind::IncorrectRDataLengthRead(read, len) => {
                 ProtoErrorKind::IncorrectRDataLengthRead(read, len)
             }
@@ -233,7 +234,7 @@ impl Clone for ProtoErrorKind {
             ProtoErrorKind::Message(msg) => ProtoErrorKind::Message(msg),
             ProtoErrorKind::Msg(ref string) => ProtoErrorKind::Msg(string.clone()),
             ProtoErrorKind::NoError => ProtoErrorKind::NoError,
-            ProtoErrorKind::ParseIntError => ProtoErrorKind::ParseIntError,
+            ProtoErrorKind::ParseIntError(ref e) => ProtoErrorKind::ParseIntError(e.clone()),
             ProtoErrorKind::Timeout => ProtoErrorKind::Timeout,
             ProtoErrorKind::UnknownAlgorithmTypeValue(value) => {
                 ProtoErrorKind::UnknownAlgorithmTypeValue(value)
@@ -256,17 +257,24 @@ impl Clone for ProtoErrorKind {
             ProtoErrorKind::UnknownRecordTypeValue(value) => {
                 ProtoErrorKind::UnknownRecordTypeValue(value)
             }
-            ProtoErrorKind::UrlParsingError => ProtoErrorKind::UrlParsingError,
-            ProtoErrorKind::Utf8Error => ProtoErrorKind::Utf8Error,
-            ProtoErrorKind::Ring => ProtoErrorKind::Ring,
-            ProtoErrorKind::SSL => ProtoErrorKind::SSL,
+            ProtoErrorKind::UrlParsingError(ref e) => ProtoErrorKind::UrlParsingError(e.clone()),
+            ProtoErrorKind::Utf8Error(ref e) => ProtoErrorKind::Utf8Error(e.clone()),
+            ProtoErrorKind::Ring(ref e) => ProtoErrorKind::Ring(e.clone()),
+            ProtoErrorKind::SSL(ref e) => ProtoErrorKind::SSL(e.clone()),
             ProtoErrorKind::RrsigsNotPresent(ref name, ref record_type) => {
                 ProtoErrorKind::RrsigsNotPresent(name.clone(), *record_type)
             }
             ProtoErrorKind::MaxBufferSizeExceeded(ref max) => {
                 ProtoErrorKind::MaxBufferSizeExceeded(*max)
             }
-            ProtoErrorKind::Timer => ProtoErrorKind::Timer,
+            ProtoErrorKind::Timer(ref e) => ProtoErrorKind::Timer(if e.is_shutdown() {
+                TimerError::shutdown()
+            } else if e.is_at_capacity() {
+                TimerError::at_capacity()
+            } else {
+                unreachable!()
+            }),
+            _ => unreachable!(),
         }
     }
 }
@@ -279,11 +287,17 @@ impl Clone for ProtoError {
         // sadly need to convert the inner error...
 
         let inner_error: Option<Box<::std::error::Error + Send + 'static>> =
-            (&self.1).0.as_ref().map(|e| {
+            (&self.1).next_error.as_ref().map(|e| {
                 Box::new(ProtoError::from(ProtoErrorKind::Msg(format!("{}", e))))
                     as Box<::std::error::Error + Send + 'static>
             });
-        ProtoError(cloned_kind, (inner_error, Arc::clone(&(self.1).1)))
+        ProtoError(
+            cloned_kind,
+            error_chain::State {
+                // backtrace: (&self.1).backtrace.as_ref().map(|e| Arc::clone(&e)),
+                next_error: inner_error,
+            },
+        )
     }
 }
 

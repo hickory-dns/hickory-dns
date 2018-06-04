@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 use std::num;
-use std::string::FromUtf8Error;
+use std::str::Utf8Error;
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -31,7 +31,7 @@ error_chain! {
     //
     // This section can be empty.
     links {
-        ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
+        Proto(::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind);
     }
 
     // Automatic conversions between this error chain and other
@@ -41,8 +41,8 @@ error_chain! {
     //
     // This section can be empty.
     foreign_links {
-      FromUtf8Error, FromUtf8, "from utf8 error";
-      num::ParseIntError, ParseInt, "parse int error";
+      Utf8(Utf8Error);
+      ParseInt(num::ParseIntError);
     }
 
     // Define additional `ErrorKind` variants. The syntax here is

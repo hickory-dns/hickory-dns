@@ -1342,7 +1342,7 @@ mod tests {
         }
 
         assert!(result.is_err());
-        match result.unwrap_err().into_kind() {
+        match result.unwrap_err().kind() {
             ProtoErrorKind::MaxBufferSizeExceeded(_) => (),
             _ => assert!(false),
         }

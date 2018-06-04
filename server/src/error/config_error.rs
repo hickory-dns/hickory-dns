@@ -6,6 +6,7 @@
 // copied, modified, or distributed except according to those terms.
 
 use trust_dns_proto::error::*;
+use std::io;
 
 error_chain! {
     // The type defined for this error. These are the conventional
@@ -22,7 +23,7 @@ error_chain! {
     //
     // This section can be empty.
     links {
-      ProtoError, ProtoErrorKind, ProtoError;
+      ProtoError(ProtoError, ProtoErrorKind);
     }
 
     // Automatic conversions between this error chain and other
@@ -32,8 +33,8 @@ error_chain! {
     //
     // This section can be empty.
     foreign_links {
-      ::std::io::Error, Io, "io error";
-      ::toml::de::Error, TomlDecode, "decode error";
+      Io(io::Error);
+      TomlDecode(::toml::de::Error);
     }
 
     // Define additional `ErrorKind` variants. The syntax here is

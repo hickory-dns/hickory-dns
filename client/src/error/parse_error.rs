@@ -36,8 +36,8 @@ error_chain! {
     //
     // This section can be empty.
     links {
-      ::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind, Proto;
-      lexer_error::Error, lexer_error::ErrorKind, Lexer;
+      Proto(::trust_dns_proto::error::ProtoError, ::trust_dns_proto::error::ProtoErrorKind);
+      Lexer(lexer_error::Error, lexer_error::ErrorKind);
     }
 
     // Automatic conversions between this error chain and other
@@ -47,10 +47,10 @@ error_chain! {
     //
     // This section can be empty.
     foreign_links {
-      ::data_encoding::DecodeError, DataEncoding, "data encoding error";
-      io::Error, Io, "io error";
-      num::ParseIntError, ParseInt, "parse int error";
-      AddrParseError, AddrParse, "address parse error";
+      DataEncoding(::data_encoding::DecodeError);
+      Io(io::Error);
+      ParseInt(num::ParseIntError);
+      AddrParse(AddrParseError);
     }
 
     // Define additional `ErrorKind` variants. The syntax here is

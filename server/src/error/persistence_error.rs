@@ -24,8 +24,8 @@ error_chain! {
   //
   // This section can be empty.
   links {
-    DnsSecError, DnsSecErrorKind, DnsSec;
-    ProtoError, ProtoErrorKind, ProtoError;
+    DnsSec(DnsSecError, DnsSecErrorKind);
+    ProtoError(ProtoError, ProtoErrorKind);
   }
 
   // Automatic conversions between this error chain and other
@@ -35,7 +35,7 @@ error_chain! {
   //
   // This section can be empty.
   foreign_links {
-    rusqlite::Error, Sqlite, "sqlite error";
+    Sqlite(rusqlite::Error);
   }
 
   // Define additional `ErrorKind` variants. The syntax here is
