@@ -203,6 +203,49 @@
 //! ```
 //!
 //! *Note*: The dynamic DNS functions defined by TRust-DNS are expressed as atomic operations, but this depends on support of the remote server. For example, the `create` operation shown above, should only succeed if there is no `RecordSet` of the specified type at the specified label. The other update operations are `append`, `compare_and_swap`, `delete_by_rdata`, `delete_rrset`, and `delete_all`. See the documentation for each of these methods on the `Client` trait.
+//!
+//!
+//! ## Async usage
+//!
+//! The below example uses a single threaded tokio runtime example for the client. Tokio can get much more complex with multiple runtimes on many threads. This example is meant to show basic usage, the Tokio documentation should be reviewed for more advanced usage.
+//!
+//! ```rust
+//! # extern crate tokio;
+//! # extern crate trust_dns;
+//!
+//! use std::net::{Ipv4Addr, SocketAddr};
+//! use std::str::FromStr;
+//! use tokio::runtime::current_thread::Runtime;
+//!
+//! use trust_dns::udp::UdpClientStream;
+//! use trust_dns::client::{Client, ClientFuture, ClientHandle};
+//! use trust_dns::rr::{DNSClass, Name, RData, Record, RecordType};
+//! use trust_dns::op::ResponseCode;
+//! use trust_dns::rr::rdata::key::KEY;
+//!
+//! // We'll be using the current threads Tokio Runtime
+//! let mut runtime = Runtime::new().unwrap();
+//!
+//! // We need a connection, TCP and UDP are supported by DNS servers
+//! let (stream, handle) = UdpClientStream::new(([8,8,8,8], 53).into());
+//!
+//! // Create a new client
+//! let client = ClientFuture::new(stream, handle, None);
+//!
+//! // Generally you'll want to chain futures, for these examples we're blocking until the complete
+//! let mut client = runtime.block_on(client).unwrap();
+//!
+//! // Create a query future
+//! let query = client.query(Name::from_str("www.example.com.").unwrap(), DNSClass::IN, RecordType::A);
+//!
+//! // wait for its response
+//! let response = runtime.block_on(query).unwrap();
+//!
+//! // validate it's what we expected
+//! if let &RData::A(addr) = response.answers()[0].rdata() {
+//!     assert_eq!(addr, Ipv4Addr::new(93, 184, 216, 34));
+//! }
+//! ```
 
 extern crate chrono;
 extern crate data_encoding;

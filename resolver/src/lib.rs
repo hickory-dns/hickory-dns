@@ -195,6 +195,7 @@ extern crate trust_dns_proto;
 #[cfg(feature = "dns-over-rustls")]
 extern crate trust_dns_rustls;
 
+mod async_resolver;
 pub mod config;
 mod dns_lru;
 pub mod dns_sd;
@@ -206,7 +207,6 @@ pub mod lookup_state;
 #[doc(hidden)]
 pub mod name_server_pool;
 mod resolver;
-mod async_resolver;
 pub mod system_conf;
 #[cfg(feature = "dns-over-tls")]
 mod tls;
@@ -214,14 +214,9 @@ mod tls;
 // reexports from proto
 pub use self::trust_dns_proto::rr::{IntoName, Name, TryParseIp};
 
+pub use async_resolver::{AsyncResolver, Background, BackgroundLookup, BackgroundLookupIp};
 pub use hosts::Hosts;
 pub use resolver::Resolver;
-pub use async_resolver::{
-    AsyncResolver,
-    Background,
-    BackgroundLookup,
-    BackgroundLookupIp,
-};
 
 /// This is an alias for [`AsyncResolver`], which replaced the type previously
 /// called `ResolverFuture`.
