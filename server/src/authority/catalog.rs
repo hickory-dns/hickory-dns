@@ -298,6 +298,19 @@ impl Catalog {
         }
     }
 
+    /// Checks whether the `Catalog` contains DNS records for `name`
+    ///
+    /// Use this when you know the exact `LowerName` that was used when
+    /// adding an authority and you don't care about the authority it
+    /// contains. For public domain names, `LowerName` is usually the
+    /// top level domain name like `example.com.`.
+    ///
+    /// If you do not know the exact domain name to use or you actually
+    /// want to use the authority it contains, use `find` instead.
+    pub fn contains(&self, name: &LowerName) -> bool {
+        self.authorities.contains_key(name)
+    }
+
     /// Given the requested query, lookup and return any matching results.
     ///
     /// # Arguments
