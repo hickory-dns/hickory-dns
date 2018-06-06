@@ -167,6 +167,11 @@ impl Catalog {
         self.authorities.insert(name, RwLock::new(authority));
     }
 
+    /// Remove a zone from the catalog
+    pub fn remove(&mut self, name: &LowerName) -> Option<RwLock<Authority>> {
+        self.authorities.remove(name)
+    }
+
     /// Update the zone given the Update request.
     ///
     /// [RFC 2136](https://tools.ietf.org/html/rfc2136), DNS Update, April 1997
