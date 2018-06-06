@@ -246,7 +246,7 @@ impl Catalog {
             );
         }
 
-        if let Some(authority) = self.find_auth_recurse(zones[0].name()) {
+        if let Some(authority) = self.find(zones[0].name()) {
             let mut authority = authority.write().unwrap(); // poison errors should panic...
             match authority.zone_type() {
                 ZoneType::Slave => {
@@ -326,7 +326,7 @@ impl Catalog {
         // TODO: the spec is very unclear on what to do with multiple queries
         //  we will search for each, in the future, maybe make this threaded to respond even faster.
         for query in request.queries() {
-            if let Some(ref_authority) = self.find_auth_recurse(query.name()) {
+            if let Some(ref_authority) = self.find(query.name()) {
                 let authority = &ref_authority.read().unwrap(); // poison errors should panic
                 info!(
                     "request: {} found authority: {}",
@@ -433,18 +433,16 @@ impl Catalog {
         );
     }
 
-    /// recursively searches the catalog for a matching auhtority.
-    fn find_auth_recurse(&self, name: &LowerName) -> Option<&RwLock<Authority>> {
-        let authority = self.authorities.get(name);
-        if authority.is_some() {
-            return authority;
-        } else {
-            let name = name.base_name();
-            if !name.is_root() {
-                return self.find_auth_recurse(&name);
-            }
-        }
-
-        None
+    /// Recursively searches the catalog for a matching authority
+    pub fn find(&self, name: &LowerName) -> Option<&RwLock<Authority>> {
+        self.authorities.get(name)
+            .or_else(|| {
+                let name = name.base_name();
+                if !name.is_root() {
+                    self.find(&name)
+                } else {
+                    None
+                }
+            })
     }
 }
