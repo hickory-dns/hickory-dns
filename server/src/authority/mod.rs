@@ -37,7 +37,7 @@ pub enum ZoneType {
 mod auth_lookup;
 pub mod authority;
 mod catalog;
-mod message_request;
+pub(crate) mod message_request;
 mod message_response;
 pub mod persistence;
 
