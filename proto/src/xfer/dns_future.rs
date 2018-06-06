@@ -18,7 +18,7 @@ use futures::stream::{Fuse as StreamFuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
 use futures::{task, Async, Complete, Future, Poll};
 use rand;
-use rand::Rand;
+use rand::distributions::{Distribution, Standard};
 use smallvec::SmallVec;
 use tokio_executor;
 use tokio_timer::Delay;
@@ -230,7 +230,7 @@ where
         let mut rand = rand::thread_rng();
 
         for _ in 0..100 {
-            let id = u16::rand(&mut rand); // the range is [0 ... u16::max]
+            let id: u16 = Standard.sample(&mut rand); // the range is [0 ... u16::max]
 
             if !self.active_requests.contains_key(&id) {
                 return Async::Ready(id);
