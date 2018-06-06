@@ -5,13 +5,15 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::iter::{self, Chain};
+use std::iter::Chain;
 
 use trust_dns::rr::Record;
-use trust_dns::serialize::binary::{BinEncoder, EncodeMode};
+use trust_dns::serialize::binary::BinEncoder;
 use trust_dns_proto::error::*;
+use trust_dns_proto::op::message::EmitAndCount;
 use trust_dns_proto::op::{message, Edns, Header, MessageType, OpCode, ResponseCode};
 
+use authority::message_request::QueriesEmitAndCount;
 use authority::{AuthLookup, LookupRecords, Queries};
 
 /// A EncodableMessage with borrowed data for Responses in the Server
@@ -34,6 +36,28 @@ pub struct MessageResponse<
     edns: Option<Edns>,
 }
 
+enum EmptyOrQueries<'q> {
+    Empty,
+    Queries(QueriesEmitAndCount<'q>),
+}
+
+impl<'q> From<Option<&'q Queries<'q>>> for EmptyOrQueries<'q> {
+    fn from(option: Option<&'q Queries<'q>>) -> Self {
+        option.map_or(EmptyOrQueries::Empty, |q| {
+            EmptyOrQueries::Queries(q.into_emit_and_count())
+        })
+    }
+}
+
+impl<'q> EmitAndCount for EmptyOrQueries<'q> {
+    fn emit(&mut self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+        match self {
+            EmptyOrQueries::Empty => Ok(0),
+            EmptyOrQueries::Queries(q) => q.emit(encoder),
+        }
+    }
+}
+
 impl<'q, 'a, A, N> MessageResponse<'q, 'a, A, N>
 where
     A: 'q + 'a + Iterator<Item = &'a Record>,
@@ -50,75 +74,18 @@ where
         self
     }
 
-    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
-        if let Some(queries) = self.queries {
-            encoder
-                .emit_vec(queries.as_bytes())
-                .map(|()| self.queries.map(|s| s.len()).unwrap_or(0))
-        } else {
-            Ok(0)
-        }
-    }
-
-    fn edns(&self) -> Option<&Edns> {
-        self.edns.as_ref()
-    }
-
-    fn sig0(&self) -> &[Record] {
-        &self.sig0
-    }
-
     /// Consumes self, and emits to the encoder.
     pub fn destructive_emit(mut self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        // clone the header to set the counts lazily
-        // TODO: what should we do about sig0 on the server side? It should be deprecated in favor of TLS...
-        let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
-        let place = encoder.place::<Header>()?;
-
-        // TODO: this feels like the right place to verify the max packet size of the message,
-        //  will need to update the header for trucation and the lengths if we send less than the
-        //  full response.
-        let query_count = self.emit_queries(encoder)?;
-        // FIXME: need to do some on max records
-        //  return offset of last emitted record.
-        let answer_count = message::count_was_truncated(encoder.emit_iter(&mut self.answers))?;
-        let nameserver_count =
-            message::count_was_truncated(encoder.emit_iter(&mut self.name_servers))?;
-        let mut additional_count =
-            message::count_was_truncated(encoder.emit_all_refs(self.additionals.iter()))?;
-
-        if let Some(edns) = self.edns() {
-            // need to commit the error code
-            let count =
-                message::count_was_truncated(encoder.emit_all(iter::once(&Record::from(edns))))?;
-            additional_count.0 += count.0;
-            additional_count.1 |= count.1;
-        }
-
-        // FIXME: because this is destructive, we need to move message signing here... maybe it will work?
-
-        // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
-        //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
-        //  part of the additionals section.
-        if include_sig0 {
-            let count = message::count_was_truncated(encoder.emit_all(self.sig0().iter()))?;
-            additional_count.0 += count.0;
-            additional_count.1 |= count.1;
-        }
-
-        let counts = message::HeaderCounts {
-            query_count,
-            answer_count: answer_count.0,
-            nameserver_count: nameserver_count.0,
-            additional_count: additional_count.0,
-        };
-        let was_truncated = answer_count.1 || nameserver_count.1 || additional_count.1;
-
-        place.replace(
+        message::emit_message_parts(
+            &self.header,
+            &mut EmptyOrQueries::from(self.queries),
+            &mut self.answers,
+            &mut self.name_servers,
+            &mut self.additionals.iter().map(|r| *r),
+            self.edns.as_ref(),
+            &self.sig0,
             encoder,
-            message::update_header_counts(&self.header, was_truncated, counts),
-        )?;
-        Ok(())
+        )
     }
 }
 
@@ -228,7 +195,7 @@ mod tests {
     use std::net::Ipv4Addr;
     use std::str::FromStr;
 
-    use trust_dns_proto::op::{EncodableMessage, Header, Message};
+    use trust_dns_proto::op::{Header, Message};
     use trust_dns_proto::rr::{DNSClass, Name, RData, Record};
     use trust_dns_proto::serialize::binary::BinEncoder;
 

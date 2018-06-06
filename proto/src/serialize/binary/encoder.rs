@@ -365,21 +365,8 @@ impl<'a> BinEncoder<'a> {
         I: Iterator<Item = &'r &'e E>,
         E: 'r + 'e + BinEncodable,
     {
-        let mut count = 0;
-        for i in iter {
-            let rollback = self.set_rollback();
-            i.emit(self).map_err(|e| {
-                if let ProtoErrorKind::MaxBufferSizeExceeded(_) = e.kind() {
-                    rollback.rollback(self);
-                    return ProtoErrorKind::NotAllRecordsWritten { count }.into();
-                } else {
-                    return e;
-                }
-            })?;
-            count += 1;
-        }
-
-        Ok(count)
+        let mut iter = iter.map(|i| *i);
+        self.emit_iter(&mut iter)
     }
 
     /// emits all items in the iterator, return the number emited

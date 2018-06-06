@@ -7,11 +7,10 @@
 
 use trust_dns::op::LowerQuery;
 use trust_dns_proto::error::*;
-use trust_dns_proto::op::{
-    Edns, EncodableMessage, Header, Message, MessageType, OpCode, ResponseCode,
-};
+use trust_dns_proto::op::message::EmitAndCount;
+use trust_dns_proto::op::{message, Edns, Header, Message, MessageType, OpCode, ResponseCode};
 use trust_dns_proto::rr::Record;
-use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncoder};
+use trust_dns_proto::serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder};
 
 /// A Message which captures the data from an inbound request
 #[derive(Debug, PartialEq)]
@@ -244,37 +243,41 @@ impl<'r> Queries<'r> {
     pub fn as_bytes(&self) -> &[u8] {
         self.original
     }
-}
 
-macro_rules! section {
-    ($s:ident, $e:ident) => {
-        fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
-            encoder.emit_all(self.$s.iter())
+    pub(crate) fn into_emit_and_count<'s>(&'s self) -> QueriesEmitAndCount<'s> {
+        QueriesEmitAndCount {
+            length: self.queries.len(),
+            original: self.original,
         }
     }
 }
 
-impl<'r> EncodableMessage for MessageRequest<'r> {
-    fn header(&self) -> &Header {
-        &self.header
+pub(crate) struct QueriesEmitAndCount<'r> {
+    length: usize,
+    original: &'r [u8],
+}
+
+impl<'r> EmitAndCount for QueriesEmitAndCount<'r> {
+    fn emit(&mut self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+        encoder.emit_vec(self.original)?;
+        Ok(self.length)
     }
+}
 
-    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
-        // we emit the queries, in order to guarantee canonical form
-        //   in cases where that's necessary, like SIG0 validation
-        encoder.emit_all(self.queries.queries.iter())
-    }
-
-    section!(answers, emit_answers);
-    section!(name_servers, emit_name_servers);
-    section!(additionals, emit_additionals);
-
-    fn edns(&self) -> Option<&Edns> {
-        MessageRequest::edns(self)
-    }
-
-    fn sig0(&self) -> &[Record] {
-        MessageRequest::sig0(self)
+impl<'r> BinEncodable for MessageRequest<'r> {
+    fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
+        message::emit_message_parts(
+            &self.header,
+            // we emit the queries, not the raw bytes, in order to guarantee canonical form
+            //   in cases where that's necessary, like SIG0 validation
+            &mut self.queries.queries.iter(),
+            &mut self.answers.iter(),
+            &mut self.name_servers.iter(),
+            &mut self.additionals.iter(),
+            self.edns.as_ref(),
+            &self.sig0,
+            encoder,
+        )
     }
 }
 
