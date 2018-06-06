@@ -8,17 +8,18 @@
 use std::io;
 use std::net::SocketAddr;
 
-use trust_dns::BufStreamHandle;
 use trust_dns::error::ClientError;
-use trust_dns_proto::op::EncodableMessage;
-use trust_dns::serialize::binary::{BinEncodable, BinEncoder};
+use trust_dns::serialize::binary::BinEncoder;
+use trust_dns::BufStreamHandle;
+
+use authority::MessageResponse;
 
 /// A handler for send a response to a client
 pub trait ResponseHandler {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send<M: EncodableMessage>(self, response: M) -> io::Result<()>;
+    fn send(self, response: MessageResponse) -> io::Result<()>;
 }
 
 /// A handler for wraping a BufStreamHandle, which will properly serialize the message and add the
@@ -39,19 +40,16 @@ impl ResponseHandler for ResponseHandle {
     /// Serializes and sends a message to to the wrapped handle
     ///
     /// self is consumed as only one message should ever be sent in response to a Request
-    fn send<M: EncodableMessage>(self, response: M) -> io::Result<()> {
+    fn send(self, response: MessageResponse) -> io::Result<()> {
         info!(
-            "response: {} response_code: {} answers: {} name_servers: {} additionals: {}",
+            "response: {} response_code: {}",
             response.header().id(),
             response.header().response_code(),
-            response.answers_len(),
-            response.name_servers_len(),
-            response.additionals_len(),
         );
         let mut buffer = Vec::with_capacity(512);
         let encode_result = {
             let mut encoder: BinEncoder = BinEncoder::new(&mut buffer);
-            response.emit(&mut encoder)
+            response.destructive_emit(&mut encoder)
         };
 
         encode_result.map_err(|e| {

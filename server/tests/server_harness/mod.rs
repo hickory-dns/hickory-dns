@@ -206,7 +206,7 @@ pub fn query_all_dnssec(
     let response = query_message(
         io_loop,
         &mut client,
-        name,
+        name.clone(),
         RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
     );
 
@@ -223,6 +223,13 @@ pub fn query_all_dnssec(
         })
         .find(|d| d.algorithm() == algorithm);
     assert!(dnskey.is_some(), "DNSKEY not found");
+
+    let response = query_message(
+        io_loop,
+        &mut client,
+        name,
+        RecordType::DNSSEC(DNSSECRecordType::DNSKEY),
+    );
 
     let rrsig = response
         .answers()

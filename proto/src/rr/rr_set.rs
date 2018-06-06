@@ -155,11 +155,11 @@ impl RecordSet {
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
     #[cfg(feature = "dnssec")]
-    pub fn records(
-        &self,
+    pub fn records<'s>(
+        &'s self,
         and_rrsigs: bool,
         supported_algorithms: SupportedAlgorithms,
-    ) -> Vec<&Record> {
+    ) -> RrsetRecords<'s> {
         if and_rrsigs {
             self.records_with_rrsigs(supported_algorithms)
         } else {
@@ -174,42 +174,32 @@ impl RecordSet {
     /// * `supported_algorithms` - the RRSIGs will be filtered by the set of supported_algorithms,
     ///                            and then only the maximal RRSIG algorithm will be returned.
     #[cfg(feature = "dnssec")]
-    pub fn records_with_rrsigs(&self, supported_algorithms: SupportedAlgorithms) -> Vec<&Record> {
-        use rr::dnssec::Algorithm;
-        use rr::dnssec::rdata::DNSSECRData;
-
-        // disable rfc 6975 when no supported_algorithms specified
-        if supported_algorithms.is_empty() {
-            return self.records.iter().chain(self.rrsigs.iter()).collect();
+    pub fn records_with_rrsigs<'s>(
+        &'s self,
+        supported_algorithms: SupportedAlgorithms,
+    ) -> RrsetRecords<'s> {
+        if self.records.is_empty() {
+            RrsetRecords::Empty
+        } else {
+            let rrsigs = RrsigsByAlgorithms {
+                rrsigs: self.rrsigs.iter(),
+                supported_algorithms,
+            };
+            RrsetRecords::RecordsAndRrsigs(RecordsAndRrsigsIter(self.records.iter().chain(rrsigs)))
         }
-
-        let rrsigs = self.rrsigs
-            .iter()
-            .filter(|record| {
-                if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
-                    supported_algorithms.has(rrsig.algorithm())
-                } else {
-                    false
-                }
-            })
-            .max_by_key(|record| {
-                if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
-                    rrsig.algorithm()
-                } else {
-                    Algorithm::RSASHA1
-                }
-            });
-
-        self.records.iter().chain(rrsigs).collect()
     }
 
-
     /// Returns a Vec of all records in the set, without any RRSIGs.
-    pub fn records_without_rrsigs(&self) -> Vec<&Record> {
-        self.records.iter().collect()
+    pub fn records_without_rrsigs<'s>(&'s self) -> RrsetRecords<'s> {
+        if self.records.is_empty() {
+            RrsetRecords::Empty
+        } else {
+            RrsetRecords::RecordsOnly(self.records.iter())
+        }
     }
 
     /// Returns an iterator over the records in the set
+    #[deprecated(note = "see `records_without_rrsigs`")]
     pub fn iter<'s>(&'s self) -> Iter<'s, Record> {
         self.records.iter()
     }
@@ -320,8 +310,7 @@ impl RecordSet {
                                 if new_soa.serial() <= existing_soa.serial() {
                                     info!(
                                         "update ignored serial out of data: {:?} <= {:?}",
-                                        new_soa,
-                                        existing_soa
+                                        new_soa, existing_soa
                                     );
                                     return false;
                                 }
@@ -349,7 +338,8 @@ impl RecordSet {
         }
 
         // collect any records to update based on rdata
-        let to_replace: Vec<usize> = self.records
+        let to_replace: Vec<usize> = self
+            .records
             .iter()
             .enumerate()
             .filter(|&(_, rr)| rr.rdata() == record.rdata())
@@ -413,7 +403,8 @@ impl RecordSet {
         }
 
         // remove the records, first collect all the indexes, then remove the records
-        let to_remove: Vec<usize> = self.records
+        let to_remove: Vec<usize> = self
+            .records
             .iter()
             .enumerate()
             .filter(|&(_, rr)| rr.rdata() == record.rdata())
@@ -452,13 +443,104 @@ impl IntoIterator for RecordSet {
     }
 }
 
+/// An iterator over all the records and their signatures
+#[cfg(feature = "dnssec")]
+#[derive(Debug)]
+pub struct RecordsAndRrsigsIter<'r>(Chain<Iter<'r, Record>, RrsigsByAlgorithms<'r>>);
+
+#[cfg(feature = "dnssec")]
+impl<'r> Iterator for RecordsAndRrsigsIter<'r> {
+    type Item = &'r Record;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        self.0.next()
+    }
+}
+
+/// An iterator that limits the record signatures by SupportedAlgorithms
+#[cfg(feature = "dnssec")]
+#[derive(Debug)]
+pub struct RrsigsByAlgorithms<'r> {
+    rrsigs: Iter<'r, Record>,
+    supported_algorithms: SupportedAlgorithms,
+}
+
+#[cfg(feature = "dnssec")]
+impl<'r> Iterator for RrsigsByAlgorithms<'r> {
+    type Item = &'r Record;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        use rr::dnssec::rdata::DNSSECRData;
+        use rr::dnssec::Algorithm;
+
+        let supported_algorithms = self.supported_algorithms;
+
+        // disable rfc 6975 when no supported_algorithms specified
+        if supported_algorithms.is_empty() {
+            self.rrsigs.next()
+        } else {
+            self.rrsigs
+                .by_ref()
+                .filter(|record| {
+                    if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
+                        supported_algorithms.has(rrsig.algorithm())
+                    } else {
+                        false
+                    }
+                })
+                .max_by_key(|record| {
+                    if let RData::DNSSEC(DNSSECRData::SIG(ref rrsig)) = *record.rdata() {
+                        rrsig.algorithm()
+                    } else {
+                        Algorithm::RSASHA1
+                    }
+                })
+        }
+    }
+}
+
+/// An iterator over the RecordSet data
+#[derive(Debug)]
+pub enum RrsetRecords<'r> {
+    /// There are no records in the record set
+    Empty,
+    /// The records associated with the record set
+    RecordsOnly(Iter<'r, Record>),
+    /// The records along with their signatures in the record set
+    #[cfg(feature = "dnssec")]
+    RecordsAndRrsigs(RecordsAndRrsigsIter<'r>),
+}
+
+impl<'r> RrsetRecords<'r> {
+    /// This is a best effort emptyness check
+    pub fn is_empty(&self) -> bool {
+        match *self {
+            RrsetRecords::Empty => true,
+            _ => false,
+        }
+    }
+}
+
+impl<'r> Iterator for RrsetRecords<'r> {
+    type Item = &'r Record;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        match self {
+            RrsetRecords::Empty => None,
+            RrsetRecords::RecordsOnly(i) => i.next(),
+            #[cfg(feature = "dnssec")]
+            RrsetRecords::RecordsAndRrsigs(i) => i.next(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test {
-    use std::str::FromStr;
     use std::net::Ipv4Addr;
+    use std::str::FromStr;
 
-    use rr::*;
     use rr::rdata::SOA;
+    use rr::*;
 
     #[test]
     fn test_insert() {
@@ -475,13 +557,23 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert_eq!(rr_set.records_without_rrsigs().len(), 1);
-        assert!(rr_set.records_without_rrsigs().contains(&&insert));
+        assert_eq!(rr_set.records_without_rrsigs().count(), 1);
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert)
+        );
 
         // dups ignored
         assert!(!rr_set.insert(insert.clone(), 0));
-        assert_eq!(rr_set.records_without_rrsigs().len(), 1);
-        assert!(rr_set.records_without_rrsigs().contains(&&insert));
+        assert_eq!(rr_set.records_without_rrsigs().count(), 1);
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert)
+        );
 
         // add one
         let insert1 = Record::new()
@@ -492,9 +584,19 @@ mod test {
             .set_rdata(RData::A(Ipv4Addr::new(93, 184, 216, 25)))
             .clone();
         assert!(rr_set.insert(insert1.clone(), 0));
-        assert_eq!(rr_set.records_without_rrsigs().len(), 2);
-        assert!(rr_set.records_without_rrsigs().contains(&&insert));
-        assert!(rr_set.records_without_rrsigs().contains(&&insert1));
+        assert_eq!(rr_set.records_without_rrsigs().count(), 2);
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert)
+        );
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert1)
+        );
     }
 
     #[test]
@@ -550,19 +652,49 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set.records_without_rrsigs().contains(&&insert));
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert)
+        );
         // same serial number
         assert!(!rr_set.insert(same_serial.clone(), 0));
-        assert!(rr_set.records_without_rrsigs().contains(&&insert));
-        assert!(!rr_set.records_without_rrsigs().contains(&&same_serial,));
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert)
+        );
+        assert!(
+            !rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&same_serial,)
+        );
 
         assert!(rr_set.insert(new_serial.clone(), 0));
         assert!(!rr_set.insert(same_serial.clone(), 0));
         assert!(!rr_set.insert(insert.clone(), 0));
 
-        assert!(rr_set.records_without_rrsigs().contains(&&new_serial));
-        assert!(!rr_set.records_without_rrsigs().contains(&&insert));
-        assert!(!rr_set.records_without_rrsigs().contains(&&same_serial));
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&new_serial)
+        );
+        assert!(
+            !rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert)
+        );
+        assert!(
+            !rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&same_serial)
+        );
     }
 
     #[test]
@@ -590,12 +722,27 @@ mod test {
             .clone();
 
         assert!(rr_set.insert(insert.clone(), 0));
-        assert!(rr_set.records_without_rrsigs().contains(&&insert));
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert)
+        );
 
         // update the record
         assert!(rr_set.insert(new_record.clone(), 0));
-        assert!(!rr_set.records_without_rrsigs().contains(&&insert));
-        assert!(rr_set.records_without_rrsigs().contains(&&new_record));
+        assert!(
+            !rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert)
+        );
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&new_record)
+        );
     }
 
     #[test]
@@ -652,7 +799,12 @@ mod test {
 
         assert!(rr_set.insert(insert.clone(), 0));
         assert!(!rr_set.remove(&insert, 0));
-        assert!(rr_set.records_without_rrsigs().contains(&&insert));
+        assert!(
+            rr_set
+                .records_without_rrsigs()
+                .collect::<Vec<_>>()
+                .contains(&&insert)
+        );
     }
 
     #[test]
@@ -694,8 +846,8 @@ mod test {
     #[cfg(feature = "dnssec")] // This tests RFC 6975, a DNSSEC-specific feature.
     fn test_get_filter() {
         use rr::dnssec::rdata::SIG;
-        use rr::dnssec::{Algorithm, SupportedAlgorithms};
         use rr::dnssec::rdata::{DNSSECRData, DNSSECRecordType};
+        use rr::dnssec::{Algorithm, SupportedAlgorithms};
 
         let name = Name::root();
         let rsasha256 = SIG::new(
@@ -789,38 +941,33 @@ mod test {
         assert!(
             rrset
                 .records_with_rrsigs(SupportedAlgorithms::all(),)
-                .iter()
-                .any(|r| {
-                    if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
+                .any(
+                    |r| if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
                         sig.algorithm() == Algorithm::ED25519
                     } else {
                         false
-                    }
-                },)
+                    },
+                )
         );
 
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ECDSAP384SHA384);
-        assert!(rrset.records_with_rrsigs(supported_algorithms).iter().any(
-            |r| {
-                if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
-                    sig.algorithm() == Algorithm::ECDSAP384SHA384
-                } else {
-                    false
-                }
+        assert!(rrset.records_with_rrsigs(supported_algorithms).any(|r| {
+            if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
+                sig.algorithm() == Algorithm::ECDSAP384SHA384
+            } else {
+                false
             }
-        ));
+        }));
 
         let mut supported_algorithms = SupportedAlgorithms::new();
         supported_algorithms.set(Algorithm::ED25519);
-        assert!(rrset.records_with_rrsigs(supported_algorithms).iter().any(
-            |r| {
-                if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
-                    sig.algorithm() == Algorithm::ED25519
-                } else {
-                    false
-                }
+        assert!(rrset.records_with_rrsigs(supported_algorithms).any(|r| {
+            if let RData::DNSSEC(DNSSECRData::SIG(ref sig)) = *r.rdata() {
+                sig.algorithm() == Algorithm::ED25519
+            } else {
+                false
             }
-        ));
+        }));
     }
 }

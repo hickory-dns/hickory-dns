@@ -80,6 +80,13 @@ pub enum ProtoErrorKind {
     #[fail(display = "no error specified")]
     NoError,
 
+    /// Not all records were able to be written
+    #[fail(display = "not all records could be written, wrote: {}", count)]
+    NotAllRecordsWritten {
+        /// Number of records that were written before the error
+        count: usize,
+    },
+
     /// Missing rrsigs
     #[fail(
         display = "rrsigs are not present for record set name: {} record_type: {}",
@@ -321,6 +328,7 @@ impl Clone for ProtoErrorKind {
             Message(msg) => Message(msg),
             Msg(ref msg) => Msg(msg.clone()),
             NoError => NoError,
+            NotAllRecordsWritten { count } => NotAllRecordsWritten { count },
             RrsigsNotPresent {
                 ref name,
                 ref record_type,

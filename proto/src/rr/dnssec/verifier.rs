@@ -1,11 +1,11 @@
 //! Verifier is a structure for performing many of the signing processes of the DNSSec specification
 
 use error::*;
-use op::EncodableMessage;
-use rr::{DNSClass, Name, Record};
+use rr::dnssec::rdata::{DNSKEY, KEY, SIG};
 use rr::dnssec::Algorithm;
 use rr::dnssec::{tbs, PublicKey, PublicKeyEnum};
-use rr::dnssec::rdata::{DNSKEY, KEY, SIG};
+use rr::{DNSClass, Name, Record};
+use serialize::binary::BinEncodable;
 
 /// Types which are able to verify DNS based signatures
 pub trait Verifier {
@@ -41,7 +41,7 @@ pub trait Verifier {
     /// # Return value
     ///
     /// `true` if the message could be validated against the signature, `false` otherwise
-    fn verify_message<M: EncodableMessage>(
+    fn verify_message<M: BinEncodable>(
         &self,
         message: &M,
         signature: &[u8],

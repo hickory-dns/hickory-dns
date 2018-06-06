@@ -20,13 +20,16 @@ use std::collections::HashMap;
 use std::io;
 use std::sync::RwLock;
 
-use trust_dns::op::{Edns, Header, MessageType, OpCode, LowerQuery, ResponseCode};
-use trust_dns::rr::{LowerName, RecordType};
+use server::{Request, RequestHandler, ResponseHandler};
+use trust_dns::op::{Edns, Header, LowerQuery, MessageType, OpCode, ResponseCode};
 use trust_dns::rr::dnssec::{Algorithm, SupportedAlgorithms};
 use trust_dns::rr::rdata::opt::{EdnsCode, EdnsOption};
-use server::{Request, RequestHandler, ResponseHandler};
+use trust_dns::rr::{LowerName, RecordType};
 
-use authority::{AuthLookup, Authority, MessageRequest, MessageResponse, ZoneType};
+use authority::{
+    AuthLookup, Authority, LookupRecords, MessageRequest, MessageResponse, MessageResponseBuilder,
+    ZoneType,
+};
 
 /// Set of authorities, zones, available to this server.
 pub struct Catalog {
@@ -78,7 +81,7 @@ impl RequestHandler for Catalog {
 
         // check if it's edns
         if let Some(req_edns) = request_message.edns() {
-            let mut response = MessageResponse::new(Some(request_message.raw_queries()));
+            let mut response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
             let mut response_header = Header::default();
             response_header.set_id(request_message.id());
 
@@ -121,7 +124,7 @@ impl RequestHandler for Catalog {
                 }
                 c @ _ => {
                     error!("unimplemented op_code: {:?}", c);
-                    let response = MessageResponse::new(Some(request_message.raw_queries()));
+                    let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
                     return response_handle.send(response.error_msg(
                         request_message.id(),
                         request_message.op_code(),
@@ -134,7 +137,7 @@ impl RequestHandler for Catalog {
                     "got a response as a request from id: {}",
                     request_message.id()
                 );
-                let response = MessageResponse::new(Some(request_message.raw_queries()));
+                let response = MessageResponseBuilder::new(Some(request_message.raw_queries()));
 
                 return response_handle.send(response.error_msg(
                     request_message.id(),
@@ -219,7 +222,7 @@ impl Catalog {
         response_edns: Option<Edns>,
         response_handle: R,
     ) -> io::Result<()> {
-        let response = MessageResponse::new(None);
+        let response = MessageResponseBuilder::new(None);
         let mut response_header = Header::default();
         response_header.set_id(update.id());
         response_header.set_op_code(OpCode::Update);
@@ -318,7 +321,7 @@ impl Catalog {
                     authority.origin()
                 );
 
-                let mut response = MessageResponse::new(Some(request.raw_queries()));
+                let mut response = MessageResponseBuilder::new(Some(request.raw_queries()));
                 let mut response_header = Header::new();
                 response_header.set_id(request.id());
                 response_header.set_op_code(OpCode::Query);
@@ -349,65 +352,54 @@ impl Catalog {
                 }
 
                 let records = authority.search(query, is_dnssec, supported_algorithms);
+
+                // setup headers
+                //  and add records
                 if !records.is_empty() {
                     response_header.set_response_code(ResponseCode::NoError);
                     response_header.set_authoritative(true);
-                    // TODO: this is not incorrect, but could be cleaner with a `match` on records
-                    response.answers(records.unwrap());
+                    response.answers(records);
 
                     // get the NS records
                     let ns = authority.ns(is_dnssec, supported_algorithms);
-                    if ns.is_empty() {
-                        warn!("there are no NS records for: {:?}", authority.origin());
-                    } else {
-                        // TODO: this is not incorrect, but could be cleaner with a `match` on records
-                        response.name_servers(ns.unwrap());
-                    }
+                    // chain here to match type below...
+                    response.name_servers(ns.chain(LookupRecords::NxDomain));
                 } else {
                     // in the not found case it's standard to return the SOA in the authority section
                     //   if the name is in this zone, etc.
                     // see https://tools.ietf.org/html/rfc2308 for proper response construct
                     match records {
-                        AuthLookup::NoName => {
+                        AuthLookup::NxDomain => {
                             response_header.set_response_code(ResponseCode::NXDomain)
                         }
                         AuthLookup::NameExists => {
                             response_header.set_response_code(ResponseCode::NoError)
                         }
-                        AuthLookup::Records(..) => panic!(
+                        _ => panic!(
                             "programming error, should have return NoError with records above"
                         ),
                     };
 
-                    let mut ns = vec![];
-
                     // in the dnssec case, nsec records should exist, we return NoError + NoData + NSec...
-                    if is_dnssec {
+                    let ns = if is_dnssec {
                         // get NSEC records
                         let mut nsecs = authority.get_nsec_records(
                             query.name(),
                             is_dnssec,
                             supported_algorithms,
                         );
-                        info!(
-                            "request: {} non-existent adding nsecs: {}",
-                            request.id(),
-                            nsecs.len()
-                        );
+                        debug!("request: {} non-existent adding nsecs", request.id(),);
 
-                        ns.append(&mut nsecs);
                         response_header.set_response_code(ResponseCode::NoError);
+                        nsecs
                     } else {
-                        info!("request: {} non-existent", request.id());
-                    }
+                        // place holder...
+                        debug!("request: {} non-existent", request.id());
+                        LookupRecords::NxDomain
+                    };
 
                     let soa = authority.soa_secure(is_dnssec, supported_algorithms);
-                    if soa.is_empty() {
-                        warn!("there is no SOA record for: {:?}", authority.origin());
-                    } else {
-                        // TODO: this is not incorrect, but could be cleaner with a `match` on records
-                        ns.append(&mut soa.unwrap());
-                    }
+                    let ns = ns.chain(soa);
 
                     response.name_servers(ns);
                 }
@@ -420,7 +412,7 @@ impl Catalog {
             }
         }
 
-        let response = MessageResponse::new(Some(request.raw_queries()));
+        let response = MessageResponseBuilder::new(Some(request.raw_queries()));
         return send_response(
             response_edns,
             response.error_msg(request.id(), request.op_code(), ResponseCode::NXDomain),

@@ -17,24 +17,24 @@
 //! signer is a structure for performing many of the signing processes of the DNSSec specification
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use chrono::Duration;
+#[cfg(feature = "dnssec")]
+use rr::rdata::DNSSECRData;
 use trust_dns_proto::error::{ProtoErrorKind, ProtoResult};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use trust_dns_proto::rr::dnssec::{tbs, TBS};
-#[cfg(feature = "dnssec")]
-use rr::rdata::DNSSECRData;
 
 use op::{Message, MessageFinalizer};
-use rr::Record;
-#[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::{DNSClass, Name, RecordType};
-#[cfg(any(feature = "openssl", feature = "ring"))]
-use rr::RData;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::dnssec::{Algorithm, KeyPair};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::SIG;
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use rr::rdata::{DNSSECRecordType, DNSKEY, KEY};
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::RData;
+use rr::Record;
+#[cfg(any(feature = "openssl", feature = "ring"))]
+use rr::{DNSClass, Name, RecordType};
 #[cfg(any(feature = "openssl", feature = "ring"))]
 use serialize::binary::BinEncoder;
 
@@ -319,7 +319,8 @@ impl Signer {
         is_zone_signing_key: bool,
         _: bool,
     ) -> Self {
-        let dnskey = key.to_dnskey(algorithm)
+        let dnskey = key
+            .to_dnskey(algorithm)
             .expect("something went wrong, use one of the SIG0 or DNSSec constructors");
 
         Signer {
@@ -332,8 +333,6 @@ impl Signer {
         }
     }
 
-
-
     /// Return the key used for validation/signing
     pub fn key(&self) -> &KeyPair<Private> {
         &self.key
@@ -343,8 +342,6 @@ impl Signer {
     pub fn sig_duration(&self) -> Duration {
         self.sig_duration
     }
-
-
 
     /// A hint to the DNSKey associated with this Signer can be used to sign/validate records in the zone
     pub fn is_zone_signing_key(&self) -> bool {
@@ -375,9 +372,9 @@ impl Signer {
     ///
     /// The signature, ready to be stored in an `RData::RRSIG`.
     pub fn sign(&self, tbs: &TBS) -> ProtoResult<Vec<u8>> {
-        self.key.sign(self.algorithm, tbs).map_err(|e| {
-            ProtoErrorKind::Msg(format!("signing error: {}", e)).into()
-        })
+        self.key
+            .sign(self.algorithm, tbs)
+            .map_err(|e| ProtoErrorKind::Msg(format!("signing error: {}", e)).into())
     }
 
     /// Returns the algorithm this Signer will use to either sign or validate a signature
@@ -577,14 +574,14 @@ impl MessageFinalizer for Signer {
 mod tests {
     extern crate openssl;
     use self::openssl::bn::BigNum;
-    use self::openssl::rsa::Rsa;
     use self::openssl::pkey::Private;
+    use self::openssl::rsa::Rsa;
 
-    use rr::{DNSClass, Name, Record, RecordType};
-    use rr::rdata::{DNSSECRData, SIG};
-    use rr::rdata::key::KeyUsage;
-    use rr::dnssec::*;
     use op::{Message, Query};
+    use rr::dnssec::*;
+    use rr::rdata::key::KeyUsage;
+    use rr::rdata::{DNSSECRData, SIG};
+    use rr::{DNSClass, Name, Record, RecordType};
 
     pub use super::*;
 
@@ -656,7 +653,8 @@ mod tests {
     fn test_sign_and_verify_rrset() {
         let rsa = Rsa::generate(2048).unwrap();
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
+        let sig0key = key
+            .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
             .unwrap();
         let signer = Signer::sig0(sig0key, key, Name::root());
 
@@ -747,14 +745,7 @@ mod tests {
             (vec![33, 3, 21, 11, 3, 1, 1, 1], 9739),
             (
                 vec![
-                    0xc2fedb69,
-                    0x10001,
-                    0x6ebb9209,
-                    0xf743,
-                    0xc9e3,
-                    0xd07f,
-                    0x6275,
-                    0x1095,
+                    0xc2fedb69, 0x10001, 0x6ebb9209, 0xf743, 0xc9e3, 0xd07f, 0x6275, 0x1095,
                 ],
                 42354,
             ),
@@ -766,7 +757,8 @@ mod tests {
             println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
             let key = KeyPair::from_rsa(rsa).unwrap();
-            let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
+            let sig0key = key
+                .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
                 .unwrap();
             let signer = Signer::sig0(sig0key, key, Name::root());
             let key_tag = signer.calculate_key_tag().unwrap();
@@ -788,7 +780,8 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         println!("pkey:\n{}", String::from_utf8(rsa_pem).unwrap());
 
         let key = KeyPair::from_rsa(rsa).unwrap();
-        let sig0key = key.to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
+        let sig0key = key
+            .to_sig0key_with_usage(Algorithm::RSASHA256, KeyUsage::Zone)
             .unwrap();
         let signer = Signer::sig0(sig0key, key, Name::root());
         let key_tag = signer.calculate_key_tag().unwrap();
@@ -803,10 +796,10 @@ MC0CAQACBQC+L6pNAgMBAAECBQCYj0ZNAgMA9CsCAwDHZwICeEUCAnE/AgMA3u0=
         extern crate openssl;
         use self::openssl::rsa::Rsa;
 
-        use rr::*;
-        use rr::rdata::{DNSSECRData, SIG};
-        use rr::dnssec::*;
         use rr::dnssec::tbs::*;
+        use rr::dnssec::*;
+        use rr::rdata::{DNSSECRData, SIG};
+        use rr::*;
 
         #[test]
         fn test_rrset_tbs() {

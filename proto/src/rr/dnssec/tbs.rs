@@ -1,10 +1,9 @@
 //! hash functions for DNSSec operations
 
-use error::*;
-use op::EncodableMessage;
-use rr::{DNSClass, Name, RData, Record, RecordType};
-use rr::dnssec::Algorithm;
 use super::rdata::{sig, DNSSECRData, SIG};
+use error::*;
+use rr::dnssec::Algorithm;
+use rr::{DNSClass, Name, RData, Record, RecordType};
 use serialize::binary::{BinEncodable, BinEncoder, EncodeMode};
 
 /// Data To Be Signed.
@@ -23,7 +22,7 @@ impl AsRef<[u8]> for TBS {
 }
 
 /// Returns the to-be-signed serialization of the given message.
-pub fn message_tbs<M: EncodableMessage>(message: &M, pre_sig0: &SIG) -> ProtoResult<TBS> {
+pub fn message_tbs<M: BinEncodable>(message: &M, pre_sig0: &SIG) -> ProtoResult<TBS> {
     // TODO: should perform the serialization and sign block by block to reduce the max memory
     //  usage, though at 4k max, this is probably unnecessary... For AXFR and large zones, it's
     //  more important
@@ -93,7 +92,8 @@ pub fn rrset_tbs(
 
     // collect only the records for this rrset
     for record in records {
-        if dns_class == record.dns_class() && type_covered == record.rr_type()
+        if dns_class == record.dns_class()
+            && type_covered == record.rr_type()
             && name == record.name()
         {
             rrset.push(record);

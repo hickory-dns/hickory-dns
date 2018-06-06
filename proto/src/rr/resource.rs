@@ -18,15 +18,15 @@
 
 use std::cmp::Ordering;
 
-use serialize::binary::*;
 use error::*;
 use rr::dns_class::DNSClass;
-use rr::Name;
-use rr::IntoRecordSet;
 use rr::rdata::NULL;
+use rr::IntoRecordSet;
+use rr::Name;
 use rr::RData;
-use rr::RecordType;
 use rr::RecordSet;
+use rr::RecordType;
+use serialize::binary::*;
 
 /// Resource records are storage value in DNS, into which all key/value pair data is stored.
 ///
@@ -117,12 +117,7 @@ impl Record {
     /// * `rr_type` - the record type
     /// * `ttl` - time-to-live is the amount of time this record should be cached before refreshing
     /// * `rdata` - record data to associate with the Record
-    pub fn from_rdata(
-        name: Name,
-        ttl: u32,
-        record_type: RecordType,
-        rdata: RData,
-    ) -> Record {
+    pub fn from_rdata(name: Name, ttl: u32, record_type: RecordType, rdata: RData) -> Record {
         Record {
             name_labels: name,
             rr_type: record_type,
@@ -145,7 +140,18 @@ impl Record {
     ///                 field specifies the meaning of the data in the RDATA
     ///                 field.
     /// ```
+    // #[deprecated(note = "use `Record::set_record_type`")]
     pub fn set_rr_type(&mut self, rr_type: RecordType) -> &mut Self {
+        self.rr_type = rr_type;
+        self
+    }
+
+    /// ```text
+    /// TYPE            two octets containing one of the RR type codes.  This
+    ///                 field specifies the meaning of the data in the RDATA
+    ///                 field.
+    /// ```
+    pub fn set_record_type(&mut self, rr_type: RecordType) -> &mut Self {
         self.rr_type = rr_type;
         self
     }
@@ -189,7 +195,13 @@ impl Record {
     }
 
     /// Returns the type of the RData in the record
+    // #[deprecated(note = "use `Record::record_type`")]
     pub fn rr_type(&self) -> RecordType {
+        self.rr_type
+    }
+
+    /// Returns the type of the RecordData in the record
+    pub fn record_type(&self) -> RecordType {
         self.rr_type
     }
 
@@ -323,20 +335,22 @@ impl PartialEq for Record {
     /// ```
     fn eq(&self, other: &Self) -> bool {
         // self == other && // the same pointer
-        self.name_labels == other.name_labels && self.rr_type == other.rr_type
-            && self.dns_class == other.dns_class && self.rdata == other.rdata
+        self.name_labels == other.name_labels
+            && self.rr_type == other.rr_type
+            && self.dns_class == other.dns_class
+            && self.rdata == other.rdata
     }
 }
 
 /// returns the value of the compare if the items are greater or lesser, but coninues on equal
 macro_rules! compare_or_equal {
-  ( $x:ident, $y:ident, $z:ident ) => (
-    match $x.$z.partial_cmp(&$y.$z) {
-      o @ Some(Ordering::Less) | o @ Some(Ordering::Greater) => return o,
-      None => return None,
-      Some(Ordering::Equal) => (),
-    }
-  );
+    ($x:ident, $y:ident, $z:ident) => {
+        match $x.$z.partial_cmp(&$y.$z) {
+            o @ Some(Ordering::Less) | o @ Some(Ordering::Greater) => return o,
+            None => return None,
+            Some(Ordering::Equal) => (),
+        }
+    };
 }
 
 impl PartialOrd<Record> for Record {
@@ -386,7 +400,6 @@ impl PartialOrd<Record> for Record {
     }
 }
 
-
 #[cfg(test)]
 mod tests {
     use std::cmp::Ordering;
@@ -394,13 +407,12 @@ mod tests {
     use std::str::FromStr;
 
     use super::*;
-    #[allow(unused)]
-    use serialize::binary::*;
+    use rr::dns_class::DNSClass;
     use rr::record_data::RData;
     use rr::record_type::RecordType;
-    use rr::dns_class::DNSClass;
     use rr::Name;
-
+    #[allow(unused)]
+    use serialize::binary::*;
 
     #[test]
     fn test_emit_and_read() {

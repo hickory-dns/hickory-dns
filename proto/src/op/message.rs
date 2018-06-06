@@ -16,13 +16,15 @@
 
 //! Basic protocol message for DNS
 
-use std::sync::Arc;
+use std::iter;
 use std::mem;
+use std::ops::Deref;
+use std::sync::Arc;
 
+use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 use error::*;
 use rr::{Record, RecordType};
 use serialize::binary::{BinDecodable, BinDecoder, BinEncodable, BinEncoder, EncodeMode};
-use super::{Edns, Header, MessageType, OpCode, Query, ResponseCode};
 
 #[cfg(feature = "dnssec")]
 use rr::dnssec::rdata::DNSSECRecordType;
@@ -80,96 +82,39 @@ pub struct Message {
     edns: Option<Edns>,
 }
 
-/// A generic EncodableMessage with associated information for streaming to a connection
-pub trait EncodableMessage {
-    /// The Header associated with this Message
-    fn header(&self) -> &Header;
+/// Returns a new Header with accurate counts for each Message section
+pub fn update_header_counts(
+    current_header: &Header,
+    is_truncated: bool,
+    counts: HeaderCounts,
+) -> Header {
+    assert!(counts.query_count <= u16::max_value() as usize);
+    assert!(counts.answer_count <= u16::max_value() as usize);
+    assert!(counts.nameserver_count <= u16::max_value() as usize);
+    assert!(counts.additional_count <= u16::max_value() as usize);
 
-    /// return the length of the set of queries
-    fn queries_len(&self) -> usize;
+    let mut header = current_header.clone();
+    header.set_query_count(counts.query_count as u16);
+    header.set_answer_count(counts.answer_count as u16);
+    header.set_name_server_count(counts.nameserver_count as u16);
+    header.set_additional_count(counts.additional_count as u16);
+    header.set_truncated(is_truncated);
 
-    /// Emit the queries section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
-    fn emit_queries(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
-
-    /// return the length of the set of queries
-    fn answers_len(&self) -> usize;
-
-    /// Emit the answers section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
-    fn emit_answers(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
-
-    /// return the length of the set of queries
-    fn name_servers_len(&self) -> usize;
-
-    /// Emit the name_servers section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
-    fn emit_name_servers(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
-
-    /// return the length of the set of queries
-    fn additionals_len(&self) -> usize;
-
-    /// Emit the additionals section of the EncodableMessage, if there are none, it's acceptable to return Ok(())
-    fn emit_additionals(&self, encoder: &mut BinEncoder) -> ProtoResult<()>;
-
-    /// Extended DNS options associated with this message
-    fn edns(&self) -> Option<&Edns>;
-
-    /// Any SIG0 records for signed messages
-    fn sig0(&self) -> &[Record];
-
-    /// Returns a new Header with accurate counts for each Message section
-    fn update_header_counts(&self, include_sig0: bool) -> Header {
-        assert!(self.queries_len() <= u16::max_value() as usize);
-        assert!(self.answers_len() <= u16::max_value() as usize);
-        assert!(self.name_servers_len() <= u16::max_value() as usize);
-
-        let mut additional_count = self.additionals_len();
-
-        if self.edns().is_some() {
-            additional_count += 1
-        }
-        if include_sig0 {
-            additional_count += self.sig0().len()
-        };
-
-        assert!(additional_count <= u16::max_value() as usize);
-
-        self.header().clone(
-            self.queries_len() as u16,
-            self.answers_len() as u16,
-            self.name_servers_len() as u16,
-            additional_count as u16,
-        )
-    }
+    header
 }
 
-macro_rules! section {
-    ($s:ident, $l:ident, $e:ident) => {
-        fn $l(&self) -> usize {
-            self.$s.len()
-        }
-
-        fn $e(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-            encoder.emit_all(self.$s.iter())
-        }
-    }
-}
-
-impl EncodableMessage for Message {
-    fn header(&self) -> &Header {
-        &self.header
-    }
-
-    section!(queries, queries_len, emit_queries);
-    section!(answers, answers_len, emit_answers);
-    section!(name_servers, name_servers_len, emit_name_servers);
-    section!(additionals, additionals_len, emit_additionals);
-
-    fn edns(&self) -> Option<&Edns> {
-        Message::edns(self)
-    }
-
-    fn sig0(&self) -> &[Record] {
-        Message::sig0(self)
-    }
+/// Tracks the counts of the records in the Message.
+///
+/// This is only used internally during serialization.
+pub struct HeaderCounts {
+    /// The number of queries in the Message
+    pub query_count: usize,
+    /// The number of answers in the Message
+    pub answer_count: usize,
+    /// The number of nameservers or authorities in the Message
+    pub nameserver_count: usize,
+    /// The number of additional records in the Message
+    pub additional_count: usize,
 }
 
 impl Message {
@@ -391,6 +336,11 @@ impl Message {
         self
     }
 
+    /// Gets the header of the Message
+    pub fn header(&self) -> &Header {
+        &self.header
+    }
+
     /// see `Header::id()`
     pub fn id(&self) -> u16 {
         self.header.id()
@@ -577,7 +527,16 @@ impl Message {
     ///  this happens implicitly on write_to, so no need to call before write_to
     #[cfg(test)]
     pub fn update_counts(&mut self) -> &mut Self {
-        self.header = self.update_header_counts(true);
+        self.header = update_header_counts(
+            &self.header,
+            false,
+            HeaderCounts {
+                query_count: self.queries.len(),
+                answer_count: self.answers.len(),
+                nameserver_count: self.name_servers.len(),
+                additional_count: self.additionals.len(),
+            },
+        );
         self
     }
 
@@ -644,13 +603,6 @@ impl Message {
         Ok((records, edns, sig0s))
     }
 
-    fn emit_records(encoder: &mut BinEncoder, records: &[Record]) -> ProtoResult<()> {
-        for r in records {
-            r.emit(encoder)?;
-        }
-        Ok(())
-    }
-
     /// Decodes a message from the buffer.
     pub fn from_vec(buffer: &[u8]) -> ProtoResult<Message> {
         let mut decoder = BinDecoder::new(buffer);
@@ -658,7 +610,10 @@ impl Message {
     }
 
     /// Encodes the Message into a buffer
-    pub fn to_vec(&self) -> Result<Vec<u8>, ProtoError> {
+    pub fn to_vec(self) -> Result<Vec<u8>, ProtoError> {
+        // TODO: this feels like the right place to verify the max packet size of the message,
+        //  will need to update the header for trucation and the lengths if we send less than the
+        //  full response. This needs to conform with the EDNS settings of the server...
         let mut buffer = Vec::with_capacity(512);
         {
             let mut encoder = BinEncoder::new(&mut buffer);
@@ -693,6 +648,13 @@ impl Message {
     }
 }
 
+impl Deref for Message {
+    type Target = Header;
+
+    fn deref(&self) -> &Self::Target {
+        &self.header
+    }
+}
 /// A trait for performing final ammendments to a Message before it is sent.
 ///
 /// An example of this is a SIG0 signer, which needs the final form of the message,
@@ -730,32 +692,98 @@ impl MessageFinalizer for NoopMessageFinalizer {
     }
 }
 
-impl<M: EncodableMessage> BinEncodable for M {
+/// Returns the count written and a boolean if it was truncated
+pub fn count_was_truncated(result: ProtoResult<usize>) -> ProtoResult<(usize, bool)> {
+    result.map(|count| (count, false)).or_else(|e| {
+        if let ProtoErrorKind::NotAllRecordsWritten { count } = e.kind() {
+            return Ok((*count, true));
+        }
+
+        Err(e)
+    })
+}
+
+/// A trait that defines types which can be emitted as a set, with the associated count returned.
+pub trait EmitAndCount {
+    /// Emit self to the encoder and return the count of items
+    fn emit(&mut self, encoder: &mut BinEncoder) -> ProtoResult<usize>;
+}
+
+impl<'e, I: Iterator<Item = &'e E>, E: 'e + BinEncodable> EmitAndCount for I {
+    fn emit(&mut self, encoder: &mut BinEncoder) -> ProtoResult<usize> {
+        encoder.emit_all(self)
+    }
+}
+
+/// Emits the different sections of a message properly
+pub fn emit_message_parts<Q, A, N, D>(
+    header: &Header,
+    queries: &mut Q,
+    answers: &mut A,
+    name_servers: &mut N,
+    additionals: &mut D,
+    edns: Option<&Edns>,
+    sig0: &[Record],
+    encoder: &mut BinEncoder,
+) -> ProtoResult<()>
+where
+    Q: EmitAndCount,
+    A: EmitAndCount,
+    N: EmitAndCount,
+    D: EmitAndCount,
+{
+    let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
+    let place = encoder.place::<Header>()?;
+
+    let query_count = queries.emit(encoder)?;
+    // FIXME: need to do some on max records
+    //  return offset of last emitted record.
+    let answer_count = count_was_truncated(answers.emit(encoder))?;
+    let nameserver_count = count_was_truncated(name_servers.emit(encoder))?;
+    let mut additional_count = count_was_truncated(additionals.emit(encoder))?;
+
+    if let Some(edns) = edns {
+        // need to commit the error code
+        let count = count_was_truncated(encoder.emit_all(iter::once(&Record::from(edns))))?;
+        additional_count.0 += count.0;
+        additional_count.1 |= count.1;
+    }
+
+    // FIXME: because this is destructive, we need to move message signing here... maybe it will work?
+
+    // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
+    //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
+    //  part of the additionals section.
+    if include_sig0 {
+        let count = count_was_truncated(encoder.emit_all(sig0.iter()))?;
+        additional_count.0 += count.0;
+        additional_count.1 |= count.1;
+    }
+
+    let counts = HeaderCounts {
+        query_count,
+        answer_count: answer_count.0,
+        nameserver_count: nameserver_count.0,
+        additional_count: additional_count.0,
+    };
+    let was_truncated = answer_count.1 || nameserver_count.1 || additional_count.1;
+
+    place.replace(encoder, update_header_counts(header, was_truncated, counts))?;
+    Ok(())
+}
+
+impl BinEncodable for Message {
     fn emit(&self, encoder: &mut BinEncoder) -> ProtoResult<()> {
-        // clone the header to set the counts lazily
-        let include_sig0: bool = encoder.mode() != EncodeMode::Signing;
-        self.update_header_counts(include_sig0).emit(encoder)?;
-
-        // TODO: this feels like the right place to verify the max packet size of the message,
-        //  will need to update the header for trucation and the lengths if we send less than the
-        //  full response.
-        self.emit_queries(encoder)?;
-        self.emit_answers(encoder)?;
-        self.emit_name_servers(encoder)?;
-        self.emit_additionals(encoder)?;
-
-        if let Some(edns) = self.edns() {
-            // need to commit the error code
-            Record::from(edns).emit(encoder)?;
-        }
-
-        // this is a little hacky, but if we are Verifying a signature, i.e. the original Message
-        //  then the SIG0 records should not be encoded and the edns record (if it exists) is already
-        //  part of the additionals section.
-        if include_sig0 {
-            Message::emit_records(encoder, self.sig0())?;
-        }
-        Ok(())
+        emit_message_parts(
+            &self.header,
+            &mut self.queries.iter(),
+            &mut self.answers.iter(),
+            &mut self.name_servers.iter(),
+            &mut self.additionals.iter(),
+            self.edns.as_ref(),
+            &self.sig0,
+            encoder,
+        )
     }
 }
 
@@ -802,7 +830,7 @@ fn test_emit_and_read_header() {
         .set_message_type(MessageType::Response)
         .set_op_code(OpCode::Update)
         .set_authoritative(true)
-        .set_truncated(true)
+        .set_truncated(false)
         .set_recursion_desired(true)
         .set_recursion_available(true)
         .set_response_code(ResponseCode::ServFail);
