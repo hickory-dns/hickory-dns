@@ -7,15 +7,6 @@ members = ["client",
            "proto",
            "resolver",
            "rustls",
+           "https",
            "server",
            "util"]
-
-[replace]
-#"native-tls:0.1.1" = { path = "../rust-native-tls" }
-#"openssl:0.9.8" = { git = "https://github.com/sfackler/rust-openssl.git", features = ["v102", "v110"] }
-#"openssl:0.9.8" = { path = "../rust-openssl/openssl", features = ["v102", "v110"] }
-#"openssl-sys:0.9.8" = { git = "https://github.com/sfackler/rust-openssl.git", features = ["v102", "v110"] }
-#"openssl-sys:0.9.8" = { path = "../rust-openssl/openssl-sys", features = ["v102", "v110"] }
-#"tokio-rustls:0.2.0" = { git = "https://github.com/bluejekyll/tokio-rustls.git" }
-#"security-framework:0.1.10" = { git = "https://github.com/sfackler/rust-security-framework.git" }
-#"security-framework-sys:0.1.10" = { git = "https://github.com/sfackler/rust-security-framework.git" }
