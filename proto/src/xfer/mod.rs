@@ -8,23 +8,28 @@ use std::net::SocketAddr;
 
 use error::*;
 use futures::sync::mpsc::{SendError, UnboundedSender};
+use futures::Poll;
 use op::Message;
 
 pub mod dns_future;
 pub mod dns_handle;
 pub mod dns_request;
 pub mod dns_response;
+mod dns_stream;
 pub mod retry_dns_handle;
 #[cfg(feature = "dnssec")]
 pub mod secure_dns_handle;
+mod serial_message;
 
 pub use self::dns_future::DnsFuture;
 pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;
+pub use self::dns_stream::DnsStream;
 pub use self::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use self::secure_dns_handle::SecureDnsHandle;
+pub use self::serial_message::SerialMessage;
 
 /// Ignores the result of a send operation and logs and ignores errors
 fn ignore_send<M, E: Debug>(result: Result<M, E>) {
@@ -109,5 +114,34 @@ where
             .sender
             .unbounded_send((buffer, name_server))
             .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
+    }
+}
+
+// TODO: expose the Sink trait for this?
+/// A sender to which serialized DNS Messages can be sent
+#[derive(Clone)]
+pub struct SerialMessageStreamHandle<E>
+where
+    E: FromProtoError,
+{
+    sender: UnboundedSender<SerialMessage>,
+    phantom: PhantomData<E>,
+}
+
+impl<E> SerialMessageStreamHandle<E>
+where
+    E: FromProtoError,
+{
+    /// Constructs a new BufStreamHandle with the associated ProtoError
+    pub fn new(sender: UnboundedSender<SerialMessage>) -> Self {
+        SerialMessageStreamHandle {
+            sender,
+            phantom: PhantomData::<E>,
+        }
+    }
+
+    /// see [`futures::sync::mpsc::UnboundedSender`]
+    pub fn unbounded_send(&self, msg: SerialMessage) -> Result<(), SendError<SerialMessage>> {
+        self.sender.unbounded_send(msg)
     }
 }
