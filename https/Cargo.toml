@@ -45,6 +45,7 @@ path = "src/lib.rs"
 
 [dependencies]
 bytes = "0.4"
+data-encoding = "2.1.0"
 futures = "0.1.17"
 h2 = "0.1"
 http = "0.1"

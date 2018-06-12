@@ -8,6 +8,7 @@
 //! TLS protocol related components for DNS over TLS
 
 extern crate bytes;
+extern crate data_encoding;
 #[macro_use]
 extern crate futures;
 extern crate h2;
@@ -21,6 +22,8 @@ extern crate tokio_reactor;
 extern crate tokio_rustls;
 extern crate tokio_tcp;
 extern crate trust_dns_proto;
+
+const ACCEPTS: &str = "application/dns-message";
 
 //pub mod https_client_connection;
 pub mod https_client_stream;
