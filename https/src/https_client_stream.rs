@@ -12,6 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
+use data_encoding::BASE64;
 use futures::{Async, Future, Poll, Stream};
 use h2::client::{Handshake, SendRequest};
 use h2::{self, RecvStream};
@@ -49,7 +50,17 @@ impl SerialMessageSender for HttpsClientStream {
         }
 
         // build up the http request
-        let mut request = Request::builder();
+
+        // https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10#section-5.1
+        // The URI Template defined in this document is processed without any
+        // variables when the HTTP method is POST.  When the HTTP method is GET
+        // the single variable "dns" is defined as the content of the DNS
+        // request (as described in Section 7), encoded with base64url
+        // [RFC4648].
+        let (message, _) = message.unwrap();
+        let query = BASE64.encode(&message);
+        let mut request = Request::get(format!("/dns-query?{}", query));
+        request.header(header::CONTENT_TYPE, ::ACCEPTS);
 
         let request = request.body(()).map_err(|err| {
             io::Error::new(
@@ -247,7 +258,7 @@ impl Future for HttpsSerialResponse {
                         })
                     })?;
 
-                if content_type != "application/dns-message" {
+                if content_type != ::ACCEPTS {
                     return Err(io::Error::new(
                         io::ErrorKind::InvalidData,
                         format!(
@@ -419,4 +430,10 @@ impl Future for HttpsClientConnectState {
             mem::replace(self, next);
         }
     }
+}
+
+#[cfg(test)]
+mod tests {
+    #[test]
+    fn test_https_cloudflare() {}
 }
