@@ -359,10 +359,10 @@ impl Clone for ProtoErrorKind {
 /// A trait marking a type which implements From<ProtoError> and
 /// failure::Fail (which includes all std::error::Error types)
 /// as well as Clone + Send
-pub trait FromProtoError: From<ProtoError> + Fail + Clone + Send {}
+pub trait FromProtoError: From<ProtoError> + Fail + Clone {}
 
 impl<E> FromProtoError for E
 where
-    E: From<ProtoError> + Fail + Clone + Send,
+    E: From<ProtoError> + Fail + Clone,
 {
 }
