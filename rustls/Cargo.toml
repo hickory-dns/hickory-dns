@@ -45,8 +45,9 @@ path = "src/lib.rs"
 
 [dependencies]
 futures = "^0.1.17"
-rustls = "^0.11"
-tokio-rustls = "^0.4"
+rustls = "^0.12"
+webpki = "0.18.0-alpha4"
+tokio-rustls = "^0.6"
 tokio-tcp = "^0.1"
 # disables default features, i.e. openssl...
 trust-dns-proto = { version = "^0.4", path = "../proto", default-features = false }

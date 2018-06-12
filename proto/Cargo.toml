@@ -68,7 +68,7 @@ tokio-reactor = "^0.1"
 tokio-tcp = "^0.1"
 tokio-timer = "^0.2"
 tokio-udp = "^0.1"
-untrusted = { version = "^0.5", optional = true }
+untrusted = { version = "^0.6", optional = true }
 url = "1.6.0"
 
 [dev-dependencies]

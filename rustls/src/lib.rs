@@ -18,6 +18,7 @@
 
 extern crate futures;
 extern crate rustls;
+extern crate webpki;
 #[cfg(test)]
 extern crate tokio;
 extern crate tokio_rustls;
