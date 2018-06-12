@@ -12,7 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use futures::{Async, AsyncSink, Future, Poll, Sink, StartSend, Stream};
+use futures::{Async, Future, Poll, Stream};
 use h2::client::{Handshake, SendRequest};
 use h2::{self, RecvStream};
 use http::header;
@@ -23,71 +23,23 @@ use tokio_rustls::ClientConfigExt;
 use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
 
-use trust_dns_proto::xfer::SerialMessage;
+use trust_dns_proto::xfer::{SendMessage, SendMessageAsync, SerialMessage, SerialMessageSender};
 
 pub struct HttpsClientStream {
     name_server: SocketAddr,
     h2: SendRequest<Bytes>,
-    sending_message: Option<(h2::client::ResponseFuture, h2::SendStream<Bytes>)>,
-    response_stream: Option<Response<RecvStream>>,
-    response_bytes: Option<Vec<u8>>,
-    response_remaining: Option<usize>,
 }
 
-// S: Stream<Item = SerialMessage, Error = io::Error>,
-impl Stream for HttpsClientStream {
-    type Item = SerialMessage;
-    type Error = io::Error;
+impl SerialMessageSender for HttpsClientStream {
+    type SerialResponse = HttpsSerialResponse;
 
-    fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
-        while self.response_remaining.unwrap_or(0) > 0 {
-            // TODO: need to review https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10 for error codes...
-            let response = self
-                .response_stream
-                .as_mut()
-                .expect("a request must be sent before a response can be used");
-
-            // poll for the next set of bytes...
-            let bytes = try_ready!(response.body_mut().poll().map_err(|err| io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("bad http request: {}", err),
-            )));
-
-            // TODO: it might be interesting to try and return the header, and then a Stream of records... maybe.
-            // collect the bytes...
-            if let Some(bytes) = bytes {
-                *self.response_remaining.as_mut().unwrap() -= bytes.len();
-                self.response_bytes
-                    .as_mut()
-                    .expect("response_bytes was not initialized")
-                    .append(&mut bytes.to_vec());
-            }
-        }
-
-        // return the buffer if there is one...
-        if let Some(response_bytes) = self.response_bytes.take() {
-            let serial_message = SerialMessage::new(response_bytes, self.name_server);
-            return Ok(Async::Ready(Some(serial_message)));
-        }
-
-        // getting here means that the stream was empty and will return no more,
-        //   drop the stream
-        self.response_stream.take();
-        self.response_bytes.take();
-        self.response_remaining.take();
-        Ok(Async::Ready(None))
-    }
-}
-
-// S: Sink<SinkItem = SerialMessage, SinkError = io::Error>,
-impl Sink for HttpsClientStream {
-    type SinkItem = SerialMessage;
-    type SinkError = io::Error;
-
-    fn start_send(&mut self, item: Self::SinkItem) -> StartSend<Self::SinkItem, Self::SinkError> {
+    fn send_message(
+        &mut self,
+        message: SerialMessage,
+    ) -> SendMessage<Self::SerialResponse, io::Error> {
         match self.h2.poll_ready() {
             Ok(Async::Ready(())) => (),
-            Ok(Async::NotReady) => return Ok(AsyncSink::NotReady(item)),
+            Ok(Async::NotReady) => return Ok(SendMessageAsync::NotReady(message)),
             Err(err) => {
                 return Err(io::Error::new(
                     io::ErrorKind::ConnectionAborted,
@@ -99,8 +51,6 @@ impl Sink for HttpsClientStream {
         // build up the http request
         let mut request = Request::builder();
 
-        // FIXME: add the logic for the HTTP message
-
         let request = request.body(()).map_err(|err| {
             io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -109,16 +59,50 @@ impl Sink for HttpsClientStream {
         })?;
 
         // Send the request
-        let sending = self.h2.send_request(request, true).map_err(|err| {
+        let (response_future, send_stream) = self.h2.send_request(request, true).map_err(|err| {
             io::Error::new(
                 io::ErrorKind::ConnectionAborted,
                 format!("h2 send_request error: {}", err),
             )
         })?;
 
-        self.sending_message = Some(sending);
-        Ok(AsyncSink::Ready)
+        Ok(SendMessageAsync::Ready(HttpsSerialResponse::new(
+            response_future,
+            send_stream,
+            self.name_server,
+        )))
     }
+}
+
+pub struct HttpsSerialResponse {
+    response_future: h2::client::ResponseFuture,
+    _response_send_stream: h2::SendStream<Bytes>,
+    name_server: SocketAddr,
+    response_stream: Option<Response<RecvStream>>,
+    response_bytes: Option<Vec<u8>>,
+    response_remaining: Option<usize>,
+}
+
+impl HttpsSerialResponse {
+    fn new(
+        response_future: h2::client::ResponseFuture,
+        response_send_stream: h2::SendStream<Bytes>,
+        name_server: SocketAddr,
+    ) -> Self {
+        HttpsSerialResponse {
+            response_future,
+            _response_send_stream: response_send_stream,
+            name_server,
+            response_stream: None,
+            response_bytes: None,
+            response_remaining: None,
+        }
+    }
+}
+
+impl Future for HttpsSerialResponse {
+    type Item = SerialMessage;
+    type Error = io::Error;
 
     /// This indicates that the HTTP message was successfully sent, and we now have the response.RecvStream
     ///
@@ -167,10 +151,49 @@ impl Sink for HttpsClientStream {
     ///    (Unsupported Media Type) upon receiving a media type it is unable to
     ///    process.
     /// ```
-    fn poll_complete(&mut self) -> Poll<(), Self::SinkError> {
-        if let Some(ref mut sending_message) = self.sending_message {
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        loop {
+            while self.response_remaining.unwrap_or(0) > 0 {
+                // TODO: need to review https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10 for error codes...
+                let response = self
+                    .response_stream
+                    .as_mut()
+                    .expect("a request must be sent before a response can be used");
+
+                // poll for the next set of bytes...
+                let bytes = try_ready!(response.body_mut().poll().map_err(|err| io::Error::new(
+                    io::ErrorKind::InvalidData,
+                    format!("bad http request: {}", err),
+                )));
+
+                // TODO: it might be interesting to try and return the header, and then a Stream of records... maybe.
+                // collect the bytes...
+                if let Some(bytes) = bytes {
+                    *self.response_remaining.as_mut().unwrap() -= bytes.len();
+                    self.response_bytes
+                        .as_mut()
+                        .expect("response_bytes was not initialized")
+                        .append(&mut bytes.to_vec());
+                }
+            }
+
+            // Getting here means the loop above completed
+            //   If there was a buffer, then we got a result
+            if let Some(response_bytes) = self.response_bytes.take() {
+                // getting here means that the stream was empty and will return no more,
+                //   drop the stream
+                self.response_stream.take();
+                self.response_bytes.take();
+                self.response_remaining.take();
+
+                let serial_message = SerialMessage::new(response_bytes, self.name_server);
+                return Ok(Async::Ready(serial_message));
+            }
+
+            // Otherwise, getting to this point we need to poll the stream, either the first time
+            //    or if it's after the fact, than most likely this RecvStream will fail...
             let response: Response<RecvStream> =
-                try_ready!(sending_message.0.poll().map_err(|err| io::Error::new(
+                try_ready!(self.response_future.poll().map_err(|err| io::Error::new(
                     io::ErrorKind::ConnectionAborted,
                     format!("recieved a stream error: {}", err)
                 )));
@@ -183,6 +206,7 @@ impl Sink for HttpsClientStream {
                 ));
             }
 
+            // get the length of packet
             let content_length: usize = response
                 .headers()
                 .get(header::CONTENT_LENGTH)
@@ -234,12 +258,10 @@ impl Sink for HttpsClientStream {
                 }
             };
 
+            // setup the while loop above, and we'll loop back to it
             self.response_remaining = Some(content_length);
             self.response_bytes = Some(Vec::with_capacity(content_length));
             self.response_stream = Some(response);
-            Ok(Async::Ready(()))
-        } else {
-            panic!("cannot poll after future is complete")
         }
     }
 }
@@ -384,10 +406,6 @@ impl Future for HttpsClientConnectState {
                     HttpsClientConnectState::Connected(HttpsClientStream {
                         name_server: *name_server,
                         h2: send_request,
-                        sending_message: None,
-                        response_stream: None,
-                        response_bytes: None,
-                        response_remaining: None,
                     })
                 }
                 HttpsClientConnectState::Connected(..) => panic!("invalid state"),

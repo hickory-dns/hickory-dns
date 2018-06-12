@@ -12,7 +12,7 @@ use std::net::SocketAddr;
 
 use futures::stream::{Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
-use futures::{Async, AsyncSink, Future, Poll, Sink};
+use futures::{Async, AsyncSink, Poll, Sink};
 
 use error::*;
 use xfer::{SerialMessage, SerialMessageStreamHandle};
