@@ -12,7 +12,7 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use data_encoding::BASE64;
+use data_encoding::BASE64URL_NOPAD;
 use futures::{Async, Future, Poll, Stream};
 use h2::client::{Handshake, SendRequest};
 use h2::{self, RecvStream};
@@ -58,8 +58,8 @@ impl SerialMessageSender for HttpsClientStream {
         // request (as described in Section 7), encoded with base64url
         // [RFC4648].
         let (message, _) = message.unwrap();
-        let query = BASE64.encode(&message);
-        let mut request = Request::get(format!("/dns-query?{}", query));
+        let query = BASE64URL_NOPAD.encode(&message);
+        let mut request = Request::get(format!("/dns-query?dns={}", query));
         request.header(header::CONTENT_TYPE, ::ACCEPTS);
 
         let request = request.body(()).map_err(|err| {
@@ -311,7 +311,7 @@ impl HttpsClientStreamBuilder {
     /// * `name_server` - IP and Port for the remote DNS resolver
     /// * `dns_name` - The DNS name, Subject Public Key Info (SPKI) name, as associated to a certificate
     /// * `loop_handle` - The reactor Core handle
-    pub fn build<E>(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnect {
+    pub fn build(self, name_server: SocketAddr, dns_name: String) -> HttpsClientConnect {
         let tls = TlsConfig {
             client_config: Arc::new(self.client_config),
             dns_name: dns_name,
@@ -351,6 +351,7 @@ enum HttpsClientConnectState {
         tls: Option<TlsConfig>,
     },
     TlsConnecting {
+        // TODO: abstract TLS implementation
         tls: ConnectAsync<TokioTcpStream>,
         name_server: SocketAddr,
     },
@@ -394,7 +395,10 @@ impl Future for HttpsClientConnectState {
                 }
                 HttpsClientConnectState::TlsConnecting { name_server, tls } => {
                     let tls = try_ready!(tls.poll());
-                    let handshake = h2::client::handshake(tls);
+                    let mut handshake = h2::client::Builder::new();
+                    handshake.enable_push(false);
+
+                    let handshake = handshake.handshake(tls);
                     HttpsClientConnectState::H2Handshake {
                         name_server: *name_server,
                         handshake,
@@ -434,6 +438,66 @@ impl Future for HttpsClientConnectState {
 
 #[cfg(test)]
 mod tests {
+    extern crate tokio;
+
+    use std::str::FromStr;
+
+    use std::io;
+    use std::net::SocketAddr;
+
+    use self::tokio::runtime::current_thread;
+    use futures::Future;
+    use rustls::{ClientConfig, ProtocolVersion, RootCertStore};
+    use webpki_roots;
+
+    use trust_dns_proto::error::*;
+    use trust_dns_proto::op::{Message, Query};
+    use trust_dns_proto::rr::{Name, Record, RecordType};
+    use trust_dns_proto::serialize::binary::{BinEncodable, BinEncoder};
+    use trust_dns_proto::DnsStreamHandle;
+    use trust_dns_rustls::{TlsClientStream, TlsClientStreamBuilder};
+
+    use super::*;
+
     #[test]
-    fn test_https_cloudflare() {}
+    fn test_https_cloudflare() {
+        let cloudflare = SocketAddr::from(([1, 1, 1, 1], 443));
+        let mut request = Message::new();
+        let query = Query::query(Name::from_str("www.example.com.").unwrap(), RecordType::A);
+        request.add_query(query);
+
+        let mut bytes = Vec::<u8>::new();
+        {
+            let mut encoder = BinEncoder::new(&mut bytes);
+            request.emit(&mut encoder).expect("failed to encode");
+        }
+
+        // using the mozilla default root store
+        let mut root_store = RootCertStore::empty();
+        root_store.add_server_trust_anchors(&webpki_roots::TLS_SERVER_ROOTS);
+        let versions = vec![ProtocolVersion::TLSv1_2];
+
+        let mut client_config = ClientConfig::new();
+        client_config.root_store = root_store;
+        client_config.versions = versions;
+
+        let https_builder = HttpsClientStreamBuilder::with_client_config(client_config);
+        let connect = https_builder.build(cloudflare, "cloudflare-dns.com".to_string());
+
+        // tokio runtime stuff...
+        let mut runtime = current_thread::Runtime::new().expect("could not start runtime");
+        let mut https = runtime.block_on(connect).expect("https connect failed");
+        let mut to_send = SerialMessage::new(bytes, cloudflare);
+
+        loop {
+            to_send = match https.send_message(to_send) {
+                Ok(SendMessageAsync::Ready(sending)) => {
+                    let response = runtime.block_on(sending).expect("send_message failed");
+                    break;
+                }
+                Ok(SendMessageAsync::NotReady(not_ready)) => not_ready,
+                Err(err) => panic!("error sending: {}", err),
+            };
+        }
+    }
 }

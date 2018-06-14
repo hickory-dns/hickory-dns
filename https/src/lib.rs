@@ -16,12 +16,13 @@ extern crate http;
 #[macro_use]
 extern crate log;
 extern crate rustls;
-extern crate tokio_core;
 extern crate tokio_executor;
 extern crate tokio_reactor;
 extern crate tokio_rustls;
 extern crate tokio_tcp;
 extern crate trust_dns_proto;
+extern crate trust_dns_rustls;
+extern crate webpki_roots;
 
 const ACCEPTS: &str = "application/dns-message";
 
@@ -32,6 +33,3 @@ pub mod https_client_stream;
 //pub use self::https_client_connection::{HttpsClientConnection, HttpsClientConnectionBuilder};
 pub use self::https_client_stream::{HttpsClientStream, HttpsClientStreamBuilder};
 //pub use self::https_stream::{HttpsStream, HttpsStreamBuilder};
-
-#[cfg(test)]
-mod tests;
