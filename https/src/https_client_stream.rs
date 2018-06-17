@@ -12,13 +12,12 @@ use std::str::FromStr;
 use std::sync::Arc;
 
 use bytes::Bytes;
-use data_encoding::BASE64URL_NOPAD;
 use futures::{Async, Future, Poll, Stream};
 use h2::client::{Handshake, SendRequest};
 use h2::{self, RecvStream};
 use http::header;
 use http::uri;
-use http::{Request, Response, Uri, Version};
+use http::{Request, Response, StatusCode, Uri, Version};
 use rustls::{Certificate, ClientConfig, ClientSession};
 use tokio_executor;
 use tokio_rustls::ClientConfigExt;
@@ -137,15 +136,7 @@ impl SerialMessageSender for HttpsClientStream {
     }
 }
 
-pub struct HttpsSerialResponse {
-    response_future: h2::client::ResponseFuture,
-    _response_send_stream: h2::SendStream<Bytes>,
-    name_server: SocketAddr,
-    // TODO: move these out to another state?
-    response_stream: Option<Response<RecvStream>>,
-    response_bytes: Option<Vec<u8>>,
-    response_remaining: Option<usize>,
-}
+pub struct HttpsSerialResponse(HttpsSerialResponseInner);
 
 impl HttpsSerialResponse {
     fn new(
@@ -153,14 +144,11 @@ impl HttpsSerialResponse {
         response_send_stream: h2::SendStream<Bytes>,
         name_server: SocketAddr,
     ) -> Self {
-        HttpsSerialResponse {
+        HttpsSerialResponse(HttpsSerialResponseInner::Incoming {
             response_future,
             _response_send_stream: response_send_stream,
             name_server,
-            response_stream: None,
-            response_bytes: None,
-            response_remaining: None,
-        }
+        })
     }
 }
 
@@ -216,118 +204,174 @@ impl Future for HttpsSerialResponse {
     ///    process.
     /// ```
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        self.0.poll()
+    }
+}
+
+enum HttpsSerialResponseInner {
+    Incoming {
+        response_future: h2::client::ResponseFuture,
+        _response_send_stream: h2::SendStream<Bytes>,
+        name_server: SocketAddr,
+    },
+    Receiving {
+        response_stream: Response<RecvStream>,
+        response_bytes: Bytes,
+        content_length: Option<usize>,
+        name_server: SocketAddr,
+    },
+    Failure {
+        response_bytes: Bytes,
+        status_code: StatusCode,
+    },
+    Complete(Option<SerialMessage>),
+}
+
+impl Future for HttpsSerialResponseInner {
+    type Item = SerialMessage;
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
         loop {
-            while self.response_remaining.unwrap_or(0) > 0 {
-                // TODO: need to review https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10 for error codes...
-                let response = self
-                    .response_stream
-                    .as_mut()
-                    .expect("a request must be sent before a response can be used");
+            use self::HttpsSerialResponseInner::*;
 
-                // poll for the next set of bytes...
-                let bytes = try_ready!(response.body_mut().poll().map_err(|err| io::Error::new(
-                    io::ErrorKind::InvalidData,
-                    format!("bad http request: {}", err),
-                )));
+            let next = match self {
+                Incoming {
+                    ref mut response_future,
+                    name_server,
+                    ..
+                } => {
+                    let response_stream =
+                        try_ready!(response_future.poll().map_err(|err| io::Error::new(
+                            io::ErrorKind::ConnectionAborted,
+                            format!("recieved a stream error: {}", err)
+                        )));
 
-                // TODO: it might be interesting to try and return the header, and then a Stream of records... maybe.
-                // collect the bytes...
-                if let Some(bytes) = bytes {
-                    *self.response_remaining.as_mut().unwrap() -= bytes.len();
-                    self.response_bytes
-                        .as_mut()
-                        .expect("response_bytes was not initialized")
-                        .append(&mut bytes.to_vec());
+                    // get the length of packet
+                    let content_length: usize = response_stream
+                        .headers()
+                        .get(header::CONTENT_LENGTH)
+                        .map_or(Ok(512), |h| {
+                            h.to_str()
+                                .map_err(|err| {
+                                    io::Error::new(
+                                        io::ErrorKind::InvalidData,
+                                        format!("ContentLength header not a string: {}", err),
+                                    )
+                                })
+                                .and_then(|s| {
+                                    usize::from_str(s).map_err(|err| {
+                                        io::Error::new(
+                                            io::ErrorKind::InvalidData,
+                                            format!("ContentLength header not a number: {}", err),
+                                        )
+                                    })
+                                })
+                        })?;
+
+                    Receiving {
+                        response_stream,
+                        response_bytes: Bytes::with_capacity(content_length),
+                        content_length: Some(content_length),
+                        name_server: *name_server,
+                    }
                 }
-            }
-
-            // Getting here means the loop above completed
-            //   If there was a buffer, then we got a result
-            if let Some(response_bytes) = self.response_bytes.take() {
-                // getting here means that the stream was empty and will return no more,
-                //   drop the stream
-                self.response_stream.take();
-                self.response_bytes.take();
-                self.response_remaining.take();
-
-                let serial_message = SerialMessage::new(response_bytes, self.name_server);
-                return Ok(Async::Ready(serial_message));
-            }
-
-            // Otherwise, getting to this point we need to poll the stream, either the first time
-            //    or if it's after the fact, than most likely this RecvStream will fail...
-            let response: Response<RecvStream> =
-                try_ready!(self.response_future.poll().map_err(|err| io::Error::new(
-                    io::ErrorKind::ConnectionAborted,
-                    format!("recieved a stream error: {}", err)
-                )));
-
-            debug!("response: {:#?}", response);
-
-            // Was it a successful request?
-            if !response.status().is_success() {
-                return Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("request was not successful: {}", response.status()),
-                ));
-            }
-
-            // get the length of packet
-            let content_length: usize = response
-                .headers()
-                .get(header::CONTENT_LENGTH)
-                .ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::InvalidData, "ContentLength header missing")
-                })
-                .and_then(|h| {
-                    h.to_str().map_err(|err| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("ContentLength header not a string: {}", err),
-                        )
-                    })
-                })
-                .and_then(|s| {
-                    usize::from_str(s).map_err(|err| {
-                        io::Error::new(
-                            io::ErrorKind::InvalidData,
-                            format!("ContentLength header not a number: {}", err),
-                        )
-                    })
-                })?;
-
-            // verify content type
-            {
-                let content_type = response
-                    .headers()
-                    .get(header::CONTENT_TYPE)
-                    .ok_or_else(|| {
-                        io::Error::new(io::ErrorKind::InvalidData, "ContentLength header missing")
-                    })
-                    .and_then(|h| {
-                        h.to_str().map_err(|err| {
+                Receiving {
+                    ref mut response_stream,
+                    ref mut response_bytes,
+                    content_length,
+                    name_server,
+                } => {
+                    while let Some(partial_bytes) = try_ready!(
+                        response_stream.body_mut().poll().map_err(|e| {
                             io::Error::new(
                                 io::ErrorKind::InvalidData,
-                                format!("ContentType header not a string: {}", err),
+                                format!("bad http request: {}", e),
                             )
                         })
-                    })?;
+                    ) {
+                        response_bytes.extend(partial_bytes);
+                    }
+                    // assert the length
+                    if let Some(content_length) = content_length {
+                        if *content_length != response_bytes.len() {
+                            return Err(io::Error::new(
+                                io::ErrorKind::UnexpectedEof,
+                                format!(
+                                    "expected byte length: {}, got: {}",
+                                    content_length,
+                                    response_bytes.len()
+                                ),
+                            ));
+                        }
+                    }
 
-                if content_type != ::ACCEPTS_DNS_BINARY {
+                    // Was it a successful request?
+                    if !response_stream.status().is_success() {
+                        Failure {
+                            response_bytes: response_bytes.slice_from(0),
+                            status_code: response_stream.status(),
+                        }
+                    } else {
+                        // verify content type
+                        {
+                            let content_type = response_stream
+                                .headers()
+                                .get(header::CONTENT_TYPE)
+                                .ok_or_else(|| {
+                                    io::Error::new(
+                                        io::ErrorKind::InvalidData,
+                                        "ContentLength header missing",
+                                    )
+                                })
+                                .and_then(|h| {
+                                    h.to_str().map_err(|err| {
+                                        io::Error::new(
+                                            io::ErrorKind::InvalidData,
+                                            format!("ContentType header not a string: {}", err),
+                                        )
+                                    })
+                                })?;
+
+                            if content_type != ::ACCEPTS_DNS_BINARY {
+                                return Err(io::Error::new(
+                                    io::ErrorKind::InvalidData,
+                                    format!(
+                                        "ContentType unsupported (must be 'application/dns-message'): {}",
+                                        content_type
+                                    ),
+                                ));
+                            }
+                        };
+
+                        Complete(Some(SerialMessage::new(
+                            response_bytes.to_vec(),
+                            *name_server,
+                        )))
+                    }
+                }
+                Failure {
+                    response_bytes,
+                    status_code,
+                } => {
+                    let error_string = String::from_utf8_lossy(response_bytes.as_ref());
+
                     return Err(io::Error::new(
-                        io::ErrorKind::InvalidData,
+                        io::ErrorKind::Other,
                         format!(
-                            "ContentType unsupported (must be 'application/dns-message'): {}",
-                            content_type
+                            "http unsuccessful code: {}, message: {}",
+                            status_code, error_string
                         ),
                     ));
                 }
+                Complete(ref mut message) => {
+                    return Ok(Async::Ready(
+                        message.take().expect("cannot poll after complete"),
+                    ))
+                }
             };
 
-            // setup the while loop above, and we'll loop back to it
-            self.response_remaining = Some(content_length);
-            self.response_bytes = Some(Vec::with_capacity(content_length));
-            self.response_stream = Some(response);
+            *self = next;
         }
     }
 }

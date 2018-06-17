@@ -9,6 +9,7 @@ use std::net::SocketAddr;
 
 /// A DNS message in serialized form, with either the target address or source address
 pub struct SerialMessage {
+    // TODO: change to Bytes? this would be more compatible with some underlying libraries
     message: Vec<u8>,
     addr: SocketAddr,
 }
