@@ -61,4 +61,5 @@ trust-dns-rustls = { version = "0.3", path = "../rustls", default-features = fal
 webpki-roots = { version = "0.13" }
 
 [dev-dependencies]
+env_logger = "^0.5"
 tokio = "0.1"
