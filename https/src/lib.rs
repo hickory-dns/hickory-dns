@@ -24,7 +24,7 @@ extern crate trust_dns_proto;
 extern crate trust_dns_rustls;
 extern crate webpki_roots;
 
-const ACCEPTS: &str = "application/dns-message";
+const ACCEPTS_DNS_BINARY: &str = "application/dns-message";
 
 //pub mod https_client_connection;
 pub mod https_client_stream;
