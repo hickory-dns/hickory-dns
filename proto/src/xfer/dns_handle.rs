@@ -45,7 +45,7 @@ where
 }
 
 /// Implementations of Sinks for sending DNS messages
-pub trait DnsStreamHandle: Send {
+pub trait DnsStreamHandle: 'static + Send {
     /// The Error type to be returned if there is an error
     type Error: FromProtoError;
 
