@@ -567,9 +567,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                         state = ParseNameKeyPairState::BeforeKey(key_values);
                     }
                     // push onto the existing key
-                    ch if (ch.is_alphanumeric() || ch == ':' || ch == '/' || ch == '-' || ch == '.')
-                        && !ch.is_whitespace() =>
-                    {
+                    ch if !ch.is_control() && !ch.is_whitespace() => {
                         value.push(ch);
 
                         state = ParseNameKeyPairState::Value {
