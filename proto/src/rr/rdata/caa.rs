@@ -128,9 +128,12 @@ use url::Url;
 /// ```
 #[derive(Debug, PartialEq, Eq, Hash, Clone)]
 pub struct CAA {
-    #[doc(hidden)] pub issuer_critical: bool,
-    #[doc(hidden)] pub tag: Property,
-    #[doc(hidden)] pub value: Value,
+    #[doc(hidden)]
+    pub issuer_critical: bool,
+    #[doc(hidden)]
+    pub tag: Property,
+    #[doc(hidden)]
+    pub value: Value,
 }
 
 impl CAA {
@@ -393,6 +396,7 @@ fn emit_value(encoder: &mut BinEncoder, value: &Value) -> ProtoResult<()> {
 enum ParseNameKeyPairState {
     BeforeKey(Vec<KeyValue>),
     Key {
+        first_char: bool,
         key: String,
         key_values: Vec<KeyValue>,
     },
@@ -471,6 +475,15 @@ enum ParseNameKeyPairState {
 ///    The semantics of issuer-parameters are determined by the issuer
 ///    alone.
 /// ```
+///
+/// Updated parsing rules:
+///
+/// [RFC 6844bis, CAA Resource Record, May 2018](https://tools.ietf.org/html/draft-ietf-lamps-rfc6844bis-00)
+/// [RFC 6844, CAA Record Extensions, May 2018](https://tools.ietf.org/html/draft-ietf-acme-caa-04)
+///
+/// This explicitly allows `-` in key names, diverging from the original RFC. To support this, key names will
+/// allow `-` as non-starting characters. Additionally, this significantly relaxes the characters allowed in the value
+/// to allow URL like characters (it does not validate URL syntax).
 pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
     let mut byte_iter = bytes.iter();
 
@@ -503,12 +516,17 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                         let mut key = String::new();
                         key.push(ch);
 
-                        state = ParseNameKeyPairState::Key { key, key_values }
+                        state = ParseNameKeyPairState::Key {
+                            first_char: true,
+                            key,
+                            key_values,
+                        }
                     }
                     ch => return Err(format!("bad character in CAA issuer key: {}", ch).into()),
                 }
             }
             ParseNameKeyPairState::Key {
+                mut first_char,
                 mut key,
                 key_values,
             } => {
@@ -523,10 +541,16 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                         }
                     }
                     // push onto the existing key
-                    ch if ch.is_alphanumeric() && ch != '=' && ch != ';' => {
+                    ch if (ch.is_alphanumeric() || (!first_char && ch == '-'))
+                        && ch != '='
+                        && ch != ';' =>
+                    {
                         key.push(ch);
-
-                        state = ParseNameKeyPairState::Key { key, key_values }
+                        state = ParseNameKeyPairState::Key {
+                            first_char: false,
+                            key,
+                            key_values,
+                        }
                     }
                     ch => return Err(format!("bad character in CAA issuer key: {}", ch).into()),
                 }
@@ -543,7 +567,9 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                         state = ParseNameKeyPairState::BeforeKey(key_values);
                     }
                     // push onto the existing key
-                    ch if ch.is_alphanumeric() => {
+                    ch if (ch.is_alphanumeric() || ch == ':' || ch == '/' || ch == '-' || ch == '.')
+                        && !ch.is_whitespace() =>
+                    {
                         value.push(ch);
 
                         state = ParseNameKeyPairState::Value {
@@ -552,7 +578,7 @@ pub fn read_issuer(bytes: &[u8]) -> ProtoResult<(Option<Name>, Vec<KeyValue>)> {
                             key_values,
                         }
                     }
-                    ch => return Err(format!("bad character in CAA issuer value: {}", ch).into()),
+                    ch => return Err(format!("bad character in CAA issuer value: '{}'", ch).into()),
                 }
             }
         }
@@ -794,8 +820,8 @@ pub fn emit(encoder: &mut BinEncoder, caa: &CAA) -> ProtoResult<()> {
 
 #[cfg(test)]
 mod tests {
-    use std::str;
     use super::*;
+    use std::str;
 
     #[test]
     fn test_read_tag() {
@@ -849,12 +875,10 @@ mod tests {
             read_issuer(b"ca.example.net; account=230123").unwrap(),
             (
                 Some(Name::parse("ca.example.net", None).unwrap()),
-                vec![
-                    KeyValue {
-                        key: "account".to_string(),
-                        value: "230123".to_string(),
-                    },
-                ],
+                vec![KeyValue {
+                    key: "account".to_string(),
+                    value: "230123".to_string(),
+                }],
             )
         );
 
@@ -866,12 +890,10 @@ mod tests {
             read_issuer(b"ca.example.net; policy=ev").unwrap(),
             (
                 Some(Name::parse("ca.example.net", None).unwrap(),),
-                vec![
-                    KeyValue {
-                        key: "policy".to_string(),
-                        value: "ev".to_string(),
-                    },
-                ],
+                vec![KeyValue {
+                    key: "policy".to_string(),
+                    value: "ev".to_string(),
+                }],
             )
         );
         assert_eq!(
@@ -886,6 +908,22 @@ mod tests {
                     KeyValue {
                         key: "policy".to_string(),
                         value: "ev".to_string(),
+                    },
+                ],
+            )
+        );
+        assert_eq!(
+            read_issuer(b"example.net; account-uri=https://example.net/account/1234; validation-methods=dns-01").unwrap(),
+            (
+                Some(Name::parse("example.net", None).unwrap(),),
+                vec![
+                    KeyValue {
+                        key: "account-uri".to_string(),
+                        value: "https://example.net/account/1234".to_string(),
+                    },
+                    KeyValue {
+                        key: "validation-methods".to_string(),
+                        value: "dns-01".to_string(),
                     },
                 ],
             )
