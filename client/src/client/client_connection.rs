@@ -18,6 +18,7 @@ use std::io;
 
 use futures::{Future, Stream};
 
+use trust_dns_proto::xfer::SerialMessage;
 use trust_dns_proto::DnsStreamHandle;
 
 use error::*;
@@ -25,7 +26,7 @@ use error::*;
 /// Trait for client connections
 pub trait ClientConnection: Sized {
     /// The associated DNS Message stream type.
-    type MessageStream: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static;
+    type MessageStream: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static;
 
     /// Return the inner Futures items
     ///
