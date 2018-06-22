@@ -13,6 +13,7 @@ extern crate trust_dns_server;
 
 use std::fmt;
 use std::io;
+use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::{Duration, Instant};
 
@@ -27,6 +28,7 @@ use trust_dns::error::{ClientError, ClientResult};
 use trust_dns::op::*;
 use trust_dns::serialize::binary::*;
 use trust_dns_proto::error::FromProtoError;
+use trust_dns_proto::xfer::SerialMessage;
 use trust_dns_proto::{DnsStreamHandle, StreamHandle};
 
 use trust_dns_server::authority::{Catalog, MessageRequest, MessageResponse};
@@ -96,7 +98,7 @@ impl ResponseHandler for TestResponseHandler {
 }
 
 impl Stream for TestClientStream {
-    type Item = Vec<u8>;
+    type Item = SerialMessage;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -109,13 +111,12 @@ impl Stream for TestClientStream {
             // already handled above, here to make sure the poll() pops the next message
             Async::Ready(Some(bytes)) => {
                 let mut decoder = BinDecoder::new(&bytes);
+                let src_addr = SocketAddr::from(([127, 0, 0, 1], 1234));
 
                 let message = MessageRequest::read(&mut decoder).expect("could not decode message");
                 let request = Request {
                     message: message,
-                    src: "127.0.0.1:1234"
-                        .parse()
-                        .expect("cannot parse host and port"),
+                    src: src_addr,
                 };
 
                 let response_handler = TestResponseHandler::new();
@@ -126,7 +127,7 @@ impl Stream for TestClientStream {
                     .unwrap();
 
                 let buf = response_handler.into_inner();
-                Ok(Async::Ready(Some(buf)))
+                Ok(Async::Ready(Some(SerialMessage::new(buf, src_addr))))
             }
             // now we get to drop through to the receives...
             // TODO: should we also return None if there are no more messages to send?
@@ -171,7 +172,7 @@ impl NeverReturnsClientStream {
 }
 
 impl Stream for NeverReturnsClientStream {
-    type Item = Vec<u8>;
+    type Item = SerialMessage;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {

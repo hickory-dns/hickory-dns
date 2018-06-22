@@ -13,9 +13,10 @@ use futures::{Async, Future, Poll, Stream};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_tcp::TcpStream as TokioTcpStream;
 
-use BufDnsStreamHandle;
 use error::*;
 use tcp::TcpStream;
+use xfer::SerialMessage;
+use BufDnsStreamHandle;
 use DnsStreamHandle;
 
 /// Tcp client stream
@@ -64,10 +65,8 @@ impl TcpClientStream<TokioTcpStream> {
     {
         let (stream_future, sender) = TcpStream::with_timeout(name_server, timeout);
 
-        let new_future = Box::new(stream_future.map(move |tcp_stream| {
-            TcpClientStream {
-                tcp_stream: tcp_stream,
-            }
+        let new_future = Box::new(stream_future.map(move |tcp_stream| TcpClientStream {
+            tcp_stream: tcp_stream,
         }));
 
         let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
@@ -86,7 +85,7 @@ impl<S> TcpClientStream<S> {
 }
 
 impl<S: AsyncRead + AsyncWrite> Stream for TcpClientStream<S> {
-    type Item = Vec<u8>;
+    type Item = SerialMessage;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -99,20 +98,18 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpClientStream<S> {
                     warn!("{} does not match name_server: {}", src_addr, peer)
                 }
 
-                Ok(Async::Ready(Some(buffer)))
+                Ok(Async::Ready(Some(SerialMessage::new(buffer, src_addr))))
             }
             None => Ok(Async::Ready(None)),
         }
     }
 }
 
-
-
-#[cfg(test)]
-use std::net::{IpAddr, Ipv4Addr};
 #[cfg(not(target_os = "linux"))]
 #[cfg(test)]
 use std::net::Ipv6Addr;
+#[cfg(test)]
+use std::net::{IpAddr, Ipv4Addr};
 
 #[test]
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
@@ -223,7 +220,7 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
             .expect("future iteration run failed");
         stream = stream_tmp;
         let buffer = buffer.expect("no buffer received");
-        assert_eq!(&buffer, TEST_BYTES);
+        assert_eq!(buffer.bytes(), TEST_BYTES);
     }
 
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);

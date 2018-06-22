@@ -7,6 +7,9 @@
 
 use std::net::SocketAddr;
 
+use error::ProtoResult;
+use op::Message;
+
 /// A DNS message in serialized form, with either the target address or source address
 pub struct SerialMessage {
     // TODO: change to Bytes? this would be more compatible with some underlying libraries
@@ -33,5 +36,10 @@ impl SerialMessage {
     /// Unwrap the the Bytes and address
     pub fn unwrap(self) -> (Vec<u8>, SocketAddr) {
         (self.message, self.addr)
+    }
+
+    /// Deserializes the inner data into a Message
+    pub fn to_message(&self) -> ProtoResult<Message> {
+        Message::from_vec(&self.message)
     }
 }
