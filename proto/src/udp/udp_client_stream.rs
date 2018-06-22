@@ -5,15 +5,16 @@
 // http://opensource.org/licenses/MIT>, at your option. This file may not be
 // copied, modified, or distributed except according to those terms.
 
-use std::net::SocketAddr;
 use std::io;
+use std::net::SocketAddr;
 
 use futures::{Async, Future, Poll, Stream};
 
-use BufDnsStreamHandle;
-use DnsStreamHandle;
 use error::*;
 use udp::UdpStream;
+use xfer::SerialMessage;
+use BufDnsStreamHandle;
+use DnsStreamHandle;
 
 /// A UDP client stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
@@ -42,13 +43,10 @@ impl UdpClientStream {
     {
         let (stream_future, sender) = UdpStream::new(name_server);
 
-        let new_future =
-            Box::new(stream_future.map(move |udp_stream| {
-                UdpClientStream {
-                    name_server: name_server,
-                    udp_stream: udp_stream,
-                }
-            }));
+        let new_future = Box::new(stream_future.map(move |udp_stream| UdpClientStream {
+            name_server: name_server,
+            udp_stream: udp_stream,
+        }));
 
         let sender = Box::new(BufDnsStreamHandle::new(name_server, sender));
 
@@ -57,7 +55,7 @@ impl UdpClientStream {
 }
 
 impl Stream for UdpClientStream {
-    type Item = Vec<u8>;
+    type Item = SerialMessage;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -66,24 +64,22 @@ impl Stream for UdpClientStream {
                 if src_addr != self.name_server {
                     debug!(
                         "{} does not match name_server: {}",
-                        src_addr,
-                        self.name_server
+                        src_addr, self.name_server
                     )
                 }
 
-                Ok(Async::Ready(Some(buffer)))
+                Ok(Async::Ready(Some(SerialMessage::new(buffer, src_addr))))
             }
             None => Ok(Async::Ready(None)),
         }
     }
 }
 
-
-#[cfg(test)]
-use std::net::{IpAddr, Ipv4Addr};
 #[cfg(not(target_os = "linux"))]
 #[cfg(test)]
 use std::net::Ipv6Addr;
+#[cfg(test)]
+use std::net::{IpAddr, Ipv4Addr};
 
 #[test]
 fn test_udp_client_stream_ipv4() {
@@ -165,7 +161,7 @@ fn udp_client_stream_test(server_addr: IpAddr) {
         sender.send(test_bytes.to_vec()).unwrap();
         let (buffer, stream_tmp) = io_loop.block_on(stream.into_future()).ok().unwrap();
         stream = stream_tmp;
-        assert_eq!(&buffer.expect("no buffer received"), test_bytes);
+        assert_eq!(buffer.expect("no buffer received").bytes(), test_bytes);
     }
 
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);

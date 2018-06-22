@@ -25,7 +25,7 @@ use tokio_timer::Delay;
 
 use error::*;
 use op::{Message, MessageFinalizer, OpCode};
-use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse};
+use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage};
 use {BasicDnsHandle, DnsStreamHandle};
 
 const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive from the UDP socket
@@ -110,7 +110,7 @@ impl<E: FromProtoError> ActiveRequest<E> {
 pub struct DnsFuture<S, E, MF, D = Box<DnsStreamHandle<Error = E>>>
 where
     D: Send + 'static,
-    S: Stream<Item = Vec<u8>, Error = io::Error>,
+    S: Stream<Item = SerialMessage, Error = io::Error>,
     E: FromProtoError,
     MF: MessageFinalizer,
 {
@@ -125,7 +125,7 @@ where
 
 impl<S, E, MF> DnsFuture<S, E, MF, Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
     E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
@@ -245,7 +245,7 @@ where
 
 impl<S, E, MF> Future for DnsFuture<S, E, MF, Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
     E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
@@ -382,7 +382,7 @@ where
                     messages_received = i;
 
                     //   deserialize or log decode_error
-                    match Message::from_vec(&buffer) {
+                    match buffer.to_message() {
                         Ok(message) => match self.active_requests.entry(message.id()) {
                             Entry::Occupied(mut request_entry) => {
                                 // first add the response to the active_requests responses
@@ -470,7 +470,7 @@ where
 enum ClientStreamOrError<S, E, MF, D = Box<DnsStreamHandle<Error = E>>>
 where
     D: Send + 'static,
-    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
     E: FromProtoError + Send,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
@@ -480,7 +480,7 @@ where
 
 impl<S, E, MF> Future for ClientStreamOrError<S, E, MF, Box<DnsStreamHandle<Error = E>>>
 where
-    S: Stream<Item = Vec<u8>, Error = io::Error> + Send + 'static,
+    S: Stream<Item = SerialMessage, Error = io::Error> + Send + 'static,
     E: FromProtoError + Send + 'static,
     MF: MessageFinalizer + Send + Sync + 'static,
 {
