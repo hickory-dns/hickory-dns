@@ -12,15 +12,15 @@ use std::mem;
 use std::net::SocketAddr;
 use std::time::{Duration, Instant};
 
-use futures::{Async, Future, Poll};
 use futures::stream::{Fuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
+use futures::{Async, Future, Poll};
 use tokio_io::{AsyncRead, AsyncWrite};
 use tokio_tcp::TcpStream as TokioTcpStream;
 use tokio_timer::Deadline;
 
-use BufStreamHandle;
 use error::*;
+use xfer::{BufStreamHandle, SerialMessage};
 
 /// Current state while writing to the remote of the TCP connection
 enum WriteTcpState {
@@ -66,7 +66,7 @@ pub enum ReadTcpState {
 #[must_use = "futures do nothing unless polled"]
 pub struct TcpStream<S> {
     socket: S,
-    outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
+    outbound_messages: Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
     send_state: Option<WriteTcpState>,
     read_state: ReadTcpState,
     peer_addr: SocketAddr,
@@ -170,7 +170,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
     pub fn from_stream_with_receiver(
         stream: S,
         peer_addr: SocketAddr,
-        receiver: UnboundedReceiver<(Vec<u8>, SocketAddr)>,
+        receiver: UnboundedReceiver<SerialMessage>,
     ) -> Self {
         TcpStream {
             socket: stream,
@@ -265,13 +265,15 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
                 };
             } else {
                 // then see if there is more to send
-                match self.outbound_messages
+                match self
+                    .outbound_messages
                     .poll()
                     .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
                 {
                     // already handled above, here to make sure the poll() pops the next message
-                    Async::Ready(Some((buffer, dst))) => {
+                    Async::Ready(Some(message)) => {
                         // if there is no peer, this connection should die...
+                        let (buffer, dst) = message.unwrap();
                         let peer = self.peer_addr;
 
                         // This is an error if the destination is not our peer (this is TCP after all)
@@ -417,11 +419,11 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
     }
 }
 
-#[cfg(test)]
-use std::net::{IpAddr, Ipv4Addr};
 #[cfg(not(target_os = "linux"))]
 #[cfg(test)]
 use std::net::Ipv6Addr;
+#[cfg(test)]
+use std::net::{IpAddr, Ipv4Addr};
 
 #[test]
 // this fails on linux for some reason. It appears that a buffer somewhere is dirty
@@ -521,7 +523,10 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     // let timeout = Timeout::new(Duration::from_secs(5));
     let (stream, sender) = TcpStream::new::<ProtoError>(server_addr);
 
-    let mut stream = io_loop.block_on(stream).ok().expect("run failed to get stream");
+    let mut stream = io_loop
+        .block_on(stream)
+        .ok()
+        .expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once

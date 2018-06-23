@@ -24,7 +24,7 @@ use tokio_rustls::ClientConfigExt;
 use tokio_rustls::{ConnectAsync, TlsStream as TokioTlsStream};
 use tokio_tcp::{ConnectFuture, TcpStream as TokioTcpStream};
 
-use trust_dns_proto::xfer::{SendMessage, SendMessageAsync, SerialMessage, SerialMessageSender};
+use trust_dns_proto::xfer::{SerialMessage, SerialMessageSender};
 
 const ALPN_H2: &str = "h2";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
@@ -39,118 +39,17 @@ pub struct HttpsClientStream {
 impl SerialMessageSender for HttpsClientStream {
     type SerialResponse = HttpsSerialResponse;
 
-    fn send_message(
-        &mut self,
-        message: SerialMessage,
-    ) -> SendMessage<Self::SerialResponse, io::Error> {
-        match self.h2.poll_ready() {
-            Ok(Async::Ready(())) => (),
-            Ok(Async::NotReady) => return Ok(SendMessageAsync::NotReady(message)),
-            Err(err) => {
-                return Err(io::Error::new(
-                    io::ErrorKind::ConnectionAborted,
-                    format!("h2 send_request error: {}", err),
-                ))
-            }
-        }
-
-        // build up the http request
-
-        // https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10#section-5.1
-        // The URI Template defined in this document is processed without any
-        // variables when the HTTP method is POST.  When the HTTP method is GET
-        // the single variable "dns" is defined as the content of the DNS
-        // request (as described in Section 7), encoded with base64url
-        // [RFC4648].
-        let (message, _) = message.unwrap();
-
-        // TODO: this is basically the GET version, but it is more expesive than POST
-        //   perhaps add an option if people want better HTTP caching options.
-
-        // let query = BASE64URL_NOPAD.encode(&message);
-        // let url = format!("/dns-query?dns={}", query);
-        // let request = Request::get(&url)
-        //     .header(header::CONTENT_TYPE, ::ACCEPTS_DNS_BINARY)
-        //     .header(header::HOST, &self.name_server_name as &str)
-        //     .header("authority", &self.name_server_name as &str)
-        //     .header(header::USER_AGENT, USER_AGENT)
-        //     .body(());
-
-        let mut parts = uri::Parts::default();
-        parts.scheme = Some(uri::Scheme::HTTPS);
-        parts.authority = Some(
-            uri::Authority::from_str(&self.name_server_name).map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    format!("invalid authority: {}", e),
-                )
-            })?,
-        );
-        parts.path_and_query = Some(uri::PathAndQuery::from_static("/dns-query"));
-
-        let url = Uri::from_parts(parts).map_err(|e| {
-            io::Error::new(
-                io::ErrorKind::InvalidInput,
-                format!("uri parse error: {}", e),
-            )
-        })?;
-        let request = Request::post(url)
-            .header(header::CONTENT_TYPE, ::ACCEPTS_DNS_BINARY)
-            .header(header::ACCEPT, ::ACCEPTS_DNS_BINARY)
-            .header(header::USER_AGENT, USER_AGENT)
-            .version(Version::HTTP_2)
-            .body(());
-
-        let request = request.map_err(|err| {
-            io::Error::new(
-                io::ErrorKind::InvalidData,
-                format!("bad http request: {}", err),
-            )
-        })?;
-
-        debug!("request: {:#?}", request);
-
-        // Send the request
-        let (response_future, mut send_stream) =
-            self.h2.send_request(request, false).map_err(|err| {
-                io::Error::new(
-                    io::ErrorKind::ConnectionAborted,
-                    format!("h2 send_request error: {}", err),
-                )
-            })?;
-
-        send_stream
-            .send_data(Bytes::from(message), true)
-            .map_err(|e| {
-                io::Error::new(
-                    io::ErrorKind::BrokenPipe,
-                    format!("h2 send_data error: {}", e),
-                )
-            })?;
-
-        Ok(SendMessageAsync::Ready(HttpsSerialResponse::new(
-            response_future,
-            send_stream,
-            self.name_server,
-        )))
+    fn send_message(&mut self, message: SerialMessage) -> Self::SerialResponse {
+        HttpsSerialResponse(HttpsSerialResponseInner::StartSend {
+            h2: self.h2.clone(),
+            message,
+            name_server_name: Arc::clone(&self.name_server_name),
+            name_server: self.name_server,
+        })
     }
 }
 
 pub struct HttpsSerialResponse(HttpsSerialResponseInner);
-
-impl HttpsSerialResponse {
-    fn new(
-        response_future: h2::client::ResponseFuture,
-        response_send_stream: h2::SendStream<Bytes>,
-        name_server: SocketAddr,
-    ) -> Self {
-        HttpsSerialResponse(HttpsSerialResponseInner::Incoming {
-            response_future,
-            _response_send_stream: response_send_stream,
-            name_server,
-        })
-    }
-}
 
 impl Future for HttpsSerialResponse {
     type Item = SerialMessage;
@@ -209,6 +108,12 @@ impl Future for HttpsSerialResponse {
 }
 
 enum HttpsSerialResponseInner {
+    StartSend {
+        h2: SendRequest<Bytes>,
+        message: SerialMessage,
+        name_server_name: Arc<String>,
+        name_server: SocketAddr,
+    },
     Incoming {
         response_future: h2::client::ResponseFuture,
         _response_send_stream: h2::SendStream<Bytes>,
@@ -236,6 +141,102 @@ impl Future for HttpsSerialResponseInner {
             use self::HttpsSerialResponseInner::*;
 
             let next = match self {
+                StartSend {
+                    ref mut h2,
+                    message,
+                    name_server_name,
+                    name_server,
+                } => {
+                    match h2.poll_ready() {
+                        Ok(Async::Ready(())) => (),
+                        Ok(Async::NotReady) => return Ok(Async::NotReady),
+                        Err(err) => {
+                            return Err(io::Error::new(
+                                io::ErrorKind::ConnectionAborted,
+                                format!("h2 send_request error: {}", err),
+                            ))
+                        }
+                    }
+
+                    // build up the http request
+
+                    // https://tools.ietf.org/html/draft-ietf-doh-dns-over-https-10#section-5.1
+                    // The URI Template defined in this document is processed without any
+                    // variables when the HTTP method is POST.  When the HTTP method is GET
+                    // the single variable "dns" is defined as the content of the DNS
+                    // request (as described in Section 7), encoded with base64url
+                    // [RFC4648].
+                    // let (message, _) = message.unwrap();
+
+                    // TODO: this is basically the GET version, but it is more expesive than POST
+                    //   perhaps add an option if people want better HTTP caching options.
+
+                    // let query = BASE64URL_NOPAD.encode(&message);
+                    // let url = format!("/dns-query?dns={}", query);
+                    // let request = Request::get(&url)
+                    //     .header(header::CONTENT_TYPE, ::ACCEPTS_DNS_BINARY)
+                    //     .header(header::HOST, &self.name_server_name as &str)
+                    //     .header("authority", &self.name_server_name as &str)
+                    //     .header(header::USER_AGENT, USER_AGENT)
+                    //     .body(());
+
+                    let mut parts = uri::Parts::default();
+                    parts.scheme = Some(uri::Scheme::HTTPS);
+                    parts.authority =
+                        Some(uri::Authority::from_str(&name_server_name).map_err(|e| {
+                            io::Error::new(
+                                io::ErrorKind::InvalidInput,
+                                format!("invalid authority: {}", e),
+                            )
+                        })?);
+                    parts.path_and_query = Some(uri::PathAndQuery::from_static("/dns-query"));
+
+                    let url = Uri::from_parts(parts).map_err(|e| {
+                        io::Error::new(
+                            io::ErrorKind::InvalidInput,
+                            format!("uri parse error: {}", e),
+                        )
+                    })?;
+                    let request = Request::post(url)
+                        .header(header::CONTENT_TYPE, ::ACCEPTS_DNS_BINARY)
+                        .header(header::ACCEPT, ::ACCEPTS_DNS_BINARY)
+                        .header(header::USER_AGENT, USER_AGENT)
+                        .version(Version::HTTP_2)
+                        .body(());
+
+                    let request = request.map_err(|err| {
+                        io::Error::new(
+                            io::ErrorKind::InvalidData,
+                            format!("bad http request: {}", err),
+                        )
+                    })?;
+
+                    debug!("request: {:#?}", request);
+
+                    // Send the request
+                    let (response_future, mut send_stream) =
+                        h2.send_request(request, false).map_err(|err| {
+                            io::Error::new(
+                                io::ErrorKind::ConnectionAborted,
+                                format!("h2 send_request error: {}", err),
+                            )
+                        })?;
+
+                    send_stream
+                        .send_data(Bytes::from(message.bytes()), true)
+                        .map_err(|e| {
+                            io::Error::new(
+                                io::ErrorKind::BrokenPipe,
+                                format!("h2 send_data error: {}", e),
+                            )
+                        })?;
+
+                    HttpsSerialResponseInner::Incoming {
+                        response_future,
+                        _response_send_stream: send_stream,
+                        name_server: *name_server,
+                    }
+                }
                 Incoming {
                     ref mut response_future,
                     name_server,
@@ -604,17 +605,8 @@ mod tests {
         let mut https = runtime.block_on(connect).expect("https connect failed");
         let mut to_send = SerialMessage::new(bytes, cloudflare);
 
-        let response: SerialMessage;
-        loop {
-            to_send = match https.send_message(to_send) {
-                Ok(SendMessageAsync::Ready(sending)) => {
-                    response = runtime.block_on(sending).expect("send_message failed");
-                    break;
-                }
-                Ok(SendMessageAsync::NotReady(not_ready)) => not_ready,
-                Err(err) => panic!("error sending: {}", err),
-            };
-        }
+        let sending = https.send_message(to_send);
+        let response: SerialMessage = runtime.block_on(sending).expect("send_message failed");
 
         assert_eq!(response.addr(), SocketAddr::from(([1, 1, 1, 1], 443)));
 
