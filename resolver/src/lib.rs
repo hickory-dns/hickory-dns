@@ -187,6 +187,8 @@ extern crate serde_derive;
 extern crate serde;
 extern crate smallvec;
 extern crate tokio;
+#[cfg(feature = "dns-over-https")]
+extern crate trust_dns_https;
 #[cfg(feature = "dns-over-native-tls")]
 extern crate trust_dns_native_tls;
 #[cfg(feature = "dns-over-openssl")]
@@ -201,6 +203,8 @@ mod dns_lru;
 pub mod dns_sd;
 pub mod error;
 mod hosts;
+#[cfg(feature = "dns-over-https")]
+mod https;
 pub mod lookup;
 pub mod lookup_ip;
 pub mod lookup_state;

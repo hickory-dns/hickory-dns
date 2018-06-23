@@ -12,7 +12,7 @@ use std::net::SocketAddr;
 
 use futures::stream::{Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
-use futures::{Async, AsyncSink, Poll, Sink};
+use futures::{Async, AsyncSink, Future, Poll, Sink};
 
 use error::*;
 use xfer::{SerialMessage, SerialMessageStreamHandle};
@@ -62,6 +62,28 @@ impl<S> DnsStream<S> {
             to_send: None,
             is_sending: false,
         }
+    }
+
+    /// Returns a future, which itself wraps a future which is awaiting connection.
+    ///
+    /// The connect_future shoudl be lazy.
+    pub fn connect<F, E>(
+        connect_future: F,
+        peer_addr: SocketAddr,
+    ) -> (DnsStreamConnect<F, S>, SerialMessageStreamHandle<E>)
+    where
+        F: Future<Item = S, Error = io::Error>,
+        E: FromProtoError,
+    {
+        let (message_sender, outbound_messages) = unbounded();
+        (
+            DnsStreamConnect {
+                connect_future,
+                peer_addr,
+                outbound_messages: Some(outbound_messages),
+            },
+            SerialMessageStreamHandle::<E>::new(message_sender),
+        )
     }
 }
 
@@ -155,5 +177,35 @@ where
 
         // Now we look for incoming messages
         self.io_stream.poll()
+    }
+}
+
+/// A wrapper for a future DnsStream connection
+pub struct DnsStreamConnect<F, S>
+where
+    F: Future<Item = S, Error = io::Error>,
+{
+    connect_future: F,
+    peer_addr: SocketAddr,
+    outbound_messages: Option<UnboundedReceiver<SerialMessage>>,
+}
+
+impl<F, S> Future for DnsStreamConnect<F, S>
+where
+    F: Future<Item = S, Error = io::Error>,
+{
+    type Item = DnsStream<S>;
+    type Error = io::Error;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let stream: S = try_ready!(self.connect_future.poll());
+
+        Ok(Async::Ready(DnsStream::from_stream_with_receiver(
+            stream,
+            self.peer_addr,
+            self.outbound_messages
+                .take()
+                .expect("cannot poll once complete"),
+        )))
     }
 }
