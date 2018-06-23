@@ -17,14 +17,14 @@ use rand::distributions::{Distribution, Range};
 use tokio_udp;
 
 use error::*;
-use BufStreamHandle;
+use xfer::{BufStreamHandle, SerialMessage};
 
 /// A UDP stream of DNS binary packets
 #[must_use = "futures do nothing unless polled"]
 pub struct UdpStream {
     // FIXME: change UdpStream to always select a new Socket for every request
     socket: tokio_udp::UdpSocket,
-    outbound_messages: Peekable<Fuse<UnboundedReceiver<(Vec<u8>, SocketAddr)>>>,
+    outbound_messages: Peekable<Fuse<UnboundedReceiver<SerialMessage>>>,
 }
 
 impl UdpStream {
@@ -98,7 +98,7 @@ impl UdpStream {
     #[allow(unused)]
     pub(crate) fn from_parts(
         socket: tokio_udp::UdpSocket,
-        outbound_messages: UnboundedReceiver<(Vec<u8>, SocketAddr)>,
+        outbound_messages: UnboundedReceiver<SerialMessage>,
     ) -> Self {
         UdpStream {
             socket: socket,
@@ -128,13 +128,13 @@ impl Stream for UdpStream {
         //  makes this self throttling.
         loop {
             // first try to send
-            if let Async::Ready(Some(&(ref buffer, addr))) = self
+            if let Async::Ready(Some(ref message)) = self
                 .outbound_messages
                 .peek()
                 .map_err(|()| io::Error::new(io::ErrorKind::Other, "unknown"))?
             {
                 // will return if the socket will block
-                try_ready!(self.socket.poll_send_to(buffer, &addr));
+                try_ready!(self.socket.poll_send_to(message.bytes(), &message.addr()));
             }
 
             // now pop the request and check if we should break or continue.

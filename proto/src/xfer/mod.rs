@@ -26,7 +26,7 @@ pub use self::dns_future::DnsFuture;
 pub use self::dns_handle::{BasicDnsHandle, DnsHandle, DnsStreamHandle, StreamHandle};
 pub use self::dns_request::{DnsRequest, DnsRequestOptions};
 pub use self::dns_response::DnsResponse;
-pub use self::dns_stream::DnsStream;
+pub use self::dns_stream::{DnsStream, DnsStreamConnect};
 pub use self::retry_dns_handle::RetryDnsHandle;
 #[cfg(feature = "dnssec")]
 pub use self::secure_dns_handle::SecureDnsHandle;
@@ -46,7 +46,7 @@ pub struct BufStreamHandle<E>
 where
     E: FromProtoError,
 {
-    sender: UnboundedSender<(Vec<u8>, SocketAddr)>,
+    sender: UnboundedSender<SerialMessage>,
     phantom: PhantomData<E>,
 }
 
@@ -55,7 +55,7 @@ where
     E: FromProtoError,
 {
     /// Constructs a new BufStreamHandle with the associated ProtoError
-    pub fn new(sender: UnboundedSender<(Vec<u8>, SocketAddr)>) -> Self {
+    pub fn new(sender: UnboundedSender<SerialMessage>) -> Self {
         BufStreamHandle {
             sender,
             phantom: PhantomData::<E>,
@@ -63,10 +63,7 @@ where
     }
 
     /// see [`futures::sync::mpsc::UnboundedSender`]
-    pub fn unbounded_send(
-        &self,
-        msg: (Vec<u8>, SocketAddr),
-    ) -> Result<(), SendError<(Vec<u8>, SocketAddr)>> {
+    pub fn unbounded_send(&self, msg: SerialMessage) -> Result<(), SendError<SerialMessage>> {
         self.sender.unbounded_send(msg)
     }
 }
@@ -113,7 +110,7 @@ where
         let sender: &mut _ = &mut self.sender;
         sender
             .sender
-            .unbounded_send((buffer, name_server))
+            .unbounded_send(SerialMessage::new(buffer, name_server))
             .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
     }
 }
@@ -157,25 +154,47 @@ pub trait SerialMessageSender {
     ///
     /// # Return
     ///
-    /// - `Ok(SendMessageAsync::NotReady(message))` - Not ready to send the message, try again
-    /// - `Ok(SendMessageAsync::Ready()` - The message send as been started, and the future response is returned
-    /// - `Err(err)` - there was an error attempting to send
-    fn send_message(
-        &mut self,
-        message: SerialMessage,
-    ) -> SendMessage<Self::SerialResponse, io::Error>;
+    /// A future which will resolve to a SerialMessage response
+    fn send_message(&mut self, message: SerialMessage) -> Self::SerialResponse;
 }
 
-/// A result of SerialMessageSender::send_message
-pub enum SendMessageAsync<F>
-where
-    F: Future<Item = SerialMessage, Error = io::Error>,
-{
-    /// The message can not be sent, try again
-    NotReady(SerialMessage),
-    /// The message send was initiated, returning the future result
-    Ready(F),
-}
+// /// A result of SerialMessageSender::send_message
+// pub enum SendMessageAsync<F>
+// where
+//     F: Future<Item = SerialMessage, Error = io::Error>,
+// {
+//     /// The message can not be sent, try again
+//     NotReady(SerialMessage),
+//     /// The message send was initiated, returning the future result
+//     Ready(F),
+// }
 
-/// The result of a SerialMessageSender::send_message
-pub type SendMessage<F, E> = Result<SendMessageAsync<F>, E>;
+// /// The result of a SerialMessageSender::send_message
+// pub type SendMessage<F, E> = Result<SendMessageAsync<F>, E>;
+
+// pub struct BoundSerialMessageSender<S, R>
+// where
+//     S: SerialMessageSender<SerialResponse = R>,
+//     R: Future<Item = SerialMessage, Error = io::Error>,
+// {
+//     name_server: SocketAddr,
+//     sender: S,
+// }
+
+// impl<S, R, E> DnsStreamHandle
+// where
+//     S: SerialMessageSender<SerialResponse = R>,
+//     R: Future<Item = SerialMessage, Error = io::Error>,
+//     E: FromProtoError,
+// {
+//     type Error = E;
+
+//     fn send(&mut self, buffer: Vec<u8>) -> Result<(), E> {
+//         let name_server: SocketAddr = self.name_server;
+//         let sender: &mut _ = &mut self.sender;
+//         sender
+//             .sender
+//             .unbounded_send(SerialMessage::new(buffer, name_server))
+//             .map_err(|e| E::from(format!("mpsc::SendError {}", e).into()))
+//     }
+// }
