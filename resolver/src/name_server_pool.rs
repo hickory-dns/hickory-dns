@@ -231,17 +231,16 @@ impl ConnectionProvider for StandardConnection {
             }
             #[cfg(feature = "dns-over-https")]
             Protocol::Https => {
-                unimplemented!()
-                // let (stream, handle) = ::https::new_https_stream(
-                //     config.socket_addr,
-                //     config.tls_dns_name.clone().unwrap_or_default(),
-                // );
-                // DnsFuture::with_timeout(
-                //     stream,
-                //     handle,
-                //     options.timeout,
-                //     NoopMessageFinalizer::new(),
-                // )
+                let (stream, handle) = ::https::new_https_stream(
+                    config.socket_addr,
+                    config.tls_dns_name.clone().unwrap_or_default(),
+                );
+                DnsFuture::with_timeout(
+                    stream,
+                    handle,
+                    options.timeout,
+                    NoopMessageFinalizer::new(),
+                )
             }
             #[cfg(feature = "mdns")]
             Protocol::Mdns => {

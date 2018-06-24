@@ -163,7 +163,7 @@
 //!
 //! Multicast DNS is an experimental feature in TRust-DNS at the moment. It's support on different platforms is not yet ideal. Initial support is only for IPv4 mDNS, as there are some complexities to figure out with IPv6. Once enabled, an mDNS `NameServer` will automatically be added to the `Resolver` and used for any lookups performed in the `.local.` zone.
 
-#![deny(missing_docs)]
+#![warn(missing_docs)]
 
 #[cfg(feature = "dns-over-tls")]
 #[macro_use]

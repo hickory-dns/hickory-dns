@@ -11,24 +11,32 @@ use std::io;
 use std::net::SocketAddr;
 
 use futures::stream::{Peekable, Stream};
-use futures::sync::mpsc::{unbounded, UnboundedReceiver};
+use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::{Async, AsyncSink, Future, Poll, Sink};
 
 use error::*;
-use xfer::{SerialMessage, SerialMessageStreamHandle};
+use xfer::{SerialMessage, SerialMessageSender, SerialMessageStreamHandle};
 
 /// TODO: move non-tcp stuff to another type called DNSStream
 /// A Stream used for sending data to and from a remote DNS endpoint (client or server).
 #[must_use = "futures do nothing unless polled"]
-pub struct DnsStream<S> {
+pub struct DnsStream<S, R>
+where
+    S: SerialMessageSender<SerialResponse = R>,
+    R: Future<Item = SerialMessage, Error = io::Error> + Send,
+{
     io_stream: S,
     outbound_messages: Peekable<UnboundedReceiver<SerialMessage>>,
     peer_addr: SocketAddr,
-    to_send: Option<SerialMessage>,
-    is_sending: bool,
+    // TODO: this should just return the future to the requester...
+    requests: Vec<R>,
 }
 
-impl<S> DnsStream<S> {
+impl<S, R> DnsStream<S, R>
+where
+    S: SerialMessageSender<SerialResponse = R>,
+    R: Future<Item = SerialMessage, Error = io::Error> + Send,
+{
     /// Initializes a TcpStream with an existing tokio_tcp::TcpStream.
     ///
     /// This is intended for use with a TcpListener and Incoming.
@@ -59,8 +67,9 @@ impl<S> DnsStream<S> {
             io_stream: stream,
             outbound_messages: receiver.peekable(),
             peer_addr: peer_addr,
-            to_send: None,
-            is_sending: false,
+            requests: vec![],
+            // to_send: None,
+            // is_sending: false,
         }
     }
 
@@ -70,7 +79,7 @@ impl<S> DnsStream<S> {
     pub fn connect<F, E>(
         connect_future: F,
         peer_addr: SocketAddr,
-    ) -> (DnsStreamConnect<F, S>, SerialMessageStreamHandle<E>)
+    ) -> (DnsStreamConnect<F, S, R>, SerialMessageStreamHandle<E>)
     where
         F: Future<Item = S, Error = io::Error>,
         E: FromProtoError,
@@ -87,10 +96,10 @@ impl<S> DnsStream<S> {
     }
 }
 
-impl<S> Stream for DnsStream<S>
+impl<S, R> Stream for DnsStream<S, R>
 where
-    S: Stream<Item = SerialMessage, Error = io::Error>,
-    S: Sink<SinkItem = SerialMessage, SinkError = io::Error>,
+    S: SerialMessageSender<SerialResponse = R>,
+    R: Future<Item = SerialMessage, Error = io::Error> + Send,
 {
     type Item = SerialMessage;
     type Error = io::Error;
@@ -100,38 +109,27 @@ where
         //  makes this self throttling.
         // TODO: it might be interesting to try and split the sending and receiving futures.
         loop {
-            // make sure the underlying Sink completes any existing send in progress
-            if self.is_sending {
-                try_ready!(self.io_stream.poll_complete());
-                self.is_sending = false;
+            // Now we look for incoming messages
+            // TODO: we need to change all IO streams to return the future directly for each request, poll is the wrong interface
+            let mut ready: Option<(SerialMessage, usize)> = None;
+
+            for (idx, message_future) in self.requests.iter_mut().enumerate() {
+                match message_future.poll() {
+                    Ok(Async::Ready(message)) => {
+                        ready = Some((message, idx));
+                        break;
+                    }
+                    // check if any others are ready...
+                    Ok(Async::NotReady) => continue,
+                    // This should only happen if there is an error with the underlying protocol
+                    Err(err) => return Err(err),
+                }
             }
 
-            // ok, no message is currently in transit
-            //   now is there one to start sending...
-            if let Some(serial_message) = self.to_send.take() {
-                let dst = serial_message.addr();
-
-                // start sending the message
-                match self.io_stream.start_send(serial_message).map_err(|s| {
-                    warn!("failure to send: {}", s);
-                    io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("failed to send message to: {}", dst),
-                    )
-                }) {
-                    Ok(AsyncSink::Ready) => {
-                        self.is_sending = true;
-                    }
-                    Ok(AsyncSink::NotReady(serial_message)) => {
-                        // the Sink is not ready to send this message
-                        //   we return because our contract is to not receive new messages unless we can
-                        //   send them out...
-                        self.to_send = Some(serial_message);
-                        return Ok(Async::NotReady);
-                    }
-                    // TODO: we should pass the original message back on the error
-                    Err(err) => return Err(err),
-                };
+            // we have a Ready, return it, but first remove from our future list...
+            if let Some((ready, ready_idx)) = ready {
+                self.requests.remove(ready_idx);
+                return Ok(Async::Ready(Some(ready)));
             }
 
             // then see if there is more to send
@@ -161,40 +159,44 @@ where
                         serial_message.addr()
                     );
 
-                    self.to_send = Some(serial_message);
+                    self.requests
+                        .push(self.io_stream.send_message(serial_message));
 
                     // we will continue to the send operation...
                     continue;
                 }
-                // now we get to drop through to the receives...
-                Async::NotReady => break,
+                // On not ready, this is our time to return...
+                Async::NotReady => return Ok(Async::NotReady),
                 Async::Ready(None) => {
                     // if there is nothing that can use this connection to send messages, then this is done...
                     return Ok(Async::Ready(None));
                 }
             }
-        }
 
-        // Now we look for incoming messages
-        self.io_stream.poll()
+            // else we loop to poll on the outbound_messages
+        }
     }
 }
 
 /// A wrapper for a future DnsStream connection
-pub struct DnsStreamConnect<F, S>
+pub struct DnsStreamConnect<F, S, R>
 where
     F: Future<Item = S, Error = io::Error>,
+    S: SerialMessageSender<SerialResponse = R>,
+    R: Future<Item = SerialMessage, Error = io::Error> + Send,
 {
     connect_future: F,
     peer_addr: SocketAddr,
     outbound_messages: Option<UnboundedReceiver<SerialMessage>>,
 }
 
-impl<F, S> Future for DnsStreamConnect<F, S>
+impl<F, S, R> Future for DnsStreamConnect<F, S, R>
 where
     F: Future<Item = S, Error = io::Error>,
+    S: SerialMessageSender<SerialResponse = R>,
+    R: Future<Item = SerialMessage, Error = io::Error> + Send,
 {
-    type Item = DnsStream<S>;
+    type Item = DnsStream<S, R>;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
