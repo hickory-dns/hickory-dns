@@ -186,7 +186,7 @@ impl<S: AsyncRead + AsyncWrite> TcpStream<S> {
 }
 
 impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
-    type Item = (Vec<u8>, SocketAddr);
+    type Item = SerialMessage;
     type Error = io::Error;
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
@@ -409,7 +409,7 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpStream<S> {
         if let Some(buffer) = ret_buf {
             debug!("returning buffer");
             let src_addr = self.peer_addr;
-            return Ok(Async::Ready(Some((buffer, src_addr))));
+            return Ok(Async::Ready(Some(SerialMessage::new(buffer, src_addr))));
         } else {
             debug!("bottomed out");
             // at a minimum the outbound_messages should have been polled,
@@ -531,15 +531,15 @@ fn tcp_client_stream_test(server_addr: IpAddr) {
     for _ in 0..send_recv_times {
         // test once
         sender
-            .unbounded_send((TEST_BYTES.to_vec(), server_addr))
+            .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
         let (buffer, stream_tmp) = io_loop
             .block_on(stream.into_future())
             .ok()
             .expect("future iteration run failed");
         stream = stream_tmp;
-        let (buffer, _) = buffer.expect("no buffer received");
-        assert_eq!(&buffer, TEST_BYTES);
+        let message = buffer.expect("no buffer received");
+        assert_eq!(message.bytes(), TEST_BYTES);
     }
 
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);

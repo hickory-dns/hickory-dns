@@ -22,11 +22,11 @@ use std::sync::Arc;
 use std::{thread, time};
 
 use futures::Stream;
-use tokio::runtime::current_thread::Runtime;
 use openssl::pkey::*;
 use openssl::ssl::*;
 use openssl::x509::store::X509StoreBuilder;
 use openssl::x509::*;
+use tokio::runtime::current_thread::Runtime;
 
 use openssl::asn1::*;
 use openssl::bn::*;
@@ -37,6 +37,7 @@ use openssl::rsa::*;
 use openssl::x509::extension::*;
 
 use trust_dns_proto::error::ProtoError;
+use trust_dns_proto::xfer::SerialMessage;
 
 use trust_dns_openssl::TlsStreamBuilder;
 
@@ -210,24 +211,26 @@ fn tls_client_stream_test(server_addr: IpAddr, mtls: bool) {
         config_mtls(&root_pkey, &root_name, &root_cert, &mut builder);
     }
 
-    let (stream, sender) =
-        builder.build::<ProtoError>(server_addr, subject_name.to_string());
+    let (stream, sender) = builder.build::<ProtoError>(server_addr, subject_name.to_string());
 
     // TODO: there is a race failure here... a race with the server thread most likely...
-    let mut stream = io_loop.block_on(stream).ok().expect("run failed to get stream");
+    let mut stream = io_loop
+        .block_on(stream)
+        .ok()
+        .expect("run failed to get stream");
 
     for _ in 0..send_recv_times {
         // test once
         sender
-            .unbounded_send((TEST_BYTES.to_vec(), server_addr))
+            .unbounded_send(SerialMessage::new(TEST_BYTES.to_vec(), server_addr))
             .expect("send failed");
         let (buffer, stream_tmp) = io_loop
             .block_on(stream.into_future())
             .ok()
             .expect("future iteration run failed");
         stream = stream_tmp;
-        let (buffer, _) = buffer.expect("no buffer received");
-        assert_eq!(&buffer, TEST_BYTES);
+        let message = buffer.expect("no buffer received");
+        assert_eq!(message.bytes(), TEST_BYTES);
     }
 
     succeeded.store(true, std::sync::atomic::Ordering::Relaxed);

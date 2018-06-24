@@ -90,15 +90,15 @@ impl<S: AsyncRead + AsyncWrite> Stream for TcpClientStream<S> {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         match try_ready!(self.tcp_stream.poll()) {
-            Some((buffer, src_addr)) => {
+            Some(message) => {
                 // this is busted if the tcp connection doesn't have a peer
                 let peer = self.tcp_stream.peer_addr();
-                if src_addr != peer {
+                if message.addr() != peer {
                     // FIXME: this should be an error...
-                    warn!("{} does not match name_server: {}", src_addr, peer)
+                    warn!("{} does not match name_server: {}", message.addr(), peer)
                 }
 
-                Ok(Async::Ready(Some(SerialMessage::new(buffer, src_addr))))
+                Ok(Async::Ready(Some(message)))
             }
             None => Ok(Async::Ready(None)),
         }
