@@ -60,15 +60,16 @@ impl Stream for UdpClientStream {
 
     fn poll(&mut self) -> Poll<Option<Self::Item>, Self::Error> {
         match try_ready!(self.udp_stream.poll()) {
-            Some((buffer, src_addr)) => {
-                if src_addr != self.name_server {
+            Some(message) => {
+                if message.addr() != self.name_server {
                     debug!(
                         "{} does not match name_server: {}",
-                        src_addr, self.name_server
+                        message.addr(),
+                        self.name_server
                     )
                 }
 
-                Ok(Async::Ready(Some(SerialMessage::new(buffer, src_addr))))
+                Ok(Async::Ready(Some(message)))
             }
             None => Ok(Async::Ready(None)),
         }

@@ -6,7 +6,6 @@
 // copied, modified, or distributed except according to those terms.
 use std;
 use std::io;
-use std::net::SocketAddr;
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -22,6 +21,7 @@ use trust_dns::serialize::binary::{BinDecodable, BinDecoder};
 use trust_dns::tcp::TcpStream;
 use trust_dns::udp::UdpStream;
 use trust_dns::BufStreamHandle;
+use trust_dns_proto::xfer::SerialMessage;
 
 #[cfg(feature = "dns-over-openssl")]
 use trust_dns_openssl::{tls_server, TlsStream};
@@ -59,8 +59,9 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
         // this spawns a ForEach future which handles all the requests into a Handler.
         tokio_executor::spawn(
             buf_stream
-                .for_each(move |(buffer, src_addr)| {
-                    Self::handle_request(buffer, src_addr, stream_handle.clone(), handler.clone())
+                .for_each(move |message| {
+                    let src_addr = message.addr();
+                    Self::handle_request(message, stream_handle.clone(), handler.clone())
                         .map_err(move |e| {
                             debug!("error parsing UDP request src: {:?} error: {}", src_addr, e)
                         })
@@ -116,10 +117,9 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
                     // and spawn to the io_loop
                     tokio_executor::spawn(
                         timeout_stream
-                            .for_each(move |(buffer, src_addr)| {
+                            .for_each(move |message| {
                                 Self::handle_request(
-                                    buffer,
-                                    src_addr,
+                                    message,
                                     stream_handle.clone(),
                                     handler.clone(),
                                 )
@@ -218,10 +218,9 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
                             // and spawn to the io_loop
                             tokio_executor::spawn(
                                 timeout_stream
-                                    .for_each(move |(buffer, addr)| {
+                                    .for_each(move |message| {
                                         Self::handle_request(
-                                            buffer,
-                                            addr,
+                                            message,
                                             stream_handle.clone(),
                                             handler.clone(),
                                         )
@@ -272,18 +271,18 @@ impl<T: RequestHandler + Send> ServerFuture<T> {
     }
 
     fn handle_request(
-        buffer: Vec<u8>,
-        src_addr: SocketAddr,
+        message: SerialMessage,
         stream_handle: BufStreamHandle<ClientError>,
         handler: Arc<Mutex<T>>,
     ) -> io::Result<()> {
-        let response_handle = ResponseHandle::new(src_addr, stream_handle);
+        let src_addr = message.addr();
+        let response_handle = ResponseHandle::new(message.addr(), stream_handle);
 
         // TODO: rather than decoding the message here, this RequestStream should instead
         //       forward the request to another sender such that we could pull serialization off
         //       the IO thread.
         // decode any messages that are ready
-        let mut decoder = BinDecoder::new(&buffer);
+        let mut decoder = BinDecoder::new(message.bytes());
         let message = MessageRequest::read(&mut decoder)?;
 
         let request = Request {

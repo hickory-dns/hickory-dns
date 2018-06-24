@@ -11,6 +11,7 @@ use std::net::SocketAddr;
 use trust_dns::error::ClientError;
 use trust_dns::serialize::binary::BinEncoder;
 use trust_dns::BufStreamHandle;
+use trust_dns_proto::xfer::SerialMessage;
 
 use authority::MessageResponse;
 
@@ -60,7 +61,7 @@ impl ResponseHandler for ResponseHandle {
         })?;
 
         self.stream_handle
-            .unbounded_send((buffer, self.dst))
+            .unbounded_send(SerialMessage::new(buffer, self.dst))
             .map_err(|_| io::Error::new(io::ErrorKind::Other, "unknown"))
     }
 }
