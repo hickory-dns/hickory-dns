@@ -24,11 +24,9 @@ impl<E: FromProtoError> MockClientHandle<E> {
 
 impl<E: FromProtoError + 'static> DnsHandle for MockClientHandle<E> {
     type Error = E;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        _: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
         Box::new(future::result(
             self.messages.lock().unwrap().pop().unwrap_or(empty::<E>()),
         ))

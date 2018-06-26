@@ -36,9 +36,11 @@ task_local! {
 }
 
 lazy_static! {
-    static ref LOCALHOST: Lookup = Lookup::from(RData::PTR(Name::from_ascii("localhost.").unwrap()));
+    static ref LOCALHOST: Lookup =
+        Lookup::from(RData::PTR(Name::from_ascii("localhost.").unwrap()));
     static ref LOCALHOST_V4: Lookup = Lookup::from(RData::A(Ipv4Addr::new(127, 0, 0, 1)));
-    static ref LOCALHOST_V6: Lookup = Lookup::from(RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
+    static ref LOCALHOST_V6: Lookup =
+        Lookup::from(RData::AAAA(Ipv6Addr::new(0, 0, 0, 0, 0, 0, 0, 1)));
 }
 
 // TODO: need to consider this storage type as it compares to Authority in server...
@@ -54,7 +56,10 @@ pub struct CachingClient<C: DnsHandle<Error = ResolveError>> {
 impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
     #[doc(hidden)]
     pub fn new(max_size: usize, client: C) -> Self {
-        Self::with_cache(Arc::new(Mutex::new(DnsLru::new(max_size, Default::default()))), client)
+        Self::with_cache(
+            Arc::new(Mutex::new(DnsLru::new(max_size, Default::default()))),
+            client,
+        )
     }
 
     pub(crate) fn with_cache(lru: Arc<Mutex<DnsLru>>, client: C) -> Self {
@@ -103,7 +108,9 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> CachingClient<C> {
                 // when mdns is not enabled we will return errors on LinkLocal ("*.local.") names
                 #[cfg(not(feature = "mdns"))]
                 ResolverUsage::LinkLocal => (),
-                ResolverUsage::NxDomain => return Box::new(future::err(DnsLru::nx_error(query, None))),
+                ResolverUsage::NxDomain => {
+                    return Box::new(future::err(DnsLru::nx_error(query, None)))
+                }
                 ResolverUsage::Normal => (),
             }
         }
@@ -148,7 +155,7 @@ impl Future for FromCache {
 
 /// This is the Future responsible for performing an actual query.
 struct QueryFuture<C: DnsHandle<Error = ResolveError> + 'static> {
-    message_future: Box<Future<Item = DnsResponse, Error = ResolveError> + Send>,
+    message_future: <C as DnsHandle>::Response,
     query: Query,
     cache: Arc<Mutex<DnsLru>>,
     /// is this a DNSSec validating client?
@@ -285,9 +292,9 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> QueryFuture<C> {
         // It was a CNAME, but not included in the request...
         if was_cname {
             let next_query = Query::query(search_name, self.query.query_type());
-            Ok(Async::Ready(self.next_query(
-                next_query, cname_ttl, response,
-            )))
+            Ok(Async::Ready(
+                self.next_query(next_query, cname_ttl, response),
+            ))
         } else {
             // TODO: review See https://tools.ietf.org/html/rfc2308 for NoData section
             // Note on DNSSec, in secure_client_handle, if verify_nsec fails then the request fails.
@@ -913,7 +920,8 @@ mod tests {
         let mut query_future = QueryFuture {
             message_future: Box::new(future::err(
                 ResolveErrorKind::Message("no message_future in test").into(),
-            )),
+            ))
+                as Box<Future<Item = DnsResponse, Error = ResolveError> + Send>,
             query: Query::query(Name::from_str("ttl.example.com.").unwrap(), RecordType::A),
             cache: lru,
             dnssec: false,

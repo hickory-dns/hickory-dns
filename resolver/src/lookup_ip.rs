@@ -21,13 +21,13 @@ use trust_dns_proto::op::Query;
 use trust_dns_proto::rr::{Name, RData, RecordType};
 use trust_dns_proto::xfer::{DnsHandle, DnsRequestOptions};
 
+use async_resolver::BasicAsyncResolver;
 use config::LookupIpStrategy;
 use error::*;
 use hosts::Hosts;
 use lookup::{Lookup, LookupEither, LookupIter};
 use lookup_state::CachingClient;
 use name_server_pool::StandardConnection;
-use async_resolver::BasicAsyncResolver;
 
 /// Result of a DNS query when querying for A or AAAA records.
 ///
@@ -399,11 +399,9 @@ pub mod tests {
 
     impl DnsHandle for MockDnsHandle {
         type Error = ResolveError;
+        type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-        fn send<R: Into<DnsRequest>>(
-            &mut self,
-            _: R,
-        ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))

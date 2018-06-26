@@ -104,16 +104,14 @@ where
     E: FromProtoError + Clone + Send,
 {
     type Error = E;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
     fn is_verifying_dnssec(&self) -> bool {
         // This handler is always verifying...
         true
     }
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let mut request = request.into();
 
         // backstop, this might need to be configurable at some point
@@ -194,7 +192,7 @@ where
             );
         }
 
-        self.handle.send(request)
+        Box::new(self.handle.send(request))
     }
 }
 

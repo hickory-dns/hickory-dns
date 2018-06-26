@@ -7,17 +7,19 @@
 
 //! `DnsHandle` types perform conversions of the raw DNS messages before sending the messages on the specified streams.
 
+use std::io;
 use std::marker::PhantomData;
 
 use futures::sync::mpsc::UnboundedSender;
 use futures::sync::oneshot;
-use futures::IntoFuture;
-use futures::{Complete, Future};
+use futures::{Async, Future, IntoFuture, Poll};
 use rand;
 
 use error::*;
 use op::{Message, MessageType, OpCode, Query};
-use xfer::{ignore_send, DnsRequest, DnsRequestOptions, DnsResponse};
+use xfer::{
+    ignore_send, DnsRequest, DnsRequestOptions, DnsResponse, SerialMessage, SerialMessageSender,
+};
 
 // TODO: this should be configurable
 const MAX_PAYLOAD_LEN: u16 = 1500 - 40 - 8; // 1500 (general MTU) - 40 (ipv6 header) - 8 (udp header)
@@ -71,13 +73,13 @@ where
 ///  a DNSSEc chain validator.
 #[derive(Clone)]
 pub struct BasicDnsHandle<E: FromProtoError> {
-    message_sender: UnboundedSender<(DnsRequest, Complete<Result<DnsResponse, E>>)>,
+    message_sender: UnboundedSender<(DnsRequest, oneshot::Sender<Result<DnsResponse, E>>)>,
 }
 
 impl<E: FromProtoError> BasicDnsHandle<E> {
     /// Returns a new BasicDnsHandle wrapping the `message_sender`
     pub fn new(
-        message_sender: UnboundedSender<(DnsRequest, Complete<Result<DnsResponse, E>>)>,
+        message_sender: UnboundedSender<(DnsRequest, oneshot::Sender<Result<DnsResponse, E>>)>,
     ) -> Self {
         BasicDnsHandle { message_sender }
     }
@@ -88,6 +90,7 @@ where
     E: FromProtoError + 'static,
 {
     type Error = E;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
     fn send<R: Into<DnsRequest>>(
         &mut self,
@@ -123,6 +126,7 @@ where
 pub trait DnsHandle: Clone + Send {
     /// The associated error type returned by future send operations
     type Error: FromProtoError;
+    type Response: Future<Item = DnsResponse, Error = Self::Error> + Send + 'static;
 
     /// Ony returns true if and only if this DNS handle is validating DNSSec.
     ///
@@ -138,10 +142,7 @@ pub trait DnsHandle: Clone + Send {
     /// * `request` - the fully constructed Message to send, note that most implementations of
     ///               will most likely be required to rewrite the QueryId, do no rely on that as
     ///               being stable.
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response;
 
     /// A *classic* DNS query
     ///
@@ -150,11 +151,7 @@ pub trait DnsHandle: Clone + Send {
     /// # Arguments
     ///
     /// * `query` - the query to lookup
-    fn lookup(
-        &mut self,
-        query: Query,
-        options: DnsRequestOptions,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn lookup(&mut self, query: Query, options: DnsRequestOptions) -> Self::Response {
         debug!("querying: {} {:?}", query.name(), query.query_type());
 
         // build the message
@@ -180,5 +177,46 @@ pub trait DnsHandle: Clone + Send {
         }
 
         self.send(DnsRequest::new(message, options))
+    }
+}
+
+impl<S, R> DnsHandle for S
+where
+    S: SerialMessageSender<SerialResponse = R>,
+    R: Future<Item = SerialMessage, Error = io::Error> + Send + 'static,
+{
+    type Error = ProtoError;
+    type Response = MessageFromSerialFuture<R>;
+
+    fn send<M: Into<DnsRequest>>(&mut self, request: M) -> Self::Response {
+        unimplemented!()
+    }
+
+    // fn send_message(&mut self, dest: SocketAddr, message: DnsRequest) -> Self::Response {
+    //     // FIXME: change signature to Result? or pass into the Future?
+    //     let bytes = message.to_vec().expect("serial message failed");
+    //     let message: SerialMessage = SerialMessage::new(bytes, dest);
+    //     MessageFromSerialFuture(self.send_message(message))
+    // }
+}
+
+pub struct MessageFromSerialFuture<R>(R)
+where
+    R: Future<Item = SerialMessage, Error = io::Error> + Send;
+
+impl<R> Future for MessageFromSerialFuture<R>
+where
+    R: Future<Item = SerialMessage, Error = io::Error> + Send,
+{
+    type Item = DnsResponse;
+    type Error = ProtoError;
+
+    fn poll(&mut self) -> Poll<Self::Item, Self::Error> {
+        let serial_message = try_ready!(self.0.poll());
+
+        let addr = serial_message.addr();
+        let message = serial_message.to_message()?;
+
+        Ok(Async::Ready(DnsResponse::from(message)))
     }
 }

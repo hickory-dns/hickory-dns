@@ -25,11 +25,7 @@ use op::Query;
 #[must_use = "queries can only be sent through a ClientHandle"]
 pub struct MemoizeClientHandle<H: ClientHandle> {
     client: H,
-    active_queries: Arc<
-        Mutex<
-            HashMap<Query, RcFuture<Box<Future<Item = DnsResponse, Error = ClientError> + Send>>>,
-        >,
-    >,
+    active_queries: Arc<Mutex<HashMap<Query, RcFuture<<H as DnsHandle>::Response>>>>,
 }
 
 impl<H> MemoizeClientHandle<H>
@@ -50,11 +46,9 @@ where
     H: ClientHandle,
 {
     type Error = ClientError;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
         let query = request.queries().first().expect("no query!").clone();
 
@@ -97,11 +91,9 @@ mod test {
 
     impl DnsHandle for TestClient {
         type Error = ClientError;
+        type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-        fn send<R: Into<DnsRequest>>(
-            &mut self,
-            _: R,
-        ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             let mut message = Message::new();
             let i = self.i.get();
 
