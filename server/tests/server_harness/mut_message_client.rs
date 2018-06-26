@@ -25,15 +25,13 @@ impl<C: ClientHandle> MutMessageHandle<C> {
 
 impl<C: ClientHandle> DnsHandle for MutMessageHandle<C> {
     type Error = ClientError;
+    type Response = <C as DnsHandle>::Response;
 
     fn is_verifying_dnssec(&self) -> bool {
         true
     }
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let mut request = request.into();
         {
             // mutable block

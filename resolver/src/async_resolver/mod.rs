@@ -10,7 +10,9 @@ use std::fmt;
 use std::net::IpAddr;
 use std::sync::{Arc, Mutex};
 
-use futures::{self, future, sync::{mpsc, oneshot}, Future, Poll};
+use futures::{
+    self, future, sync::{mpsc, oneshot}, Future, Poll,
+};
 use trust_dns_proto::error::ProtoResult;
 use trust_dns_proto::rr::domain::TryParseIp;
 use trust_dns_proto::rr::{IntoName, Name, RData, RecordType};
@@ -45,11 +47,9 @@ impl BasicAsyncResolver {
 
 impl DnsHandle for BasicAsyncResolver {
     type Error = ResolveError;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         Box::new(
             self.message_sender
                 .send(request)
@@ -105,25 +105,18 @@ where
 pub type BackgroundLookupIp = Background<LookupIpFuture>;
 
 /// Future returned by lookup requests to the background task.
-pub type BackgroundLookup<F=LookupFuture> = Background<LookupFuture, F>;
+pub type BackgroundLookup<F = LookupFuture> = Background<LookupFuture, F>;
 
 /// Type alias for the complex inner part of a `Background` future.
-type BgInner<T, F, G> = future::Either<
-    BgSend<F, G>,
-    future::FutureResult<T, ResolveError>,
->;
+type BgInner<T, F, G> = future::Either<BgSend<F, G>, future::FutureResult<T, ResolveError>>;
 
 /// The branch of `BgInner` where the request was successfully sent
 /// to the background task.
-type BgSend<F, G> =
-    futures::AndThen<
-        futures::MapErr<
-            oneshot::Receiver<F>,
-            fn(oneshot::Canceled) -> ResolveError
-        >,
-        G,
-        fn(F) -> G
-    >;
+type BgSend<F, G> = futures::AndThen<
+    futures::MapErr<oneshot::Receiver<F>, fn(oneshot::Canceled) -> ResolveError>,
+    G,
+    fn(F) -> G,
+>;
 
 /// Used by `AsyncResolver` for communicating with the background resolver task.
 enum Request {
@@ -192,11 +185,8 @@ impl AsyncResolver {
     pub fn new(
         config: ResolverConfig,
         options: ResolverOpts,
-    ) -> (Self, impl Future<Item=(), Error=()>) {
-        let lru = DnsLru::new(
-            options.cache_size,
-            dns_lru::TtlConfig::from_opts(&options),
-        );
+    ) -> (Self, impl Future<Item = (), Error = ()>) {
+        let lru = DnsLru::new(options.cache_size, dns_lru::TtlConfig::from_opts(&options));
         let lru = Arc::new(Mutex::new(lru));
 
         Self::with_cache(config, options, lru)
@@ -220,12 +210,10 @@ impl AsyncResolver {
         config: ResolverConfig,
         options: ResolverOpts,
         lru: Arc<Mutex<DnsLru>>,
-    ) -> (Self, impl Future<Item=(), Error=()>) {
+    ) -> (Self, impl Future<Item = (), Error = ()>) {
         let (request_tx, request_rx) = mpsc::unbounded();
         let background = background::task(config, options, lru, request_rx);
-        let handle = Self {
-            request_tx,
-        };
+        let handle = Self { request_tx };
         (handle, background)
     }
 
@@ -233,8 +221,7 @@ impl AsyncResolver {
     ///
     /// This will use `/etc/resolv.conf` on Unix OSes and the registry on Windows.
     #[cfg(any(unix, target_os = "windows"))]
-    pub fn from_system_conf() -> ResolveResult<(Self, impl Future<Item=(), Error=()>)>
-    {
+    pub fn from_system_conf() -> ResolveResult<(Self, impl Future<Item = (), Error = ()>)> {
         let (config, options) = super::system_conf::read_system_conf()?;
         Ok(Self::new(config, options))
     }
@@ -257,10 +244,7 @@ impl AsyncResolver {
             Err(err) => return err.into(),
         };
 
-        self.inner_lookup(
-            name, record_type,
-            DnsRequestOptions::default(),
-        )
+        self.inner_lookup(name, record_type, DnsRequestOptions::default())
     }
 
     fn oneshot_canceled(_: oneshot::Canceled) -> ResolveError {
@@ -285,12 +269,11 @@ impl AsyncResolver {
             tx,
         };
         if let Err(_) = self.request_tx.unbounded_send(request) {
-            return ResolveErrorKind::Message("background resolver gone, this is a bug").into()
+            return ResolveErrorKind::Message("background resolver gone, this is a bug").into();
         }
-        let f: BgSend<LookupFuture, F> =
-            rx
-                .map_err(Self::oneshot_canceled as fn(oneshot::Canceled) -> ResolveError)
-                .and_then(F::from);
+        let f: BgSend<LookupFuture, F> = rx
+            .map_err(Self::oneshot_canceled as fn(oneshot::Canceled) -> ResolveError)
+            .and_then(F::from);
         BackgroundLookup::from(f)
     }
 
@@ -312,12 +295,11 @@ impl AsyncResolver {
         if let Err(_) = self.request_tx.unbounded_send(request) {
             // Note: this shouldn't happen. We return a ResolveError here, but it would
             // probably be okay to just `expect` the unbounded send to be successful.
-            return ResolveErrorKind::Message("background resolver gone, this is a bug").into()
+            return ResolveErrorKind::Message("background resolver gone, this is a bug").into();
         }
-        let f: BgSend<LookupIpFuture, LookupIpFuture> =
-            rx
-                .map_err(Self::oneshot_canceled as fn(oneshot::Canceled) -> ResolveError)
-                .and_then(LookupIpFuture::from);
+        let f: BgSend<LookupIpFuture, LookupIpFuture> = rx
+            .map_err(Self::oneshot_canceled as fn(oneshot::Canceled) -> ResolveError)
+            .and_then(LookupIpFuture::from);
         BackgroundLookupIp::from(f)
     }
 
@@ -342,9 +324,7 @@ impl AsyncResolver {
     }
 
     /// Lookup an SRV record.
-    pub fn lookup_srv<N: IntoName>(&self, name: N)
-        -> BackgroundLookup<lookup::SrvLookupFuture>
-    {
+    pub fn lookup_srv<N: IntoName>(&self, name: N) -> BackgroundLookup<lookup::SrvLookupFuture> {
         let name = match name.into_name() {
             Ok(name) => name,
             Err(err) => return err.into(),
@@ -369,7 +349,6 @@ impl AsyncResolver {
 
 impl fmt::Debug for AsyncResolver {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-
         f.debug_struct("AsyncResolver")
             // We probably don't want to print out the `fmt::Debug` output
             // for `mpsc::UnboundedSender`, as it's *quite* wordy but not
@@ -404,7 +383,7 @@ where
 {
     fn from(err: E) -> Self {
         Background {
-            inner: future::Either::B(future::err(err.into()))
+            inner: future::Either::B(future::err(err.into())),
         }
     }
 }
@@ -536,7 +515,8 @@ mod tests {
 
         thread::spawn(move || {
             let mut background_runtime = Runtime::new().unwrap();
-            background_runtime.block_on(bg)
+            background_runtime
+                .block_on(bg)
                 .expect("background task failed");
         });
 
@@ -612,8 +592,7 @@ mod tests {
 
         // needs to be a domain that exists, but is not signed (eventually this will be)
         let name = Name::from_str("www.trust-dns.org.").unwrap();
-        let response = io_loop
-            .block_on(resolver.lookup_ip("www.trust-dns.org."));
+        let response = io_loop.block_on(resolver.lookup_ip("www.trust-dns.org."));
 
         assert!(response.is_err());
         let error = response.unwrap_err();

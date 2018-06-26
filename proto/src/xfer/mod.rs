@@ -148,7 +148,7 @@ where
 
 // FIXME: change io::Error to FromProtoError
 /// Types that implement this are capable of sending a serialized DNS message on a stream
-pub trait SerialMessageSender {
+pub trait SerialMessageSender: Clone + Send {
     /// A future that resolves to a response serial message
     type SerialResponse: Future<Item = SerialMessage, Error = io::Error> + Send;
 

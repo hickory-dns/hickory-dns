@@ -48,11 +48,9 @@ where
     E: FromProtoError + 'static,
 {
     type Error = <H as DnsHandle>::Error;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
 
         // need to clone here so that the retry can resend if necessary...
@@ -69,14 +67,14 @@ where
 }
 
 /// A future for retrying (on failure, for the remaining number of times specified)
-struct RetrySendFuture<H: DnsHandle, E> {
+struct RetrySendFuture<H: DnsHandle> {
     request: DnsRequest,
     handle: H,
-    future: Box<Future<Item = DnsResponse, Error = E> + Send>,
+    future: <H as DnsHandle>::Response,
     remaining_attempts: usize,
 }
 
-impl<H, E> Future for RetrySendFuture<H, E>
+impl<H, E> Future for RetrySendFuture<H>
 where
     H: DnsHandle<Error = E>,
     E: FromProtoError,
@@ -123,11 +121,9 @@ mod test {
 
     impl DnsHandle for TestClient {
         type Error = ProtoError;
+        type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-        fn send<R: Into<DnsRequest>>(
-            &mut self,
-            _: R,
-        ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             let i = self.attempts.get();
 
             if i > self.retries || self.retries - i == 0 {

@@ -92,11 +92,9 @@ pub struct BasicClientHandle {
 
 impl DnsHandle for BasicClientHandle {
     type Error = ClientError;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         Box::new(self.message_sender.send(request).map_err(ClientError::from))
     }
 }
@@ -124,7 +122,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
         name: Name,
         query_class: DNSClass,
         query_type: RecordType,
-    ) -> Box<Future<Item = DnsResponse, Error = ClientError> + Send> {
+    ) -> <Self as DnsHandle>::Response {
         let mut query = Query::query(name, query_type);
         query.set_query_class(query_class);
         self.lookup(query, DnsRequestOptions::default())
@@ -196,7 +194,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
         query_class: DNSClass,
         query_type: RecordType,
         rrset: Option<R>,
-    ) -> Box<Future<Item = DnsResponse, Error = ClientError> + Send>
+    ) -> <Self as DnsHandle>::Response
     where
         R: IntoRecordSet,
     {
@@ -235,7 +233,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
             message.add_answers(rrset.into_record_set());
         }
 
-        Box::new(self.send(message).map_err(Into::into))
+        self.send(message)
     }
 
     /// Sends a record to create on the server, this will fail if the record exists (atomicity
@@ -271,11 +269,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
     /// * `zone_origin` - the zone name to update, i.e. SOA name
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection)
-    fn create<R>(
-        &mut self,
-        rrset: R,
-        zone_origin: Name,
-    ) -> Box<Future<Item = DnsResponse, Error = ClientError> + Send>
+    fn create<R>(&mut self, rrset: R, zone_origin: Name) -> <Self as DnsHandle>::Response
     where
         R: IntoRecordSet,
     {
@@ -310,7 +304,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
             edns.set_version(0);
         }
 
-        Box::new(self.send(message).map_err(Into::into))
+        self.send(message)
     }
 
     /// Appends a record to an existing rrset, optionally require the rrset to exis (atomicity
@@ -352,7 +346,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
         rrset: R,
         zone_origin: Name,
         must_exist: bool,
-    ) -> Box<Future<Item = DnsResponse, Error = ClientError> + Send>
+    ) -> <Self as DnsHandle>::Response
     where
         R: IntoRecordSet,
     {
@@ -389,7 +383,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
             edns.set_version(0);
         }
 
-        Box::new(self.send(message).map_err(Into::into))
+        self.send(message)
     }
 
     /// Compares and if it matches, swaps it for the new value (atomicity depends on the server)
@@ -438,7 +432,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
         current: C,
         new: N,
         zone_origin: Name,
-    ) -> Box<Future<Item = DnsResponse, Error = ClientError> + Send>
+    ) -> <Self as DnsHandle>::Response
     where
         C: IntoRecordSet,
         N: IntoRecordSet,
@@ -487,7 +481,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
             edns.set_version(0);
         }
 
-        Box::new(self.send(message).map_err(Into::into))
+        self.send(message)
     }
 
     /// Deletes a record (by rdata) from an rrset, optionally require the rrset to exist.
@@ -526,11 +520,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
     ///
     /// The update must go to a zone authority (i.e. the server used in the ClientConnection). If
     /// the rrset does not exist and must_exist is false, then the RRSet will be deleted.
-    fn delete_by_rdata<R>(
-        &mut self,
-        rrset: R,
-        zone_origin: Name,
-    ) -> Box<Future<Item = DnsResponse, Error = ClientError> + Send>
+    fn delete_by_rdata<R>(&mut self, rrset: R, zone_origin: Name) -> <Self as DnsHandle>::Response
     where
         R: IntoRecordSet,
     {
@@ -565,7 +555,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
             edns.set_version(0);
         }
 
-        Box::new(self.send(message).map_err(Into::into))
+        self.send(message)
     }
 
     /// Deletes an entire rrset, optionally require the rrset to exist.
@@ -606,7 +596,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
         &mut self,
         mut record: Record,
         zone_origin: Name,
-    ) -> Box<Future<Item = DnsResponse, Error = ClientError> + Send> {
+    ) -> <Self as DnsHandle>::Response {
         assert!(zone_origin.zone_of(record.name()));
 
         // for updates, the query section is used for the zone
@@ -639,7 +629,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
             edns.set_version(0);
         }
 
-        Box::new(self.send(message).map_err(Into::into))
+        self.send(message)
     }
 
     /// Deletes all records at the specified name
@@ -671,7 +661,7 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
         name_of_records: Name,
         zone_origin: Name,
         dns_class: DNSClass,
-    ) -> Box<Future<Item = DnsResponse, Error = ClientError> + Send> {
+    ) -> <Self as DnsHandle>::Response {
         assert!(zone_origin.zone_of(&name_of_records));
 
         // for updates, the query section is used for the zone
@@ -706,6 +696,6 @@ pub trait ClientHandle: Clone + DnsHandle<Error = ClientError> + Send {
             edns.set_version(0);
         }
 
-        Box::new(self.send(message).map_err(Into::into))
+        self.send(message)
     }
 }

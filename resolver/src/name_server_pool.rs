@@ -349,16 +349,14 @@ where
     P: ConnectionProvider<ConnHandle = C>,
 {
     type Error = ResolveError;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
     fn is_verifying_dnssec(&self) -> bool {
         self.client.is_verifying_dnssec()
     }
 
     // TODO: there needs to be some way of customizing the connection based on EDNS options from the server side...
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         // if state is failed, return future::err(), unless retry delay expired...
         if let Err(error) = self.try_reconnect() {
             return Box::new(future::err(error));
@@ -547,11 +545,9 @@ where
     P: ConnectionProvider<ConnHandle = C> + 'static,
 {
     type Error = ResolveError;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         let request = request.into();
         let datagram_conns = self.datagram_conns.clone();
         let stream_conns1 = self.stream_conns.clone();

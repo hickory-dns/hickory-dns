@@ -610,7 +610,7 @@ impl Message {
     }
 
     /// Encodes the Message into a buffer
-    pub fn to_vec(self) -> Result<Vec<u8>, ProtoError> {
+    pub fn to_vec(&self) -> Result<Vec<u8>, ProtoError> {
         // TODO: this feels like the right place to verify the max packet size of the message,
         //  will need to update the header for trucation and the lengths if we send less than the
         //  full response. This needs to conform with the EDNS settings of the server...

@@ -15,7 +15,10 @@ use futures::sync::mpsc::{unbounded, UnboundedReceiver, UnboundedSender};
 use futures::{Async, AsyncSink, Future, Poll, Sink};
 
 use error::*;
-use xfer::{SerialMessage, SerialMessageSender, SerialMessageStreamHandle};
+use op::Message;
+use xfer::{
+    DnsRequest, DnsResponse, SerialMessage, SerialMessageSender, SerialMessageStreamHandle,
+};
 
 /// TODO: move non-tcp stuff to another type called DNSStream
 /// A Stream used for sending data to and from a remote DNS endpoint (client or server).

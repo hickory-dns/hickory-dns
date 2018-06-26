@@ -16,7 +16,8 @@ use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use futures::stream::{Fuse as StreamFuse, Peekable, Stream};
 use futures::sync::mpsc::{unbounded, UnboundedReceiver};
-use futures::{task, Async, Complete, Future, Poll};
+use futures::sync::oneshot;
+use futures::{task, Async, Future, Poll};
 use rand;
 use rand::distributions::{Distribution, Standard};
 use smallvec::SmallVec;
@@ -32,7 +33,7 @@ const QOS_MAX_RECEIVE_MSGS: usize = 100; // max number of messages to receive fr
 
 struct ActiveRequest<E: FromProtoError> {
     // the completion is the channel for a response to the original request
-    completion: Complete<Result<DnsResponse, E>>,
+    completion: oneshot::Sender<Result<DnsResponse, E>>,
     request_id: u16,
     request_options: DnsRequestOptions,
     // most requests pass a single Message response directly through to the completion
@@ -44,7 +45,7 @@ struct ActiveRequest<E: FromProtoError> {
 
 impl<E: FromProtoError> ActiveRequest<E> {
     fn new(
-        completion: Complete<Result<DnsResponse, E>>,
+        completion: oneshot::Sender<Result<DnsResponse, E>>,
         request_id: u16,
         request_options: DnsRequestOptions,
         timeout: Delay,
@@ -117,8 +118,9 @@ where
     stream: S,
     timeout_duration: Duration,
     stream_handle: D,
-    new_receiver:
-        Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<DnsResponse, E>>)>>>,
+    new_receiver: Peekable<
+        StreamFuse<UnboundedReceiver<(DnsRequest, oneshot::Sender<Result<DnsResponse, E>>)>>,
+    >,
     active_requests: HashMap<u16, ActiveRequest<E>>,
     signer: Option<Arc<MF>>,
 }
@@ -441,8 +443,9 @@ where
     E: FromProtoError,
 {
     error: E,
-    new_receiver:
-        Peekable<StreamFuse<UnboundedReceiver<(DnsRequest, Complete<Result<DnsResponse, E>>)>>>,
+    new_receiver: Peekable<
+        StreamFuse<UnboundedReceiver<(DnsRequest, oneshot::Sender<Result<DnsResponse, E>>)>>,
+    >,
 }
 
 impl<E> Future for ClientStreamErrored<E>

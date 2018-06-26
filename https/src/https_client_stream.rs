@@ -29,6 +29,7 @@ use trust_dns_proto::xfer::{SerialMessage, SerialMessageSender};
 const ALPN_H2: &str = "h2";
 const USER_AGENT: &str = concat!(env!("CARGO_PKG_NAME"), "/", env!("CARGO_PKG_VERSION"));
 
+#[derive(Clone)]
 pub struct HttpsClientStream {
     // Corresponds to the dns-name of the HTTPS server
     name_server_name: Arc<String>,

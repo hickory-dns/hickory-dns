@@ -23,12 +23,12 @@ use trust_dns_proto::xfer::{DnsRequest, DnsRequestOptions, DnsResponse};
 use trust_dns_proto::SecureDnsHandle;
 use trust_dns_proto::{DnsHandle, RetryDnsHandle};
 
+use async_resolver::BasicAsyncResolver;
 use dns_lru::MAX_TTL;
 use error::*;
 use lookup_ip::LookupIpIter;
 use lookup_state::CachingClient;
 use name_server_pool::{ConnectionProvider, NameServerPool, StandardConnection};
-use async_resolver::BasicAsyncResolver;
 
 /// Result of a DNS query when querying for any record type supported by the TRust-DNS Proto library.
 ///
@@ -120,6 +120,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
     for LookupEither<C, P>
 {
     type Error = ResolveError;
+    type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
     fn is_verifying_dnssec(&self) -> bool {
         match *self {
@@ -129,10 +130,7 @@ impl<C: DnsHandle<Error = ResolveError>, P: ConnectionProvider<ConnHandle = C>> 
         }
     }
 
-    fn send<R: Into<DnsRequest>>(
-        &mut self,
-        request: R,
-    ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+    fn send<R: Into<DnsRequest>>(&mut self, request: R) -> Self::Response {
         match *self {
             LookupEither::Retry(ref mut c) => c.send(request),
             #[cfg(feature = "dnssec")]
@@ -215,7 +213,8 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for LookupFuture<C> {
                 if let Some(name) = self.names.pop() {
                     // If there's another name left to try, build a new query
                     // for that next name and continue looping.
-                    self.query = self.client_cache
+                    self.query = self
+                        .client_cache
                         .lookup(Query::query(name, self.record_type), self.options.clone());
                     // Continue looping with the new query. It will be polled
                     // on the next iteration of the loop.
@@ -233,7 +232,6 @@ impl<C: DnsHandle<Error = ResolveError> + 'static> Future for LookupFuture<C> {
         }
     }
 }
-
 
 /// The result of an SRV lookup
 #[derive(Debug, Clone)]
@@ -406,11 +404,9 @@ pub mod tests {
 
     impl DnsHandle for MockDnsHandle {
         type Error = ResolveError;
+        type Response = Box<Future<Item = DnsResponse, Error = Self::Error> + Send>;
 
-        fn send<R: Into<DnsRequest>>(
-            &mut self,
-            _: R,
-        ) -> Box<Future<Item = DnsResponse, Error = Self::Error> + Send> {
+        fn send<R: Into<DnsRequest>>(&mut self, _: R) -> Self::Response {
             Box::new(future::result(
                 self.messages.lock().unwrap().pop().unwrap_or(empty()),
             ))
